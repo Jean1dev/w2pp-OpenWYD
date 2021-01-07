@@ -1,0 +1,45 @@
+Ehre Pacote_Ori 100
+Ehre Misteriosa 100
+Ehre Espiritual 40
+Ehre Amunra 10
+Ehre Traje_Montaria 100
+Ehre Retirar_Traje_Montaria 100
+Ehre Soul 100
+
+Tiny ChanceBase 15
+Shany ChanceBase 30
+Ailyn ChanceBase 10
+Agatha ChanceBase 15
+
+Compositor Item_+7 2
+Compositor Item_+8 4
+Compositor Item_+9 10
+
+Odin Item_Celestial 5
+Odin Item_12_Secreta 1
+Odin Item_12_Ref_0 2
+Odin Item_12_Ref_1 3
+Odin Item_12_Ref_2 4
+Odin Item_12_Ref_3 5
+Odin Item_12_Ref_4 6
+Odin Item_12_Ref_5 7
+Odin Item_12_Ref_6 8
+Odin Item_12_Ref_7 9
+Odin Item_12_Ref_8 12
+Odin Item_12_Ref_9 15
+
+Odin Item_12_Minus_12 2
+Odin Item_12_Minus_13 3
+Odin Item_12_Minus_14 4
+Odin Item_12_Minus_15 5
+
+Odin Pista 100
+
+Odin Destrave_Lv40 100
+Odin Pedra_da_Furia 100
+Odin Secreta_Agua 100
+Odin Secreta_Terra 100
+Odin Secreta_Sol 100
+Odin Secreta_Vento 100
+Odin Semente_Cristal 100
+Odin Capa_Celestial 100

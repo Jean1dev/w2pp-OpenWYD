@@ -1,0 +1,172 @@
+[Cavaleiros de Kersef]
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+-	Basedef.cpp
+
+	Balanceamento de classes:
+1	BASE_GetSkillDamage // Não mexido
+2	BASE_GetDamage // Não mexido
+3	else if (Type == 9) // Adicionado dano mágico
+
+	Refinações
+1	g_pSancRate
+2	g_pEhreRate
+3	g_pOdinRate
+4	g_pCelestialRate
+5	g_pCelestialRate
+6	g_pLokiRate
+7	g_pTinyBase
+8	g_pShanyBase
+9	g_pAilynBase
+10	g_pAgathaBase
+11	g_pAnctChance
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+- _MSG_UseItem.cpp:
+	
+	#pragma region Chocolate do amor
+- _MSG_MessageWhisper.cpp
+
+	#pragma region /buffs
+
+	
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+	À corrigir:
+	
+1 - retirar os itens cele do jogo (Shop) (Corrigido 17/04)
+2 - colocar só os adds normais 36/81 e etc. (Shop) (Corrigido 17/04)
+3 - retirar amunra (Shop) (Corrigido 17/04)
+4 - colocar adds abs: (Shop)  (Corrigido 17/04)
+		20 bs mp (Ok)
+		20bs hp (Ok)
+		10 bs critico / 10 bs hp (Ok)
+		20 imu / 10 bs mp (Ok)
+5 - Brincos add (Shop) (Corrigido 17/04)
+		athena 10 mp / 10 mg (Ok)
+		titã 10 hp 50 dn (Ok)
+6 - sets add (Shop) (Corrigido 17/04)
+		14/40 mg 42/9 dn (Ok)
+6 - não da pra sair da cidade pra fazer arch/cele, nem nada o que quiser (Corrigido 17/04)
+7 - poção sephira 7 dias, dura 586 segundos (Corrigido 17/04)
+8 - poção divina aumenta 400hp/mp (Corrigido 17/04)
+0 - poção sephira aumenta 100 de dano (Corrigido 17/04)
+10 - poção do vigor nao aumenta 10% de hp/mp (Corrigido 17/04)
+11 - livros sephira não tem no npc (Corrigido 17/04)
+12 - amuletos dn/mp, mp/crit, ou outros variaveis (Shop) (Corrigido 17/04)
+
+13 - Frangos 
+14 - Chocolate do amor
+15 - 8 skill HT (Corrigido 20/04)
+16 - Dano HT Garra + Arco (Corrigido 20/04)
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+Skills
+
+		else if (Type == 32 && BASE_GetItemAbility(&MOB.Equip[6], EF_WTYPE) == 41 && BASE_GetItemAbility(&MOB.Equip[6], EF_WTYPE) == 101) // Perícia do caçador
+		{
+			MOB.Rsv |= RSV_VISION;
+			*ForceMobDamage += Level;
+		}
+		//Aggressividade
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+TK
+trans = aumentar um pouco o buff assalto (Buff assalto e buff possuído aumentados)
+mg = ta top!, só melhorar o possuido (buff aumentado)
+BM:
+dano= ta beleza, perfeito (buff transformação aumentado)
+elemental = aumentar o dn magico um pouco
+HT
+diminuir o dano de garras (dano equilibrado)
+FM
+black = ta top (dano equilibrado)
+dano = nao tem abs pra montar ela, entao n tem nenhuma
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+23/02/2020
+
+Adicionada função de dano corroespondente à arma da classe
+
+Basedef.cpp "//Balanceamento""
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Basedef.cpp
+
+Linhas Soul - 3610
+Linhas de descriçao dos affects - 2982 void BASE_GetCurrentScore
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+Item Effects
+
+1 - LEVEL - EF_LEVEL
+2 - Dano - EF_DAMAGE
+3 - Defesa - EF_AC
+4 - HP - EF_HP
+5 - Mana - EF_MP
+7 - Força - EF_STR
+8 - Inteligência - EF_INT
+9 - Destreza - EF_DEX
+10 - Constituição - EF_CON
+11 - Aprendizado 1 (Aprender arma) - EF_SPECIAL1
+12 - Aprendizado 2 - EF_SPECIAL2
+13 - Aprendizado 3 - EF_SPECIAL3
+14 - Aprendizado 4 - EF_SPECIAL4
+18 - Classe Usada (Foema, BM...) - EF_CLASS
+21 - WTYPE (Weapon Type, ou tipo da arma, defina em que posição o char irá segurar a arma) - EF_WTYPE
+22 - Força Requerida - EF_REQ_STR
+23 - Inteligência Requerida - EF_REQ_INT
+24 - Destreza Requerida - EF_REQ_DEX
+25 - Constituição Requerida - EF_REQ_CON
+26 - Velocidade de Ataque - EF_ATTSPEED
+27 - Distância do Ataque (Range) - EF_RANGE
+28 - Preço - EF_PRICE
+29 - Velocidade(Usada em bota) - EF_RUNSPEED
+30 - Magia - EF_SPELL
+33 - GRID (Tamanho do item, o tanto de quadrados que ele ocupa no inventário) - EF_GRID
+42 - Critico - EF_CRITICAL
+43 - Refinação (+1 +2 ~ +9 ~ +15) - EF_SANC
+44 - Salva Mana - EF_SAVEMANA
+45 - HP % (Cuidado, ele aumenta em %, então se por 200 ele irá dobrar seu HP) - EF_HPADD
+46 - Mana %(Cuidado, ele aumenta em %, então se por 200 ele irá dobrar seu MP) - EF_MPADD
+47 - Regeneração de HP - EF_REGENHP
+48 - Regeneração de MP - EF_REGENMP
+49 - 1º Resistencia - EF_RESIST1
+50 - 2º Resistencia - EF_RESIST2
+51 - 3º Resistencia - EF_RESIST3
+52 - 4º Resistencia - EF_RESIST4
+53 - Defesa add - EF_ACADD
+54 - Aumenta Todas as Resistencias - EF_RESISTALL
+60 - % de Ataque Mágico - EF_MAGIC
+61 - Quantidade - EF_AMOUNT
+67 - Add de Dano - EF_DAMAGEADD
+68 - Add de % de Ataque Mágico - EF_MAGICADD
+69 - HP add #2 - EF_HPADD2
+70 - Mana add #2 - EF_MPADD2
+71 - Critical #2 - EF_CRITICAL2
+72 - Def add #2 - EF_ACADD2
+73 - Dano #2 - EF_DAMAGE2
+74 - Aprendizagem de Skill - EF_SPECIALALL
+78 - Incubação Ovo - EF_INCUBATE
+79 - Montaria Vida - EF_MOUNTLIFE
+80 - Montaria HP - EF_MOUNTHP
+81 - Montaria Level - EF_MOUNTSANC
+82 - Montaria Comida - EF_MOUNTFEED
+83 - Montaria Morta - EF_MOUNTKILL
+84 - Incubação Delay (Tempo de Chocagem) - EF_INCUDELAY
+
+---------------------------------------------------------------
+TBD
+
+Kefra:
+
+[Char morrendo]
+
+Classes:

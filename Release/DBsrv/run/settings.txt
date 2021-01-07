@@ -1,0 +1,28 @@
+http://wydcdk.servegame.com/
+Reservado
+Conteúdo não será salvo
+Iniciar o Jogo
+Configurações
+Cancelar
+WYD - www.wydcdk.sytes.net
+Iniciando o Jogo
+Verificando a atualização da nova versão
+O jogo finaliza quando é executado?
+Se houve um erro na inicialização, reconecte e execute novamente.
+Baixar do Website
+Preparando para iniciar o jogo (Versão %d, %03d)
+A Informação do Patch não está disponível
+A Informação do Patch não está disponível
+Salvar
+Inicialização
+Cancelar
+A NOVA INTERFACE está disponível no modo 640
+Selecione o arquivo em WAV que deseja escutar
+Selecione o arquivo em MP3 que deseja escutar
+Verificação pelo arquivo de configuração indisponível
+Você irá receber o arquivo %s durante o download
+Canal #1
+Canal #2
+Canal #3
+Canal #4
+Canal #5

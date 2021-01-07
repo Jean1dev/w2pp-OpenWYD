@@ -1,0 +1,194 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{1729E469-5121-44D6-82E5-48D2381D3098}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>TMSrv</RootNamespace>
+    <SccProjectName>Svn</SccProjectName>
+    <SccAuxPath>Svn</SccAuxPath>
+    <SccLocalPath>Svn</SccLocalPath>
+    <SccProvider>SubversionScc</SccProvider>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\..\Release\TMSRV\run\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\..\Release\TMSRV\run\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_PACKET_DEBUG;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Winmm.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Basedef.cpp" />
+    <ClCompile Include="..\CPSock.cpp" />
+    <ClCompile Include="CCastleZakum.cpp" />
+    <ClCompile Include="CItem.cpp" />
+    <ClCompile Include="CMob.cpp" />
+    <ClCompile Include="CNPCGene.cpp" />
+    <ClCompile Include="CReadFiles.cpp" />
+    <ClCompile Include="CUser.cpp" />
+    <ClCompile Include="CWarTower.cpp" />
+    <ClCompile Include="GetFunc.cpp" />
+    <ClCompile Include="imple.cpp" />
+    <ClCompile Include="MobKilled.cpp" />
+    <ClCompile Include="ProcessClientMessage.cpp" />
+    <ClCompile Include="ProcessDBMessage.cpp" />
+    <ClCompile Include="ProcessSecMinTimer.cpp" />
+    <ClCompile Include="SendFunc.cpp" />
+    <ClCompile Include="Server.cpp" />
+    <ClCompile Include="_MSG_AcceptParty.cpp" />
+    <ClCompile Include="_MSG_AccountLogin.cpp" />
+    <ClCompile Include="_MSG_AccountSecure.cpp" />
+    <ClCompile Include="_MSG_Action.cpp" />
+    <ClCompile Include="_MSG_ApplyBonus.cpp" />
+    <ClCompile Include="_MSG_Attack.cpp" />
+    <ClCompile Include="_MSG_Buy.cpp" />
+    <ClCompile Include="_MSG_CapsuleInfo.cpp" />
+    <ClCompile Include="_MSG_Challange.cpp" />
+    <ClCompile Include="_MSG_ChallangeConfirm.cpp" />
+    <ClCompile Include="_MSG_ChangeCity.cpp" />
+    <ClCompile Include="_MSG_CharacterLogin.cpp" />
+    <ClCompile Include="_MSG_CharacterLogout.cpp" />
+    <ClCompile Include="_MSG_CombineItem.cpp" />
+    <ClCompile Include="_MSG_CombineItemAgatha.cpp" />
+    <ClCompile Include="_MSG_CombineItemAilyn.cpp" />
+    <ClCompile Include="_MSG_CombineItemAlquimia.cpp" />
+    <ClCompile Include="_MSG_CombineItemEhre.cpp" />
+    <ClCompile Include="_MSG_CombineItemExtracao.cpp" />
+    <ClCompile Include="_MSG_CombineItemLindy.cpp" />
+    <ClCompile Include="_MSG_CombineItemOdin.cpp" />
+    <ClCompile Include="_MSG_CombineItemShany.cpp" />
+    <ClCompile Include="_MSG_CombineItemTiny.cpp" />
+    <ClCompile Include="_MSG_CreateCharacter.cpp" />
+    <ClCompile Include="_MSG_DeleteCharacter.cpp" />
+    <ClCompile Include="_MSG_DeleteItem.cpp" />
+    <ClCompile Include="_MSG_Deposit.cpp" />
+    <ClCompile Include="_MSG_Deprivate.cpp" />
+    <ClCompile Include="_MSG_DropItem.cpp" />
+    <ClCompile Include="_MSG_GetItem.cpp" />
+    <ClCompile Include="_MSG_GuildAlly.cpp" />
+    <ClCompile Include="_MSG_InviteGuild.cpp" />
+    <ClCompile Include="_MSG_MessageChat.cpp" />
+    <ClCompile Include="_MSG_MessageWhisper.cpp" />
+    <ClCompile Include="_MSG_Motion.cpp" />
+    <ClCompile Include="_MSG_NoViewMob.cpp" />
+    <ClCompile Include="_MSG_PKMode.cpp" />
+    <ClCompile Include="_MSG_PutoutSeal.cpp" />
+    <ClCompile Include="_MSG_Quest.cpp" />
+    <ClCompile Include="_MSG_QuitTrade.cpp" />
+    <ClCompile Include="_MSG_RemoveParty.cpp" />
+    <ClCompile Include="_MSG_ReqBuy.cpp" />
+    <ClCompile Include="_MSG_ReqRanking.cpp" />
+    <ClCompile Include="_MSG_REQShopList.cpp" />
+    <ClCompile Include="_MSG_ReqTeleport.cpp" />
+    <ClCompile Include="_MSG_ReqTradeList.cpp" />
+    <ClCompile Include="_MSG_Restart.cpp" />
+    <ClCompile Include="_MSG_Sell.cpp" />
+    <ClCompile Include="_MSG_SendAutoTrade.cpp" />
+    <ClCompile Include="_MSG_SendReqParty.cpp" />
+    <ClCompile Include="_MSG_SetShortSkill.cpp" />
+    <ClCompile Include="_MSG_SplitItem.cpp" />
+    <ClCompile Include="_MSG_Trade.cpp" />
+    <ClCompile Include="_MSG_TradingItem.cpp" />
+    <ClCompile Include="_MSG_UpdateItem.cpp" />
+    <ClCompile Include="_MSG_UseItem.cpp" />
+    <ClCompile Include="_MSG_War.cpp" />
+    <ClCompile Include="_MSG_Withdraw.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Basedef.h" />
+    <ClInclude Include="..\CPSock.h" />
+    <ClInclude Include="..\ItemEffect.h" />
+    <ClInclude Include="CCastleZakum.h" />
+    <ClInclude Include="CItem.h" />
+    <ClInclude Include="CMob.h" />
+    <ClInclude Include="CNPCGene.h" />
+    <ClInclude Include="CReadFiles.h" />
+    <ClInclude Include="CUser.h" />
+    <ClInclude Include="CWarTower.h" />
+    <ClInclude Include="GetFunc.h" />
+    <ClInclude Include="Language.h" />
+    <ClInclude Include="ProcessClientMessage.h" />
+    <ClInclude Include="ProcessDBMessage.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="SendFunc.h" />
+    <ClInclude Include="Server.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="TMSrv.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="icon1.ico" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
