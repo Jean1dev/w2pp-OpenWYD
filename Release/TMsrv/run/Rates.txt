@@ -1,0 +1,73 @@
+Exp:
+Armia: 70k a 114k
+Erion: 76k a 150k
+Arzan: 76k a 96k.
+Desert: 75k a 260k
+Sub Mundo: 85k a 250k.
+Kefra 1: 65k a 120k.
+Kefra 2: 195k a 230k 
+Boss Kefra: 2kkk.
+Gelo 1: 140k a 210k.
+Gelo 2: 210k a 260k.
+Gelo 3: 220k a 550k.
+Boss: 350k a 2.4kkk.
+Amg: 80k a 450k.
+King: 69k a 385k.
+//
+Drops:
+Armas: 600x.
+Conjunto de armaduras: 500x
+Itens Especiais: 450x a 600x.
+//
+Eventos:
+Semanalmente: Triple Exp e Doublé Dops.
+Mais Comum em datas especial: Anct 100%, Guerreiro Monstro, Triple Drop, Triple XP, Npc
+Vendedor, Adm Drop, Quest Archs e muitos outros.
+//
+Sistema Arch (quest Archs.)
+Sub Deus (SD)
+Arch (Arch)
+Supreme Arch (SP)
+Deuses Kefra (DK)
+Celestiais (CS)
+//
+Diversas Quests:
+Quest lvl 45 a 75.
+Quest lvl 80 a 95.
+Quest lvl 100 a 145.
+Quest lvl 150 a 195.
+Quest lvl 200 a 260.
+//
+Áreas de mais Destaques:
+Kefra 1: Entrada Normal pelo Desert.
+Kefra 2: Entrada Por Kefra 1.
+Gelo 1: Entrada Por Erion.
+Gelo 2: Entrada Por Noaton (Teleport do lado do de Erion)
+Gelo 3: Entrada Por Noaton
+//
+Monstros Mias Resentes:
+Kalintz(H)
+Kalintz(M)
+Templário Amaldiçoado
+Mago Amaldiçoado
+Shamã Amaldiçoado
+Ranger Amaldiçoado
+Valquiria Rozen
+Valquiria Tina
+Berserker Ref
+Titã Berserker
+Guarda de beriel
+Boss: Dark Knight
+King: Succubus King
+King: Eden
+King: Morte Infenal
+King: Morte Amaldiçoada
+E etcs.
+//
+Recentes Itens:
+Capa Celestial
+Thunder Axé
+Thunder Hammer
+Lança Infernal
+Lança da escuridão
+Escudo Berserker

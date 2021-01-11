@@ -1,0 +1,2 @@
+# Alterar o nome dos canais (servidor)
+    Na pasta do seu cliente e procurar "sn" (sem aspas) e abrir a "sn" com o bloco de notas! mude o nome que está presente lá para o nome do seu servidor. Salve e ponha dentro da patch de seu server e é só pôr a patch para download, para que os players possam ter o nome do seu server nos canais!

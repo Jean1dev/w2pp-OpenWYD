@@ -1,0 +1,82 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30002.166
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBSrv", "Code\DBSrv\DBSrv.vcxproj", "{EE72652A-8073-4357-B51F-E1EBC0358952}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TMSrv", "Code\TMSrv\TMSrv.vcxproj", "{1729E469-5121-44D6-82E5-48D2381D3098}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FAE7274D-7A03-42D8-829E-12721F07CC35}"
+	ProjectSection(SolutionItems) = preProject
+		Buff Loop.txt = Buff Loop.txt
+		Cavaleiros de Kersef.txt = Cavaleiros de Kersef.txt
+		Comandos GM.txt = Comandos GM.txt
+		Função dano.txt = Função dano.txt
+		Itens.txt = Itens.txt
+		Lista de bans.txt = Lista de bans.txt
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{40544B03-E7D0-458E-931D-A18313F3D5F0}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClientPatch_v7662", "Code\ClientPatch_v7662\ClientPatch_v7662.vcxproj", "{388B5CEE-6842-42F1-B192-98B2DBB559EF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+		Release-Themida|Win32 = Release-Themida|Win32
+		Release-Themida|x64 = Release-Themida|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Debug|Win32.Build.0 = Debug|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Debug|x64.ActiveCfg = Debug|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release|Win32.ActiveCfg = Release|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release|Win32.Build.0 = Release|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release|x64.ActiveCfg = Release|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release-Themida|Win32.ActiveCfg = Release|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release-Themida|Win32.Build.0 = Release|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release-Themida|x64.ActiveCfg = Release|Win32
+		{EE72652A-8073-4357-B51F-E1EBC0358952}.Release-Themida|x64.Build.0 = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Debug|Win32.Build.0 = Debug|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Debug|x64.ActiveCfg = Debug|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release|Win32.ActiveCfg = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release|Win32.Build.0 = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release|x64.ActiveCfg = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release-Themida|Win32.ActiveCfg = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release-Themida|Win32.Build.0 = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release-Themida|x64.ActiveCfg = Release|Win32
+		{1729E469-5121-44D6-82E5-48D2381D3098}.Release-Themida|x64.Build.0 = Release|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Debug|Win32.Build.0 = Debug|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Debug|x64.ActiveCfg = Debug|x64
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Debug|x64.Build.0 = Debug|x64
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release|Win32.ActiveCfg = Release|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release|Win32.Build.0 = Release|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release|x64.ActiveCfg = Release|x64
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release|x64.Build.0 = Release|x64
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release-Themida|Win32.ActiveCfg = Release|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release-Themida|Win32.Build.0 = Release|Win32
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release-Themida|x64.ActiveCfg = Release|x64
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF}.Release-Themida|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EE72652A-8073-4357-B51F-E1EBC0358952} = {FAE7274D-7A03-42D8-829E-12721F07CC35}
+		{1729E469-5121-44D6-82E5-48D2381D3098} = {FAE7274D-7A03-42D8-829E-12721F07CC35}
+		{388B5CEE-6842-42F1-B192-98B2DBB559EF} = {40544B03-E7D0-458E-931D-A18313F3D5F0}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D41FF658-2561-48F1-818B-55BDF98CF434}
+	EndGlobalSection
+	GlobalSection(SubversionScc) = preSolution
+		Svn-Managed = True
+		Manager = AnkhSVN - Subversion Support for Visual Studio
+	EndGlobalSection
+EndGlobal

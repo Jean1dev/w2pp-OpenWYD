@@ -1,0 +1,646 @@
+#pragma region Buff Loop
+	for(int i = 0; i < MAX_AFFECT; i++)
+	{
+		if(Affect == 0)
+			continue;
+
+		int Type = Affect[i].Type;
+
+		if(Type == 0)
+			continue;
+
+		int Value = Affect[i].Value;
+		int Level = Affect[i].Level;
+
+		if(Type == 1) // Lentidão (?)
+		{
+			Run -= Value;
+
+			int tmp = 30;
+
+			Att -= tmp;
+
+			if(MOB.Equip[0].sIndex > 50)
+			{
+				int tempint = MOB.CurrentScore.Int;
+				tempint -= tmp + 10;
+				MOB.CurrentScore.Int = tempint;
+			}
+		}
+		else if(Type == 2)
+		{
+			Run += Value;
+
+			MOB.Rsv |= RSV_HASTE;
+		}
+		else if(Type == 3)
+		{
+			int val1 = 0;
+			int tval = Value;
+
+			if(MOB.Equip[0].sIndex < 50)
+				tval /= 2;
+			else
+				tval -= 10;
+
+			Sagrado -= tval;
+			Fogo -= tval;
+			Trovao -= tval;
+			Gelo -= tval;
+		}
+		else if(Type == 4)
+		{
+			DAMAGEMULTI += 4;
+			MOB.CurrentScore.Damage += 30;
+			magic += 5;
+		}
+		else if(Type == 5)
+		{
+			float fValue = (100 - Value) / 100.0f;
+			MOB.CurrentScore.Dex = (short)(MOB.CurrentScore.Dex * fValue);
+		}
+		else if(Type == 6)
+		{
+			float fValue = (Value + 100) / 100.0f;
+			MOB.CurrentScore.Dex = (short)(MOB.CurrentScore.Dex * fValue);
+		}
+		else if(Type == 7)
+		{
+			int tmp = Level / 10 + 10;
+			Att -= tmp;
+
+			if(MOB.Equip[0].sIndex > 50)
+			{
+				int tempint = MOB.CurrentScore.Int;
+				tempint -= (tmp + 10);
+				MOB.CurrentScore.Int = tempint;
+			}
+		}
+		
+		else if(Type == 9)
+		{
+			int add = Level * 5 / 20 + Value;
+			add = add * 3 / 2;
+
+			DAMAGEMULTI += 5;
+
+			if(MOB.Class == 1)
+			{
+				if(MOB.LearnedSkill & 0x80000)
+				{
+					add *= 3;
+					DAMAGEMULTI += 10;
+				}
+			}
+
+			MOB.CurrentScore.Damage += add;
+		}
+		else if(Type == 10)
+		{
+			int sub = Level / 5 + Value;
+
+			MOB.CurrentScore.Damage -= sub;
+		}
+		else if(Type == 11)
+		{
+			int add = Level / 3 + Value;
+
+			MOB.CurrentScore.Ac += add;
+		}
+		else if(Type == 12)
+		{
+			float fvalue = (100 - Value) / 100.0f;
+
+			MOB.CurrentScore.Ac = (int)(MOB.CurrentScore.Ac * fvalue);
+		}
+		else if(Type == 13)
+		{
+			int tv = Level / 10 + Value;
+
+			DAMAGEMULTI += tv;
+
+			tv = MOB.CurrentScore.MaxHp;
+			tv = tv * 9 / 10;
+
+			MOB.CurrentScore.MaxHp = tv;
+		}
+		else if(Type == 14)
+		{
+			int value = Level * 3 / 4 + Value;
+
+			if(extra->ClassMaster != ARCH && extra->ClassMaster != MORTAL)
+				value *= 3;
+
+			MOB.CurrentScore.MaxHp += value * 2;
+
+			int tv = MOB.CurrentScore.Con + value;
+
+			MOB.CurrentScore.Con = tv;
+		}
+		else if(Type == 15)
+		{
+			int value = Level / 10 + Value;
+
+			int tv = MOB.CurrentScore.Special[0] + value;
+
+			if(tv > 400)
+				tv = 400;
+
+			MOB.CurrentScore.Special[0] = tv;
+
+			tv = MOB.CurrentScore.Special[1] + value;
+
+			if(tv > 400)
+				tv = 400;
+
+			MOB.CurrentScore.Special[1] = tv;
+
+			tv = MOB.CurrentScore.Special[2] + value;
+
+			if(tv > 400)
+				tv = 400;
+
+			MOB.CurrentScore.Special[2] = tv;
+
+			tv = MOB.CurrentScore.Special[3] + value;
+
+			if(tv > 400)
+				tv = 400;
+
+			MOB.CurrentScore.Special[3] = tv;	
+		}
+		else if(Type == 16)
+		{
+			int value = Value - 1;
+
+			if(value < 0 || value >= 5 || MOB.Class != 2)
+				continue;
+
+			MOB.Equip[0].sIndex = value == 4 ? 32 : value + 22;
+
+			 int DamAdd = 0;
+			 int HpAdd = 0;
+			 int AcAdd = 0;
+			 int AttAdd = 0;
+			 int IsWolf = MOB.LearnedSkill & 0x20000;
+			 int IsBear = MOB.LearnedSkill & 0x80000;
+			 int IsAsta = MOB.LearnedSkill & 0x200000;
+			 int RegAdd = 0;
+
+			 if(MOB.Equip[0].sIndex == 22 && IsWolf != 0)
+			 {
+				 DamAdd = 10;
+				 //RegAdd += 15;
+				 Critical += 5;
+			 }
+			 else if(MOB.Equip[0].sIndex == 23 && IsBear != 0)
+			 {
+				 HpAdd = 10;
+				 RegAdd += 20;//Old 30
+				 AttAdd += 20;
+			 }
+			 else if(MOB.Equip[0].sIndex == 24 && IsAsta != 0)
+			 {
+				 DamAdd = 10;
+				 AcAdd = 5;
+				 HpAdd = 5;
+				 RegAdd += 20;//15
+				 AttAdd += 20;
+			 }			
+			 else if(MOB.Equip[0].sIndex == 25)
+				 AttAdd += 30;
+
+			 else if (MOB.Equip[0].sIndex == 32)
+			 {
+				 DamAdd = 10;
+				 AcAdd = 5;
+				 HpAdd = 10;
+				 RegAdd += 10;
+				 AttAdd += 20;
+			 }
+
+			 int sanc = (special3 + (extra->ClassMaster != ARCH && extra->ClassMaster != MORTAL ? MOB.CurrentScore.Level+MAX_LEVEL : MOB.CurrentScore.Level) * 2) / 3;
+			 sanc = (sanc - pTransBonus[value].Unk17) / 12;
+
+			 if(sanc <= 0)
+				 sanc = 0;
+
+			 if(sanc > 9)
+				 sanc = 9;
+
+			 MOB.Equip[0].stEffect[0].cEffect = EF_SANC;
+			 MOB.Equip[0].stEffect[0].cValue = sanc;
+
+			 int min = DamAdd + pTransBonus[value].Unk;
+			 int max = DamAdd + pTransBonus[value].Unk2;
+			 int delta = max - min;
+			 int multi = delta * Level / 200 + min;
+			 int tv = MOB.CurrentScore.Damage;
+
+			 if(MOB.Equip[0].sIndex == 22)
+				 tv += 10;
+
+			 MOB.CurrentScore.Damage = tv;
+
+			 DAMAGEMULTI = DAMAGEMULTI + multi - 100;
+
+			 min = AcAdd + pTransBonus[value].Unk3;
+			 max = AcAdd + pTransBonus[value].Unk4;
+			 delta = max - min;
+			 multi = delta * Level / 200 + min;
+			 tv = MOB.CurrentScore.Ac;
+			 tv = tv * multi / 100;
+
+			 if(MOB.Equip[0].sIndex == 22)
+				 tv += 5;
+
+			 MOB.CurrentScore.Ac = tv;
+
+			 min = HpAdd + pTransBonus[value].Unk5;
+			 max = HpAdd + pTransBonus[value].Unk6;
+			 delta = max - min;
+			 multi = delta * Level / 200 + min;
+			 tv = MOB.CurrentScore.MaxHp;
+			 tv = tv * multi / 100;
+			 MOB.CurrentScore.MaxHp = tv;
+
+			 Sagrado += RegAdd;
+			 Fogo += RegAdd;
+			 Trovao += RegAdd;
+			 Gelo += RegAdd;
+
+			 AttackSpeedBonus = pTransBonus[value].Unk9 + AttAdd;
+			 RunSpeedBonus = pTransBonus[value].Unk7;
+		}
+		else if(Type == 42)
+		{
+			int mana = MOB.CurrentScore.MaxMp / 5 + (((extra->ClassMaster != ARCH && extra->ClassMaster != MORTAL ? MOB.CurrentScore.Level + MAX_LEVEL : MOB.CurrentScore.Level) + Level) / 2);
+
+			MOB.CurrentScore.MaxHp += mana;
+			MOB.CurrentScore.MaxMp -= mana;
+		}
+		else if(Type == 19)
+			MOB.Rsv |= RSV_BLOCK;
+
+		else if(Type == 21)
+		{
+			int add = Level / 3 + 10;
+
+			MOB.CurrentScore.Ac -= add;
+
+			int tv = Level / 10 + Value;
+
+			DAMAGEMULTI += tv;
+		}
+		else if(Type == 24)
+		{
+			int add = MOB.CurrentScore.Ac / 4 + Value;
+
+			MOB.CurrentScore.Ac += add;
+		}
+		else if(Type == 25)
+		{
+			int add = (Value + Level / 4) / 10;
+
+			if (Level >= 255)
+				add += 20;
+
+			Fogo += add;
+			Trovao += add;
+			Gelo += add;
+		}
+		else if(Type == 26)
+			MOB.Rsv |= RSV_PARRY;
+		else if(Type == 27 && BASE_GetItemAbility(&MOB.Equip[6], EF_WTYPE) == 101)
+			MOB.Rsv |= RSV_FROST;
+		else if(Type == 28)
+			MOB.Rsv |= RSV_HIDE;
+		
+		else if(Type == 36 && BASE_GetItemAbility(&MOB.Equip[6], EF_WTYPE) == 41)
+		    MOB.Rsv |= RSV_DRAIN;
+
+		//else if (Type == 30)
+		//	MOB.Rsv |= RSV_VISION;
+
+		else if (Type == 29 && extra->ClassMaster != MORTAL)//Soul
+		{
+			if (extra->Soul == SOUL_F)
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 2.2f);
+
+			else if (extra->Soul == SOUL_I)
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 2.2f);
+
+			else if (extra->Soul == SOUL_D)
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 2.2f);
+
+			else if (extra->Soul == SOUL_C)
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 2.2f);
+			
+			else if (extra->Soul == SOUL_FI)
+			{
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.80f);
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_FD)
+			{
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.80f);
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_FC)
+			{
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.80f);
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_IF)
+			{
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.80f);
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_ID)
+			{
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.80f);
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_IC)
+			{
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.80f);
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_DF)
+			{
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.80f);
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_DI)
+			{
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.80f);
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_DC)
+			{
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.80f);
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_CF)
+			{
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.80f);
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_CI)
+			{
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.80f);
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_CD)
+			{
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.80f);
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.40f);
+			}
+		}
+
+		else if (Type == 29 && extra->ClassMaster == MORTAL)//Soul
+		{
+			if (extra->Soul == SOUL_F)
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.8f);
+
+			else if (extra->Soul == SOUL_I)
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.8f);
+
+			else if (extra->Soul == SOUL_D)
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.8f);
+
+			else if (extra->Soul == SOUL_C)
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.8f);
+			
+			else if (extra->Soul == SOUL_FI)
+			{
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.60f);
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_FD)
+			{
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.60f);
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_FC)
+			{
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.60f);
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_IF)
+			{
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.60f);
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_ID)
+			{
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.60f);
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_IC)
+			{
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.60f);
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_DF)
+			{
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.60f);
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_DI)
+			{
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.60f);
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_DC)
+			{
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.60f);
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_CF)
+			{
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.60f);
+				MOB.CurrentScore.Str = (int)(MOB.CurrentScore.Str * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_CI)
+			{
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.60f);
+				MOB.CurrentScore.Int = (int)(MOB.CurrentScore.Int * 1.40f);
+			}
+
+			else if (extra->Soul == SOUL_CD)
+			{
+				MOB.CurrentScore.Con = (int)(MOB.CurrentScore.Con * 1.60f);
+				MOB.CurrentScore.Dex = (int)(MOB.CurrentScore.Dex * 1.40f);
+			}
+		}
+
+		else if (Type == 30)
+			*ForceMobDamage += Level;
+
+		else if (Type == 37)
+			*ForceDamage += special2;
+
+		else if (Type == 31)
+		{
+			int add = Level / 2 + Value;
+
+			MOB.CurrentScore.Ac += add;
+		}
+		
+		else if(Type == 38)
+		{
+			int mana = MOB.CurrentScore.MaxMp / 2;
+
+			MOB.CurrentScore.MaxHp += mana;
+			MOB.CurrentScore.MaxMp -= mana;
+		}
+
+		else if (Type == 39)
+			*ExpBonus += 100;
+	}
+#pragma endregion
+
+
+#pragma region Loop affect2
+	for(int i = 0; i < MAX_AFFECT; i++)
+	{
+		if(Affect == 0)
+			continue;
+
+		int Type = Affect[i].Type;
+
+		if(Type == 0)
+			continue;
+
+		int Value = Affect[i].Value;
+		int Level = Affect[i].Level;
+
+		if(Type == 8)
+		{
+			//Resistencia
+			if((Level & (1 << 1)) != 0)
+			{
+				Sagrado += 25;
+				Fogo += 25;
+				Trovao += 25;
+				Gelo += 25;
+			}
+
+			//Abs
+			if((Level & (1 << 3)) != 0)
+				*AbsHp += 20;
+
+			//+HP DEF
+			if((Level & (1 << 4)) != 0)
+			{
+				int totalhp = ((MOB.CurrentScore.MaxHp / 100) * 10) + MOB.CurrentScore.MaxHp;
+
+				if (totalhp >= MAX_HP)
+					MOB.CurrentScore.MaxHp = MAX_HP;
+				else
+					MOB.CurrentScore.MaxHp = totalhp;
+
+				int totalac = ((MOB.CurrentScore.Ac / 100) * 10) + MOB.CurrentScore.Ac;
+
+				MOB.CurrentScore.Ac = totalac;
+			}
+
+			//+HP ATK
+			if((Level & (1 << 5)) != 0)
+			{
+				int totalhp = ((MOB.CurrentScore.MaxHp / 100) * 10) + MOB.CurrentScore.MaxHp;
+
+				if (totalhp >= MAX_HP)
+					MOB.CurrentScore.MaxHp = MAX_HP;
+				else
+					MOB.CurrentScore.MaxHp = totalhp;
+
+				int totaldam = ((MOB.CurrentScore.Damage / 100) * 10) + MOB.CurrentScore.Damage;
+
+				MOB.CurrentScore.Damage = totaldam;
+			}
+
+			//Precisão
+			if((Level & (1 << 6)) != 0)
+				*Accuracy += 50;
+
+			//MP = HP
+			if((Level & (1 << 7)) != 0)
+			{
+				int mana = ((MOB.CurrentScore.MaxMp + 1) / 2);
+
+				MOB.CurrentScore.MaxHp += mana;
+				MOB.CurrentScore.MaxMp -= mana;
+			}
+		}
+		else if (Type == 34)//Divina
+		{
+			int totalhp = ((MOB.CurrentScore.MaxHp / 100) * 20) + MOB.CurrentScore.MaxHp;
+
+			if (totalhp >= MAX_HP)
+				MOB.CurrentScore.MaxHp = MAX_HP;
+			else
+				MOB.CurrentScore.MaxHp = totalhp;
+
+			int totalmp = ((MOB.CurrentScore.MaxMp / 100) * 20) + MOB.CurrentScore.MaxMp;
+
+			if (totalmp >= MAX_MP)
+				MOB.CurrentScore.MaxMp = MAX_MP;
+			else
+				MOB.CurrentScore.MaxMp = totalmp;
+
+			int totaldn = ((MOB.CurrentScore.Damage / 100) * 20) + MOB.CurrentScore.Damage;
+
+			if (totaldn >= MAX_DAMAGE)
+				MOB.CurrentScore.Damage = MAX_DAMAGE;
+			else
+				MOB.CurrentScore.Damage = totaldn;
+
+			int totalmg = ((MOB.Magic / 100) * 20) + MOB.Magic;
+
+			if (totalmg >= MAX_DAMAGE_MG)
+				MOB.Magic = MAX_DAMAGE_MG;
+			else
+				MOB.Magic = totalmg;
+		}
+
+		else if (Type == 35)//Vigor
+		{
+			int totalhp = ((MOB.CurrentScore.MaxHp / 100) * 10) + MOB.CurrentScore.MaxHp;
+
+			if (totalhp >= MAX_HP)
+				MOB.CurrentScore.MaxHp = MAX_HP;
+			else
+				MOB.CurrentScore.MaxHp = totalhp;
+
+			int totalmp = ((MOB.CurrentScore.MaxMp / 100) * 10) + MOB.CurrentScore.MaxMp;
+
+			if (totalmp >= MAX_MP)
+				MOB.CurrentScore.MaxMp = MAX_MP;
+			else
+				MOB.CurrentScore.MaxMp = totalmp;
+		}
+	}
+#pragma endregion

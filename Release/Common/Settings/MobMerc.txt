@@ -1,0 +1,8 @@
+// Merc Teste
+// ********************************************
+#	[   0]
+	MobName:	Merc_Zakum
+	GenerateIndex:	6500
+	Item_0:		5338 0 0 0 0 0 0 - 5
+	RenewTime:	86400
+	RebornTime:	86400

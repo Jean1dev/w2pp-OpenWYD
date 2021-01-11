@@ -1,0 +1,23 @@
+Pedra Amunra
+
+3464 69 20 71 100 43 253
+3464 70 20 0 0 43 253
+3464 54 10 0 0 43 253
+
+Poções
+
+Poção_Kappa 787 61 255
+Poção_Kappa(P) 3310 61 255
+(S)Poção_Kappa(P) 3319 61 255
+
+Poção_Combatente 3311 61 255
+(S)Poção_Combatente(P) 3320 61 255
+
+Poção_Mental 3312 61 255
+(S)Poção_Mental 3321 61 255
+
+Poção_de_Vigor 3313 61 255
+
+Frango_Assado 3314 61 255
+Frango_Assado_(Pacote) 3318 61 255
+

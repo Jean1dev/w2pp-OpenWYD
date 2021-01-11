@@ -1,0 +1,15 @@
+// Quest Teste
+// ********************************************
+#	[   0]
+	Mob_Initial:	6058
+	Mob_End:	6105
+	Boss1:		6105
+	Boss2:		6105
+	Prize_0:		5338 0 0 0 0 0 0
+	CoinPrize:	0
+	ExpPrize_Mortal:	0
+	ExpPrize_Arch:	0
+	ExpPrize_Celestial:	0
+	ExpPrize_SubCelestial:	0
+	PartyPrize:	ON
+	QuestTime:	300

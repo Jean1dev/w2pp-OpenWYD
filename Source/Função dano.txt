@@ -1,0 +1,13 @@
+int totaldn = ((MOB.CurrentScore.Damage / 100) * 20) + MOB.CurrentScore.Damage;
+
+				if (totaldn >= MAX_DAMAGE)
+					MOB.CurrentScore.Damage = MAX_DAMAGE;
+				else
+					MOB.CurrentScore.Damage = totaldn;
+
+int totalmg = ((MOB.Magic / 100) * 20) + MOB.Magic;
+
+				if (totalmg >= MAX_DAMAGE_MG)
+					MOB.Magic = MAX_DAMAGE_MG;
+				else
+					MOB.Magic = totalmg;

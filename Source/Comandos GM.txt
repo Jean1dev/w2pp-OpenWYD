@@ -1,0 +1,86 @@
++blessmoney -  Configura a taxa de Drop do Servidor. Use "/gm +blessmoney 10" que a taxa de drop global irá para 100%
++guildfame - Use /guildfame "Index" para ver a fama da guilda
++guildfame set - Use /gm +guildfame set "Index" "Fama" para colocar fama na guilda
+
++itemdestroy - Rate de refinação dos itens Cele selados (100 = sem falhas)
+
++setcastledoor - Summon Gate do castelo de Noatum (Necessario correção dos Gates)
+
++pkgate - 0 para abri a Porta do PVP armia é 1 para fechar (Necessario correção dos Gates)
+
++setchangeRuneZone - LEBRA A PISTA DE RUNAS SEM MATA O KEFRA (Funcional apenas na pista de runas Nativa)
+
++quizmode - Ativa o Quiz (usa o ingresso do BigCubo)
++quizdoor - Abre os muros do big cubo
++quizresultx - Limpa a area do O
++quizresulto - Limpa a area do X
+
++randomquiz - Possivel ativação das perguntas
++setrandomquiz - Define a Exp e o Gold
++readrandomquiz - Atualiza o arquivo de pergunta
++sendrandomquiz - envia a pergunta do quiz na tela
+
++set reboot = Server ficará offline em 1 minuto
++set PARTYBONUS = Experiencia em grupo ( caso de 100% coloque "82" )
++create "nomedomonstro" = Cria o monstro citado no comando ( Tem que estar na pasta Boss )
++guildday = Após usar o comando irá iniciar a guerra de notaum
++guildhour = Após usar o mandos irá iniciar a guerra de cidades
++newbiehour = Mais experiencia para leveis baxos
++weekmod = 1 2 3 4 5 6 = Ativar apostas, começar a guerra, desativar apostas.
++reloadnpc = Reinicia todos os NPCs
++reloadguild = Reinicia todas as guilds
++saveall = Dá DC em todos os players e salva as contas
++set decay ( Não Sei)
++set billmode ( Não Sei)
++set billfree ( Não Sei)
++set potioncount ( Não Sei)
++set guildboard = Usado para ativar/desativar quadro de guild
++generate = 1 2 = Summona os bixos do coliseu
++log = Reinicia os logs
++readguildname = Cria uma guild
++trtarget = Troca os itens do dragao de armia = Exemplo /gm +trtarget 1 1 750 = vermelho = Primeira carreira / Verde = item da primeira carreira
++battleroyal ( Não Sei)
++set evstart = Ativa o evento ( Pode ser configurado no gameconfig )
++set evend = Desativa o evento
++set evitem = Troca o item que esta sendo dropado no evento
++set evrate = Muda a rate do item
++set evindex = rates principais
++set evdelete = Deleta o evento ( Apaga tudo )
++set evon = Ativa o evento
++set evnotice = Noticia do evento
++set double = Comando usado para ativar/desativar double exp
++set deadpoint = Quando morrer perder exp
++set dungeonevent = Evento em dungeon ( bugado )
++set champ = Faz com que a guild citada fique dona da cidade citada. ( /gm +set champ 1 626 )
++set chall = Faz com que a guild citada desafie a cidade ( /gm +set champ 1 627 )
++set drop ( Não funciona )
++weather 0,1,2 = Faz com que chova, caia neve, ...
++notice = Fala para todos
++chiefnotice = Não funciona
++chiefsummon = Não funciona
++snoop = Invisivel
++event = Visualiza o evento ( linhas 1 e 2 do gameconfig )
++teleport = Teleporta para a coordenada citada.
++kick = Dá DC no personagem
++set sanc = Refina o set e arma = +10=250 +11=251 +12=252 +13=253 +14=254 +15=255
++set buildhtml = Cria um arquivo html na pasta TMSRV
++set clearquest = ( Sem função na versão 6.13 )
++set clearskill = Reseta as skills
++set level = Muda o level, para o level citado
++set = /gm +set 1 21 = Verde = Cabelo Arch / Vermelho = Slot de Elmo
++set hp = Muda o HP para o citado
++set mp Muda o MP para o citado
++set ac = Muda a defesa
++set dam = Muda o ataque
++set str = Muda a força
++set int = Muda a inteligencia
++set dex = Muda a destreza
++set coin = Muda o gold
++set merchant = Bugado, ( Serve tambem para ficar invisivel )
++set skillbonus = Adiciona pontos de skill
++set special = Adiciona pontos de Aprender arma = 0 = Aprender Arma / 1 = Primeira skill ...
++set scorebouns = Dá pontos para distribuir em atributos
++set attackrun = Muda a velocidade de movimento do char.
++set criticial = Esqueci ^^ ( coloco depois )
++save = Salva o npc citado ( /gm +set save Aki )
++read = Se Transforma no NPC citado.
