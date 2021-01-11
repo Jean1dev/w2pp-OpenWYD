@@ -11495,6 +11495,7 @@
 	RouteType:	2
 	Formation:	0
 	StartX:		2
+
 	StartY:		2094
 	StartRange:	6
 	StartWait:	9
@@ -11639,19 +11640,19 @@
 	Follower:	Meio_Orc
 	RouteType:	2
 	Formation:	0
-	StartX:		2464
+	StartX:		2458
 	StartY:		2096
 	StartRange:	6
 	StartWait:	9
-	Segment1X:	2464
+	Segment1X:	2458
 	Segment1Y:	2096
 	Segment1Range:	6
 	Segment1Wait:	5
-	Segment2X:	2464
+	Segment2X:	2458
 	Segment2Y:	2096
 	Segment2Range:	6
 	Segment2Wait:	8
-	DestX:		2464
+	DestX:		2458
 	DestY:		2096
 	DestRange:	6
 	DestWait:	6
@@ -29991,7 +29992,7 @@
 // no1135 (1813�ʵ�E
 // ********************************************
 #	[1054]
-	MinuteGenerate:	1
+	MinuteGenerate:	2
 	MaxNumMob:	3
 	MinGroup:	1
 	MaxGroup:	1
@@ -34383,7 +34384,7 @@
 // no1330 (1713�ʵ�E - DESATIVADO
 // ********************************************
 #	[1206]
-	MinuteGenerate:	2
+	MinuteGenerate:	-1
 	MaxNumMob:	2
 	MinGroup:	1
 	MaxGroup:	1
@@ -34412,7 +34413,7 @@
 // no1331 (1713�ʵ�E
 // ********************************************
 #	[1207]
-	MinuteGenerate:	-1
+	MinuteGenerate:	2
 	MaxNumMob:	3
 	MinGroup:	1
 	MaxGroup:	1
@@ -41378,19 +41379,19 @@
 	RouteType:	2
 	Formation:	0
 	StartX:		1822
-	StartY:		1764
+	StartY:		1760
 	StartRange:	6
 	StartWait:	9
 	Segment1X:	1822
-	Segment1Y:	1764
+	Segment1Y:	1760
 	Segment1Range:	6
 	Segment1Wait:	10
 	Segment2X:	1822
-	Segment2Y:	1764
+	Segment2Y:	1760
 	Segment2Range:	6
 	Segment2Wait:	10
 	DestX:		1822
-	DestY:		1764
+	DestY:		1760
 	DestRange:	6
 	DestWait:	10
 
@@ -67894,8 +67895,8 @@
 #	[2378]
 	MinuteGenerate:	-1
 	MaxNumMob:	12
-	MinGroup:	12
-	MaxGroup:	12
+	MinGroup:	6
+	MaxGroup:	6
 	Leader:		Tauron__
 	Follower:	Tauron__
 	RouteType:	2
@@ -75577,7 +75578,7 @@
 // no3008 (0829�ʵ�E - DESATIVADO
 // ********************************************
 #	[2643]
-	MinuteGenerate:	-1
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -86044,7 +86045,7 @@
 // no3403 (1029�ʵ�E
 // ********************************************
 #	[3009]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -86052,20 +86053,20 @@
 	Follower:	CH_Troll_Ghoul
 	RouteType:	2
 	Formation:	0
-	StartX:		1324
-	StartY:		3812
+	StartX:		1321
+	StartY:		3809
 	StartRange:	3
 	StartWait:	9
-	Segment1X:	1324
-	Segment1Y:	3812
+	Segment1X:	1321
+	Segment1Y:	3809
 	Segment1Range:	3
 	Segment1Wait:	8
-	Segment2X:	1324
-	Segment2Y:	3812
+	Segment2X:	1321
+	Segment2Y:	3809
 	Segment2Range:	3
 	Segment2Wait:	8
-	DestX:		1324
-	DestY:		3812
+	DestX:		1321
+	DestY:		3809
 	DestRange:	3
 	DestWait:	10
 
@@ -92155,7 +92156,7 @@
 //  no3622 (Cav._Lugefer) -1014
 // ********************************************
 #	[3226]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92184,7 +92185,7 @@
 //  no3623 (Lugefer) -1014
 // ********************************************
 #	[3227]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92213,7 +92214,7 @@
 //  no3624 (Lugefer) -1014
 // ********************************************
 #	[3228]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92242,7 +92243,7 @@
 //  no3626 (1014)
 // ********************************************
 #	[3229]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92271,7 +92272,7 @@
 //  no3629 (Cav._Lugefer) -1014
 // ********************************************
 #	[3230]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92300,7 +92301,7 @@
 //  no3630 (Cav._Lugefer) -1014
 // ********************************************
 #	[3231]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92321,7 +92322,7 @@
 //  no3631 (Cav._Lugefer)
 // ********************************************
 #	[3232]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92350,7 +92351,7 @@
 //  no3632 (Cav._Lugefer) -1014
 // ********************************************
 #	[3233]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92371,7 +92372,7 @@
 //  no3633 (Cav._Lugefer) -1014
 // ********************************************
 #	[3234]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -92413,7 +92414,7 @@
 //  no3635 (Cav._Lugefer) -1014
 // ********************************************
 #	[3236]
-	MinuteGenerate:	1
+	MinuteGenerate:	4
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -98089,7 +98090,7 @@
 // Juli_ - teleport de gelo /azran
 // ********************************************
 #	[3444]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -105869,10 +105870,10 @@
 	DestWait:	8
 
 
-// Zona de Lan (M)
+// Zona de Lan (M) - DESATIVADO
 // ********************************************
 #	[3714]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	5
 	MinGroup:	5
 	MaxGroup:	5
@@ -105898,10 +105899,10 @@
 	DestWait:	8
 
 
-// Zona de Lan (M)
+// Zona de Lan (M) - DESATIVADO
 // ********************************************
 #	[3715]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	5
 	MinGroup:	5
 	MaxGroup:	5
@@ -106130,10 +106131,10 @@
 	DestWait:	8
 
 
-// Zona de Lan (M)
+// Zona de Lan (M) - DESATIVADO
 // ********************************************
 #	[3723]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	5
 	MinGroup:	5
 	MaxGroup:	5
@@ -106217,10 +106218,10 @@
 	DestWait:	8
 
 
-// Zona de Lan (M)
+// Zona de Lan (M) - DESATIVADO
 // ********************************************
 #	[3726]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	5
 	MinGroup:	5
 	MaxGroup:	5
@@ -107852,7 +107853,7 @@
 	DestY:		3692
 	DestRange:	1
 	DestWait:	0
-
+	
 
 / Templo de Odin (Orc_Arq_Penado)
 // ********************************************
@@ -108427,7 +108428,7 @@
 // Juli - teleport de Azram p/ gelo
 // ********************************************
 #	[3810]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -109301,7 +109302,7 @@
 // Zona de Lan (N)
 // ********************************************
 #	[3847]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	3
 	MinGroup:	3
 	MaxGroup:	3
@@ -131930,7 +131931,7 @@
 // no1049c3 
 // ********************************************
 #	[4850]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156708,7 +156709,7 @@
 // no22npc4
 // ********************************************
 #	[6028]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156729,7 +156730,7 @@
 // no22npc4
 // ********************************************
 #	[6029]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156750,7 +156751,7 @@
 // no22npc4
 // ********************************************
 #	[6030]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156771,7 +156772,7 @@
 // no22npc4
 // ********************************************
 #	[6031]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156792,7 +156793,7 @@
 // no22npc4
 // ********************************************
 #	[6032]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156813,7 +156814,7 @@
 // no22npc4
 // ********************************************
 #	[6033]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156834,7 +156835,7 @@
 // no22npc4
 // ********************************************
 #	[6034]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156855,7 +156856,7 @@
 // no22npc4
 // ********************************************
 #	[6035]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156876,7 +156877,7 @@
 // no22npc4
 // ********************************************
 #	[6036]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156897,7 +156898,7 @@
 // no22npc4
 // ********************************************
 #	[6037]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156918,7 +156919,7 @@
 // no22npc4
 // ********************************************
 #	[6038]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156939,7 +156940,7 @@
 // no22npc4
 // ********************************************
 #	[6039]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156960,7 +156961,7 @@
 // no22npc4
 // ********************************************
 #	[6040]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -156981,7 +156982,7 @@
 // no22npc4
 // ********************************************
 #	[6041]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157002,7 +157003,7 @@
 // no22npc4
 // ********************************************
 #	[6042]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157023,7 +157024,7 @@
 // no22npc4
 // ********************************************
 #	[6043]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157044,7 +157045,7 @@
 // no22npc4
 // ********************************************
 #	[6044]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157065,7 +157066,7 @@
 // no22npc4
 // ********************************************
 #	[6045]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157086,7 +157087,7 @@
 // no22npc4
 // ********************************************
 #	[6046]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157107,7 +157108,7 @@
 // no22npc4
 // ********************************************
 #	[6047]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157128,7 +157129,7 @@
 // no22npc4
 // ********************************************
 #	[6048]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157149,7 +157150,7 @@
 // no22npc4
 // ********************************************
 #	[6049]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157170,7 +157171,7 @@
 // no22npc4
 // ********************************************
 #	[6050]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157191,7 +157192,7 @@
 // no22npc4
 // ********************************************
 #	[6051]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157372,7 +157373,6 @@
 	DestRange:	3
 	DestWait:	10
 
-
 //Casinha armia
 // ********************************************
 #	[6058]
@@ -157380,19 +157380,18 @@
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
-	Leader:		Premium_Neil
+	Leader:	Premium_Neil
 	Follower:	Premium_Neil
 	RouteType:	0
 	Formation:	0
-	StartX:		2100
-	StartY:		2115
+	StartX:	2100
+	StartY:	2115
 	StartRange:	0
 	StartWait:	9
-	DestX:		2100
-	DestY:		2115
+	DestX:	2100
+	DestY:	2115
 	DestRange:	1
 	DestWait:	0
-
 
 //Armia perto do baú
 // ********************************************
@@ -157401,16 +157400,16 @@
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
-	Leader:		Premium_Neil
+	Leader:	Premium_Neil
 	Follower:	Premium_Neil
 	RouteType:	0
 	Formation:	0
-	StartX:		2146
-	StartY:		2076
+	StartX:	2146
+	StartY:	2076
 	StartRange:	0
 	StartWait:	9
-	DestX:		2146
-	DestY:		2076
+	DestX:	2146
+	DestY:	2076
 	DestRange:	1
 	DestWait:	0
 // ********************************************
@@ -157419,16 +157418,16 @@
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
-	Leader:		Premium_Neil
+	Leader:	Premium_Neil
 	Follower:	Premium_Neil
 	RouteType:	0
 	Formation:	0
-	StartX:		2479
-	StartY:		1684
+	StartX:	2479
+	StartY:	1684
 	StartRange:	0
 	StartWait:	9
-	DestX:		2479
-	DestY:		1684
+	DestX:	2479
+	DestY:	1684
 	DestRange:	1
 	DestWait:	0
 // ********************************************
@@ -157437,24 +157436,25 @@
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
-	Leader:		Premium_Neil
+	Leader:	Premium_Neil
 	Follower:	Premium_Neil
 	RouteType:	0
 	Formation:	0
-	StartX:		2465
-	StartY:		1994
+	StartX:	2465
+	StartY:	1994
 	StartRange:	0
 	StartWait:	9
-	DestX:		2465
-	DestY:		1994
+	DestX:	2465
+	DestY:	1994
 	DestRange:	1
 	DestWait:	0
-
-
-// Kibita
+	
+	
+	
+	// Kibita
 // ********************************************
 #	[6062]
-	MinuteGenerate:	1
+	MinuteGenerate:	-1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157469,8 +157469,7 @@
 	DestRange:	1
 	DestWait:	0
 
-
-// Kibita
+	// Kibita
 // ********************************************
 #	[6063]
 	MinuteGenerate:	-1
@@ -157487,12 +157486,12 @@
 	DestY:		2114
 	DestRange:	1
 	DestWait:	0
-
-
+	
+	
 // no20npc2
 // ********************************************
 #	[6064]
-	MinuteGenerate:	-1
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157509,11 +157508,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
 #	[6065]
-	MinuteGenerate:	-1
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157530,12 +157528,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
-
-
-//#	[6066]
-	MinuteGenerate:	-1
+// ********************************************
+#	[6066]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157552,11 +157548,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6066]
-	MinuteGenerate:	-1
+#	[6067]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157572,14 +157567,15 @@
 	DestY:		2095
 	DestRange:	1
 	DestWait:	8
+// no20npc2
 // ********************************************
-#	[6067]
+#	[6068]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
-	Leader:		Trajes_2
-	Follower:	Trajes_2
+	Leader:		Trajes2
+	Follower:	Trajes2
 	RouteType:	2
 	Formation:	0
 	StartX:		2097
@@ -157591,11 +157587,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6068]
-	MinuteGenerate:	-1
+#	[6069]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157612,11 +157607,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6069]
-	MinuteGenerate:	-1
+#	[6070]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157633,10 +157627,9 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6070]
+#	[6071]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157654,11 +157647,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6071]
-	MinuteGenerate:	-1
+#	[6072]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157671,15 +157663,15 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2091
-	DestY:		2107
+	DestY:    	2107
 	DestRange:	1
 	DestWait:	8
 
 
 // no20npc2
 // ********************************************
-#	[6072]
-	MinuteGenerate:	-1
+#	[6073]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157696,10 +157688,9 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6073]
+#	[6074]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157717,10 +157708,9 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6074]
+#	[6075]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157734,15 +157724,15 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2093
-	DestY:		2107
+     	DestY:	    	2107
 	DestRange:	1
 	DestWait:	8
 
 
 // no20npc2
 // ********************************************
-#	[6075]
-	MinuteGenerate:	-1
+#	[6076]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157755,15 +157745,14 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2094
-	DestY:		2095
+   	DestY:		2095
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6076]
-	MinuteGenerate:	-1
+#	[6077]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -157776,11 +157765,12 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2109
-	DestY:		2095
+        DestY:	        2095
 	DestRange:	1
 	DestWait:	8
-// ********************************************
-#	[6077]
+
+	// ********************************************
+#	[6078]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157794,14 +157784,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2104
-	DestY:		2107
+        DestY:		2107
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6078]
+#	[6079]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157815,14 +157804,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2085
-	DestY:		2097
+        DestY:	        2097
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6079]
+#	[6080]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157836,14 +157824,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2085
-	DestY:		2105
+        DestY:	        2105
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6080]
+#	[6081]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157865,49 +157852,47 @@
 
 // no20npc2
 // ********************************************
-#	[6081]
-	MinuteGenerate:	-1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Lich_Lua
-	Follower:	Lich_Lua
-	RouteType:	2
-	Formation:	0
-	StartX:		1091
-	StartY:		1766
-	StartRange:	0
-	StartWait:	0
-	StartX:		1091
-	StartY:		1766
-	DestRange:	1
-	DestWait:	0
-
-
+//#	[6082]
+//	MinuteGenerate:	-5
+//	MaxNumMob:	1
+//	MinGroup:	0
+//	MaxGroup:	0
+//	Leader:		Lich_Lua
+//	Follower:	Lich_Lua
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		1091
+//	StartY:		1766
+//	StartRange:	0
+//	StartWait:	0
+//	StartX:		1091
+//	StartY:		1766
+//	DestRange:	1
+//	DestWait:	0
+//
 // no20npc2
 // ********************************************
-#	[6082]
-	MinuteGenerate:	-1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Lich_Escuridao
-	Follower:	Lich_Escuridao
-	RouteType:	2
-	Formation:	0
-	StartX:		1127
-	StartY:		1767
-	StartRange:	0
-	StartWait:	9
-	StartX:		1127
-	StartY:		1767
-	DestRange:	1
-	DestWait:	8
-
-
-// no20npc2
+//#	[6083]
+//	MinuteGenerate:	-5
+//	MaxNumMob:	1
+//	MinGroup:	0
+//	MaxGroup:	0
+//	Leader:		Lich_Escuridao
+//	Follower:	Lich_Escuridao
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		1127
+//	StartY:		1767
+//	StartRange:	0
+//	StartWait:	9
+//	StartX:		1127
+//	StartY:		1767
+//	DestRange:	1
+//	DestWait:	8
+//
+//	// no20npc2
 // ********************************************
-#	[6083]
+#	[6084]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -157930,131 +157915,126 @@
 	Segment2Y:	2100
 	Segment2Range:	0
 	Segment2Wait:	8
-	Segment1Action:	Estamos_na_versao_7.639
+	Segment2Action:	Estamos_na_versao_7.648
 	DestX:		2100
 	DestY:		2102
 	DestRange:	1
 	DestWait:	8
-
-
+	
 //Drop Amago DV
 // ********************************************
-#	[6084]
-	MinuteGenerate:	-1
-	MaxNumMob:	6
-	MinGroup:	5
-	MaxGroup:	6
-	Leader:		SHELL_
-	Follower:	SHELL
-	RouteType:	2
-	Formation:	0
-	StartX:		2279
-	StartY:		2089
-	StartRange:	1
-	StartWait:	9
-	DestX:		2279
-	DestY:		2089
-	DestRange:	1
-	DestWait:	8
-
-
+//#	[6085]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	6
+//	MinGroup:	5
+//	MaxGroup:	6
+//	Leader:		SHELL_
+//	Follower:	SHELL
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		2279
+//	StartY:		2089
+//	StartRange:	1
+//	StartWait:	9
+//	DestX:		2279
+//	DestY:		2089
+//	DestRange:	1
+//	DestWait:	8
+//	
 //Drop Amago DV
-
-
+// ********************************************
 //#	[6086]
-	MinuteGenerate:	-1
-	MaxNumMob:	6
-	MinGroup:	5
-	MaxGroup:	6
-	Leader:		SHELL_
-	Follower:	SHELL
-	RouteType:	2
-	Formation:	0
-	StartX:		2277
-	StartY:		2071
-	StartRange:	1
-	StartWait:	9
-	DestX:		2277
-	DestY:		2071
-	DestRange:	1
-	DestWait:	8
-
-
+//	MinuteGenerate:	-1
+//	MaxNumMob:	6
+//	MinGroup:	5
+//	MaxGroup:	6
+//	Leader:		SHELL_
+//	Follower:	SHELL
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		2277
+//	StartY:		2071
+//	StartRange:	1
+//	StartWait:	9
+//	DestX:		2277
+//	DestY:		2071
+//	DestRange:	1
+//	DestWait:	8
+//	
 //Drop Amago DV
 // ********************************************
-#	[6085]
-	MinuteGenerate:	-1
-	MaxNumMob:	6
-	MinGroup:	5
-	MaxGroup:	6
-	Leader:		SHELL_
-	Follower:	SHELL
-	RouteType:	2
-	Formation:	0
-	StartX:		2262
-	StartY:		2069
-	StartRange:	1
-	StartWait:	9
-	DestX:		2262
-	DestY:		2069
-	DestRange:	1
-	DestWait:	8
-
-
+//#	[6087]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	6
+//	MinGroup:	5
+//	MaxGroup:	6
+//	Leader:		SHELL_
+//	Follower:	SHELL
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		2262
+//	StartY:		2069
+//	StartRange:	1
+//	StartWait:	9
+//	DestX:		2262
+//	DestY:		2069
+//	DestRange:	1
+//	DestWait:	8
+//	
 //Drop Amago DV
 // ********************************************
-#	[6086]
-	MinuteGenerate:	-1
-	MaxNumMob:	6
-	MinGroup:	5
-	MaxGroup:	6
-	Leader:		SHELL_
-	Follower:	SHELL
-	RouteType:	2
-	Formation:	0
-	StartX:		2262
-	StartY:		2089
-	StartRange:	1
-	StartWait:	9
-	DestX:		2262
-	DestY:		2089
-	DestRange:	1
-	DestWait:	8
-
-
-// Drop Amago DV
+//#	[6088]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	6
+//	MinGroup:	5
+//	MaxGroup:	6
+//	Leader:		SHELL_
+//	Follower:	SHELL
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		2262
+//	StartY:		2089
+//	StartRange:	1
+//	StartWait:	9
+//	DestX:		2262
+//	DestY:		2089
+//	DestRange:	1
+//	DestWait:	8
+//	
+//					// Drop Amago DV
 // ********************************************
-#	[6087]
-	MinuteGenerate:	-1
-	MaxNumMob:	6
-	MinGroup:	5
-	MaxGroup:	6
-	Leader:		Leviathan
-	Follower:	Leviathan
-	RouteType:	0
-	Formation:	0
-	StartX:		2262
-	StartY:		2089
-	StartRange:	3
-	StartWait:	9
-	Segment1X:	2262
-	Segment1Y:	2089
-	Segment1Range:	3
-	Segment1Wait:	8
-	Segment2X:	2262
-	Segment2Y:	2089
-	Segment2Range:	3
-	Segment2Wait:	8
-	DestX:		2262
-	DestY:		2089
-	DestRange:	3
-	DestWait:	10
-
-
+//#	[6089]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	6
+//	MinGroup:	5
+//	MaxGroup:	6
+//	Leader:		Leviathan
+//	Follower:	Leviathan
+//	RouteType:	0
+//	Formation:	0
+//	StartX:		2262
+//	StartY:		2089
+//	StartRange:	3
+//	StartWait:	9
+//	Segment1X:	2262
+//	Segment1Y:	2089
+//	Segment1Range:	3
+//	Segment1Wait:	8
+//	Segment2X:	2262
+//	Segment2Y:	2089
+//	Segment2Range:	3
+//	Segment2Wait:	8
+//	DestX:		2262
+//	DestY:		2089
+//	DestRange:	3
+//	DestWait:	10
+//	
+//	
+//
 // no20npc2
 // ********************************************
-#	[6088]
-	MinuteGenerate:	-1
+#	[6090]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158067,15 +158047,15 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2092
-	DestY:		2090
+     	DestY:	    	2090
 	DestRange:	1
 	DestWait:	8
 
 
 // no20npc2
 // ********************************************
-#	[6089]
-	MinuteGenerate:	-1
+#	[6091]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158088,15 +158068,15 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2094
-	DestY:		2090
+     	DestY:	    	2090
 	DestRange:	1
 	DestWait:	8
 
 
 // no20npc2
 // ********************************************
-#	[6090]
-	MinuteGenerate:	-1
+#	[6092]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158109,15 +158089,15 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2096
-	DestY:		2090
+     	DestY:	    	2090
 	DestRange:	1
 	DestWait:	8
 
 
 // no20npc2
 // ********************************************
-#	[6091]
-	MinuteGenerate:	-1
+#	[6093]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158130,16 +158110,15 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2098
-	DestY:		2090
+     	DestY:	    	2090
 	DestRange:	1
 	DestWait:	8
 
 
 // no20npc2
-
-
-//#	[6094]
-	MinuteGenerate:	-1
+// ********************************************
+#	[6094]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158156,84 +158135,90 @@
 	DestRange:	1
 	DestWait:	8
 
-
+ 
 // Kefra
 // ********************************************
-#	[6092]
-	MinuteGenerate:	1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Kefra_X
-	Follower:	Kefra_X
-	RouteType:	2
-	Formation:	0
-	StartX:		1815
-	StartY:		3620
-	DestX:		1815
-	DestY:		3620
-	DestRange:	4
-	DestWait:	4
-
-
+//#	[6095]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	1
+//	MinGroup:	0
+//	MaxGroup:	0
+//	Leader:		Kefra_X
+//	Follower:	Kefra_X
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		1815
+//	StartY:		3620
+//	DestX:		1815
+//	DestY:		3620
+//	DestRange:	4
+//	DestWait:	4
+//
+//
 // Gelo
 // ********************************************
-#	[6093]
-	MinuteGenerate:	1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Mago_Amald_X
-	Follower:	Mago_Amald_X
-	RouteType:	2
-	Formation:	0
-	StartX:		1881
-	StartY:		3678
-	StartRange:	3
-	StartWait:	9
-	Segment1X:	1881
-	Segment1Y:	3678
-	Segment1Range:	3
-	Segment1Wait:	8
-	Segment2X:	1881
-	Segment2Y:	3678
-	Segment2Range:	3
-	Segment2Wait:	8
-	DestX:		1881
-	DestY:		3678
-	DestRange:	3
-	DestWait:	10
+//#	[6096]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	1
+//	MinGroup:	0
+//	MaxGroup:	0
+//	Leader:		Mago_Amald_X
+//	Follower:	Mago_Amald_X
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		1881
+//	StartY:		3678
+//	StartRange:	3
+//	StartWait:	9
+//	Segment1X:	1881
+//	Segment1Y:	3678
+//	Segment1Range:	3
+//	Segment1Wait:	8
+//	Segment2X:	1881
+//	Segment2Y:	3678
+//	Segment2Range:	3
+//	Segment2Wait:	8
+//	DestX:		1881
+//	DestY:		3678
+//	DestRange:	3
+//	DestWait:	10
+//
+ //
+//
+//// Gelo
+// *//*******************************************
+//#	[6097]
+//	MinuteGenerate:	-1
+//	MaxNumMob:	1
+//	MinGroup:	0
+//	MaxGroup:	0
+//	Leader:		Ranger_Amald_X
+//	Follower:	Ranger_Amald_X
+//	RouteType:	2
+//	Formation:	0
+//	StartX:		1809
+//	StartY:		3680
+//	StartRange:	3
+//	StartWait:	9
+//	Segment1X:	1809
+//	Segment1Y:	3680
+//	Segment1Range:	3
+//	Segment1Wait:	8
+//	Segment2X:	1809
+//	Segment2Y:	3680
+//	Segment2Range:	3
+//	Segment2Wait:	8
+//	DestX:		1809
+//	DestY:		3680
+//	DestRange:	3
+//	DestWait:	10
+//
+ //
+//////
 
-
-// Gelo
+//Acessorios_Erion
 // ********************************************
-#	[6094]
-	MinuteGenerate:	1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Ranger_Amald_X
-	Follower:	Ranger_Amald_X
-	RouteType:	2
-	Formation:	0
-	StartX:		1809
-	StartY:		3680
-	StartRange:	3
-	StartWait:	9
-	Segment1X:	1809
-	Segment1Y:	3680
-	Segment1Range:	3
-	Segment1Wait:	8
-	Segment2X:	1809
-	Segment2Y:	3680
-	Segment2Range:	3
-	Segment2Wait:	8
-	DestX:		1809
-	DestY:		3680
-	DestRange:	3
-	DestWait:	10
-// ********************************************
-#	[6095]
+#	[6098]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158251,11 +158236,10 @@
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6096]
-	MinuteGenerate:	-1
+#	[6099]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158268,15 +158252,14 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2459
-	DestY:		1987
+     	DestY:	    	1987
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6097]
-	MinuteGenerate:	-1
+#	[6100]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158289,15 +158272,14 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2459
-	DestY:		1990
+     	DestY:	    	1990
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6098]
-	MinuteGenerate:	-1
+#	[6101]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158310,15 +158292,14 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2462
-	DestY:		1990
+     	DestY:	    	1990
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6099]
-	MinuteGenerate:	-1
+#	[6102]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158331,14 +158312,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2464
-	DestY:		1990
+     	DestY:	    	1990
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6100]
+#	[6103]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158352,14 +158332,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2511
-	DestY:		1709
+     	DestY:	    	1709
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6101]
+#	[6104]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158373,14 +158352,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2507
-	DestY:		1709
+     	DestY:	    	1709
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6102]
+#	[6105]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158394,14 +158372,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2505
-	DestY:		1709
+     	DestY:	    	1709
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6103]
+#	[6106]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158415,14 +158392,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2502
-	DestY:		1709
+     	DestY:	    	1709
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6104]
+#	[6107]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158436,14 +158412,13 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2499
-	DestY:		1709
+     	DestY:	    	1709
 	DestRange:	1
 	DestWait:	8
 
-
-// no20npc2
+ // no20npc2
 // ********************************************
-#	[6105]
+#	[6108]
 	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
@@ -158457,15 +158432,14 @@
 	StartRange:	0
 	StartWait:	9
 	DestX:		2496
-	DestY:		1709
+     	DestY:	    	1709
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
 // ********************************************
-#	[6106]
-	MinuteGenerate:	-1
+#	[6109]
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
@@ -158482,170 +158456,71 @@
 	DestRange:	1
 	DestWait:	8
 
-
 // no20npc2
-// ********************************************
-#	[6107]
-	MinuteGenerate:	1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Armas_Iniciantes
-	Follower:	Armas_Iniciantes
-	RouteType:	2
-	Formation:	0
-	StartX:		2088
-	StartY:		2107
-	StartRange:	0
-	StartWait:	9
-	DestX:		2088
-	DestY:		2107
-	DestRange:	1
-	DestWait:	8
-
-
-// no22npc4
-// ********************************************
-#	[6108]
-	MinuteGenerate:	1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Artamiel
-	Follower:	Artamiel
-	RouteType:	2
-	Formation:	0
-	StartX:		3895
-	StartY:		2878
-	StartRange:	2
-	StartWait:	1
-	DestX:		3895
-	DestY:		2878
-	DestRange:	2
-	DestWait:	2
-
-
-// no22npc4
-// ********************************************
-#	[6109]
-	MinuteGenerate:	1
-	MaxNumMob:	1
-	MinGroup:	0
-	MaxGroup:	0
-	Leader:		Suisse
-	Follower:	Suisse
-	RouteType:	2
-	Formation:	0
-	StartX:		3910
-	StartY:		2878
-	StartRange:	2
-	StartWait:	1
-	DestX:		3910
-	DestY:		2878
-	DestRange:	2
-	DestWait:	2
-
-
-// no22npc4
 // ********************************************
 #	[6110]
 	MinuteGenerate:	1
-	MaxNumMob:	3
-	MinGroup:	1
-	MaxGroup:	3
-	Leader:		Ranger_Blindado
-	Follower:	Ranger_Blindado
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		DonatesBars
+	Follower:	DonatesBars
 	RouteType:	2
 	Formation:	0
-	StartX:		1135
-	StartY:		1766
-	StartRange:	2
-	StartWait:	1
-	DestX:		1135
-	DestY:		1766
-	DestRange:	2
-	DestWait:	2
+	StartX:		2514
+	StartY:		1709
+	StartRange:	0
+	StartWait:	9
+	DestX:		2514
+	DestY:		1709
+	DestRange:	1
+	DestWait:	8
 
-
-// no22npc4
+// no3016 (4���� ) - DESATIVADO
 // ********************************************
-#	[6111]
+#	[2652]
 	MinuteGenerate:	1
-	MaxNumMob:	3
-	MinGroup:	1
-	MaxGroup:	3
-	Leader:		Mago_Blindado
-	Follower:	Mago_Blindado
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		Big_Lizard
+	Follower:	Big_Lizard
 	RouteType:	2
 	Formation:	0
-	StartX:		1124
-	StartY:		1766
-	StartRange:	2
-	StartWait:	1
-	DestX:		1124
-	DestY:		1766
-	DestRange:	2
-	DestWait:	2
+	StartX:		1881
+	StartY:		3678
+	StartRange:	6
+	StartWait:	9
+	Segment1X:	1881
+	Segment1Y:	3678
+	Segment1Range:	6
+	Segment1Wait:	8
+	Segment2X:	1881
+	Segment2Y:	3678
+	Segment2Range:	6
+	Segment2Wait:	7
+	DestX:		1881
+	DestY:		3678
+	DestRange:	6
+	DestWait:	5
 
 
-// no22npc4
+// no20npc2
 // ********************************************
-#	[6112]
+#	[6073]
 	MinuteGenerate:	1
-	MaxNumMob:	3
-	MinGroup:	1
-	MaxGroup:	3
-	Leader:		Shama_Blindado
-	Follower:	Shama_Blindado
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		Montarias_2
+	Follower:	Montarias_2
 	RouteType:	2
 	Formation:	0
-	StartX:		1113
-	StartY:		1766
-	StartRange:	2
-	StartWait:	1
-	DestX:		1113
-	DestY:		1766
-	DestRange:	2
-	DestWait:	2
-
-
-// no22npc4
-// ********************************************
-#	[6113]
-	MinuteGenerate:	1
-	MaxNumMob:	3
-	MinGroup:	1
-	MaxGroup:	3
-	Leader:		Templario_Blindado
-	Follower:	Templario_Blindado
-	RouteType:	2
-	Formation:	0
-	StartX:		1102
-	StartY:		1766
-	StartRange:	2
-	StartWait:	1
-	DestX:		1102
-	DestY:		1766
-	DestRange:	2
-	DestWait:	2
-
-
-// no22npc4
-// ********************************************
-#	[6114]
-	MinuteGenerate:	1
-	MaxNumMob:	3
-	MinGroup:	1
-	MaxGroup:	3
-	Leader:		Templario_Blind
-	Follower:	Templario_Blind
-	RouteType:	2
-	Formation:	0
-	StartX:		1102
-	StartY:		1766
-	StartRange:	2
-	StartWait:	1
-	DestX:		1102
-	DestY:		1766
-	DestRange:	2
-	DestWait:	2
+	StartX:		2085
+	StartY:		2095
+	StartRange:	0
+	StartWait:	9
+	DestX:		2085
+	DestY:		2095
+	DestRange:	1
+	DestWait:	8

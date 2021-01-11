@@ -4008,6 +4008,7 @@ BOOL WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	int *pip = (int*)LocalIP;
 
+	//MessageBox(hWndMain, "Conectando no db", "Inicio", NULL);
 	ret = DBServerSocket.ConnectServer(DBServerAddress, 7514, *pip, WSA_READDB);
 
 	if (ret == NULL)

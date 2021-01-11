@@ -178,7 +178,8 @@ int CNPCGenerator::ParseString(int i, char *str)
 		BOOL ret = ReadMob(&pList[i].Leader, "npc");
 
 		if (ret == FALSE)
-			MessageBox(hWndMain, str2, "Can't read NPC file in NPCGener.txt", NULL);
+			//MessageBox(hWndMain, str2, "Can't read NPC file in NPCGener.txt", NULL);
+			std::cout << "Can't read NPC file in NPCGener.txt";
 
 		else
 			pList[i].Mode = MOB_USE;
@@ -194,7 +195,8 @@ int CNPCGenerator::ParseString(int i, char *str)
 		BOOL ret = ReadMob(&pList[i].Follower, "npc");
 
 		if (ret == FALSE)
-			MessageBox(hWndMain, str2, "Can't read NPC file in NPCGener.txt", NULL);
+			//MessageBox(hWndMain, str2, "Can't read NPC file in NPCGener.txt", NULL);
+			std::cout << "Can't read NPC file in NPCGener.txt";
 
 		else
 			pList[i].Mode = MOB_USE;
