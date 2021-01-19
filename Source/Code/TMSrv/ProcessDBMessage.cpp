@@ -382,17 +382,18 @@ void ProcessDBMessage(char *Msg)
 										   }
 									   }
 
+									   /* CORREÇÃO :: SEMPRE QUE LOGAVA ELE CRIAR 10 SLOTS COM POTIONS
 									   if (m->Unknow_28 != 1)
 									   {
 										   for (int i = 0; i < MAX_CARGO - 2; i++)
 										   {
 											   if (i < 5)
 											   {
-												   m->Cargo[i].sIndex = 400;
+												   m->Cargo[i].sIndex = 2379;
 											   }
 											   else if (i >= 5 && i < 10)
 											   {
-												   m->Cargo[i].sIndex = 405;
+												   m->Cargo[i].sIndex = 2379;
 											   }
 										   }
 
@@ -401,7 +402,7 @@ void ProcessDBMessage(char *Msg)
 										   m->Cargo[17].sIndex = 3983;
 										   //BASE_SetItemDate(&m->Cargo[17], 3);
 									   }
-
+									   */
 									   pUser[conn].IsBlocked = m->IsBlocked;
 									   strcpy(pUser[conn].BlockPass, m->BlockPass);
 
