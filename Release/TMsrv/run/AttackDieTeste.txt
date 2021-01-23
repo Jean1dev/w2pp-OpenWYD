@@ -44159,3 +44159,74 @@ nome:-SODEMAL- x:2096 y:2105 conn:2 mode:22 atname:Cyclops     atx:1214 aty:152 
 nome:-SODEMAL- x:2096 y:2105 conn:2 mode:22 atname:Cyclops     atx:1216 aty:154 idx:21178
 nome:-SODEMAL- x:2096 y:2105 conn:2 mode:22 atname:Cyclops     atx:1213 aty:154 idx:21218
 nome:-SODEMAL- x:2096 y:2105 conn:2 mode:22 atname:Cyclops     atx:1215 aty:151 idx:21231
+nome:obscuro x:2122 y:2145 conn:2 mode:22 atname:Tigre^ atx:2125 aty:2144 idx:10703
+nome:obscuro x:2122 y:2145 conn:2 mode:22 atname:Tigre^ atx:2124 aty:2143 idx:10700
+nome:obscuro x:2122 y:2145 conn:2 mode:22 atname:Tigre^ atx:2125 aty:2143 idx:10704
+nome:obscuro x:2120 y:2144 conn:2 mode:22 atname:Tigre^ atx:2124 aty:2143 idx:10700
+nome:obscuro x:2120 y:2144 conn:2 mode:22 atname:Tigre^ atx:2119 aty:2143 idx:10701
+nome:obscuro x:2120 y:2144 conn:2 mode:22 atname:Tigre^ atx:2118 aty:2142 idx:10702
+nome:obscuro x:2117 y:2141 conn:2 mode:22 atname:Tigre^ atx:2119 aty:2142 idx:10703
+nome:obscuro x:2117 y:2141 conn:2 mode:22 atname:Tigre^ atx:2120 aty:2142 idx:10704
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2104 y:2121 conn:2 mode:22 atname:Tigre^ atx:2107 aty:2122 idx:10702
+nome:obscuro x:2101 y:2121 conn:2 mode:22 atname:Tigre^ atx:2103 aty:2121 idx:10700
+nome:obscuro x:2101 y:2121 conn:2 mode:22 atname:Tigre^ atx:2102 aty:2121 idx:10701
+nome:obscuro x:2097 y:2101 conn:2 mode:22 atname:Grande Lobo atx:3603 aty:3005 idx:6032
+nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1177 aty:3608 idx:14122
+nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1179 aty:3608 idx:14127
+nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1177 aty:3609 idx:14120
+nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1178 aty:3607 idx:14124
+nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1178 aty:3609 idx:14125
