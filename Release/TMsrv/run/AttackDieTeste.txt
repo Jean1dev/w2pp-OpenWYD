@@ -44230,3 +44230,22 @@ nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1179 aty:3608 i
 nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1177 aty:3609 idx:14120
 nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1178 aty:3607 idx:14124
 nome:obscuro x:2088 y:2106 conn:2 mode:22 atname:Grim Lock   atx:1178 aty:3609 idx:14125
+nome:obscuro x:2117 y:2112 conn:2 mode:22 atname:Lobo^ atx:2116 aty:2111 idx:8026
+nome:obscuro x:2117 y:2112 conn:2 mode:22 atname:Lobo^ atx:2116 aty:2111 idx:8026
+nome:obscuro x:2117 y:2112 conn:2 mode:22 atname:Lobo^ atx:2116 aty:2111 idx:8026
+nome:obscuro x:2120 y:2108 conn:2 mode:22 atname:Lobo^ atx:2119 aty:2107 idx:8026
+nome:obscuro x:2120 y:2108 conn:2 mode:22 atname:Lobo^ atx:2119 aty:2107 idx:8026
+nome:obscuro x:2120 y:2108 conn:2 mode:22 atname:Lobo^ atx:2119 aty:2107 idx:8026
+nome:obscuro x:2120 y:2108 conn:2 mode:22 atname:Lobo^ atx:2119 aty:2107 idx:8026
+nome:obscuro x:2120 y:2108 conn:2 mode:22 atname:Lobo^ atx:2119 aty:2107 idx:8026
+nome:obscuro x:2116 y:2113 conn:2 mode:22 atname:Lobo^ atx:2115 aty:2112 idx:8026
+nome:obscuro x:2116 y:2113 conn:2 mode:22 atname:Lobo^ atx:2115 aty:2112 idx:8026
+nome:obscuro x:2116 y:2113 conn:2 mode:22 atname:Lobo^ atx:2115 aty:2112 idx:8026
+nome:jubiscreu x:2117 y:2140 conn:1 mode:22 atname:Condor^ atx:2118 aty:2142 idx:8465
+nome:jubiscreu x:2117 y:2140 conn:1 mode:22 atname:Condor^ atx:2117 aty:2141 idx:8469
+nome:jubiscreu x:2117 y:2140 conn:1 mode:22 atname:Condor^ atx:2119 aty:2141 idx:8466
+nome:jubiscreu x:2117 y:2140 conn:1 mode:22 atname:Condor^ atx:2116 aty:2139 idx:8467
+nome:jubiscreu x:2119 y:2140 conn:1 mode:22 atname:Condor^ atx:2118 aty:2142 idx:8465
+nome:jubiscreu x:2119 y:2140 conn:1 mode:22 atname:Condor^ atx:2117 aty:2141 idx:8469
+nome:jubiscreu x:2118 y:2141 conn:1 mode:22 atname:Condor^ atx:2118 aty:2142 idx:8465
+nome:jubiscreu x:2118 y:2141 conn:1 mode:22 atname:Condor^ atx:2117 aty:2141 idx:8469
