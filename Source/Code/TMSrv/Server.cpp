@@ -1111,6 +1111,7 @@ HFONT__ *GetAFont()
 void ReadConfig(void) // TODO : EVERYTHING
 {
 	FILE *fp = NULL;
+
 	fp = fopen("gameconfig.txt", "rt");
 
 	if (fp == NULL)
