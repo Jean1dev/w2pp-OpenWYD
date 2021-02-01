@@ -21,3 +21,7 @@ Poção_de_Vigor 3313 61 255
 Frango_Assado 3314 61 255
 Frango_Assado_(Pacote) 3318 61 255
 
+
+Nyerds 769
+Barra de 1b 4011
+
