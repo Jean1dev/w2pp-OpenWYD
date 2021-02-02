@@ -6301,6 +6301,7 @@ void ClearArea(int x1, int y1, int x2, int y2)
 
 		DoRecall(i);
 	}
+	Log("Fim da invocacao do clear area", "-system", 0);
 }
 
 void ClearAreaLevel(int x1, int y1, int x2, int y2, int minLv, int maxLv)

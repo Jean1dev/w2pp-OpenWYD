@@ -27,4 +27,4 @@ Treasure Settings:
 489    412   0  0  0  0     412   0  0  0  0     412   0  0  0  0     412   0  0  0  0     412   0  0  0  0   
        30                   60                   260                  560                  1000 
 Etc Settings:
-   partydif 200   kefrastatus 7    GTorreHour 18    RVRHour 22    DropItem 0   BRHour 19   maxNightmare 5   PotionDelay 70
+   partydif 200   kefrastatus 7    GTorreHour 10    RVRHour 22    DropItem 0   BRHour 19   maxNightmare 5   PotionDelay 70

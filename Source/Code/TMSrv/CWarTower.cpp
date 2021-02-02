@@ -302,11 +302,12 @@ void CWarTower::MobKilled(int target, int conn, int PosX, int PosY)
 
 void CWarTower::GGenerateMob(int index, int PosX, int PosY, int tmob)
 {
-	//if (!strcmp(pMob[index].MOB.MobName, "Torre") && GTorreGuild)
 	if (index == GTORRE && GTorreGuild)
 	{
 		pMob[tmob].MOB.Guild = GTorreGuild;
 		pMob[tmob].MOB.GuildLevel = 0;
+		pMob[tmob].MOB.BaseScore.Hp = 10000;
+		pMob[tmob].MOB.CurrentScore.MaxHp = 10000;
 	}
 }
 

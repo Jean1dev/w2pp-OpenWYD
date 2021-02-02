@@ -544,3 +544,4 @@
 551 _NN_Cant_Refine	Impossível de refinar.
 552 _NN_BUFFS	Você limpou sua barra de buffs.
 553 _NN_BUFFS	O item deve ter no mínimo a refinação +10.
+554 _NN_TP_TORRE	Teleportado para Torre.

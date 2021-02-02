@@ -760,6 +760,17 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 #pragma endregion
+#pragma region _NN_TP_TORRE - /torre
+	if (strcmp(m->MobName, "torre") == 0)
+	{
+		DoTeleport(conn, 2506 + rand() % 3, 1878 + rand() % 3);
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_TORRE]);
+
+		sprintf(temp, "etc,torre command");
+		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
+		return;
+	}
+#pragma endregion
 #pragma region _NN_TP_ERION - /erion
 	if (strcmp(m->MobName, "erion") == 0)
 	{
@@ -785,6 +796,12 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 #pragma region _NN_TP_KEFRA - /kefra
 	if (strcmp(m->MobName, "kefra") == 0)
 	{
+		if (KefraLive == 0) {
+			DoTeleport(conn, 2365 + rand() % 3, 3884 + rand() % 3);
+			SendClientMessage(conn, "O kefra ainda esta vivo, precisa ser derrotado");
+			return;
+		}
+
 		DoTeleport(conn, 3250 + rand() % 3, 1695 + rand() % 3);
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_KEFRA]);
 
