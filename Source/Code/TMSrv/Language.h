@@ -548,7 +548,6 @@
 #define _NN_GUILDCREATECLAN 535
 #define _SS_BASEWORKILLTOWER 536
 #define _NN_ENCAMPMENTBORN 537
-//Adicionado Faelz
 #define _NN_TP_ARMIA 544
 #define _NN_TP_AZRAN 545
 #define _NN_TP_ERION 546
@@ -559,6 +558,7 @@
 #define _NN_Cant_Refine	551
 #define _NN_BUFFS 552
 #define _NN_10 553
+#define _NN_TP_TORRE 554
 //Fim
 #define _NN_WONDNTRED 554
 #define _NN_WONDNTBLUE 555

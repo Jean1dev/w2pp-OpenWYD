@@ -211,17 +211,17 @@ void CWarTower::GuildProcess(tm* timeinfo)
 		if (GTorreState == 1 && timeinfo->tm_min >= 6)
 		{
 			ClearArea(2445, 1850, 2546, 1920);
-
+			GTorreGuild = 1;
 			GenerateMob(GTORRE, 0, 0);
-
-			//CreateMob("Torre", 2507, 1873, "npc", 0);
+			GTorreGuild = 0;
+			//AJUSTAR AQUI
 
 			SendNotice(g_pMessageStringTable[_DN_BASEWORSTART]);
 			GTorreState = 2;
 		}
 
 		//A Guerra acabou, a guilda que está defendendo a torre recebe 100 de fama.
-		if (GTorreState == 2 && timeinfo->tm_min == 59)
+		if (GTorreState == 2 && timeinfo->tm_min == 30)
 		{
 			SendNotice("Guerra de Torres finalizada.");
 
@@ -274,7 +274,6 @@ void CWarTower::MobKilled(int target, int conn, int PosX, int PosY)
 	int GenerateID = pMob[target].GenerateIndex;
 
 	if (GenerateID == GTORRE && GTorreState)
-		//	if (!strcmp(pMob[target].MOB.MobName, "Torre") && GTorreState)
 	{
 		if (pMob[conn].MOB.Guild)
 		{
@@ -286,7 +285,6 @@ void CWarTower::MobKilled(int target, int conn, int PosX, int PosY)
 
 			BASE_GetGuildName(Group, usGuild, guildname);
 
-			//sprintf(temp, g_pMessageStringTable[_SS_BASEWORKILLTOWER], pMob[conn].MOB.MobName, guildname); original faze uq
 			sprintf(temp, "A Guild [%s] avançou no território da batalha!", guildname);
 			SendNotice(temp);
 
@@ -296,17 +294,17 @@ void CWarTower::MobKilled(int target, int conn, int PosX, int PosY)
 		ClearArea(2445, 1850, 2546, 1920);
 
 		GenerateMob(GTORRE, 0, 0);
-		//CreateMob("Torre", 2507, 1873, "npc", 0);
 	}
 }
 
 void CWarTower::GGenerateMob(int index, int PosX, int PosY, int tmob)
 {
-	//if (!strcmp(pMob[index].MOB.MobName, "Torre") && GTorreGuild)
 	if (index == GTORRE && GTorreGuild)
 	{
 		pMob[tmob].MOB.Guild = GTorreGuild;
 		pMob[tmob].MOB.GuildLevel = 0;
+		pMob[tmob].MOB.BaseScore.Hp = 10000;
+		pMob[tmob].MOB.CurrentScore.MaxHp = 10000;
 	}
 }
 

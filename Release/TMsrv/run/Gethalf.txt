@@ -1,588 +1,165 @@
-Attacker(Tigre^, 12581, 1236, 1710, 12588, 12588, 5185) Targetbackup(Aranha Inferno, 12588, 1214, 1718, 12581, 12588, 0) Target(Aranha Inferno, 12588, 1214, 1718, 12588, 12588, 0)
-	index:3193 nome:Aranha Inferno 
-	index:5178 nome:Aranha Inferno 
-	index:5185 nome:Treant 
-	index:12581 nome:Tigre^ 
-	index:12578 nome:Tigre^ 
-	index:12579 nome:Tigre^ 
-	index:12580 nome:Tigre^ 
-	index:12582 nome:Tigre^ 
-	index:1 nome:jubiscreu 
+Attacker(Feiticeira , 7458, 1700, 1822, 6656, 7457, 6656) Targetbackup(Averest , 6656, 1699, 1822, 7458, 7457, 7458) Target(Guarda do Rei, 7457, 1711, 1839, 6656, 7457, 6558)
+	index:6556 nome:Combatente  
+	index:6654 nome:Combatente  
+	index:6998 nome:Combatente  
+	index:6557 nome:Bruxa  
+	index:6655 nome:Bruxa  
+	index:6999 nome:Bruxa  
+	index:7582 nome:Feiticeira  
+	index:7033 nome:Averest  
+	index:7581 nome:Averest  
+	index:2928 nome:Averest  
+	index:2929 nome:Feiticeira  
+	index:6656 nome:Averest  
+	index:7458 nome:Feiticeira  
+Attacker(Feiticeira , 7458, 1700, 1822, 6656, 7457, 6656) Targetbackup(Averest , 6656, 1699, 1822, 7458, 7457, 7458) Target(Guarda do Rei, 7457, 1713, 1840, 6656, 7457, 6558)
+	index:6654 nome:Combatente  
+	index:6556 nome:Combatente  
+	index:6998 nome:Combatente  
+	index:6557 nome:Bruxa  
+	index:6655 nome:Bruxa  
+	index:6999 nome:Bruxa  
+	index:7581 nome:Averest  
+	index:7582 nome:Feiticeira  
+	index:7033 nome:Averest  
+	index:2928 nome:Averest  
+	index:2929 nome:Feiticeira  
+	index:6656 nome:Averest  
+	index:7458 nome:Feiticeira  
+Attacker(Elfo ABJ , 13509, 1304, 334, 13463, 13463, 13466) Targetbackup(Tigre^, 13463, 2462, 2002, 13509, 13463, 13460) Target(Tigre^, 13463, 2462, 2002, 13463, 13463, 13460)
+	index:13430 nome:Gargula   
+	index:13432 nome:Gargula   
+	index:13433 nome:Gargula   
+	index:13446 nome:Morlock   
+	index:13449 nome:Morlock   
+	index:13431 nome:Gargula   
+	index:13447 nome:Morlock   
+	index:13448 nome:Morlock   
+	index:13549 nome:Anf Assassino   
+	index:13435 nome:Anf Assassino   
+	index:13550 nome:Anf Assassino   
+	index:13436 nome:Anf Assassino   
+	index:13509 nome:Elfo ABJ  
+	index:13460 nome:Elfo ABJ  
+	index:13434 nome:Anf Assassino   
+	index:13440 nome:Elfo ABJ  
+	index:13466 nome:Tigre^ 
+	index:13572 nome:Elfo ABJ  
+	index:13599 nome:Elfo ABJ  
+	index:13600 nome:Elfo ABJ  
+	index:13443 nome:Bruxa Elfica   
+	index:13442 nome:Bruxa Elfica   
+	index:13444 nome:Bruxa Elfica   
+Attacker(Tauron, 3186, 1192, 1720, 2, 2, 13642) Targetbackup(obscuro, 2, 2202, 3866, 3186, 2, 6102) Target(obscuro, 2, 2202, 3866, 2, 2, 6102)
+	index:13693 nome:Tauron 
+	index:13694 nome:Tauron 
+	index:13663 nome:Tauron 
+	index:3185 nome:Tauron 
+	index:5171 nome:Tauron 
+	index:3186 nome:Tauron 
+	index:13642 nome:Tigre^ 
+	index:5169 nome:Tauron 
+	index:13662 nome:Tauron 
+	index:5195 nome:Tauron 
+	index:5194 nome:Tauron 
+	index:5196 nome:Tauron 
+Attacker(Tigre^, 13642, 2203, 3865, 5171, 5171, 6102) Targetbackup(Tauron, 5171, 1190, 1720, 13642, 5171, 0) Target(Tauron, 5171, 1190, 1720, 5171, 5171, 0)
+	index:13642 nome:Tigre^ 
 	index:2 nome:obscuro 
-	index:5177 nome:Aranha Inferno 
-	index:5179 nome:Aranha Inferno 
-Attacker(Tigre^, 12580, 1241, 1710, 12588, 12588, 5185) Targetbackup(Aranha Inferno, 12588, 1212, 1718, 12580, 12588, 0) Target(Aranha Inferno, 12588, 1212, 1718, 12588, 12588, 0)
-	index:5178 nome:Aranha Inferno 
-	index:3195 nome:Aranha Inferno 
-	index:5185 nome:Treant 
-	index:12581 nome:Tigre^ 
-	index:12578 nome:Tigre^ 
-	index:1 nome:jubiscreu 
-	index:12579 nome:Tigre^ 
-	index:12580 nome:Tigre^ 
-	index:12582 nome:Tigre^ 
+	index:13641 nome:Tigre^ 
+	index:13643 nome:Tigre^ 
+	index:6102 nome:Lich Crunt 
+Attacker(Gorila^, 9894, 1309, 322, 10123, 10123, 10122) Targetbackup(Zakum Inf, 10123, 3383, 1497, 9894, 10123, 2) Target(Zakum Inf, 10123, 3383, 1497, 10123, 10123, 2)
+	index:9628 nome:Cav. Negro  
+	index:9630 nome:Cav. Negro  
+	index:9627 nome:Cav. Negro  
+	index:9629 nome:Cav. Negro  
+	index:9623 nome:Aqua Golem   
+	index:9600 nome:Guer. Caveira  
+	index:9601 nome:Guer. Caveira  
+	index:9602 nome:Guer. Caveira  
+	index:9626 nome:Aqua Golem   
+	index:9625 nome:Aqua Golem   
+	index:9624 nome:Aqua Golem   
+	index:9599 nome:Guer. Caveira  
+	index:9603 nome:Gargula   
+	index:9604 nome:Gargula   
+	index:10023 nome:Gargula   
+	index:10122 nome:Gargula   
+	index:9894 nome:Gorila^ 
+	index:10026 nome:Gorila^ 
+	index:9622 nome:Morlock   
 	index:2 nome:obscuro 
-	index:5177 nome:Aranha Inferno 
-	index:5179 nome:Aranha Inferno 
-Attacker(Lobo Polar, 3885, 3616, 3035, 12892, 12892, 12889) Targetbackup(Urso^, 12892, 3609, 3007, 3885, 12892, 3885) Target(Urso^, 12892, 3609, 3007, 12892, 12892, 3885)
-	index:5541 nome:Urso Polar 
-	index:12891 nome:Urso^ 
-	index:12889 nome:Urso^ 
-	index:6034 nome:Lobo Polar 
-	index:3885 nome:Lobo Polar 
-	index:6328 nome:Lobo Polar 
-	index:3859 nome:Lobo Polar 
-	index:5528 nome:Lobo Polar 
-	index:6031 nome:Lobo Polar 
-Attacker(Grande Lobo, 6032, 3603, 3005, 2, 2, 1) Targetbackup(obscuro, 2, 2097, 2101, 6032, 2, 6032) Target(obscuro, 2, 2097, 2101, 2, 2, 6032)
-	index:3877 nome:Urso Polar 
-	index:6033 nome:Grande Lobo 
-	index:3884 nome:Grande Lobo 
-	index:1 nome:jubiscreu 
-	index:6032 nome:Grande Lobo 
-	index:13080 nome:Tigre^ 
-	index:13077 nome:Tigre^ 
-	index:13078 nome:Tigre^ 
-	index:13079 nome:Tigre^ 
-	index:13076 nome:Tigre^ 
-	index:3866 nome:Lobo Polar 
-	index:5535 nome:Lobo Polar 
-Attacker(Urso Polar, 13366, 3601, 2990, 13362, 13362, 13363) Targetbackup(Urso^, 13362, 3665, 3134, 13366, 13362, 13366) Target(Urso^, 13362, 3665, 3134, 13362, 13362, 13366)
-	index:5560 nome:Troll de Gelo 
-	index:6338 nome:Troll de Gelo 
-	index:3877 nome:Urso Polar 
-	index:13366 nome:Urso Polar 
-	index:13363 nome:Urso^ 
-	index:6033 nome:Grande Lobo 
-	index:3884 nome:Grande Lobo 
-Attacker(Grim Lock  , 14122, 1177, 3608, 2, 2, 14157) Targetbackup(obscuro, 2, 2088, 2106, 14122, 2, 14128) Target(obscuro, 2, 2088, 2106, 2, 2, 14128)
-	index:14123 nome:Grim Lock   
-	index:14124 nome:Grim Lock   
-	index:1 nome:jubiscreu 
-	index:14116 nome:Grim Lock   
-	index:14137 nome:Grim Lock   
-	index:14122 nome:Grim Lock   
-	index:14115 nome:Grim Lock   
-	index:14127 nome:Grim Lock   
-	index:14119 nome:Grim Lock   
-	index:14120 nome:Grim Lock   
-	index:14125 nome:Grim Lock   
-	index:14157 nome:Tigre^ 
-	index:14128 nome:Grim Lock   
-	index:14126 nome:Grim Lock   
-	index:14114 nome:Grim Lock   
-	index:14158 nome:Tigre^ 
-	index:14159 nome:Tigre^ 
-	index:14160 nome:Tigre^ 
-	index:14161 nome:Tigre^ 
-Attacker(Grim Lock  , 14127, 1179, 3608, 2, 2, 14157) Targetbackup(obscuro, 2, 2088, 2106, 14127, 2, 14128) Target(obscuro, 2, 2088, 2106, 2, 2, 14128)
-	index:14123 nome:Grim Lock   
-	index:14124 nome:Grim Lock   
-	index:1 nome:jubiscreu 
-	index:14116 nome:Grim Lock   
-	index:14137 nome:Grim Lock   
-	index:14122 nome:Grim Lock   
-	index:14115 nome:Grim Lock   
-	index:14127 nome:Grim Lock   
-	index:14119 nome:Grim Lock   
-	index:14120 nome:Grim Lock   
-	index:14125 nome:Grim Lock   
-	index:14157 nome:Tigre^ 
-	index:14128 nome:Grim Lock   
-	index:14126 nome:Grim Lock   
-	index:14114 nome:Grim Lock   
-	index:14159 nome:Tigre^ 
-	index:14160 nome:Tigre^ 
-	index:14161 nome:Tigre^ 
-Attacker(Grim Lock  , 14120, 1177, 3609, 2, 2, 14160) Targetbackup(obscuro, 2, 2088, 2106, 14120, 2, 14128) Target(obscuro, 2, 2088, 2106, 2, 2, 14128)
-	index:14123 nome:Grim Lock   
-	index:14124 nome:Grim Lock   
-	index:1 nome:jubiscreu 
-	index:14116 nome:Grim Lock   
-	index:14137 nome:Grim Lock   
-	index:14122 nome:Grim Lock   
-	index:14115 nome:Grim Lock   
-	index:14127 nome:Grim Lock   
-	index:14119 nome:Grim Lock   
-	index:14120 nome:Grim Lock   
-	index:14125 nome:Grim Lock   
-	index:14157 nome:Tigre^ 
-	index:14128 nome:Grim Lock   
-	index:14126 nome:Grim Lock   
-	index:14114 nome:Grim Lock   
-	index:14160 nome:Tigre^ 
-	index:14161 nome:Tigre^ 
-Attacker(Grim Lock  , 14124, 1178, 3607, 2, 2, 14157) Targetbackup(obscuro, 2, 2088, 2106, 14124, 2, 14128) Target(obscuro, 2, 2088, 2106, 2, 2, 14128)
-	index:14123 nome:Grim Lock   
-	index:14124 nome:Grim Lock   
-	index:1 nome:jubiscreu 
-	index:14116 nome:Grim Lock   
-	index:14137 nome:Grim Lock   
-	index:14122 nome:Grim Lock   
-	index:14115 nome:Grim Lock   
-	index:14127 nome:Grim Lock   
-	index:14119 nome:Grim Lock   
-	index:14120 nome:Grim Lock   
-	index:14125 nome:Grim Lock   
-	index:14157 nome:Tigre^ 
-	index:14128 nome:Grim Lock   
-	index:14126 nome:Grim Lock   
-	index:14114 nome:Grim Lock   
-	index:14160 nome:Tigre^ 
-	index:14161 nome:Tigre^ 
-Attacker(Grim Lock  , 14125, 1178, 3609, 2, 2, 14157) Targetbackup(obscuro, 2, 2088, 2106, 14125, 2, 14128) Target(obscuro, 2, 2088, 2106, 2, 2, 14128)
-	index:14123 nome:Grim Lock   
-	index:14124 nome:Grim Lock   
-	index:1 nome:jubiscreu 
-	index:14116 nome:Grim Lock   
-	index:14137 nome:Grim Lock   
-	index:14122 nome:Grim Lock   
-	index:14115 nome:Grim Lock   
-	index:14127 nome:Grim Lock   
-	index:14119 nome:Grim Lock   
-	index:14120 nome:Grim Lock   
-	index:14125 nome:Grim Lock   
-	index:14157 nome:Tigre^ 
-	index:14128 nome:Grim Lock   
-	index:14126 nome:Grim Lock   
-	index:14114 nome:Grim Lock   
-	index:14161 nome:Tigre^ 
-Attacker(Urso^, 16625, 2127, 2143, 16564, 16564, 16559) Targetbackup(Condor^, 16564, 2093, 2101, 16625, 16564, 16625) Target(Condor^, 16564, 2093, 2101, 16564, 16564, 16625)
-	index:3312 nome:Gate Keeper 
-	index:3313 nome:Gate Keeper 
-	index:16623 nome:Urso^ 
-	index:16625 nome:Urso^ 
-	index:16627 nome:Urso^ 
-	index:16624 nome:Urso^ 
-	index:16626 nome:Urso^ 
-	index:16559 nome:Condor^ 
-	index:1 nome:jubiscreu 
-	index:3314 nome:Martin 
-Attacker(Urso^, 16626, 2127, 2144, 16676, 16676, 16559) Targetbackup(Condor^, 16676, 2094, 2101, 16626, 16676, 1) Target(Condor^, 16676, 2094, 2101, 16676, 16676, 1)
-	index:3313 nome:Gate Keeper 
-	index:3312 nome:Gate Keeper 
-	index:16623 nome:Urso^ 
-	index:16625 nome:Urso^ 
-	index:16627 nome:Urso^ 
-	index:16624 nome:Urso^ 
-	index:16626 nome:Urso^ 
-	index:16559 nome:Condor^ 
-	index:1 nome:jubiscreu 
-	index:3314 nome:Martin 
-Attacker(Soldado Merc, 6869, 2395, 1593, 21347, 21347, 19327) Targetbackup(Basilisco Ifrit, 21347, 2394, 1575, 6869, 21347, 0) Target(Basilisco Ifrit, 21347, 2394, 1575, 21347, 21347, 0)
-	index:23147 nome:Draco Lich 
-	index:11472 nome:Basilisco Ifrit 
-	index:14311 nome:Dracorich 
-	index:23148 nome:Dracorich 
-	index:6870 nome:Soldado Merc 
-	index:19328 nome:Basilisco 
-	index:12060 nome:Dracorich 
-	index:19327 nome:Basilisco Ifrit 
-	index:6869 nome:Soldado Merc 
-	index:14310 nome:Basilisco Ifrit 
-	index:1771 nome:Basilisco Ifrit 
-	index:1767 nome:Basilisco 
-	index:1779 nome:Basilisco 
-	index:13966 nome:Dracorich 
-	index:1774 nome:Draco Lich 
-	index:13967 nome:Basilisco 
-	index:1775 nome:Basilisco 
-	index:1776 nome:Basilisco 
-	index:6867 nome:Soldado Merc 
-Attacker(Averest , 5822, 1740, 1885, 2, 2, 16077) Targetbackup(obscuro, 2, 1747, 1575, 5822, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:16078 nome:Tigre^ 
-	index:16079 nome:Tigre^ 
-	index:1 nome:jubiscreu 
-	index:5104 nome:Cav. Real  
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16075 nome:Tigre^ 
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:2933 nome:Feiticeira  
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Averest , 2931, 1740, 1878, 2, 2, 16077) Targetbackup(obscuro, 2, 1747, 1575, 2931, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:16079 nome:Tigre^ 
-	index:5104 nome:Cav. Real  
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16075 nome:Tigre^ 
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Averest , 5103, 1740, 1876, 2, 2, 16075) Targetbackup(obscuro, 2, 1747, 1575, 5103, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:16079 nome:Tigre^ 
-	index:5104 nome:Cav. Real  
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16075 nome:Tigre^ 
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Averest , 6491, 1742, 1876, 2, 2, 16080) Targetbackup(obscuro, 2, 1747, 1575, 6491, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:16079 nome:Tigre^ 
-	index:5104 nome:Cav. Real  
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16075 nome:Tigre^ 
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Rei Glantuar, 1000, 1744, 1879, 2, 2, 16080) Targetbackup(obscuro, 2, 1747, 1575, 1000, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:5104 nome:Cav. Real  
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Cav. Real , 2932, 1746, 1882, 2, 2, 16077) Targetbackup(obscuro, 2, 1747, 1575, 2932, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:2937 nome:BlackOracle 
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:5104 nome:Cav. Real  
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-	index:2938 nome:RedOracle 
-Attacker(Cav. Real , 6784, 1744, 1880, 2, 2, 16080) Targetbackup(obscuro, 2, 1747, 1575, 6784, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:16080 nome:Tigre^ 
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:5104 nome:Cav. Real  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16076 nome:Tigre^ 
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Feiticeira , 2933, 1745, 1881, 2, 2, 16077) Targetbackup(obscuro, 2, 1747, 1575, 2933, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:2937 nome:BlackOracle 
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:5105 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:5104 nome:Cav. Real  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-	index:2938 nome:RedOracle 
-Attacker(Averest , 6265, 1741, 1878, 2, 2, 16077) Targetbackup(obscuro, 2, 1747, 1575, 6265, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:5105 nome:Feiticeira  
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:5104 nome:Cav. Real  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
-Attacker(Averest , 6561, 1743, 1881, 2, 2, 16077) Targetbackup(obscuro, 2, 1747, 1575, 6561, 2, 0) Target(obscuro, 2, 1747, 1575, 2, 2, 0)
-	index:6493 nome:Feiticeira  
-	index:6563 nome:Feiticeira  
-	index:6492 nome:Cav. Real  
-	index:6562 nome:Cav. Real  
-	index:6783 nome:Feiticeira  
-	index:5103 nome:Averest  
-	index:6491 nome:Averest  
-	index:6732 nome:Feiticeira  
-	index:6782 nome:Cav. Real  
-	index:6731 nome:Cav. Real  
-	index:6665 nome:Averest  
-	index:2931 nome:Averest  
-	index:6265 nome:Averest  
-	index:6266 nome:Torre Guardia  
-	index:6730 nome:Feiticeira  
-	index:6729 nome:Cav. Real  
-	index:1000 nome:Rei Glantuar 
-	index:6785 nome:Feiticeira  
-	index:6784 nome:Cav. Real  
-	index:5105 nome:Feiticeira  
-	index:6439 nome:Torre Guardia  
-	index:6728 nome:Feiticeira  
-	index:6561 nome:Averest  
-	index:5104 nome:Cav. Real  
-	index:2933 nome:Feiticeira  
-	index:1 nome:jubiscreu 
-	index:6667 nome:Feiticeira  
-	index:6727 nome:Cav. Real  
-	index:16077 nome:Tigre^ 
-	index:2932 nome:Cav. Real  
-	index:6666 nome:Cav. Real  
-	index:6418 nome:Averest  
-	index:5822 nome:Averest  
-	index:6420 nome:Feiticeira  
-	index:6419 nome:Cav. Real  
-	index:2934 nome:Guarda Real  
+	index:10092 nome:Gargula   
+	index:9619 nome:Morlock   
+	index:9620 nome:Morlock   
+	index:9621 nome:Morlock   
+	index:9608 nome:Anf Assassino   
+	index:9609 nome:Anf Assassino   
+	index:9607 nome:Anf Assassino   
+	index:9610 nome:Anf Assassino   
+	index:9782 nome:Elfo ABJ  
+	index:9612 nome:Elfo ABJ  
+	index:9613 nome:Elfo ABJ  
+Attacker(Gorila^, 10026, 1310, 322, 10123, 10123, 10122) Targetbackup(Zakum Inf, 10123, 3383, 1497, 10026, 10123, 2) Target(Zakum Inf, 10123, 3383, 1497, 10123, 10123, 2)
+	index:9628 nome:Cav. Negro  
+	index:9630 nome:Cav. Negro  
+	index:9627 nome:Cav. Negro  
+	index:9629 nome:Cav. Negro  
+	index:9623 nome:Aqua Golem   
+	index:9600 nome:Guer. Caveira  
+	index:9601 nome:Guer. Caveira  
+	index:9602 nome:Guer. Caveira  
+	index:9626 nome:Aqua Golem   
+	index:9625 nome:Aqua Golem   
+	index:9624 nome:Aqua Golem   
+	index:9599 nome:Guer. Caveira  
+	index:9603 nome:Gargula   
+	index:9604 nome:Gargula   
+	index:10023 nome:Gargula   
+	index:10122 nome:Gargula   
+	index:9894 nome:Gorila^ 
+	index:10026 nome:Gorila^ 
+	index:9622 nome:Morlock   
+	index:2 nome:obscuro 
+	index:10092 nome:Gargula   
+	index:9619 nome:Morlock   
+	index:9620 nome:Morlock   
+	index:9621 nome:Morlock   
+	index:9608 nome:Anf Assassino   
+	index:9609 nome:Anf Assassino   
+	index:9607 nome:Anf Assassino   
+	index:9610 nome:Anf Assassino   
+	index:9782 nome:Elfo ABJ  
+	index:9612 nome:Elfo ABJ  
+	index:9613 nome:Elfo ABJ  
+Attacker(Gorila^, 10170, 1308, 323, 10440, 10440, 10419) Targetbackup(Zakum Inf , 10440, 3388, 1499, 10170, 10440, 2) Target(Zakum Inf , 10440, 3388, 1499, 10440, 10440, 2)
+	index:9599 nome:Guer. Caveira  
+	index:9629 nome:Cav. Negro  
+	index:9630 nome:Cav. Negro  
+	index:9602 nome:Guer. Caveira  
+	index:9628 nome:Cav. Negro  
+	index:9624 nome:Aqua Golem   
+	index:9600 nome:Guer. Caveira  
+	index:9626 nome:Aqua Golem   
+	index:9625 nome:Aqua Golem   
+	index:9623 nome:Aqua Golem   
+	index:9601 nome:Guer. Caveira  
+	index:9603 nome:Gargula   
+	index:10439 nome:Gargula   
+	index:10023 nome:Gargula   
+	index:10267 nome:Gargula   
+	index:10419 nome:Gargula   
+	index:10327 nome:Gorila^ 
+	index:9621 nome:Morlock   
+	index:10170 nome:Gorila^ 
+	index:2 nome:obscuro 
+	index:9619 nome:Morlock   
+	index:9622 nome:Morlock   
+	index:9620 nome:Morlock   
+	index:9607 nome:Anf Assassino   
+	index:9610 nome:Anf Assassino   
+	index:9609 nome:Anf Assassino   
+	index:9608 nome:Anf Assassino   
+	index:9782 nome:Elfo ABJ  
+	index:9611 nome:Elfo ABJ  

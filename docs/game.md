@@ -1,5 +1,6 @@
 # Comandos do jogo
 
+/torre: se teleportará para a guerra de torres
 /armia: se teleportará para a cidade de Armia
 /erion: se teleportará para a cidade de Erion
 /azran: se teleportará para a cidade de Azran
