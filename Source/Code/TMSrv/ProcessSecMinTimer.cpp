@@ -1034,7 +1034,7 @@ lbl_PST1:
 		}
 #pragma endregion
 #pragma region War Tower End
-		if (GTorreState == 2 && !when.tm_min && !when.tm_sec)
+		if (GTorreState == 2 && when.tm_min == 30)
 		{
 			SendNotice("Guerra de Torres finalizada.");
 
@@ -1043,7 +1043,6 @@ lbl_PST1:
 			for (int i = MAX_USER; i < MAX_MOB; i++)
 			{
 				if (pMob[i].GenerateIndex == GTORRE)
-					//if (!strcmp(pMob[i].MOB.MobName, "Torre"))
 				{
 					if (pMob[i].MOB.Guild)
 					{

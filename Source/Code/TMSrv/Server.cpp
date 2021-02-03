@@ -3609,6 +3609,10 @@ void GenerateMob(int index, int PosX, int PosY)
 	pMob[tmob].GetCurrentScore(MAX_USER);
 	pMob[tmob].MOB.CurrentScore.Hp = pMob[tmob].MOB.CurrentScore.MaxHp;
 
+	if (index == GTORRE) {
+		pMob[tmob].MOB.CurrentScore.Hp = 1000;
+	}
+
 	if (NewbieEventServer && pMob[tmob].MOB.CurrentScore.Level < 120)
 		pMob[tmob].MOB.CurrentScore.Hp = 3 * pMob[tmob].MOB.CurrentScore.Hp / 4;
 
