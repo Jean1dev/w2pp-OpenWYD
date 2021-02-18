@@ -1,0 +1,48 @@
+Attacker(Kefra, 1003, 2367, 3931, 1, 1, 2) Targetbackup(liderRED, 1, 2371, 3914, 1003, 1, 1001) Target(liderRED, 1, 2371, 3914, 1, 1, 1001)
+	index:2 nome:HALLOW3N 
+	index:1003 nome:Kefra 
+	index:1002 nome:Mago Negro 
+Attacker(Soldado Merc, 14460, 2386, 1596, 2, 2, 1767) Targetbackup(HALLOW3N, 2, 3352, 1334, 14460, 2, 14623) Target(HALLOW3N, 2, 3352, 1334, 2, 2, 14623)
+	index:9573 nome:Basilisco 
+	index:1785 nome:Basilisco Ifrit 
+	index:1784 nome:Basilisco Ifrit 
+	index:1780 nome:Draco Lich 
+	index:11127 nome:Draco Lich 
+	index:14461 nome:Soldado Merc 
+	index:1772 nome:Dracorich 
+	index:1782 nome:Dracorich 
+	index:14462 nome:Soldado Merc 
+	index:1774 nome:Draco Lich 
+	index:1767 nome:Basilisco 
+	index:1768 nome:Basilisco Ifrit 
+	index:1771 nome:Basilisco Ifrit 
+	index:1765 nome:Dracorich 
+	index:1773 nome:Dracorich 
+	index:14460 nome:Soldado Merc 
+	index:1769 nome:Basilisco 
+	index:1775 nome:Basilisco 
+	index:1766 nome:Basilisco 
+	index:13257 nome:Cap.Explor. 
+	index:1770 nome:Basilisco 
+Attacker(Draco Lich, 15009, 2394, 1590, 2, 2, 14947) Targetbackup(HALLOW3N, 2, 3352, 1334, 15009, 2, 15082) Target(HALLOW3N, 2, 3352, 1334, 2, 2, 15082)
+	index:1776 nome:Basilisco 
+	index:1785 nome:Basilisco Ifrit 
+	index:1784 nome:Basilisco Ifrit 
+	index:15009 nome:Draco Lich 
+	index:15010 nome:Basilisco 
+	index:11127 nome:Draco Lich 
+	index:1773 nome:Dracorich 
+	index:14947 nome:Soldado Merc 
+	index:1772 nome:Dracorich 
+	index:1771 nome:Basilisco Ifrit 
+	index:1774 nome:Draco Lich 
+	index:11128 nome:Basilisco 
+	index:1767 nome:Basilisco 
+	index:1766 nome:Basilisco 
+	index:1775 nome:Basilisco 
+	index:1765 nome:Dracorich 
+	index:1768 nome:Basilisco Ifrit 
+	index:14809 nome:Cap.Explor. 
+	index:1769 nome:Basilisco 
+	index:1770 nome:Basilisco 
+	index:14948 nome:Soldado Merc 
