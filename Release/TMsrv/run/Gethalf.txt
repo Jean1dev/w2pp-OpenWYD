@@ -1,165 +1,48 @@
-Attacker(Feiticeira , 7458, 1700, 1822, 6656, 7457, 6656) Targetbackup(Averest , 6656, 1699, 1822, 7458, 7457, 7458) Target(Guarda do Rei, 7457, 1711, 1839, 6656, 7457, 6558)
-	index:6556 nome:Combatente  
-	index:6654 nome:Combatente  
-	index:6998 nome:Combatente  
-	index:6557 nome:Bruxa  
-	index:6655 nome:Bruxa  
-	index:6999 nome:Bruxa  
-	index:7582 nome:Feiticeira  
-	index:7033 nome:Averest  
-	index:7581 nome:Averest  
-	index:2928 nome:Averest  
-	index:2929 nome:Feiticeira  
-	index:6656 nome:Averest  
-	index:7458 nome:Feiticeira  
-Attacker(Feiticeira , 7458, 1700, 1822, 6656, 7457, 6656) Targetbackup(Averest , 6656, 1699, 1822, 7458, 7457, 7458) Target(Guarda do Rei, 7457, 1713, 1840, 6656, 7457, 6558)
-	index:6654 nome:Combatente  
-	index:6556 nome:Combatente  
-	index:6998 nome:Combatente  
-	index:6557 nome:Bruxa  
-	index:6655 nome:Bruxa  
-	index:6999 nome:Bruxa  
-	index:7581 nome:Averest  
-	index:7582 nome:Feiticeira  
-	index:7033 nome:Averest  
-	index:2928 nome:Averest  
-	index:2929 nome:Feiticeira  
-	index:6656 nome:Averest  
-	index:7458 nome:Feiticeira  
-Attacker(Elfo ABJ , 13509, 1304, 334, 13463, 13463, 13466) Targetbackup(Tigre^, 13463, 2462, 2002, 13509, 13463, 13460) Target(Tigre^, 13463, 2462, 2002, 13463, 13463, 13460)
-	index:13430 nome:Gargula   
-	index:13432 nome:Gargula   
-	index:13433 nome:Gargula   
-	index:13446 nome:Morlock   
-	index:13449 nome:Morlock   
-	index:13431 nome:Gargula   
-	index:13447 nome:Morlock   
-	index:13448 nome:Morlock   
-	index:13549 nome:Anf Assassino   
-	index:13435 nome:Anf Assassino   
-	index:13550 nome:Anf Assassino   
-	index:13436 nome:Anf Assassino   
-	index:13509 nome:Elfo ABJ  
-	index:13460 nome:Elfo ABJ  
-	index:13434 nome:Anf Assassino   
-	index:13440 nome:Elfo ABJ  
-	index:13466 nome:Tigre^ 
-	index:13572 nome:Elfo ABJ  
-	index:13599 nome:Elfo ABJ  
-	index:13600 nome:Elfo ABJ  
-	index:13443 nome:Bruxa Elfica   
-	index:13442 nome:Bruxa Elfica   
-	index:13444 nome:Bruxa Elfica   
-Attacker(Tauron, 3186, 1192, 1720, 2, 2, 13642) Targetbackup(obscuro, 2, 2202, 3866, 3186, 2, 6102) Target(obscuro, 2, 2202, 3866, 2, 2, 6102)
-	index:13693 nome:Tauron 
-	index:13694 nome:Tauron 
-	index:13663 nome:Tauron 
-	index:3185 nome:Tauron 
-	index:5171 nome:Tauron 
-	index:3186 nome:Tauron 
-	index:13642 nome:Tigre^ 
-	index:5169 nome:Tauron 
-	index:13662 nome:Tauron 
-	index:5195 nome:Tauron 
-	index:5194 nome:Tauron 
-	index:5196 nome:Tauron 
-Attacker(Tigre^, 13642, 2203, 3865, 5171, 5171, 6102) Targetbackup(Tauron, 5171, 1190, 1720, 13642, 5171, 0) Target(Tauron, 5171, 1190, 1720, 5171, 5171, 0)
-	index:13642 nome:Tigre^ 
-	index:2 nome:obscuro 
-	index:13641 nome:Tigre^ 
-	index:13643 nome:Tigre^ 
-	index:6102 nome:Lich Crunt 
-Attacker(Gorila^, 9894, 1309, 322, 10123, 10123, 10122) Targetbackup(Zakum Inf, 10123, 3383, 1497, 9894, 10123, 2) Target(Zakum Inf, 10123, 3383, 1497, 10123, 10123, 2)
-	index:9628 nome:Cav. Negro  
-	index:9630 nome:Cav. Negro  
-	index:9627 nome:Cav. Negro  
-	index:9629 nome:Cav. Negro  
-	index:9623 nome:Aqua Golem   
-	index:9600 nome:Guer. Caveira  
-	index:9601 nome:Guer. Caveira  
-	index:9602 nome:Guer. Caveira  
-	index:9626 nome:Aqua Golem   
-	index:9625 nome:Aqua Golem   
-	index:9624 nome:Aqua Golem   
-	index:9599 nome:Guer. Caveira  
-	index:9603 nome:Gargula   
-	index:9604 nome:Gargula   
-	index:10023 nome:Gargula   
-	index:10122 nome:Gargula   
-	index:9894 nome:Gorila^ 
-	index:10026 nome:Gorila^ 
-	index:9622 nome:Morlock   
-	index:2 nome:obscuro 
-	index:10092 nome:Gargula   
-	index:9619 nome:Morlock   
-	index:9620 nome:Morlock   
-	index:9621 nome:Morlock   
-	index:9608 nome:Anf Assassino   
-	index:9609 nome:Anf Assassino   
-	index:9607 nome:Anf Assassino   
-	index:9610 nome:Anf Assassino   
-	index:9782 nome:Elfo ABJ  
-	index:9612 nome:Elfo ABJ  
-	index:9613 nome:Elfo ABJ  
-Attacker(Gorila^, 10026, 1310, 322, 10123, 10123, 10122) Targetbackup(Zakum Inf, 10123, 3383, 1497, 10026, 10123, 2) Target(Zakum Inf, 10123, 3383, 1497, 10123, 10123, 2)
-	index:9628 nome:Cav. Negro  
-	index:9630 nome:Cav. Negro  
-	index:9627 nome:Cav. Negro  
-	index:9629 nome:Cav. Negro  
-	index:9623 nome:Aqua Golem   
-	index:9600 nome:Guer. Caveira  
-	index:9601 nome:Guer. Caveira  
-	index:9602 nome:Guer. Caveira  
-	index:9626 nome:Aqua Golem   
-	index:9625 nome:Aqua Golem   
-	index:9624 nome:Aqua Golem   
-	index:9599 nome:Guer. Caveira  
-	index:9603 nome:Gargula   
-	index:9604 nome:Gargula   
-	index:10023 nome:Gargula   
-	index:10122 nome:Gargula   
-	index:9894 nome:Gorila^ 
-	index:10026 nome:Gorila^ 
-	index:9622 nome:Morlock   
-	index:2 nome:obscuro 
-	index:10092 nome:Gargula   
-	index:9619 nome:Morlock   
-	index:9620 nome:Morlock   
-	index:9621 nome:Morlock   
-	index:9608 nome:Anf Assassino   
-	index:9609 nome:Anf Assassino   
-	index:9607 nome:Anf Assassino   
-	index:9610 nome:Anf Assassino   
-	index:9782 nome:Elfo ABJ  
-	index:9612 nome:Elfo ABJ  
-	index:9613 nome:Elfo ABJ  
-Attacker(Gorila^, 10170, 1308, 323, 10440, 10440, 10419) Targetbackup(Zakum Inf , 10440, 3388, 1499, 10170, 10440, 2) Target(Zakum Inf , 10440, 3388, 1499, 10440, 10440, 2)
-	index:9599 nome:Guer. Caveira  
-	index:9629 nome:Cav. Negro  
-	index:9630 nome:Cav. Negro  
-	index:9602 nome:Guer. Caveira  
-	index:9628 nome:Cav. Negro  
-	index:9624 nome:Aqua Golem   
-	index:9600 nome:Guer. Caveira  
-	index:9626 nome:Aqua Golem   
-	index:9625 nome:Aqua Golem   
-	index:9623 nome:Aqua Golem   
-	index:9601 nome:Guer. Caveira  
-	index:9603 nome:Gargula   
-	index:10439 nome:Gargula   
-	index:10023 nome:Gargula   
-	index:10267 nome:Gargula   
-	index:10419 nome:Gargula   
-	index:10327 nome:Gorila^ 
-	index:9621 nome:Morlock   
-	index:10170 nome:Gorila^ 
-	index:2 nome:obscuro 
-	index:9619 nome:Morlock   
-	index:9622 nome:Morlock   
-	index:9620 nome:Morlock   
-	index:9607 nome:Anf Assassino   
-	index:9610 nome:Anf Assassino   
-	index:9609 nome:Anf Assassino   
-	index:9608 nome:Anf Assassino   
-	index:9782 nome:Elfo ABJ  
-	index:9611 nome:Elfo ABJ  
+Attacker(Kefra, 1003, 2367, 3931, 1, 1, 2) Targetbackup(liderRED, 1, 2371, 3914, 1003, 1, 1001) Target(liderRED, 1, 2371, 3914, 1, 1, 1001)
+	index:2 nome:HALLOW3N 
+	index:1003 nome:Kefra 
+	index:1002 nome:Mago Negro 
+Attacker(Soldado Merc, 14460, 2386, 1596, 2, 2, 1767) Targetbackup(HALLOW3N, 2, 3352, 1334, 14460, 2, 14623) Target(HALLOW3N, 2, 3352, 1334, 2, 2, 14623)
+	index:9573 nome:Basilisco 
+	index:1785 nome:Basilisco Ifrit 
+	index:1784 nome:Basilisco Ifrit 
+	index:1780 nome:Draco Lich 
+	index:11127 nome:Draco Lich 
+	index:14461 nome:Soldado Merc 
+	index:1772 nome:Dracorich 
+	index:1782 nome:Dracorich 
+	index:14462 nome:Soldado Merc 
+	index:1774 nome:Draco Lich 
+	index:1767 nome:Basilisco 
+	index:1768 nome:Basilisco Ifrit 
+	index:1771 nome:Basilisco Ifrit 
+	index:1765 nome:Dracorich 
+	index:1773 nome:Dracorich 
+	index:14460 nome:Soldado Merc 
+	index:1769 nome:Basilisco 
+	index:1775 nome:Basilisco 
+	index:1766 nome:Basilisco 
+	index:13257 nome:Cap.Explor. 
+	index:1770 nome:Basilisco 
+Attacker(Draco Lich, 15009, 2394, 1590, 2, 2, 14947) Targetbackup(HALLOW3N, 2, 3352, 1334, 15009, 2, 15082) Target(HALLOW3N, 2, 3352, 1334, 2, 2, 15082)
+	index:1776 nome:Basilisco 
+	index:1785 nome:Basilisco Ifrit 
+	index:1784 nome:Basilisco Ifrit 
+	index:15009 nome:Draco Lich 
+	index:15010 nome:Basilisco 
+	index:11127 nome:Draco Lich 
+	index:1773 nome:Dracorich 
+	index:14947 nome:Soldado Merc 
+	index:1772 nome:Dracorich 
+	index:1771 nome:Basilisco Ifrit 
+	index:1774 nome:Draco Lich 
+	index:11128 nome:Basilisco 
+	index:1767 nome:Basilisco 
+	index:1766 nome:Basilisco 
+	index:1775 nome:Basilisco 
+	index:1765 nome:Dracorich 
+	index:1768 nome:Basilisco Ifrit 
+	index:14809 nome:Cap.Explor. 
+	index:1769 nome:Basilisco 
+	index:1770 nome:Basilisco 
+	index:14948 nome:Soldado Merc 

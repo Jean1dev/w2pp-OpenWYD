@@ -131931,7 +131931,7 @@
 // no1049c3 
 // ********************************************
 #	[4850]
-	MinuteGenerate:	-1
+	MinuteGenerate:	1
 	MaxNumMob:	1
 	MinGroup:	0
 	MaxGroup:	0
