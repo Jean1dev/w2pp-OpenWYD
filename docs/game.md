@@ -1,21 +1,21 @@
 # Comandos do jogo
 
-/torre: se teleportará para a guerra de torres
-/armia: se teleportará para a cidade de Armia
-/erion: se teleportará para a cidade de Erion
-/azran: se teleportará para a cidade de Azran
-/gelo: se teleportará para a cidade de Gelo
-/kefra: se teleportará para a cidade de Kefra
-/red: se teleportará para o rei de Akelonia
-/blue: se teleportará para o rei de Hekalotia
-/arch: se teleportará para a cidade dos reinos (destrave Arch)
-/crias: se teleportará para o drop de crias (Sleipnir e Svaldfire)
-/destravar40: destrava o level 40 do celestial
-/destravar90: destrava  o level 90 do celestial
-/arcana: realiza a quest  da cythera arcana
-/create: (nome da guild): cria guild
-/guild: mostra o index (ID) da sua guild
-/buffs: Remove todos os buffs do personagem
+/torre: se teleportará para a guerra de torres <br/>
+/armia: se teleportará para a cidade de Armia <br/>
+/erion: se teleportará para a cidade de Erion <br/>
+/azran: se teleportará para a cidade de Azran <br/>
+/gelo: se teleportará para a cidade de Gelo <br/>
+/kefra: se teleportará para a cidade de Kefra <br/>
+/red: se teleportará para o rei de Akelonia <br/>
+/blue: se teleportará para o rei de Hekalotia <br/>
+/arch: se teleportará para a cidade dos reinos (destrave Arch) <br/>
+/crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) <br/>
+/destravar40: destrava o level 40 do celestial <br/>
+/destravar90: destrava  o level 90 do celestial <br/>
+/arcana: realiza a quest  da cythera arcana <br/>
+/create: (nome da guild): cria guild <br/>
+/guild: mostra o index (ID) da sua guild <br/>
+/buffs: Remove todos os buffs do personagem <br/>
 
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
