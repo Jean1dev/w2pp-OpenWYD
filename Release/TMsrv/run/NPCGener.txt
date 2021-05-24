@@ -157905,12 +157905,12 @@
 	StartY:		2101
 	StartRange:	0
 	StartWait:	8
-	StartAction:	Acesse_nossa_pagina:_fb.com/WYDCavaleiros
+	StartAction:	Acesse_nosso_discord_informacoes_no_site
 	Segment1X:	2099
 	Segment1Y:	2100
 	Segment1Range:	0
 	Segment1Wait:	8
-	Segment1Action:	Atualize_o_jogo_atraves_do_launcher
+	Segment1Action:	Servidor_em_construcao
 	Segment2X:	2099
 	Segment2Y:	2100
 	Segment2Range:	0
