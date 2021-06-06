@@ -14,6 +14,7 @@
 /destravar90: destrava  o level 90 do celestial <br/>
 /arcana: realiza a quest  da cythera arcana <br/>
 /create: (nome da guild): cria guild <br/>
+/sair: sai da sua guild <br/>
 /guild: mostra o index (ID) da sua guild <br/>
 /buffs: Remove todos os buffs do personagem <br/>
 
