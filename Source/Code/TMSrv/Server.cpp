@@ -3610,7 +3610,7 @@ void GenerateMob(int index, int PosX, int PosY)
 	pMob[tmob].MOB.CurrentScore.Hp = pMob[tmob].MOB.CurrentScore.MaxHp;
 
 	if (index == GTORRE) {
-		pMob[tmob].MOB.CurrentScore.Hp = 1000;
+		pMob[tmob].MOB.CurrentScore.Hp = 10000000;
 	}
 
 	if (NewbieEventServer && pMob[tmob].MOB.CurrentScore.Level < 120)
