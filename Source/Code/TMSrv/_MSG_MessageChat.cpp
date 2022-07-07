@@ -102,13 +102,6 @@ void Exec_MSG_MessageChat(int conn, char *pMsg)
 		return;
 	}
 
-	else if (strcmp(szCmd, "guild") == 0)
-	{
-		SendGuildList(conn);
-
-		return;
-	}
-
 	else if (strcmp(szCmd, "whisper") == 0)
 	{
 		pUser[conn].Whisper = pUser[conn].Whisper == 0;

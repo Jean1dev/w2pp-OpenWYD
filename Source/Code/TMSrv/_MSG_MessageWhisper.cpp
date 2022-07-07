@@ -93,8 +93,8 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 #pragma endregion	
-#pragma region /guild
-	else if (strcmp(m->MobName, "guild") == 0)
+#pragma region /index
+	else if (strcmp(m->MobName, "index") == 0)
 	{
 		if (pMob[conn].MOB.Guild == 0 || pMob[conn].MOB.GuildLevel != 9)
 		{
@@ -760,7 +760,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 #pragma endregion
-#pragma region _NN_TP_TORRE - /torre
+/*#pragma region _NN_TP_TORRE - /torre
 	if (strcmp(m->MobName, "torre") == 0)
 	{
 		DoTeleport(conn, 2506 + rand() % 3, 1878 + rand() % 3);
@@ -768,6 +768,14 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 
 		sprintf(temp, "etc,torre command");
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
+		return;
+	}	
+#pragma endregion*/
+#pragma region _NN_GUILD - /guild
+	if (strcmp(m->MobName, "guild") == 0)
+	{
+		SendGuildList(conn);
+
 		return;
 	}
 #pragma endregion
