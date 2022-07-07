@@ -3252,7 +3252,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 7)) // Confiança
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3309,7 +3309,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 15)) // Trans
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3378,7 +3378,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 23)) // Espada Mágica
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3453,7 +3453,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 7)) // Blood
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3509,7 +3509,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 15)) // 8ª Black
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3565,7 +3565,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 23)) // 8ª Magia Especial
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3626,7 +3626,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 7)) // BM Elemental
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3665,12 +3665,12 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 
 			if (ArmaUnique == 44) // Lança
 			{
-				magic = magic + (((MOB.CurrentScore.Dex * 6.5) + (MOB.CurrentScore.Int * 5.5)) / 100);
+				magic = magic + (((MOB.CurrentScore.Dex * 7.0) + (MOB.CurrentScore.Int * 6.0)) / 100);
 			}
 
 			if (ArmaUnique == 47) // Cajado e Cetro
 			{
-				magic = magic + (((MOB.CurrentScore.Dex * 6.5) + (MOB.CurrentScore.Int * 5.5)) / 100);
+				magic = magic + (((MOB.CurrentScore.Dex * 6.8) + (MOB.CurrentScore.Int * 5.8)) / 100);
 			}
 
 			if (ArmaPos == 64) // Cajado
@@ -3682,7 +3682,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 15)) // BM Evocações
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3721,12 +3721,12 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 
 			if (ArmaUnique == 44) // Lança
 			{
-				magic = magic + (((MOB.CurrentScore.Dex * 6.5) + (MOB.CurrentScore.Int * 5.5)) / 100);
+				magic = magic + (((MOB.CurrentScore.Dex * 7.0) + (MOB.CurrentScore.Int * 6.0)) / 100);
 			}
 
 			if (ArmaUnique == 47) // Cajado e Cetro
 			{
-				magic = magic + (((MOB.CurrentScore.Dex * 6.5) + (MOB.CurrentScore.Int * 5.5)) / 100);
+				magic = magic + (((MOB.CurrentScore.Dex * 6.8) + (MOB.CurrentScore.Int * 5.8)) / 100);
 			}
 
 			if (ArmaPos == 64) // Cajado
@@ -3738,7 +3738,7 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 		if (MOB.LearnedSkill & (1 << 23)) // BM Natureza
 		{
 			int ArmaUnique = g_pItemList[MOB.Equip[6].sIndex].nUnique;
-			char ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
+			short ArmaPos = g_pItemList[MOB.Equip[6].sIndex].nPos;
 
 			if (ArmaUnique == 43) // Garra
 			{
@@ -3777,12 +3777,12 @@ void BASE_GetCurrentScore(STRUCT_MOB& MOB, STRUCT_AFFECT* Affect, STRUCT_MOBEXTR
 
 			if (ArmaUnique == 44) // Lança
 			{
-				magic = magic + (((MOB.CurrentScore.Dex * 6.5) + (MOB.CurrentScore.Int * 5.5)) / 100);
+				magic = magic + (((MOB.CurrentScore.Dex * 7.0) + (MOB.CurrentScore.Int * 6.0)) / 100);
 			}
 
 			if (ArmaUnique == 47) // Cajado e Cetro
 			{
-				magic = magic + (((MOB.CurrentScore.Dex * 6.5) + (MOB.CurrentScore.Int * 5.5)) / 100);
+				magic = magic + (((MOB.CurrentScore.Dex * 6.8) + (MOB.CurrentScore.Int * 5.8)) / 100);
 			}
 
 			if (ArmaPos == 64) // Cajado
