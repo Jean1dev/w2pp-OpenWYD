@@ -749,7 +749,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 
-	else
+	if (strcmp(m->MobName, "armia") == 0 && RvRState == 1 || strcmp(m->MobName, "armia") == 0 && GTorreState == 1 || strcmp(m->MobName, "armia") == 0 && CastleState == 1)
 	{
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
@@ -766,7 +766,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 
-	else
+	if (strcmp(m->MobName, "azran") == 0 && RvRState == 1 || strcmp(m->MobName, "azran") == 0 && GTorreState == 1 || strcmp(m->MobName, "azran") == 0 && CastleState == 1)
 	{
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
@@ -783,7 +783,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 
-	else
+	if (strcmp(m->MobName, "torre") == 0 && RvRState == 1 || strcmp(m->MobName, "torre") == 0 && GTorreState == 1 || strcmp(m->MobName, "torre") == 0 && CastleState == 1)
 	{
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
@@ -808,7 +808,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 
-	else
+	if (strcmp(m->MobName, "erion") == 0 && RvRState == 1 || strcmp(m->MobName, "erion") == 0 && GTorreState == 1 || strcmp(m->MobName, "erion") == 0 && CastleState == 1)
 	{
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
@@ -825,7 +825,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 
-	else
+	if (strcmp(m->MobName, "gelo") == 0 && RvRState == 1 || strcmp(m->MobName, "gelo") == 0 && GTorreState == 1 || strcmp(m->MobName, "gelo") == 0 && CastleState == 1)
 	{
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
@@ -848,7 +848,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 
-	else
+	if (strcmp(m->MobName, "kefra") == 0 && RvRState == 1 || strcmp(m->MobName, "kefra") == 0 && GTorreState == 1 || strcmp(m->MobName, "kefra") == 0 && CastleState == 1)
 	{
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
