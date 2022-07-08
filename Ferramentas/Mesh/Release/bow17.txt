@@ -1,0 +1,5 @@
+#Exportar usando waveform(obj)
+#type_msa size_vertice n_texturas
+274 32 1
+#id offset_poligonos n_poligonos offset_vertices n_vertices nome
+0 0 374 0 384 bow17.wys

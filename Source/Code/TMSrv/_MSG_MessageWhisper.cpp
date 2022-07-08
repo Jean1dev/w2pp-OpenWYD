@@ -739,7 +739,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 	}
 #pragma endregion
 #pragma region _NN_TP_ARMIA - /armia
-	if (strcmp(m->MobName, "armia") == 0)
+	if (strcmp(m->MobName, "armia") == 0 && RvRState == 0 && GTorreState == 0 && CastleState == 0)
 	{
 		DoTeleport(conn, 2100 + rand() % 3, 2100 + rand() % 3);
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_ARMIA]);
@@ -748,9 +748,15 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
 		return;
 	}
+
+	else
+	{
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
+		return;
+	}
 #pragma endregion
 #pragma region _NN_TP_AZRAN - /azran
-	if (strcmp(m->MobName, "azran") == 0)
+	if (strcmp(m->MobName, "azran") == 0 && RvRState == 0 && GTorreState == 0 && CastleState == 0)
 	{
 		DoTeleport(conn, 2500 + rand() % 3, 1716 + rand() % 3);
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_AZRAN]);
@@ -759,9 +765,15 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
 		return;
 	}
+
+	else
+	{
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
+		return;
+	}
 #pragma endregion
-/*#pragma region _NN_TP_TORRE - /torre
-	if (strcmp(m->MobName, "torre") == 0)
+#pragma region _NN_TP_TORRE - /torre
+	if (strcmp(m->MobName, "torre") == 0 && RvRState == 0 && GTorreState == 0 && CastleState == 0)
 	{
 		DoTeleport(conn, 2506 + rand() % 3, 1878 + rand() % 3);
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_TORRE]);
@@ -769,8 +781,14 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		sprintf(temp, "etc,torre command");
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
 		return;
-	}	
-#pragma endregion*/
+	}
+
+	else
+	{
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
+		return;
+	}
+#pragma endregion
 #pragma region _NN_GUILD - /guild
 	if (strcmp(m->MobName, "guild") == 0)
 	{
@@ -780,7 +798,7 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 	}
 #pragma endregion
 #pragma region _NN_TP_ERION - /erion
-	if (strcmp(m->MobName, "erion") == 0)
+	if (strcmp(m->MobName, "erion") == 0 && RvRState == 0 && GTorreState == 0 && CastleState == 0)
 	{
 		DoTeleport(conn, 2461 + rand() % 3, 2003 + rand() % 3);
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_ERION]);
@@ -789,9 +807,15 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
 		return;
 	}
+
+	else
+	{
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
+		return;
+	}
 #pragma endregion
 #pragma region _NN_TP_GELO - /gelo
-	if (strcmp(m->MobName, "gelo") == 0)
+	if (strcmp(m->MobName, "gelo") == 0 && RvRState == 0 && GTorreState == 0 && CastleState == 0)
 	{
 		DoTeleport(conn, 3650 + rand() % 3, 3130 + rand() % 3);
 		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_GELO]);
@@ -800,9 +824,15 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
 		return;
 	}
+
+	else
+	{
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
+		return;
+	}
 #pragma endregion
 #pragma region _NN_TP_KEFRA - /kefra
-	if (strcmp(m->MobName, "kefra") == 0)
+	if (strcmp(m->MobName, "kefra") == 0 && RvRState == 0 && GTorreState == 0 && CastleState == 0)
 	{
 		if (KefraLive == 0) {
 			DoTeleport(conn, 2365 + rand() % 3, 3884 + rand() % 3);
@@ -815,6 +845,12 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 
 		sprintf(temp, "etc,kefra command");
 		Log(temp, pUser[conn].AccountName, pUser[conn].IP);
+		return;
+	}
+
+	else
+	{
+		SendClientMessage(conn, g_pMessageStringTable[_NN_TP_DENY]);
 		return;
 	}
 #pragma endregion

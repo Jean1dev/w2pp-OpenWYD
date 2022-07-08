@@ -548,6 +548,12 @@
 #define _NN_GUILDCREATECLAN 535
 #define _SS_BASEWORKILLTOWER 536
 #define _NN_ENCAMPMENTBORN 537
+#define _NN_TP_DENY 538
+#define _KhepraNotGlobal 539
+#define _WarRvRLocal 540
+#define _DN_NeedBuyFame 541
+#define _BuySucessFame 542
+#define _KefraNotVivo 543
 #define _NN_TP_ARMIA 544
 #define _NN_TP_AZRAN 545
 #define _NN_TP_ERION 546
@@ -560,5 +566,5 @@
 #define _NN_10 553
 #define _NN_TP_TORRE 554
 //Fim
-#define _NN_WONDNTRED 554
-#define _NN_WONDNTBLUE 555
+#define _NN_WONDNTRED 555
+#define _NN_WONDNTBLUE 556

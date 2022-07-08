@@ -1,0 +1,260 @@
+Combinação_da_Pedra_Espiritual_II 10000 72
+FFFFFFFF Possível_criar_uma_pedra_espiritual_mais
+FFFFFFFF potente_atribuindo_opções_ao_utilizar
+FFFFFFFF orbes_de_acessórios_ou_ankhs.
+FFFFFFFF Dependendo_do_tipo_de_orbe_ou_de_ankh,
+FFFFFFFF as_opções_atribuídas_serão_diferentes,
+FFFFFFFF fundindo_as_pedras_espirituais_bem
+FFFFFFFF sucedidas_entre_elas,_poder_aumentará
+FFFF0000 ainda_mais_o_valor_da_opção.
+FFFFFFFF                                         
+Refinação_Abençoada_Purificada 10001 516
+FFFFFFFF Caso_esteja_refinando_a_partir
+FFFFFFFF de_+12,_poderá_utilizar_este_item
+FFFFFFFF no_lugar_da_pedra_secreta._Quanto_maior_o
+FFFFFFFF nível_de_refinação_abençoada_purificada,
+FFFFFFFF a_chance_de_sucesso_será_maior.
+FFFFFFFF Apenas_personagens_celestiais_a_partir_do
+FFFF0000 nível_40_poderá_realizar_esta_ação._Necessário
+FFFF0000 ao_menos_5000000_pontos_de_experiência.
+FFFFFFFF (Impossibilitado_para_Hardcores)
+Combinação_da_Troca_de_Alma 10002 859
+FFFFFFFF Altera_o_tipo_da_alma_do_personagem_comum.
+FFFFFFFF O_aumento_do_atributo_da_alma_é_relativo
+FFFFFFFF ao_tipo_de_jóia_combinada.
+FFFFFFFF                                       
+FFFFFFFF                                      
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                                                        
+Combinação_do_Item_Arch 10003 321
+FFFFFFFF Poderá_atribuir_opções_na_defesas_para
+FFFFFFFF os_personagens_Arch._Para_atribuir_opções
+FFFFFFFF nas_armaduras_de_alto_nível_para_arch,
+FFFFFFFF é_necessário_um_item_+9_e_a_pedra_brilhante.  
+FFFFFFFF A_chance_de_sucesso_varia_de_acordo_com_o
+FFFFFFFF nível_de_refinação_dos_itens_que
+FFFF0000 possuem_as_opções.
+FFFFFFFF                                                                       
+FFFFFFFF  
+Criação_de_Item_Ancient 10004 192
+FFFFFFFF Os_itens_refinados_até_+9_pode_ser_criados
+FFFFFFFF em_Ancient_utilizando_1_a_3_itens_com
+FFFFFFFF refinação_a_partir_de_+7_e_utilizando_uma
+FFFFFFFF jóia_específica._Um_item_ancient_adquirido
+FFFFFFFF através_de_sucesso_na_combinação_possui_um
+FFFFFFFF poder_superior_aos_itens_normais,_possuindo
+FFFFFFFF uma_habilidade_de_acordo_com_as_jóias_utilizadas.
+FFFF0000 (Atualmente_apenas_as_armas
+FFFF0000 podem_ser_combinadas)
+Sistema_de_Refinação_+10 10005 433
+FFFFFFFF Utilizando_2_itens_com_a_refinação_no_+9,
+FFFFFFFF um_item_com_a_refinação_+10_pode_ser_criado.
+FFFFFFFF As_opções_são_atribuídas_no_item_+10_de
+FFFFFFFF acordo_com_as_opções_dos_itens_+9_utilizado.
+FFFFFFFF As_jóias_utilizadas_também_atribuem
+FFFFFFFF uma_opção_exclusiva,_tornando_o_item_muito
+FFFFFFFF mais_potente_do_que_os_itens_padrão.
+FFFFFFFF          
+FFFF0000
+Combinação_da_Pedra_Espiritual_I 10006 72
+FFFFFFFF Utilizando_uma_pedra_espiritual_refinada
+FFFFFFFF até_+9,_crie_uma_opção_poderosa_através_da
+FFFFFFFF combinação._A_pedra_espiritual_criada_desta
+FFFFFFFF maneira_possui_uma_opção_muito_mais_poderosa,
+FFFFFFFF sua_opção_é_atribuída_de_uma_forma_aleatória.
+FFFFFFFF Combinação_pode_ser_realizada_somente_por
+FFFFFFFF personagens_acima_de_Nv356_Arch_com_a_quest
+FFFFFFFF "Renascimento_do_Guerreiro_Berserker".
+FFFF0000
+Combinação_de_Item_Celestial 10007 298
+FFFFFFFF Para_combinar_um_item_celestial,_é
+FFFFFFFF necessário_um_item_selado_+9,_um_item_+15
+FFFFFFFF de_arch_e_a_pedra_lunar_ou_a_jóia_da 
+FFFFFFFF escuridão,_num_total_de_4_tipos_de
+FFFFFFFF pedra_secreta.
+FFFFFFFF                                 
+FFFFFFFF                                          
+FFFF0000    
+FFFFFFFF                                                                        
+Refinação_+12~+15 10008 384
+FFFFFFFF Possível_criar_um_item_com_a_refinação
+FFFFFFFF +12_até_+15_combinando_os_itens_completos
+FFFFFFFF num_nível_+11_junto_com_os_itens:
+FFFFFFFF "Pedra_Secreta/Bênção_Purificada"_e
+FFFFFFFF Lactolerium_(10_unidades_combinados)           
+FFFFFFFF tornando_o_item_mais_poderoso.                        
+FFFFFFFF                                      
+FFFF0000  
+FFFFFFFF                                      
+Destravamento_Nv_Celestial_I 10009 357
+FFFFFFFF A_partir_do_nível_40_a_experiência_não
+FFFFFFFF poderá_mais_ser_obtida._Utilize_a_combinação
+FFFFFFFF necessária_para_destravar_o_nível_para
+FFFFFFFF poder_adquirir_a_experiência_novamente.
+FFFF0000 Após_concluir_a_combinação,_poderá_aumentar
+FFFFFFFF o_nível_adquirindo_a_experiência_normalmente.
+FFFFFFFF Ao_completar_a_combinação,_todos_os_itens
+FFFF0000 do_slot_serão_destruídos. 
+FFFFFFFF                                 
+Destravamento_Nv_Celestial_II/Pedra_Secreta 10010 366
+FFFFFFFF A_partir_do_nível_90,_não_será_mais_possível
+FFFFFFFF adquirir_a_experiência._Para_destravar
+FFFFFFFF o_ganho_de_experiência,_deve_combinar_os
+FFFFFFFF 24_tipos_de_palavras_rúnicas_em_7_cada.
+FFFFFFFF Caso_realize_a_combinação_correta,_poderá
+FFFFFFFF gerar_4_pedras_secretas._Caso_falhe_na
+FFFF0000 combinação,_todas_as_palavras_rúnicas_serão
+FFFF0000 consumidas._Ao_completar_a_combinação,
+FFFFFFFF todos_os_itens_do_slot_serão_destruídos.
+Combinação_de_Capa 10011 629
+FFFFFFFF Possível_combinar_as_capas_dos
+FFFFFFFF celestiais_para_que_fique_mais
+FFFFFFFF poderosa.
+FFFFFFFF
+FFFFFFFF
+FFFFFFFF
+FFFFFFFF
+FFFFFFFF
+FFFFFFFF
+Combinação_da_Troca_de_Alma 10012 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.
+FFFFFFFF
+FFFF0000 Aumento_de_FOR_+_Aumento_de_CONS
+FFFFFFFF
+FFFFFFFF
+FFFFFFFF
+Combinação_da_Troca_de_Alma 10013 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_de_INT_+_Aumento_de_CONS
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10014 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_de_AGL_+_Aumento_de_CONS
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10015 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_de_FOR_+_Aumento_de_AGL
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10016 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_de_INT_+_Aumento_de_AGL
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10017 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_de_CONS_+_Aumento_de_AGL
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10018 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_significativo_de_FOR
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10019 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_significativo_de_INT
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10020 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_significativo_de_CONS
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Combinação_da_Troca_de_Alma 10021 859
+FFFFFFFF Altera_o_tipo_de_alma_do_personagem
+FFFFFFFF comum._O_aumento_da_habilidade_da
+FFFFFFFF alma_depende_da_jóia_utilizada_na
+FFFFFFFF combinação.                                       
+FFFFFFFF                                      
+FFFF0000 Aumento_significativo_de_AGL
+FFFFFFFF                                    
+FFFFFFFF                                    
+FFFFFFFF                                    
+Renascimento_do_Guerreiro_Berserker 10022 511
+FFFFFFFF Permite_desfazer_o_selo_de_travamento
+FFFFFFFF do_personagem_Arch_de_nível_355_e_370.
+FFFFFFFF
+FFFFFFFF
+FFFFFFFF
+FFFF0000 Necessário_ao_menos_1_ponto_de_avaliação
+FFFF0000 durante_o_destravamento_de_nível_370.                                   
+FFFFFFFF
+FFFFFFFF
+Pedra_Amunra 10023 595
+FFFFFFFF Ao_utilizar_Acessórios,_Orbes_ou_Ankhs
+FFFFFFFF será_possível_produzir_Pedras_Amunra
+FFFFFFFF mais_poderosas.
+FFFFFFFF Atributos_são_diferentes_de_acordo_com
+FFFFFFFF as_Orbes_e_Ankhs,_e_se_combinar_uma  
+FFFFFFFF Pedra_Amunra_(composta),_o_item
+FFFFFFFF ficará_ainda_mais_forte.
+FFFFFFFF                                             
+FFFF0000
+Traje_de_Montaria 10024 882
+FFFFFFFF Possível_combinar_traje_com_montaria.
+FFFFFFFF Montaria_ficará_com_um_novo_visual.
+FFFFFFFF 
+FFFFFFFF 
+FFFFFFFF
+FFFF0000 Se_alterar_a_aparência_da_montaria,
+FFFF0000 a_mesma_não_poderá_ser_trocada.
+FFFFFFFF
+FFFFFFFF
+Restauração_de_Traje_de_Montaria 10025 883
+FFFFFFFF Possível_restaurar_a_aparência
+FFFFFFFF original_da_montaria_no_qual_havia
+FFFFFFFF sido_alterada.
+FFFFFFFF
+FFFFFFFF
+FFFF0000 Se_restaurar_a_aparência_da_montaria,
+FFFF0000 a_mesma_não_poderá_ser_trocada.
+FFFFFFFF
+FFFFFFFF
