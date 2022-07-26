@@ -1,19 +1,7 @@
         #Local Files
         
-        ../Release/Common/ItemList.bin
-        ../Release/DBsrv/run/account/A/admineu
-        ../Release/DBsrv/run/account/A/alleucas
-        ../Release/DBsrv/run/account/A/alleucas1
-        ../Release/DBsrv/run/account/A/alleucas2
-        ../Release/DBsrv/run/account/A/alleucas3
-        ../Release/DBsrv/run/account/A/alleucas4
-        ../Release/DBsrv/run/account/A/alleucas5
-        ../Release/DBsrv/run/account/M/
-        .vs/
-        Code/ClientPatch_v7662/ClientPatch_v7662.vcxproj.user
-        Code/ClientPatch_v7662/Debug/
-        Code/ClientPatch_v7662/x64/
-        Code/DBSrv/DBSrv.vcxproj.user
-        Code/DBSrv/Debug/
-        Code/TMSrv/Debug/
-        Code/TMSrv/TMSrv.vcxproj.user
+        ../Release/Common/
+        ../Release/DBsrv/*
+        ../Release/TBsrv/*
+        .vs/*
+        Code/*
