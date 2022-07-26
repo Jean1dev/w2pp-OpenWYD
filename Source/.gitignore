@@ -246,8 +246,8 @@ ModelManifest.xml
 
 #Local Files
         
-Common/*
-DBsrv/*
-TBsrv/*
+.Common/*
+.DBsrv/*
+.TBsrv/*
 .vs/*
-Code/*
+.Code/*
