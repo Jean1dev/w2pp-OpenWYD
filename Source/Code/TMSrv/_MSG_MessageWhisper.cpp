@@ -1387,10 +1387,10 @@ void Exec_MSG_MessageWhisper(int conn, char *pMsg)
 		return;
 	}
 #pragma endregion
-#pragma region /cosmo
-	else if (strcmp(m->MobName, "cosmo") == 0)
+#pragma region /donate
+	else if (strcmp(m->MobName, "donate") == 0)
 	{
-		sprintf(temp, "Você possui %d de Cosmo Energia.", pUser[conn].Donate);
+		sprintf(temp, "Você possui %d de donate.", pUser[conn].Donate);
 		SendClientMessage(conn, temp);
 		return;
 	}
