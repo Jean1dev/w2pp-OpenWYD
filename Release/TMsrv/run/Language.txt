@@ -528,7 +528,7 @@
 535 _NN_GUILDCREATECLAN	Você Terá que pertencer a um dos Reinos para poder criar guilda!
 536 _S_BASEWORKILLTOWER	O jogador %s da Guild %s destruiu a Torre.
 537 _NN_ENCAMPMENTBORN	Você precisa pertencer a algum reino antes de criar uma Guild.
-538 _BEMVINDO	Bem vindo ao Emulator Development Project 7.62
+538 _NN_TP_DENY	Não é possível se teleportar em guerras!
 539 _KhepraNotGlobal	A Guild %s derrotou Kefra!
 540 _WarRvRLocal	A Guerra de Reino desta semana será realizada no canal %d.
 541 _DN_NeedBuyFame	Você precisa de %d pontos de Fame.
@@ -543,5 +543,5 @@
 550 _NN_LIMPAR_INV	Inventário limpo com sucesso!
 551 _NN_Cant_Refine	Impossível de refinar.
 552 _NN_BUFFS	Você limpou sua barra de buffs.
-553 _NN_BUFFS	O item deve ter no mínimo a refinação +10.
+553 _NN_10	O item deve ter no mínimo a refinação +10.
 554 _NN_TP_TORRE	Teleportado para Torre.

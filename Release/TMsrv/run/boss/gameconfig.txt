@@ -2,7 +2,7 @@ Drop Item Event Settings:
    evindex 0   evdelete 0   evon 0   evitem 0   evrate 0   evstart 0 0 0 1
 Etc Event Settings:
    double 0   deadpoint 1   dungeonevent 1   statsapphire 30    battleroyal 0
-Billing Settings:
+Billing Settings:ADM-RoCkRoL-I#9364
    billmode 3   freeexp 35   charselbill 0    potioncount 10   partybonus 100   guildboard 0
 Item Drop Bonus Settings:
    100 100 100 100 100 100 100 100   100 100 100 100 100 100 100 100

@@ -22,7 +22,7 @@
 
 void strip_xtrap()
 {
-	*(char*)0x5D9491 = 0xEB;
+	//*(char*)0x5D9491 = 0xEB;
 }
 
 void strip_odd_connection_request()
@@ -42,17 +42,17 @@ int __stdcall DllMain(HINSTANCE hInstDLL, DWORD catchReason, LPVOID lpResrv)
 		VirtualProtect((void*)0x401000, 0x1F3000, PAGE_READWRITE, &dwOldProtectFlag_text);
 
 		LoadHooks();
-		/*char buffer[MAX_PATH] = { "", };
+		char buffer[MAX_PATH] = { "", };
 		GetModuleFileNameA(NULL, buffer, MAX_PATH);
 		auto  lpFilename = (strrchr(buffer, '\\') + 1);
 		auto WindowHandler = GetActiveWindow();
 		if (strcmp(lpFilename, "WYD.EXE") || !strcmp(lpFilename, "WYDLauncher.exe"))
 		{
-			MessageBoxA(WindowHandler, "Execute o jogo pelo launcher.", "WYD Launcher", 0);
+			MessageBoxA(WindowHandler, "Execute o jogo através launcher.", "WYD Launcher", 0);
 			SendMessage(WindowHandler, WM_SYSCOMMAND, SC_CLOSE, 0);
 			TerminateProcess(WindowHandler, 0);
 			return FALSE;
-		}*/
+		}
 		strip_xtrap();
 		strip_odd_connection_request();
 		VirtualProtect((void*)0x401000, 0x1F3000, dwOldProtectFlag_text, &dwOldProtectFlag_text);

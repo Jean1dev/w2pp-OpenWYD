@@ -969,6 +969,13 @@ void Exec_MSG_Attack(int conn, char *pMsg)
 #pragma region Exterminar
 			if (skillnum == 22)
 			{
+				dam = BASE_GetSkillDamage(skillnum, &pMob[conn].MOB, CurrentWeather, pMob[conn].WeaponDamage);
+
+				int Ac = pMob[idx].MOB.CurrentScore.Ac;
+
+				if (idx < MAX_USER)
+					Ac *= 3;
+
 				int CurrentMp = pMob[conn].MOB.CurrentScore.Mp;
 
 				pMob[conn].MOB.CurrentScore.Mp = 0;

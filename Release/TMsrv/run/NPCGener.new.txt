@@ -157988,17 +157988,17 @@
 	StartY:		2101
 	StartRange:	0
 	StartWait:	8
-	StartAction:	Acesse_nossa_pagina:_fb.com/WYDCavaleiros
+	StartAction:	Guerra_da_Torre_22H
 	Segment1X:	2099
 	Segment1Y:	2100
 	Segment1Range:	0
 	Segment1Wait:	8
-	Segment1Action:	Atualize_o_jogo_atraves_do_launcher
+	Segment1Action:	Acesse_nosso_discord_informacoes_no_site
 	Segment2X:	2099
 	Segment2Y:	2100
 	Segment2Range:	0
 	Segment2Wait:	8
-	Segment2Action:	Estamos_na_versao_7.648
+	Segment2Action:	Estamos_na_versao_7.650
 	DestX:		2100
 	DestY:		2102
 	DestRange:	1

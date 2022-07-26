@@ -1,0 +1,23 @@
+
+2- Não conta frag em area pvp <DIFICIL SER RESOLVIDO
+3- RvR=Mesmo quando uma certa guild Consegue uma pontuação não acontece nada
+4- Joia da armazenagem=Ao usar a joia da armazenagem abre a parte de skill
+5- Calça loki nao passa de +9
+6- Todas classes (C) (B) (A) (D) (E) usa e nao muda add apenas volta para a quantidade anterior<De jogar no set pra mudar add
+7- Vinha esta completamente bugada
+8- Bug Tomando dano fora da area pvp (area de guerra de torre) <DIFICIL SER RESOLVIDO
+9- Nao passa add set mortal para set Arch (Aparece algo errado na combinação)
+10- Aumentar o tempo da skill ''velocidade'' da FM
+11- Aumentar o tempo da skill ''escudo dourado'' da HT
+12- Aumentar para 1k o retorno de habilidade
+13- Kibita pedindo Secreta após pegar cidadania (cele,sub)
+14- Amunra acima de +9 não da os pontos certo
+15- Assim que o personagem entra nas quest (coveiro) volta para a area de iniciante
+16- As portas de noatum estao com pouco hp (1hit elas abrem)
+17- Mercador não sai do mapa
+18- Botar limite hp/mp
+19- Tirar os npc's de SET e ACESSORIOS do meio da cidade azran
+20- Não passa add para arma arch (fala que o item precisa estar anct mesmo estando anct)
+21- Aumentar hp das torres da guerra noatum.
+22- Chamas Etéreas do BM x BM remove buff, mas continua com aparencia de transformação.
+

@@ -1,1 +1,1 @@
-10.158.0.3 8895 admineu admineu1
+192.168.18.12 8895 admineu admineu1

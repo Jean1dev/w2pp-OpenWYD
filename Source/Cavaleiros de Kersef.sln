@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30002.166
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBSrv", "Code\DBSrv\DBSrv.vcxproj", "{EE72652A-8073-4357-B51F-E1EBC0358952}"
 EndProject
@@ -10,11 +10,13 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FAE7274D-7A03-42D8-829E-12721F07CC35}"
 	ProjectSection(SolutionItems) = preProject
 		Buff Loop.txt = Buff Loop.txt
+		.gitignore = .gitignore
 		Cavaleiros de Kersef.txt = Cavaleiros de Kersef.txt
 		Comandos GM.txt = Comandos GM.txt
 		Função dano.txt = Função dano.txt
 		Itens.txt = Itens.txt
 		Lista de bans.txt = Lista de bans.txt
+		Lista de bugs.txt = Lista de bugs.txt
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{40544B03-E7D0-458E-931D-A18313F3D5F0}"

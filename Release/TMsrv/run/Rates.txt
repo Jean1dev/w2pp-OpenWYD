@@ -1,11 +1,11 @@
 Exp:
-Armia: 70k a 114k
-Erion: 76k a 150k
+Armia: 70k a 150k
+Erion: 76k a 190k
 Arzan: 76k a 96k.
-Desert: 75k a 260k
+Desert: 75k a 560k
 Sub Mundo: 85k a 250k.
-Kefra 1: 65k a 120k.
-Kefra 2: 195k a 230k 
+Kefra 1: 65k a 180k.
+Kefra 2: 195k a 260k 
 Boss Kefra: 2kkk.
 Gelo 1: 140k a 210k.
 Gelo 2: 210k a 260k.
