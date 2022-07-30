@@ -971,10 +971,12 @@ void Exec_MSG_Attack(int conn, char *pMsg)
 			{
 				dam = BASE_GetSkillDamage(skillnum, &pMob[conn].MOB, CurrentWeather, pMob[conn].WeaponDamage);
 
-				int Ac = pMob[idx].MOB.CurrentScore.Ac;
+				int def = pMob[idx].MOB.CurrentScore.Ac;
 
 				if (idx < MAX_USER)
-					Ac *= 3;
+					def *= 3;
+
+				dam = BASE_GetSkillDamage((int)dam, def, master);
 
 				int CurrentMp = pMob[conn].MOB.CurrentScore.Mp;
 

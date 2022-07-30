@@ -76,7 +76,7 @@ void Exec_MSG_Buy(int conn, char *pMsg)
 	{
 		if (Donate > pUser[conn].Donate)
 		{
-			sprintf(temp, "Você precisa de %d Cosmo Energia", Donate);
+			sprintf(temp, "Você precisa de %d donate", Donate);
 			SendClientMessage(conn, temp);
 			return;
 		}
@@ -95,7 +95,7 @@ void Exec_MSG_Buy(int conn, char *pMsg)
 
 		pUser[conn].Donate -= Donate;
 
-		sprintf(temp, "%s comprou o item %s por %d e restou %d Cosmo Energia", pMob[conn].MOB.MobName, g_pItemList[itemIndex].Name, Donate, pUser[conn].Donate);
+		sprintf(temp, "%s comprou o item %s por %d e restou %d donate", pMob[conn].MOB.MobName, g_pItemList[itemIndex].Name, Donate, pUser[conn].Donate);
 		ItemLog(temp, pUser[conn].AccountName, pUser[conn].IP);
 
 		goto DonateBuy;
