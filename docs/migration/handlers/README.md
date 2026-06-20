@@ -40,8 +40,8 @@ riscos, no mesmo padrão do lote 1.
 
 **Cobertura:** 8 (lote 1) + 50 (lote 2) = **58/58 handlers `_MSG_*.cpp`**.
 
-> **Status da Fase 5: COMPLETO.** Todos os 58 handlers têm contrato.
-> **`_MSG_MessageWhisper`** agora tem a enumeração completa dos 55 comandos em
-> [_MSG_MessageWhisper-comandos.md](_MSG_MessageWhisper-comandos.md). Resta **1** com UNVERIFIED
-> interno por ser subsistema extenso: **`_MSG_Quest`** (2753 linhas — catalogar todos os
-> `npcMode`/etapas/recompensas). As receitas/taxas exatas das variantes de combine ficam na Fase 4 §3.
+> **Status da Fase 5: COMPLETO.** Todos os 58 handlers têm contrato. Os dois subsistemas extensos
+> também estão enumerados: **`_MSG_MessageWhisper`** → 55 comandos em
+> [_MSG_MessageWhisper-comandos.md](_MSG_MessageWhisper-comandos.md); **`_MSG_Quest`** → 38 NPCs/36
+> casos em [_MSG_Quest-npcs.md](_MSG_Quest-npcs.md). Resta apenas o **passo-a-passo fino** de alguns
+> NPCs de quest longos e as **receitas/taxas** das variantes de combine (Fase 4 §3) como UNVERIFIED.

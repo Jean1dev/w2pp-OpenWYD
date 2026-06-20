@@ -14,10 +14,13 @@
 - **Efeitos:** por `npcMode`/`confirm`, executa as etapas de quest — checa pré-requisitos (nível,
   itens, `mobExtra.QuestInfo`), consome itens, entrega recompensas (exp/gold/item), avança flags em
   `mobExtra` (Mortal/Arch/Celestial) e `STRUCT_QUEST` (quest diária). Diálogos via `SendSay`.
-- **Anti-cheat/risco:** **maior superfície de regras de progressão** do jogo. **UNVERIFIED (a
-  fechar):** enumerar todos os `npcMode`/etapas, pré-condições e recompensas — fazer em sub-lote
-  próprio (é praticamente um subsistema). Estado de quest mora em `STRUCT_MOBEXTRA.QuestInfo` (Fase 2
-  §1.5) — mapear cada flag. Grades/índices hardcoded → tabela de quests no schema novo.
+- **Enumeração completa:** os 38 tipos de NPC de quest (despacho Merchant/grade → modo → propósito) e
+  a cadeia Arch ("Quest 256") estão em **[_MSG_Quest-npcs.md](_MSG_Quest-npcs.md)**.
+- **Anti-cheat/risco:** **maior superfície de regras de progressão** do jogo. Estado de quest mora em
+  `STRUCT_MOBEXTRA.QuestInfo` (Fase 2 §1.5) + `pMob[conn].QuestFlag` — mapear cada flag. Faixas de
+  nível, tickets, recompensas e coordenadas são **hardcoded** → fortes candidatos a conteúdo
+  data-driven (tabela de quests). Passo-a-passo fino de alguns NPCs longos fica como UNVERIFIED no
+  doc dedicado.
 
 ## `_MSG_ReqRanking` (0x039F) — duelo / ranking PvP
 - **Gatilho/struct:** `MSG_STANDARDPARM2` (`Parm1 = tDuel`, `Parm2 = DuelParm` 0..4).
