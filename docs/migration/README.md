@@ -21,7 +21,7 @@
 | 5 | [handlers/](handlers/) | **COMPLETO** (58/58) | contratos por handler ([índice](handlers/README.md)); lote 1 (8 críticos, 1 arquivo cada) + lote 2 (50, agrupados por domínio). `Quest`/`MessageWhisper` com UNVERIFIED interno (subsistemas) |
 | 6 | [flows.md](flows.md) | **COMPLETO** (gameplay) / PARCIAL (war/castle/billing) | diagramas de sequência ASCII |
 | 7 | [config-ops.md](config-ops.md) | **COMPLETO** | catálogo de config, topologia (8281/7514/3000), hardcodes, env/secrets |
-| 8 | [parity-tests.md](parity-tests.md) | **COMPLETO** (metodologia+casos) | formato de golden case, casos por subsistema, captura, RNG |
+| 8 | [parity-tests.md](parity-tests.md) | **COMPLETO** | golden cases por subsistema, **esquema de fixture** + **harness de replay** (Go), proxy de captura nos 3 links reais, **paridade EXATA de RNG via LCG do MSVC**, matriz de cobertura, dimensionamento estatístico, plano de captura |
 | 9 | [migration-plan.md](migration-plan.md) | **COMPLETO** | NFRs, comparação de stacks + recomendação, sequência, riscos, DoD |
 | 10 | [glossary.md](glossary.md) | **COMPLETO** | termos WYD/PT-BR e do código |
 
@@ -50,6 +50,9 @@
   de save usam **alinhamento natural** (não `pack(1)`, diferente das mensagens de rede). — Fase 2 §0.1, §1.
 - **Gameplay é single-thread** (reactor WinSock). Preservar na v1 como **1 goroutine dona do estado
   + channels** (Go) para paridade e evitar dup de item. — Fase 3 §5, Fase 9 §3.5.
+- **Paridade EXATA de RNG é viável:** não há `srand` de inicialização (só em Odin), e o `rand()` do
+  MSVC é um LCG conhecido → reimplementar o LCG + a ordem de chamadas dá drops/refinos/críticos
+  byte-idênticos numa captura controlada. — Fase 8 §4.0.
 - **Stack recomendada: Go** (stack do time; encaixa em Linux/Docker/microservices; concorrência
   idiomática preserva o single-thread). Trade-off: codecs binários por offset explícito. Rust e C#
   como alternativas. — Fase 9 §3.

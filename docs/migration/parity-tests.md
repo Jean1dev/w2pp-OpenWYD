@@ -109,14 +109,37 @@ Fontes de RNG (libc `rand()` do MSVC, estado global):
   (o conteúdo desofuscado é idêntico independente do índice).
 - Combate (acerto/crítico): `rand()%100` em `CMob.cpp`.
 
+### 4.0. Achado-chave: **paridade EXATA de RNG é possível** (não só distribucional)
+
+- **Não há `srand()` de inicialização** em TMSrv/DBSrv (grep confirmou: o único `srand` está em
+  `_MSG_CombineItemOdin.cpp:124,134,209`). Logo, a CRT do MSVC usa a **seed default = 1** a cada boot
+  e produz **sempre a mesma sequência** de `rand()`.
+- `rand()` do MSVC é um **LCG conhecido e simples** — dá para reimplementar **byte-idêntico** em Go:
+  ```text
+  state : uint32 (inicia em 1)
+  rand():  state = state*214013 + 2531011;  return (state >> 16) & 0x7FFF   // 0..32767
+  ```
+  Reproduzindo esse LCG + a **mesma ordem de chamadas** `rand()`, o servidor novo gera **exatamente**
+  os mesmos drops/refinos/críticos do atual.
+- **Implicação prática:** numa captura controlada (1 cliente roteirizado, a partir de um **boot
+  limpo** do TMSrv), a sequência é determinística → cada caso vira **golden case exato** (valor, não
+  histograma).
+- **Exceção `_MSG_CombineItemOdin`:** reseeda com `srand(time(...)*...)` → não-determinístico por
+  design. Tratar à parte (testar por distribuição, ou tornar a seed injetável/configurável na stack
+  nova — recomendado, registrando como divergência).
+- **Cuidado:** `rand()` é um **estado global compartilhado** — com vários jogadores agindo
+  concorrentemente o stream se intercala. Por isso a captura determinística exige **isolamento** (um
+  cliente por vez, servidor recém-iniciado). Em produção/distribuição, cai-se no teste estatístico.
+
 Estratégias:
-1. **Distribuição, não valor exato:** rodar N=10⁵ amostras no servidor atual e no novo, comparar
-   histogramas (drop rate, taxa de sucesso de refino). Tolerância estatística.
-2. **Seed determinística:** instrumentar o servidor novo com um RNG injetável (seed por caso). Para
-   capturar do atual, é possível **fixar a seed** (`srand(k)`) num build de captura e gravar a
-   sequência de saídas — vira golden case exato.
-3. **Isolar o RNG do transporte:** comparar sempre payloads desofuscados, então o `iKeyWord`
-   aleatório não polui os testes.
+1. **Paridade exata (preferida onde aplicável):** replicar o LCG do MSVC (acima) + a ordem de
+   chamadas; comparar valor-a-valor. Vale para drop, combine (exceto Odin), combate.
+2. **Distribuição (fallback):** onde a ordem não for controlável (concorrência, Odin), rodar N=10⁵
+   amostras e comparar histogramas com tolerância estatística (qui-quadrado, ver §10).
+3. **Seed injetável no servidor novo:** abstrair o RNG atrás de uma interface (seedável por caso de
+   teste) — permite tanto reproduzir o LCG do MSVC quanto fixar cenários.
+4. **Isolar o RNG do transporte:** comparar sempre payloads **desofuscados**, então o `iKeyWord`
+   aleatório (`rand()%256`) não polui os testes de gameplay.
 
 ---
 
@@ -125,11 +148,32 @@ Estratégias:
 Duas abordagens práticas (o prompt sugere ambas):
 
 ### 5.1. Proxy TCP de captura (recomendado para protocolo de fio)
-Inserir um proxy entre `WYD.exe` e `TMSrv.exe` (e entre TMSrv↔DBSrv, TMSrv↔BISrv):
-- Encaminha bytes, mas **grava** cada frame (request/response) com timestamp.
-- Como o proxy conhece a `pKeyWord` (Fase 1 §4.4), pode **desofuscar e logar** o payload legível.
-- Saída: pares `(estado, entrada) → (saída)` reais, viram fixtures YAML/JSON.
-- Vantagem: zero alteração no servidor; captura tráfego real de jogadores.
+
+Inserir um proxy "man-in-the-middle" em cada um dos 3 links. Como o proxy conhece a `pKeyWord`
+(Fase 1 §4.4) e o `HEADER` (Fase 1 §1), ele **desenquadra, desofusca e loga** cada frame, e
+reencaminha os bytes originais intactos.
+
+**Onde interpor (usando os arquivos de rede reais — Fase 7/config-ops):**
+
+| Link | Como apontar para o proxy | Arquivo (Release) |
+|------|---------------------------|-------------------|
+| Cliente → TMSrv | editar a **serverlist** que o cliente baixa (`serverlist.txt`/`serverlist.bin`) para o IP:porta do proxy; proxy encaminha ao TMSrv real (`localip.txt`, lido em `Server.cpp:3965`) | `TMsrv/run/serverlist.*`, `localip.txt` |
+| TMSrv → DBSrv | apontar o endereço do DB que o TMSrv disca para o proxy (o TMSrv usa `ConnectServer`+INITCODE) | config de DB do TMSrv |
+| TMSrv → BISrv | editar `biserver.txt` (`IP porta`) para o proxy; encaminha ao BISrv real | `TMsrv/run/biserver.txt` (`54.207.102.145 3000`) |
+
+> Alternativa para o link de DB: o DBSrv tem um **redirect embutido** — se existir `redirect.txt`
+> (`IP porta user pass`, ver `DBSrv/Server.cpp:589` e `redirect.sample.txt`), ele reconecta a outro
+> servidor; pode ser usado como ponto de espelhamento sem proxy externo.
+
+**O proxy reusa o codec da Fase 1** (mesmo `HEADER` + transform + checksum + INITCODE). Recomendado
+escrevê-lo **em Go** (Fase 9), assim o codec de captura **é o mesmo** que vai no `tmServer` — captura
+e implementação se validam mutuamente.
+
+- Encaminha bytes intactos, mas **grava** cada frame (request/response) desofuscado + timestamp +
+  direção + `conn`/`ID`.
+- Saída: trilha de frames que vira (a) **vetores de transporte** (§3) e (b) **golden cases** de
+  gameplay (§1), correlacionando entrada→saída pelo `ID`/ordem.
+- Vantagem: zero alteração no servidor; captura tráfego real.
 
 ### 5.2. Cliente headless (`Wyd2Client` em C#)
 - Usar o `Wyd2Client` (ou `Ferramentas.rar`/`Conversor.rar`) para **dirigir** o servidor atual com
@@ -152,5 +196,112 @@ Um caso passa quando, para a mesma entrada e seed:
 Cobertura mínima para corte (Fase 9): todos os casos de §2.1–§2.7 + §3 verdes; §2.8 (war/castle)
 validado por captura.
 
-> **Status da Fase 8: COMPLETO** como metodologia + bateria de casos. A geração das fixtures reais
-> depende da captura (proxy/cliente) — é trabalho de implementação, não de documentação.
+---
+
+## 7. Esquema de fixture (versionado)
+
+Dois tipos de arquivo, em `tests/fixtures/`:
+
+**(a) Vetor de transporte** (`transport/*.json`) — valida a Fase 1 isolada:
+```json
+{
+  "kind": "transport", "v": 1,
+  "iKeyWord": 42,
+  "plain_hex":  "0c00 2a00 0d02 ...",   // payload desofuscado (com HEADER)
+  "wire_hex":   "0c00 2a7f 0d02 ...",   // bytes no fio (ofuscados) capturados do servidor atual
+  "checksum": 127
+}
+```
+Teste: `encode(plain, iKeyWord) == wire` **e** `decode(wire) == plain` **e** `checksum(plain)==127`.
+
+**(b) Golden case de gameplay** (`gameplay/<subsistema>/<id>.json`):
+```json
+{
+  "kind": "gameplay", "v": 1, "id": "refine_anct_success",
+  "subsystem": "combine",
+  "rng": { "impl": "msvc_lcg", "seed": 1, "skip": 12 },   // §4.0; "skip" = nº de rand() antes
+  "given": { "account_file": "snapshots/test_A_before.bin" },  // dump STRUCT_ACCOUNTFILE (Fase 2)
+  "when":  [ { "dir": "C2S", "type": "0x03A6", "fields": { "Item": [...], "InvenPos": [3,4] } } ],
+  "then": {
+    "out":   [ { "dir": "S2C", "type": "0x03A7", "fields": { "Parm": 1 } },
+               { "dir": "S2C", "type": "0x0182", "fields": { "Slot": 3 } } ],
+    "state": { "account_file": "snapshots/test_A_after.bin",
+               "diff": [ { "path": "Char[0].Carry[3].sanc", "from": 6, "to": 7 } ] }
+  }
+}
+```
+- **`given`/`state` por snapshot do arquivo de conta** (`STRUCT_ACCOUNTFILE`, 7952 B — Fase 2 §0.1):
+  o diff antes/depois prova a mutação persistida, comparado por **offset** (independe de linguagem).
+- **`when`/`out`** guardam o payload **desofuscado** + os campos decodificados (Fase 1 §3.5).
+- `rng` fixa o modo (LCG MSVC ou seed injetável) e quantos `rand()` "consumir" antes (para alinhar a
+  posição no stream a partir do boot limpo).
+
+---
+
+## 8. Harness de replay (servidor novo, Go)
+
+```
+fixture → [harness] → instancia tmServer em modo teste (RNG = msvc_lcg seedável; relógio fake)
+                       carrega given.account_file no estado
+                       injeta os pacotes `when` (já decodificados) no game-loop
+                       captura os pacotes `out` emitidos + faz dump do estado final
+                       assert: out == then.out (campo-a-campo)  &&  state == then.state (offset-a-offset)
+```
+- **Relógio fake:** `CurrentTime`/`GetTickCount` injetáveis (os checks de tick do `_MSG_Action`/
+  `_MSG_Attack` dependem disso — Fase 5). Sem isso, casos de anti-speedhack/cooldown não são
+  determinísticos.
+- **Transporte testado à parte** (§3/§7a): o harness de gameplay trabalha com pacotes já
+  decodificados, então não depende do `iKeyWord`.
+- **CI:** rodar a suíte a cada commit do `tmServer`; falha de qualquer golden case bloqueia merge.
+  Os fixtures ficam versionados no repo (são pequenos: JSON + dumps de 7952 B).
+
+---
+
+## 9. Matriz de cobertura (caso → handler/regra)
+
+Garante que cada handler da Fase 5 e cada fórmula da Fase 4 tenha ao menos 1 golden case.
+
+| Subsistema | Casos (§2) | Handlers (Fase 5) | Regras (Fase 4) |
+|------------|-----------|-------------------|-----------------|
+| Login/conta | 2.1 | AccountLogin, AccountSecure, DeleteCharacter | — |
+| Personagem | 2.2 | CreateCharacter, CharacterLogin, CharacterLogout, Restart | — |
+| Movimento | 2.3 | Action(+2/3), Motion, ReqTeleport, ChangeCity | anti-speed (tick) |
+| Combate | 2.4 | Attack | §4.1-4.6 (dano/acerto/parry/reflect) |
+| Itens | 2.5 | DropItem, GetItem, UseItem, TradingItem, DeleteItem, SplitItem | drop (§2) |
+| Refino | 2.6 | CombineItem + 8 variantes, UseItem(refino) | §3 (rolls + CompRate/SancRate) |
+| Trade/loja | 2.7 | Trade, QuitTrade, SendAutoTrade, ReqBuy, Buy, Sell, Deposit, Withdraw | economia/imposto |
+| Party/guilda/guerra | 2.8 | SendReqParty, AcceptParty, InviteGuild, GuildAlly, War, Challange | EXP de party (§1) |
+| Quest/cash | (add) | Quest (38 NPCs), CapsuleInfo, PutoutSeal | quest flags |
+| Chat/comandos | (add) | MessageChat, MessageWhisper (55 cmds) | — |
+
+> Itens "(add)": casos a acrescentar à bateria §2 para cobrir os handlers documentados no lote 2.
+
+---
+
+## 10. Dimensionamento estatístico (quando for distribucional)
+
+Para os casos sem ordem controlável (concorrência, Odin):
+- **Drop / refino (sucesso/falha):** proporção `p`. Para detectar desvio de ±1% com 95% de confiança,
+  `N ≈ 9600` amostras por célula; usar **N=10⁵** por folga.
+- **Teste:** qui-quadrado entre o histograma do atual e do novo (ex.: faixas de dano, sucesso de
+  refino por nível). Aceitar se `p-value > 0.01`.
+- **`rand()%115` do combine (§3.1):** validar explicitamente o "achatamento" (`>=100⇒-15`) — os
+  valores 85..99 devem aparecer ~2× mais que 0..84.
+
+---
+
+## 11. Sequência de captura (plano de execução)
+
+1. **Vetores de transporte** (§7a): 1 sessão curta capturando login → já dá HEADER/transform/checksum
+   reais. Destrava a Fase 1.
+2. **Boot limpo + 1 cliente roteirizado** (LCG determinístico, §4.0): login → criar char → mover →
+   atacar mob → dropar/pegar → refinar → trade → loja. Grava a trilha completa = golden cases exatos.
+3. **`_AUTH_GAME` (billing):** capturar o link TMSrv↔BISrv (Fase 1 §4.3 UNVERIFIED) — fecha o
+   layout de 196 bytes.
+4. **Distribuições:** sessão de N=10⁵ (drop/refino) para os histogramas (§10).
+5. **War/Castle (§2.8):** capturar uma janela de evento real (sequência temporal) — Fase 6.
+
+> **Status da Fase 8: COMPLETO.** Metodologia, bateria de casos, **esquema de fixture**, **harness de
+> replay**, **paridade exata via LCG do MSVC**, matriz de cobertura, dimensionamento estatístico e
+> plano de captura definidos. A geração das fixtures reais é trabalho de implementação (rodar o
+> proxy/cliente), não de documentação.
