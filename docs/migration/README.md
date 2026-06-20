@@ -18,7 +18,7 @@
 | 2 | [data-formats.md](data-formats.md) | **PARCIAL** (structs validadas) | conta/char (`STRUCT_ACCOUNTFILE`=**7952 B**), `STRUCT_MOB`=816/`MOBEXTRA`=552/`QUEST`=56/`ITEM`=8/`SCORE`=48; alinhamento natural vs `pack(1)` (§0.1); mapas (4096²/1024²), CSVs de conteúdo, modelo de dados alvo |
 | 3 | [domain-model.md](domain-model.md) | **COMPLETO** | índice `conn↔player↔mob`, estado global, máquinas de estado, concorrência |
 | 4 | [game-rules.md](game-rules.md) | **PARCIAL** | EXP/party, drop (gold/item/evento), refino/combine, combate, skills, timers |
-| 5 | [handlers/](handlers/) | **PARCIAL** (lote 1 de 8 críticos completo) | contratos por handler; [índice](handlers/README.md) dos 58 |
+| 5 | [handlers/](handlers/) | **COMPLETO** (58/58) | contratos por handler ([índice](handlers/README.md)); lote 1 (8 críticos, 1 arquivo cada) + lote 2 (50, agrupados por domínio). `Quest`/`MessageWhisper` com UNVERIFIED interno (subsistemas) |
 | 6 | [flows.md](flows.md) | **COMPLETO** (gameplay) / PARCIAL (war/castle/billing) | diagramas de sequência ASCII |
 | 7 | [config-ops.md](config-ops.md) | **COMPLETO** | catálogo de config, topologia (8281/7514/3000), hardcodes, env/secrets |
 | 8 | [parity-tests.md](parity-tests.md) | **COMPLETO** (metodologia+casos) | formato de golden case, casos por subsistema, captura, RNG |
@@ -64,7 +64,8 @@
   **a confirmar no build:** largura de `time_t` (premissa =8) via `static_assert`, e `BASE_GetFirstKey`. — Fase 2 §0.1.
 - Fórmula completa de combate (funções `BASE_*` sem fonte) — Fase 4 §4 / Fase 8 §2.4.
 - Semântica bit-a-bit do `AttributeMap` e origem de `g_pDropRate[]` — Fase 2 §2 / Fase 4 §2.2.
-- Structs exatas dos handlers do lote 2+ (50 restantes) — Fase 5.
+- Enumeração interna completa de `_MSG_Quest` (todos os `npcMode`/etapas/recompensas) e
+  `_MSG_MessageWhisper` (todos os comandos `#pragma region`) — subsistemas extensos; Fase 5.
 
 ## Convenções
 
