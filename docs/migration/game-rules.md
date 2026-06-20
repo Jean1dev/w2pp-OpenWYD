@@ -152,10 +152,28 @@ for i in [0, MAX_CARRY):
     # roll final compara droprate com rand() (continua após :2800)
 ```
 
-`g_pDropRate[]`/`g_pDropBonus[]` são arrays globais por slot (indexados por posição no Carry, não
-por item) — **UNVERIFIED** a origem exata (provável `gameconfig.txt`/`ItemDropList.txt`).
-`ItemDropList.txt` no `Release/` tem formato `Item: N: Mobs que dropam:<count>` (lista inversa
-item→mobs), aparentemente **gerada** pelo `DropTool.exe`, não consumida em runtime.
+`g_pDropRate[]`/`g_pDropBonus[]` são arrays globais **por slot** (64 posições do `Carry`, não por
+item) — **origem confirmada:** valores estáticos em `Basedef.cpp:222-238`, ajustáveis em runtime via
+`gameconfig.txt` (carregado em `Server.cpp:1302-1342`) e por comando GM (`imple.cpp:1095-1109`).
+
+Valores-base reais (`Basedef.cpp`):
+```text
+g_pDropBonus[64] = todos 100               # 100 = sem bônus (neutro)
+g_pDropRate[64]  = {                        # quanto MAIOR, mais raro (é divisor/odds)
+  slots  0-7  : 900            (equip comum)
+  slots  8-11 : 4              (muito comum — provável gold/poção)
+  slots 12-15 : 900
+  slots 16-23 : 20000          (raríssimo)
+  slots 24-47 : 2000
+  slots 48-55 : 3000
+  slot  56    : 1              (sempre dropa)
+  slots 57-63 : 35,500,2500,5000,5000,10000,20000
+}
+```
+> O slot do `Carry` do mob determina a raridade — não o item em si. `ItemDropList.txt` no `Release/`
+> (formato `Item: N: Mobs:<count>`) é **gerado** pelo `DropTool.exe` (relatório inverso), **não**
+> consumido em runtime. Na migração, modelar drop como `(mob_slot → item, rate)` e tornar
+> `g_pDropRate`/`Bonus` configuráveis.
 
 ### 2.3. Drop de evento global (`:2725-2755`)
 
@@ -256,39 +274,109 @@ refino hoje.
 
 ---
 
-## 4. Combate (dano)
+## 4. Combate (dano) — **fórmulas verificadas**
 
-Fonte principal: `TMSrv/CMob.cpp:700-883` (cálculo de score/dano corrente). Resumo do pipeline
-(`BASE_GetCurrentScore` em `:709` consolida atributos a partir de equip+affect):
+> Correção vs. versão anterior: as funções `BASE_*` **têm fonte** em `Basedef.cpp` (não são lib
+> opaca). As fórmulas abaixo são o código real. RNG via `rand()` (validar por distribuição, Fase 8).
+
+### 4.1. Fórmula de mitigação de dano — `BASE_GetDamage(dam, ac, combat)` (`Basedef.cpp:1265`)
 
 ```text
-BASE_GetCurrentScore(MOB, Affect, &extra, &ExpBonus, &ForceMobDamage,
-                     isMob=(idx>=MAX_USER), &Accuracy, &HpAbs, &ForceDamage)   # :709
+tdam  = dam - ac/2                       # AC mitiga metade do seu valor
+combat = min(combat/2, 7)                # "combat" = nível de maestria da arma, teto 7
+delta = 12 - combat
+rnd   = rand() % delta + combat + 99     # fator % ∈ [combat+99 , 110]  (variância da arma)
+tdam  = rnd * tdam / 100                 # aplica o fator percentual
 
-# Dano de arma (mão principal/secundária):
-WeaponDamage = w1 + fw2   (ou w2 + fw1 conforme arma)        # :787-789
-if <condição de arma especial>: WeaponDamage += 40           # :803,817
-
-# Bônus por sanctificação (refino) do equip:
-isanc = BASE_GetItemSanc(Equip[6]/[7]/[i])                    # :800,814,825
-ForceDamage  += (Grade==6 ? 80 : 40) * isanc                 # :867
-ReflectDamage += (Grade==8 ? 80 : 40) * isanc                # :873
-
-# Reflect / absorção:
-ReflectDamage += (Special[3]+1)/6                            # :779
-AC += (GetItemAbility(Equip[7], EF_AC)+1)/7                  # :783
-
-PvPDamage = AtaquePvP                                         # :883 (dano específico PvP)
+# "piso" não-linear quando o dano fica baixo/negativo:
+if tdam < -50:           tdam = 0
+elif -50 <= tdam < 0:    tdam = (tdam+50)/7
+elif 0 <= tdam <= 50:    tdam = 5*tdam/4 + 7
+if tdam <= 0:            tdam = 1         # dano mínimo sempre 1
 ```
 
-Acerto/esquiva: `Accuracy`/`HpAbs` saem de `BASE_GetCurrentScore`; rolls com `rand()%100`
-aparecem em `CMob.cpp:281` (`if BaseInt < rand()%100`) e `:310` (`Rand = rand()%100`). O cálculo
-final de hit/critical/dodge usa essas comparações.
+> Reproduzir **exatamente** o `rnd` (faixa depende de `combat`) e a escada de pisos. Quanto maior a
+> maestria (`combat`), menor a `delta` → menos variância e piso de dano mais alto.
 
-> **UNVERIFIED / a aprofundar:** a fórmula completa de acerto/esquiva/crítico e a soma final de dano
-> (ordem exata das parcelas, clamps) está espalhada entre `BASE_*` (lib sem fonte) e
-> `CMob.cpp:700-900`. Para paridade de combate, **capturar golden cases** de ataque (Fase 8) é
-> mais confiável que reconstruir só pela leitura, dado o uso de funções `BASE_*` sem código.
+### 4.2. Dano de skill — `BASE_GetSkillDamage(dam, ac, combat)` (`Basedef.cpp:1486`)
+
+```text
+tdam  = dam - ac/2
+combat = min(combat, 15)                 # teto 15 (skills usam mais maestria que melee)
+delta = 21 - combat
+rnd   = rand() % delta + combat + 90      # fator % ∈ [combat+90 , 110]
+tdam  = tdam * rnd / 100
+if tdam < -50:          tdam = 0
+elif -50 < tdam < 0:    tdam = (tdam+50)/10
+elif 0 <= tdam <= 45:   tdam = 5*tdam/4 + 5
+if tdam <= 0:           tdam = 1
+```
+
+### 4.3. Pipeline de um golpe — `_MSG_Attack.cpp` (por alvo em `Dam[i]`)
+
+```text
+dam = atacante.CurrentScore.Damage                              # :442
+
+# Crítico duplo (BASE_GetDoubleCritical decide bits em DoubleCritical):       :440
+if DoubleCritical & 2:   # "critical parcial"
+    dam = ((rand()%2 + 13) * dam)/10   se alvo é player (×1.3–1.4)            # :447
+    dam = ((rand()%2 + 15) * dam)/10   se alvo é mob    (×1.5–1.6)            # :449
+
+Ac = alvo.CurrentScore.Ac
+if alvo é player:  Ac *= 3              # players têm AC 3× mais eficaz em PvP  :454-455
+dam = BASE_GetDamage(dam, Ac, master)  # master = maestria da arma (§4.1)      :457
+
+# (FM/Class 3 com skill 0x200000: 25% de chance de golpe em área extra)       :459-478
+if DoubleCritical & 1:   dam *= 2       # crítico total dobra                  :480
+
+# ... resolução de acerto/parry (§4.4), reflect (§4.5), clamps ...
+if alvo é mob e dam>=1:  dam += atacante.ForceMobDamage                        :1470
+if dam >= MAX_DAMAGE:    dam = MAX_DAMAGE                                      :1473
+```
+
+### 4.4. Acerto / esquiva / parry — `_MSG_Attack.cpp:1415-1440`
+
+```text
+attackdex = ... (+500 se Rsv & 0x40)
+parryretn = GetParryRate(alvo.MOB, alvo.Parry, attackdex, atacante.Rsv)
+if skill ∈ {79,22}:  parryretn = 30*parryretn/100      # certas skills reduzem parry
+rd = rand() % 1000 + 1
+if rd < parryretn:                # ESQUIVA/PARRY
+    dam = -3                      # código de "miss/block"
+    if (alvo.Rsv & 0x200) and rd < 100:  dam = -4
+```
+
+> Esquiva é um roll em **mil** (`rand()%1000+1`) contra `parryretn` (de `GetParryRate`). `dam<0` é o
+> sinal de "errou/bloqueou" propagado ao cliente.
+
+### 4.5. Reflect / absorção (PvP) — `_MSG_Attack.cpp:1496-1508`
+
+```text
+if alvo é player e dam>0:
+    dam -= alvo.ReflectDamage                 # reflect plano; min 1
+    dam -= dam/100 * alvo.ReflectPvP          # reflect percentual; min 1
+```
+Efeitos de status no golpe: `RSV_FROST` (50% → affect 36) e `RSV_DRAIN` (50% → affect 40) com
+`Special[1]` (`:1511+`).
+
+### 4.6. Conversão atributo→dano (no `BASE_GetCurrentScore`, `Basedef.cpp:3014+`)
+
+`CurrentScore.Damage` parte do equip e recebe `EF_DAMAGE` (`:3028`); o **balanceamento por classe**
+soma `Dex*kd + Str*ks` conforme a arma. Ex.: TK (`Class==0`) com skill "Confiança" (`:3259+`):
+
+| Arma (`nUnique`) | Fórmula de bônus de dano |
+|------------------|--------------------------|
+| 43 Garra | `Dex*0.38 + Str*0.42` |
+| 42 Arco | `Dex*0.55 + Str*0.60` |
+| 46 Hermai | `Dex*0.36 + Str*0.40` |
+| 48 Espada 2 mãos | `Dex*0.56 + Str*0.60` |
+
+`Critical = BASE_GetMobAbility(EF_CRITICAL)/4` (`:3209`). Cada classe tem seu bloco de coeficientes
+(continuar lendo `Basedef.cpp:3245+` por classe) — **tabelar todos na implementação**.
+
+> **Ainda UNVERIFIED (menor):** os coeficientes Dex/Str de **todas** as classes/armas (só TK
+> exemplificado aqui) e a árvore completa de `BASE_GetDoubleCritical`/`GetParryRate`. O esqueleto e as
+> fórmulas-núcleo (§4.1–4.5) estão fechados; complementar com golden cases (Fase 8) para validar.
 
 ---
 
@@ -336,7 +424,18 @@ como config (Fase 7).
 | Cooldown refino | `1000ms` (DESATIVADO) | `_MSG_UseItem.cpp:214` | anti-spam comentado |
 | SkillDelay client | `/4` | `Hook.cpp:230` | cooldown efetivo |
 | Bônus de dano por sanc | `(Grade==6?80:40)*isanc` | `CMob.cpp:867` | force damage |
+| Dano: mitigação AC | `dam - ac/2` | `Basedef.cpp:1267` | melee/skill |
+| Dano: fator melee | `rand()%(12-min(combat/2,7)) + min(combat/2,7)+99` | `Basedef.cpp:1273` | variância por maestria |
+| Dano: fator skill | `rand()%(21-min(combat,15)) + min(combat,15)+90` | `Basedef.cpp:1493` | variância skill |
+| AC de player em PvP | `Ac *= 3` | `_MSG_Attack.cpp:455` | players resistem 3× |
+| Crítico parcial | `×1.3–1.4` (player) / `×1.5–1.6` (mob) | `_MSG_Attack.cpp:447-449` | `DoubleCritical&2` |
+| Crítico total | `dam *= 2` | `_MSG_Attack.cpp:480` | `DoubleCritical&1` |
+| Esquiva/parry | `rand()%1000+1 < parryretn` → `dam=-3` | `_MSG_Attack.cpp:1423-1428` | miss/block |
+| Dano mínimo | `1` | `Basedef.cpp:1294/1515` | piso |
 
-> **Status da Fase 4: PARCIAL.** EXP/party, drop (gold/comum/evento) e refino/combine documentados
-> com fórmula + file:line. UNVERIFIED a fechar por captura (Fase 8): fórmula completa de combate
-> (funções `BASE_*` sem fonte), origem exata de `g_pDropRate[]`, e parsing fino de `NPCGener`/AI.
+> **Status da Fase 4: COMPLETO (núcleo).** EXP/party, drop (gold/comum/evento, com valores reais de
+> `g_pDropRate`), refino/combine (rolls + tabelas), e **combate** (fórmulas reais de
+> `BASE_GetDamage`/`BASE_GetSkillDamage` + pipeline do `_MSG_Attack`, acerto/parry, reflect) estão
+> documentados com fórmula + file:line. UNVERIFIED **menor** (a complementar por golden cases, Fase 8):
+> os coeficientes Dex/Str por **classe×arma** (só TK exemplificado), a árvore de
+> `BASE_GetDoubleCritical`/`GetParryRate`, e o parsing fino de `NPCGener`/AI de mob.

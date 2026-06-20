@@ -17,7 +17,7 @@
 | 1 | [protocol-spec.md](protocol-spec.md) | **COMPLETO** (transporte+catálogo) / PARCIAL (`_AUTH_GAME`) | HEADER, framing, INITCODE, keyword transform, checksum, catálogo dos 198 Types, structs críticas, `pKeyWord` completa |
 | 2 | [data-formats.md](data-formats.md) | **PARCIAL** (structs validadas) | conta/char (`STRUCT_ACCOUNTFILE`=**7952 B**), `STRUCT_MOB`=816/`MOBEXTRA`=552/`QUEST`=56/`ITEM`=8/`SCORE`=48; alinhamento natural vs `pack(1)` (§0.1); mapas (4096²/1024²), CSVs de conteúdo, modelo de dados alvo |
 | 3 | [domain-model.md](domain-model.md) | **COMPLETO** | índice `conn↔player↔mob`, estado global, máquinas de estado, concorrência |
-| 4 | [game-rules.md](game-rules.md) | **PARCIAL** | EXP/party, drop (gold/item/evento), refino/combine, combate, skills, timers |
+| 4 | [game-rules.md](game-rules.md) | **COMPLETO** (núcleo) | EXP/party, drop (com valores reais de `g_pDropRate`), refino/combine, **combate** (`BASE_GetDamage`/`SkillDamage` + acerto/parry/reflect), skills, timers. UNVERIFIED menor: coef. Dex/Str por classe×arma |
 | 5 | [handlers/](handlers/) | **COMPLETO** (58/58) | contratos por handler ([índice](handlers/README.md)); lote 1 (8 críticos, 1 arquivo cada) + lote 2 (50, agrupados por domínio). `Quest`/`MessageWhisper` com UNVERIFIED interno (subsistemas) |
 | 6 | [flows.md](flows.md) | **COMPLETO** (gameplay) / PARCIAL (war/castle/billing) | diagramas de sequência ASCII |
 | 7 | [config-ops.md](config-ops.md) | **COMPLETO** | catálogo de config, topologia (8281/7514/3000), hardcodes, env/secrets |
@@ -62,8 +62,9 @@
 - Layout interno de `_AUTH_GAME` (billing, 196 bytes) — Fase 1 §4.3 / Fase 6 §9.
 - `sizeof` das structs de save calculados (MOB=816, MOBEXTRA=552, QUEST=56, ACCOUNTFILE=7952);
   **a confirmar no build:** largura de `time_t` (premissa =8) via `static_assert`, e `BASE_GetFirstKey`. — Fase 2 §0.1.
-- Fórmula completa de combate (funções `BASE_*` sem fonte) — Fase 4 §4 / Fase 8 §2.4.
-- Semântica bit-a-bit do `AttributeMap` e origem de `g_pDropRate[]` — Fase 2 §2 / Fase 4 §2.2.
+- Combate: coeficientes Dex/Str por **classe×arma** (só TK exemplificado) + árvore de
+  `BASE_GetDoubleCritical`/`GetParryRate` — núcleo já fechado; complementar por golden cases. Fase 4 §4 / Fase 8 §2.4.
+- Semântica bit-a-bit do `AttributeMap` — Fase 2 §2. (Origem de `g_pDropRate[]` já fechada: `Basedef.cpp:222`.)
 - Passo-a-passo fino de alguns NPCs de quest longos (`_MSG_Quest`) — despacho e propósito dos 38
   NPCs já mapeados; Fase 5. (`_MSG_MessageWhisper`: 55 comandos enumerados.)
 
