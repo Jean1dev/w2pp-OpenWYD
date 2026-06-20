@@ -48,10 +48,14 @@
 - **Persistência = dumps crus de struct C** (layout MSVC x86) em `account/<Key>/<NOME>`, com
   **múltiplas versões por tamanho de arquivo** (4294 legado / 7500–7600 / **7952 atual**). As structs
   de save usam **alinhamento natural** (não `pack(1)`, diferente das mensagens de rede). — Fase 2 §0.1, §1.
-- **Gameplay é single-thread** (reactor WinSock). Recomenda-se preservar esse modelo na v1 para
-  paridade e evitar dup de item. — Fase 3 §5, Fase 9 §3.
-- **Stack recomendada:** C#/.NET 8 (reuso do `Wyd2Client`, mapeamento binário fiel, migração de
-  concorrência de baixo risco); Rust/tokio como alternativa forte. — Fase 9 §3.
+- **Gameplay é single-thread** (reactor WinSock). Preservar na v1 como **1 goroutine dona do estado
+  + channels** (Go) para paridade e evitar dup de item. — Fase 3 §5, Fase 9 §3.5.
+- **Stack recomendada: Go** (stack do time; encaixa em Linux/Docker/microservices; concorrência
+  idiomática preserva o single-thread). Trade-off: codecs binários por offset explícito. Rust e C#
+  como alternativas. — Fase 9 §3.
+- **Arquitetura alvo: microservices** `tmServer` (CPSock↔cliente, stateful, 1 por canal) /
+  `dbServer` (gRPC, PostgreSQL) / `binServer` (gRPC, novo). Só a borda cliente↔tmServer é presa ao
+  protocolo legado; links internos via **gRPC+mTLS** (NATS futuro p/ cross-channel). — Fase 9 §3.5.
 
 ## Pendências UNVERIFIED (a fechar por captura/build)
 
