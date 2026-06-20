@@ -179,7 +179,7 @@ Linux x64 também é LE → o protocolo em si não sofre; só o alinhamento das 
 | Formatos de dados multi-versão | médio | alto | conversor versionado por tamanho de arquivo (Fase 2 §1.2) |
 | RNG não reproduzível | alto | médio | testar distribuição, não valor; seed injetável (Fase 8 §4) |
 | `_AUTH_GAME` (billing) UNVERIFIED | médio | médio | capturar tráfego TM↔BI antes de implementar (Fase 6 §9) |
-| Combate via funções `BASE_*` sem fonte | alto | alto | golden cases de ataque (Fase 8 §2.4) em vez de reconstrução |
+| Paridade fina de combate (RNG + coef. por classe×arma) | médio | alto | fórmulas-núcleo já reconstruídas (Fase 4 §4, fonte em `Basedef.cpp`); validar distribuição/coeficientes com golden cases (Fase 8 §2.4) |
 | **Segurança:** senha/PIN em claro | certo | **crítico** | hash na migração (não persistir claro) |
 | **Segurança:** checksum não-rejeitante + keytable estática pública | certo | alto | implementar checksum correto no envio; planejar sessão/cifra real pós-cutover (sem quebrar o cliente 7662 de imediato) |
 | Concorrência reintroduzindo dup de item | médio | alto | `tmServer` com **1 goroutine dona do estado + channels** (§3.5); nada de mutar estado fora do game-loop; testes de race (Fase 8 §2.5) |

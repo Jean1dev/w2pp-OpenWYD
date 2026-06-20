@@ -35,7 +35,8 @@
   são sobrescritos. (Confirmar que nenhum campo de dano do cliente é confiado — risco de dup/cheat.)
 
 ## Riscos (migração)
-- A fórmula de dano usa funções `BASE_*` sem fonte → **capturar golden cases** (Fase 8) é o caminho
-  confiável para paridade.
+- A fórmula de dano (`BASE_GetDamage`/`BASE_GetSkillDamage`, pipeline do golpe, acerto/parry/reflect)
+  está documentada na **Fase 4 §4** (fonte real em `Basedef.cpp`/`_MSG_Attack.cpp`); usa `rand()` →
+  validar por **distribuição** com golden cases (Fase 8). Resta tabelar coef. Dex/Str por classe×arma.
 - `SkillIndex == 99` como "ressurreição" é constante mágica — preservar.
 - A janela de tick depende de `CurrentTime` (clock do servidor) — reproduzir a unidade (ms).
