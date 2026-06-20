@@ -1,0 +1,12 @@
+.git
+*.md
+test/fixtures
+bin/
+*.log
+*.rar
+Release
+Source
+serverlist bin
+project-analizer
+.vs
+images

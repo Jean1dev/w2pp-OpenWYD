@@ -1,0 +1,24 @@
+# Baseline lint config for the big-bang rewrite (guidelines §25).
+# Run inside the golang:1.26-alpine container or after `go install`.
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - revive
+    - gofmt
+    - goimports
+    - ineffassign
+    - unconvert
+    - misspell
+
+issues:
+  exclude-rules:
+    # Generated protobuf code (Phase 2+) is exempt from style linters.
+    - path: \.pb\.go$
+      linters:
+        - revive
+        - staticcheck

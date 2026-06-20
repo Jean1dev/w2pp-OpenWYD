@@ -249,3 +249,5 @@ ModelManifest.xml
 .Common/
 .DBsrv/
 .TBsrv/
+# Go build output (w2pp-OpenWYD rewrite)
+/bin/

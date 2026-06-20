@@ -1,0 +1,23 @@
+# Dev topology (guidelines §4.4). The DB service is here for Phase 2 (dbServer/PostgreSQL);
+# tmServer does not use it until Phase 3 wires the gRPC client.
+services:
+  tmserver:
+    build: .
+    volumes:
+      - .:/app                 # hot reload of source
+      - go-cache:/go/pkg/mod   # module cache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8281:8281"            # TMSrv client port (config-ops topology)
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+volumes:
+  go-cache:
