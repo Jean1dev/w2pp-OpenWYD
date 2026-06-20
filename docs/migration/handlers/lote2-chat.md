@@ -32,12 +32,14 @@
 - **Sussurro real (default):** quando `MobName` é o nome de outro personagem online → entrega a
   mensagem ao destinatário (respeitando o flag `Whisper` do alvo; "Deny whisper"/"Not connected"
   quando bloqueado/offline).
+- **Enumeração completa:** os 55 comandos (`#pragma region`) estão catalogados em
+  **[_MSG_MessageWhisper-comandos.md](_MSG_MessageWhisper-comandos.md)** — gatilho, gate de permissão
+  e efeito de cada um.
 - **Anti-cheat/risco:** **este handler concentra a maior parte dos "comandos" do jogo** — é uma
-  superfície grande de confiança. **UNVERIFIED (a fechar):** enumerar TODOS os `#pragma region /<cmd>`
-  (gatilho, args, pré-condições de permissão, efeitos). Na migração, **extrair esses comandos para um
-  módulo de comandos dedicado** (com autorização explícita), separado do caminho de sussurro. Vários
-  comandos mutam estado sensível (cidadania, buffs, troca de canal) — exigem checagem de permissão
-  que hoje é implícita.
+  superfície grande de confiança. Achados principais (detalhe no doc dedicado): GM é gated só por
+  `Level>=1000` (frágil); `/gm` e `/cmd` entram no `ProcessImple` (`imple.cpp`); e há **backdoors de
+  progressão sem permissão** (`/destravar40`, `/destravar90`, `/arcana`) a remover/auditar. Na
+  migração, **separar comandos (com autorização explícita) do caminho de sussurro**.
 
 > **Recomendação de migração (ambos):** separar claramente **transporte de chat** (público/sussurro/
 > canais) de **comandos** (um command-bus com autorização). Hoje estão fundidos, o que dificulta

@@ -64,8 +64,8 @@
   **a confirmar no build:** largura de `time_t` (premissa =8) via `static_assert`, e `BASE_GetFirstKey`. — Fase 2 §0.1.
 - Fórmula completa de combate (funções `BASE_*` sem fonte) — Fase 4 §4 / Fase 8 §2.4.
 - Semântica bit-a-bit do `AttributeMap` e origem de `g_pDropRate[]` — Fase 2 §2 / Fase 4 §2.2.
-- Enumeração interna completa de `_MSG_Quest` (todos os `npcMode`/etapas/recompensas) e
-  `_MSG_MessageWhisper` (todos os comandos `#pragma region`) — subsistemas extensos; Fase 5.
+- Enumeração interna completa de `_MSG_Quest` (todos os `npcMode`/etapas/recompensas) — subsistema
+  extenso; Fase 5. (`_MSG_MessageWhisper` já enumerado: 55 comandos.)
 
 ## Convenções
 
