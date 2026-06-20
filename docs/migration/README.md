@@ -35,6 +35,12 @@
 4. **Fases 4, 5, 8** — garantem paridade comportamental no big-bang.
 5. **Fase 9 (migration-plan)** — decisão de stack e plano de corte.
 
+## Execução da migração
+
+Concluída a documentação, a etapa de **execução** tem seus próprios prompts mestres em
+[prompts/](prompts/): [implement.md](prompts/implement.md) (planeja+executa a reescrita em Go, fase a
+fase) e [validate.md](prompts/validate.md) (audita paridade + aderência às guidelines + DoD).
+
 ## Achados de maior impacto (resumo executivo)
 
 - **Versão de protocolo = 7640**, não 7662 (7662 é o nome do build/patch). `MSG_AccountLogin.
