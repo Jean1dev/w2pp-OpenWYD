@@ -17,9 +17,7 @@ Docker, alvo canônico). Layout por serviço: `tmserver/`, `dbserver/`, `binserv
 | 2 | dbServer: conversor + savefmt + domain + schema/pgx | **COMPLETO** (núcleo) / gRPC server → Fase 4 | layouts legados 4294 / 7500–7600; largura `time_t`; internos de `STRUCT_MOBEXTRA` |
 | 3 | Game-loop do tmServer (`tmserver/internal/world`) | **COMPLETO** | gRPC client p/ dbServer (adapter da port); sentinel do grid |
 | 4 | Handlers por subsistema (8 lotes) | **COMPLETO** (núcleo testável) — 8/8 lotes ✅ | layout S→C; `_NN_*`; billing; parry/crit; EXP/party §1; recipe/quest tables; quest(38 NPCs)/cmds-whisper; auto-trade/loja/banco; ranking |
-| 3 | Game-loop do tmServer | TODO | — |
-| 4 | Handlers por subsistema (lotes) | TODO | — |
-| 5 | Conteúdo (loaders) | TODO | — |
+| 5 | Conteúdo (loaders) (`tmserver/internal/content`) | **COMPLETO** (núcleo) | NPCGener; mapeamento completo CSV→struct (ItemList/SkillData); semântica de bits do AttributeMap; wiring CompRate→engine de combine |
 | 6 | War/Castle + binServer | TODO | `_AUTH_GAME` (billing) |
 | 7 | Hardening | TODO | — |
 
@@ -357,6 +355,28 @@ SendItem/notices) pendentes de **captura** (Fase 8 §5); **loaders de conteúdo 
 ItemList/SkillData/CompRate/SancRate/mapas/NPCGener → fecham combine/quest/drop UNVERIFIED;
 **adapter gRPC dbServer** (login/char/save real, hoje `NopPersistence`); EXP/party de MobKilled; billing
 (`_AUTH_GAME`); auto-trade/loja-NPC/banco; mob spawns (Fase 5) p/ testar MobKilled/quest in-game.
+
+---
+
+## Fase 5 — Conteúdo (loaders) — COMPLETO (núcleo)
+
+`tmserver/internal/content/` — loaders validados contra os **arquivos reais de `Release/`**:
+- **`rates.go` — `CompRate`** (`Common/Settings/CompRate.txt`, `Família Chave Taxa`) e **`SancRate`**
+  (`SancRate.txt`, `Anvil Nível Taxa`). **Destrava as taxas de combine/refino do Lote 6.**
+- **`catalog.go` — `ItemList`** (`Common/ItemList.csv`, index→nome + raw) e **`SkillData`**
+  (`SkillData.csv`, index→nome + raw). Mapeamento completo CSV→`STRUCT_ITEMLIST`/`STRUCT_SPELL`
+  UNVERIFIED (só index+nome confiáveis).
+- **`gamemap.go` — `Grid`/`LoadGrid`/`LoadHeightMap`** (HeightMap 4096²=16 MiB, AttributeMap
+  1024²=1 MiB), valida tamanho exato (data-formats §2). Semântica de bits do `AttributeMap` UNVERIFIED.
+- **Rates.txt NÃO é loader**: é texto descritivo ao jogador (confirmado), não parseado pelo servidor.
+
+Testes (`content_test.go`) carregam os arquivos reais e travam valores conhecidos: `CompRate
+Tiny/ChanceBase=15`, `Ehre/Espiritual=40`, `Odin/Item_12_Ref_8=12`; `SancRate PO/3=85`, `PL/9=10`;
+`ItemList[1]=TransKnight` (>1000 itens); `SkillData[1]=Toque_Sagrado`; mapas com tamanho exato.
+
+UNVERIFIED do bloco: **NPCGener.txt** (spawns, 2.5 MB, blocos `# [n]`) não parseado; mapeamento
+coluna-a-coluna dos CSVs; bits do `AttributeMap`; **wiring CompRate→`CombineFamily.Rate`** (as taxas
+estão carregadas, mas a correspondência receita→chave continua UNVERIFIED por variante).
 
 ### Pendências de tooling (checklist §25)
 - `golangci-lint` / `goimports` / `govulncheck` NÃO instalados localmente (binário `go` local 1.22.2
