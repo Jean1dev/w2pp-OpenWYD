@@ -143,6 +143,19 @@ func (w *World) Grid() *Grid { return w.grid }
 // (always via Go, never inline on the loop).
 func (w *World) Persistence() Persistence { return w.persist }
 
+// Billing returns the configured billing gate (the binServer adapter, or the
+// AllowAllBilling default). Used by the character-login gate via Go.
+func (w *World) Billing() Billing { return w.billing }
+
+// SetBilling installs the billing gate. Must be called during wiring, before
+// Serve/Run starts, since the World owns its state single-threaded thereafter. A
+// nil gate is ignored (the AllowAllBilling default stays).
+func (w *World) SetBilling(b Billing) {
+	if b != nil {
+		w.billing = b
+	}
+}
+
 // Now returns the current server tick (injectable clock).
 func (w *World) Now() uint32 { return w.cfg.Now() }
 

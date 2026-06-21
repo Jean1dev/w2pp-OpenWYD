@@ -71,12 +71,49 @@ type CharacterState struct {
 	Carry       [MaxCarry]Item // inventory
 }
 
+// SavedItem is one positional inventory/equip slot in a CharacterSave. Slot is
+// the array index (positional meaning preserved); empty slots are omitted.
+type SavedItem struct {
+	Slot  int
+	Index int16
+	Eff1  uint8
+	EffV1 uint8
+	Eff2  uint8
+	EffV2 uint8
+	Eff3  uint8
+	EffV3 uint8
+}
+
+// CharacterSave is the snapshot the world hands to the persistence backend on
+// shutdown. It carries ONLY the fields the in-world Entity authoritatively
+// tracks this phase (domain-model.md §2.2): position is not persisted yet, and
+// class/exp/mp are absent because the world does not simulate them (PROGRESS
+// Fase 4 — full STRUCT_MOB is UNVERIFIED). The world builds it (it owns the
+// Entity); the adapter only ships it.
+type CharacterSave struct {
+	AccountID int64
+	Slot      int
+	Clan      uint8
+	GuildID   uint16
+	Level     int32
+	Coin      int32
+	Str       int16
+	Int       int16
+	Dex       int16
+	Con       int16
+	HP        int32
+	MaxHP     int32
+	Carry     []SavedItem
+	Equip     []SavedItem
+}
+
 // Persistence is the port the loop/handlers use to talk to the dbServer. The
 // real implementation is a gRPC client adapter over api/db/v1; the world depends
-// only on this interface (migration-plan.md §3.5). All methods are called OFF
-// the loop via World.Go (they do blocking I/O); their results re-enter the loop.
+// only on this interface (migration-plan.md §3.5). AccountLogin/CreateCharacter/
+// DeleteCharacter/LoadCharacter are called OFF the loop via World.Go (blocking
+// I/O); SaveOnShutdown is called inline during the shutdown drain.
 type Persistence interface {
-	SaveOnShutdown(ctx context.Context, s *Session) error
+	SaveOnShutdown(ctx context.Context, save CharacterSave) error
 	AccountLogin(ctx context.Context, name, password string) (LoginOutcome, error)
 	CreateCharacter(ctx context.Context, accountID int64, slot int, name string, class int) (bool, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int, name, password string) (bool, error)
@@ -91,7 +128,7 @@ var errNoPersistence = errors.New("world: no persistence backend configured")
 type NopPersistence struct{}
 
 // SaveOnShutdown does nothing.
-func (NopPersistence) SaveOnShutdown(context.Context, *Session) error { return nil }
+func (NopPersistence) SaveOnShutdown(context.Context, CharacterSave) error { return nil }
 
 // AccountLogin always reports no account.
 func (NopPersistence) AccountLogin(context.Context, string, string) (LoginOutcome, error) {

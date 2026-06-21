@@ -69,6 +69,17 @@ func (f *fakeDB) LoadCharacter(_ context.Context, accountID int64, _ int) (world
 // --- harness ---
 
 func startServer(t *testing.T, persist world.Persistence) (string, func()) {
+	return startServerBilling(t, persist, nil)
+}
+
+// denyBilling refuses every account (binServer "expired/blocked" path).
+type denyBilling struct{}
+
+func (denyBilling) Check(context.Context, string) (bool, error) { return false, nil }
+
+// startServerBilling is startServer with an injected billing gate (nil keeps the
+// AllowAllBilling default).
+func startServerBilling(t *testing.T, persist world.Persistence, b world.Billing) (string, func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -77,6 +88,7 @@ func startServer(t *testing.T, persist world.Persistence) (string, func()) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log})
 	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	w.SetBilling(b)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -338,6 +350,22 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	send(t, c, protocol.MsgCharacterLogout, nil)
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogout {
 		t.Errorf("got %#x, want CNFCharacterLogout", ty)
+	}
+}
+
+func TestCharacterLoginBillingDenied(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero"}
+	addr, stop := startServerBilling(t, db, denyBilling{})
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	if ty, p := read(t, c); ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeBillingDenied {
+		t.Errorf("got %#x/%d, want billing-denied notice", ty, noticeCode(t, p))
 	}
 }
 

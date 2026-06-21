@@ -78,6 +78,18 @@ type Config struct {
 	OutBuffer  int           // per-session outbound queue depth
 	EventQueue int           // inbound event queue depth
 	Now        func() uint32 // server clock (ClientTick); injectable for tests
+
+	// Hardening (Fase 7, migration-plan.md §5), all opt-in:
+	// RejectChecksum drops a connection on a CPSock checksum mismatch. The legacy
+	// stack is non-rejecting and the ClientPatch NOPs client checks, so this is
+	// off by default; enable once a capture confirms the client sends correct
+	// checksums (protocol-spec.md §1.5).
+	RejectChecksum bool
+	// MaxMsgPerSec rate-limits inbound messages per connection (0 = disabled);
+	// MsgBurst is the bucket depth (defaults to MaxMsgPerSec when <=0). A flood
+	// disconnects the offending connection, protecting the reactor (NF1).
+	MaxMsgPerSec float64
+	MsgBurst     int
 }
 
 // World holds all mutable game state. Every field is touched only by Run's
@@ -86,6 +98,7 @@ type World struct {
 	cfg     Config
 	log     *slog.Logger
 	persist Persistence
+	billing Billing
 	handler Handler
 
 	sessions []*Session    // index = conn ∈ [0, MaxUser)
@@ -123,6 +136,7 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		cfg:      cfg,
 		log:      log,
 		persist:  persist,
+		billing:  AllowAllBilling{},
 		handler:  handler,
 		sessions: make([]*Session, MaxUser),
 		entities: make([]*Entity, MaxMob),
@@ -158,7 +172,7 @@ func (w *World) shutdown() {
 			continue
 		}
 		if s.Mode == UserPlay && s.AccountID != 0 {
-			if err := w.persist.SaveOnShutdown(context.Background(), s); err != nil {
+			if err := w.persist.SaveOnShutdown(context.Background(), w.characterSave(s)); err != nil {
 				w.log.Warn("save on shutdown failed", "conn", s.Conn, "err", err)
 			} else {
 				saved++
@@ -167,6 +181,41 @@ func (w *World) shutdown() {
 		s.close()
 	}
 	w.log.Info("world loop stopped", "sessions_saved", saved)
+}
+
+// characterSave snapshots a session's in-world entity into a CharacterSave. Only
+// world-authoritative fields are captured (see CharacterSave). Loop-only.
+func (w *World) characterSave(s *Session) CharacterSave {
+	cs := CharacterSave{AccountID: s.AccountID, Slot: s.Slot}
+	e := w.entities[s.Conn]
+	if e == nil {
+		return cs
+	}
+	cs.Clan, cs.GuildID = e.Clan, e.Guild
+	cs.Level, cs.Coin = e.Level, e.Coin
+	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
+	cs.HP, cs.MaxHP = e.HP, e.MaxHP
+	cs.Carry = savedItems(e.Carry[:])
+	cs.Equip = savedItems(e.Equip[:])
+	return cs
+}
+
+// savedItems flattens a positional item array into the non-empty SavedItem slots.
+func savedItems(items []Item) []SavedItem {
+	var out []SavedItem
+	for i, it := range items {
+		if it.Empty() {
+			continue
+		}
+		out = append(out, SavedItem{
+			Slot:  i,
+			Index: it.Index,
+			Eff1:  it.Effects[0].Effect, EffV1: it.Effects[0].Value,
+			Eff2: it.Effects[1].Effect, EffV2: it.Effects[1].Value,
+			Eff3: it.Effects[2].Effect, EffV3: it.Effects[2].Value,
+		})
+	}
+	return out
 }
 
 // send queues an outbound message to the session's writer goroutine. It never

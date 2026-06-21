@@ -81,9 +81,11 @@ func (d *Dispatcher) deleteCharacter(w *world.World, s *world.Session, _ protoco
 // handlers/_MSG_CharacterLogin.md. Requires USER_SELCHAR and a valid slot; loads
 // the character from the dbServer and injects the player into the world.
 //
-// The billing/free-exp gate (Unk_*, BILLING, FREEEXP, g_Hour) is intentionally
-// NOT replicated here: it is hardcoded and UNVERIFIED. It will be reimplemented
-// as an explicit policy validated by capture (Phase 6).
+// The billing gate is the NEW boundary (binServer over gRPC, Fase 6): before
+// loading the character we ask World.Billing whether the account may enter. The
+// legacy hardcoded free-exp gate (Unk_*, BILLING, FREEEXP, g_Hour) is NOT
+// reproduced — it is UNVERIFIED. The default gate (AllowAllBilling) is
+// free-to-play, so this is non-breaking until a binServer is wired.
 func (d *Dispatcher) characterLogin(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	var body protocol.MsgCharacterLoginBody
 	if err := body.Decode(payload); err != nil {
@@ -101,12 +103,38 @@ func (d *Dispatcher) characterLogin(w *world.World, s *world.Session, _ protocol
 	s.Slot = slot
 	s.Mode = world.UserCharWait
 	accID := s.AccountID
+	accName := s.AccountName
 
 	p := w.Persistence()
+	b := w.Billing()
+	// Both calls are blocking I/O; run them sequentially off the loop. The result
+	// re-enters the loop via the returned callback.
 	w.Go(s, func() func(*world.World, *world.Session) {
+		allowed, berr := b.Check(context.Background(), accName)
+		if berr != nil {
+			return func(w *world.World, s *world.Session) { d.billingFailed(w, s, berr) }
+		}
+		if !allowed {
+			return func(w *world.World, s *world.Session) { d.billingDenied(w, s) }
+		}
 		st, err := p.LoadCharacter(context.Background(), accID, slot)
 		return func(w *world.World, s *world.Session) { d.completeCharacterLogin(w, s, st, err) }
 	})
+}
+
+// billingDenied returns the player to character selection after the binServer
+// refuses entry (expired/blocked). UNVERIFIED: the real S→C deny message is not
+// captured; a notice placeholder stands in (parity-tests.md §5).
+func (d *Dispatcher) billingDenied(w *world.World, s *world.Session) {
+	s.Mode = world.UserSelChar
+	d.notify(w, s, NoticeBillingDenied)
+}
+
+// billingFailed handles a billing-service error (treated as "deny, try again").
+func (d *Dispatcher) billingFailed(w *world.World, s *world.Session, err error) {
+	d.log.Error("billing check failed", "conn", s.Conn, "account", s.AccountName, "err", err)
+	s.Mode = world.UserSelChar
+	d.notify(w, s, NoticeDBError)
 }
 
 func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st world.CharacterState, err error) {

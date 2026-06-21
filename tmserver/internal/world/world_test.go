@@ -19,6 +19,11 @@ func slogDiscard() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard
 // testWorld starts a World serving on a loopback listener and returns its
 // address and a cancel func. GridDim is tiny to avoid the full dense grid.
 func testWorld(t *testing.T, h Handler, persist Persistence) (addr string, stop func()) {
+	return testWorldConfig(t, Config{GridDim: 16}, h, persist)
+}
+
+// testWorldConfig is testWorld with an explicit Config (for hardening tests).
+func testWorldConfig(t *testing.T, cfg Config, h Handler, persist Persistence) (addr string, stop func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -27,7 +32,10 @@ func testWorld(t *testing.T, h Handler, persist Persistence) (addr string, stop 
 	if persist == nil {
 		persist = NopPersistence{}
 	}
-	w := New(Config{GridDim: 16}, slogDiscard(), persist, h)
+	if cfg.GridDim == 0 {
+		cfg.GridDim = 16
+	}
+	w := New(cfg, slogDiscard(), persist, h)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -212,7 +220,7 @@ type fakePersistence struct {
 	saved atomic.Int64
 }
 
-func (f *fakePersistence) SaveOnShutdown(context.Context, *Session) error {
+func (f *fakePersistence) SaveOnShutdown(context.Context, CharacterSave) error {
 	f.saved.Add(1)
 	return nil
 }

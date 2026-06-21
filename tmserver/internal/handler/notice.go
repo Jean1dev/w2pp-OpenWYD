@@ -27,6 +27,7 @@ const (
 	NoticeCantAutoTrade                 // _NN_CantWhenAutoTrade
 	NoticeNotConnected                  // whisper target offline
 	NoticeDenyWhisper                   // whisper target blocked whispers
+	NoticeBillingDenied                 // binServer denied entry (expired/blocked)
 )
 
 // notify sends a client notification.

@@ -1,10 +1,18 @@
 package world
 
 import (
+	"errors"
 	"math/rand/v2"
 	"net"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+)
+
+// Fase 7 disconnect reasons (migration-plan.md §5).
+var (
+	errRateLimited      = errors.New("world: connection exceeded message rate limit")
+	errChecksumMismatch = errors.New("world: rejected frame on checksum mismatch")
 )
 
 // event is something the loop applies to world state. Every event is applied in
@@ -138,15 +146,26 @@ func (w *World) dropSession(s *Session) { w.removeSession(s) }
 // touches world state directly.
 func (w *World) readLoop(s *Session) {
 	fr := protocol.NewFramer(s.conn)
+	bucket := newTokenBucket(w.cfg.MaxMsgPerSec, w.cfg.MsgBurst, time.Now())
 	for {
 		frame, err := fr.ReadFrame()
 		if err != nil {
 			w.emit(disconnectEvent{s: s, err: err})
 			return
 		}
-		h, payload, _, err := protocol.Decode(frame)
+		// Fase 7: flood protection — a connection exceeding its rate is dropped.
+		if !bucket.allow(time.Now()) {
+			w.emit(disconnectEvent{s: s, err: errRateLimited})
+			return
+		}
+		h, payload, mismatch, err := protocol.Decode(frame)
 		if err != nil {
 			w.emit(disconnectEvent{s: s, err: err})
+			return
+		}
+		// Fase 7: optional rejecting checksum (off by default; legacy is non-rejecting).
+		if mismatch && w.cfg.RejectChecksum {
+			w.emit(disconnectEvent{s: s, err: errChecksumMismatch})
 			return
 		}
 		if !w.emit(frameEvent{s: s, header: h, payload: payload}) {
