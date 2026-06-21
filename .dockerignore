@@ -1,6 +1,6 @@
 .git
 *.md
-test/fixtures
+tmserver/test/fixtures
 bin/
 *.log
 *.rar

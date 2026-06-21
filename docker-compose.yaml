@@ -9,6 +9,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    command: ["go", "run", "./tmserver/cmd/tmserver"]
     ports:
       - "8281:8281"            # TMSrv client port (config-ops topology)
   db:
