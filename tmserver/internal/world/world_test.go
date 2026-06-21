@@ -93,7 +93,7 @@ func readFrame(t *testing.T, c net.Conn) (protocol.Header, []byte) {
 func echoHandler(got chan<- protocol.Header) Handler {
 	return func(w *World, s *Session, h protocol.Header, payload []byte) {
 		got <- h
-		w.send(s, protocol.Header{Type: protocol.MsgMessagePanel}, payload)
+		w.Send(s, protocol.MsgMessagePanel, payload)
 	}
 }
 
@@ -123,9 +123,10 @@ func TestHeadlessConnectAndExchange(t *testing.T) {
 	if string(rp) != "hello-world" {
 		t.Errorf("response payload = %q, want hello-world", rp)
 	}
-	// HEADER.ID on S→C must be the session's conn (0 for the first client).
-	if rh.ID != 0 {
-		t.Errorf("response ID = %d, want 0", rh.ID)
+	// HEADER.ID on S→C must be the session's conn (1 for the first client; conn 0
+	// is reserved).
+	if rh.ID != 1 {
+		t.Errorf("response ID = %d, want 1", rh.ID)
 	}
 }
 
@@ -160,7 +161,7 @@ func TestConcurrentConnections(t *testing.T) {
 	var served atomic.Int64
 	h := func(w *World, s *Session, hh protocol.Header, payload []byte) {
 		served.Add(1)
-		w.send(s, protocol.Header{Type: protocol.MsgMessagePanel}, payload)
+		w.Send(s, protocol.MsgMessagePanel, payload)
 	}
 	addr, stop := testWorld(t, h, nil)
 	defer stop()
@@ -206,7 +207,10 @@ func TestGracefulShutdownSavesPlayers(t *testing.T) {
 	}
 }
 
-type fakePersistence struct{ saved atomic.Int64 }
+type fakePersistence struct {
+	NopPersistence
+	saved atomic.Int64
+}
 
 func (f *fakePersistence) SaveOnShutdown(context.Context, *Session) error {
 	f.saved.Add(1)

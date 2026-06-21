@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -38,9 +39,12 @@ func main() {
 	}
 	logger.Info("tmserver listening", "addr", *addr)
 
-	// Phase 3: no message handlers yet (nil → no-op) and no dbServer
-	// (NopPersistence). Phase 4 installs the real dispatch and persistence.
-	w := world.New(world.Config{}, logger, world.NopPersistence{}, nil)
+	// Phase 4 batch 1: login/character dispatch installed. Persistence is still
+	// NopPersistence until the dbServer gRPC client adapter lands, so logins
+	// report "no account" — enough to bring the edge up end to end.
+	persist := world.NopPersistence{}
+	dispatch := handler.New(handler.Config{Log: logger})
+	w := world.New(world.Config{}, logger, persist, dispatch.Handle)
 	if err := w.Serve(ctx, ln); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error("server stopped with error", "err", err)
 		os.Exit(1)

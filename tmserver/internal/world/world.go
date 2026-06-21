@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
 )
 
 // Capacity limits (Basedef.h via domain-model.md §6). The index space is shared:
@@ -22,8 +23,15 @@ import (
 const (
 	MaxUser        = 1000
 	MaxMob         = 25000
-	MaxItem        = 5000
+	MaxItem        = 5000 // ground items (pItem[])
+	MaxCarry       = 64   // inventory slots per entity (MAX_CARRY)
+	MaxEquip       = 16   // equipment slots (MAX_EQUIP)
+	MaxParty       = 12   // party members (MAX_PARTY)
 	DefaultGridDim = 4096
+
+	// GroundItemIDOffset is added to a ground item's index on the wire
+	// (_MSG_GetItem decodes ItemID-10000; handlers/_MSG_GetItem.md).
+	GroundItemIDOffset = 10000
 )
 
 // Mode is the session state machine CUser.Mode (domain-model.md §3.1).
@@ -80,9 +88,11 @@ type World struct {
 	persist Persistence
 	handler Handler
 
-	sessions []*Session // index = conn ∈ [0, MaxUser)
-	entities []*Entity  // index space shared with players (domain-model.md §1)
+	sessions []*Session    // index = conn ∈ [0, MaxUser)
+	entities []*Entity     // index space shared with players (domain-model.md §1)
+	ground   []*GroundItem // pItem[]: items on the floor, index ∈ [1, MaxItem)
 	grid     *Grid
+	rng      *rng.MSVC // loop-owned MSVC LCG (parity; like the original global rand())
 
 	events chan event
 	done   chan struct{} // closed when the loop stops; unblocks conn goroutines
@@ -116,7 +126,9 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		handler:  handler,
 		sessions: make([]*Session, MaxUser),
 		entities: make([]*Entity, MaxMob),
+		ground:   make([]*GroundItem, MaxItem),
 		grid:     newGrid(cfg.GridDim),
+		rng:      rng.New(),
 		events:   make(chan event, cfg.EventQueue),
 		done:     make(chan struct{}),
 	}
@@ -160,8 +172,7 @@ func (w *World) shutdown() {
 // send queues an outbound message to the session's writer goroutine. It never
 // blocks the loop: if the session's queue is full (a slow/stuck client), the
 // session is dropped instead of stalling the whole world (head-of-line safety).
-func (w *World) send(s *Session, h protocol.Header, payload []byte) {
-	h.ID = uint16(s.Conn)
+func (w *World) enqueue(s *Session, h protocol.Header, payload []byte) {
 	h.ClientTick = w.cfg.Now()
 	select {
 	case s.out <- outFrame{header: h, payload: payload}:

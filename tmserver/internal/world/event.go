@@ -51,8 +51,11 @@ func (e connectEvent) apply(w *World) {
 	w.log.Info("connection accepted", "conn", conn, "ip", e.ip)
 }
 
+// allocConn finds a free player slot. Conn 0 is reserved (the original requires
+// conn > 0 for login — handlers/_MSG_AccountLogin.md; trade/attack ids also use
+// (0, MAX_USER)). The top ADMIN_RESERV slots are reserved too (value UNVERIFIED).
 func (w *World) allocConn() int {
-	for i := 0; i < MaxUser; i++ {
+	for i := 1; i < MaxUser; i++ {
 		if w.sessions[i] == nil {
 			return i
 		}
@@ -82,6 +85,23 @@ func (e frameEvent) apply(w *World) {
 		return
 	}
 	w.handler(w, e.s, e.header, e.payload)
+}
+
+// --- async callback (DB results re-entering the loop) ---
+
+// callbackEvent carries the result of off-loop work (World.Go) back into the
+// loop. It is dropped if the session's slot was freed or reused meanwhile.
+type callbackEvent struct {
+	conn int
+	sess *Session
+	cb   func(*World, *Session)
+}
+
+func (e callbackEvent) apply(w *World) {
+	if w.sessions[e.conn] != e.sess {
+		return
+	}
+	e.cb(w, e.sess)
 }
 
 // --- disconnect ---
@@ -136,23 +156,46 @@ func (w *World) readLoop(s *Session) {
 }
 
 // writeLoop encodes queued S→C messages and writes them to the socket. The
-// per-packet keyword index is random (CPSock.cpp:535) and irrelevant to parity
-// (parity-tests.md §4.0), so the global RNG is fine here.
+// writer owns the socket close: on close it flushes whatever is still queued so
+// a final notice sent just before close is delivered. The per-packet keyword
+// index is random (CPSock.cpp:535) and irrelevant to parity (parity-tests.md
+// §4.0), so the global RNG is fine here.
 func (w *World) writeLoop(s *Session) {
+	defer func() { _ = s.conn.Close() }()
 	for {
 		select {
 		case of := <-s.out:
-			wire, err := protocol.Encode(of.header, of.payload, uint8(rand.IntN(256)))
-			if err != nil {
-				w.log.Warn("encode failed", "conn", s.Conn, "err", err)
-				continue
-			}
-			if _, err := s.conn.Write(wire); err != nil {
-				w.emit(disconnectEvent{s: s, err: err})
+			if !w.writeFrame(s, of) {
 				return
 			}
 		case <-s.closeCh:
-			return
+			// Graceful close: drain and write whatever is still queued, then exit
+			// (the deferred Close unblocks the reader).
+			for {
+				select {
+				case of := <-s.out:
+					if !w.writeFrame(s, of) {
+						return
+					}
+				default:
+					return
+				}
+			}
 		}
 	}
+}
+
+// writeFrame encodes and writes one S→C frame. It returns false (stopping the
+// writer) only on a socket write error; an encode error is logged and skipped.
+func (w *World) writeFrame(s *Session, of outFrame) bool {
+	wire, err := protocol.Encode(of.header, of.payload, uint8(rand.IntN(256)))
+	if err != nil {
+		w.log.Warn("encode failed", "conn", s.Conn, "err", err)
+		return true
+	}
+	if _, err := s.conn.Write(wire); err != nil {
+		w.emit(disconnectEvent{s: s, err: err})
+		return false
+	}
+	return true
 }

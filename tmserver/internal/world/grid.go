@@ -53,3 +53,26 @@ func (g *Grid) ClearMob(x, y int) {
 		g.mob[y*g.dim+x] = gridEmpty
 	}
 }
+
+// ItemAt returns the ground-item index at (x,y) and whether the cell holds one.
+func (g *Grid) ItemAt(x, y int) (uint16, bool) {
+	if !g.inBounds(x, y) {
+		return 0, false
+	}
+	v := g.item[y*g.dim+x]
+	return v, v != gridEmpty
+}
+
+// SetItem records ground-item id at (x,y). Out-of-bounds writes are ignored.
+func (g *Grid) SetItem(x, y int, id uint16) {
+	if g.inBounds(x, y) {
+		g.item[y*g.dim+x] = id
+	}
+}
+
+// ClearItem empties the ground-item cell at (x,y).
+func (g *Grid) ClearItem(x, y int) {
+	if g.inBounds(x, y) {
+		g.item[y*g.dim+x] = gridEmpty
+	}
+}

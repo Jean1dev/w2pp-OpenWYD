@@ -15,7 +15,8 @@ Docker, alvo canônico). Layout por serviço: `tmserver/`, `dbserver/`, `binserv
 | — | Scaffolding (go.mod, Makefile, Docker, compose, .golangci.yml, subtrees por serviço, api/) | **COMPLETO** | — |
 | 1 | Codec CPSock + protocolo (`tmserver/internal/protocol`) | **COMPLETO** (subset runnable) | vetores de transporte reais; `_AUTH_GAME`; colisões de base §3.1 |
 | 2 | dbServer: conversor + savefmt + domain + schema/pgx | **COMPLETO** (núcleo) / gRPC server → Fase 4 | layouts legados 4294 / 7500–7600; largura `time_t`; internos de `STRUCT_MOBEXTRA` |
-| 3 | Game-loop do tmServer (`tmserver/internal/world`) | **COMPLETO** | handlers reais (Fase 4); gRPC client p/ dbServer (adapter da port); sentinel do grid |
+| 3 | Game-loop do tmServer (`tmserver/internal/world`) | **COMPLETO** | gRPC client p/ dbServer (adapter da port); sentinel do grid |
+| 4 | Handlers por subsistema (8 lotes) | **COMPLETO** (núcleo testável) — 8/8 lotes ✅ | layout S→C; `_NN_*`; billing; parry/crit; EXP/party §1; recipe/quest tables; quest(38 NPCs)/cmds-whisper; auto-trade/loja/banco; ranking |
 | 3 | Game-loop do tmServer | TODO | — |
 | 4 | Handlers por subsistema (lotes) | TODO | — |
 | 5 | Conteúdo (loaders) | TODO | — |
@@ -152,6 +153,210 @@ Docker, alvo canônico). Layout por serviço: `tmserver/`, `dbserver/`, `binserv
 - **gRPC client p/ dbServer**: a port `Persistence` está definida; o adapter sobre `api/db/v1` (e a
   geração via `make proto`) entra quando os handlers de login/char precisarem (Fase 4).
 - **Sentinel do grid** (0xFFFF) e semântica de visibilidade/colisão: confirmar por captura (Fase 4).
+
+---
+
+## Fase 4 — Handlers por subsistema (em lotes) — EM ANDAMENTO
+
+Ordem dos lotes (migration-plan §4): login→char→movimento→combate→itens→trade→combine→party/guild.
+
+### Lote 1/8 — login → criação/seleção de char ✅
+`tmserver/internal/handler/` + `tmserver/internal/rng/`:
+- `rng/` — **LCG do MSVC** (`state*214013+2531011; (state>>16)&0x7FFF`, seed default 1, seed
+  injetável). Travado contra a sequência canônica (41,18467,6334,…; parity-tests §4.0). Base p/
+  drop/combate/refino (lotes futuros).
+- `handler/dispatch.go` — `Dispatcher` (rota `Type→handler`; roda no loop) instalado como
+  `world.Handler`; contador de brute-force por conta (loop-only, sem lock).
+- `handler/login.go` — `_MSG_AccountLogin`: valida versão (7640)/Mode(`USER_ACCEPT`)/brute-force →
+  **relay assíncrono** ao dbServer via `world.Go` (off-loop) → resultado re-entra no loop
+  (`USER_LOGIN`→`USER_SELCHAR`/`CNFAccountLogin`, ou notice). Mata head-of-line: I/O do DB fora do loop.
+- `handler/character.go` — `_MSG_CreateCharacter`/`DeleteCharacter`/`CharacterLogin`/`CharacterLogout`/
+  `Restart`: gates de `Mode` (SELCHAR/PLAY), relay ao dbServer, injeção do player no mundo no
+  char-login (entity `MOB_USER`), revive HP=2 no restart.
+- `handler/notice.go` — notificações `_NN_*` (placeholder `MessageBoxOk`+código).
+- **Infra do world p/ handlers:** port `Persistence` estendida (AccountLogin/Create/Delete/Load),
+  `World.Go` (async DB → callback no loop, com checagem de identidade de sessão), `World.Send/Close/
+  Entity/Now`, flush-on-close (mensagem final entregue antes de fechar).
+
+### Critério de pronto (lote)
+- `go build ./...` ✅ · `go test -race ./...` ✅ · `go vet ./...` ✅ · `gofmt -l` limpo ✅.
+- Casos de Fase 8 §2.1–§2.2 cobertos como **black-box S→C** (assert no Type/efeito, filosofia da
+  Fase 8): login OK→`CNFAccountLogin`; versão errada→notice+close; modo errado→`LoginNow`; senha
+  errada×3→`3WrongPass`; sem conta/bloqueado; create OK/nome inválido; delete; char login+logout;
+  slot inválido. RNG: sequência canônica.
+
+### UNVERIFIED / pendências do lote
+- **Byte-exatidão S→C**: `SELCHAR` (`CNFAccountLogin`) e o snapshot de `CNFCharacterLogin` têm layout
+  UNVERIFIED → payloads placeholder; **golden byte-a-byte pendente de captura** (Fase 8 §5). Testes
+  asseguram o Type/efeito, não os bytes finais.
+- **Notificações `_NN_*`**: formato de fio real não capturado (placeholder `MessageBoxOk`+código).
+- **Billing/free-exp gate** do char-login (`Unk_*`,`BILLING`,`FREEEXP`,`g_Hour`): NÃO replicado —
+  vira política explícita + captura (Fase 6).
+- **`BASE_CheckValidString`** (nome): conjunto de caracteres UNVERIFIED (placeholder alnum+`_`).
+- **Restart**: teleporte por região/clan hardcoded não reproduzido (vira config + captura).
+- **gRPC client p/ dbServer**: handlers usam a port; o adapter sobre `api/db/v1` (e `make proto`)
+  ainda não foi escrito → `cmd/tmserver` usa `NopPersistence` (login reporta "no account").
+
+### Lote 2/8 — movimento & visão ✅
+`tmserver/internal/handler/movement.go`:
+- `_MSG_Action` (+`Action2`/`Action3`): gates `USER_PLAY`/`Hp!=0`, **bounds** (PosX/Y, TargetX/Y no
+  grid), **anti-speedhack** (janela de tick: `movetime > now+15000` ou `< now-120000` →
+  `AddCrackError`, sem broadcast — lote2-movimento.md) → atualiza posição+grid e **multicast na visão**
+  (mesma rota, `HEADER.ID = mover`).
+- `_MSG_Motion`: gate + multicast. `_MSG_ChangeCity`: bit-packing de cidade em `Merchant` bits 6-7
+  (layout documentado preservado). `_MSG_NoViewMob`: reconciliação de visão (Create/RemoveMob).
+  `_MSG_ReqTeleport`: stub (economia UNVERIFIED).
+- **Infra do world (batch 2):** `Send` (ID=você) vs `SendTo` (ID arbitrário p/ broadcast),
+  `BroadcastInView` (Chebyshev ≤ `ViewRange`), `SetEntityPos` (sincroniza grid), `AddCrackError`
+  (limite → drop). Refator `send`→`enqueue` (ID não mais forçado).
+
+Casos Fase 8 §2.3 cobertos (black-box): `move_ok` (broadcast com mesma rota; mover não recebe a
+própria), `move_speedhack` (tick futuro → dropado), `move_out_of_bounds` (alvo fora do grid →
+dropado), motion broadcast. Clock injetável p/ determinismo do anti-speed.
+
+UNVERIFIED do lote: `ViewRange`/geometria do `GridMulticast`; `BASE_GetVillage` (ChangeCity);
+economia/zonas do `ReqTeleport`; snapshot de `CreateMob` (NoViewMob); illusion skill (`Action3`);
+route-stepping autoritativo.
+
+### Lote 3/8 — combate ✅
+`tmserver/internal/combat/` + `tmserver/internal/handler/combat.go`:
+- **`combat/` — fórmulas puras (game-rules.md §4)** com RNG **injetável** (interface `Rand`; ordem de
+  chamadas preservada): `Damage` (§4.1 `BASE_GetDamage`), `SkillDamage` (§4.2), `ResolveHit` (§4.3-4.5:
+  crítico parcial/total, AC×3 em PvP, parry roll em 1000, reflect plano+%, clamps). Testado **exato**
+  por valores hand-computed (stub RNG) **e** amarrado ao LCG real (primeiro `rand()=41` → `Damage=99`).
+- **`handler/combat.go` — `_MSG_Attack`** (+`AttackOne`/`Two`): gates TradeMode/`USER_PLAY`/vivo
+  (skill 99 = ressurreição), **cadência anti-speed 800 ms** + sanidade de tick (int64, sem underflow),
+  **dano server-authoritative** (recalcula via `combat`, sobrescreve `Dam[]` no payload), broadcast na
+  visão. RNG do mundo é dono do loop (`World.Rand()`, seed 1).
+- Codec `MsgAttackBody` (campos + `Dam[]` variável; `AttackOne`/`Two` por tamanho). Entity ganhou
+  `Damage`/`AC`/`Master`; Session ganhou `LastAttackTick`/`TradeMode`.
+
+Casos Fase 8 §2.4 (black-box): **`attack_hit` golden EXATO** (handler+combat+LCG → dano=145),
+`attack_too_fast` (cadência → dropado), `attack_while_dead` (crack, sem efeito). Formas puras: 11
+casos exatos.
+
+UNVERIFIED do lote: `BASE_GetDoubleCritical` e `GetParryRate` (usados placeholders: DoubleCritical do
+pacote, parry=0); coef. Dex/Str por classe×arma (`BASE_GetCurrentScore`); `MAX_DAMAGE`; `ESCENE_FIELD`
+no broadcast; **`MobKilled` (EXP/party §1 + drop §2)** adiado p/ o lote de itens; `_MSG_SetHpMp` layout.
+
+### Lote 4/8 — itens (drop/get/use) + drop de MobKilled ✅
+`tmserver/internal/loot/` + `tmserver/internal/handler/{item,mobkilled}.go` + infra de itens no world:
+- **`loot/` — fórmulas puras de drop (game-rules.md §2)** com RNG injetável: `GoldDrop` (§2.1, 2 rolls,
+  teto 2000), tabela **real `g_pDropRate[64]`** (Basedef.cpp:222), `EffectiveDropRate` (bônus + ajuste
+  por nível), `Drops`. Testado **exato** (stub + LCG: `41%19≠0` ⇒ sem gold).
+- **Itens no world:** tipo `Item`/`Effect`, `Entity.Carry[64]`/`Equip[16]`/`Coin`/`Level`, store de
+  itens no chão `pItem[]` (`CreateGroundItem`/`GroundItem`/`RemoveGroundItem`) + `itemGrid`,
+  `AddToCarry`. **Claim atômico** no loop (mata dup).
+- **`handler/item.go`:** `_MSG_DropItem` (gates vivo/play/trade, bounds de grid, **blacklist exata**
+  {508,509,522,526-537,446,747,3993,3994}, cria no chão + limpa origem), `_MSG_GetItem`
+  (`ItemID-10000`, distância ≤3, `DecayItem` se sumiu, claim atômico), `_MSG_UseItem` (equip
+  CARRY→EQUIP).
+- **`handler/mobkilled.go`:** morte de mob → **gold + drop por slot** (loot, exato); `Carry` do mob é a
+  loot table. EXP (§1, party) **adiado** (UNVERIFIED).
+
+Casos Fase 8 §2.5 (black-box): `drop_ok`+`get_ok` (round-trip), `drop_blacklisted`, `get_decayed`
+(`DecayItem`), `get_too_far`, **`dup_race`** (2 gets → 1 `CNFGetItem` + 1 `DecayItem`), equip. Loot: 5
+casos exatos.
+
+UNVERIFIED do lote: **EXP/party (§1: `g_EmptyMob`/`PARTYBONUS`/divisores)**; valores de `ITEM_PLACE_*`
+e layouts de `MSG_DropItem`/`GetItem` (best-effort, byte-exato pendente de captura); `MAX_ITEMLIST`;
+roll/ajuste-por-nível final do drop (§2.2 truncado); `_MSG_CreateItem`/`CNFMobKill`/`RemoveMob`
+broadcasts; requisitos de equip + `BASE_GetCurrentScore`; cooldown de refino (desativado no original);
+**MobKilled precisa de spawn de mob (Fase 5) p/ teste de integração** (hoje só loot unit + wiring).
+
+### Lote 5/8 — trade P2P direto ✅
+`tmserver/internal/handler/trade.go` + codecs `MsgTradingItem`/`MsgTrade`/`WireItem` + `Session.Trade`:
+- **`_MSG_Trade` (swap atômico):** valida (vivo/play, oponente em `USER_PLAY`, `0≤money≤Coin`, **memcmp
+  do item ofertado vs slot real** — anti-troca-no-confirm), grava a oferta+confirmação; quando **ambos**
+  confirmam e cruzam → **transação única** (`executeSwap`: tira itens dos dois, checa espaço, entrega +
+  transfere gold, **rollback** se faltar slot). Qualquer falha → `removeTrade` (cancela nos dois).
+- `_MSG_TradingItem` (abre/atualiza janela; reseta confirmações), `_MSG_QuitTrade` (cancela).
+- **Anti-dup:** `removeTrade` é chamado ao **dropar/pegar item durante trade** (cancela nos dois lados).
+- **Achado/correção:** `OpponentID ∈ (0, MAX_USER)` exclui conn 0 → **`allocConn` agora reserva conn 0**
+  (fiel ao `conn > 0` do `_MSG_AccountLogin`); players começam em conn 1. Testes ajustados.
+
+Casos Fase 8 §2.7 (black-box): **`trade_ok`** (swap atômico — A recebe item de B e vice-versa,
+verificado no result), `trade_cancel` (`QuitTrade` nos dois), **`trade_dup`** (drop durante trade →
+cancela nos dois).
+
+UNVERIFIED do lote: **auto-trade (`SendAutoTrade`/`ReqTradeList`/`ReqBuy`), loja NPC (`Buy`/`Sell`) e
+banco (`Deposit`/`Withdraw`)** — sub-lote separado; layout real de `MSG_Trade` result/`SendItem`
+(placeholder); `ADMIN_RESERV` (topo) ainda não reservado.
+
+### Lote 6/8 — combine/refino (engine parametrizada) ✅
+`tmserver/internal/combine/` + `tmserver/internal/handler/combine.go`:
+- **`combine/Roll` — função pura do roll** (`rand()%115`; `≥100⇒-15`; `success = v ≤ rate`). Testado
+  **exato** (stub + LCG: 1º `rand()=41`⇒v=41) **e por distribuição** (N=300k: 85–99 com peso ~2× e
+  nada cai em 100–114).
+- **Engine única parametrizada** (`CombineFamily{Rate, Apply}`) consolida as **9 variantes Item[]**
+  (Anct/Ehre/Tiny/Shany/Ailyn/Agatha/Odin/Lindy/Alquimia) — todas roteiam pro mesmo `combineItem`,
+  diferindo só na receita/taxa. Ordem fiel: **valida receita → consome insumos → rola** (falha
+  consome mesmo assim). `Extracao` (MSG_STANDARDPARM2) é stub.
+- Codec `MsgCombineItemBody` + `MsgCombineComplete` (parm 0/1/2). Famílias configuráveis via
+  `handler.Config.CombineFamilies` (default = placeholder UNVERIFIED, rate 0).
+
+Casos Fase 8 §2.6 (black-box, roll determinístico seed 1): **`refine_success`** (rate 50→v41→parm 1),
+**`combine_consumes_on_fail`** (rate 30→v41→parm 2, insumos consumidos), **`combine_invalid`**
+(rate 0→parm 0, **insumos NÃO consumidos**). Roll: exato + distribuição.
+
+UNVERIFIED do lote: **tabelas de receita/taxa** (`GetMatchCombine<X>` + `CompRate.txt`/`SancRate.txt`)
+e `ItemList[].Extra` → famílias são placeholders até Fase 5; encoding de **sanc** em `STRUCT_ITEM`;
+`MAX_COMBINE` e layout de `MsgCombineItem`; `Ehre`/`Odin` (lógica própria extensa, `srand` no Odin);
+extração; cooldown anti-spam (comentado no original).
+
+### Lote 7/8 — party & guilda ✅
+`tmserver/internal/handler/{party,guild}.go` + estado party/guild no `Entity` + codecs.
+- **Party:** `_MSG_SendReqParty` (convite, grava `LastReqParty` no alvo), `_MSG_AcceptParty` (entra na
+  party com **gate anti-forja `LastReqParty`** — bloqueia PARTYHACK; forma a party, adiciona membro,
+  sincroniza lista via broadcast), `_MSG_RemoveParty` (líder→dissolve / membro→sai). Regra de nível
+  `partyLevelOK` (simplificada).
+- **Guilda:** `_MSG_InviteGuild` (alvo mesmo-clan/sem-guilda + oficial convidante; debita gold —
+  4M/100M; muta `Guild`/`GuildLevel` do alvo; broadcast `CreateMob` da tag; boas-vindas).
+  `_MSG_GuildAlly`/`_MSG_War` = relays ao dbServer (valida líder; propagação UNVERIFIED).
+  `_MSG_Challange`/`ChallangeConfirm` = stubs (economia de zona UNVERIFIED).
+- Entity ganhou `Clan`/`Guild`/`GuildLevel`/`ClassMaster`/`Leader`/`LastReqParty`/`PartyList[12]`;
+  CharacterState idem.
+
+Casos Fase 8 §2.8 (black-box): `party_invite`+`accept` (convite→sync nos dois), **anti-forja**
+(accept sem convite → rejeitado), `guild_invite` (boas-vindas + refresh de tag).
+
+UNVERIFIED do lote: **PARTY_DIF + ajustes de tier (`ClassMaster`/`MAX_CLEVEL`)**; bloqueio dominical do
+convite; **propagação de aliança/guerra no dbServer**; **economia de imposto de zona** (`WeekMode`,
+`GuildImpostoID`, Exp-como-cofre, item 4011, `zone` de `BaseScore.Level` vs `Merchant-6`); layout S→C
+de party (reusa types C→S); Battle Royale no convite.
+
+### Lote 8/8 — chat, bônus, quest/cash ✅
+`tmserver/internal/handler/{chat,misc}.go`:
+- **`_MSG_MessageChat`:** fala pública → **multicast na visão**; toggles `whisper`/`guildon`/`guildoff`.
+- **`_MSG_MessageWhisper`:** sussurro a jogador online por nome (`SessionByName`); offline → notice,
+  alvo bloqueado (`Whisper`) → "deny". **55 comandos** (incl. backdoors GM) **NÃO** tratados (UNVERIFIED).
+- **`_MSG_ApplyBonus`:** distribuição de ponto de atributo (Score: Str/Int/Dex/Con; decrementa
+  `ScoreBonus`, `UpdateScore`). Special/Skill UNVERIFIED.
+- **Stubs UNVERIFIED:** `_MSG_Quest` (38 NPCs, 2753 linhas), `_MSG_ReqRanking` (duelo),
+  `_MSG_CapsuleInfo`/`_MSG_AccountSecure` (relays DB), `_MSG_PutoutSeal`.
+
+Casos Fase 8 (black-box): chat público (broadcast), whisper (entrega/offline/bloqueado), applybonus
+(`UpdateScore`).
+
+UNVERIFIED do lote: **engine de quest** (flags `MOBEXTRA.QuestInfo`, 38 NPCs, recompensas hardcoded →
+data-driven); **command-bus** dos 55 cmds de whisper (com autorização, removendo backdoors); máquina de
+duelo (`DoRanking`); relays DB (PIN/capsule); imposto de guilda no chat; bônus Special/Skill.
+
+---
+
+## Fase 4 — RESUMO (8/8 lotes, núcleo testável COMPLETO)
+
+`tmserver/internal/`: **8 pacotes** — `protocol` (Fase 1), `world` (Fase 3, game-loop + estado),
+`rng`/`combat`/`loot`/`combine` (fórmulas **puras** com LCG do MSVC), `handler` (~40 handlers em 8
+lotes). **Pacotes de paridade exata** (golden cases via LCG): combate (`Damage=145` e2e), drop
+(`g_pDropRate` real), combine (`rand()%115` + distribuição). Modelo: **1 goroutine dona + channels**,
+mutação só no loop, DB assíncrono via `World.Go`, anti-dup atômico (itens/trade) por construção.
+
+**Dívidas transversais (pós-Fase 4 / Fases 5-7):** layouts S→C byte-exatos (SELCHAR/CNFCharLogin/
+SendItem/notices) pendentes de **captura** (Fase 8 §5); **loaders de conteúdo (Fase 5)** destravam
+ItemList/SkillData/CompRate/SancRate/mapas/NPCGener → fecham combine/quest/drop UNVERIFIED;
+**adapter gRPC dbServer** (login/char/save real, hoje `NopPersistence`); EXP/party de MobKilled; billing
+(`_AUTH_GAME`); auto-trade/loja-NPC/banco; mob spawns (Fase 5) p/ testar MobKilled/quest in-game.
 
 ### Pendências de tooling (checklist §25)
 - `golangci-lint` / `goimports` / `govulncheck` NÃO instalados localmente (binário `go` local 1.22.2
