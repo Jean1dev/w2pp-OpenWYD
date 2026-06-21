@@ -18,7 +18,7 @@ Docker, alvo canônico). Layout por serviço: `tmserver/`, `dbserver/`, `binserv
 | 3 | Game-loop do tmServer (`tmserver/internal/world`) | **COMPLETO** | gRPC client p/ dbServer (adapter da port); sentinel do grid |
 | 4 | Handlers por subsistema (8 lotes) | **COMPLETO** (núcleo testável) — 8/8 lotes ✅ | layout S→C; `_NN_*`; billing; parry/crit; EXP/party §1; recipe/quest tables; quest(38 NPCs)/cmds-whisper; auto-trade/loja/banco; ranking |
 | 5 | Conteúdo (loaders) (`tmserver/internal/content`) | **COMPLETO** (núcleo) | NPCGener; mapeamento completo CSV→struct (ItemList/SkillData); semântica de bits do AttributeMap; wiring CompRate→engine de combine |
-| 6 | War/Castle + binServer | TODO | `_AUTH_GAME` (billing) |
+| 6 | War/Castle + binServer | **PARCIAL** — GTorre + billing novo ✅ | sequência S→C de war/castle (captura); Castle/Zakum (KeyDrop); integração do timer no loop; `_AUTH_GAME` legado descartado |
 | 7 | Hardening | TODO | — |
 
 ---
@@ -377,6 +377,24 @@ Tiny/ChanceBase=15`, `Ehre/Espiritual=40`, `Odin/Item_12_Ref_8=12`; `SancRate PO
 UNVERIFIED do bloco: **NPCGener.txt** (spawns, 2.5 MB, blocos `# [n]`) não parseado; mapeamento
 coluna-a-coluna dos CSVs; bits do `AttributeMap`; **wiring CompRate→`CombineFamily.Rate`** (as taxas
 estão carregadas, mas a correspondência receita→chave continua UNVERIFIED por variante).
+
+---
+
+## Fase 6 — War/Castle + binServer — PARCIAL
+
+- **`tmserver/internal/war/tower.go` — GTorre (Guild War/Torre, flows.md §7):** máquina de estado
+  guiada por timer (`Tick(now)`): `Idle→Open` no `StartHour`, placar por guilda enquanto aberta,
+  `Open→Closed` ao fim da `Duration` com vencedor (maior placar; tie → menor guild id), reabre no dia
+  seguinte. Testado (lifecycle, tie-break, reopen).
+- **`binserver/` — billing DESENHADO DO ZERO:** `internal/billing` (política `Active/Blocked/Expired`,
+  `Check(account, now)`, free-to-play p/ desconhecidos, thread-safe) + contrato gRPC
+  `api/bin/v1/bin.proto` (`CheckBilling`). O **`_AUTH_GAME` legado (196 B, UNVERIFIED) é descartado** —
+  o gate de billing do char-login chamará este serviço. `cmd/binserver` exercita a política.
+
+UNVERIFIED/pendente da fase: **sequência exata de mensagens S→C** de war/castle (`_MSG_SendWarInfo`/
+`SendCastleState`) — capturar; **Castle/Zakum** (`CCastleZakum`, `KeyDrop`, `CastleQuest.txt`) não
+implementado; **integração do `Tick` no game-loop** (ticker no `Run`) é wiring; servidor gRPC do
+binServer pende `make proto`.
 
 ### Pendências de tooling (checklist §25)
 - `golangci-lint` / `goimports` / `govulncheck` NÃO instalados localmente (binário `go` local 1.22.2
