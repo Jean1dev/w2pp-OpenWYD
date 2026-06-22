@@ -90,6 +90,13 @@ type Config struct {
 	// disconnects the offending connection, protecting the reactor (NF1).
 	MaxMsgPerSec float64
 	MsgBurst     int
+
+	// StatusFile is the path to the channel-status page (serv00.htm) the client
+	// fetches over HTTP before opening the CPSock game connection. When set, the
+	// edge answers a "GET" probe with this file's contents; empty serves a
+	// built-in default. The client-edge HTTP status check is undocumented in
+	// protocol-spec.md (CPSock-only) — discovered from a live client capture.
+	StatusFile string
 }
 
 // World holds all mutable game state. Every field is touched only by Run's

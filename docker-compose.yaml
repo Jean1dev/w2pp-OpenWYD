@@ -56,11 +56,20 @@ services:
       - "dbserver:7514"
       - "-binserver"
       - "binserver:3000"
+      - "-content"
+      - "/Release"
+      - "-status-addr"
+      - ":80"
+      - "-client-version"
+      - "12000"
     depends_on:
       - dbserver
       - binserver
+    volumes:
+      - ./Release:/Release:ro   # content tree (rates/catalogs/maps), validated at boot
     ports:
-      - "8281:8281"            # TMSrv CPSock client edge
+      - "8281:8281"            # TMSrv CPSock client edge (game)
+      - "80:80"                # channel-status HTTP (serv00.htm), real WYD uses :80
 
 volumes:
   pgdata:

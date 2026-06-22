@@ -184,8 +184,16 @@ func TestLoginOK(t *testing.T) {
 	if ty != protocol.MsgCNFAccountLogin {
 		t.Fatalf("response = %#x, want CNFAccountLogin", ty)
 	}
-	if len(payload) == 0 || payload[0] != 1 {
-		t.Errorf("selchar count = %v, want 1 character", payload[:1])
+	// Byte-exact STRUCT_SELCHAR: body is 1996 bytes; slot-0 name at body[36:52]
+	// (sel@20 + Name[][]@16), slot-0 Score.Level at body[100:104] (sel@20 + Score@80).
+	if len(payload) != 1996 {
+		t.Fatalf("CNFAccountLogin body = %d bytes, want 1996", len(payload))
+	}
+	if got := cstr(payload[36:52]); got != "Hero" {
+		t.Errorf("slot-0 name = %q, want Hero", got)
+	}
+	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 50 {
+		t.Errorf("slot-0 level = %d, want 50", lvl)
 	}
 }
 

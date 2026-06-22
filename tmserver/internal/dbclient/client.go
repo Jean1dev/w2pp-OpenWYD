@@ -46,12 +46,22 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 	if out.Result != world.LoginOK {
 		return out, nil
 	}
-	list, err := c.api.ListCharacters(ctx, &dbv1.ListCharactersRequest{AccountId: out.AccountID})
+	out.Characters, err = c.ListCharacters(ctx, out.AccountID)
 	if err != nil {
-		return world.LoginOutcome{}, fmt.Errorf("dbclient: list characters: %w", err)
+		return world.LoginOutcome{}, err
 	}
+	return out, nil
+}
+
+// ListCharacters fetches the character-selection projection for an account.
+func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.CharSummary, error) {
+	list, err := c.api.ListCharacters(ctx, &dbv1.ListCharactersRequest{AccountId: accountID})
+	if err != nil {
+		return nil, fmt.Errorf("dbclient: list characters: %w", err)
+	}
+	out := make([]world.CharSummary, 0, len(list.GetCharacters()))
 	for _, ch := range list.GetCharacters() {
-		out.Characters = append(out.Characters, world.CharSummary{
+		out = append(out, world.CharSummary{
 			Slot:    int(ch.GetSlot()),
 			Name:    ch.GetName(),
 			Class:   int(ch.GetClass()),

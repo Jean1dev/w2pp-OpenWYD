@@ -112,10 +112,19 @@ func (s *Server) SaveCharacter(ctx context.Context, req *dbv1.SaveCharacterReque
 // CreateCharacter creates a character in a free slot. A taken slot/name (unique
 // violation) returns ok=false, not an error.
 func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterRequest) (*dbv1.CreateCharacterResponse, error) {
+	// Initialize a playable level-1 character. The original DBSrv seeds these from
+	// per-class BaseMob templates (Release/DBsrv/run/BaseMob/{TK,FM,BM,HT}); until
+	// those are wired we set sane base stats + HP/MP and a starting position so the
+	// character can enter the world. (UNVERIFIED: exact per-class base attributes
+	// and starter equipment / spawn coords — placeholder values.)
 	ch := domain.Character{
 		Slot:  int(req.GetSlot()),
 		Name:  req.GetName(),
 		Class: uint8(req.GetClass()),
+		Level: 1,
+		Str:   12, Int: 12, Dex: 12, Con: 12,
+		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
+		SaveX: 2096, SaveY: 2096, // matches the BaseMob template spawn
 	}
 	id, err := s.store.CreateCharacter(ctx, req.GetAccountId(), ch)
 	if isUniqueViolation(err) {

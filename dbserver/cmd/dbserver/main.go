@@ -6,9 +6,12 @@
 //
 //	dbserver convert -accounts <dir> [-dsn <postgres-url>]
 //	dbserver serve [-addr :7514] -dsn <postgres-url> [-tls-cert … -tls-key … -tls-ca …]
+//	dbserver seed-account -name <login> -pass <password> [-dsn <postgres-url>]
 //
 // convert: without -dsn it is a dry run; with -dsn it applies migrations and
 // persists each converted account. serve: applies migrations then serves gRPC.
+// seed-account: creates a single password-only account (no characters) for local
+// testing; the player creates characters in the client. Idempotent.
 package main
 
 import (
@@ -20,6 +23,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,6 +32,7 @@ import (
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
+	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
@@ -50,6 +55,11 @@ func main() {
 			logger.Error("serve failed", "err", err)
 			os.Exit(1)
 		}
+	case "seed-account":
+		if err := runSeedAccount(os.Args[2:], logger); err != nil {
+			logger.Error("seed-account failed", "err", err)
+			os.Exit(1)
+		}
 	default:
 		usage()
 		os.Exit(2)
@@ -60,6 +70,61 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  dbserver convert -accounts <dir> [-dsn <postgres-url>]")
 	fmt.Fprintln(os.Stderr, "  dbserver serve [-addr :7514] -dsn <postgres-url> [-tls-cert -tls-key -tls-ca]")
+	fmt.Fprintln(os.Stderr, "  dbserver seed-account -name <login> -pass <password> [-dsn <postgres-url>]")
+}
+
+// runSeedAccount creates one password-only account for local testing. The name
+// is canonicalized to lowercase (matching the converter, convert.Account); the
+// password is stored only as an argon2id hash (never plaintext). It is
+// idempotent: an existing account is left untouched and reported, not an error,
+// so the local bring-up script can run repeatedly.
+func runSeedAccount(args []string, logger *slog.Logger) error {
+	fs := flag.NewFlagSet("seed-account", flag.ExitOnError)
+	name := fs.String("name", "", "account login (canonicalized to lowercase)")
+	pass := fs.String("pass", "", "account password (hashed with argon2id)")
+	dsn := fs.String("dsn", envOr("W2PP_DB_DSN", ""), "PostgreSQL DSN (or W2PP_DB_DSN)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *name == "" || *pass == "" {
+		return fmt.Errorf("-name and -pass are required")
+	}
+	if *dsn == "" {
+		return fmt.Errorf("-dsn (or W2PP_DB_DSN) is required")
+	}
+	canonical := strings.ToLower(*name)
+
+	passHash, err := convert.HashSecret(*pass)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pool, err := pgxpool.New(ctx, *dsn)
+	if err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer pool.Close()
+	if err := store.Migrate(ctx, pool); err != nil {
+		return err
+	}
+	s := store.New(pool)
+
+	if _, err := s.AccountByName(ctx, canonical); err == nil {
+		logger.Info("account already exists — leaving untouched", "name", canonical)
+		return nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("lookup: %w", err)
+	}
+
+	id, err := s.SaveAccount(ctx, domain.Account{Name: canonical, PassHash: passHash})
+	if err != nil {
+		return fmt.Errorf("save account: %w", err)
+	}
+	logger.Info("account seeded", "name", canonical, "id", id, "characters", 0)
+	return nil
 }
 
 // runServe applies migrations and serves the gRPC AccountService until the

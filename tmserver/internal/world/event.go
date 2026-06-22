@@ -120,6 +120,11 @@ type disconnectEvent struct {
 }
 
 func (e disconnectEvent) apply(w *World) {
+	// Surface WHY a connection dropped (bad INITCODE, EOF, oversize, rate, checksum)
+	// instead of swallowing it — essential to diagnose client-edge handshakes.
+	if e.err != nil && w.sessions[e.s.Conn] == e.s {
+		w.log.Info("connection drop reason", "conn", e.s.Conn, "ip", e.s.IP, "err", e.err.Error())
+	}
 	w.removeSession(e.s)
 }
 

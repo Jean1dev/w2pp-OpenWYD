@@ -67,7 +67,13 @@ func (f *Framer) ReadFrame() ([]byte, error) {
 			return nil, err
 		}
 		if binary.LittleEndian.Uint32(f.buf[0:4]) != InitCode {
-			return nil, ErrBadInitCode
+			// Surface the actual leading bytes so a real client's handshake can be
+			// identified (diagnostic; the buffer holds the first TCP segment).
+			n := len(f.buf)
+			if n > 64 {
+				n = 64
+			}
+			return nil, fmt.Errorf("%w (first %d bytes: % x)", ErrBadInitCode, n, f.buf[:n])
 		}
 		f.buf = f.buf[4:]
 		f.initDone = true

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -13,15 +14,19 @@ import (
 func (d *Dispatcher) createCharacter(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	var body protocol.MsgCreateCharacterBody
 	if err := body.Decode(payload); err != nil {
-		w.Send(s, protocol.MsgNewCharacterFail, nil)
-		return
-	}
-	if s.Mode != world.UserSelChar {
+		d.log.Warn("create char: decode failed", "conn", s.Conn, "len", len(payload), "err", err)
 		w.Send(s, protocol.MsgNewCharacterFail, nil)
 		return
 	}
 	name := cstr(body.MobName[:])
+	d.log.Info("create char", "conn", s.Conn, "slot", body.Slot, "class", body.MobClass,
+		"name", name, "mode", s.Mode, "want_mode", world.UserSelChar)
+	if s.Mode != world.UserSelChar {
+		w.Send(s, protocol.MsgNewCharacterFail, nil)
+		return
+	}
 	if !validCharName(name) {
+		d.log.Warn("create char: invalid name", "conn", s.Conn, "name", name)
 		w.Send(s, protocol.MsgNewCharacterFail, nil)
 		return
 	}
@@ -34,13 +39,26 @@ func (d *Dispatcher) createCharacter(w *world.World, s *world.Session, _ protoco
 	p := w.Persistence()
 	w.Go(s, func() func(*world.World, *world.Session) {
 		ok, err := p.CreateCharacter(context.Background(), accID, slot, name, class)
+		if err != nil || !ok {
+			return func(w *world.World, s *world.Session) {
+				s.Mode = world.UserSelChar
+				d.log.Warn("create char: dbServer rejected", "conn", s.Conn, "ok", ok, "err", err)
+				w.Send(s, protocol.MsgNewCharacterFail, nil)
+			}
+		}
+		// Success: re-fetch the list and resend the full SELCHAR (the original
+		// replies MSG_CNFNewCharacter with the whole selection, now with the new char).
+		chars, lerr := p.ListCharacters(context.Background(), accID)
 		return func(w *world.World, s *world.Session) {
 			s.Mode = world.UserSelChar
-			if err != nil || !ok {
+			if lerr != nil {
+				d.log.Warn("create char: list after create failed", "conn", s.Conn, "err", lerr)
 				w.Send(s, protocol.MsgNewCharacterFail, nil)
 				return
 			}
-			w.Send(s, protocol.MsgCNFNewCharacter, nil)
+			d.log.Info("create char: OK", "conn", s.Conn, "name", name, "slot", slot, "total", len(chars))
+			body := protocol.EncodeCNFNewCharacterBody(selCharsFrom(chars))
+			w.SendTo(s, protocol.Header{Type: protocol.MsgCNFNewCharacter, ID: protocol.IDNewCharacter}, body)
 		}
 	})
 }
@@ -100,6 +118,7 @@ func (d *Dispatcher) characterLogin(w *world.World, s *world.Session, _ protocol
 		d.notify(w, s, NoticeSelectCharacter)
 		return
 	}
+	d.log.Info("character login request", "conn", s.Conn, "slot", slot, "mode", s.Mode)
 	s.Slot = slot
 	s.Mode = world.UserCharWait
 	accID := s.AccountID
@@ -144,11 +163,17 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.Send(s, protocol.MsgCharacterLoginFail, nil)
 		return
 	}
+	// Spawn position: the relational position is not carried over gRPC yet (0,0),
+	// so fall back to the class template's valid spawn coordinates.
+	spawnX, spawnY := st.X, st.Y
+	if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize && spawnX == 0 && spawnY == 0 {
+		spawnX, spawnY = protocol.BaseMobSpawn(tmpl)
+	}
 	// Inject the player entity into the world (the slot was docked at connect).
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUser
 		e.Name = st.Name
-		e.X, e.Y = st.X, st.Y
+		e.X, e.Y = spawnX, spawnY
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
 		e.Level, e.Coin = int32(st.Level), st.Coin
@@ -157,9 +182,48 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Carry = st.Carry
 	}
 	s.Mode = world.UserPlay
-	// UNVERIFIED: _MSG_CNFCharacterLogin snapshot layout (STRUCT_MOB + pos + skill
-	// bar) not byte-mapped — placeholder payload until captured.
-	w.Send(s, protocol.MsgCNFCharacterLogin, nil)
+	var shortSkill [16]uint8
+	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
+	// → correct class model and no client crash); patch name + position.
+	if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize {
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, s.Slot, s.Conn, 0, shortSkill)
+		d.log.Info("char login: sending CNFCharacterLogin (template)",
+			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
+		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
+		return
+	}
+	d.log.Info("char login: sending CNFCharacterLogin (fallback, no template)",
+		"conn", s.Conn, "class", st.Class)
+	// Fallback: build the snapshot from the stored relational state (no equipment).
+	// Byte-exact MSG_CNFCharacterLogin (STRUCT_MOB + pos + skillbar), ID=30000.
+	m := protocol.MobSnapshot{
+		Name:  st.Name,
+		Clan:  st.Clan,
+		Guild: st.GuildID,
+		Class: uint8(st.Class),
+		Coin:  st.Coin,
+		Exp:   st.Exp,
+		SPX:   st.X, SPY: st.Y,
+		Level: int32(st.Level), Ac: st.AC, Damage: st.Damage,
+		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
+		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
+		ScoreBonus: st.ScoreBonus, GuildLevel: st.GuildLevel,
+	}
+	for i := range st.Carry {
+		if i >= len(m.Carry) {
+			break
+		}
+		m.Carry[i] = protocol.SelItem{
+			Index: uint16(st.Carry[i].Index),
+			Eff: [3][2]uint8{
+				{st.Carry[i].Effects[0].Effect, st.Carry[i].Effects[0].Value},
+				{st.Carry[i].Effects[1].Effect, st.Carry[i].Effects[1].Value},
+				{st.Carry[i].Effects[2].Effect, st.Carry[i].Effects[2].Value},
+			},
+		}
+	}
+	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, 0, m, shortSkill)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 }
 
 // characterLogout handles _MSG_CharacterLogout (0x0215): return to the selection
@@ -203,7 +267,8 @@ func validCharName(name string) bool {
 		return false
 	}
 	for _, r := range name {
-		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_'
+		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '_' || r == '-'
 		if !ok {
 			return false
 		}

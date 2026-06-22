@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/binary"
 	"strings"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -26,7 +25,11 @@ func (d *Dispatcher) accountLogin(w *world.World, s *world.Session, _ protocol.H
 	}
 
 	// Server-authoritative version check (anti-cheat: blocks forged/old clients).
+	// This 7662 "Cavaleiros de Kersef" build sends ClientVersion=12000 (set via
+	// -client-version); mismatches get the rerun notice and are dropped.
 	if body.ClientVersion != d.cfg.ClientVersion {
+		d.log.Warn("account login: version mismatch",
+			"conn", s.Conn, "got", body.ClientVersion, "want", d.cfg.ClientVersion)
 		d.notify(w, s, NoticeVersionMismatch)
 		w.Close(s)
 		return
@@ -70,7 +73,8 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		delete(d.fails, s.AccountName)
 		s.AccountID = out.AccountID
 		s.Mode = world.UserSelChar
-		w.Send(s, protocol.MsgCNFAccountLogin, buildSelChar(out.Characters))
+		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, selCharsFrom(out.Characters))
+		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)
 	case world.LoginBadPassword:
 		d.fails[s.AccountName]++
 		s.Mode = world.UserAccept // allow retry
@@ -86,26 +90,25 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	}
 }
 
-// buildSelChar serializes the character-selection list for _MSG_CNFAccountLogin.
+// selCharsFrom maps the dbServer character summaries to protocol.SelChar rows for
+// the byte-exact STRUCT_SELCHAR (MSG_CNFAccountLogin / MSG_CNFNewCharacter).
 //
-// UNVERIFIED: STRUCT_SELCHAR is not fully byte-mapped (data-formats.md §1.5), so
-// this is a best-effort placeholder layout — count, then per char: slot(1),
-// class(1), level(int32), exp(int64), guild(uint16), name(16). Replace with the
-// real layout once captured (parity-tests.md §5); the byte-exact golden case is
-// skipped until then.
-func buildSelChar(chars []world.CharSummary) []byte {
-	const recSize = 1 + 1 + 4 + 8 + 2 + 16
-	b := make([]byte, 1+len(chars)*recSize)
-	b[0] = byte(len(chars))
-	off := 1
+// The summary lacks the full STRUCT_SCORE/equip, so HP/stats are filled with
+// non-zero defaults purely so the client renders the slot; the authoritative
+// values arrive on character login (CNFCharacterLogin). Name + Level make the
+// character appear and be selectable on the screen.
+func selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
+	out := make([]protocol.SelChar, 0, len(chars))
 	for _, c := range chars {
-		b[off] = byte(c.Slot)
-		b[off+1] = byte(c.Class)
-		binary.LittleEndian.PutUint32(b[off+2:], uint32(c.Level))
-		binary.LittleEndian.PutUint64(b[off+6:], uint64(c.Exp))
-		binary.LittleEndian.PutUint16(b[off+14:], c.GuildID)
-		copy(b[off+16:off+32], c.Name)
-		off += recSize
+		out = append(out, protocol.SelChar{
+			Slot:      c.Slot,
+			Name:      c.Name,
+			Level:     int32(c.Level),
+			Exp:       c.Exp,
+			Guild:     c.GuildID,
+			MaxHp:     100, Hp: 100, MaxMp: 100, Mp: 100,
+			Str: 10, Int: 10, Dex: 10, Con: 10,
+		})
 	}
-	return b
+	return out
 }

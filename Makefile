@@ -1,4 +1,4 @@
-.PHONY: build binaries test lint fmt vet run vuln tidy proto certs certs-clean
+.PHONY: build binaries test lint fmt vet run run-local vuln tidy proto certs certs-clean
 
 build:
 	go build ./...
@@ -32,6 +32,11 @@ tidy:
 
 run:
 	go run ./tmserver/cmd/tmserver
+
+# Bring up the full stack locally, seed a test account, and print the address to
+# point a real client at. Override account with W2PP_LOCAL_ACCOUNT/_PASSWORD.
+run-local:
+	./scripts/run-local.sh
 
 # Generate gRPC code from api/ (requires protoc + protoc-gen-go / protoc-gen-go-grpc
 # on PATH; install with `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`

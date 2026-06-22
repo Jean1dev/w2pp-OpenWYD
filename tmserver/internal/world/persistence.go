@@ -115,6 +115,7 @@ type CharacterSave struct {
 type Persistence interface {
 	SaveOnShutdown(ctx context.Context, save CharacterSave) error
 	AccountLogin(ctx context.Context, name, password string) (LoginOutcome, error)
+	ListCharacters(ctx context.Context, accountID int64) ([]CharSummary, error)
 	CreateCharacter(ctx context.Context, accountID int64, slot int, name string, class int) (bool, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int, name, password string) (bool, error)
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
@@ -133,6 +134,11 @@ func (NopPersistence) SaveOnShutdown(context.Context, CharacterSave) error { ret
 // AccountLogin always reports no account.
 func (NopPersistence) AccountLogin(context.Context, string, string) (LoginOutcome, error) {
 	return LoginOutcome{Result: LoginNoAccount}, nil
+}
+
+// ListCharacters returns an empty list.
+func (NopPersistence) ListCharacters(context.Context, int64) ([]CharSummary, error) {
+	return nil, nil
 }
 
 // CreateCharacter is unsupported without a backend.

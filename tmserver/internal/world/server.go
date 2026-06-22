@@ -31,9 +31,8 @@ func (w *World) acceptLoop(ctx context.Context, ln net.Listener) {
 			w.log.Warn("accept failed", "err", err)
 			return
 		}
-		if !w.emit(connectEvent{conn: c, ip: c.RemoteAddr().String()}) {
-			_ = c.Close()
-			return
-		}
+		// Classify HTTP status probe vs CPSock game connection off the accept
+		// goroutine so a slow probe never blocks accepting other clients.
+		go w.handleConn(c)
 	}
 }

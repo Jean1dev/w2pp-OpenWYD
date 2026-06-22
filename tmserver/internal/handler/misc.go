@@ -43,7 +43,10 @@ func (d *Dispatcher) applyBonus(w *world.World, s *world.Session, _ protocol.Hea
 // UNVERIFIED: the dbServer PIN RPC is not implemented; this acknowledges the
 // request. The PIN must be hashed/HMACed on the dbServer (never plaintext).
 func (d *Dispatcher) accountSecure(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
-	d.log.Debug("AccountSecure relay (DB PIN RPC pending)", "conn", s.Conn)
+	// Acknowledge the numeric-PIN step so the client advances (the original relays
+	// to DBSrv and echoes a header-only _MSG_AccountSecure signal, ID=ESCENE_FIELD).
+	// Without this ack the client stalls/resets on the secure-password screen.
+	w.SendTo(s, protocol.Header{Type: protocol.MsgAccountSecure, ID: protocol.IDScene}, nil)
 }
 
 // quest handles _MSG_Quest (0x028B): NPC quest interaction.

@@ -27,6 +27,12 @@ type Config struct {
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
 	// UNVERIFIED placeholders are installed (every recipe reports "no match").
 	CombineFamilies map[protocol.Type]CombineFamily
+
+	// BaseMobs are the per-class STRUCT_MOB templates (class index → raw 816 bytes,
+	// content.LoadBaseMobs). Used to render a character on entering the world with
+	// its class's starter equipment/stats. When nil, the snapshot is built from the
+	// stored relational state (no equipment).
+	BaseMobs map[int][]byte
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -41,6 +47,7 @@ type Dispatcher struct {
 	routes          map[protocol.Type]handlerFunc
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
+	baseMobs        map[int][]byte // per-class STRUCT_MOB templates
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -60,6 +67,7 @@ func New(cfg Config) *Dispatcher {
 		routes:          make(map[protocol.Type]handlerFunc),
 		fails:           make(map[string]int),
 		combineFamilies: cfg.CombineFamilies,
+		baseMobs:        cfg.BaseMobs,
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)
@@ -124,9 +132,16 @@ func New(cfg Config) *Dispatcher {
 // Handle is the world.Handler. It runs in the loop goroutine.
 func (d *Dispatcher) Handle(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
 	fn, ok := d.routes[h.Type]
+	// DIAGNOSTIC: log every received Type (hex) so client packets can be mapped.
+	d.log.Info("recv packet", "conn", s.Conn, "type", formatType(h.Type), "len", len(payload), "routed", ok)
 	if !ok {
-		d.log.Debug("no handler for type", "type", uint16(h.Type), "conn", s.Conn)
 		return
 	}
 	fn(w, s, h, payload)
+}
+
+func formatType(t protocol.Type) string {
+	const hexdigits = "0123456789abcdef"
+	v := uint16(t)
+	return "0x" + string([]byte{hexdigits[v>>12&0xf], hexdigits[v>>8&0xf], hexdigits[v>>4&0xf], hexdigits[v&0xf]})
 }
