@@ -1,0 +1,8 @@
+{
+  "name": "project-analizer",
+  "description": "Project Analyzer plugins for comprehensive architectural analysis, component deep analysis, and dependency auditing",
+  "version": "1.0.0",
+  "author": {
+    "name": "Wesley Willians"
+  }
+}

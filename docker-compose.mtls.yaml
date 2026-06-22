@@ -1,0 +1,32 @@
+# mTLS overlay for the internal gRPC links (Fase 7). Apply on top of the base
+# compose AFTER generating dev certs (`make certs`):
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.mtls.yaml up --build
+#
+# The shared server cert carries SANs for both dbserver and binserver, so
+# tmServer's client verifies each by its dial authority (no ServerName override
+# needed). Servers require a valid client cert (RequireAndVerifyClientCert).
+services:
+  dbserver:
+    environment:
+      W2PP_TLS_CERT: /certs/server.crt
+      W2PP_TLS_KEY: /certs/server.key
+      W2PP_TLS_CA: /certs/ca.crt
+    volumes:
+      - ./certs:/certs:ro
+
+  binserver:
+    environment:
+      W2PP_TLS_CERT: /certs/server.crt
+      W2PP_TLS_KEY: /certs/server.key
+      W2PP_TLS_CA: /certs/ca.crt
+    volumes:
+      - ./certs:/certs:ro
+
+  tmserver:
+    environment:
+      W2PP_TLS_CERT: /certs/client.crt
+      W2PP_TLS_KEY: /certs/client.key
+      W2PP_TLS_CA: /certs/ca.crt
+    volumes:
+      - ./certs:/certs:ro

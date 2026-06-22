@@ -1,0 +1,9 @@
+# Dev image — canonical Go 1.26 target (guidelines §4.3, §4.8). Used for hot-reload
+# development (mounts the source); production uses the multi-stage ./Dockerfile.
+FROM golang:1.26-alpine
+WORKDIR /app
+RUN apk add --no-cache git make
+COPY go.mod go.sum* ./
+RUN go mod download
+COPY . .
+CMD ["sleep", "infinity"]

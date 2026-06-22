@@ -1,0 +1,75 @@
+# Full microservice topology (migration-plan.md §3.5): tmServer (CPSock edge) →
+# dbServer + binServer (gRPC) → PostgreSQL. Production images are built from the
+# multi-stage ./Dockerfile, one binary per service.
+#
+#   docker compose up --build
+#
+# Internal links run insecure here for out-of-the-box bring-up. To enable mTLS,
+# run `make certs` then add the overlay:
+#   docker compose -f docker-compose.yaml -f docker-compose.mtls.yaml up --build
+#
+# Secrets (DB DSN) come from the environment, never hardcoded in code.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  dbserver:
+    build:
+      context: .
+      args:
+        SVC: dbserver
+    environment:
+      W2PP_DB_DSN: postgres://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/postgres
+    command: ["serve", "-addr", ":7514"]
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "7514"
+
+  binserver:
+    build:
+      context: .
+      args:
+        SVC: binserver
+    command: ["-addr", ":3000"]
+    expose:
+      - "3000"
+
+  tmserver:
+    build:
+      context: .
+      args:
+        SVC: tmserver
+    command:
+      - "-addr"
+      - ":8281"
+      - "-dbserver"
+      - "dbserver:7514"
+      - "-binserver"
+      - "binserver:3000"
+      - "-content"
+      - "/Release"
+      - "-status-addr"
+      - ":80"
+      - "-client-version"
+      - "12000"
+    depends_on:
+      - dbserver
+      - binserver
+    volumes:
+      - ./Release:/Release:ro   # content tree (rates/catalogs/maps), validated at boot
+    ports:
+      - "8281:8281"            # TMSrv CPSock client edge (game)
+      - "80:80"                # channel-status HTTP (serv00.htm), real WYD uses :80
+
+volumes:
+  pgdata:

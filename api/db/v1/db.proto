@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+// Internal contract between tmServer and dbServer (migration-plan.md §3.5).
+// This link is modern (gRPC + mTLS), NOT the legacy CPSock — only the client
+// edge is bound to the old protocol. The RPCs mirror the legacy G↔DB messages
+// in protocol-spec.md §3.3 (DBAccountLogin, DBCharacterLogin, DBSaveMob, …).
+//
+// Code generation and the server implementation land in Phase 3, when tmServer
+// becomes the consumer. Generate with `make proto`.
+package db.v1;
+
+option go_package = "github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1";
+
+// AccountService owns accounts, characters and persistence (PostgreSQL).
+service AccountService {
+  // AccountLogin validates an account name + password (legacy _MSG_DBAccountLogin).
+  rpc AccountLogin(AccountLoginRequest) returns (AccountLoginResponse);
+  // ListCharacters returns the character-selection projection for an account.
+  rpc ListCharacters(ListCharactersRequest) returns (ListCharactersResponse);
+  // LoadCharacter loads one character's full state by slot (_MSG_DBCharacterLogin).
+  rpc LoadCharacter(LoadCharacterRequest) returns (LoadCharacterResponse);
+  // SaveCharacter persists one character's state (_MSG_DBSaveMob / SavingQuit).
+  rpc SaveCharacter(SaveCharacterRequest) returns (SaveCharacterResponse);
+  // CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
+  rpc CreateCharacter(CreateCharacterRequest) returns (CreateCharacterResponse);
+  // DeleteCharacter deletes a character after password confirmation.
+  rpc DeleteCharacter(DeleteCharacterRequest) returns (DeleteCharacterResponse);
+}
+
+enum LoginResult {
+  LOGIN_RESULT_UNSPECIFIED = 0;
+  LOGIN_RESULT_OK = 1;
+  LOGIN_RESULT_NO_ACCOUNT = 2;   // _MSG_DBAccountLoginFail_Account
+  LOGIN_RESULT_BAD_PASSWORD = 3; // _MSG_DBAccountLoginFail_Pass
+  LOGIN_RESULT_BLOCKED = 4;      // _MSG_DBAccountLoginFail_Block
+  LOGIN_RESULT_ALREADY_PLAYING = 5;
+}
+
+message AccountLoginRequest {
+  string account_name = 1; // canonical lowercase
+  string password = 2;     // verified against the stored argon2id hash
+  int32 client_version = 3;
+}
+
+message AccountLoginResponse {
+  LoginResult result = 1;
+  int64 account_id = 2;
+}
+
+message ListCharactersRequest { int64 account_id = 1; }
+
+message CharacterSummary {
+  int32 slot = 1;
+  string name = 2;
+  int32 class = 3;
+  int32 level = 4;
+  int64 exp = 5;
+  uint32 guild_id = 6;
+}
+
+message ListCharactersResponse { repeated CharacterSummary characters = 1; }
+
+message LoadCharacterRequest {
+  int64 account_id = 1;
+  int32 slot = 2;
+}
+
+// Character carries the relational character state (domain.Character). Equip,
+// carry and affects are normalized lists; empty item slots are omitted.
+message Character {
+  int32 slot = 1;
+  string name = 2;
+  int32 class = 3;
+  int32 clan = 4;
+  uint32 guild_id = 5;
+  int32 level = 6;
+  int64 exp = 7;
+  int32 coin = 8;
+  int32 str = 9;
+  int32 int = 10;
+  int32 dex = 11;
+  int32 con = 12;
+  int32 max_hp = 13;
+  int32 max_mp = 14;
+  int32 hp = 15;
+  int32 mp = 16;
+  repeated Item equip = 17;
+  repeated Item carry = 18;
+  repeated Affect affects = 19;
+}
+
+message Item {
+  int32 slot = 1;
+  int32 index = 2;
+  int32 eff1 = 3;
+  int32 effv1 = 4;
+  int32 eff2 = 5;
+  int32 effv2 = 6;
+  int32 eff3 = 7;
+  int32 effv3 = 8;
+}
+
+message Affect {
+  int32 type = 1;
+  int32 value = 2;
+  int32 level = 3;
+  uint32 time = 4;
+}
+
+message LoadCharacterResponse { Character character = 1; }
+
+message SaveCharacterRequest {
+  int64 account_id = 1;
+  Character character = 2;
+}
+message SaveCharacterResponse { bool ok = 1; }
+
+message CreateCharacterRequest {
+  int64 account_id = 1;
+  int32 slot = 2;
+  string name = 3;
+  int32 class = 4;
+}
+message CreateCharacterResponse {
+  bool ok = 1;
+  int64 character_id = 2;
+}
+
+message DeleteCharacterRequest {
+  int64 account_id = 1;
+  int32 slot = 2;
+  string password = 3;
+}
+message DeleteCharacterResponse { bool ok = 1; }

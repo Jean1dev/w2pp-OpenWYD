@@ -1,0 +1,9 @@
+{
+  "kind": "transport",
+  "v": 1,
+  "note": "SCHEMA EXAMPLE ONLY — empty hex so the test skips it. Replace with real captures from the live TMSrv (parity-tests.md §5 proxy/§7a). Then plain_hex/wire_hex make TestTransportVectors assertive with NO code change.",
+  "iKeyWord": 42,
+  "plain_hex": "",
+  "wire_hex": "",
+  "checksum": 0
+}
