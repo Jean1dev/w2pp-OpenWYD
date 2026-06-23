@@ -190,6 +190,22 @@ func (w *World) shutdown() {
 	w.log.Info("world loop stopped", "sessions_saved", saved)
 }
 
+// SaveCharacterAsync persists an in-play character's live state (Carry/Coin/stats)
+// without blocking the loop: it captures the CharacterSave in the loop (a value
+// copy) and runs the gRPC save in a goroutine. Called on logout/disconnect so
+// purchases, gold and progress survive the session. Loop-only (captures state).
+func (w *World) SaveCharacterAsync(s *Session) {
+	if s == nil || s.Mode != UserPlay || s.AccountID == 0 {
+		return
+	}
+	cs := w.characterSave(s)
+	go func() {
+		if err := w.persist.SaveOnShutdown(context.Background(), cs); err != nil {
+			w.log.Warn("save character failed", "account", cs.AccountID, "slot", cs.Slot, "err", err)
+		}
+	}()
+}
+
 // characterSave snapshots a session's in-world entity into a CharacterSave. Only
 // world-authoritative fields are captured (see CharacterSave). Loop-only.
 func (w *World) characterSave(s *Session) CharacterSave {

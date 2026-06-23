@@ -194,7 +194,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
 	// → correct class model and no client crash); patch name + position.
 	if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize {
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, s.Slot, s.Conn, 0, shortSkill)
+		var carry [64]protocol.SelItem
+		for i := range st.Carry {
+			if i >= 64 {
+				break
+			}
+			carry[i] = itemToSel(st.Carry[i])
+		}
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, carry, s.Slot, s.Conn, 0, shortSkill)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
@@ -247,6 +254,7 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	if self == nil {
 		return
 	}
+	w.ClearSeen(s) // fresh view set on (re)entering the world
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer
@@ -303,6 +311,12 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 	if s.Mode != world.UserPlay {
 		return
 	}
+	w.SaveCharacterAsync(s) // persist before leaving the world (still UserPlay)
+	// Despawn this entity for in-view players (back to character selection).
+	body := protocol.EncodeRemoveMobBody(2)
+	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
+	})
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUserDock
 	}

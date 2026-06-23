@@ -98,6 +98,11 @@ const (
 	MsgCreateMob          Type = 0x0364 // 868  spawn in view
 	MsgRemoveMob          Type = 0x0165 // 357  despawn
 	MsgSendItem           Type = 0x0182 // 386  update one slot
+	MsgREQShopList        Type = 0x027B // 635  C→S open NPC shop (Target=NPC)
+	MsgShopList           Type = 0x017C // 380  S→C shop list (NPC Carry)
+	MsgBuy                Type = 0x0379 // 889  C↔S buy from NPC
+	MsgSell               Type = 0x037A // 890  C↔S sell to NPC
+	MsgUpdateEtc          Type = 0x0337 // 823  S→C update gold/exp/etc (Coin@40)
 	MsgCNFGetItem         Type = 0x0171 // 369
 	MsgCNFDropItem        Type = 0x0175 // 373
 	MsgDecayItem          Type = 0x016F // 367  ground item gone

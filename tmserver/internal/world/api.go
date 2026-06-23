@@ -80,10 +80,26 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	for i := range eq {
 		e.EquipVisual[i] = eq[i].Index
 	}
+	// For a merchant NPC, Carry[] is its shop stock (sent in MSG_ShopList).
+	carry := protocol.MobCarry(template)
+	for i := range carry {
+		e.Carry[i] = Item{
+			Index: int16(carry[i].Index),
+			Effects: [3]Effect{
+				{Effect: carry[i].Eff[0][0], Value: carry[i].Eff[0][1]},
+				{Effect: carry[i].Eff[1][0], Value: carry[i].Eff[1][1]},
+				{Effect: carry[i].Eff[2][0], Value: carry[i].Eff[2][1]},
+			},
+		}
+	}
 	w.entities[id] = e
 	w.grid.SetMob(int(x), int(y), uint16(id))
 	return id
 }
+
+// ClearSeen resets a session's view set (e.g. on entering the world), so all
+// in-view entities get a fresh CreateMob.
+func (w *World) ClearSeen(s *Session) { s.seen = nil }
 
 // MarkSeen records that session s's client now knows entity id; it returns true
 // only the first time (so a CreateMob is sent once per entity as it enters view).

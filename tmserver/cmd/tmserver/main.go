@@ -65,8 +65,10 @@ func run(logger *slog.Logger) error {
 	// recipe→combine-family and AttributeMap-bit semantics remain UNVERIFIED
 	// (PROGRESS Fase 5), so this validates and exposes the data; it does not
 	// rewire gameplay on unverified mappings.
+	var itemPrices map[int]int32
 	if *contentDir != "" {
-		if err := loadContent(*contentDir, logger); err != nil {
+		var err error
+		if itemPrices, err = loadContent(*contentDir, logger); err != nil {
 			return err
 		}
 	}
@@ -110,7 +112,7 @@ func run(logger *slog.Logger) error {
 	}
 
 	dispatch := handler.New(handler.Config{
-		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs,
+		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -231,26 +233,27 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) error {
+func loadContent(dir string, logger *slog.Logger) (map[int]int32, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sanc, err := content.LoadSancRate(filepath.Join(dir, "Common", "Settings", "SancRate.txt"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	skills, err := content.LoadSkillData(filepath.Join(dir, "Common", "SkillData.csv"))
 	if err != nil {
-		return err
+		return nil, err
 	}
+	prices := items.Prices()
 	logger.Info("content loaded",
 		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
-		"items", items.Len(), "skills", skills.Len())
+		"items", items.Len(), "skills", skills.Len(), "prices", len(prices))
 
 	// Maps are optional: 17 MiB HeightMap + 1 MiB AttributeMap aren't required to
 	// accept logins; warn rather than fail when they aren't mounted.
@@ -260,5 +263,5 @@ func loadContent(dir string, logger *slog.Logger) error {
 	if _, err := content.LoadHeightMap(filepath.Join(dir, "TMsrv", "run", "HeightMap.dat")); err != nil {
 		logger.Warn("height map not loaded", "err", err)
 	}
-	return nil
+	return prices, nil
 }

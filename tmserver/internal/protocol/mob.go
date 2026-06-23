@@ -141,19 +141,24 @@ func BaseMobSpawn(mob816 []byte) (x, y int16) {
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [64]SelItem, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
 		b[i] = 0
 	}
 	copy(b[4:4+16], name)
+	// Overlay the persisted inventory onto the template's Carry@268 (mob), so saved
+	// purchases show on re-login (the template ships an empty/stock Carry).
+	for i := 0; i < 64; i++ {
+		writeSelItem(b[4+structMobCarry+i*8:], carry[i])
+	}
 	// The BaseMob template is a raw memory dump with uninitialized 0xCC padding at
 	// Quest@24/pad@25-27, which the client reads as a 4-byte gold field → the
-	// -858993664 (0xCCCCCC00) "negative gold". Zero Quest+pad+Coin (24..31) for a
-	// clean start (B2).
-	le.PutUint32(b[4+24:], 0) // gold the client displays (mob offset 24)
-	le.PutUint32(b[4+28:], 0) // server Coin field (mob offset 28; template ships 5,000,000)
+	// -858993664 (0xCCCCCC00) "negative gold" (B2). Set the real gold at both
+	// candidate offsets (24 = what the client displays, 28 = STRUCT_MOB.Coin).
+	le.PutUint32(b[4+24:], uint32(coin))
+	le.PutUint32(b[4+28:], uint32(coin))
 	spx, spy := BaseMobSpawn(mob816)
 	le.PutUint16(b[0:], uint16(spx)) // PosX @ body0 (mirror mob.SPX)
 	le.PutUint16(b[2:], uint16(spy)) // PosY @ body2
