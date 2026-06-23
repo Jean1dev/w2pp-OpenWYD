@@ -446,6 +446,7 @@ type Character struct {
 	Equip         []*Item                `protobuf:"bytes,17,rep,name=equip,proto3" json:"equip,omitempty"`
 	Carry         []*Item                `protobuf:"bytes,18,rep,name=carry,proto3" json:"carry,omitempty"`
 	Affects       []*Affect              `protobuf:"bytes,19,rep,name=affects,proto3" json:"affects,omitempty"`
+	LastCity      int32                  `protobuf:"varint,20,opt,name=last_city,json=lastCity,proto3" json:"last_city,omitempty"` // last city visited (0..3); spawn = that city's default area
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -611,6 +612,13 @@ func (x *Character) GetAffects() []*Affect {
 		return x.Affects
 	}
 	return nil
+}
+
+func (x *Character) GetLastCity() int32 {
+	if x != nil {
+		return x.LastCity
+	}
+	return 0
 }
 
 type Item struct {
@@ -1175,7 +1183,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xb9\x03\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xd6\x03\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -1196,7 +1204,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x02mp\x18\x10 \x01(\x05R\x02mp\x12!\n" +
 	"\x05equip\x18\x11 \x03(\v2\v.db.v1.ItemR\x05equip\x12!\n" +
 	"\x05carry\x18\x12 \x03(\v2\v.db.v1.ItemR\x05carry\x12'\n" +
-	"\aaffects\x18\x13 \x03(\v2\r.db.v1.AffectR\aaffects\"\xae\x01\n" +
+	"\aaffects\x18\x13 \x03(\v2\r.db.v1.AffectR\aaffects\x12\x1b\n" +
+	"\tlast_city\x18\x14 \x01(\x05R\blastCity\"\xae\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

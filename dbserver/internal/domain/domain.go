@@ -63,6 +63,7 @@ type Character struct {
 	Magic         uint32
 	SaveX         int16
 	SaveY         int16
+	LastCity      int16 // last city (0..3); login spawn = that city's default area
 	Citizen       uint8 // verified MobExtra fields (others UNVERIFIED — savefmt)
 	ClassMaster   uint8
 	SkillBar      [4]uint8

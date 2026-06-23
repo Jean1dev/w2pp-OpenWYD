@@ -51,6 +51,7 @@ type CharacterState struct {
 	Exp         int64
 	X           int16
 	Y           int16
+	LastCity    int16 // last city (0..3); login spawn = that city's default area
 	HP          int32
 	MaxHP       int32
 	MP          int32
@@ -93,6 +94,7 @@ type SavedItem struct {
 type CharacterSave struct {
 	AccountID int64
 	Slot      int
+	LastCity  int16
 	Clan      uint8
 	GuildID   uint16
 	Level     int32

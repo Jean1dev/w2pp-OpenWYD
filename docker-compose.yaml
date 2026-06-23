@@ -73,3 +73,12 @@ services:
 
 volumes:
   pgdata:
+
+# Pin an explicit subnet so the stack comes up even when Docker's auto address
+# pool is exhausted (leaked IPAM state after many network create/remove cycles).
+# A daemon restart clears the leak; this keeps local dev unblocked meanwhile.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

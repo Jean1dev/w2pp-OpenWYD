@@ -163,17 +163,19 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.Send(s, protocol.MsgCharacterLoginFail, nil)
 		return
 	}
-	// Spawn position: the relational position is not carried over gRPC yet (0,0),
-	// so fall back to the class template's valid spawn coordinates.
+	// Spawn at the default area of the last city the character was in (business
+	// rule: position itself is not persisted, only the city — see world.CitySpawn).
+	// An explicit loaded position (tests) is honored when present.
 	spawnX, spawnY := st.X, st.Y
-	if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize && spawnX == 0 && spawnY == 0 {
-		spawnX, spawnY = protocol.BaseMobSpawn(tmpl)
+	if spawnX == 0 && spawnY == 0 {
+		spawnX, spawnY = world.CitySpawn(int(st.LastCity))
 	}
 	// Inject the player entity into the world (the slot was docked at connect).
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUser
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
+		e.LastCity = st.LastCity
 		e.X, e.Y = spawnX, spawnY
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
@@ -201,7 +203,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, carry, s.Slot, s.Conn, 0, shortSkill)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
@@ -311,17 +313,21 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 	if s.Mode != world.UserPlay {
 		return
 	}
-	w.SaveCharacterAsync(s) // persist before leaving the world (still UserPlay)
 	// Despawn this entity for in-view players (back to character selection).
 	body := protocol.EncodeRemoveMobBody(2)
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
 	})
-	if e := w.Entity(s.Conn); e != nil {
-		e.Mode = world.MobUserDock
-	}
-	s.Mode = world.UserSelChar
-	w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+	// Persist first, then confirm: the client re-reads the character from the DB
+	// when it re-selects, so the save must commit before we hand it back the
+	// selection screen (otherwise the reload races the write — last_city/coin).
+	w.SaveCharacterThen(s, func(w *world.World, s *world.Session) {
+		if e := w.Entity(s.Conn); e != nil {
+			e.Mode = world.MobUserDock
+		}
+		s.Mode = world.UserSelChar
+		w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+	})
 }
 
 // restart handles _MSG_Restart (0x0289): revive with 2 HP (not a full heal) and

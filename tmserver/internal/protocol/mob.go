@@ -141,7 +141,7 @@ func BaseMobSpawn(mob816 []byte) (x, y int16) {
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [64]SelItem, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
@@ -159,9 +159,14 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [6
 	// candidate offsets (24 = what the client displays, 28 = STRUCT_MOB.Coin).
 	le.PutUint32(b[4+24:], uint32(coin))
 	le.PutUint32(b[4+28:], uint32(coin))
-	spx, spy := BaseMobSpawn(mob816)
-	le.PutUint16(b[0:], uint16(spx)) // PosX @ body0 (mirror mob.SPX)
-	le.PutUint16(b[2:], uint16(spy)) // PosY @ body2
+	// Spawn position: write the caller's actual spawn (city rule) into both the
+	// message PosX/PosY (body0/2) AND the embedded mob's SPX/SPY (mob offset 40/42),
+	// otherwise the client renders the template's position (always Armia) regardless
+	// of where the server placed the entity.
+	le.PutUint16(b[0:], uint16(spawnX)) // PosX @ body0
+	le.PutUint16(b[2:], uint16(spawnY)) // PosY @ body2
+	le.PutUint16(b[4+40:], uint16(spawnX))
+	le.PutUint16(b[4+42:], uint16(spawnY))
 	le.PutUint16(b[1028:], uint16(slot))
 	le.PutUint16(b[1030:], uint16(clientID))
 	le.PutUint16(b[1032:], weather)

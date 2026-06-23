@@ -82,6 +82,7 @@ type Entity struct {
 	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
 
 	Class       uint8  // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
+	LastCity    int16  // last city visited (0..3); login spawn = its default area
 	Clan        uint8  // clan/race
 	Guild       uint16 // guild id (0 = none)
 	GuildLevel  uint8  // 0 = member … 9 = leader
