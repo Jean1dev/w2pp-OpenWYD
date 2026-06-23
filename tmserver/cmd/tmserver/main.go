@@ -13,6 +13,7 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -138,6 +139,12 @@ func run(logger *slog.Logger) error {
 		go serveStatusHTTP(ctx, *statusAddr, statusFile, logger)
 	}
 
+	// Populate the world with NPCs/monsters from NPCGener.txt (before Serve starts
+	// the loop, so spawning is single-threaded). Capped to fit the mob slots.
+	if *contentDir != "" {
+		spawnNPCs(w, *contentDir, logger)
+	}
+
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
 		return err
@@ -145,6 +152,54 @@ func run(logger *slog.Logger) error {
 	logger.Info("tmserver listening", "addr", *addr, "mtls", *tlsCert != "")
 
 	return w.Serve(ctx, ln)
+}
+
+// spawnNPCs parses NPCGener.txt and spawns each generator's group (MinGroup,
+// capped) of its Leader mob around the start point, up to a global cap that fits
+// the mob slots. Templates are cached by name.
+func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
+	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
+	if err != nil {
+		logger.Warn("NPC generators not loaded", "err", err)
+		return
+	}
+	const totalCap = 20000
+	const perGenCap = 6
+	templates := make(map[string][]byte)
+	total := 0
+	for _, g := range gens {
+		if total >= totalCap || g.Leader == "" {
+			continue
+		}
+		tmpl, seen := templates[g.Leader]
+		if !seen {
+			if b, terr := content.LoadNPCTemplate(dir, g.Leader); terr == nil {
+				tmpl = b
+			}
+			templates[g.Leader] = tmpl
+		}
+		if tmpl == nil {
+			continue
+		}
+		n := g.MinGroup
+		if n < 1 {
+			n = 1
+		}
+		if n > perGenCap {
+			n = perGenCap
+		}
+		for i := 0; i < n && total < totalCap; i++ {
+			x, y := g.StartX, g.StartY
+			if g.StartRange > 0 {
+				x += int16(rand.Intn(2*g.StartRange+1) - g.StartRange)
+				y += int16(rand.Intn(2*g.StartRange+1) - g.StartRange)
+			}
+			if w.SpawnMob(tmpl, x, y) >= 0 {
+				total++
+			}
+		}
+	}
+	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates))
 }
 
 // serveStatusHTTP runs the channel-status web server (serv00.htm). It answers any

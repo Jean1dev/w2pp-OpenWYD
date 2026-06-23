@@ -93,7 +93,7 @@ func TestGuildInvite(t *testing.T) {
 	if ty, _, ok := readMaybe(t, b); !ok || ty != protocol.MsgMessagePanel {
 		t.Errorf("recruit got %#x ok=%v, want MessagePanel welcome", ty, ok)
 	}
-	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgCreateMob {
+	if ty, _, ok := readMaybeRaw(t, a); !ok || ty != protocol.MsgCreateMob {
 		t.Errorf("leader got %#x ok=%v, want CreateMob (tag refresh)", ty, ok)
 	}
 }

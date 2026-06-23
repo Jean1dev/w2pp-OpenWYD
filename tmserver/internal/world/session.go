@@ -31,6 +31,8 @@ type Session struct {
 	LastAttackTick uint32     // ClientTick of the last accepted attack (cadence gate)
 	LastAttack     int        // SkillIndex of the last attack
 
+	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
+
 	conn    net.Conn
 	out     chan outFrame
 	closeCh chan struct{}
@@ -79,6 +81,7 @@ type Entity struct {
 	Coin     int32 // carried gold
 	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
 
+	Class       uint8  // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
 	Clan        uint8  // clan/race
 	Guild       uint16 // guild id (0 = none)
 	GuildLevel  uint8  // 0 = member … 9 = leader
@@ -89,6 +92,8 @@ type Entity struct {
 	Dex        int16
 	Con        int16
 	ScoreBonus uint16 // free attribute points
+
+	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 
 	// Party state (lote2-party-guilda-guerra.md). Leader is the leader's conn
 	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).

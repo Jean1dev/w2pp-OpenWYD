@@ -56,6 +56,8 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	// Forward the same Action body (same route) to everyone in view; HEADER.ID is
 	// the mover so clients apply it to the right entity.
 	w.BroadcastInView(s.Conn, protocol.MsgAction, payload)
+	// Reveal NPCs/monsters that entered view as the player moved (B3 exploration).
+	d.revealMobsInView(w, s)
 }
 
 func outOfBounds(v, dim int16) bool { return v < 0 || v >= dim }

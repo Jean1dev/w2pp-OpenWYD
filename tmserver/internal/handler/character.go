@@ -57,7 +57,7 @@ func (d *Dispatcher) createCharacter(w *world.World, s *world.Session, _ protoco
 				return
 			}
 			d.log.Info("create char: OK", "conn", s.Conn, "name", name, "slot", slot, "total", len(chars))
-			body := protocol.EncodeCNFNewCharacterBody(selCharsFrom(chars))
+			body := protocol.EncodeCNFNewCharacterBody(d.selCharsFrom(chars))
 			w.SendTo(s, protocol.Header{Type: protocol.MsgCNFNewCharacter, ID: protocol.IDNewCharacter}, body)
 		}
 	})
@@ -173,6 +173,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUser
 		e.Name = st.Name
+		e.Class = uint8(st.Class)
 		e.X, e.Y = spawnX, spawnY
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
@@ -180,6 +181,13 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		e.Carry = st.Carry
+		// Visual gear codes for how OTHER players see this character (MSG_CreateMob).
+		if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize {
+			eq := protocol.MobEquip(tmpl)
+			for i := range eq {
+				e.EquipVisual[i] = eq[i].Index
+			}
+		}
 	}
 	s.Mode = world.UserPlay
 	var shortSkill [16]uint8
@@ -190,6 +198,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
+		d.enterWorldView(w, s)
 		return
 	}
 	d.log.Info("char login: sending CNFCharacterLogin (fallback, no template)",
@@ -224,6 +233,67 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	}
 	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, 0, m, shortSkill)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
+	d.enterWorldView(w, s)
+}
+
+// enterWorldView wires entity visibility after a player enters the world
+// (ProcessDBMessage.cpp:1021): broadcast the newcomer's MSG_CreateMob to every
+// in-view player (CreateType=2), and send each in-view player's MSG_CreateMob to
+// the newcomer. Without this the client invents a duplicate avatar from every
+// _MSG_Action of an unknown entity (B1). HEADER.ID is always IDScene (30000); the
+// entity id travels in MobID.
+func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
+	self := w.Entity(s.Conn)
+	if self == nil {
+		return
+	}
+	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
+	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
+		// (A) other players see the newcomer
+		w.MarkSeen(vs, s.Conn)
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, selfMob)
+		// (B) the newcomer sees each player already in view
+		w.MarkSeen(s, ve.ID)
+		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
+			protocol.EncodeCreateMobBody(createMobFrom(ve, 0)))
+	})
+	// (C) the newcomer sees the NPCs/monsters in view.
+	d.revealMobsInView(w, s)
+}
+
+// revealMobsInView sends a MSG_CreateMob for every NPC/monster now in the player's
+// view that the client hasn't seen yet (once per entity). Called on entry and on
+// each move, so NPCs appear as the player explores.
+func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
+	w.ForEachMobInView(s.Conn, func(me *world.Entity) {
+		if w.MarkSeen(s, me.ID) {
+			w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
+				protocol.EncodeCreateMobBody(createMobFrom(me, 0)))
+		}
+	})
+}
+
+// createMobFrom builds MSG_CreateMob data from a world entity (player or NPC). The
+// visual Equip codes come from the entity's EquipVisual (set at login/spawn from
+// the relevant STRUCT_MOB template). createType: 0 normal, 2 "just entered".
+func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
+	return protocol.CreateMobData{
+		MobID:           e.ID,
+		Name:            e.Name,
+		PosX:            e.X,
+		PosY:            e.Y,
+		Guild:           e.Guild,
+		GuildMemberType: e.GuildLevel,
+		Level:           e.Level,
+		Ac:              e.AC,
+		Damage:          e.Damage,
+		MaxHp:           e.MaxHP,
+		Hp:              e.HP,
+		Str:             e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
+		Merchant:   e.Merchant,
+		Equip:      e.EquipVisual,
+		CreateType: createType,
+	}
 }
 
 // characterLogout handles _MSG_CharacterLogout (0x0215): return to the selection

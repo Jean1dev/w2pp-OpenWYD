@@ -10,6 +10,46 @@ const (
 	cnfCharacterLoginSize = 1832
 )
 
+// MobBasics is the subset of a raw STRUCT_MOB needed to spawn a world entity.
+type MobBasics struct {
+	Name                 string
+	Class                uint8
+	Merchant             uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
+	Level, Ac, Damage    int32
+	MaxHp, Hp            int32
+	Str, Int, Dex, Con   int16
+}
+
+// ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
+// (CurrentScore @92): name, class and the current score.
+func ParseMobBasics(mob816 []byte) MobBasics {
+	const cs = 92 // CurrentScore offset within STRUCT_MOB
+	return MobBasics{
+		Name:     cstr16(mob816[0:16]),
+		Class:    mob816[20],
+		Merchant: mob816[cs+12], // CurrentScore.Merchant
+		Level:    int32(le.Uint32(mob816[cs+0:])),
+		Ac:     int32(le.Uint32(mob816[cs+4:])),
+		Damage: int32(le.Uint32(mob816[cs+8:])),
+		MaxHp:  int32(le.Uint32(mob816[cs+16:])),
+		Hp:     int32(le.Uint32(mob816[cs+24:])),
+		Str:    int16(le.Uint16(mob816[cs+32:])),
+		Int:    int16(le.Uint16(mob816[cs+34:])),
+		Dex:    int16(le.Uint16(mob816[cs+36:])),
+		Con:    int16(le.Uint16(mob816[cs+38:])),
+	}
+}
+
+// cstr16 trims a fixed name field at the first NUL.
+func cstr16(b []byte) string {
+	for i, c := range b {
+		if c == 0 {
+			return string(b[:i])
+		}
+	}
+	return string(b)
+}
+
 // MobSnapshot is the subset of STRUCT_MOB the snapshot needs. BaseScore mirrors
 // CurrentScore here (the world doesn't track them separately this phase).
 type MobSnapshot struct {
@@ -108,7 +148,12 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, slot, clientID int, 
 		b[i] = 0
 	}
 	copy(b[4:4+16], name)
-	le.PutUint32(b[4+28:], 0) // mob.Coin @28: clean start (template ships 5,000,000)
+	// The BaseMob template is a raw memory dump with uninitialized 0xCC padding at
+	// Quest@24/pad@25-27, which the client reads as a 4-byte gold field → the
+	// -858993664 (0xCCCCCC00) "negative gold". Zero Quest+pad+Coin (24..31) for a
+	// clean start (B2).
+	le.PutUint32(b[4+24:], 0) // gold the client displays (mob offset 24)
+	le.PutUint32(b[4+28:], 0) // server Coin field (mob offset 28; template ships 5,000,000)
 	spx, spy := BaseMobSpawn(mob816)
 	le.PutUint16(b[0:], uint16(spx)) // PosX @ body0 (mirror mob.SPX)
 	le.PutUint16(b[2:], uint16(spy)) // PosY @ body2
