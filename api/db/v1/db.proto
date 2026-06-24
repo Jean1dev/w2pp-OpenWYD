@@ -87,6 +87,7 @@ message Character {
   repeated Item equip = 17;
   repeated Item carry = 18;
   repeated Affect affects = 19;
+  int32 last_city = 20; // last city visited (0..3); spawn = that city's default area
 }
 
 message Item {

@@ -90,14 +90,14 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       str, int, dex, con, score_bonus, special_bonus, skill_bonus,
 		       max_hp, max_mp, hp, mp, critical, regen_hp, regen_mp,
 		       resist_fire, resist_ice, resist_thunder, resist_magic,
-		       learned_skill, magic, save_x, save_y, citizen, class_master,
+		       learned_skill, magic, save_x, save_y, last_city, citizen, class_master,
 		       skill_bar, short_skill
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
 			&ch.ScoreBonus, &ch.SpecialBonus, &ch.SkillBonus, &ch.MaxHp, &ch.MaxMp, &ch.Hp, &ch.Mp,
 			&ch.Critical, &ch.RegenHP, &ch.RegenMP, &ch.ResistFire, &ch.ResistIce, &ch.ResistThunder,
-			&ch.ResistMagic, &ch.LearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.Citizen,
+			&ch.ResistMagic, &ch.LearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
 			&ch.ClassMaster, &skillBar, &shortSkill)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
@@ -213,11 +213,11 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 	err = tx.QueryRow(ctx, `
 		UPDATE character SET
 			clan=$3, guild_id=$4, level=$5, coin=$6,
-			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12
+			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.Level, ch.Coin,
-		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp,
+		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

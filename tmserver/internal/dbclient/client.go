@@ -161,8 +161,9 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		GuildID: uint16(c.GetGuildId()),
 		Str:     int16(c.GetStr()),
 		Int:     int16(c.GetInt()),
-		Dex:     int16(c.GetDex()),
-		Con:     int16(c.GetCon()),
+		Dex:      int16(c.GetDex()),
+		Con:      int16(c.GetCon()),
+		LastCity: int16(c.GetLastCity()),
 	}
 	for _, it := range c.GetCarry() {
 		slot := int(it.GetSlot())
@@ -192,10 +193,11 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Int:     int32(s.Int),
 		Dex:     int32(s.Dex),
 		Con:     int32(s.Con),
-		Hp:      s.HP,
-		MaxHp:   s.MaxHP,
-		Carry:   savedItemsToProto(s.Carry),
-		Equip:   savedItemsToProto(s.Equip),
+		Hp:       s.HP,
+		MaxHp:    s.MaxHP,
+		LastCity: int32(s.LastCity),
+		Carry:    savedItemsToProto(s.Carry),
+		Equip:    savedItemsToProto(s.Equip),
 	}
 }
 

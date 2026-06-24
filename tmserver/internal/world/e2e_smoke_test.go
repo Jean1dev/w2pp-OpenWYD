@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -70,6 +71,11 @@ func loginFrame(account, password string) []byte {
 	copy(body.AccountPassword[:], password)
 	copy(body.AccountName[:], account)
 	body.ClientVersion = protocol.AppVersion
+	if v := os.Getenv("W2PP_E2E_VERSION"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			body.ClientVersion = int32(n)
+		}
+	}
 	wire, err := protocol.Encode(protocol.Header{Type: protocol.MsgAccountLogin}, body.Encode(), 7)
 	if err != nil {
 		panic(err)
@@ -96,10 +102,12 @@ func TestE2ESmokeLogin(t *testing.T) {
 		t.Fatalf("login response Type = %#x, want CNFAccountLogin (%#x); payload=%d bytes",
 			h.Type, protocol.MsgCNFAccountLogin, len(payload))
 	}
-	if len(payload) < 1 {
-		t.Fatalf("CNFAccountLogin payload empty (no char count byte)")
+	// The char list lives in the SELCHAR slots (body offset 20+), not a leading
+	// count byte; assert the body is full-sized rather than reading payload[0].
+	if len(payload) < 1900 {
+		t.Fatalf("CNFAccountLogin payload too short: %d bytes", len(payload))
 	}
-	t.Logf("LOGIN OK — CNFAccountLogin, conn=%d, characters=%d", h.ID, payload[0])
+	t.Logf("LOGIN OK — CNFAccountLogin, conn=%d, body=%d bytes", h.ID, len(payload))
 }
 
 // TestE2ESmokeBadPassword confirms a wrong password is NOT accepted: the server

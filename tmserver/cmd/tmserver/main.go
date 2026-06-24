@@ -13,6 +13,7 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -64,8 +65,10 @@ func run(logger *slog.Logger) error {
 	// recipe→combine-family and AttributeMap-bit semantics remain UNVERIFIED
 	// (PROGRESS Fase 5), so this validates and exposes the data; it does not
 	// rewire gameplay on unverified mappings.
+	var itemPrices map[int]int32
 	if *contentDir != "" {
-		if err := loadContent(*contentDir, logger); err != nil {
+		var err error
+		if itemPrices, err = loadContent(*contentDir, logger); err != nil {
 			return err
 		}
 	}
@@ -109,7 +112,7 @@ func run(logger *slog.Logger) error {
 	}
 
 	dispatch := handler.New(handler.Config{
-		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs,
+		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -138,6 +141,12 @@ func run(logger *slog.Logger) error {
 		go serveStatusHTTP(ctx, *statusAddr, statusFile, logger)
 	}
 
+	// Populate the world with NPCs/monsters from NPCGener.txt (before Serve starts
+	// the loop, so spawning is single-threaded). Capped to fit the mob slots.
+	if *contentDir != "" {
+		spawnNPCs(w, *contentDir, logger)
+	}
+
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
 		return err
@@ -145,6 +154,54 @@ func run(logger *slog.Logger) error {
 	logger.Info("tmserver listening", "addr", *addr, "mtls", *tlsCert != "")
 
 	return w.Serve(ctx, ln)
+}
+
+// spawnNPCs parses NPCGener.txt and spawns each generator's group (MinGroup,
+// capped) of its Leader mob around the start point, up to a global cap that fits
+// the mob slots. Templates are cached by name.
+func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
+	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
+	if err != nil {
+		logger.Warn("NPC generators not loaded", "err", err)
+		return
+	}
+	const totalCap = 20000
+	const perGenCap = 6
+	templates := make(map[string][]byte)
+	total := 0
+	for _, g := range gens {
+		if total >= totalCap || g.Leader == "" {
+			continue
+		}
+		tmpl, seen := templates[g.Leader]
+		if !seen {
+			if b, terr := content.LoadNPCTemplate(dir, g.Leader); terr == nil {
+				tmpl = b
+			}
+			templates[g.Leader] = tmpl
+		}
+		if tmpl == nil {
+			continue
+		}
+		n := g.MinGroup
+		if n < 1 {
+			n = 1
+		}
+		if n > perGenCap {
+			n = perGenCap
+		}
+		for i := 0; i < n && total < totalCap; i++ {
+			x, y := g.StartX, g.StartY
+			if g.StartRange > 0 {
+				x += int16(rand.Intn(2*g.StartRange+1) - g.StartRange)
+				y += int16(rand.Intn(2*g.StartRange+1) - g.StartRange)
+			}
+			if w.SpawnMob(tmpl, x, y) >= 0 {
+				total++
+			}
+		}
+	}
+	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates))
 }
 
 // serveStatusHTTP runs the channel-status web server (serv00.htm). It answers any
@@ -176,26 +233,27 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) error {
+func loadContent(dir string, logger *slog.Logger) (map[int]int32, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sanc, err := content.LoadSancRate(filepath.Join(dir, "Common", "Settings", "SancRate.txt"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	skills, err := content.LoadSkillData(filepath.Join(dir, "Common", "SkillData.csv"))
 	if err != nil {
-		return err
+		return nil, err
 	}
+	prices := items.Prices()
 	logger.Info("content loaded",
 		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
-		"items", items.Len(), "skills", skills.Len())
+		"items", items.Len(), "skills", skills.Len(), "prices", len(prices))
 
 	// Maps are optional: 17 MiB HeightMap + 1 MiB AttributeMap aren't required to
 	// accept logins; warn rather than fail when they aren't mounted.
@@ -205,5 +263,5 @@ func loadContent(dir string, logger *slog.Logger) error {
 	if _, err := content.LoadHeightMap(filepath.Join(dir, "TMsrv", "run", "HeightMap.dat")); err != nil {
 		logger.Warn("height map not loaded", "err", err)
 	}
-	return nil
+	return prices, nil
 }

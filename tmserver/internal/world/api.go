@@ -55,6 +55,106 @@ func (w *World) BroadcastInView(srcID int, t protocol.Type, payload []byte) {
 	}
 }
 
+// SpawnMob creates an NPC/monster entity from a raw STRUCT_MOB template at (x,y)
+// and inserts it into the grid. Returns the new mob id (>= MaxUser) or -1 when
+// the world is full. NOT loop-safe: call during init, before Serve starts the
+// loop (no concurrent access yet).
+func (w *World) SpawnMob(template []byte, x, y int16) int {
+	id := -1
+	for i := MaxUser; i < MaxMob; i++ {
+		if w.entities[i] == nil {
+			id = i
+			break
+		}
+	}
+	if id < 0 {
+		return -1
+	}
+	b := protocol.ParseMobBasics(template)
+	e := &Entity{
+		ID: id, Mode: MobIdle, Name: b.Name, Class: b.Class, Merchant: b.Merchant,
+		X: x, Y: y, Level: b.Level, AC: b.Ac, Damage: b.Damage,
+		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
+	}
+	eq := protocol.MobEquip(template)
+	for i := range eq {
+		e.EquipVisual[i] = eq[i].Index
+	}
+	// For a merchant NPC, Carry[] is its shop stock (sent in MSG_ShopList).
+	carry := protocol.MobCarry(template)
+	for i := range carry {
+		e.Carry[i] = Item{
+			Index: int16(carry[i].Index),
+			Effects: [3]Effect{
+				{Effect: carry[i].Eff[0][0], Value: carry[i].Eff[0][1]},
+				{Effect: carry[i].Eff[1][0], Value: carry[i].Eff[1][1]},
+				{Effect: carry[i].Eff[2][0], Value: carry[i].Eff[2][1]},
+			},
+		}
+	}
+	w.entities[id] = e
+	w.grid.SetMob(int(x), int(y), uint16(id))
+	return id
+}
+
+// ClearSeen resets a session's view set (e.g. on entering the world), so all
+// in-view entities get a fresh CreateMob.
+func (w *World) ClearSeen(s *Session) { s.seen = nil }
+
+// MarkSeen records that session s's client now knows entity id; it returns true
+// only the first time (so a CreateMob is sent once per entity as it enters view).
+func (w *World) MarkSeen(s *Session, id int) bool {
+	if s.seen == nil {
+		s.seen = make(map[int]struct{})
+	}
+	if _, ok := s.seen[id]; ok {
+		return false
+	}
+	s.seen[id] = struct{}{}
+	return true
+}
+
+// ForEachMobInView calls fn for each mob entity (id >= MaxUser) on a grid cell
+// within ViewRange of the player playerID. Used to spawn nearby NPCs on a client.
+func (w *World) ForEachMobInView(playerID int, fn func(e *Entity)) {
+	src := w.Entity(playerID)
+	if src == nil {
+		return
+	}
+	for dy := -ViewRange; dy <= ViewRange; dy++ {
+		for dx := -ViewRange; dx <= ViewRange; dx++ {
+			id, ok := w.grid.MobAt(int(src.X)+dx, int(src.Y)+dy)
+			if !ok || int(id) < MaxUser {
+				continue
+			}
+			if e := w.entities[id]; e != nil && e.Mode != MobEmpty {
+				fn(e)
+			}
+		}
+	}
+}
+
+// ForEachInView calls fn for every other in-play player whose entity is within
+// ViewRange of srcID (used to wire entity create/remove visibility). Loop-only.
+func (w *World) ForEachInView(srcID int, fn func(s *Session, e *Entity)) {
+	src := w.Entity(srcID)
+	if src == nil {
+		return
+	}
+	for _, s := range w.sessions {
+		if s == nil || s.Conn == srcID || s.Mode != UserPlay {
+			continue
+		}
+		e := w.entities[s.Conn]
+		if e == nil || e.Mode != MobUser {
+			continue
+		}
+		if chebyshev(src.X, src.Y, e.X, e.Y) <= ViewRange {
+			fn(s, e)
+		}
+	}
+}
+
 func chebyshev(x1, y1, x2, y2 int16) int {
 	dx := int(x1) - int(x2)
 	if dx < 0 {

@@ -53,9 +53,15 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	}
 
 	w.SetEntityPos(s.Conn, body.PosX, body.PosY)
+	// Track the last city the player is in (for the city-based respawn rule).
+	if city := world.Village(body.PosX, body.PosY); city >= 0 && city <= 3 {
+		e.LastCity = int16(city)
+	}
 	// Forward the same Action body (same route) to everyone in view; HEADER.ID is
 	// the mover so clients apply it to the right entity.
 	w.BroadcastInView(s.Conn, protocol.MsgAction, payload)
+	// Reveal NPCs/monsters that entered view as the player moved (B3 exploration).
+	d.revealMobsInView(w, s)
 }
 
 func outOfBounds(v, dim int16) bool { return v < 0 || v >= dim }
@@ -89,13 +95,55 @@ func (d *Dispatcher) changeCity(w *world.World, s *world.Session, _ protocol.Hea
 // a placeholder that returns -1 (no village) until the region table is captured.
 func villageAt(int16, int16) int { return -1 }
 
-// reqTeleport handles _MSG_ReqTeleport (0x0290): paid teleport.
-//
-// UNVERIFIED: the teleport-cost / zone-tax economy and region restrictions are
-// hardcoded in the original (lote2-movimento.md) and need to become config +
-// capture. Not implemented in this batch beyond acknowledging the request.
+// reqTeleport handles _MSG_ReqTeleport (0x0290): the client stepped on a teleport
+// tile (the packet is header-only). The destination + cost come from the player's
+// position (world.TeleportDest / GetTeleportPosition). On enough gold it debits
+// and teleports (_MSG_ReqTeleport.cpp).
 func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
-	d.log.Debug("ReqTeleport not yet implemented (UNVERIFIED economy)", "conn", s.Conn)
+	if s.Mode != world.UserPlay {
+		return
+	}
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP == 0 {
+		return
+	}
+	destX, destY, cost, ok := world.TeleportDest(e.X, e.Y)
+	if !ok {
+		return // no teleport tile here
+	}
+	if cost > 0 {
+		if cost > e.Coin {
+			return // not enough money (the original shows a notice)
+		}
+		e.Coin -= cost
+		w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(e.Coin))
+	}
+	d.doTeleport(w, s, destX, destY)
+}
+
+// doTeleport moves the player to (x,y) and reconciles visibility (DoTeleport,
+// Server.cpp): RemoveMob from the old view, an MSG_Action with Effect=1 to jump
+// the player's own avatar, then CreateMob for the new surroundings.
+func (d *Dispatcher) doTeleport(w *world.World, s *world.Session, x, y int16) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	oldX, oldY := e.X, e.Y
+	// The player vanishes from everyone who saw it at the old location.
+	rm := protocol.EncodeRemoveMobBody(0) // 0 = out of view
+	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, rm)
+	})
+	w.SetEntityPos(s.Conn, x, y)
+	if c := world.Village(x, y); c >= 0 && c <= 3 {
+		e.LastCity = int16(c)
+	}
+	// Jump the player's own avatar: MSG_Action, Effect=1 (PosX/Y old → TargetX/Y dest).
+	body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Effect: 1, Speed: 2, TargetX: x, TargetY: y}
+	w.SendTo(s, protocol.Header{Type: protocol.MsgAction, ID: uint16(s.Conn)}, body.Encode())
+	// Rebuild the view at the destination (players + NPCs).
+	d.enterWorldView(w, s)
 }
 
 // noViewMob handles _MSG_NoViewMob (0x0369): client asks to re-sync one entity's

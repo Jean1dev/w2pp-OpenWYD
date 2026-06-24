@@ -88,6 +88,22 @@ func writeSelChar(b []byte, chars []SelChar) {
 	}
 }
 
+// MobEquip parses the 16 equipment slots (STRUCT_ITEM[16] @140) of a raw
+// STRUCT_MOB template into SelItems, so the selection screen can preview a
+// character's class with its starter equipment (otherwise the client draws the
+// default TransKnight model).
+func MobEquip(mob816 []byte) [16]SelItem {
+	var eq [16]SelItem
+	for i := 0; i < 16; i++ {
+		o := 140 + i*8
+		eq[i].Index = le.Uint16(mob816[o : o+2])
+		eq[i].Eff[0] = [2]uint8{mob816[o+2], mob816[o+3]}
+		eq[i].Eff[1] = [2]uint8{mob816[o+4], mob816[o+5]}
+		eq[i].Eff[2] = [2]uint8{mob816[o+6], mob816[o+7]}
+	}
+	return eq
+}
+
 // EncodeCNFAccountLoginBody builds the body of MSG_CNFAccountLogin (0x010A): the
 // character-selection screen. Send with HEADER.ID = IDSelChar (30002).
 func EncodeCNFAccountLoginBody(accountName string, chars []SelChar) []byte {

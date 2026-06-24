@@ -32,6 +32,21 @@ func (l *ItemList) Get(index int) (ItemEntry, bool) { e, ok := l.items[index]; r
 // Len returns the number of loaded items.
 func (l *ItemList) Len() int { return len(l.items) }
 
+// Prices returns a map of item index → base Price (STRUCT_ITEMLIST.Price). In the
+// CSV that is the 6th column (0-based index 5):
+// "831,Garra,837.0,4.10.0.0.11,43,530,..." → 530 (BASE_ReadItemListFile, Basedef.cpp).
+func (l *ItemList) Prices() map[int]int32 {
+	out := make(map[int]int32, len(l.items))
+	for idx, e := range l.items {
+		if len(e.Fields) > 5 {
+			if p, err := strconv.Atoi(strings.TrimSpace(e.Fields[5])); err == nil {
+				out[idx] = int32(p)
+			}
+		}
+	}
+	return out
+}
+
 // LoadItemList reads ItemList.csv (index,Name,...).
 func LoadItemList(path string) (*ItemList, error) {
 	f, err := os.Open(path)

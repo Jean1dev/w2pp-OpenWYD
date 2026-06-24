@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -73,7 +74,7 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		delete(d.fails, s.AccountName)
 		s.AccountID = out.AccountID
 		s.Mode = world.UserSelChar
-		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, selCharsFrom(out.Characters))
+		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, d.selCharsFrom(out.Characters))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)
 	case world.LoginBadPassword:
 		d.fails[s.AccountName]++
@@ -97,10 +98,10 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 // non-zero defaults purely so the client renders the slot; the authoritative
 // values arrive on character login (CNFCharacterLogin). Name + Level make the
 // character appear and be selectable on the screen.
-func selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
+func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
 	out := make([]protocol.SelChar, 0, len(chars))
 	for _, c := range chars {
-		out = append(out, protocol.SelChar{
+		sc := protocol.SelChar{
 			Slot:      c.Slot,
 			Name:      c.Name,
 			Level:     int32(c.Level),
@@ -108,7 +109,13 @@ func selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
 			Guild:     c.GuildID,
 			MaxHp:     100, Hp: 100, MaxMp: 100, Mp: 100,
 			Str: 10, Int: 10, Dex: 10, Con: 10,
-		})
+		}
+		// Preview the character's class with its starter equipment from the class
+		// BaseMob template (B4: otherwise the client draws the default TK model).
+		if tmpl, ok := d.baseMobs[c.Class]; ok && len(tmpl) == content.BaseMobSize {
+			sc.Equip = protocol.MobEquip(tmpl)
+		}
+		out = append(out, sc)
 	}
 	return out
 }

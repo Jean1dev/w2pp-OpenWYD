@@ -10,6 +10,46 @@ const (
 	cnfCharacterLoginSize = 1832
 )
 
+// MobBasics is the subset of a raw STRUCT_MOB needed to spawn a world entity.
+type MobBasics struct {
+	Name                 string
+	Class                uint8
+	Merchant             uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
+	Level, Ac, Damage    int32
+	MaxHp, Hp            int32
+	Str, Int, Dex, Con   int16
+}
+
+// ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
+// (CurrentScore @92): name, class and the current score.
+func ParseMobBasics(mob816 []byte) MobBasics {
+	const cs = 92 // CurrentScore offset within STRUCT_MOB
+	return MobBasics{
+		Name:     cstr16(mob816[0:16]),
+		Class:    mob816[20],
+		Merchant: mob816[cs+12], // CurrentScore.Merchant
+		Level:    int32(le.Uint32(mob816[cs+0:])),
+		Ac:     int32(le.Uint32(mob816[cs+4:])),
+		Damage: int32(le.Uint32(mob816[cs+8:])),
+		MaxHp:  int32(le.Uint32(mob816[cs+16:])),
+		Hp:     int32(le.Uint32(mob816[cs+24:])),
+		Str:    int16(le.Uint16(mob816[cs+32:])),
+		Int:    int16(le.Uint16(mob816[cs+34:])),
+		Dex:    int16(le.Uint16(mob816[cs+36:])),
+		Con:    int16(le.Uint16(mob816[cs+38:])),
+	}
+}
+
+// cstr16 trims a fixed name field at the first NUL.
+func cstr16(b []byte) string {
+	for i, c := range b {
+		if c == 0 {
+			return string(b[:i])
+		}
+	}
+	return string(b)
+}
+
 // MobSnapshot is the subset of STRUCT_MOB the snapshot needs. BaseScore mirrors
 // CurrentScore here (the world doesn't track them separately this phase).
 type MobSnapshot struct {
@@ -101,17 +141,32 @@ func BaseMobSpawn(mob816 []byte) (x, y int16) {
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
 		b[i] = 0
 	}
 	copy(b[4:4+16], name)
-	le.PutUint32(b[4+28:], 0) // mob.Coin @28: clean start (template ships 5,000,000)
-	spx, spy := BaseMobSpawn(mob816)
-	le.PutUint16(b[0:], uint16(spx)) // PosX @ body0 (mirror mob.SPX)
-	le.PutUint16(b[2:], uint16(spy)) // PosY @ body2
+	// Overlay the persisted inventory onto the template's Carry@268 (mob), so saved
+	// purchases show on re-login (the template ships an empty/stock Carry).
+	for i := 0; i < 64; i++ {
+		writeSelItem(b[4+structMobCarry+i*8:], carry[i])
+	}
+	// The BaseMob template is a raw memory dump with uninitialized 0xCC padding at
+	// Quest@24/pad@25-27, which the client reads as a 4-byte gold field → the
+	// -858993664 (0xCCCCCC00) "negative gold" (B2). Set the real gold at both
+	// candidate offsets (24 = what the client displays, 28 = STRUCT_MOB.Coin).
+	le.PutUint32(b[4+24:], uint32(coin))
+	le.PutUint32(b[4+28:], uint32(coin))
+	// Spawn position: write the caller's actual spawn (city rule) into both the
+	// message PosX/PosY (body0/2) AND the embedded mob's SPX/SPY (mob offset 40/42),
+	// otherwise the client renders the template's position (always Armia) regardless
+	// of where the server placed the entity.
+	le.PutUint16(b[0:], uint16(spawnX)) // PosX @ body0
+	le.PutUint16(b[2:], uint16(spawnY)) // PosY @ body2
+	le.PutUint16(b[4+40:], uint16(spawnX))
+	le.PutUint16(b[4+42:], uint16(spawnY))
 	le.PutUint16(b[1028:], uint16(slot))
 	le.PutUint16(b[1030:], uint16(clientID))
 	le.PutUint16(b[1032:], weather)

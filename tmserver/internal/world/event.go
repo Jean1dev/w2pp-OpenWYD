@@ -134,6 +134,15 @@ func (w *World) removeSession(s *Session) {
 	if s == nil || w.sessions[s.Conn] != s {
 		return
 	}
+	// Persist the live character (purchases/gold/stats) before tearing down.
+	w.SaveCharacterAsync(s)
+	// Tell in-view players this entity left (logout), so their clients despawn it.
+	if e := w.entities[s.Conn]; e != nil && e.Mode == MobUser {
+		body := protocol.EncodeRemoveMobBody(2) // 2 = logout
+		w.ForEachInView(s.Conn, func(vs *Session, _ *Entity) {
+			w.enqueue(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
+		})
+	}
 	s.close()
 	w.sessions[s.Conn] = nil
 	w.entities[s.Conn] = nil

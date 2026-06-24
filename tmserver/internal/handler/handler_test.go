@@ -129,21 +129,27 @@ func send(t *testing.T, c net.Conn, ty protocol.Type, payload []byte) {
 
 func read(t *testing.T, c net.Conn) (protocol.Type, []byte) {
 	t.Helper()
-	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
-	var sz [2]byte
-	if _, err := io.ReadFull(c, sz[:]); err != nil {
-		t.Fatalf("read size: %v", err)
+	for {
+		_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var sz [2]byte
+		if _, err := io.ReadFull(c, sz[:]); err != nil {
+			t.Fatalf("read size: %v", err)
+		}
+		buf := make([]byte, binary.LittleEndian.Uint16(sz[:]))
+		copy(buf, sz[:])
+		if _, err := io.ReadFull(c, buf[2:]); err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		h, payload, _, err := protocol.Decode(buf)
+		if err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		// Entity-visibility packets are background noise for gameplay assertions.
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+			continue
+		}
+		return h.Type, payload
 	}
-	buf := make([]byte, binary.LittleEndian.Uint16(sz[:]))
-	copy(buf, sz[:])
-	if _, err := io.ReadFull(c, buf[2:]); err != nil {
-		t.Fatalf("read body: %v", err)
-	}
-	h, payload, _, err := protocol.Decode(buf)
-	if err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	return h.Type, payload
 }
 
 func loginBody(name, pass string, version int32) []byte {

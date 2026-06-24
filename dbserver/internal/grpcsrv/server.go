@@ -124,6 +124,7 @@ func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterR
 		Level: 1,
 		Str:   12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
+		Coin:  1000000,          // starting gold (so the shop is usable)
 		SaveX: 2096, SaveY: 2096, // matches the BaseMob template spawn
 	}
 	id, err := s.store.CreateCharacter(ctx, req.GetAccountId(), ch)

@@ -33,6 +33,9 @@ type Config struct {
 	// its class's starter equipment/stats. When nil, the snapshot is built from the
 	// stored relational state (no equipment).
 	BaseMobs map[int][]byte
+
+	// ItemPrices maps item index → base Price (g_pItemList[].Price) for NPC buy/sell.
+	ItemPrices map[int]int32
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -47,7 +50,8 @@ type Dispatcher struct {
 	routes          map[protocol.Type]handlerFunc
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
-	baseMobs        map[int][]byte // per-class STRUCT_MOB templates
+	baseMobs        map[int][]byte   // per-class STRUCT_MOB templates
+	itemPrices      map[int]int32    // item index → base price (NPC shop)
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -68,6 +72,7 @@ func New(cfg Config) *Dispatcher {
 		fails:           make(map[string]int),
 		combineFamilies: cfg.CombineFamilies,
 		baseMobs:        cfg.BaseMobs,
+		itemPrices:      cfg.ItemPrices,
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)
@@ -99,6 +104,10 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgDropItem] = d.dropItem
 	d.routes[protocol.MsgGetItem] = d.getItem
 	d.routes[protocol.MsgUseItem] = d.useItem
+	// NPC shop.
+	d.routes[protocol.MsgREQShopList] = d.reqShopList
+	d.routes[protocol.MsgBuy] = d.buy
+	d.routes[protocol.MsgSell] = d.sell
 	// Batch 5 — P2P trade.
 	d.routes[protocol.MsgTradingItem] = d.tradingItem
 	d.routes[protocol.MsgTrade] = d.trade

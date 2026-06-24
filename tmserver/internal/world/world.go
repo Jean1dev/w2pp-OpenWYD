@@ -12,6 +12,7 @@ package world
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -115,7 +116,8 @@ type World struct {
 	rng      *rng.MSVC // loop-owned MSVC LCG (parity; like the original global rand())
 
 	events chan event
-	done   chan struct{} // closed when the loop stops; unblocks conn goroutines
+	done   chan struct{}  // closed when the loop stops; unblocks conn goroutines
+	saveWG sync.WaitGroup // tracks in-flight async character saves (logout/disconnect)
 }
 
 // New creates a World with the given dependencies. A nil handler installs a
@@ -187,7 +189,50 @@ func (w *World) shutdown() {
 		}
 		s.close()
 	}
+	// Wait for in-flight disconnect/logout saves so a shutdown never loses one.
+	w.saveWG.Wait()
 	w.log.Info("world loop stopped", "sessions_saved", saved)
+}
+
+// SaveCharacterAsync persists an in-play character's live state (Carry/Coin/stats)
+// without blocking the loop: it captures the CharacterSave in the loop (a value
+// copy) and runs the gRPC save in a goroutine. Called on logout/disconnect so
+// purchases, gold and progress survive the session. Loop-only (captures state).
+func (w *World) SaveCharacterAsync(s *Session) {
+	if s == nil || s.Mode != UserPlay || s.AccountID == 0 {
+		return
+	}
+	cs := w.characterSave(s)
+	w.saveWG.Add(1)
+	go func() {
+		defer w.saveWG.Done()
+		if err := w.persist.SaveOnShutdown(context.Background(), cs); err != nil {
+			w.log.Warn("save character failed", "account", cs.AccountID, "slot", cs.Slot, "err", err)
+		}
+	}()
+}
+
+// SaveCharacterThen persists the character and runs then (back in the loop) only
+// after the save commits. Use it where the client may immediately re-read the
+// character from the DB (logout to character selection): deferring the
+// confirmation until the save lands prevents the reload racing the write. then
+// always runs, even when there is nothing to save.
+func (w *World) SaveCharacterThen(s *Session, then func(*World, *Session)) {
+	if s == nil || s.Mode != UserPlay || s.AccountID == 0 {
+		then(w, s)
+		return
+	}
+	cs := w.characterSave(s)
+	p := w.persist
+	w.Go(s, func() func(*World, *Session) {
+		err := p.SaveOnShutdown(context.Background(), cs)
+		return func(w *World, s *Session) {
+			if err != nil {
+				w.log.Warn("save character failed", "account", cs.AccountID, "slot", cs.Slot, "err", err)
+			}
+			then(w, s)
+		}
+	})
 }
 
 // characterSave snapshots a session's in-world entity into a CharacterSave. Only
@@ -199,6 +244,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 		return cs
 	}
 	cs.Clan, cs.GuildID = e.Clan, e.Guild
+	cs.LastCity = e.LastCity
 	cs.Level, cs.Coin = e.Level, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP

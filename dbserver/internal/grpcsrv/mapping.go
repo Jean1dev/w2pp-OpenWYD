@@ -40,9 +40,10 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		MaxMp:   ch.MaxMp,
 		Hp:      ch.Hp,
 		Mp:      ch.Mp,
-		Equip:   itemsToProto(ch.Equip),
-		Carry:   itemsToProto(ch.Carry),
-		Affects: affectsToProto(ch.Affects),
+		LastCity: int32(ch.LastCity),
+		Equip:    itemsToProto(ch.Equip),
+		Carry:    itemsToProto(ch.Carry),
+		Affects:  affectsToProto(ch.Affects),
 	}
 }
 
@@ -68,9 +69,10 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		MaxMp:   c.GetMaxMp(),
 		Hp:      c.GetHp(),
 		Mp:      c.GetMp(),
-		Equip:   protoToItems(c.GetEquip()),
-		Carry:   protoToItems(c.GetCarry()),
-		Affects: protoToAffects(c.GetAffects()),
+		LastCity: int16(c.GetLastCity()),
+		Equip:    protoToItems(c.GetEquip()),
+		Carry:    protoToItems(c.GetCarry()),
+		Affects:  protoToAffects(c.GetAffects()),
 	}
 }
 
