@@ -27,6 +27,8 @@ type Store interface {
 	CreateCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int) error
 	SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error
+	LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error)
+	SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error
 }
 
 // Server implements dbv1.AccountServiceServer.
@@ -107,6 +109,31 @@ func (s *Server) SaveCharacter(ctx context.Context, req *dbv1.SaveCharacterReque
 		return nil, status.Errorf(codes.Internal, "save character: %v", err)
 	}
 	return &dbv1.SaveCharacterResponse{Ok: true}, nil
+}
+
+// LoadCargo loads the account-shared cargo (gold + items). A missing account
+// returns NotFound.
+func (s *Server) LoadCargo(ctx context.Context, req *dbv1.LoadCargoRequest) (*dbv1.LoadCargoResponse, error) {
+	coin, items, err := s.store.LoadCargo(ctx, req.GetAccountId())
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, status.Error(codes.NotFound, "account not found")
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "load cargo: %v", err)
+	}
+	return &dbv1.LoadCargoResponse{CargoCoin: coin, Items: itemsToProto(items)}, nil
+}
+
+// SaveCargo persists the account-shared cargo gold + items (replace-all).
+func (s *Server) SaveCargo(ctx context.Context, req *dbv1.SaveCargoRequest) (*dbv1.SaveCargoResponse, error) {
+	err := s.store.SaveCargo(ctx, req.GetAccountId(), req.GetCargoCoin(), protoToItems(req.GetItems()))
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.SaveCargoResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "save cargo: %v", err)
+	}
+	return &dbv1.SaveCargoResponse{Ok: true}, nil
 }
 
 // CreateCharacter creates a character in a free slot. A taken slot/name (unique

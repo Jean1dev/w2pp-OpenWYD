@@ -127,3 +127,39 @@ func TestUseItemEquip(t *testing.T) {
 		t.Errorf("equip got %#x ok=%v, want UseItem echo", ty, ok)
 	}
 }
+
+// TestTradingItemCarryMove is the most basic case the user hit: drag an item from
+// one inventory slot to an empty one via _MSG_TradingItem (0x0376). The item moves
+// and both slots are refreshed (the empty source, the now-filled destination).
+func TestTradingItemCarryMove(t *testing.T) {
+	addr, stop, _ := startServerClock(t, itemDB(1100)) // item 1100 in carry slot 0
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 3, 0)
+	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgTradingItem {
+		t.Fatalf("move echo = %#x ok=%v, want TradingItem", ty, ok)
+	}
+	src := expect(t, c, protocol.MsgSendItem) // slot 0, now empty
+	if le16(src[2:4]) != 0 || le16(src[4:6]) != 0 {
+		t.Errorf("source slot = %d item %d, want slot 0 empty", le16(src[2:4]), le16(src[4:6]))
+	}
+	dst := expect(t, c, protocol.MsgSendItem) // slot 3, now holds the item
+	if le16(dst[2:4]) != 3 || le16(dst[4:6]) != 1100 {
+		t.Errorf("dest slot = %d item %d, want slot 3 item 1100", le16(dst[2:4]), le16(dst[4:6]))
+	}
+}
+
+// TestTradingItemEmptyMove rejects a swap when both slots are empty (nothing to do).
+func TestTradingItemEmptyMove(t *testing.T) {
+	addr, stop, _ := startServerClock(t, itemDB(1100))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 10, world.ItemPlaceCarry, 11, 0) // both empty
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("empty→empty move produced %#x; should be a no-op", ty)
+	}
+}

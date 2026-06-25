@@ -48,10 +48,18 @@ func tradeConfirm(t *testing.T, c net.Conn, opponent int, item world.Item, slot 
 	send(t, c, protocol.MsgTrade, body.Encode())
 }
 
-func tradingItemFrame(t *testing.T, c net.Conn, opponent int) {
+// linkTrade establishes the P2P trade link with opponent via an unconfirmed
+// _MSG_Trade offer (no items, MyCheck=0); the handler acks with an empty MsgTrade.
+// The trade window is established purely by 0x0383 — _MSG_TradingItem (0x0376) is
+// the item-slot swap, not a trade-open message.
+func linkTrade(t *testing.T, c net.Conn, opponent int) {
 	t.Helper()
-	body := protocol.MsgTradingItemBody{WarpID: int32(opponent)}
-	send(t, c, protocol.MsgTradingItem, body.Encode())
+	var body protocol.MsgTradeBody
+	body.OpponentID = uint16(opponent)
+	send(t, c, protocol.MsgTrade, body.Encode())
+	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgTrade {
+		t.Fatalf("linkTrade ack = %#x ok=%v, want MsgTrade", ty, ok)
+	}
 }
 
 // firstResultIndex decodes the leading item index from a trade-result payload.
@@ -101,11 +109,9 @@ func TestTradeCancel(t *testing.T) {
 	b := enterWorldAs(t, addr, "tradeb")
 	defer b.Close()
 
-	// Open the trade window from both sides.
-	tradingItemFrame(t, a, 2)
-	readMaybe(t, b) // B sees A's offer
-	tradingItemFrame(t, b, 1)
-	readMaybe(t, a) // A sees B's offer
+	// Establish the trade link from both sides (each gets its own ack).
+	linkTrade(t, a, 2)
+	linkTrade(t, b, 1)
 
 	// A cancels → both get QuitTrade.
 	send(t, a, protocol.MsgQuitTrade, nil)
@@ -127,10 +133,8 @@ func TestTradeDupCancelsOnDrop(t *testing.T) {
 	b := enterWorldAs(t, addr, "tradeb")
 	defer b.Close()
 
-	tradingItemFrame(t, a, 2)
-	readMaybe(t, b)
-	tradingItemFrame(t, b, 1)
-	readMaybe(t, a)
+	linkTrade(t, a, 2)
+	linkTrade(t, b, 1)
 
 	// A drops an item while trading → trade cancelled for both.
 	dropFrame(t, a, 0, 5, 5)

@@ -257,6 +257,82 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 	return nil
 }
 
+// LoadCargo loads the account-shared cargo: the gold (account.cargo_coin) and the
+// stored items (item rows with owner_kind='account_cargo'). The cargo is keyed by
+// account — every character of the account shares the same vault — so it is read
+// once per session, independent of the character slot. A missing account returns
+// ErrNotFound; an account with no stored items returns (coin, nil).
+func (s *Store) LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error) {
+	var coin int32
+	err := s.pool.QueryRow(ctx,
+		`SELECT cargo_coin FROM account WHERE id = $1`, accountID).Scan(&coin)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil, ErrNotFound
+	}
+	if err != nil {
+		return 0, nil, fmt.Errorf("store: load cargo coin a=%d: %w", accountID, err)
+	}
+	items, err := s.loadAccountItems(ctx, accountID, "account_cargo")
+	if err != nil {
+		return 0, nil, err
+	}
+	return coin, items, nil
+}
+
+// loadAccountItems mirrors loadItems but keys on account_id (cargo is account-,
+// not character-scoped).
+func (s *Store) loadAccountItems(ctx context.Context, accountID int64, kind string) ([]domain.Item, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3
+		  FROM item WHERE account_id = $1 AND owner_kind = $2 ORDER BY slot`, accountID, kind)
+	if err != nil {
+		return nil, fmt.Errorf("store: load %s: %w", kind, err)
+	}
+	defer rows.Close()
+	var out []domain.Item
+	for rows.Next() {
+		var it domain.Item
+		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
+			return nil, fmt.Errorf("store: scan %s item: %w", kind, err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// SaveCargo persists the account-shared cargo gold + items as a replace-all,
+// mirroring SaveCharacter's atomic item swap (anti-dup: the old set is deleted
+// and the new set re-inserted in one transaction). A missing account returns
+// ErrNotFound.
+func (s *Store) SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: begin save cargo: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx, `UPDATE account SET cargo_coin = $2 WHERE id = $1`, accountID, coin)
+	if err != nil {
+		return fmt.Errorf("store: update cargo coin a=%d: %w", accountID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM item WHERE account_id = $1 AND owner_kind = 'account_cargo'`, accountID); err != nil {
+		return fmt.Errorf("store: clear cargo items a=%d: %w", accountID, err)
+	}
+	for _, it := range items {
+		if err := insertItem(ctx, tx, "account_cargo", &accountID, nil, it); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: commit save cargo a=%d: %w", accountID, err)
+	}
+	return nil
+}
+
 // int16ArrToByteArr narrows a smallint[] column back into a fixed byte array,
 // the inverse of byteArrToInt16. Extra elements are ignored; missing ones stay
 // zero.

@@ -33,6 +33,8 @@ const (
 	AccountService_SaveCharacter_FullMethodName   = "/db.v1.AccountService/SaveCharacter"
 	AccountService_CreateCharacter_FullMethodName = "/db.v1.AccountService/CreateCharacter"
 	AccountService_DeleteCharacter_FullMethodName = "/db.v1.AccountService/DeleteCharacter"
+	AccountService_LoadCargo_FullMethodName       = "/db.v1.AccountService/LoadCargo"
+	AccountService_SaveCargo_FullMethodName       = "/db.v1.AccountService/SaveCargo"
 )
 
 // AccountServiceClient is the client API for AccountService service.
@@ -53,6 +55,11 @@ type AccountServiceClient interface {
 	CreateCharacter(ctx context.Context, in *CreateCharacterRequest, opts ...grpc.CallOption) (*CreateCharacterResponse, error)
 	// DeleteCharacter deletes a character after password confirmation.
 	DeleteCharacter(ctx context.Context, in *DeleteCharacterRequest, opts ...grpc.CallOption) (*DeleteCharacterResponse, error)
+	// LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
+	// is owned by the account, not a single character (all 4 chars share it).
+	LoadCargo(ctx context.Context, in *LoadCargoRequest, opts ...grpc.CallOption) (*LoadCargoResponse, error)
+	// SaveCargo persists the account-shared cargo gold + items (replace-all).
+	SaveCargo(ctx context.Context, in *SaveCargoRequest, opts ...grpc.CallOption) (*SaveCargoResponse, error)
 }
 
 type accountServiceClient struct {
@@ -123,6 +130,26 @@ func (c *accountServiceClient) DeleteCharacter(ctx context.Context, in *DeleteCh
 	return out, nil
 }
 
+func (c *accountServiceClient) LoadCargo(ctx context.Context, in *LoadCargoRequest, opts ...grpc.CallOption) (*LoadCargoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoadCargoResponse)
+	err := c.cc.Invoke(ctx, AccountService_LoadCargo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SaveCargo(ctx context.Context, in *SaveCargoRequest, opts ...grpc.CallOption) (*SaveCargoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveCargoResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveCargo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility.
@@ -141,6 +168,11 @@ type AccountServiceServer interface {
 	CreateCharacter(context.Context, *CreateCharacterRequest) (*CreateCharacterResponse, error)
 	// DeleteCharacter deletes a character after password confirmation.
 	DeleteCharacter(context.Context, *DeleteCharacterRequest) (*DeleteCharacterResponse, error)
+	// LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
+	// is owned by the account, not a single character (all 4 chars share it).
+	LoadCargo(context.Context, *LoadCargoRequest) (*LoadCargoResponse, error)
+	// SaveCargo persists the account-shared cargo gold + items (replace-all).
+	SaveCargo(context.Context, *SaveCargoRequest) (*SaveCargoResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -168,6 +200,12 @@ func (UnimplementedAccountServiceServer) CreateCharacter(context.Context, *Creat
 }
 func (UnimplementedAccountServiceServer) DeleteCharacter(context.Context, *DeleteCharacterRequest) (*DeleteCharacterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteCharacter not implemented")
+}
+func (UnimplementedAccountServiceServer) LoadCargo(context.Context, *LoadCargoRequest) (*LoadCargoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LoadCargo not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveCargo(context.Context, *SaveCargoRequest) (*SaveCargoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveCargo not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 func (UnimplementedAccountServiceServer) testEmbeddedByValue()                        {}
@@ -298,6 +336,42 @@ func _AccountService_DeleteCharacter_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_LoadCargo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadCargoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).LoadCargo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_LoadCargo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).LoadCargo(ctx, req.(*LoadCargoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SaveCargo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveCargoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveCargo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveCargo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveCargo(ctx, req.(*SaveCargoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -328,6 +402,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteCharacter",
 			Handler:    _AccountService_DeleteCharacter_Handler,
+		},
+		{
+			MethodName: "LoadCargo",
+			Handler:    _AccountService_LoadCargo_Handler,
+		},
+		{
+			MethodName: "SaveCargo",
+			Handler:    _AccountService_SaveCargo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

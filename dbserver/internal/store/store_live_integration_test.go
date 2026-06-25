@@ -100,3 +100,59 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("DeleteCharacter(empty) = %v, want ErrNotFound", err)
 	}
 }
+
+// TestLiveCargo exercises the account-shared warehouse: it is keyed by account
+// (every character deposits into the same vault) and SaveCargo is a replace-all
+// swap, so re-saving must not leave duplicate item rows behind.
+func TestLiveCargo(t *testing.T) {
+	s, ctx := freshStore(t)
+
+	accID, err := s.SaveAccount(ctx, domain.Account{
+		Name: "vault", PassHash: "$argon2id$hash", CargoCoin: 5000,
+		Cargo: []domain.Item{
+			{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9},
+			{Slot: 1, Index: 2200},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SaveAccount: %v", err)
+	}
+
+	// LoadCargo returns the gold + items seeded by SaveAccount.
+	coin, items, err := s.LoadCargo(ctx, accID)
+	if err != nil {
+		t.Fatalf("LoadCargo: %v", err)
+	}
+	if coin != 5000 || len(items) != 2 || items[0].Index != 1100 || items[0].EffV1 != 9 || items[1].Index != 2200 {
+		t.Fatalf("LoadCargo mismatch: coin=%d items=%+v", coin, items)
+	}
+
+	// SaveCargo is replace-all: the new set fully supersedes the old, with no
+	// leftover rows from the previous two-item set.
+	if err := s.SaveCargo(ctx, accID, 7500, []domain.Item{{Slot: 3, Index: 3300, Eff1: 2, EffV1: 5}}); err != nil {
+		t.Fatalf("SaveCargo: %v", err)
+	}
+	coin, items, err = s.LoadCargo(ctx, accID)
+	if err != nil {
+		t.Fatalf("LoadCargo after save: %v", err)
+	}
+	if coin != 7500 || len(items) != 1 || items[0].Slot != 3 || items[0].Index != 3300 || items[0].EffV1 != 5 {
+		t.Fatalf("SaveCargo not replaced cleanly: coin=%d items=%+v", coin, items)
+	}
+
+	// SaveCargo to an empty set clears all item rows but keeps the gold update.
+	if err := s.SaveCargo(ctx, accID, 0, nil); err != nil {
+		t.Fatalf("SaveCargo(empty): %v", err)
+	}
+	if coin, items, err = s.LoadCargo(ctx, accID); err != nil || coin != 0 || len(items) != 0 {
+		t.Fatalf("LoadCargo after clear: coin=%d items=%+v err=%v", coin, items, err)
+	}
+
+	// A missing account is ErrNotFound on both load and save.
+	if _, _, err := s.LoadCargo(ctx, 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("LoadCargo(ghost) = %v, want ErrNotFound", err)
+	}
+	if err := s.SaveCargo(ctx, 999999, 1, nil); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("SaveCargo(ghost) = %v, want ErrNotFound", err)
+	}
+}

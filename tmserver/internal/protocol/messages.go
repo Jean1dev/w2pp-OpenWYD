@@ -559,6 +559,15 @@ func (m *MsgAcceptPartyBody) Encode() []byte {
 	return b
 }
 
+// StandardParm reads the single leading int32 field (Parm) of a MSG_STANDARDPARM
+// body (used by Deposit/Withdraw: Parm = the gold amount).
+func StandardParm(b []byte) (parm int32, ok bool) {
+	if len(b) < 4 {
+		return 0, false
+	}
+	return int32(le.Uint32(b[0:4])), true
+}
+
 // StandardParm2 reads the two leading int32 fields (Parm1, Parm2) of a
 // MSG_STANDARDPARM2 body (used by InviteGuild, War, ChallangeConfirm).
 func StandardParm2(b []byte) (parm1, parm2 int32, ok bool) {

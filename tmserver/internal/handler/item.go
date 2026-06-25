@@ -123,7 +123,8 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. This batch
 // covers the equip path (CARRY → EQUIP). Consume, refine (batch 6) and teleport
-// are UNVERIFIED and not handled here.
+// are UNVERIFIED and not handled here. Drag-and-drop between slots (including the
+// account cargo) is a different message — see tradingItem (_MSG_TradingItem).
 func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -147,6 +148,96 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	// and BASE_GetCurrentScore recompute are not yet applied.
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
+}
+
+// tradingItem handles _MSG_TradingItem (0x0376): the client's universal
+// drag-and-drop item swap between two slots — within the inventory, between
+// inventory and equipment, and to/from the account warehouse (cargo). Despite the
+// "Trading" name this is NOT the P2P player trade (that is _MSG_Trade, 0x0383); it
+// is the slot-swap the client sends whenever an item is dragged
+// (Source/Code/TMSrv/_MSG_TradingItem.cpp). Moving an item while in a P2P trade
+// cancels the trade (anti-dup).
+//
+// The swap exchanges the two slots' contents (so dragging onto an occupied slot
+// swaps them; onto an empty slot moves). It runs in the single loop goroutine, so
+// concurrent swaps cannot duplicate an item.
+func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+		w.AddCrackError(s, 1, 19)
+		return
+	}
+	if s.Trade.Active {
+		d.removeTrade(w, s) // moving an item mid-trade cancels it
+		return
+	}
+	if s.TradeMode != 0 {
+		d.notify(w, s, NoticeCantAutoTrade)
+		return
+	}
+	var body protocol.MsgTradingItemBody
+	if err := body.Decode(payload); err != nil {
+		return
+	}
+	srcPlace, srcSlot := int(body.SrcPlace), int(body.SrcSlot)
+	dstPlace, dstSlot := int(body.DestPlace), int(body.DestSlot)
+
+	// Cargo is account-shared and only reachable next to the cargo-guard NPC
+	// (WarpID identifies it). Inventory/equip-only moves skip this gate.
+	if (srcPlace == world.ItemPlaceCargo || dstPlace == world.ItemPlaceCargo) && !d.nearCargoGuard(w, e, int(body.WarpID)) {
+		return
+	}
+
+	src := d.itemSlot(w, s, e, srcPlace, srcSlot)
+	dst := d.itemSlot(w, s, e, dstPlace, dstSlot)
+	if src == nil || dst == nil {
+		return
+	}
+	if src.Empty() && dst.Empty() {
+		return // nothing to move
+	}
+	// UNVERIFIED: amount-stacking (arrows/potions), equip requirement checks and
+	// BASE_GetCurrentScore/visual recompute on equip changes are not yet applied.
+	*src, *dst = *dst, *src
+	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+}
+
+// itemSlot returns a pointer to the live item slot for a place/slot pair, or nil
+// if the place is unknown or the slot is out of bounds. Carry moves are bounded by
+// MaxCarry-4 (the last 4 slots are reserved, as in _MSG_TradingItem.cpp). The
+// cargo slot is nil unless the account's warehouse is loaded.
+func (d *Dispatcher) itemSlot(w *world.World, s *world.Session, e *world.Entity, place, slot int) *world.Item {
+	switch place {
+	case world.ItemPlaceEquip:
+		if slot < 0 || slot >= world.MaxEquip {
+			return nil
+		}
+		return &e.Equip[slot]
+	case world.ItemPlaceCarry:
+		if slot < 0 || slot >= world.MaxCarry-4 {
+			return nil
+		}
+		return &e.Carry[slot]
+	case world.ItemPlaceCargo:
+		cargo := w.Cargo(s.AccountID)
+		if cargo == nil || slot < 0 || slot >= world.MaxCargo {
+			return nil
+		}
+		return &cargo.Items[slot]
+	}
+	return nil
+}
+
+// nearCargoGuard reports whether warpID is a cargo-guard NPC (Merchant==2) within
+// view of the player — the proximity gate for any cargo slot access.
+func (d *Dispatcher) nearCargoGuard(w *world.World, e *world.Entity, warpID int) bool {
+	npc := w.Entity(warpID)
+	if npc == nil || npc.Mode == world.MobEmpty || npc.Merchant != 2 {
+		return false
+	}
+	return abs(int(e.X)-int(npc.X)) <= world.ViewRange && abs(int(e.Y)-int(npc.Y)) <= world.ViewRange
 }
 
 func abs(v int) int {

@@ -132,11 +132,15 @@ Build/test padrão: `go build ./...`, `go test -race ./...`, `make lint`.
 ## 7. Próximas frentes (roadmap)
 
 Já feito: login, chars, NPCs (nomes/aparência), lojas (buy/sell + SendItem), teleporte, persistência
-(itens/gold/cidade). A fazer (escolher com o usuário):
-- **Banco/Cargo** (NPC Guarda_Carga, Merchant=2; depósito 0x0388 / saque 0x0387).
+(itens/gold/cidade), **Banco/Cargo** (armazém compartilhado da conta: LoadCargo/SaveCargo no
+dbServer + store; carregado no login, salvo no logout/shutdown; depósito 0x0388 / saque 0x0387 de
+gold; NPC Guarda_Carga Merchant=2 abre o cofre), **mover itens** (drag-drop). A fazer
+(escolher com o usuário):
 - **NPCs de combinação/refino** (Odin/Lindy/Shany).
 - **IA/movimento/combate de mob** (NPCs hoje são estáticos).
 - Persistência de stats/skills mais completa; mais rotas de teleporte (campos/dungeons já parciais).
 
 Sempre: ler `docs/migration/` antes de mexer em wire/format/gameplay; comentar o **porquê** (paridade);
 testes table-driven `-race`; o snapshot/golden de protocolo são os testes críticos de paridade.
+
+ler tambem o `development-guidelines/Go-development-guidelines.md` para entender o padrao de desenvolvimento

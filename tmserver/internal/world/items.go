@@ -16,11 +16,7 @@ type Item struct {
 // Empty reports whether the slot holds no item.
 func (it Item) Empty() bool { return it.Index == 0 }
 
-// Item container kinds (ITEM_PLACE_*).
-//
-// UNVERIFIED: the original numeric values are not documented; these are
-// placeholders used consistently by the handlers and tests, to be pinned by
-// capture (handlers/_MSG_DropItem.md / _MSG_GetItem.md).
+// Item container kinds (ITEM_PLACE_*), confirmed by Basedef.h:146-148.
 const (
 	ItemPlaceEquip = 0
 	ItemPlaceCarry = 1

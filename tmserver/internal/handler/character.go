@@ -319,14 +319,21 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
 	})
 	// Persist first, then confirm: the client re-reads the character from the DB
-	// when it re-selects, so the save must commit before we hand it back the
-	// selection screen (otherwise the reload races the write — last_city/coin).
+	// when it re-selects (and may reconnect/re-login the account), so the save must
+	// commit before we hand it back the selection screen (otherwise the reload
+	// races the write — last_city/coin). The account-shared cargo is saved in the
+	// same flow: deposits/withdrawals exchange items between the character carry and
+	// the cargo, so persisting the character without the cargo would duplicate a
+	// withdrawn item (saved on the character row while the stale account_cargo row
+	// still holds it) on the next load.
 	w.SaveCharacterThen(s, func(w *world.World, s *world.Session) {
-		if e := w.Entity(s.Conn); e != nil {
-			e.Mode = world.MobUserDock
-		}
-		s.Mode = world.UserSelChar
-		w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+		w.SaveCargoThen(s, func(w *world.World, s *world.Session) {
+			if e := w.Entity(s.Conn); e != nil {
+				e.Mode = world.MobUserDock
+			}
+			s.Mode = world.UserSelChar
+			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+		})
 	})
 }
 

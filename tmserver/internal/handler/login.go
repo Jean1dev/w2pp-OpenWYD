@@ -73,6 +73,10 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	case world.LoginOK:
 		delete(d.fails, s.AccountName)
 		s.AccountID = out.AccountID
+		// Install the account-shared cargo, loaded in the same backend round-trip.
+		// It lives for the whole account session and is released on disconnect.
+		cargo := out.Cargo
+		w.SetCargo(out.AccountID, &cargo)
 		s.Mode = world.UserSelChar
 		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, d.selCharsFrom(out.Characters))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)
@@ -102,12 +106,12 @@ func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar 
 	out := make([]protocol.SelChar, 0, len(chars))
 	for _, c := range chars {
 		sc := protocol.SelChar{
-			Slot:      c.Slot,
-			Name:      c.Name,
-			Level:     int32(c.Level),
-			Exp:       c.Exp,
-			Guild:     c.GuildID,
-			MaxHp:     100, Hp: 100, MaxMp: 100, Mp: 100,
+			Slot:  c.Slot,
+			Name:  c.Name,
+			Level: int32(c.Level),
+			Exp:   c.Exp,
+			Guild: c.GuildID,
+			MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
 			Str: 10, Int: 10, Dex: 10, Con: 10,
 		}
 		// Preview the character's class with its starter equipment from the class

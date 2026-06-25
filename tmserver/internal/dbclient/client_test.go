@@ -13,12 +13,14 @@ import (
 // fakeAPI implements dbv1.AccountServiceClient, capturing requests and returning
 // canned responses, so the adapter's mapping is tested without a gRPC server.
 type fakeAPI struct {
-	loginResp *dbv1.AccountLoginResponse
-	listResp  *dbv1.ListCharactersResponse
-	loadResp  *dbv1.LoadCharacterResponse
-	createOK  bool
-	deleteOK  bool
-	saved     *dbv1.SaveCharacterRequest
+	loginResp  *dbv1.AccountLoginResponse
+	listResp   *dbv1.ListCharactersResponse
+	loadResp   *dbv1.LoadCharacterResponse
+	createOK   bool
+	deleteOK   bool
+	saved      *dbv1.SaveCharacterRequest
+	cargoResp  *dbv1.LoadCargoResponse
+	savedCargo *dbv1.SaveCargoRequest
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {
@@ -40,6 +42,16 @@ func (f *fakeAPI) CreateCharacter(_ context.Context, _ *dbv1.CreateCharacterRequ
 func (f *fakeAPI) DeleteCharacter(_ context.Context, _ *dbv1.DeleteCharacterRequest, _ ...grpc.CallOption) (*dbv1.DeleteCharacterResponse, error) {
 	return &dbv1.DeleteCharacterResponse{Ok: f.deleteOK}, nil
 }
+func (f *fakeAPI) LoadCargo(_ context.Context, _ *dbv1.LoadCargoRequest, _ ...grpc.CallOption) (*dbv1.LoadCargoResponse, error) {
+	if f.cargoResp != nil {
+		return f.cargoResp, nil
+	}
+	return &dbv1.LoadCargoResponse{}, nil
+}
+func (f *fakeAPI) SaveCargo(_ context.Context, req *dbv1.SaveCargoRequest, _ ...grpc.CallOption) (*dbv1.SaveCargoResponse, error) {
+	f.savedCargo = req
+	return &dbv1.SaveCargoResponse{Ok: true}, nil
+}
 
 func newClient(api dbv1.AccountServiceClient) *Client { return &Client{api: api} }
 
@@ -48,6 +60,9 @@ func TestAccountLoginMapping(t *testing.T) {
 		loginResp: &dbv1.AccountLoginResponse{Result: dbv1.LoginResult_LOGIN_RESULT_OK, AccountId: 1},
 		listResp: &dbv1.ListCharactersResponse{Characters: []*dbv1.CharacterSummary{
 			{Slot: 0, Name: "hero", Class: 2, Level: 10, GuildId: 5},
+		}},
+		cargoResp: &dbv1.LoadCargoResponse{CargoCoin: 4200, Items: []*dbv1.Item{
+			{Slot: 2, Index: 999, Eff1: 1, Effv1: 7},
 		}},
 	}
 	out, err := newClient(api).AccountLogin(context.Background(), "alice", "pw")
@@ -59,6 +74,10 @@ func TestAccountLoginMapping(t *testing.T) {
 	}
 	if len(out.Characters) != 1 || out.Characters[0].Name != "hero" || out.Characters[0].GuildID != 5 {
 		t.Fatalf("characters not mapped: %+v", out.Characters)
+	}
+	// Cargo is fetched in the same login round-trip and mapped positionally.
+	if out.Cargo.AccountID != 1 || out.Cargo.Coin != 4200 || out.Cargo.Items[2].Index != 999 {
+		t.Fatalf("cargo not loaded on login: %+v", out.Cargo)
 	}
 }
 
@@ -110,6 +129,40 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	}
 	if len(c.GetCarry()) != 1 || c.GetCarry()[0].GetIndex() != 1234 {
 		t.Fatalf("save carry not mapped: %+v", c.GetCarry())
+	}
+}
+
+func TestLoadCargoMapping(t *testing.T) {
+	api := &fakeAPI{cargoResp: &dbv1.LoadCargoResponse{CargoCoin: 7777, Items: []*dbv1.Item{
+		{Slot: 5, Index: 2468, Eff1: 3, Effv1: 2},
+		{Slot: 200, Index: 1}, // out-of-range slot is dropped, not panicked on
+	}}}
+	st, err := newClient(api).LoadCargo(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("LoadCargo: %v", err)
+	}
+	if st.AccountID != 9 || st.Coin != 7777 {
+		t.Fatalf("cargo header not mapped: %+v", st)
+	}
+	if st.Items[5].Index != 2468 || st.Items[5].Effects[0].Effect != 3 {
+		t.Fatalf("cargo item not mapped: %+v", st.Items[5])
+	}
+}
+
+func TestSaveCargoMapping(t *testing.T) {
+	api := &fakeAPI{}
+	save := world.CargoSave{
+		AccountID: 9, Coin: 8888,
+		Items: []world.SavedItem{{Slot: 5, Index: 2468, Eff1: 3, EffV1: 2}},
+	}
+	if err := newClient(api).SaveCargo(context.Background(), save); err != nil {
+		t.Fatalf("SaveCargo: %v", err)
+	}
+	if api.savedCargo.GetAccountId() != 9 || api.savedCargo.GetCargoCoin() != 8888 {
+		t.Fatalf("cargo header not sent: %+v", api.savedCargo)
+	}
+	if len(api.savedCargo.GetItems()) != 1 || api.savedCargo.GetItems()[0].GetIndex() != 2468 {
+		t.Fatalf("cargo items not sent: %+v", api.savedCargo.GetItems())
 	}
 }
 

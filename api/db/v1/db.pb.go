@@ -1153,6 +1153,209 @@ func (x *DeleteCharacterResponse) GetOk() bool {
 	return false
 }
 
+// Cargo is the account-shared warehouse (domain.Account.CargoCoin + Cargo). It is
+// keyed by account_id (NOT character) because all of an account's characters
+// deposit into and withdraw from the same vault. Empty item slots are omitted.
+type LoadCargoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadCargoRequest) Reset() {
+	*x = LoadCargoRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadCargoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadCargoRequest) ProtoMessage() {}
+
+func (x *LoadCargoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadCargoRequest.ProtoReflect.Descriptor instead.
+func (*LoadCargoRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *LoadCargoRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+type LoadCargoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CargoCoin     int32                  `protobuf:"varint,1,opt,name=cargo_coin,json=cargoCoin,proto3" json:"cargo_coin,omitempty"`
+	Items         []*Item                `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadCargoResponse) Reset() {
+	*x = LoadCargoResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadCargoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadCargoResponse) ProtoMessage() {}
+
+func (x *LoadCargoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadCargoResponse.ProtoReflect.Descriptor instead.
+func (*LoadCargoResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *LoadCargoResponse) GetCargoCoin() int32 {
+	if x != nil {
+		return x.CargoCoin
+	}
+	return 0
+}
+
+func (x *LoadCargoResponse) GetItems() []*Item {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type SaveCargoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	CargoCoin     int32                  `protobuf:"varint,2,opt,name=cargo_coin,json=cargoCoin,proto3" json:"cargo_coin,omitempty"`
+	Items         []*Item                `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveCargoRequest) Reset() {
+	*x = SaveCargoRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveCargoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveCargoRequest) ProtoMessage() {}
+
+func (x *SaveCargoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveCargoRequest.ProtoReflect.Descriptor instead.
+func (*SaveCargoRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SaveCargoRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *SaveCargoRequest) GetCargoCoin() int32 {
+	if x != nil {
+		return x.CargoCoin
+	}
+	return 0
+}
+
+func (x *SaveCargoRequest) GetItems() []*Item {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type SaveCargoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveCargoResponse) Reset() {
+	*x = SaveCargoResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveCargoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveCargoResponse) ProtoMessage() {}
+
+func (x *SaveCargoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveCargoResponse.ProtoReflect.Descriptor instead.
+func (*SaveCargoResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *SaveCargoResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
 var File_api_db_v1_db_proto protoreflect.FileDescriptor
 
 const file_api_db_v1_db_proto_rawDesc = "" +
@@ -1243,6 +1446,21 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04slot\x18\x02 \x01(\x05R\x04slot\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\")\n" +
 	"\x17DeleteCharacterResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"1\n" +
+	"\x10LoadCargoRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\"U\n" +
+	"\x11LoadCargoResponse\x12\x1d\n" +
+	"\n" +
+	"cargo_coin\x18\x01 \x01(\x05R\tcargoCoin\x12!\n" +
+	"\x05items\x18\x02 \x03(\v2\v.db.v1.ItemR\x05items\"s\n" +
+	"\x10SaveCargoRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x1d\n" +
+	"\n" +
+	"cargo_coin\x18\x02 \x01(\x05R\tcargoCoin\x12!\n" +
+	"\x05items\x18\x03 \x03(\v2\v.db.v1.ItemR\x05items\"#\n" +
+	"\x11SaveCargoResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
@@ -1250,14 +1468,16 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x17LOGIN_RESULT_NO_ACCOUNT\x10\x02\x12\x1d\n" +
 	"\x19LOGIN_RESULT_BAD_PASSWORD\x10\x03\x12\x18\n" +
 	"\x14LOGIN_RESULT_BLOCKED\x10\x04\x12 \n" +
-	"\x1cLOGIN_RESULT_ALREADY_PLAYING\x10\x052\xe4\x03\n" +
+	"\x1cLOGIN_RESULT_ALREADY_PLAYING\x10\x052\xe4\x04\n" +
 	"\x0eAccountService\x12G\n" +
 	"\fAccountLogin\x12\x1a.db.v1.AccountLoginRequest\x1a\x1b.db.v1.AccountLoginResponse\x12M\n" +
 	"\x0eListCharacters\x12\x1c.db.v1.ListCharactersRequest\x1a\x1d.db.v1.ListCharactersResponse\x12J\n" +
 	"\rLoadCharacter\x12\x1b.db.v1.LoadCharacterRequest\x1a\x1c.db.v1.LoadCharacterResponse\x12J\n" +
 	"\rSaveCharacter\x12\x1b.db.v1.SaveCharacterRequest\x1a\x1c.db.v1.SaveCharacterResponse\x12P\n" +
 	"\x0fCreateCharacter\x12\x1d.db.v1.CreateCharacterRequest\x1a\x1e.db.v1.CreateCharacterResponse\x12P\n" +
-	"\x0fDeleteCharacter\x12\x1d.db.v1.DeleteCharacterRequest\x1a\x1e.db.v1.DeleteCharacterResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
+	"\x0fDeleteCharacter\x12\x1d.db.v1.DeleteCharacterRequest\x1a\x1e.db.v1.DeleteCharacterResponse\x12>\n" +
+	"\tLoadCargo\x12\x17.db.v1.LoadCargoRequest\x1a\x18.db.v1.LoadCargoResponse\x12>\n" +
+	"\tSaveCargo\x12\x17.db.v1.SaveCargoRequest\x1a\x18.db.v1.SaveCargoResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
 
 var (
 	file_api_db_v1_db_proto_rawDescOnce sync.Once
@@ -1272,7 +1492,7 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 }
 
 var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_api_db_v1_db_proto_goTypes = []any{
 	(LoginResult)(0),                // 0: db.v1.LoginResult
 	(*AccountLoginRequest)(nil),     // 1: db.v1.AccountLoginRequest
@@ -1291,6 +1511,10 @@ var file_api_db_v1_db_proto_goTypes = []any{
 	(*CreateCharacterResponse)(nil), // 14: db.v1.CreateCharacterResponse
 	(*DeleteCharacterRequest)(nil),  // 15: db.v1.DeleteCharacterRequest
 	(*DeleteCharacterResponse)(nil), // 16: db.v1.DeleteCharacterResponse
+	(*LoadCargoRequest)(nil),        // 17: db.v1.LoadCargoRequest
+	(*LoadCargoResponse)(nil),       // 18: db.v1.LoadCargoResponse
+	(*SaveCargoRequest)(nil),        // 19: db.v1.SaveCargoRequest
+	(*SaveCargoResponse)(nil),       // 20: db.v1.SaveCargoResponse
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
@@ -1300,23 +1524,29 @@ var file_api_db_v1_db_proto_depIdxs = []int32{
 	9,  // 4: db.v1.Character.affects:type_name -> db.v1.Affect
 	7,  // 5: db.v1.LoadCharacterResponse.character:type_name -> db.v1.Character
 	7,  // 6: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
-	1,  // 7: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	3,  // 8: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	6,  // 9: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	11, // 10: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	13, // 11: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	15, // 12: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	2,  // 13: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	5,  // 14: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	10, // 15: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	12, // 16: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	14, // 17: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	16, // 18: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	13, // [13:19] is the sub-list for method output_type
-	7,  // [7:13] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	8,  // 7: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
+	8,  // 8: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
+	1,  // 9: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	3,  // 10: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	6,  // 11: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	11, // 12: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	13, // 13: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	15, // 14: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	17, // 15: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	19, // 16: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	2,  // 17: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	5,  // 18: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	10, // 19: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	12, // 20: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	14, // 21: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	16, // 22: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	18, // 23: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	20, // 24: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	17, // [17:25] is the sub-list for method output_type
+	9,  // [9:17] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }
@@ -1330,7 +1560,7 @@ func file_api_db_v1_db_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -25,6 +25,11 @@ service AccountService {
   rpc CreateCharacter(CreateCharacterRequest) returns (CreateCharacterResponse);
   // DeleteCharacter deletes a character after password confirmation.
   rpc DeleteCharacter(DeleteCharacterRequest) returns (DeleteCharacterResponse);
+  // LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
+  // is owned by the account, not a single character (all 4 chars share it).
+  rpc LoadCargo(LoadCargoRequest) returns (LoadCargoResponse);
+  // SaveCargo persists the account-shared cargo gold + items (replace-all).
+  rpc SaveCargo(SaveCargoRequest) returns (SaveCargoResponse);
 }
 
 enum LoginResult {
@@ -133,3 +138,18 @@ message DeleteCharacterRequest {
   string password = 3;
 }
 message DeleteCharacterResponse { bool ok = 1; }
+
+// Cargo is the account-shared warehouse (domain.Account.CargoCoin + Cargo). It is
+// keyed by account_id (NOT character) because all of an account's characters
+// deposit into and withdraw from the same vault. Empty item slots are omitted.
+message LoadCargoRequest { int64 account_id = 1; }
+message LoadCargoResponse {
+  int32 cargo_coin = 1;
+  repeated Item items = 2;
+}
+message SaveCargoRequest {
+  int64 account_id = 1;
+  int32 cargo_coin = 2;
+  repeated Item items = 3;
+}
+message SaveCargoResponse { bool ok = 1; }

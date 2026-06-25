@@ -28,6 +28,7 @@ const (
 	NoticeNotConnected                  // whisper target offline
 	NoticeDenyWhisper                   // whisper target blocked whispers
 	NoticeBillingDenied                 // binServer denied entry (expired/blocked)
+	NoticeCargoFull                     // deposit/withdraw would exceed the 2G ceiling
 )
 
 // notify sends a client notification.

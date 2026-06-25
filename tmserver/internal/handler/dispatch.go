@@ -50,8 +50,8 @@ type Dispatcher struct {
 	routes          map[protocol.Type]handlerFunc
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
-	baseMobs        map[int][]byte   // per-class STRUCT_MOB templates
-	itemPrices      map[int]int32    // item index → base price (NPC shop)
+	baseMobs        map[int][]byte // per-class STRUCT_MOB templates
+	itemPrices      map[int]int32  // item index → base price (NPC shop)
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -108,6 +108,9 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgREQShopList] = d.reqShopList
 	d.routes[protocol.MsgBuy] = d.buy
 	d.routes[protocol.MsgSell] = d.sell
+	// Cargo (account warehouse) — gold deposit/withdraw; item moves go via useItem.
+	d.routes[protocol.MsgDeposit] = d.deposit
+	d.routes[protocol.MsgWithdraw] = d.withdraw
 	// Batch 5 — P2P trade.
 	d.routes[protocol.MsgTradingItem] = d.tradingItem
 	d.routes[protocol.MsgTrade] = d.trade

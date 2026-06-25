@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ type fakeAccount struct {
 	blocked        bool
 	alreadyPlaying bool
 	chars          []world.CharSummary
+	cargo          world.CargoState // account-shared warehouse loaded on login
 }
 
 type fakeDB struct {
@@ -31,6 +33,44 @@ type fakeDB struct {
 	loadResult world.CharacterState
 	loads      map[int64]world.CharacterState // per-account override (accountID → state)
 	loadErr    error
+
+	mu          sync.Mutex
+	savedChars  []world.CharacterSave // captured SaveOnShutdown calls
+	savedCargos []world.CargoSave     // captured SaveCargo calls
+}
+
+func (f *fakeDB) SaveOnShutdown(_ context.Context, save world.CharacterSave) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.savedChars = append(f.savedChars, save)
+	return nil
+}
+
+func (f *fakeDB) SaveCargo(_ context.Context, save world.CargoSave) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.savedCargos = append(f.savedCargos, save)
+	return nil
+}
+
+// lastSavedCargo returns the most recent SaveCargo snapshot (and how many landed).
+func (f *fakeDB) lastSavedCargo() (world.CargoSave, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.savedCargos) == 0 {
+		return world.CargoSave{}, 0
+	}
+	return f.savedCargos[len(f.savedCargos)-1], len(f.savedCargos)
+}
+
+// lastSavedChar returns the most recent SaveOnShutdown snapshot.
+func (f *fakeDB) lastSavedChar() (world.CharacterSave, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.savedChars) == 0 {
+		return world.CharacterSave{}, 0
+	}
+	return f.savedChars[len(f.savedChars)-1], len(f.savedChars)
 }
 
 func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.LoginOutcome, error) {
@@ -45,7 +85,9 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 	case a.pass != pass:
 		return world.LoginOutcome{Result: world.LoginBadPassword}, nil
 	default:
-		return world.LoginOutcome{Result: world.LoginOK, AccountID: a.id, Characters: a.chars}, nil
+		cargo := a.cargo
+		cargo.AccountID = a.id
+		return world.LoginOutcome{Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo}, nil
 	}
 }
 

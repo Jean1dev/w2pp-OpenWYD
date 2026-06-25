@@ -32,11 +32,33 @@ type CharSummary struct {
 	GuildID uint16
 }
 
-// LoginOutcome is the result of an account-login attempt.
+// LoginOutcome is the result of an account-login attempt. On success it also
+// carries the account-shared cargo, loaded in the same backend round-trip as the
+// character list (it is account-scoped, so it is fetched once per account login).
 type LoginOutcome struct {
 	Result     LoginResult
 	AccountID  int64
 	Characters []CharSummary
+	Cargo      CargoState
+}
+
+// CargoState is the account-shared warehouse (the legacy STRUCT_ACCOUNTFILE
+// Cargo[MAX_CARGO] + CargoMoney). It is account-scoped — all of an account's
+// characters deposit into and withdraw from this one vault — so the world keeps
+// it in a per-account store, not on the per-character Entity. Items are
+// positional (Index==0 is an empty slot).
+type CargoState struct {
+	AccountID int64
+	Coin      int32
+	Items     [MaxCargo]Item
+}
+
+// CargoSave is the snapshot the world hands the backend to persist the cargo
+// (mirrors CharacterSave). Empty slots are omitted from Items.
+type CargoSave struct {
+	AccountID int64
+	Coin      int32
+	Items     []SavedItem
 }
 
 // CharacterState is the minimum needed to inject a player into the world on
@@ -121,6 +143,8 @@ type Persistence interface {
 	CreateCharacter(ctx context.Context, accountID int64, slot int, name string, class int) (bool, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int, name, password string) (bool, error)
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
+	LoadCargo(ctx context.Context, accountID int64) (CargoState, error)
+	SaveCargo(ctx context.Context, save CargoSave) error
 }
 
 // errNoPersistence is returned by NopPersistence for operations that need a DB.
@@ -157,3 +181,12 @@ func (NopPersistence) DeleteCharacter(context.Context, int64, int, string, strin
 func (NopPersistence) LoadCharacter(context.Context, int64, int) (CharacterState, error) {
 	return CharacterState{}, errNoPersistence
 }
+
+// LoadCargo returns an empty vault: without a backend the cargo is in-memory only
+// (deposit/withdraw still work for the session, but nothing persists).
+func (NopPersistence) LoadCargo(context.Context, int64) (CargoState, error) {
+	return CargoState{}, nil
+}
+
+// SaveCargo drops the snapshot (no backend to persist to).
+func (NopPersistence) SaveCargo(context.Context, CargoSave) error { return nil }

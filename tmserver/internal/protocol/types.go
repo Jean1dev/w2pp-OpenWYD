@@ -102,6 +102,9 @@ const (
 	MsgShopList           Type = 0x017C // 380  S→C shop list (NPC Carry)
 	MsgBuy                Type = 0x0379 // 889  C↔S buy from NPC
 	MsgSell               Type = 0x037A // 890  C↔S sell to NPC
+	MsgDeposit            Type = 0x0388 // 904  C↔S deposit gold into cargo (MSG_STANDARDPARM)
+	MsgWithdraw           Type = 0x0387 // 903  C↔S withdraw gold from cargo (MSG_STANDARDPARM)
+	MsgUpdateCargoCoin    Type = 0x0339 // 825  S→C account cargo gold (_MSG_UpdateCargoCoin)
 	MsgUpdateEtc          Type = 0x0337 // 823  S→C update gold/exp/etc (Coin@40)
 	MsgCNFGetItem         Type = 0x0171 // 369
 	MsgCNFDropItem        Type = 0x0175 // 373
