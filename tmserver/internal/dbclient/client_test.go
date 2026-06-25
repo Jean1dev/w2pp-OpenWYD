@@ -59,7 +59,7 @@ func TestAccountLoginMapping(t *testing.T) {
 	api := &fakeAPI{
 		loginResp: &dbv1.AccountLoginResponse{Result: dbv1.LoginResult_LOGIN_RESULT_OK, AccountId: 1},
 		listResp: &dbv1.ListCharactersResponse{Characters: []*dbv1.CharacterSummary{
-			{Slot: 0, Name: "hero", Class: 2, Level: 10, GuildId: 5},
+			{Slot: 0, Name: "hero", Class: 2, Level: 10, GuildId: 5, Coin: 12345, MaxHp: 800, Hp: 750, Str: 60},
 		}},
 		cargoResp: &dbv1.LoadCargoResponse{CargoCoin: 4200, Items: []*dbv1.Item{
 			{Slot: 2, Index: 999, Eff1: 1, Effv1: 7},
@@ -74,6 +74,10 @@ func TestAccountLoginMapping(t *testing.T) {
 	}
 	if len(out.Characters) != 1 || out.Characters[0].Name != "hero" || out.Characters[0].GuildID != 5 {
 		t.Fatalf("characters not mapped: %+v", out.Characters)
+	}
+	// The select-screen score preview (gold, HP, attributes) is carried too.
+	if c0 := out.Characters[0]; c0.Coin != 12345 || c0.MaxHp != 800 || c0.Hp != 750 || c0.Str != 60 {
+		t.Fatalf("character score not mapped: %+v", c0)
 	}
 	// Cargo is fetched in the same login round-trip and mapped positionally.
 	if out.Cargo.AccountID != 1 || out.Cargo.Coin != 4200 || out.Cargo.Items[2].Index != 999 {
@@ -97,6 +101,7 @@ func TestAccountLoginFailSkipsList(t *testing.T) {
 func TestLoadCharacterMapping(t *testing.T) {
 	api := &fakeAPI{loadResp: &dbv1.LoadCharacterResponse{Character: &dbv1.Character{
 		Slot: 1, Name: "mage", Level: 20, Coin: 500, Str: 5, Hp: 100, MaxHp: 200,
+		Equip: []*dbv1.Item{{Slot: 1, Index: 1100, Eff1: 4, Effv1: 5}},
 		Carry: []*dbv1.Item{{Slot: 3, Index: 1234, Eff1: 9, Effv1: 1}},
 	}}}
 	st, err := newClient(api).LoadCharacter(context.Background(), 1, 1)
@@ -108,6 +113,10 @@ func TestLoadCharacterMapping(t *testing.T) {
 	}
 	if st.Carry[3].Index != 1234 || st.Carry[3].Effects[0].Effect != 9 {
 		t.Fatalf("carry not mapped: %+v", st.Carry[3])
+	}
+	// Equipment must be injected too (it was previously dropped at this boundary).
+	if st.Equip[1].Index != 1100 || st.Equip[1].Effects[0].Effect != 4 {
+		t.Fatalf("equip not mapped: %+v", st.Equip[1])
 	}
 }
 

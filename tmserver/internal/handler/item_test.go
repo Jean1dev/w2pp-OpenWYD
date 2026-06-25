@@ -112,6 +112,57 @@ func TestDupRace(t *testing.T) {
 	}
 }
 
+// equipDB seeds the tester character with an optional carry-0 item and an
+// optional equip-slot-1 item (to exercise equip and unequip).
+func equipDB(carry0, equip1 int16) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	if carry0 != 0 {
+		st.Carry[0] = world.Item{Index: carry0}
+	}
+	if equip1 != 0 {
+		st.Equip[1] = world.Item{Index: equip1}
+	}
+	db.loadResult = st
+	return db
+}
+
+// TestTradingItemEquip drags an inventory item onto an equip slot (0x0376) and
+// asserts the rendered gear is refreshed via _MSG_UpdateEquip with the item code.
+func TestTradingItemEquip(t *testing.T) {
+	addr, stop, _ := startServerClock(t, equipDB(1100, 0))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[2:4]); got != 1100 { // Equip[1] visual code @body2
+		t.Errorf("equip visual[1] = %d, want 1100", got)
+	}
+}
+
+// TestTradingItemUnequip proves the equipment is loaded from the DB (so the slot
+// has something to remove) and unequipping clears the rendered gear.
+func TestTradingItemUnequip(t *testing.T) {
+	addr, stop, _ := startServerClock(t, equipDB(0, 2200))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceEquip, 1, world.ItemPlaceCarry, 5, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem) // equip slot 1 (now empty)
+	expect(t, c, protocol.MsgSendItem) // carry slot 5 (now holds the item)
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[2:4]); got != 0 { // Equip[1] now empty
+		t.Errorf("equip visual[1] = %d, want 0 after unequip", got)
+	}
+}
+
 func TestUseItemEquip(t *testing.T) {
 	addr, stop, _ := startServerClock(t, itemDB(1100))
 	defer stop()

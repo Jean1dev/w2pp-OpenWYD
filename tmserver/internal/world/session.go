@@ -74,12 +74,15 @@ type Entity struct {
 	Y        int16
 	HP       int32
 	MaxHP    int32
+	MP       int32 // current mana (status display)
+	MaxMP    int32
 	Damage   int32 // CurrentScore.Damage (attacker output, combat §4.3)
 	AC       int32 // CurrentScore.Ac (defender mitigation)
 	Master   int   // weapon mastery (combat level)
 	Level    int32 // CurrentScore.Level (drop/exp curves)
 	Coin     int32 // carried gold
 	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
+	Grade    uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
 	Class       uint8  // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
 	LastCity    int16  // last city visited (0..3); login spawn = its default area

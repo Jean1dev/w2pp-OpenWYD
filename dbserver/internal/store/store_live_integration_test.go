@@ -35,7 +35,7 @@ func TestLiveQueries(t *testing.T) {
 			Slot: 0, Name: "Warrior", Class: 1, Level: 40, Coin: 1000,
 			Str: 50, Int: 10, Dex: 20, Con: 30, Hp: 800, MaxHp: 800,
 			Equip:   []domain.Item{{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9}},
-			Carry:   []domain.Item{{Slot: 5, Index: 2200}},
+			Carry:   []domain.Item{{Slot: 5, Index: 2200, ExpiresAt: 1893456000}}, // a timed mount
 			Affects: []domain.Affect{{Type: 3, Value: 1, Level: 2, Time: 99}},
 		}},
 	})
@@ -52,10 +52,13 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("AccountByName(ghost) = %v, want ErrNotFound", err)
 	}
 
-	// ListCharacters
+	// ListCharacters — the summary now carries the select-screen score preview.
 	list, err := s.ListCharacters(ctx, accID)
 	if err != nil || len(list) != 1 || list[0].Name != "Warrior" {
 		t.Fatalf("ListCharacters: %+v err=%v", list, err)
+	}
+	if c0 := list[0]; c0.Level != 40 || c0.Coin != 1000 || c0.MaxHp != 800 || c0.Str != 50 {
+		t.Fatalf("ListCharacters score preview: %+v", c0)
 	}
 
 	// LoadCharacter (with items + affects)
@@ -65,6 +68,9 @@ func TestLiveQueries(t *testing.T) {
 	}
 	if ch.Level != 40 || ch.Coin != 1000 || len(ch.Equip) != 1 || ch.Equip[0].Index != 1100 {
 		t.Fatalf("LoadCharacter mismatch: %+v", ch)
+	}
+	if len(ch.Carry) != 1 || ch.Carry[0].ExpiresAt != 1893456000 {
+		t.Fatalf("carry expiry not round-tripped: %+v", ch.Carry)
 	}
 	if len(ch.Carry) != 1 || len(ch.Affects) != 1 {
 		t.Fatalf("LoadCharacter items/affects: carry=%d affect=%d", len(ch.Carry), len(ch.Affects))

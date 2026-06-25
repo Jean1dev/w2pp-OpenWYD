@@ -34,6 +34,7 @@ func enterWorldAs(t *testing.T, addr, account string) net.Conn {
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogin {
 		t.Fatalf("char login %s failed: %#x", account, ty)
 	}
+	drainLoginScore(t, c)
 	return c
 }
 

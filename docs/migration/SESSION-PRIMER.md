@@ -134,8 +134,27 @@ Build/test padrão: `go build ./...`, `go test -race ./...`, `make lint`.
 Já feito: login, chars, NPCs (nomes/aparência), lojas (buy/sell + SendItem), teleporte, persistência
 (itens/gold/cidade), **Banco/Cargo** (armazém compartilhado da conta: LoadCargo/SaveCargo no
 dbServer + store; carregado no login, salvo no logout/shutdown; depósito 0x0388 / saque 0x0387 de
-gold; NPC Guarda_Carga Merchant=2 abre o cofre), **mover itens** (drag-drop). A fazer
-(escolher com o usuário):
+gold; NPC Guarda_Carga Merchant=2 abre o cofre), **mover itens** (drag-drop via 0x0376),
+**equipar/desequipar** (0x0376 Carry↔Equip + _MSG_UpdateEquip 0x006B; equip carregado do DB no
+login), **equip inicial** (semeado no login se o char está sem equip: equip da classe do template
+— slot 0 = item de corpo que dá a aparência da classe — + montaria Shire item 342 no slot 14;
+inventário inicial = poções/Esfera da Sorte/Baú de Exp do template), **NPC Perzen** (troca via
+_MSG_Quest 0x028B: Merchant 100 + EF_GRADE0 7/8/9; consome npc.Carry[0] e dá npc.Carry[1] — ex.:
+Esfera da Sorte A 4130 → montaria Thoroughbred 3987). A fazer (escolher com o usuário):
+- Demais NPCs de quest (37 tipos: cadeias de level, tutoriais, teleportes) + montarias (Merchant
+  16/58/23/101) e generalizar a troca data-driven (mapa completo em handlers/npc-map.md); SendSay
+  (diálogo do NPC, UNVERIFIED).
+
+Expiração de item: server-side via `item.expires_at` (coluna TIMESTAMPTZ, migração 0003 + campo
+proto `expires_at`); setada na entrega do Perzen (now+30d) e checada no login (`dropExpired` remove
+vencidos de equip/carry). O cliente mostra "(30dias)" pelo nome do item.
+
+Atributos (CurrentScore): best-effort, pois `BASE_GetCurrentScore` NÃO está no Source. `computeScore`
+= base do Entity + soma dos efeitos próprios dos itens equipados (EF_STR/INT/DEX/CON/AC/DAMAGE/HP/MP)
++ bump de movimento da montaria (nibble baixo do AttackRun, `mountedMoveSpeed` — UNVERIFIED).
+`EncodeUpdateScore` (0x0336, 152B) enviado no login (enterWorldView), ao equipar (refreshEquip) e no
+applyBonus. NÃO inclui os efeitos-base do ItemList (AC de armadura, dano de arma) nem multiplicadores
+de classe — esses ficam para quando tivermos a fórmula real.
 - **NPCs de combinação/refino** (Odin/Lindy/Shany).
 - **IA/movimento/combate de mob** (NPCs hoje são estáticos).
 - Persistência de stats/skills mais completa; mais rotas de teleporte (campos/dungeons já parciais).

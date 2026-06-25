@@ -84,6 +84,8 @@ type Item struct {
 	EffV2 uint8
 	Eff3  uint8
 	EffV3 uint8
+	// ExpiresAt is the Unix-seconds expiry for timed items (0 = permanent).
+	ExpiresAt int64
 }
 
 // Affect is a persisted buff/debuff (affect[char][32]).

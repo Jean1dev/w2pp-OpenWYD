@@ -214,7 +214,7 @@ func noticeCode(t *testing.T, payload []byte) Notice {
 
 func newDB() *fakeDB {
 	return &fakeDB{accounts: map[string]*fakeAccount{
-		"tester": {id: 7, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "Hero", Class: 1, Level: 50}}},
+		"tester": {id: 7, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "Hero", Class: 1, Level: 50, Coin: 987654, MaxHp: 1500, Str: 75}}},
 		"banned": {id: 8, pass: "x", blocked: true},
 		"online": {id: 9, pass: "x", alreadyPlaying: true},
 		"tradeb": {id: 11, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "HeroB", Class: 1, Level: 50}}},
@@ -242,6 +242,14 @@ func TestLoginOK(t *testing.T) {
 	}
 	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 50 {
 		t.Errorf("slot-0 level = %d, want 50", lvl)
+	}
+	// slot-0 gold is the real value, not a placeholder: Coin[0] at sel@20 + 792.
+	if coin := binary.LittleEndian.Uint32(payload[812:816]); coin != 987654 {
+		t.Errorf("slot-0 coin = %d, want 987654", coin)
+	}
+	// slot-0 MaxHp is the real value: Score[0].MaxHp at sel@20 + 80 + 16 = 116.
+	if hp := binary.LittleEndian.Uint32(payload[116:120]); hp != 1500 {
+		t.Errorf("slot-0 max_hp = %d, want 1500", hp)
 	}
 }
 
@@ -401,6 +409,7 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogin {
 		t.Fatalf("got %#x, want CNFCharacterLogin", ty)
 	}
+	drainLoginScore(t, c)
 
 	// Now in play → logout returns to selection.
 	send(t, c, protocol.MsgCharacterLogout, nil)

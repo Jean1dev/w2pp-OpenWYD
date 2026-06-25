@@ -61,6 +61,16 @@ message CharacterSummary {
   int32 level = 4;
   int64 exp = 5;
   uint32 guild_id = 6;
+  // Score preview shown on the character-selection screen (STRUCT_SELCHAR).
+  int32 coin = 7;
+  int32 max_hp = 8;
+  int32 hp = 9;
+  int32 max_mp = 10;
+  int32 mp = 11;
+  int32 str = 12;
+  int32 int = 13;
+  int32 dex = 14;
+  int32 con = 15;
 }
 
 message ListCharactersResponse { repeated CharacterSummary characters = 1; }
@@ -104,6 +114,9 @@ message Item {
   int32 effv2 = 6;
   int32 eff3 = 7;
   int32 effv3 = 8;
+  // Unix-seconds expiry for timed items (0 = permanent). Set on grant (e.g. the
+  // 30-day Perzen mount); the world drops the item once it passes.
+  int64 expires_at = 9;
 }
 
 message Affect {

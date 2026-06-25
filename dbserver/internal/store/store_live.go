@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -58,7 +59,8 @@ func (s *Store) AccountAuthByID(ctx context.Context, id int64) (AccountAuth, err
 // level, exp, guild) for an account, ordered by slot.
 func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT slot, name, class, guild_id, level, exp
+		`SELECT slot, name, class, guild_id, level, exp, coin,
+		        max_hp, hp, max_mp, mp, str, int, dex, con
 		   FROM character WHERE account_id = $1 ORDER BY slot`, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list characters: %w", err)
@@ -68,7 +70,8 @@ func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.C
 	var out []domain.Character
 	for rows.Next() {
 		var ch domain.Character
-		if err := rows.Scan(&ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp); err != nil {
+		if err := rows.Scan(&ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp, &ch.Coin,
+			&ch.MaxHp, &ch.Hp, &ch.MaxMp, &ch.Mp, &ch.Str, &ch.Int, &ch.Dex, &ch.Con); err != nil {
 			return nil, fmt.Errorf("store: scan character summary: %w", err)
 		}
 		out = append(out, ch)
@@ -122,7 +125,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 
 func (s *Store) loadItems(ctx context.Context, charID int64, kind string) ([]domain.Item, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3
+		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3, expires_at
 		  FROM item WHERE character_id = $1 AND owner_kind = $2 ORDER BY slot`, charID, kind)
 	if err != nil {
 		return nil, fmt.Errorf("store: load %s: %w", kind, err)
@@ -131,9 +134,11 @@ func (s *Store) loadItems(ctx context.Context, charID int64, kind string) ([]dom
 	var out []domain.Item
 	for rows.Next() {
 		var it domain.Item
-		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
+		var exp *time.Time
+		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3, &exp); err != nil {
 			return nil, fmt.Errorf("store: scan %s item: %w", kind, err)
 		}
+		it.ExpiresAt = expirySeconds(exp)
 		out = append(out, it)
 	}
 	return out, rows.Err()
@@ -283,7 +288,7 @@ func (s *Store) LoadCargo(ctx context.Context, accountID int64) (int32, []domain
 // not character-scoped).
 func (s *Store) loadAccountItems(ctx context.Context, accountID int64, kind string) ([]domain.Item, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3
+		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3, expires_at
 		  FROM item WHERE account_id = $1 AND owner_kind = $2 ORDER BY slot`, accountID, kind)
 	if err != nil {
 		return nil, fmt.Errorf("store: load %s: %w", kind, err)
@@ -292,9 +297,11 @@ func (s *Store) loadAccountItems(ctx context.Context, accountID int64, kind stri
 	var out []domain.Item
 	for rows.Next() {
 		var it domain.Item
-		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
+		var exp *time.Time
+		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3, &exp); err != nil {
 			return nil, fmt.Errorf("store: scan %s item: %w", kind, err)
 		}
+		it.ExpiresAt = expirySeconds(exp)
 		out = append(out, it)
 	}
 	return out, rows.Err()

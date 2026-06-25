@@ -81,6 +81,15 @@ func (s *Server) ListCharacters(ctx context.Context, req *dbv1.ListCharactersReq
 			Level:   ch.Level,
 			Exp:     ch.Exp,
 			GuildId: uint32(ch.GuildID),
+			Coin:    ch.Coin,
+			MaxHp:   ch.MaxHp,
+			Hp:      ch.Hp,
+			MaxMp:   ch.MaxMp,
+			Mp:      ch.Mp,
+			Str:     int32(ch.Str),
+			Int:     int32(ch.Int),
+			Dex:     int32(ch.Dex),
+			Con:     int32(ch.Con),
 		})
 	}
 	return &dbv1.ListCharactersResponse{Characters: out}, nil
@@ -151,7 +160,7 @@ func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterR
 		Level: 1,
 		Str:   12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
-		Coin:  1000000,          // starting gold (so the shop is usable)
+		Coin:  1000000,           // starting gold (so the shop is usable)
 		SaveX: 2096, SaveY: 2096, // matches the BaseMob template spawn
 	}
 	id, err := s.store.CreateCharacter(ctx, req.GetAccountId(), ch)

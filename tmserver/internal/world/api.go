@@ -17,6 +17,10 @@ import (
 // placeholder to be confirmed by capture.
 const ViewRange = 18
 
+// efGrade0 is the EF_GRADE0 item-effect type. On a quest NPC's Equip[0] it carries
+// the NPC sub-type used to dispatch _MSG_Quest (Basedef.h item effects).
+const efGrade0 = 100
+
 // Send queues an "about you" S→C message: HEADER.ID is set to the session's own
 // conn and ClientTick is filled in.
 func (w *World) Send(s *Session, t protocol.Type, payload []byte) {
@@ -79,6 +83,13 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	eq := protocol.MobEquip(template)
 	for i := range eq {
 		e.EquipVisual[i] = eq[i].Index
+	}
+	// The quest-NPC sub-type (Merchant==100) is the EF_GRADE0 (effect 100) of the
+	// NPC's Equip[0] — e.g. Perzen grades 7/8/9 (handlers/_MSG_Quest-npcs.md).
+	for _, ef := range eq[0].Eff {
+		if ef[0] == efGrade0 {
+			e.Grade = ef[1]
+		}
 	}
 	// For a merchant NPC, Carry[] is its shop stock (sent in MSG_ShopList).
 	carry := protocol.MobCarry(template)

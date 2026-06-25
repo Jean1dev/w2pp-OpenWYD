@@ -2,11 +2,21 @@ package handler
 
 import (
 	"context"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
+
+// dropExpired clears any timed item whose expiry has passed (now = Unix seconds).
+func dropExpired(items []world.Item, now int64) {
+	for i := range items {
+		if items[i].ExpiresAt != 0 && now >= items[i].ExpiresAt {
+			items[i] = world.Item{}
+		}
+	}
+}
 
 // createCharacter handles _MSG_CreateCharacter (0x020F),
 // handlers/_MSG_CreateCharacter.md. Requires USER_SELCHAR and a valid name, then
@@ -163,6 +173,22 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.Send(s, protocol.MsgCharacterLoginFail, nil)
 		return
 	}
+	// Drop any timed items (e.g. an expired 30-day Perzen mount) before injecting
+	// the character — the expiry is enforced here on load.
+	now := time.Now().Unix()
+	dropExpired(st.Equip[:], now)
+	dropExpired(st.Carry[:], now)
+	// Seed the starter gear for characters that have none yet (newly created, or
+	// created before seeding existed). This restores the class look (the body item
+	// in equip slot 0 is what gives a TK/FM/BM/HT its appearance), hands out the
+	// class armor/weapon plus a Shire mount, AND the class starter inventory (HP/MP
+	// potions, etc. from the template's Carry). It persists on the next save. An
+	// empty equip is the "fresh character" marker, so the inventory is granted only
+	// once (not re-granted after a player uses up the potions).
+	if equipEmpty(st.Equip) {
+		st.Equip = d.starterEquip(int(st.Class))
+		d.grantStarterCarry(&st.Carry, int(st.Class))
+	}
 	// Spawn at the default area of the last city the character was in (business
 	// rule: position itself is not persisted, only the city — see world.CitySpawn).
 	// An explicit loaded position (tests) is honored when present.
@@ -178,24 +204,27 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.LastCity = st.LastCity
 		e.X, e.Y = spawnX, spawnY
 		e.HP, e.MaxHP = st.HP, st.MaxHP
+		e.MP, e.MaxMP = st.MP, st.MaxMP
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
 		e.Level, e.Coin = int32(st.Level), st.Coin
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
+		e.Equip = st.Equip
 		e.Carry = st.Carry
-		// Visual gear codes for how OTHER players see this character (MSG_CreateMob).
-		if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize {
-			eq := protocol.MobEquip(tmpl)
-			for i := range eq {
-				e.EquipVisual[i] = eq[i].Index
-			}
-		}
+		// Visual gear codes from the character's REAL equipment, so others (and the
+		// own client, via UpdateEquip) see what is actually equipped — not the class
+		// starter set. Empty slots → 0 (no item).
+		e.EquipVisual = equipVisual(e)
 	}
 	s.Mode = world.UserPlay
 	var shortSkill [16]uint8
 	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
 	// → correct class model and no client crash); patch name + position.
 	if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize {
+		var equip [16]protocol.SelItem
+		for i := range st.Equip {
+			equip[i] = itemToSel(st.Equip[i])
+		}
 		var carry [64]protocol.SelItem
 		for i := range st.Carry {
 			if i >= 64 {
@@ -203,7 +232,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
@@ -256,7 +285,8 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	if self == nil {
 		return
 	}
-	w.ClearSeen(s) // fresh view set on (re)entering the world
+	w.ClearSeen(s)          // fresh view set on (re)entering the world
+	d.sendScore(w, s, self) // CurrentScore (attributes after equipment)
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer
@@ -352,6 +382,85 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 		e.HP = 2
 	}
 	w.Send(s, protocol.MsgSetHpMp, nil)
+}
+
+// Starter-gear constants. The Shire is a no-level-restriction mount (ItemList
+// item 342); it occupies the mount equip slot (Equip[14], see _MSG_TradingItem.cpp
+// `Mount = &MOB.Equip[14]`).
+const (
+	shireMountIndex = 342
+	mountEquipSlot  = 14
+)
+
+// equipEmpty reports whether a character has no equipped items at all (a fresh or
+// never-seeded character), so starter gear should be granted.
+func equipEmpty(equip [world.MaxEquip]world.Item) bool {
+	for _, it := range equip {
+		if !it.Empty() {
+			return false
+		}
+	}
+	return true
+}
+
+// starterEquip builds the new-character starter gear for a class: the class
+// template's equipment (the body item @slot 0 — which drives the class look —
+// plus armor and weapon) and a Shire mount in the mount slot. Returns an empty set
+// if the class template is unavailable.
+func (d *Dispatcher) starterEquip(class int) [world.MaxEquip]world.Item {
+	var eq [world.MaxEquip]world.Item
+	if tmpl, ok := d.baseMobs[class]; ok && len(tmpl) == content.BaseMobSize {
+		for i, it := range protocol.MobEquip(tmpl) {
+			eq[i] = world.Item{
+				Index: int16(it.Index),
+				Effects: [3]world.Effect{
+					{Effect: it.Eff[0][0], Value: it.Eff[0][1]},
+					{Effect: it.Eff[1][0], Value: it.Eff[1][1]},
+					{Effect: it.Eff[2][0], Value: it.Eff[2][1]},
+				},
+			}
+		}
+	}
+	eq[mountEquipSlot] = world.Item{Index: shireMountIndex}
+	return eq
+}
+
+// grantStarterCarry places the class template's starter inventory (HP/MP potions,
+// luck sphere, exp chest — STRUCT_MOB.Carry@268) into the character's first empty
+// carry slots, preserving anything already there. No-op if the class template is
+// unavailable.
+func (d *Dispatcher) grantStarterCarry(carry *[world.MaxCarry]world.Item, class int) {
+	tmpl, ok := d.baseMobs[class]
+	if !ok || len(tmpl) != content.BaseMobSize {
+		return
+	}
+	for _, it := range protocol.MobCarry(tmpl) {
+		if it.Index == 0 {
+			continue
+		}
+		dst := firstEmptyCarry(carry)
+		if dst < 0 {
+			return // inventory full
+		}
+		carry[dst] = world.Item{
+			Index: int16(it.Index),
+			Effects: [3]world.Effect{
+				{Effect: it.Eff[0][0], Value: it.Eff[0][1]},
+				{Effect: it.Eff[1][0], Value: it.Eff[1][1]},
+				{Effect: it.Eff[2][0], Value: it.Eff[2][1]},
+			},
+		}
+	}
+}
+
+// firstEmptyCarry returns the index of the first empty inventory slot, or -1.
+func firstEmptyCarry(carry *[world.MaxCarry]world.Item) int {
+	for i := range carry {
+		if carry[i].Empty() {
+			return i
+		}
+	}
+	return -1
 }
 
 // validCharName approximates BASE_CheckValidString.

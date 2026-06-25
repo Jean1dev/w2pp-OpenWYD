@@ -11,6 +11,9 @@ type Effect struct {
 type Item struct {
 	Index   int16
 	Effects [3]Effect
+	// ExpiresAt is the Unix-seconds expiry for timed items (0 = permanent). It is
+	// carried through persistence; the world drops the item once it passes.
+	ExpiresAt int64
 }
 
 // Empty reports whether the slot holds no item.

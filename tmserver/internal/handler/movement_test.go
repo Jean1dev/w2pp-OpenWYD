@@ -57,7 +57,17 @@ func enterWorld(t *testing.T, addr string) net.Conn {
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogin {
 		t.Fatalf("character login failed: %#x", ty)
 	}
+	drainLoginScore(t, c)
 	return c
+}
+
+// drainLoginScore consumes the _MSG_UpdateScore the server sends on entering the
+// world (enterWorldView), so gameplay assertions see only their own responses.
+func drainLoginScore(t *testing.T, c net.Conn) {
+	t.Helper()
+	if ty, _, ok := readMaybe(t, c); ok && ty != protocol.MsgUpdateScore {
+		t.Fatalf("post-login frame = %#x, want UpdateScore", ty)
+	}
 }
 
 // readMaybe reads one frame with a short deadline; ok=false on timeout (used to

@@ -244,13 +244,23 @@ func (x *ListCharactersRequest) GetAccountId() int64 {
 }
 
 type CharacterSummary struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Class         int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
-	Level         int32                  `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
-	Exp           int64                  `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
-	GuildId       uint32                 `protobuf:"varint,6,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Slot    int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	Name    string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Class   int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
+	Level   int32                  `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
+	Exp     int64                  `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
+	GuildId uint32                 `protobuf:"varint,6,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	// Score preview shown on the character-selection screen (STRUCT_SELCHAR).
+	Coin          int32 `protobuf:"varint,7,opt,name=coin,proto3" json:"coin,omitempty"`
+	MaxHp         int32 `protobuf:"varint,8,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
+	Hp            int32 `protobuf:"varint,9,opt,name=hp,proto3" json:"hp,omitempty"`
+	MaxMp         int32 `protobuf:"varint,10,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
+	Mp            int32 `protobuf:"varint,11,opt,name=mp,proto3" json:"mp,omitempty"`
+	Str           int32 `protobuf:"varint,12,opt,name=str,proto3" json:"str,omitempty"`
+	Int           int32 `protobuf:"varint,13,opt,name=int,proto3" json:"int,omitempty"`
+	Dex           int32 `protobuf:"varint,14,opt,name=dex,proto3" json:"dex,omitempty"`
+	Con           int32 `protobuf:"varint,15,opt,name=con,proto3" json:"con,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -323,6 +333,69 @@ func (x *CharacterSummary) GetExp() int64 {
 func (x *CharacterSummary) GetGuildId() uint32 {
 	if x != nil {
 		return x.GuildId
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetCoin() int32 {
+	if x != nil {
+		return x.Coin
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetMaxHp() int32 {
+	if x != nil {
+		return x.MaxHp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetHp() int32 {
+	if x != nil {
+		return x.Hp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetMaxMp() int32 {
+	if x != nil {
+		return x.MaxMp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetMp() int32 {
+	if x != nil {
+		return x.Mp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetStr() int32 {
+	if x != nil {
+		return x.Str
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetInt() int32 {
+	if x != nil {
+		return x.Int
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetDex() int32 {
+	if x != nil {
+		return x.Dex
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetCon() int32 {
+	if x != nil {
+		return x.Con
 	}
 	return 0
 }
@@ -622,15 +695,18 @@ func (x *Character) GetLastCity() int32 {
 }
 
 type Item struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	Index         int32                  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
-	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
-	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
-	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
-	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
-	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
-	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Slot  int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	Index int32                  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
+	Eff1  int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1 int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2  int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2 int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3  int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3 int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	// Unix-seconds expiry for timed items (0 = permanent). Set on grant (e.g. the
+	// 30-day Perzen mount); the world drops the item once it passes.
+	ExpiresAt     int64 `protobuf:"varint,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -717,6 +793,13 @@ func (x *Item) GetEff3() int32 {
 func (x *Item) GetEffv3() int32 {
 	if x != nil {
 		return x.Effv3
+	}
+	return 0
+}
+
+func (x *Item) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
 	}
 	return 0
 }
@@ -1371,14 +1454,24 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"account_id\x18\x02 \x01(\x03R\taccountId\"6\n" +
 	"\x15ListCharactersRequest\x12\x1d\n" +
 	"\n" +
-	"account_id\x18\x01 \x01(\x03R\taccountId\"\x93\x01\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\"\xbd\x02\n" +
 	"\x10CharacterSummary\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05class\x18\x03 \x01(\x05R\x05class\x12\x14\n" +
 	"\x05level\x18\x04 \x01(\x05R\x05level\x12\x10\n" +
 	"\x03exp\x18\x05 \x01(\x03R\x03exp\x12\x19\n" +
-	"\bguild_id\x18\x06 \x01(\rR\aguildId\"Q\n" +
+	"\bguild_id\x18\x06 \x01(\rR\aguildId\x12\x12\n" +
+	"\x04coin\x18\a \x01(\x05R\x04coin\x12\x15\n" +
+	"\x06max_hp\x18\b \x01(\x05R\x05maxHp\x12\x0e\n" +
+	"\x02hp\x18\t \x01(\x05R\x02hp\x12\x15\n" +
+	"\x06max_mp\x18\n" +
+	" \x01(\x05R\x05maxMp\x12\x0e\n" +
+	"\x02mp\x18\v \x01(\x05R\x02mp\x12\x10\n" +
+	"\x03str\x18\f \x01(\x05R\x03str\x12\x10\n" +
+	"\x03int\x18\r \x01(\x05R\x03int\x12\x10\n" +
+	"\x03dex\x18\x0e \x01(\x05R\x03dex\x12\x10\n" +
+	"\x03con\x18\x0f \x01(\x05R\x03con\"Q\n" +
 	"\x16ListCharactersResponse\x127\n" +
 	"\n" +
 	"characters\x18\x01 \x03(\v2\x17.db.v1.CharacterSummaryR\n" +
@@ -1408,7 +1501,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x05equip\x18\x11 \x03(\v2\v.db.v1.ItemR\x05equip\x12!\n" +
 	"\x05carry\x18\x12 \x03(\v2\v.db.v1.ItemR\x05carry\x12'\n" +
 	"\aaffects\x18\x13 \x03(\v2\r.db.v1.AffectR\aaffects\x12\x1b\n" +
-	"\tlast_city\x18\x14 \x01(\x05R\blastCity\"\xae\x01\n" +
+	"\tlast_city\x18\x14 \x01(\x05R\blastCity\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
@@ -1417,7 +1510,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
 	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
 	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
-	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\\\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\t \x01(\x03R\texpiresAt\"\\\n" +
 	"\x06Affect\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x05R\x04type\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x05R\x05value\x12\x14\n" +

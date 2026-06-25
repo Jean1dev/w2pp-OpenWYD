@@ -98,6 +98,7 @@ const (
 	MsgCreateMob          Type = 0x0364 // 868  spawn in view
 	MsgRemoveMob          Type = 0x0165 // 357  despawn
 	MsgSendItem           Type = 0x0182 // 386  update one slot
+	MsgUpdateEquip        Type = 0x006B // 107  S→C refresh visible equipment (_MSG_UpdateEquip)
 	MsgREQShopList        Type = 0x027B // 635  C→S open NPC shop (Target=NPC)
 	MsgShopList           Type = 0x017C // 380  S→C shop list (NPC Carry)
 	MsgBuy                Type = 0x0379 // 889  C↔S buy from NPC

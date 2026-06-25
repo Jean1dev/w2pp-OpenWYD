@@ -22,7 +22,9 @@ const (
 	LoginAlreadyPlaying
 )
 
-// CharSummary is the character-selection projection (STRUCT_SELCHAR subset).
+// CharSummary is the character-selection projection (STRUCT_SELCHAR subset): the
+// per-slot data the selection screen previews, including the score (level, gold,
+// HP/MP, attributes) so the slot shows the real character, not placeholders.
 type CharSummary struct {
 	Slot    int
 	Name    string
@@ -30,6 +32,15 @@ type CharSummary struct {
 	Level   int
 	Exp     int64
 	GuildID uint16
+	Coin    int32
+	MaxHp   int32
+	Hp      int32
+	MaxMp   int32
+	Mp      int32
+	Str     int16
+	Int     int16
+	Dex     int16
+	Con     int16
 }
 
 // LoginOutcome is the result of an account-login attempt. On success it also
@@ -91,20 +102,22 @@ type CharacterState struct {
 	Dex         int16
 	Con         int16
 	ScoreBonus  uint16
+	Equip       [MaxEquip]Item // equipped gear
 	Carry       [MaxCarry]Item // inventory
 }
 
 // SavedItem is one positional inventory/equip slot in a CharacterSave. Slot is
 // the array index (positional meaning preserved); empty slots are omitted.
 type SavedItem struct {
-	Slot  int
-	Index int16
-	Eff1  uint8
-	EffV1 uint8
-	Eff2  uint8
-	EffV2 uint8
-	Eff3  uint8
-	EffV3 uint8
+	Slot      int
+	Index     int16
+	Eff1      uint8
+	EffV1     uint8
+	Eff2      uint8
+	EffV2     uint8
+	Eff3      uint8
+	EffV3     uint8
+	ExpiresAt int64 // Unix-seconds expiry for timed items (0 = permanent)
 }
 
 // CharacterSave is the snapshot the world hands to the persistence backend on

@@ -280,6 +280,7 @@ func savedItems(items []Item) []SavedItem {
 			Eff1:  it.Effects[0].Effect, EffV1: it.Effects[0].Value,
 			Eff2: it.Effects[1].Effect, EffV2: it.Effects[1].Value,
 			Eff3: it.Effects[2].Effect, EffV3: it.Effects[2].Value,
+			ExpiresAt: it.ExpiresAt,
 		})
 	}
 	return out

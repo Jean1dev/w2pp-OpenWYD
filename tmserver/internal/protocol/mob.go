@@ -12,12 +12,12 @@ const (
 
 // MobBasics is the subset of a raw STRUCT_MOB needed to spawn a world entity.
 type MobBasics struct {
-	Name                 string
-	Class                uint8
-	Merchant             uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
-	Level, Ac, Damage    int32
-	MaxHp, Hp            int32
-	Str, Int, Dex, Con   int16
+	Name               string
+	Class              uint8
+	Merchant           uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
+	Level, Ac, Damage  int32
+	MaxHp, Hp          int32
+	Str, Int, Dex, Con int16
 }
 
 // ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
@@ -29,14 +29,14 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 		Class:    mob816[20],
 		Merchant: mob816[cs+12], // CurrentScore.Merchant
 		Level:    int32(le.Uint32(mob816[cs+0:])),
-		Ac:     int32(le.Uint32(mob816[cs+4:])),
-		Damage: int32(le.Uint32(mob816[cs+8:])),
-		MaxHp:  int32(le.Uint32(mob816[cs+16:])),
-		Hp:     int32(le.Uint32(mob816[cs+24:])),
-		Str:    int16(le.Uint16(mob816[cs+32:])),
-		Int:    int16(le.Uint16(mob816[cs+34:])),
-		Dex:    int16(le.Uint16(mob816[cs+36:])),
-		Con:    int16(le.Uint16(mob816[cs+38:])),
+		Ac:       int32(le.Uint32(mob816[cs+4:])),
+		Damage:   int32(le.Uint32(mob816[cs+8:])),
+		MaxHp:    int32(le.Uint32(mob816[cs+16:])),
+		Hp:       int32(le.Uint32(mob816[cs+24:])),
+		Str:      int16(le.Uint16(mob816[cs+32:])),
+		Int:      int16(le.Uint16(mob816[cs+34:])),
+		Dex:      int16(le.Uint16(mob816[cs+36:])),
+		Con:      int16(le.Uint16(mob816[cs+38:])),
 	}
 }
 
@@ -99,22 +99,22 @@ func writeMobScore(b []byte, m MobSnapshot) {
 
 // writeStructMob writes a 816-byte STRUCT_MOB.
 func writeStructMob(b []byte, m MobSnapshot) {
-	copy(b[0:16], m.Name)                     // MobName @0
-	b[16] = m.Clan                            // Clan @16
-	b[17] = m.Merchant                        // Merchant @17
-	le.PutUint16(b[18:], m.Guild)             // Guild @18
-	b[20] = m.Class                           // Class @20
-	b[24] = m.Quest                           // Quest @24
-	le.PutUint32(b[28:], uint32(m.Coin))      // Coin @28
-	le.PutUint64(b[32:], uint64(m.Exp))       // Exp @32
-	le.PutUint16(b[40:], uint16(m.SPX))       // SPX @40
-	le.PutUint16(b[42:], uint16(m.SPY))       // SPY @42
-	writeMobScore(b[44:], m)                  // BaseScore @44
-	writeMobScore(b[92:], m)                  // CurrentScore @92
-	for i := 0; i < 16; i++ {                 // Equip[16] @140
+	copy(b[0:16], m.Name)                // MobName @0
+	b[16] = m.Clan                       // Clan @16
+	b[17] = m.Merchant                   // Merchant @17
+	le.PutUint16(b[18:], m.Guild)        // Guild @18
+	b[20] = m.Class                      // Class @20
+	b[24] = m.Quest                      // Quest @24
+	le.PutUint32(b[28:], uint32(m.Coin)) // Coin @28
+	le.PutUint64(b[32:], uint64(m.Exp))  // Exp @32
+	le.PutUint16(b[40:], uint16(m.SPX))  // SPX @40
+	le.PutUint16(b[42:], uint16(m.SPY))  // SPY @42
+	writeMobScore(b[44:], m)             // BaseScore @44
+	writeMobScore(b[92:], m)             // CurrentScore @92
+	for i := 0; i < 16; i++ {            // Equip[16] @140
 		writeSelItem(b[140+i*8:], m.Equip[i])
 	}
-	for i := 0; i < 64; i++ {                 // Carry[64] @268
+	for i := 0; i < 64; i++ { // Carry[64] @268
 		writeSelItem(b[268+i*8:], m.Carry[i])
 	}
 	le.PutUint32(b[780:], uint32(m.LearnedSkill)) // @780
@@ -141,13 +141,18 @@ func BaseMobSpawn(mob816 []byte) (x, y int16) {
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
 		b[i] = 0
 	}
 	copy(b[4:4+16], name)
+	// Overlay the persisted equipment onto the template's Equip@140, so the saved
+	// gear (not the class starter set) shows on the model and in the equip window.
+	for i := 0; i < 16; i++ {
+		writeSelItem(b[4+structMobEquip+i*8:], equip[i])
+	}
 	// Overlay the persisted inventory onto the template's Carry@268 (mob), so saved
 	// purchases show on re-login (the template ships an empty/stock Carry).
 	for i := 0; i < 64; i++ {
@@ -171,6 +176,24 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, carry [6
 	le.PutUint16(b[1030:], uint16(clientID))
 	le.PutUint16(b[1032:], weather)
 	copy(b[1034:1050], shortSkill[:])
+	return b
+}
+
+// updateEquipSize is MSG_UpdateEquip (0x006B): HEADER + ushort Equip[16] +
+// uchar AnctCode[16] = 12 + 32 + 16 = 60 bytes.
+const updateEquipSize = 60
+
+// EncodeUpdateEquip builds _MSG_UpdateEquip (0x006B): the 16 visible equipment
+// codes that drive the character's rendered gear (SendFunc.cpp:SendEquip). visual
+// holds the per-slot visual item code (0 = empty slot). The ancient/refine codes
+// (AnctCode[16]) are left zero this pass. Send with HEADER.ID = the entity id so
+// it applies to the right mob (self or an in-view player).
+func EncodeUpdateEquip(visual [16]uint16) []byte {
+	b := make([]byte, updateEquipSize-HeaderSize) // 48
+	for i := 0; i < 16; i++ {
+		le.PutUint16(b[i*2:], visual[i]) // Equip[16] @body0
+	}
+	// AnctCode[16] @body32 stays zero (no refine/ancient overlay yet).
 	return b
 }
 

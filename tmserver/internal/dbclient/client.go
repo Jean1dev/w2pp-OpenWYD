@@ -74,6 +74,15 @@ func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.C
 			Level:   int(ch.GetLevel()),
 			Exp:     ch.GetExp(),
 			GuildID: uint16(ch.GetGuildId()),
+			Coin:    ch.GetCoin(),
+			MaxHp:   ch.GetMaxHp(),
+			Hp:      ch.GetHp(),
+			MaxMp:   ch.GetMaxMp(),
+			Mp:      ch.GetMp(),
+			Str:     int16(ch.GetStr()),
+			Int:     int16(ch.GetInt()),
+			Dex:     int16(ch.GetDex()),
+			Con:     int16(ch.GetCon()),
 		})
 	}
 	return out, nil
@@ -209,21 +218,34 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Con:      int16(c.GetCon()),
 		LastCity: int16(c.GetLastCity()),
 	}
+	for _, it := range c.GetEquip() {
+		slot := int(it.GetSlot())
+		if slot < 0 || slot >= world.MaxEquip {
+			continue
+		}
+		st.Equip[slot] = itemFromProto(it)
+	}
 	for _, it := range c.GetCarry() {
 		slot := int(it.GetSlot())
 		if slot < 0 || slot >= world.MaxCarry {
 			continue
 		}
-		st.Carry[slot] = world.Item{
-			Index: int16(it.GetIndex()),
-			Effects: [3]world.Effect{
-				{Effect: uint8(it.GetEff1()), Value: uint8(it.GetEffv1())},
-				{Effect: uint8(it.GetEff2()), Value: uint8(it.GetEffv2())},
-				{Effect: uint8(it.GetEff3()), Value: uint8(it.GetEffv3())},
-			},
-		}
+		st.Carry[slot] = itemFromProto(it)
 	}
 	return st
+}
+
+// itemFromProto maps one persisted item to the in-world STRUCT_ITEM shape.
+func itemFromProto(it *dbv1.Item) world.Item {
+	return world.Item{
+		Index: int16(it.GetIndex()),
+		Effects: [3]world.Effect{
+			{Effect: uint8(it.GetEff1()), Value: uint8(it.GetEffv1())},
+			{Effect: uint8(it.GetEff2()), Value: uint8(it.GetEffv2())},
+			{Effect: uint8(it.GetEff3()), Value: uint8(it.GetEffv3())},
+		},
+		ExpiresAt: it.GetExpiresAt(),
+	}
 }
 
 func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
@@ -252,14 +274,15 @@ func savedItemsToProto(items []world.SavedItem) []*dbv1.Item {
 	out := make([]*dbv1.Item, 0, len(items))
 	for _, it := range items {
 		out = append(out, &dbv1.Item{
-			Slot:  int32(it.Slot),
-			Index: int32(it.Index),
-			Eff1:  int32(it.Eff1),
-			Effv1: int32(it.EffV1),
-			Eff2:  int32(it.Eff2),
-			Effv2: int32(it.EffV2),
-			Eff3:  int32(it.Eff3),
-			Effv3: int32(it.EffV3),
+			Slot:      int32(it.Slot),
+			Index:     int32(it.Index),
+			Eff1:      int32(it.Eff1),
+			Effv1:     int32(it.EffV1),
+			Eff2:      int32(it.Eff2),
+			Effv2:     int32(it.EffV2),
+			Eff3:      int32(it.Eff3),
+			Effv3:     int32(it.EffV3),
+			ExpiresAt: it.ExpiresAt,
 		})
 	}
 	return out

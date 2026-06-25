@@ -148,6 +148,105 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	// and BASE_GetCurrentScore recompute are not yet applied.
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
+	d.refreshEquip(w, s, e)                 // update the rendered gear
+}
+
+// equipVisual derives the 16 visible equipment codes from the entity's equipped
+// items. The visual code is the item index (0 = empty slot), matching how the
+// BaseMob template's equipment is read for other previews.
+func equipVisual(e *world.Entity) [16]uint16 {
+	var v [16]uint16
+	for i := range e.Equip {
+		v[i] = uint16(e.Equip[i].Index)
+	}
+	return v
+}
+
+// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
+// the player's own client AND every in-view player, so an equip/unequip is
+// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
+// is the entity id so the client applies it to the right mob. It also re-sends the
+// score, since equipment changes the character's attributes.
+func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+	e.EquipVisual = equipVisual(e)
+	body := protocol.EncodeUpdateEquip(e.EquipVisual)
+	h := protocol.Header{Type: protocol.MsgUpdateEquip, ID: uint16(s.Conn)}
+	w.SendTo(s, h, body)
+	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, h, body)
+	})
+	d.sendScore(w, s, e)
+}
+
+// Item-effect type bytes (ItemEffect.h) summed into the CurrentScore.
+const (
+	efDamage = 2
+	efAc     = 3
+	efHp     = 4
+	efMp     = 5
+	efStr    = 7
+	efInt    = 8
+	efDex    = 9
+	efCon    = 10
+
+	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
+	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
+	baseAttackRun = 82
+	// mountedMoveSpeed bumps the move-speed nibble when a mount is equipped.
+	// UNVERIFIED: the exact mounted speed is in BASE_GetCurrentScore (not in source).
+	mountedMoveSpeed = 5
+)
+
+// computeScore builds the CurrentScore the client shows: the entity's base stats
+// plus the additive effects of every equipped item, and a mount speed bump.
+//
+// UNVERIFIED: this is a best-effort recompute — the original BASE_GetCurrentScore
+// (class multipliers, ItemList base effects, exact speed encoding) is not in the
+// available source. It sums each equipped item's own effect slots (refines/bonus
+// stats) and applies a mount movement bump.
+func computeScore(e *world.Entity) protocol.ScoreData {
+	sc := protocol.ScoreData{
+		Level: e.Level, Ac: e.AC, Damage: e.Damage,
+		MaxHp: e.MaxHP, Hp: e.HP, MaxMp: e.MaxMP, Mp: e.MP,
+		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
+		AttackRun: baseAttackRun,
+	}
+	for _, it := range e.Equip {
+		if it.Empty() {
+			continue
+		}
+		for _, ef := range it.Effects {
+			switch ef.Effect {
+			case efStr:
+				sc.Str += int16(ef.Value)
+			case efInt:
+				sc.Int += int16(ef.Value)
+			case efDex:
+				sc.Dex += int16(ef.Value)
+			case efCon:
+				sc.Con += int16(ef.Value)
+			case efAc:
+				sc.Ac += int32(ef.Value)
+			case efDamage:
+				sc.Damage += int32(ef.Value)
+			case efHp:
+				sc.MaxHp += int32(ef.Value)
+			case efMp:
+				sc.MaxMp += int32(ef.Value)
+			}
+		}
+	}
+	// A mount in the mount slot raises the move-speed (low) nibble of AttackRun.
+	if !e.Equip[mountEquipSlot].Empty() {
+		sc.AttackRun = (baseAttackRun & 0xF0) | mountedMoveSpeed
+	}
+	return sc
+}
+
+// sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so
+// the status window reflects equipment.
+func (d *Dispatcher) sendScore(w *world.World, s *world.Session, e *world.Entity) {
+	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, protocol.EncodeUpdateScore(computeScore(e)))
 }
 
 // tradingItem handles _MSG_TradingItem (0x0376): the client's universal
@@ -202,6 +301,10 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+	// An equip/unequip changes the rendered gear: refresh the model everywhere.
+	if srcPlace == world.ItemPlaceEquip || dstPlace == world.ItemPlaceEquip {
+		d.refreshEquip(w, s, e)
+	}
 }
 
 // itemSlot returns a pointer to the live item slot for a place/slot pair, or nil
