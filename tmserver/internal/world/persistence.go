@@ -123,9 +123,9 @@ type SavedItem struct {
 // CharacterSave is the snapshot the world hands to the persistence backend on
 // shutdown. It carries ONLY the fields the in-world Entity authoritatively
 // tracks this phase (domain-model.md §2.2): position is not persisted yet, and
-// class/exp/mp are absent because the world does not simulate them (PROGRESS
-// Fase 4 — full STRUCT_MOB is UNVERIFIED). The world builds it (it owns the
-// Entity); the adapter only ships it.
+// class/mp are absent because the world does not simulate them (PROGRESS Fase 4 —
+// full STRUCT_MOB is UNVERIFIED). Exp IS persisted now (earned from kills). The
+// world builds it (it owns the Entity); the adapter only ships it.
 type CharacterSave struct {
 	AccountID int64
 	Slot      int
@@ -133,6 +133,7 @@ type CharacterSave struct {
 	Clan      uint8
 	GuildID   uint16
 	Level     int32
+	Exp       int64
 	Coin      int32
 	Str       int16
 	Int       int16
@@ -140,6 +141,8 @@ type CharacterSave struct {
 	Con       int16
 	HP        int32
 	MaxHP     int32
+	MP        int32
+	MaxMP     int32
 	Carry     []SavedItem
 	Equip     []SavedItem
 }

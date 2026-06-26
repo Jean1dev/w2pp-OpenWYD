@@ -26,19 +26,22 @@ func (d *Dispatcher) applyBonus(w *world.World, s *world.Session, _ protocol.Hea
 	if body.BonusType != protocol.BonusScore || e.ScoreBonus == 0 {
 		return
 	}
+	// Allocate the point into the BaseScore; refreshScore folds it into the live
+	// CurrentScore (= base + equipment) and sendScore shows it.
 	switch int(body.Detail) {
 	case protocol.DetailStr:
-		e.Str++
+		e.BaseStr++
 	case protocol.DetailInt:
-		e.Int++
+		e.BaseInt++
 	case protocol.DetailDex:
-		e.Dex++
+		e.BaseDex++
 	case protocol.DetailCon:
-		e.Con++
+		e.BaseCon++
 	default:
 		return
 	}
 	e.ScoreBonus--
+	d.refreshScore(e)
 	d.sendScore(w, s, e) // refresh the status window with the new attribute
 }
 

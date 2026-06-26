@@ -144,11 +144,26 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	if e.Carry[src].Empty() {
 		return
 	}
-	// UNVERIFIED: equip requirement checks (level/str/int/dex/con vs STRUCT_ITEMLIST)
-	// and BASE_GetCurrentScore recompute are not yet applied.
+	if !d.meetsEquipReq(e, e.Carry[src]) {
+		d.notify(w, s, NoticeReqNotMet) // level/attributes too low for this item
+		return
+	}
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
 	d.refreshEquip(w, s, e)                 // update the rendered gear
+}
+
+// meetsEquipReq reports whether the entity satisfies an item's equip requirement
+// (level + Str/Int/Dex/Con, STRUCT_ITEMLIST Req*). It is checked against the live
+// CurrentScore (attributes including other equipped gear), as the original does.
+// Items absent from the requirement catalog (or with no requirement) always pass.
+func (d *Dispatcher) meetsEquipReq(e *world.Entity, it world.Item) bool {
+	r, ok := d.itemReqs[int(it.Index)]
+	if !ok {
+		return true
+	}
+	return e.Level >= int32(r.Lvl) &&
+		e.Str >= r.Str && e.Int >= r.Int && e.Dex >= r.Dex && e.Con >= r.Con
 }
 
 // equipVisual derives the 16 visible equipment codes from the entity's equipped
@@ -175,6 +190,7 @@ func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Ent
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, h, body)
 	})
+	d.refreshScore(e) // fold the new gear's AC/attributes/HP/MP into CurrentScore
 	d.sendScore(w, s, e)
 }
 
@@ -195,46 +211,140 @@ const (
 	// mountedMoveSpeed bumps the move-speed nibble when a mount is equipped.
 	// UNVERIFIED: the exact mounted speed is in BASE_GetCurrentScore (not in source).
 	mountedMoveSpeed = 5
+
+	// Weapon hands in STRUCT_MOB.Equip (right/left). GetCurrentScore (CMob.cpp:756)
+	// derives WeaponDamage from these two slots' EF_DAMAGE.
+	weaponSlotR = 6
+	weaponSlotL = 7
 )
 
-// computeScore builds the CurrentScore the client shows: the entity's base stats
-// plus the additive effects of every equipped item, and a mount speed bump.
-//
-// UNVERIFIED: this is a best-effort recompute — the original BASE_GetCurrentScore
-// (class multipliers, ItemList base effects, exact speed encoding) is not in the
-// available source. It sums each equipped item's own effect slots (refines/bonus
-// stats) and applies a mount movement bump.
-func computeScore(e *world.Entity) protocol.ScoreData {
-	sc := protocol.ScoreData{
-		Level: e.Level, Ac: e.AC, Damage: e.Damage,
-		MaxHp: e.MaxHP, Hp: e.HP, MaxMp: e.MaxMP, Mp: e.MP,
-		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
-		AttackRun: baseAttackRun,
+// itemBaseDamage returns an equipped item's catalog EF_DAMAGE (its inherent weapon
+// damage), or 0 if the slot is empty or the catalog has no entry.
+func (d *Dispatcher) itemBaseDamage(it world.Item) int32 {
+	if it.Empty() {
+		return 0
 	}
-	for _, it := range e.Equip {
+	for _, be := range d.itemEffects[int(it.Index)] {
+		if be.Eff == efDamage {
+			return int32(be.Val)
+		}
+	}
+	return 0
+}
+
+// weaponDamage is GetCurrentScore's WeaponDamage (CMob.cpp:756-789): the stronger
+// weapon hand at full damage plus the weaker at half (dual-wield). The original
+// keeps this in a SEPARATE field from CurrentScore.Damage and adds it at hit time,
+// so it is NOT already baked into e.Damage — adding it here does not double-count.
+//
+// UNVERIFIED / deferred: per-class weapon-mastery (full instead of half for the
+// off-hand) and the skill +40 bonuses (CMob.cpp:763-817).
+func (d *Dispatcher) weaponDamage(e *world.Entity) int32 {
+	w1 := d.itemBaseDamage(e.Equip[weaponSlotR])
+	w2 := d.itemBaseDamage(e.Equip[weaponSlotL])
+	if w1 < w2 {
+		w1, w2 = w2, w1
+	}
+	return w1 + w2/2
+}
+
+// equipBonus is the summed contribution of all equipped items to the CurrentScore
+// (catalog base effects + per-item instance refines). EF_DAMAGE from the two weapon
+// hands is EXCLUDED — weapon damage is a separate field (weaponDamage) added at hit
+// time, not part of the stored CurrentScore; non-weapon EF_DAMAGE (e.g. boots) IS
+// included.
+type equipBonus struct {
+	str, intel, dex, con int16
+	ac, damage           int32
+	maxHP, maxMP         int32
+}
+
+func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
+	var b equipBonus
+	add := func(eff uint8, val int32, weaponSlot bool) {
+		switch eff {
+		case efStr:
+			b.str += int16(val)
+		case efInt:
+			b.intel += int16(val)
+		case efDex:
+			b.dex += int16(val)
+		case efCon:
+			b.con += int16(val)
+		case efAc:
+			b.ac += val
+		case efDamage:
+			if !weaponSlot { // weapon-hand damage is the separate WeaponDamage
+				b.damage += val
+			}
+		case efHp:
+			b.maxHP += val
+		case efMp:
+			b.maxMP += val
+		}
+	}
+	for slot := range e.Equip {
+		it := e.Equip[slot]
 		if it.Empty() {
 			continue
 		}
-		for _, ef := range it.Effects {
-			switch ef.Effect {
-			case efStr:
-				sc.Str += int16(ef.Value)
-			case efInt:
-				sc.Int += int16(ef.Value)
-			case efDex:
-				sc.Dex += int16(ef.Value)
-			case efCon:
-				sc.Con += int16(ef.Value)
-			case efAc:
-				sc.Ac += int32(ef.Value)
-			case efDamage:
-				sc.Damage += int32(ef.Value)
-			case efHp:
-				sc.MaxHp += int32(ef.Value)
-			case efMp:
-				sc.MaxMp += int32(ef.Value)
-			}
+		weaponSlot := slot == weaponSlotR || slot == weaponSlotL
+		for _, be := range d.itemEffects[int(it.Index)] { // catalog base effects
+			add(be.Eff, int32(be.Val), weaponSlot)
 		}
+		for _, ef := range it.Effects { // per-item instance refines
+			add(ef.Effect, int32(ef.Value), weaponSlot)
+		}
+	}
+	return b
+}
+
+// deriveBaseScore captures the equipment-free BaseScore from the loaded
+// CurrentScore (called once on login): base = current − equipBonus. The weapon
+// damage is not in the loaded CurrentScore, so it is not subtracted. After this,
+// refreshScore reproduces the loaded CurrentScore exactly until gear changes.
+func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
+	b := d.equipBonus(e)
+	e.BaseStr = e.Str - b.str
+	e.BaseInt = e.Int - b.intel
+	e.BaseDex = e.Dex - b.dex
+	e.BaseCon = e.Con - b.con
+	e.BaseAC = e.AC - b.ac
+	e.BaseDamage = e.Damage - b.damage
+	e.BaseMaxHP = e.MaxHP - b.maxHP
+	e.BaseMaxMP = e.MaxMP - b.maxMP
+}
+
+// refreshScore recomputes the live CurrentScore = BaseScore + equipment, after any
+// equipment or attribute change. HP/MP are clamped down to the new maxima (e.g. on
+// unequipping an HP item). Weapon damage is added separately at display/hit time.
+func (d *Dispatcher) refreshScore(e *world.Entity) {
+	b := d.equipBonus(e)
+	e.Str = e.BaseStr + b.str
+	e.Int = e.BaseInt + b.intel
+	e.Dex = e.BaseDex + b.dex
+	e.Con = e.BaseCon + b.con
+	e.AC = e.BaseAC + b.ac
+	e.Damage = e.BaseDamage + b.damage
+	e.MaxHP = e.BaseMaxHP + b.maxHP
+	e.MaxMP = e.BaseMaxMP + b.maxMP
+	if e.HP > e.MaxHP {
+		e.HP = e.MaxHP
+	}
+	if e.MP > e.MaxMP {
+		e.MP = e.MaxMP
+	}
+}
+
+// computeScore builds the CurrentScore the client shows. The live entity fields
+// already include the equipment (kept current by refreshScore); only the separate
+// weapon damage and the mount speed bump are folded in here.
+func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
+	sc := protocol.ScoreData{
+		Level: e.Level, Ac: e.AC, Damage: e.Damage + d.weaponDamage(e),
+		MaxHp: e.MaxHP, Hp: e.HP, MaxMp: e.MaxMP, Mp: e.MP,
+		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
+		AttackRun: baseAttackRun,
 	}
 	// A mount in the mount slot raises the move-speed (low) nibble of AttackRun.
 	if !e.Equip[mountEquipSlot].Empty() {
@@ -246,7 +356,7 @@ func computeScore(e *world.Entity) protocol.ScoreData {
 // sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so
 // the status window reflects equipment.
 func (d *Dispatcher) sendScore(w *world.World, s *world.Session, e *world.Entity) {
-	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, protocol.EncodeUpdateScore(computeScore(e)))
+	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, protocol.EncodeUpdateScore(d.computeScore(e)))
 }
 
 // tradingItem handles _MSG_TradingItem (0x0376): the client's universal
@@ -295,8 +405,14 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	if src.Empty() && dst.Empty() {
 		return // nothing to move
 	}
-	// UNVERIFIED: amount-stacking (arrows/potions), equip requirement checks and
-	// BASE_GetCurrentScore/visual recompute on equip changes are not yet applied.
+	// Equip requirement: the item that would land in an equip slot must be usable.
+	// On a swap the src item moves into the dst slot (and vice-versa).
+	if dstPlace == world.ItemPlaceEquip && !src.Empty() && !d.meetsEquipReq(e, *src) ||
+		srcPlace == world.ItemPlaceEquip && !dst.Empty() && !d.meetsEquipReq(e, *dst) {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	// UNVERIFIED: amount-stacking (arrows/potions) is not yet applied.
 	*src, *dst = *dst, *src
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))

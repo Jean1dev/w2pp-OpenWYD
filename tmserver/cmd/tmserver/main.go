@@ -66,11 +66,14 @@ func run(logger *slog.Logger) error {
 	// (PROGRESS Fase 5), so this validates and exposes the data; it does not
 	// rewire gameplay on unverified mappings.
 	var itemPrices map[int]int32
+	var itemEffects map[int][]content.BaseEffect
+	var itemReqs map[int]content.ItemReq
 	if *contentDir != "" {
-		var err error
-		if itemPrices, err = loadContent(*contentDir, logger); err != nil {
+		items, err := loadContent(*contentDir, logger)
+		if err != nil {
 			return err
 		}
+		itemPrices, itemEffects, itemReqs = items.Prices(), items.BaseEffects(), items.Requirements()
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -112,7 +115,7 @@ func run(logger *slog.Logger) error {
 	}
 
 	dispatch := handler.New(handler.Config{
-		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices,
+		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -120,6 +123,8 @@ func run(logger *slog.Logger) error {
 		MsgBurst:       *msgBurst,
 		StatusFile:     statusFile,
 	}, logger, persist, dispatch.Handle)
+	// Mob-AI pulse: monsters acquire/chase/melee nearby players each tick (mobai.go).
+	w.SetTickHandler(world.DefaultMobTick, dispatch.Tick)
 
 	// Billing gate: real binServer adapter when -binserver is set, else allow-all.
 	if *binAddr != "" {
@@ -233,7 +238,7 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) (map[int]int32, error) {
+func loadContent(dir string, logger *slog.Logger) (*content.ItemList, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
 		return nil, err
@@ -250,10 +255,9 @@ func loadContent(dir string, logger *slog.Logger) (map[int]int32, error) {
 	if err != nil {
 		return nil, err
 	}
-	prices := items.Prices()
 	logger.Info("content loaded",
 		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
-		"items", items.Len(), "skills", skills.Len(), "prices", len(prices))
+		"items", items.Len(), "skills", skills.Len())
 
 	// Maps are optional: 17 MiB HeightMap + 1 MiB AttributeMap aren't required to
 	// accept logins; warn rather than fail when they aren't mounted.
@@ -263,5 +267,5 @@ func loadContent(dir string, logger *slog.Logger) (map[int]int32, error) {
 	if _, err := content.LoadHeightMap(filepath.Join(dir, "TMsrv", "run", "HeightMap.dat")); err != nil {
 		logger.Warn("height map not loaded", "err", err)
 	}
-	return prices, nil
+	return items, nil
 }

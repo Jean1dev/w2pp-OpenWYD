@@ -189,6 +189,17 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		st.Equip = d.starterEquip(int(st.Class))
 		d.grantStarterCarry(&st.Carry, int(st.Class))
 	}
+	// A character must never enter the world dead. Now that mobs can kill players
+	// (mobai.go), one that was slain and then disconnected without restarting is
+	// persisted at HP 0 — reviving it on login (full HP/MP) puts it back in play in
+	// its city instead of logging in stuck/dead (passive regen excludes HP 0).
+	if st.HP <= 0 {
+		st.HP = st.MaxHP
+		st.MP = st.MaxMP
+		if st.HP <= 0 {
+			st.HP = 1 // guard a broken/zero MaxHP so the player can still act
+		}
+	}
 	// Spawn at the default area of the last city the character was in (business
 	// rule: position itself is not persisted, only the city — see world.CitySpawn).
 	// An explicit loaded position (tests) is honored when present.
@@ -206,7 +217,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.MP, e.MaxMP = st.MP, st.MaxMP
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
-		e.Level, e.Coin = int32(st.Level), st.Coin
+		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		e.Equip = st.Equip
@@ -215,6 +226,10 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// own client, via UpdateEquip) see what is actually equipped — not the class
 		// starter set. Empty slots → 0 (no item).
 		e.EquipVisual = equipVisual(e)
+		// Capture the equipment-free BaseScore from the loaded CurrentScore, so later
+		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
+		// counting the gear already baked into the stored CurrentScore.
+		d.deriveBaseScore(e)
 	}
 	s.Mode = world.UserPlay
 	var shortSkill [16]uint8
@@ -232,7 +247,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
@@ -367,21 +382,32 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 	})
 }
 
-// restart handles _MSG_Restart (0x0289): revive with 2 HP (not a full heal) and
-// recall. handlers/lote2-sessao-conta.md.
+// restart handles _MSG_Restart (0x0289): the death-respawn / town-recall button
+// (TMSrv/_MSG_Restart.cpp). It revives the character at 2 HP (NOT a full heal —
+// recalling always costs you down to 2 HP, even alive) and recalls it to its
+// last-city spawn. This is how a player gets up after a mob kills it (mobai.go).
 //
-// UNVERIFIED: the hardcoded capital-region teleport coordinates and per-clan
-// destinations (and DoRecall) are not reproduced; they must become config and be
-// validated by capture. Batch 1 only applies the HP=2 revive + HP/MP refresh.
+// UNVERIFIED / deferred: the original's per-clan capital-region destinations
+// (clan 7/8 coordinate boxes) and the exact DoRecall save-point logic are not
+// reproduced — we recall to the last-city default spawn. The dedicated
+// _MSG_SetHpMp (0x0181, 129B) packet has an unconfirmed layout, so the HP/MP
+// refresh rides on _MSG_UpdateScore (which carries CurrHp/CurrMp) instead.
 func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	if s.Mode != world.UserPlay {
-		w.Send(s, protocol.MsgSetHpMp, nil)
 		return
 	}
-	if e := w.Entity(s.Conn); e != nil {
-		e.HP = 2
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
 	}
-	w.Send(s, protocol.MsgSetHpMp, nil)
+	e.HP = 2         // revive (CurrentScore.Hp = 2)
+	s.CrackError = 0 // NumError = 0
+	d.sendScore(w, s, e)
+
+	// DoRecall: jump to the last-city default spawn (RemoveMob old view + reveal).
+	rx, ry := world.CitySpawn(int(e.LastCity))
+	d.doTeleport(w, s, rx, ry)
+	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(e.Coin)) // SendEtc
 }
 
 // Starter-gear constants. The Shire is a no-level-restriction mount (ItemList

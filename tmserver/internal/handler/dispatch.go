@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -36,6 +37,15 @@ type Config struct {
 
 	// ItemPrices maps item index → base Price (g_pItemList[].Price) for NPC buy/sell.
 	ItemPrices map[int]int32
+
+	// ItemEffects maps item index → its static base effects (STRUCT_ITEMLIST.stEffect:
+	// weapon damage, armor AC, attribute bonuses). Used to fold equipment into the
+	// CurrentScore (content.ItemList.BaseEffects). When nil, gear contributes nothing.
+	ItemEffects map[int][]content.BaseEffect
+
+	// ItemReqs maps item index → its equip requirement (level/attributes,
+	// content.ItemList.Requirements). When nil, no equip is gated.
+	ItemReqs map[int]content.ItemReq
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -50,8 +60,10 @@ type Dispatcher struct {
 	routes          map[protocol.Type]handlerFunc
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
-	baseMobs        map[int][]byte // per-class STRUCT_MOB templates
-	itemPrices      map[int]int32  // item index → base price (NPC shop)
+	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
+	itemPrices      map[int]int32                // item index → base price (NPC shop)
+	itemEffects     map[int][]content.BaseEffect // item index → static base effects (equip score)
+	itemReqs        map[int]content.ItemReq      // item index → equip requirement (level/attrs)
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -73,6 +85,8 @@ func New(cfg Config) *Dispatcher {
 		combineFamilies: cfg.CombineFamilies,
 		baseMobs:        cfg.BaseMobs,
 		itemPrices:      cfg.ItemPrices,
+		itemEffects:     cfg.ItemEffects,
+		itemReqs:        cfg.ItemReqs,
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)

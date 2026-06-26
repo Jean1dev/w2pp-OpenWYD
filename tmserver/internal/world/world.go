@@ -124,6 +124,11 @@ type World struct {
 	events chan event
 	done   chan struct{}  // closed when the loop stops; unblocks conn goroutines
 	saveWG sync.WaitGroup // tracks in-flight async character saves (logout/disconnect)
+
+	// onTick is the periodic simulation hook (mob AI), run inside the loop; see
+	// tick.go. nil disables the ticker (e.g. in protocol/transport tests).
+	onTick       func(*World)
+	tickInterval time.Duration
 }
 
 // New creates a World with the given dependencies. A nil handler installs a
@@ -168,6 +173,9 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 // is cancelled, then drains/saves active sessions and returns ctx.Err().
 func (w *World) Run(ctx context.Context) error {
 	w.log.Info("world loop started", "grid", w.cfg.GridDim)
+	if w.onTick != nil && w.tickInterval > 0 {
+		go w.runTicker(ctx)
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -259,9 +267,10 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	}
 	cs.Clan, cs.GuildID = e.Clan, e.Guild
 	cs.LastCity = e.LastCity
-	cs.Level, cs.Coin = e.Level, e.Coin
+	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP
+	cs.MP, cs.MaxMP = e.MP, e.MaxMP
 	cs.Carry = savedItems(e.Carry[:])
 	cs.Equip = savedItems(e.Equip[:])
 	return cs

@@ -4,9 +4,29 @@ import (
 	"net"
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
+
+func TestMeetsEquipReq(t *testing.T) {
+	d := New(Config{ItemReqs: map[int]content.ItemReq{
+		900: {Lvl: 100, Str: 50}, // a heavy sword
+	}})
+	sword := world.Item{Index: 900}
+	if d.meetsEquipReq(&world.Entity{Level: 99, Str: 60}, sword) {
+		t.Error("equip allowed below the level requirement")
+	}
+	if d.meetsEquipReq(&world.Entity{Level: 100, Str: 49}, sword) {
+		t.Error("equip allowed below the str requirement")
+	}
+	if !d.meetsEquipReq(&world.Entity{Level: 100, Str: 50}, sword) {
+		t.Error("equip rejected when requirements are met")
+	}
+	if !d.meetsEquipReq(&world.Entity{}, world.Item{Index: 1}) {
+		t.Error("an item with no catalog requirement must always pass")
+	}
+}
 
 func itemDB(carry0 int16) *fakeDB {
 	db := newDB()

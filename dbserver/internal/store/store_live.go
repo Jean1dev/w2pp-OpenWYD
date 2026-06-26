@@ -202,11 +202,11 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 //
 // This is a PARTIAL update on purpose: it touches only the columns the in-world
 // Entity authoritatively tracks this phase (world.CharacterSave) — clan,
-// guild_id, level, coin, str/int/dex/con, hp/max_hp. Everything else (class,
-// exp, mp/max_mp, guild_level, bonuses, regen/resist, skills, magic, save_x/y,
-// citizen, class_master, skill bars) is left UNTOUCHED so an in-game save never
-// wipes imported data the world does not simulate. Widening to the full
-// STRUCT_MOB is UNVERIFIED and waits on capture (PROGRESS Fase 4).
+// guild_id, level, exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city.
+// Everything else (class, guild_level, bonuses, regen/resist, skills, magic,
+// save_x/y, citizen, class_master, skill bars) is left UNTOUCHED so an in-game
+// save never wipes imported data the world does not simulate. Widening to the
+// full STRUCT_MOB is UNVERIFIED and waits on capture (PROGRESS Fase 4).
 func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -218,11 +218,13 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 	err = tx.QueryRow(ctx, `
 		UPDATE character SET
 			clan=$3, guild_id=$4, level=$5, coin=$6,
-			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13
+			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13, exp=$14,
+			mp=$15, max_mp=$16
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.Level, ch.Coin,
-		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity,
+		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity, ch.Exp,
+		ch.Mp, ch.MaxMp,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

@@ -18,6 +18,7 @@ type MobBasics struct {
 	Level, Ac, Damage  int32
 	MaxHp, Hp          int32
 	Str, Int, Dex, Con int16
+	Exp                int64 // STRUCT_MOB.Exp @32; for a monster this is its kill reward
 }
 
 // ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
@@ -27,7 +28,8 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 	return MobBasics{
 		Name:     cstr16(mob816[0:16]),
 		Class:    mob816[20],
-		Merchant: mob816[cs+12], // CurrentScore.Merchant
+		Exp:      int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
+		Merchant: mob816[cs+12],                 // CurrentScore.Merchant
 		Level:    int32(le.Uint32(mob816[cs+0:])),
 		Ac:       int32(le.Uint32(mob816[cs+4:])),
 		Damage:   int32(le.Uint32(mob816[cs+8:])),
@@ -141,7 +143,7 @@ func BaseMobSpawn(mob816 []byte) (x, y int16) {
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
@@ -164,6 +166,10 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, equip [1
 	// candidate offsets (24 = what the client displays, 28 = STRUCT_MOB.Coin).
 	le.PutUint32(b[4+24:], uint32(coin))
 	le.PutUint32(b[4+28:], uint32(coin))
+	// Persisted experience → STRUCT_MOB.Exp@32, so the client's exp bar reflects the
+	// saved total at login (the template ships Exp=0). The client owns the level
+	// curve and renders the bar from this raw value.
+	le.PutUint64(b[4+32:], uint64(exp))
 	// Spawn position: write the caller's actual spawn (city rule) into both the
 	// message PosX/PosY (body0/2) AND the embedded mob's SPX/SPY (mob offset 40/42),
 	// otherwise the client renders the template's position (always Armia) regardless
