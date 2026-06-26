@@ -10,7 +10,8 @@ func makeMob(name string, class, merchant uint8, level, hp int32) []byte {
 	b := make([]byte, structMobSize)
 	copy(b[0:16], name)
 	b[20] = class
-	const cs = 92 // CurrentScore
+	binary.LittleEndian.PutUint64(b[32:], 1800)            // STRUCT_MOB.Exp (kill reward)
+	const cs = 92                                          // CurrentScore
 	binary.LittleEndian.PutUint32(b[cs+0:], uint32(level)) // Level
 	b[cs+12] = merchant                                    // Merchant
 	binary.LittleEndian.PutUint32(b[cs+24:], uint32(hp))   // Hp
@@ -24,7 +25,7 @@ func makeMob(name string, class, merchant uint8, level, hp int32) []byte {
 func TestParseMobBasics(t *testing.T) {
 	b := makeMob("Ciclope_Forte", 1, 0, 171, 15000)
 	m := ParseMobBasics(b)
-	if m.Name != "Ciclope_Forte" || m.Class != 1 || m.Level != 171 || m.Hp != 15000 {
+	if m.Name != "Ciclope_Forte" || m.Class != 1 || m.Level != 171 || m.Hp != 15000 || m.Exp != 1800 {
 		t.Errorf("ParseMobBasics = %+v", m)
 	}
 	if x, y := BaseMobSpawn(b); x != 2096 || y != 2096 {
@@ -40,10 +41,12 @@ func TestParseMobBasics(t *testing.T) {
 
 func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	tmpl := makeMob("Template", 2, 0, 1, 100)
+	var equip [16]SelItem
+	equip[1] = SelItem{Index: 1100} // an equipped weapon
 	var carry [64]SelItem
 	carry[3] = SelItem{Index: 831} // a bought item
 	var sk [16]uint8
-	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, carry, 2453, 2000, 0, 1, 0, sk)
+	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 1, 0, sk)
 
 	if len(b) != cnfCharacterLoginSize-HeaderSize { // 1832 - 12 = 1820
 		t.Fatalf("CNFCharacterLogin body = %d, want %d", len(b), cnfCharacterLoginSize-HeaderSize)
@@ -63,6 +66,15 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	// Gold is written at both candidate offsets (24 = client display, 28 = Coin).
 	if le.Uint32(b[4+24:]) != 777777 || le.Uint32(b[4+28:]) != 777777 {
 		t.Errorf("coin not set at mob offsets 24/28")
+	}
+	// Persisted experience → STRUCT_MOB.Exp @32 (body 4+32), so the exp bar shows the
+	// saved total at login.
+	if got := le.Uint64(b[4+32:]); got != 123456789 {
+		t.Errorf("exp @mob32 = %d, want 123456789", got)
+	}
+	// Persisted equip overlays the template's Equip@140 (mob) → body 4+140 + 1*8.
+	if got := le.Uint16(b[4+structMobEquip+1*8:]); got != 1100 {
+		t.Errorf("equip[1] overlay = %d, want 1100", got)
 	}
 	// Persisted carry overlays the template's Carry@268 (mob) → body 4+268 + 3*8.
 	if got := le.Uint16(b[4+structMobCarry+3*8:]); got != 831 {

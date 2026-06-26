@@ -13,11 +13,15 @@ Reescrita **big-bang em Go** do servidor do MMORPG **WYD (With Your Destiny)**, 
 - Serviços novos em `tmserver/`, `dbserver/`, `binserver/`. Módulo Go: `github.com/jeanluca/w2pp-openwyd`.
 
 ### Status atual (o que JÁ funciona contra o cliente real)
-Login → seleção/criação de personagem (com equipamento visual correto) → entrar no mundo →
-andar → ver outros players → ver ~10.500 NPCs (nomes visíveis, aparência correta) → **lojas de NPC**
-(abrir, comprar, vender, item aparece no inventário ao vivo, economia de gold) → **teleporte entre
-cidades** (por tile, Armia↔Noatum↔Azran/Erion/Nippleheim) → **persistência** de inventário, gold e
-**última cidade** (spawn na área default da última cidade) ao deslogar/relogar.
+Login → seleção/criação de personagem (com equipamento visual correto + **preview de atributos**:
+score level/HP/MP/STR-INT-DEX-CON na própria tela de seleção, via `protocol/selchar.go`) → entrar no
+mundo → andar → ver outros players → ver ~10.500 NPCs (nomes visíveis, aparência correta) → **lojas de
+NPC** (abrir, comprar, vender, item aparece no inventário ao vivo, economia de gold) → **teleporte
+entre cidades** (por tile, Armia↔Noatum↔Azran/Erion/Nippleheim) → **persistência** de inventário, gold
+e **última cidade** (spawn na área default da última cidade) ao deslogar/relogar.
+
+> Atenção (bug aberto B6): a **posição exata NÃO é persistida** — ao relogar o char nasce no spawn
+> default da última cidade, não onde deslogou. Detalhe em `docs/migration/ingame-bugs.md`.
 
 ## 2. Arquitetura (o essencial)
 
@@ -119,24 +123,117 @@ Build/test padrão: `go build ./...`, `go test -race ./...`, `make lint`.
 
 ## 6. Fatos/constantes úteis
 
-- ClientVersion **12000**. Conta teste **test/test123**. Char inicial: 1.000.000 de gold, spawn Armia.
+- ClientVersion **12000**. Contas teste **test/test123** e **test2/test123** (a segunda serve pra
+  testar visão entre players — duas instâncias do cliente). Char inicial: 1.000.000 de gold, spawn Armia.
 - **5 cidades** (`world/city.go`): Armia(0) (2086,2093), Azran(1) (2494,1707), Erion(2) (2453,2000),
   Nippleheim(3) (3652,3122), Noatum(4) (1050,1706). "Última cidade" salva em 2 bits (0–3; Noatum não é
   salvável → cai em Armia). Spawn = `CitySpawn(cidade) + rand%15`.
 - **Teleporte** (`world/teleport.go`): por TILE; cliente pisa e manda `_MSG_ReqTeleport` (0x0290, só
-  header); servidor resolve destino+custo pela posição. Noatum é hub (cidades pagam 700 p/ ir, voltam
-  de graça). `DoTeleport` = `MSG_Action` (0x036C) com `Effect=1` + grid reconcilia visão.
+  header); servidor resolve destino+custo pela posição (Go: `TeleportDest` em `world/teleport.go`). Noatum
+  é hub (cidades pagam 700 p/ ir, voltam de graça). O teleporte = `MSG_Action` (0x036C) com `Effect=1`
+  + grid reconcilia visão.
 - Tipos de pacote ficam em `tmserver/internal/protocol/types.go`. Codecs S→C com testes byte-exatos em
   `protocol/*_test.go` (CreateMob, ShopList, SendItem, UpdateEtc, CNFCharacterLogin, SELCHAR).
 
 ## 7. Próximas frentes (roadmap)
 
 Já feito: login, chars, NPCs (nomes/aparência), lojas (buy/sell + SendItem), teleporte, persistência
-(itens/gold/cidade). A fazer (escolher com o usuário):
-- **Banco/Cargo** (NPC Guarda_Carga, Merchant=2; depósito 0x0388 / saque 0x0387).
+(itens/gold/cidade), **Banco/Cargo** (armazém compartilhado da conta: LoadCargo/SaveCargo no
+dbServer + store; carregado no login, salvo no logout/shutdown; depósito 0x0388 / saque 0x0387 de
+gold; NPC Guarda_Carga Merchant=2 abre o cofre), **mover itens** (drag-drop via 0x0376),
+**equipar/desequipar** (0x0376 Carry↔Equip + _MSG_UpdateEquip 0x006B; equip carregado do DB no
+login), **equip inicial** (semeado no login se o char está sem equip: equip da classe do template
+— slot 0 = item de corpo que dá a aparência da classe — + montaria Shire item 342 no slot 14;
+inventário inicial = poções/Esfera da Sorte/Baú de Exp do template), **NPC Perzen** (troca via
+_MSG_Quest 0x028B: Merchant 100 + EF_GRADE0 7/8/9; consome npc.Carry[0] e dá npc.Carry[1] — ex.:
+Esfera da Sorte A 4130 → montaria Thoroughbred 3987), **combate player→mob** (resolução de dano
+server-authoritative já existia; agora ao matar: drop de gold/loot + **despawn** do mob com
+`MSG_RemoveMob` type 1 + limpeza de grid/slot via `world.DespawnMob`), **EXP + level-up por kill**
+(mob carrega seu reward em `STRUCT_MOB.Exp`@32; pacote `internal/level` = curva `g_pNextLevel[0..400]`
++ `ExpApply` scaling por nível + `ScoreBonus`/HP/MP por nível, **MORTAL solo**, da captura do agente;
+ao matar: `killer.Exp += ExpApply`, level-up incrementa Level/MaxHP/MaxMP + cura full + pontos de
+atributo, manda `MSG_UpdateScore` + efeito `MSG_Motion(14,3)`; exp/level/MaxHP/MaxMP persistem no DB;
+exp entregue via `MSG_Attack.CurrentExp` no eco do ataque ao próprio atacante), **IA de mob iteração 1**
+(tick periódico `world/tick.go` + `handler/mobai.go`: monstro agro por proximidade/retaliação, persegue
+e ataca o player corpo-a-corpo — ver a seção do roadmap p/ detalhes e o que falta), **morte/respawn do
+player** (`_MSG_Restart` 0x0289: reviver HP=2 + recall à última cidade + refresh; sem penalidade de exp).
+
+Expiração de item: server-side via `item.expires_at` (coluna TIMESTAMPTZ, migração 0003 + campo
+proto `expires_at`); setada na entrega do Perzen (now+30d) e checada no login (`dropExpired` remove
+vencidos de equip/carry). O cliente mostra "(30dias)" pelo nome do item.
+
+Atributos (CurrentScore) — **separação Base↔Current FEITA** (`handler/item.go`). Modelo: a `Entity`
+guarda `Base*` (score sem equipamento) e o live `Str/AC/Damage/MaxHP/MaxMP` (= base + equip). No login
+`deriveBaseScore` deriva `base = current(carregado) − equipBonus`; ao equipar/desequipar (`refreshEquip`
+→ `refreshScore`) e ao gastar ponto (`applyBonus` agora soma no `Base*`) recalcula `current = base +
+equipBonus` (clampa HP/MP). `equipBonus` soma os efeitos-base do catálogo (`ItemList.BaseEffects`:
+EF_AC/STR/INT/DEX/CON/HP/MP) + os refinos da instância — **agora AC/atributos/HP/MP de toda peça contam**,
+no display E no combate (combat lê `e.AC`/`e.Damage` que já são current). **Sem double-count**: o valor
+carregado vira o baseline (base = carregado − equip), então o delta de trocar item é exatamente o efeito
+do item; persiste só o CurrentScore (a base é re-derivada a cada login, sem mudança de schema). **Dano
+de arma** continua à parte (`weaponDamage`, EF_DAMAGE das slots 6/7, regra `max+min/2`) — é campo
+separado no original, somado no hit; `computeScore`/combat somam por cima de `e.Damage` (EF_DAMAGE de
+arma é EXCLUÍDO do `equipBonus` p/ não duplicar). `EncodeUpdateScore` no login/equip/applyBonus.
+**UNVERIFIED/falta:** o `BASE_GetCurrentScore` exato (multiplicadores de classe, EF_ACADD/HPADD/MPADD,
+caps de resist, almas) não está no Source → o baseline absoluto é o valor carregado, mas o **delta** por
+equip é correto. Tiers/ADD-variants ficam p/ captura do agente.
+
+**Requisitos de equip FEITO** (`meetsEquipReq`): `ItemList.Requirements()` parseia a 4ª coluna do CSV
+`ReqLvl.ReqStr.ReqInt.ReqDex.ReqCon` (ordem = STRUCT_ITEMLIST, confirmada pelas armas: machados/espadas
+põem o req de STR na 2ª posição; pos1 capa em 399 = nível). Equipar (useItem + tradingItem) checa
+`e.Level/Str/Int/Dex/Con` (current) ≥ req; se não bate, `NoticeReqNotMet` e não equipa. Item sem entrada
+no catálogo passa livre. (Validação de SLOT correto por `nPos` ainda não checada.)
+
+### Bugs abertos conhecidos (rastreador: `docs/migration/ingame-bugs.md`)
+- **B6** (P2): posição exata não persiste — `LoadCharacter` volta 0,0 e usamos o spawn do template;
+  falta adicionar campos de posição ao proto `CharacterState` + dbServer salvar/carregar `SaveX/SaveY`
+  (regerar proto). NÃO precisa do agente Windows.
+- **B1** (P0, parcial): falta enviar `CreateMob`/`RemoveMob` quando players **cruzam a visão andando**
+  (hoje só na entrada no mundo) + **equip visual** dos players (`BASE_VisualItemCode` — aparecem sem
+  equipamento).
+- **B5** (P3): level mostra +1 na seleção (provável quirk 1-indexado do cliente; confirmar campo/offset).
+
+### IA / movimento / combate de mob (frente grande — iteração 1 FEITA)
+O loop é event-driven; o **tick de IA** agora existe (`world/tick.go`: `SetTickHandler`+`runTicker`
+emite `tickEvent` a cada `DefaultMobTick`=1s; o ticker **não muta estado**, só enfileira um evento que
+`apply` roda **dentro** do loop — invariante de goroutine única preservado). A IA vive em
+`handler/mobai.go` (`Dispatcher.Tick`): cada monstro (Merchant==0) vivo **agro por proximidade**
+(`FindPlayerNear`, caixa Chebyshev 4) ou **retaliação** (ser atacado seta `mob.Target`+`MobCombat` no
+handler de ataque), **persegue** 1 tile/tick (`SetEntityPos`+broadcast `MSG_Action`) e **ataca** corpo-a-corpo
+na cadência (`combat.ResolveHit` `TargetIsPlayer`, broadcast `MSG_Action`/`MSG_Attack`); hesitação por
+Int (BattleProcessor). Lógica fiel ao `CMob.cpp` (StandingBy/BattleProcessor/GetEnemyFromView), mas o
+**loop orquestrador original NÃO está na fonte** → cadência/return-codes UNVERIFIED.
+- **Cidade = safe zone + regen** (fix do "morre logo após respawn"): mob NÃO agro/ataca player dentro de
+  um retângulo de cidade (`world.Village>=0` — checado no agro e no `validTarget`, então o mob também
+  larga o alvo se ele entra na cidade); e todo player vivo **regenera HP/MP** por tick (`regenPlayers`/
+  `regenStep` ≈5%+piso do max, manda `MSG_UpdateScore`; morto/HP=0 não regenera — precisa restart). Taxa
+  do `RegenMob` real não está na fonte (Server.cpp) → UNVERIFIED.
+- **Morte/respawn do player FEITO** (`handler/character.go` `restart`, `_MSG_Restart` 0x0289): mob leva
+  o HP a 0 → cliente mostra a morte (pela `Dam` letal do `MSG_Attack`) → player aperta restart → reviver
+  com **HP=2** + reset de crack-errors + **recall** à última cidade (`CitySpawn`+`doTeleport`) + refresh
+  (`MSG_UpdateScore`/`MSG_UpdateEtc`); na cidade ele fica seguro e a vida volta pelo regen. Fiel ao
+  `_MSG_Restart.cpp` (sem penalidade de exp). UNVERIFIED: `_MSG_SetHpMp` (0x0181, layout 129B desconhecido
+  → HP vai no UpdateScore); destinos per-clan (7/8) e o `DoRecall` exato → usamos o spawn da última cidade.
+- **Não loga morto** (`completeCharacterLogin`): como mob salva o player com HP=0 ao matá-lo, no login um
+  char com HP≤0 é revivido pra full (senão logava travado/morto — o regen exclui HP=0). Espelha o respawn
+  vivo. (Causa do bug "loga e morre/fica morto na cidade".)
+- **Falta (iteração 2+):** tabela de hostilidade por clan (hoje todo monstro agro qualquer player);
+  ataque ranged/`EF_RANGE`; pathfinding real (`BASE_GetRoute` — hoje passo Chebyshev simples);
+  roaming/segmentos/rotas (`RouteType`), summons; reveal ao cruzar visão andando (compartilha
+  com B1); respawn de mob (slot é liberado no kill, `SpawnMob` é init-only).
+- **Level-up** (da frente anterior) **Falta:** tiers ARCH/CELESTIAL (curva `g_pNextLevel_2`, quest-gates)
+  + AC++/skill/special bonus (Entity não modela base-score separado) + itens por nível (`DoItemLevel`)
+  + `MSG_CreateMob` p/ refletir novo nível/visual aos outros; EXP de party (divisores não confiáveis —
+  ver `captura-wyd-levelup.md`).
+
+### Frentes menores subsequentes
+- **Demais NPCs de quest/montaria** (mapa completo em `docs/migration/handlers/npc-map.md`): montarias
+  (Merchant 16 captura / 58 cura / 23 grifo / 101-110 unicórnio), class masters (Merchant 3/31), Perzen
+  grades 0-4 (cadeia de level); generalizar a troca **data-driven**; SendSay (diálogo do NPC, UNVERIFIED).
 - **NPCs de combinação/refino** (Odin/Lindy/Shany).
-- **IA/movimento/combate de mob** (NPCs hoje são estáticos).
 - Persistência de stats/skills mais completa; mais rotas de teleporte (campos/dungeons já parciais).
 
 Sempre: ler `docs/migration/` antes de mexer em wire/format/gameplay; comentar o **porquê** (paridade);
 testes table-driven `-race`; o snapshot/golden de protocolo são os testes críticos de paridade.
+
+ler tambem o `development-guidelines/Go-development-guidelines.md` para entender o padrao de desenvolvimento

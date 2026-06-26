@@ -82,9 +82,12 @@ func TestAttackTooFastDropped(t *testing.T) {
 	}
 }
 
-func TestAttackWhileDeadDropped(t *testing.T) {
+// TestDeadCharacterRevivedOnLogin: a character persisted at HP 0 (slain by a mob
+// before disconnecting, now that mobs can kill) must not enter the world dead —
+// login revives it to full HP so it can act normally instead of being stuck.
+func TestDeadCharacterRevivedOnLogin(t *testing.T) {
 	db := combatDB()
-	db.loadResult.HP = 0 // logs in dead
+	db.loadResult.HP = 0 // was saved dead
 	addr, stop, _ := startServerClock(t, db)
 	defer stop()
 	attacker := enterWorld(t, addr)
@@ -92,9 +95,9 @@ func TestAttackWhileDeadDropped(t *testing.T) {
 	target := enterWorld(t, addr)
 	defer target.Close()
 
-	// Dead + non-resurrect skill ⇒ AddCrackError(1,8), no broadcast.
+	// Revived → alive → the attack resolves and reaches the in-view target.
 	attackFrame(t, attacker, serverTime, 2, 0)
-	if ty, _, ok := readMaybe(t, target); ok {
-		t.Errorf("target received %#x; attack while dead should be dropped", ty)
+	if ty, _, ok := readMaybe(t, target); !ok || ty != protocol.MsgAttack {
+		t.Fatalf("revived attacker could not act: got %#x ok=%v, want MsgAttack", ty, ok)
 	}
 }

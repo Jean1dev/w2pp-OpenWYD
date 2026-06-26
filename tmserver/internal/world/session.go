@@ -67,19 +67,30 @@ type TradeState struct {
 // space. Phase 3 carries only the minimum; full STRUCT_MOB state arrives with
 // the handlers (Phase 4).
 type Entity struct {
-	ID       int
-	Mode     EntityMode
-	Name     string
-	X        int16
-	Y        int16
-	HP       int32
-	MaxHP    int32
-	Damage   int32 // CurrentScore.Damage (attacker output, combat §4.3)
-	AC       int32 // CurrentScore.Ac (defender mitigation)
-	Master   int   // weapon mastery (combat level)
-	Level    int32 // CurrentScore.Level (drop/exp curves)
-	Coin     int32 // carried gold
-	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
+	ID     int
+	Mode   EntityMode
+	Name   string
+	X      int16
+	Y      int16
+	HP     int32
+	MaxHP  int32
+	MP     int32 // current mana (status display)
+	MaxMP  int32
+	Damage int32 // CurrentScore.Damage (attacker output, combat §4.3)
+	AC     int32 // CurrentScore.Ac (defender mitigation)
+	Master int   // weapon mastery (combat level)
+	Level  int32 // CurrentScore.Level (drop/exp curves)
+	Exp    int64 // STRUCT_MOB.Exp: players accumulate it; for a mob it's the kill reward
+	Coin   int32 // carried gold
+
+	// Mob AI (mobai.go; only meaningful for monsters). Target is the current
+	// combat target's conn (0 = none); AtkTick is the mob's last-attack server
+	// time (cadence); SpawnX/SpawnY is the leash origin it returns toward.
+	Target         int
+	AtkTick        uint32
+	SpawnX, SpawnY int16
+	Merchant       uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
+	Grade          uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
 	Class       uint8  // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
 	LastCity    int16  // last city visited (0..3); login spawn = its default area
@@ -88,11 +99,20 @@ type Entity struct {
 	GuildLevel  uint8  // 0 = member … 9 = leader
 	ClassMaster uint8  // party tier (MobExtra.ClassMaster)
 
-	Str        int16 // CurrentScore attributes
+	Str        int16 // CurrentScore attributes (base + equipment, kept live by refreshScore)
 	Int        int16
 	Dex        int16
 	Con        int16
 	ScoreBonus uint16 // free attribute points
+
+	// BaseScore: the equipment-free score (allocated attributes + level/class-derived
+	// AC/Damage/MaxHP/MaxMP). CurrentScore (the live fields above + AC/Damage/MaxHP/
+	// MaxMP) = BaseScore + equipment, recomputed by handler.refreshScore whenever gear
+	// or attributes change. Derived once on login (current − equipment) and not
+	// persisted (it is re-derived from the persisted CurrentScore each login).
+	BaseStr, BaseInt, BaseDex, BaseCon int16
+	BaseAC, BaseDamage                 int32
+	BaseMaxHP, BaseMaxMP               int32
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 

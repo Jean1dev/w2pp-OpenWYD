@@ -2,6 +2,7 @@ package content
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -71,6 +72,44 @@ func TestLoadItemList(t *testing.T) {
 	}
 	if l.Len() < 1000 {
 		t.Errorf("item count = %d, want >= 1000", l.Len())
+	}
+}
+
+func TestBaseEffects(t *testing.T) {
+	// A boot row (real format) carrying EF_AC and EF_DAMAGE among ignored effects.
+	const row = "168,Botas_de_Guarda(Az),17.0,0.0.0.0.0,0,0,32,0,0," +
+		"EF_CLASS,1,EF_GRID,0,EF_AC,96,EF_RUNSPEED,2,EF_REGENMP,40,EF_DAMAGE,24,EF_ITEMLEVEL,5"
+	l, err := parseItemList(strings.NewReader(row))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eff := l.BaseEffects()[168]
+	got := map[uint8]int16{}
+	for _, e := range eff {
+		got[e.Eff] = e.Val
+	}
+	// Only score-relevant effects are kept: EF_AC=3 →96, EF_DAMAGE=2 →24. The rest
+	// (EF_CLASS/EF_GRID/EF_RUNSPEED/EF_REGENMP/EF_ITEMLEVEL) are ignored.
+	if len(got) != 2 || got[3] != 96 || got[2] != 24 {
+		t.Errorf("BaseEffects = %v, want {AC(3):96, DAMAGE(2):24}", got)
+	}
+}
+
+func TestRequirements(t *testing.T) {
+	// A sword needing level 100 + STR 50 (col 4 = ReqLvl.Str.Int.Dex.Con); plus a
+	// no-requirement item that must be omitted.
+	const rows = "900,Espada,0.0,100.50.0.0.0,0,0,0,0,0,EF_DAMAGE,80\n" +
+		"901,Adaga,0.0,0.0.0.0.0,0,0,0,0,0,EF_DAMAGE,20"
+	l, err := parseItemList(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqs := l.Requirements()
+	if r := reqs[900]; r.Lvl != 100 || r.Str != 50 || r.Int != 0 {
+		t.Errorf("reqs[900] = %+v, want Lvl 100 Str 50", r)
+	}
+	if _, ok := reqs[901]; ok {
+		t.Errorf("no-requirement item 901 should be omitted, got %+v", reqs[901])
 	}
 }
 

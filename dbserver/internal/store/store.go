@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -106,13 +107,30 @@ func insertCharacter(ctx context.Context, tx pgx.Tx, accountID int64, ch domain.
 func insertItem(ctx context.Context, tx pgx.Tx, kind string, accountID, charID *int64, it domain.Item) error {
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO item
-			(owner_kind, account_id, character_id, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+			(owner_kind, account_id, character_id, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3, expires_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		kind, accountID, charID, it.Slot, it.Index,
-		it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3); err != nil {
+		it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3, expiryTime(it.ExpiresAt)); err != nil {
 		return fmt.Errorf("store: insert %s item slot %d: %w", kind, it.Slot, err)
 	}
 	return nil
+}
+
+// expiryTime maps a Unix-seconds expiry to a nullable timestamp (0 = permanent →
+// NULL), and back via expirySeconds on load.
+func expiryTime(unix int64) *time.Time {
+	if unix == 0 {
+		return nil
+	}
+	t := time.Unix(unix, 0).UTC()
+	return &t
+}
+
+func expirySeconds(t *time.Time) int64 {
+	if t == nil {
+		return 0
+	}
+	return t.Unix()
 }
 
 // byteArrToInt16 widens a byte slice to []int16 for a smallint[] column.

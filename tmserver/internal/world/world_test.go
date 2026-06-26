@@ -224,3 +224,76 @@ func (f *fakePersistence) SaveOnShutdown(context.Context, CharacterSave) error {
 	f.saved.Add(1)
 	return nil
 }
+
+// cargoCapture records the last SaveCargo it received (ReleaseCargo saves off the
+// loop in a goroutine, so access is mutex-guarded).
+type cargoCapture struct {
+	NopPersistence
+	mu    sync.Mutex
+	saves []CargoSave
+}
+
+func (c *cargoCapture) SaveCargo(_ context.Context, save CargoSave) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.saves = append(c.saves, save)
+	return nil
+}
+
+func (c *cargoCapture) last() (CargoSave, int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.saves) == 0 {
+		return CargoSave{}, 0
+	}
+	return c.saves[len(c.saves)-1], len(c.saves)
+}
+
+// TestCargoLifecycle covers the account-scoped warehouse store: install via
+// SetCargo, read via Cargo, snapshot via cargoSave, and persist+evict via
+// ReleaseCargo. These run on a non-started World (loop-only helpers touch only the
+// map and persistence port).
+func TestCargoLifecycle(t *testing.T) {
+	cap := &cargoCapture{}
+	w := New(Config{GridDim: 16}, slogDiscard(), cap, nil)
+
+	// Unknown account → nil; account 0 is never stored.
+	if w.Cargo(42) != nil || w.Cargo(0) != nil {
+		t.Fatalf("expected nil cargo before load")
+	}
+
+	st := &CargoState{Coin: 1000}
+	st.Items[3] = Item{Index: 1234, Effects: [3]Effect{{Effect: 9, Value: 1}}}
+	w.SetCargo(42, st)
+
+	got := w.Cargo(42)
+	if got == nil || got.AccountID != 42 || got.Coin != 1000 || got.Items[3].Index != 1234 {
+		t.Fatalf("Cargo after SetCargo: %+v", got)
+	}
+
+	// A handler mutation (deposit) is reflected because Cargo returns the pointer.
+	got.Coin += 500
+
+	snap := w.cargoSave(42)
+	if snap.AccountID != 42 || snap.Coin != 1500 || len(snap.Items) != 1 || snap.Items[0].Slot != 3 {
+		t.Fatalf("cargoSave snapshot: %+v", snap)
+	}
+
+	// ReleaseCargo persists then evicts; the save runs off-loop, drained by saveWG.
+	w.ReleaseCargo(42)
+	w.saveWG.Wait()
+	if w.Cargo(42) != nil {
+		t.Fatalf("cargo not evicted after ReleaseCargo")
+	}
+	last, n := cap.last()
+	if n != 1 || last.Coin != 1500 || last.AccountID != 42 {
+		t.Fatalf("ReleaseCargo did not persist latest state: %+v (n=%d)", last, n)
+	}
+
+	// Releasing an unknown account is a no-op (no extra save).
+	w.ReleaseCargo(42)
+	w.saveWG.Wait()
+	if _, n := cap.last(); n != 1 {
+		t.Fatalf("ReleaseCargo of evicted account saved again: n=%d", n)
+	}
+}

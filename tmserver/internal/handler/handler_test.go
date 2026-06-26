@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ type fakeAccount struct {
 	blocked        bool
 	alreadyPlaying bool
 	chars          []world.CharSummary
+	cargo          world.CargoState // account-shared warehouse loaded on login
 }
 
 type fakeDB struct {
@@ -31,6 +33,44 @@ type fakeDB struct {
 	loadResult world.CharacterState
 	loads      map[int64]world.CharacterState // per-account override (accountID → state)
 	loadErr    error
+
+	mu          sync.Mutex
+	savedChars  []world.CharacterSave // captured SaveOnShutdown calls
+	savedCargos []world.CargoSave     // captured SaveCargo calls
+}
+
+func (f *fakeDB) SaveOnShutdown(_ context.Context, save world.CharacterSave) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.savedChars = append(f.savedChars, save)
+	return nil
+}
+
+func (f *fakeDB) SaveCargo(_ context.Context, save world.CargoSave) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.savedCargos = append(f.savedCargos, save)
+	return nil
+}
+
+// lastSavedCargo returns the most recent SaveCargo snapshot (and how many landed).
+func (f *fakeDB) lastSavedCargo() (world.CargoSave, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.savedCargos) == 0 {
+		return world.CargoSave{}, 0
+	}
+	return f.savedCargos[len(f.savedCargos)-1], len(f.savedCargos)
+}
+
+// lastSavedChar returns the most recent SaveOnShutdown snapshot.
+func (f *fakeDB) lastSavedChar() (world.CharacterSave, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.savedChars) == 0 {
+		return world.CharacterSave{}, 0
+	}
+	return f.savedChars[len(f.savedChars)-1], len(f.savedChars)
 }
 
 func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.LoginOutcome, error) {
@@ -45,7 +85,9 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 	case a.pass != pass:
 		return world.LoginOutcome{Result: world.LoginBadPassword}, nil
 	default:
-		return world.LoginOutcome{Result: world.LoginOK, AccountID: a.id, Characters: a.chars}, nil
+		cargo := a.cargo
+		cargo.AccountID = a.id
+		return world.LoginOutcome{Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo}, nil
 	}
 }
 
@@ -172,7 +214,7 @@ func noticeCode(t *testing.T, payload []byte) Notice {
 
 func newDB() *fakeDB {
 	return &fakeDB{accounts: map[string]*fakeAccount{
-		"tester": {id: 7, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "Hero", Class: 1, Level: 50}}},
+		"tester": {id: 7, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "Hero", Class: 1, Level: 50, Coin: 987654, MaxHp: 1500, Str: 75}}},
 		"banned": {id: 8, pass: "x", blocked: true},
 		"online": {id: 9, pass: "x", alreadyPlaying: true},
 		"tradeb": {id: 11, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "HeroB", Class: 1, Level: 50}}},
@@ -200,6 +242,14 @@ func TestLoginOK(t *testing.T) {
 	}
 	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 50 {
 		t.Errorf("slot-0 level = %d, want 50", lvl)
+	}
+	// slot-0 gold is the real value, not a placeholder: Coin[0] at sel@20 + 792.
+	if coin := binary.LittleEndian.Uint32(payload[812:816]); coin != 987654 {
+		t.Errorf("slot-0 coin = %d, want 987654", coin)
+	}
+	// slot-0 MaxHp is the real value: Score[0].MaxHp at sel@20 + 80 + 16 = 116.
+	if hp := binary.LittleEndian.Uint32(payload[116:120]); hp != 1500 {
+		t.Errorf("slot-0 max_hp = %d, want 1500", hp)
 	}
 }
 
@@ -359,6 +409,7 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogin {
 		t.Fatalf("got %#x, want CNFCharacterLogin", ty)
 	}
+	drainLoginScore(t, c)
 
 	// Now in play → logout returns to selection.
 	send(t, c, protocol.MsgCharacterLogout, nil)

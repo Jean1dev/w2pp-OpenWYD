@@ -21,6 +21,14 @@ type fakeStore struct {
 	saveResult error
 	saveErr    error
 	savedChar  domain.Character
+
+	cargoCoin  map[int64]int32         // accountID -> stored gold
+	cargoItems map[int64][]domain.Item // accountID -> stored items
+	savedCargo struct {                // last SaveCargo args, for assertions
+		accountID int64
+		coin      int32
+		items     []domain.Item
+	}
 }
 
 func (f *fakeStore) AccountByName(_ context.Context, name string) (store.AccountAuth, error) {
@@ -74,6 +82,24 @@ func (f *fakeStore) SaveCharacter(_ context.Context, _ int64, ch domain.Characte
 	}
 	f.savedChar = ch
 	return f.saveResult
+}
+
+// LoadCargo returns the account-shared cargo. An account absent from byName/byID
+// is treated as missing (ErrNotFound), mirroring the live store keying on account.
+func (f *fakeStore) LoadCargo(_ context.Context, accountID int64) (int32, []domain.Item, error) {
+	if _, ok := f.cargoCoin[accountID]; !ok {
+		if _, known := f.byID[accountID]; !known {
+			return 0, nil, store.ErrNotFound
+		}
+	}
+	return f.cargoCoin[accountID], f.cargoItems[accountID], nil
+}
+
+func (f *fakeStore) SaveCargo(_ context.Context, accountID int64, coin int32, items []domain.Item) error {
+	f.savedCargo.accountID = accountID
+	f.savedCargo.coin = coin
+	f.savedCargo.items = items
+	return nil
 }
 
 func mustHash(t *testing.T, pw string) string {

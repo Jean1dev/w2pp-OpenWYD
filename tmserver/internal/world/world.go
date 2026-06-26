@@ -27,6 +27,7 @@ const (
 	MaxItem        = 5000 // ground items (pItem[])
 	MaxCarry       = 64   // inventory slots per entity (MAX_CARRY)
 	MaxEquip       = 16   // equipment slots (MAX_EQUIP)
+	MaxCargo       = 128  // account-shared warehouse slots (MAX_CARGO)
 	MaxParty       = 12   // party members (MAX_PARTY)
 	DefaultGridDim = 4096
 
@@ -115,9 +116,19 @@ type World struct {
 	grid     *Grid
 	rng      *rng.MSVC // loop-owned MSVC LCG (parity; like the original global rand())
 
+	// cargo is the account-shared warehouse, keyed by account id. It is loaded on
+	// account login and lives for the whole account session (it spans character
+	// select ↔ play), so it is keyed by account, not session/conn. Loop-owned.
+	cargo map[int64]*CargoState
+
 	events chan event
 	done   chan struct{}  // closed when the loop stops; unblocks conn goroutines
 	saveWG sync.WaitGroup // tracks in-flight async character saves (logout/disconnect)
+
+	// onTick is the periodic simulation hook (mob AI), run inside the loop; see
+	// tick.go. nil disables the ticker (e.g. in protocol/transport tests).
+	onTick       func(*World)
+	tickInterval time.Duration
 }
 
 // New creates a World with the given dependencies. A nil handler installs a
@@ -150,6 +161,7 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		sessions: make([]*Session, MaxUser),
 		entities: make([]*Entity, MaxMob),
 		ground:   make([]*GroundItem, MaxItem),
+		cargo:    make(map[int64]*CargoState),
 		grid:     newGrid(cfg.GridDim),
 		rng:      rng.New(),
 		events:   make(chan event, cfg.EventQueue),
@@ -161,6 +173,9 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 // is cancelled, then drains/saves active sessions and returns ctx.Err().
 func (w *World) Run(ctx context.Context) error {
 	w.log.Info("world loop started", "grid", w.cfg.GridDim)
+	if w.onTick != nil && w.tickInterval > 0 {
+		go w.runTicker(ctx)
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -188,6 +203,13 @@ func (w *World) shutdown() {
 			}
 		}
 		s.close()
+	}
+	// Persist any account warehouses still loaded (account-scoped, so saved once
+	// per account, independent of the per-session character saves above).
+	for accountID := range w.cargo {
+		if err := w.persist.SaveCargo(context.Background(), w.cargoSave(accountID)); err != nil {
+			w.log.Warn("save cargo on shutdown failed", "account", accountID, "err", err)
+		}
 	}
 	// Wait for in-flight disconnect/logout saves so a shutdown never loses one.
 	w.saveWG.Wait()
@@ -245,9 +267,10 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	}
 	cs.Clan, cs.GuildID = e.Clan, e.Guild
 	cs.LastCity = e.LastCity
-	cs.Level, cs.Coin = e.Level, e.Coin
+	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP
+	cs.MP, cs.MaxMP = e.MP, e.MaxMP
 	cs.Carry = savedItems(e.Carry[:])
 	cs.Equip = savedItems(e.Equip[:])
 	return cs
@@ -266,9 +289,85 @@ func savedItems(items []Item) []SavedItem {
 			Eff1:  it.Effects[0].Effect, EffV1: it.Effects[0].Value,
 			Eff2: it.Effects[1].Effect, EffV2: it.Effects[1].Value,
 			Eff3: it.Effects[2].Effect, EffV3: it.Effects[2].Value,
+			ExpiresAt: it.ExpiresAt,
 		})
 	}
 	return out
+}
+
+// Cargo returns the account's loaded warehouse, or nil if none is loaded (e.g.
+// the account is not logged in, or LoadCargo failed). Loop-only.
+func (w *World) Cargo(accountID int64) *CargoState {
+	if accountID == 0 {
+		return nil
+	}
+	return w.cargo[accountID]
+}
+
+// SetCargo installs an account's loaded warehouse in the store. Called from the
+// loop right after a successful account login. Loop-only.
+func (w *World) SetCargo(accountID int64, st *CargoState) {
+	if accountID == 0 || st == nil {
+		return
+	}
+	st.AccountID = accountID
+	w.cargo[accountID] = st
+}
+
+// cargoSave snapshots an account's warehouse into a CargoSave. Loop-only.
+func (w *World) cargoSave(accountID int64) CargoSave {
+	cs := CargoSave{AccountID: accountID}
+	if c := w.cargo[accountID]; c != nil {
+		cs.Coin = c.Coin
+		cs.Items = savedItems(c.Items[:])
+	}
+	return cs
+}
+
+// ReleaseCargo persists an account's warehouse and removes it from the store. It
+// is called when the account session ends (disconnect/logout) so the in-memory
+// vault does not leak and the latest deposits survive. The save runs off the loop
+// (tracked by saveWG, like SaveCharacterAsync) so a shutdown never loses it.
+// Loop-only (snapshots state before going async).
+func (w *World) ReleaseCargo(accountID int64) {
+	if accountID == 0 || w.cargo[accountID] == nil {
+		return
+	}
+	cs := w.cargoSave(accountID)
+	delete(w.cargo, accountID)
+	w.saveWG.Add(1)
+	go func() {
+		defer w.saveWG.Done()
+		if err := w.persist.SaveCargo(context.Background(), cs); err != nil {
+			w.log.Warn("save cargo failed", "account", cs.AccountID, "err", err)
+		}
+	}()
+}
+
+// SaveCargoThen persists the account cargo WITHOUT evicting it (the account
+// session continues, e.g. returning to character selection) and runs then back in
+// the loop after the save commits. This is the anti-dup boundary for character
+// switches: deposits/withdrawals move items between a character's carry and the
+// shared cargo, so the cargo must be persisted alongside the character save —
+// otherwise an item withdrawn into the carry is saved on the character row while
+// the stale account_cargo row still holds it, duplicating it on the next load.
+// then always runs, even when there is no cargo to save. Loop-only.
+func (w *World) SaveCargoThen(s *Session, then func(*World, *Session)) {
+	if s == nil || s.AccountID == 0 || w.cargo[s.AccountID] == nil {
+		then(w, s)
+		return
+	}
+	cs := w.cargoSave(s.AccountID)
+	p := w.persist
+	w.Go(s, func() func(*World, *Session) {
+		err := p.SaveCargo(context.Background(), cs)
+		return func(w *World, s *Session) {
+			if err != nil {
+				w.log.Warn("save cargo failed", "account", cs.AccountID, "err", err)
+			}
+			then(w, s)
+		}
+	})
 }
 
 // send queues an outbound message to the session's writer goroutine. It never

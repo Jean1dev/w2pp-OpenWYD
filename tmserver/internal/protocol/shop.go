@@ -9,6 +9,7 @@ package protocol
 const (
 	maxShopList    = 27
 	shopListSize   = 236
+	structMobEquip = 140 // Equip[16] offset within STRUCT_MOB
 	structMobCarry = 268 // Carry[64] offset within STRUCT_MOB
 )
 
@@ -35,7 +36,7 @@ func ShopSlot(i int) int { return (i % 9) + (i/9)*maxShopList }
 func EncodeShopListBody(shopType int32, list [maxShopList]SelItem, tax int32) []byte {
 	b := make([]byte, shopListSize-HeaderSize) // 224
 	le.PutUint32(b[0:], uint32(shopType))      // ShopType @abs12 → body0
-	for i := 0; i < maxShopList; i++ {          // List[27] @abs16 → body4 (8B each)
+	for i := 0; i < maxShopList; i++ {         // List[27] @abs16 → body4 (8B each)
 		writeSelItem(b[4+i*8:], list[i])
 	}
 	le.PutUint32(b[220:], uint32(tax)) // Tax @abs232 → body220
@@ -53,7 +54,7 @@ const (
 // on the client. invType = ITEM_PLACE_*, slot = index, item = the STRUCT_ITEM
 // (sIndex 0 clears the slot). Send with HEADER.ID = conn.
 func EncodeSendItemBody(invType, slot int, item SelItem) []byte {
-	b := make([]byte, 24-HeaderSize) // 12
+	b := make([]byte, 24-HeaderSize)     // 12
 	le.PutUint16(b[0:], uint16(invType)) // invType @abs12 → body0
 	le.PutUint16(b[2:], uint16(slot))    // Slot @abs14 → body2
 	writeSelItem(b[4:], item)            // item @abs16 → body4 (8B)

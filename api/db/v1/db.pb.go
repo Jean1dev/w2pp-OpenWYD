@@ -244,13 +244,23 @@ func (x *ListCharactersRequest) GetAccountId() int64 {
 }
 
 type CharacterSummary struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Class         int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
-	Level         int32                  `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
-	Exp           int64                  `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
-	GuildId       uint32                 `protobuf:"varint,6,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Slot    int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	Name    string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Class   int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
+	Level   int32                  `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
+	Exp     int64                  `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
+	GuildId uint32                 `protobuf:"varint,6,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	// Score preview shown on the character-selection screen (STRUCT_SELCHAR).
+	Coin          int32 `protobuf:"varint,7,opt,name=coin,proto3" json:"coin,omitempty"`
+	MaxHp         int32 `protobuf:"varint,8,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
+	Hp            int32 `protobuf:"varint,9,opt,name=hp,proto3" json:"hp,omitempty"`
+	MaxMp         int32 `protobuf:"varint,10,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
+	Mp            int32 `protobuf:"varint,11,opt,name=mp,proto3" json:"mp,omitempty"`
+	Str           int32 `protobuf:"varint,12,opt,name=str,proto3" json:"str,omitempty"`
+	Int           int32 `protobuf:"varint,13,opt,name=int,proto3" json:"int,omitempty"`
+	Dex           int32 `protobuf:"varint,14,opt,name=dex,proto3" json:"dex,omitempty"`
+	Con           int32 `protobuf:"varint,15,opt,name=con,proto3" json:"con,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -323,6 +333,69 @@ func (x *CharacterSummary) GetExp() int64 {
 func (x *CharacterSummary) GetGuildId() uint32 {
 	if x != nil {
 		return x.GuildId
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetCoin() int32 {
+	if x != nil {
+		return x.Coin
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetMaxHp() int32 {
+	if x != nil {
+		return x.MaxHp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetHp() int32 {
+	if x != nil {
+		return x.Hp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetMaxMp() int32 {
+	if x != nil {
+		return x.MaxMp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetMp() int32 {
+	if x != nil {
+		return x.Mp
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetStr() int32 {
+	if x != nil {
+		return x.Str
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetInt() int32 {
+	if x != nil {
+		return x.Int
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetDex() int32 {
+	if x != nil {
+		return x.Dex
+	}
+	return 0
+}
+
+func (x *CharacterSummary) GetCon() int32 {
+	if x != nil {
+		return x.Con
 	}
 	return 0
 }
@@ -622,15 +695,18 @@ func (x *Character) GetLastCity() int32 {
 }
 
 type Item struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	Index         int32                  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
-	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
-	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
-	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
-	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
-	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
-	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Slot  int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	Index int32                  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
+	Eff1  int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1 int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2  int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2 int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3  int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3 int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	// Unix-seconds expiry for timed items (0 = permanent). Set on grant (e.g. the
+	// 30-day Perzen mount); the world drops the item once it passes.
+	ExpiresAt     int64 `protobuf:"varint,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -717,6 +793,13 @@ func (x *Item) GetEff3() int32 {
 func (x *Item) GetEffv3() int32 {
 	if x != nil {
 		return x.Effv3
+	}
+	return 0
+}
+
+func (x *Item) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
 	}
 	return 0
 }
@@ -1153,6 +1236,209 @@ func (x *DeleteCharacterResponse) GetOk() bool {
 	return false
 }
 
+// Cargo is the account-shared warehouse (domain.Account.CargoCoin + Cargo). It is
+// keyed by account_id (NOT character) because all of an account's characters
+// deposit into and withdraw from the same vault. Empty item slots are omitted.
+type LoadCargoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadCargoRequest) Reset() {
+	*x = LoadCargoRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadCargoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadCargoRequest) ProtoMessage() {}
+
+func (x *LoadCargoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadCargoRequest.ProtoReflect.Descriptor instead.
+func (*LoadCargoRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *LoadCargoRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+type LoadCargoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CargoCoin     int32                  `protobuf:"varint,1,opt,name=cargo_coin,json=cargoCoin,proto3" json:"cargo_coin,omitempty"`
+	Items         []*Item                `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadCargoResponse) Reset() {
+	*x = LoadCargoResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadCargoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadCargoResponse) ProtoMessage() {}
+
+func (x *LoadCargoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadCargoResponse.ProtoReflect.Descriptor instead.
+func (*LoadCargoResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *LoadCargoResponse) GetCargoCoin() int32 {
+	if x != nil {
+		return x.CargoCoin
+	}
+	return 0
+}
+
+func (x *LoadCargoResponse) GetItems() []*Item {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type SaveCargoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	CargoCoin     int32                  `protobuf:"varint,2,opt,name=cargo_coin,json=cargoCoin,proto3" json:"cargo_coin,omitempty"`
+	Items         []*Item                `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveCargoRequest) Reset() {
+	*x = SaveCargoRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveCargoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveCargoRequest) ProtoMessage() {}
+
+func (x *SaveCargoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveCargoRequest.ProtoReflect.Descriptor instead.
+func (*SaveCargoRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SaveCargoRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *SaveCargoRequest) GetCargoCoin() int32 {
+	if x != nil {
+		return x.CargoCoin
+	}
+	return 0
+}
+
+func (x *SaveCargoRequest) GetItems() []*Item {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type SaveCargoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveCargoResponse) Reset() {
+	*x = SaveCargoResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveCargoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveCargoResponse) ProtoMessage() {}
+
+func (x *SaveCargoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveCargoResponse.ProtoReflect.Descriptor instead.
+func (*SaveCargoResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *SaveCargoResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
 var File_api_db_v1_db_proto protoreflect.FileDescriptor
 
 const file_api_db_v1_db_proto_rawDesc = "" +
@@ -1168,14 +1454,24 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"account_id\x18\x02 \x01(\x03R\taccountId\"6\n" +
 	"\x15ListCharactersRequest\x12\x1d\n" +
 	"\n" +
-	"account_id\x18\x01 \x01(\x03R\taccountId\"\x93\x01\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\"\xbd\x02\n" +
 	"\x10CharacterSummary\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05class\x18\x03 \x01(\x05R\x05class\x12\x14\n" +
 	"\x05level\x18\x04 \x01(\x05R\x05level\x12\x10\n" +
 	"\x03exp\x18\x05 \x01(\x03R\x03exp\x12\x19\n" +
-	"\bguild_id\x18\x06 \x01(\rR\aguildId\"Q\n" +
+	"\bguild_id\x18\x06 \x01(\rR\aguildId\x12\x12\n" +
+	"\x04coin\x18\a \x01(\x05R\x04coin\x12\x15\n" +
+	"\x06max_hp\x18\b \x01(\x05R\x05maxHp\x12\x0e\n" +
+	"\x02hp\x18\t \x01(\x05R\x02hp\x12\x15\n" +
+	"\x06max_mp\x18\n" +
+	" \x01(\x05R\x05maxMp\x12\x0e\n" +
+	"\x02mp\x18\v \x01(\x05R\x02mp\x12\x10\n" +
+	"\x03str\x18\f \x01(\x05R\x03str\x12\x10\n" +
+	"\x03int\x18\r \x01(\x05R\x03int\x12\x10\n" +
+	"\x03dex\x18\x0e \x01(\x05R\x03dex\x12\x10\n" +
+	"\x03con\x18\x0f \x01(\x05R\x03con\"Q\n" +
 	"\x16ListCharactersResponse\x127\n" +
 	"\n" +
 	"characters\x18\x01 \x03(\v2\x17.db.v1.CharacterSummaryR\n" +
@@ -1205,7 +1501,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x05equip\x18\x11 \x03(\v2\v.db.v1.ItemR\x05equip\x12!\n" +
 	"\x05carry\x18\x12 \x03(\v2\v.db.v1.ItemR\x05carry\x12'\n" +
 	"\aaffects\x18\x13 \x03(\v2\r.db.v1.AffectR\aaffects\x12\x1b\n" +
-	"\tlast_city\x18\x14 \x01(\x05R\blastCity\"\xae\x01\n" +
+	"\tlast_city\x18\x14 \x01(\x05R\blastCity\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
@@ -1214,7 +1510,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
 	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
 	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
-	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\\\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\t \x01(\x03R\texpiresAt\"\\\n" +
 	"\x06Affect\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x05R\x04type\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x05R\x05value\x12\x14\n" +
@@ -1243,6 +1541,21 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04slot\x18\x02 \x01(\x05R\x04slot\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\")\n" +
 	"\x17DeleteCharacterResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"1\n" +
+	"\x10LoadCargoRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\"U\n" +
+	"\x11LoadCargoResponse\x12\x1d\n" +
+	"\n" +
+	"cargo_coin\x18\x01 \x01(\x05R\tcargoCoin\x12!\n" +
+	"\x05items\x18\x02 \x03(\v2\v.db.v1.ItemR\x05items\"s\n" +
+	"\x10SaveCargoRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x1d\n" +
+	"\n" +
+	"cargo_coin\x18\x02 \x01(\x05R\tcargoCoin\x12!\n" +
+	"\x05items\x18\x03 \x03(\v2\v.db.v1.ItemR\x05items\"#\n" +
+	"\x11SaveCargoResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
@@ -1250,14 +1563,16 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x17LOGIN_RESULT_NO_ACCOUNT\x10\x02\x12\x1d\n" +
 	"\x19LOGIN_RESULT_BAD_PASSWORD\x10\x03\x12\x18\n" +
 	"\x14LOGIN_RESULT_BLOCKED\x10\x04\x12 \n" +
-	"\x1cLOGIN_RESULT_ALREADY_PLAYING\x10\x052\xe4\x03\n" +
+	"\x1cLOGIN_RESULT_ALREADY_PLAYING\x10\x052\xe4\x04\n" +
 	"\x0eAccountService\x12G\n" +
 	"\fAccountLogin\x12\x1a.db.v1.AccountLoginRequest\x1a\x1b.db.v1.AccountLoginResponse\x12M\n" +
 	"\x0eListCharacters\x12\x1c.db.v1.ListCharactersRequest\x1a\x1d.db.v1.ListCharactersResponse\x12J\n" +
 	"\rLoadCharacter\x12\x1b.db.v1.LoadCharacterRequest\x1a\x1c.db.v1.LoadCharacterResponse\x12J\n" +
 	"\rSaveCharacter\x12\x1b.db.v1.SaveCharacterRequest\x1a\x1c.db.v1.SaveCharacterResponse\x12P\n" +
 	"\x0fCreateCharacter\x12\x1d.db.v1.CreateCharacterRequest\x1a\x1e.db.v1.CreateCharacterResponse\x12P\n" +
-	"\x0fDeleteCharacter\x12\x1d.db.v1.DeleteCharacterRequest\x1a\x1e.db.v1.DeleteCharacterResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
+	"\x0fDeleteCharacter\x12\x1d.db.v1.DeleteCharacterRequest\x1a\x1e.db.v1.DeleteCharacterResponse\x12>\n" +
+	"\tLoadCargo\x12\x17.db.v1.LoadCargoRequest\x1a\x18.db.v1.LoadCargoResponse\x12>\n" +
+	"\tSaveCargo\x12\x17.db.v1.SaveCargoRequest\x1a\x18.db.v1.SaveCargoResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
 
 var (
 	file_api_db_v1_db_proto_rawDescOnce sync.Once
@@ -1272,7 +1587,7 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 }
 
 var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_api_db_v1_db_proto_goTypes = []any{
 	(LoginResult)(0),                // 0: db.v1.LoginResult
 	(*AccountLoginRequest)(nil),     // 1: db.v1.AccountLoginRequest
@@ -1291,6 +1606,10 @@ var file_api_db_v1_db_proto_goTypes = []any{
 	(*CreateCharacterResponse)(nil), // 14: db.v1.CreateCharacterResponse
 	(*DeleteCharacterRequest)(nil),  // 15: db.v1.DeleteCharacterRequest
 	(*DeleteCharacterResponse)(nil), // 16: db.v1.DeleteCharacterResponse
+	(*LoadCargoRequest)(nil),        // 17: db.v1.LoadCargoRequest
+	(*LoadCargoResponse)(nil),       // 18: db.v1.LoadCargoResponse
+	(*SaveCargoRequest)(nil),        // 19: db.v1.SaveCargoRequest
+	(*SaveCargoResponse)(nil),       // 20: db.v1.SaveCargoResponse
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
@@ -1300,23 +1619,29 @@ var file_api_db_v1_db_proto_depIdxs = []int32{
 	9,  // 4: db.v1.Character.affects:type_name -> db.v1.Affect
 	7,  // 5: db.v1.LoadCharacterResponse.character:type_name -> db.v1.Character
 	7,  // 6: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
-	1,  // 7: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	3,  // 8: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	6,  // 9: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	11, // 10: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	13, // 11: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	15, // 12: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	2,  // 13: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	5,  // 14: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	10, // 15: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	12, // 16: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	14, // 17: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	16, // 18: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	13, // [13:19] is the sub-list for method output_type
-	7,  // [7:13] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	8,  // 7: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
+	8,  // 8: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
+	1,  // 9: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	3,  // 10: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	6,  // 11: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	11, // 12: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	13, // 13: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	15, // 14: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	17, // 15: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	19, // 16: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	2,  // 17: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	5,  // 18: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	10, // 19: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	12, // 20: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	14, // 21: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	16, // 22: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	18, // 23: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	20, // 24: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	17, // [17:25] is the sub-list for method output_type
+	9,  // [9:17] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }
@@ -1330,7 +1655,7 @@ func file_api_db_v1_db_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

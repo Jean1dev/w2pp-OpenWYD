@@ -17,6 +17,10 @@ import (
 // placeholder to be confirmed by capture.
 const ViewRange = 18
 
+// efGrade0 is the EF_GRADE0 item-effect type. On a quest NPC's Equip[0] it carries
+// the NPC sub-type used to dispatch _MSG_Quest (Basedef.h item effects).
+const efGrade0 = 100
+
 // Send queues an "about you" S→C message: HEADER.ID is set to the session's own
 // conn and ClientTick is filled in.
 func (w *World) Send(s *Session, t protocol.Type, payload []byte) {
@@ -73,12 +77,19 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	b := protocol.ParseMobBasics(template)
 	e := &Entity{
 		ID: id, Mode: MobIdle, Name: b.Name, Class: b.Class, Merchant: b.Merchant,
-		X: x, Y: y, Level: b.Level, AC: b.Ac, Damage: b.Damage,
+		X: x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
 	}
 	eq := protocol.MobEquip(template)
 	for i := range eq {
 		e.EquipVisual[i] = eq[i].Index
+	}
+	// The quest-NPC sub-type (Merchant==100) is the EF_GRADE0 (effect 100) of the
+	// NPC's Equip[0] — e.g. Perzen grades 7/8/9 (handlers/_MSG_Quest-npcs.md).
+	for _, ef := range eq[0].Eff {
+		if ef[0] == efGrade0 {
+			e.Grade = ef[1]
+		}
 	}
 	// For a merchant NPC, Carry[] is its shop stock (sent in MSG_ShopList).
 	carry := protocol.MobCarry(template)
@@ -95,6 +106,30 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	w.entities[id] = e
 	w.grid.SetMob(int(x), int(y), uint16(id))
 	return id
+}
+
+// DespawnMob removes a mob/NPC from the world after it dies (or otherwise leaves):
+// it tells in-view players to drop the entity (MSG_RemoveMob; removeType 1 = death,
+// 0 = out-of-view), clears its grid cell and frees the entity slot. Loop-only.
+//
+// The broadcast runs BEFORE the slot is freed so the in-view scan can still read
+// the mob's position. It is a no-op for player ids and empty slots. Player despawn
+// (logout) has its own path in removeSession; this is for the [MaxUser,MaxMob)
+// range. NOTE: runtime respawn does not exist yet, so the freed slot is not reused
+// — once it is, recipients' `seen` sets will need the id cleared here too.
+func (w *World) DespawnMob(id int, removeType int32) {
+	e := w.Entity(id)
+	if e == nil || IsPlayer(id) {
+		return
+	}
+	body := protocol.EncodeRemoveMobBody(removeType)
+	w.ForEachInView(id, func(vs *Session, _ *Entity) {
+		w.enqueue(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, body)
+	})
+	if cur, ok := w.grid.MobAt(int(e.X), int(e.Y)); ok && int(cur) == id {
+		w.grid.ClearMob(int(e.X), int(e.Y))
+	}
+	w.entities[id] = nil
 }
 
 // ClearSeen resets a session's view set (e.g. on entering the world), so all

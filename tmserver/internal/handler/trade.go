@@ -10,32 +10,6 @@ import (
 // maxTradeSlot bounds an offered InvenPos: [0, MAX_CARRY-4) (lote2-trade-autotrade.md).
 const maxTradeSlot = world.MaxCarry - 4
 
-// tradingItem handles _MSG_TradingItem (0x0376): open/refresh the P2P trade
-// window with the opponent (WarpID). Any change resets both confirmations.
-func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
-	e := w.Entity(s.Conn)
-	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
-		return
-	}
-	var body protocol.MsgTradingItemBody
-	if err := body.Decode(payload); err != nil {
-		return
-	}
-	opp := int(body.WarpID)
-	other := w.Session(opp)
-	if opp <= 0 || opp >= world.MaxUser || other == nil || other.Mode != world.UserPlay {
-		return
-	}
-	s.Trade.Active = true
-	s.Trade.OpponentID = opp
-	s.Trade.Confirmed = false
-	if other.Trade.OpponentID == s.Conn {
-		other.Trade.Confirmed = false
-	}
-	// Show the offer to the opponent (HEADER.ID = offerer).
-	w.SendTo(other, protocol.Header{Type: protocol.MsgTradingItem, ID: uint16(s.Conn)}, payload)
-}
-
 // trade handles _MSG_Trade (0x0383): validate the offer and confirm; when BOTH
 // sides have confirmed a matching trade, perform the atomic swap. Any validation
 // failure cancels the trade on both sides (anti-dup). The offer is checked by

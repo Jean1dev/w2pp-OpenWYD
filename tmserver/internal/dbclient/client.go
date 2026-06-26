@@ -50,6 +50,12 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 	if err != nil {
 		return world.LoginOutcome{}, err
 	}
+	// Load the account-shared cargo in the same off-loop round-trip as the
+	// character list — it is account-scoped, so it is fetched once per login.
+	out.Cargo, err = c.LoadCargo(ctx, out.AccountID)
+	if err != nil {
+		return world.LoginOutcome{}, err
+	}
 	return out, nil
 }
 
@@ -68,6 +74,15 @@ func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.C
 			Level:   int(ch.GetLevel()),
 			Exp:     ch.GetExp(),
 			GuildID: uint16(ch.GetGuildId()),
+			Coin:    ch.GetCoin(),
+			MaxHp:   ch.GetMaxHp(),
+			Hp:      ch.GetHp(),
+			MaxMp:   ch.GetMaxMp(),
+			Mp:      ch.GetMp(),
+			Str:     int16(ch.GetStr()),
+			Int:     int16(ch.GetInt()),
+			Dex:     int16(ch.GetDex()),
+			Con:     int16(ch.GetCon()),
 		})
 	}
 	return out, nil
@@ -124,6 +139,44 @@ func (c *Client) SaveOnShutdown(ctx context.Context, save world.CharacterSave) e
 	return nil
 }
 
+// LoadCargo loads the account-shared warehouse (gold + items) for world
+// injection. Items are placed positionally into the fixed Cargo array.
+func (c *Client) LoadCargo(ctx context.Context, accountID int64) (world.CargoState, error) {
+	resp, err := c.api.LoadCargo(ctx, &dbv1.LoadCargoRequest{AccountId: accountID})
+	if err != nil {
+		return world.CargoState{}, fmt.Errorf("dbclient: load cargo: %w", err)
+	}
+	st := world.CargoState{AccountID: accountID, Coin: resp.GetCargoCoin()}
+	for _, it := range resp.GetItems() {
+		slot := int(it.GetSlot())
+		if slot < 0 || slot >= world.MaxCargo {
+			continue
+		}
+		st.Items[slot] = world.Item{
+			Index: int16(it.GetIndex()),
+			Effects: [3]world.Effect{
+				{Effect: uint8(it.GetEff1()), Value: uint8(it.GetEffv1())},
+				{Effect: uint8(it.GetEff2()), Value: uint8(it.GetEffv2())},
+				{Effect: uint8(it.GetEff3()), Value: uint8(it.GetEffv3())},
+			},
+		}
+	}
+	return st, nil
+}
+
+// SaveCargo persists the account-shared warehouse (replace-all on the dbServer).
+func (c *Client) SaveCargo(ctx context.Context, save world.CargoSave) error {
+	_, err := c.api.SaveCargo(ctx, &dbv1.SaveCargoRequest{
+		AccountId: save.AccountID,
+		CargoCoin: save.Coin,
+		Items:     savedItemsToProto(save.Items),
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: save cargo: %w", err)
+	}
+	return nil
+}
+
 func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 	switch r {
 	case dbv1.LoginResult_LOGIN_RESULT_OK:
@@ -147,54 +200,70 @@ func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 // (PROGRESS Fase 4). Position especially must be resolved before live play.
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
-		Slot:    int(c.GetSlot()),
-		Name:    c.GetName(),
-		Class:   int(c.GetClass()),
-		Level:   int(c.GetLevel()),
-		Exp:     c.GetExp(),
-		HP:      c.GetHp(),
-		MaxHP:   c.GetMaxHp(),
-		MP:      c.GetMp(),
-		MaxMP:   c.GetMaxMp(),
-		Coin:    c.GetCoin(),
-		Clan:    uint8(c.GetClan()),
-		GuildID: uint16(c.GetGuildId()),
-		Str:     int16(c.GetStr()),
-		Int:     int16(c.GetInt()),
+		Slot:     int(c.GetSlot()),
+		Name:     c.GetName(),
+		Class:    int(c.GetClass()),
+		Level:    int(c.GetLevel()),
+		Exp:      c.GetExp(),
+		HP:       c.GetHp(),
+		MaxHP:    c.GetMaxHp(),
+		MP:       c.GetMp(),
+		MaxMP:    c.GetMaxMp(),
+		Coin:     c.GetCoin(),
+		Clan:     uint8(c.GetClan()),
+		GuildID:  uint16(c.GetGuildId()),
+		Str:      int16(c.GetStr()),
+		Int:      int16(c.GetInt()),
 		Dex:      int16(c.GetDex()),
 		Con:      int16(c.GetCon()),
 		LastCity: int16(c.GetLastCity()),
+	}
+	for _, it := range c.GetEquip() {
+		slot := int(it.GetSlot())
+		if slot < 0 || slot >= world.MaxEquip {
+			continue
+		}
+		st.Equip[slot] = itemFromProto(it)
 	}
 	for _, it := range c.GetCarry() {
 		slot := int(it.GetSlot())
 		if slot < 0 || slot >= world.MaxCarry {
 			continue
 		}
-		st.Carry[slot] = world.Item{
-			Index: int16(it.GetIndex()),
-			Effects: [3]world.Effect{
-				{Effect: uint8(it.GetEff1()), Value: uint8(it.GetEffv1())},
-				{Effect: uint8(it.GetEff2()), Value: uint8(it.GetEffv2())},
-				{Effect: uint8(it.GetEff3()), Value: uint8(it.GetEffv3())},
-			},
-		}
+		st.Carry[slot] = itemFromProto(it)
 	}
 	return st
 }
 
+// itemFromProto maps one persisted item to the in-world STRUCT_ITEM shape.
+func itemFromProto(it *dbv1.Item) world.Item {
+	return world.Item{
+		Index: int16(it.GetIndex()),
+		Effects: [3]world.Effect{
+			{Effect: uint8(it.GetEff1()), Value: uint8(it.GetEffv1())},
+			{Effect: uint8(it.GetEff2()), Value: uint8(it.GetEffv2())},
+			{Effect: uint8(it.GetEff3()), Value: uint8(it.GetEffv3())},
+		},
+		ExpiresAt: it.GetExpiresAt(),
+	}
+}
+
 func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 	return &dbv1.Character{
-		Slot:    int32(s.Slot),
-		Clan:    int32(s.Clan),
-		GuildId: uint32(s.GuildID),
-		Level:   s.Level,
-		Coin:    s.Coin,
-		Str:     int32(s.Str),
-		Int:     int32(s.Int),
-		Dex:     int32(s.Dex),
-		Con:     int32(s.Con),
+		Slot:     int32(s.Slot),
+		Clan:     int32(s.Clan),
+		GuildId:  uint32(s.GuildID),
+		Level:    s.Level,
+		Exp:      s.Exp,
+		Coin:     s.Coin,
+		Str:      int32(s.Str),
+		Int:      int32(s.Int),
+		Dex:      int32(s.Dex),
+		Con:      int32(s.Con),
 		Hp:       s.HP,
 		MaxHp:    s.MaxHP,
+		Mp:       s.MP,
+		MaxMp:    s.MaxMP,
 		LastCity: int32(s.LastCity),
 		Carry:    savedItemsToProto(s.Carry),
 		Equip:    savedItemsToProto(s.Equip),
@@ -208,14 +277,15 @@ func savedItemsToProto(items []world.SavedItem) []*dbv1.Item {
 	out := make([]*dbv1.Item, 0, len(items))
 	for _, it := range items {
 		out = append(out, &dbv1.Item{
-			Slot:  int32(it.Slot),
-			Index: int32(it.Index),
-			Eff1:  int32(it.Eff1),
-			Effv1: int32(it.EffV1),
-			Eff2:  int32(it.Eff2),
-			Effv2: int32(it.EffV2),
-			Eff3:  int32(it.Eff3),
-			Effv3: int32(it.EffV3),
+			Slot:      int32(it.Slot),
+			Index:     int32(it.Index),
+			Eff1:      int32(it.Eff1),
+			Effv1:     int32(it.EffV1),
+			Eff2:      int32(it.Eff2),
+			Effv2:     int32(it.EffV2),
+			Eff3:      int32(it.Eff3),
+			Effv3:     int32(it.EffV3),
+			ExpiresAt: it.ExpiresAt,
 		})
 	}
 	return out

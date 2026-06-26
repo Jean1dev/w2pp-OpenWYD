@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -58,7 +59,8 @@ func (s *Store) AccountAuthByID(ctx context.Context, id int64) (AccountAuth, err
 // level, exp, guild) for an account, ordered by slot.
 func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT slot, name, class, guild_id, level, exp
+		`SELECT slot, name, class, guild_id, level, exp, coin,
+		        max_hp, hp, max_mp, mp, str, int, dex, con
 		   FROM character WHERE account_id = $1 ORDER BY slot`, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list characters: %w", err)
@@ -68,7 +70,8 @@ func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.C
 	var out []domain.Character
 	for rows.Next() {
 		var ch domain.Character
-		if err := rows.Scan(&ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp); err != nil {
+		if err := rows.Scan(&ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp, &ch.Coin,
+			&ch.MaxHp, &ch.Hp, &ch.MaxMp, &ch.Mp, &ch.Str, &ch.Int, &ch.Dex, &ch.Con); err != nil {
 			return nil, fmt.Errorf("store: scan character summary: %w", err)
 		}
 		out = append(out, ch)
@@ -122,7 +125,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 
 func (s *Store) loadItems(ctx context.Context, charID int64, kind string) ([]domain.Item, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3
+		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3, expires_at
 		  FROM item WHERE character_id = $1 AND owner_kind = $2 ORDER BY slot`, charID, kind)
 	if err != nil {
 		return nil, fmt.Errorf("store: load %s: %w", kind, err)
@@ -131,9 +134,11 @@ func (s *Store) loadItems(ctx context.Context, charID int64, kind string) ([]dom
 	var out []domain.Item
 	for rows.Next() {
 		var it domain.Item
-		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
+		var exp *time.Time
+		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3, &exp); err != nil {
 			return nil, fmt.Errorf("store: scan %s item: %w", kind, err)
 		}
+		it.ExpiresAt = expirySeconds(exp)
 		out = append(out, it)
 	}
 	return out, rows.Err()
@@ -197,11 +202,11 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 //
 // This is a PARTIAL update on purpose: it touches only the columns the in-world
 // Entity authoritatively tracks this phase (world.CharacterSave) — clan,
-// guild_id, level, coin, str/int/dex/con, hp/max_hp. Everything else (class,
-// exp, mp/max_mp, guild_level, bonuses, regen/resist, skills, magic, save_x/y,
-// citizen, class_master, skill bars) is left UNTOUCHED so an in-game save never
-// wipes imported data the world does not simulate. Widening to the full
-// STRUCT_MOB is UNVERIFIED and waits on capture (PROGRESS Fase 4).
+// guild_id, level, exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city.
+// Everything else (class, guild_level, bonuses, regen/resist, skills, magic,
+// save_x/y, citizen, class_master, skill bars) is left UNTOUCHED so an in-game
+// save never wipes imported data the world does not simulate. Widening to the
+// full STRUCT_MOB is UNVERIFIED and waits on capture (PROGRESS Fase 4).
 func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -213,11 +218,13 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 	err = tx.QueryRow(ctx, `
 		UPDATE character SET
 			clan=$3, guild_id=$4, level=$5, coin=$6,
-			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13
+			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13, exp=$14,
+			mp=$15, max_mp=$16
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.Level, ch.Coin,
-		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity,
+		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity, ch.Exp,
+		ch.Mp, ch.MaxMp,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
@@ -253,6 +260,84 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("store: commit save character %q: %w", ch.Name, err)
+	}
+	return nil
+}
+
+// LoadCargo loads the account-shared cargo: the gold (account.cargo_coin) and the
+// stored items (item rows with owner_kind='account_cargo'). The cargo is keyed by
+// account — every character of the account shares the same vault — so it is read
+// once per session, independent of the character slot. A missing account returns
+// ErrNotFound; an account with no stored items returns (coin, nil).
+func (s *Store) LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error) {
+	var coin int32
+	err := s.pool.QueryRow(ctx,
+		`SELECT cargo_coin FROM account WHERE id = $1`, accountID).Scan(&coin)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil, ErrNotFound
+	}
+	if err != nil {
+		return 0, nil, fmt.Errorf("store: load cargo coin a=%d: %w", accountID, err)
+	}
+	items, err := s.loadAccountItems(ctx, accountID, "account_cargo")
+	if err != nil {
+		return 0, nil, err
+	}
+	return coin, items, nil
+}
+
+// loadAccountItems mirrors loadItems but keys on account_id (cargo is account-,
+// not character-scoped).
+func (s *Store) loadAccountItems(ctx context.Context, accountID int64, kind string) ([]domain.Item, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3, expires_at
+		  FROM item WHERE account_id = $1 AND owner_kind = $2 ORDER BY slot`, accountID, kind)
+	if err != nil {
+		return nil, fmt.Errorf("store: load %s: %w", kind, err)
+	}
+	defer rows.Close()
+	var out []domain.Item
+	for rows.Next() {
+		var it domain.Item
+		var exp *time.Time
+		if err := rows.Scan(&it.Slot, &it.Index, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3, &exp); err != nil {
+			return nil, fmt.Errorf("store: scan %s item: %w", kind, err)
+		}
+		it.ExpiresAt = expirySeconds(exp)
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// SaveCargo persists the account-shared cargo gold + items as a replace-all,
+// mirroring SaveCharacter's atomic item swap (anti-dup: the old set is deleted
+// and the new set re-inserted in one transaction). A missing account returns
+// ErrNotFound.
+func (s *Store) SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: begin save cargo: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx, `UPDATE account SET cargo_coin = $2 WHERE id = $1`, accountID, coin)
+	if err != nil {
+		return fmt.Errorf("store: update cargo coin a=%d: %w", accountID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM item WHERE account_id = $1 AND owner_kind = 'account_cargo'`, accountID); err != nil {
+		return fmt.Errorf("store: clear cargo items a=%d: %w", accountID, err)
+	}
+	for _, it := range items {
+		if err := insertItem(ctx, tx, "account_cargo", &accountID, nil, it); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: commit save cargo a=%d: %w", accountID, err)
 	}
 	return nil
 }
