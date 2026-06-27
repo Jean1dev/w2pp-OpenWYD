@@ -87,7 +87,7 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	}
 	w.SendTo(s, protocol.Header{Type: protocol.MsgBuy, ID: protocol.IDScene}, echo)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, myPos, itemToSel(item)))
-	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(e.Coin))
+	d.sendEtc(w, s, e)
 }
 
 // itemToSel converts a world inventory item to the wire STRUCT_ITEM form.
@@ -133,5 +133,5 @@ func (d *Dispatcher) sell(w *world.World, s *world.Session, _ protocol.Header, p
 	w.SendTo(s, protocol.Header{Type: protocol.MsgSell, ID: protocol.IDScene}, payload)
 	// Clear the sold slot on the client (sIndex 0) + refresh gold.
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, myPos, protocol.SelItem{}))
-	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(e.Coin))
+	d.sendEtc(w, s, e)
 }

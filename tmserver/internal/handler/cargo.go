@@ -51,7 +51,7 @@ func (d *Dispatcher) deposit(w *world.World, s *world.Session, _ protocol.Header
 	e.Coin -= coin
 	cargo.Coin += coin
 	d.log.Info("cargo deposit", "conn", s.Conn, "account", s.AccountID, "coin", coin, "cargo", cargo.Coin)
-	d.echoCargoCoin(w, s, e.Coin, cargo.Coin, protocol.MsgDeposit, payload)
+	d.echoCargoCoin(w, s, e, cargo.Coin, protocol.MsgDeposit, payload)
 }
 
 // withdraw handles _MSG_Withdraw (0x0387): move gold from the account-shared
@@ -77,14 +77,15 @@ func (d *Dispatcher) withdraw(w *world.World, s *world.Session, _ protocol.Heade
 	e.Coin += coin
 	cargo.Coin -= coin
 	d.log.Info("cargo withdraw", "conn", s.Conn, "account", s.AccountID, "coin", coin, "cargo", cargo.Coin)
-	d.echoCargoCoin(w, s, e.Coin, cargo.Coin, protocol.MsgWithdraw, payload)
+	d.echoCargoCoin(w, s, e, cargo.Coin, protocol.MsgWithdraw, payload)
 }
 
 // echoCargoCoin acks a deposit/withdraw: it echoes the original message (scene
-// id) and refreshes both gold displays — the character gold (MSG_UpdateEtc) and
-// the account cargo gold (MSG_UpdateCargoCoin).
-func (d *Dispatcher) echoCargoCoin(w *world.World, s *world.Session, charCoin, cargoCoin int32, echo protocol.Type, payload []byte) {
+// id) and refreshes both gold displays — the character gold (MSG_UpdateEtc, full
+// SendEtc so it doesn't zero the client's ScoreBonus/Exp) and the account cargo
+// gold (MSG_UpdateCargoCoin).
+func (d *Dispatcher) echoCargoCoin(w *world.World, s *world.Session, e *world.Entity, cargoCoin int32, echo protocol.Type, payload []byte) {
 	w.SendTo(s, protocol.Header{Type: echo, ID: protocol.IDScene}, payload)
 	w.Send(s, protocol.MsgUpdateCargoCoin, protocol.EncodeUpdateCargoCoin(cargoCoin))
-	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(charCoin))
+	d.sendEtc(w, s, e)
 }

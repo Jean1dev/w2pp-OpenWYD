@@ -98,6 +98,32 @@ func readMaybe(t *testing.T, c net.Conn) (protocol.Type, []byte, bool) {
 	}
 }
 
+// readMaybeHeader is readMaybe but returns the full header (not just the type), for
+// tests that assert HEADER.ID; ok=false on timeout.
+func readMaybeHeader(t *testing.T, c net.Conn) (protocol.Header, []byte, bool) {
+	t.Helper()
+	for {
+		_ = c.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
+		var sz [2]byte
+		if _, err := io.ReadFull(c, sz[:]); err != nil {
+			return protocol.Header{}, nil, false
+		}
+		buf := make([]byte, int(sz[0])|int(sz[1])<<8)
+		copy(buf, sz[:])
+		if _, err := io.ReadFull(c, buf[2:]); err != nil {
+			return protocol.Header{}, nil, false
+		}
+		h, payload, _, err := protocol.Decode(buf)
+		if err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+			continue
+		}
+		return h, payload, true
+	}
+}
+
 // readMaybeRaw is readMaybe without the CreateMob/RemoveMob skip, for tests that
 // assert on a visibility packet directly (e.g. the guild tag refresh).
 func readMaybeRaw(t *testing.T, c net.Conn) (protocol.Type, []byte, bool) {

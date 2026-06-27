@@ -33,8 +33,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		return
 	}
 
-	// Liveness: the dead may only act with the resurrect skill (99).
-	if e.HP == 0 && int(body.SkillIndex) != combat.ResurrectSkill {
+	// Liveness: the dead may only act with the resurrect skill (99). Use <= 0 (not
+	// == 0) so a negative-HP edge can never slip an action through.
+	if e.HP <= 0 && int(body.SkillIndex) != combat.ResurrectSkill {
 		w.AddCrackError(s, 1, 8)
 		return
 	}
@@ -105,14 +106,19 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	// separate exp packet (MSG_UpdateScore carries no exp).
 	writeAttackerStatus(payload, e.HP, e.MP, e.Exp)
 
-	// Broadcast the server-authoritative result to in-view players (HEADER.ID =
-	// attacker). UNVERIFIED: the original forces ID=ESCENE_FIELD for field scope.
-	w.BroadcastInView(s.Conn, protocol.MsgAttack, payload)
-	// Echo to the attacker too: BroadcastInView excludes the source, but the attacker
-	// needs its own CurrentExp/Hp/Mp (e.g. exp gained from a kill). UNVERIFIED whether
-	// the original echoes MSG_Attack or uses MSG_SetHpMp; the CurrentExp field lives
-	// in MSG_Attack, so the echo is the carrier we have.
-	w.SendTo(s, protocol.Header{Type: protocol.MsgAttack, ID: uint16(s.Conn)}, payload)
+	// Broadcast the server-authoritative result with HEADER.ID = ESCENE_FIELD, exactly
+	// as the original (_MSG_Attack.cpp:25 `m->ID = ESCENE_FIELD`). This matters for the
+	// exp bar: the client applies Dam[] to the named targets regardless of header (so a
+	// mob's attack with HEADER.ID = the mob still hurts the player), but it only applies
+	// the ATTACKER's own CurrentExp/CurrentHp/CurrentMp when the attack arrives as a
+	// field/scene event. With HEADER.ID = the attacker conn the exp bar never moved.
+	// The original GridMulticast (around the target) includes the attacker, so we both
+	// echo to the attacker and send to the in-view players.
+	hdr := protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}
+	w.SendTo(s, hdr, payload)
+	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, hdr, payload)
+	})
 }
 
 // writeDamage overwrites the server-authoritative damage of Dam[i] in the wire

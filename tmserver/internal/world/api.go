@@ -61,8 +61,9 @@ func (w *World) BroadcastInView(srcID int, t protocol.Type, payload []byte) {
 
 // SpawnMob creates an NPC/monster entity from a raw STRUCT_MOB template at (x,y)
 // and inserts it into the grid. Returns the new mob id (>= MaxUser) or -1 when
-// the world is full. NOT loop-safe: call during init, before Serve starts the
-// loop (no concurrent access yet).
+// the world is full. It only touches world state, so it is loop-safe: it is
+// called both during init (before Serve) and at runtime from SpawnDueRespawns
+// (inside the loop, via the tick).
 func (w *World) SpawnMob(template []byte, x, y int16) int {
 	id := -1
 	for i := MaxUser; i < MaxMob; i++ {
@@ -79,6 +80,7 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 		ID: id, Mode: MobIdle, Name: b.Name, Class: b.Class, Merchant: b.Merchant,
 		X: x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
+		Template: template, // retained for runtime respawn (world/respawn.go)
 	}
 	eq := protocol.MobEquip(template)
 	for i := range eq {
@@ -115,8 +117,10 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 // The broadcast runs BEFORE the slot is freed so the in-view scan can still read
 // the mob's position. It is a no-op for player ids and empty slots. Player despawn
 // (logout) has its own path in removeSession; this is for the [MaxUser,MaxMob)
-// range. NOTE: runtime respawn does not exist yet, so the freed slot is not reused
-// — once it is, recipients' `seen` sets will need the id cleared here too.
+// range. A killed monster (removeType 1) is scheduled for respawn before its slot
+// is freed; because the freed slot may be reused by a later spawn, the id is also
+// cleared from every session's `seen` set so the reused id triggers a fresh
+// CreateMob.
 func (w *World) DespawnMob(id int, removeType int32) {
 	e := w.Entity(id)
 	if e == nil || IsPlayer(id) {
@@ -126,10 +130,22 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	w.ForEachInView(id, func(vs *Session, _ *Entity) {
 		w.enqueue(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, body)
 	})
+	// A slain monster respawns at its leash origin after a delay. NPCs (shops/quest
+	// givers) don't die, so only schedule for monsters (Merchant==0) killed in
+	// combat (removeType 1).
+	if removeType == 1 && e.Merchant == 0 && e.Template != nil {
+		w.respawnQueue = append(w.respawnQueue, respawnEntry{
+			template: e.Template,
+			x:        e.SpawnX,
+			y:        e.SpawnY,
+			due:      w.Now() + DefaultRespawnDelay,
+		})
+	}
 	if cur, ok := w.grid.MobAt(int(e.X), int(e.Y)); ok && int(cur) == id {
 		w.grid.ClearMob(int(e.X), int(e.Y))
 	}
 	w.entities[id] = nil
+	w.clearSeenAll(id)
 }
 
 // ClearSeen resets a session's view set (e.g. on entering the world), so all

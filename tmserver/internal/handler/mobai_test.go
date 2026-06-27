@@ -121,6 +121,31 @@ func TestMobAttacksAdjacentPlayer(t *testing.T) {
 	t.Fatal("player never received a mob MSG_Attack")
 }
 
+// TestMobAttackHeaderIsSceneField: the mob's attack must reach the player with
+// HEADER.ID = ESCENE_FIELD (GetFunc.cpp GetAttack sets sm->ID = ESCENE_FIELD). The
+// client only puts the VICTIM into the death state from a field/scene attack; with
+// HEADER.ID = the mob the dead player kept acting (attacking, auto-potting).
+func TestMobAttackHeaderIsSceneField(t *testing.T) {
+	addr, stop := startServerMobAI(t, combatDB(), 16, 6, 5) // mob next to (5,5)
+	defer stop()
+
+	c := enterWorld(t, addr) // player conn 1
+	defer c.Close()
+	actionFrame(t, c, serverTime, 5) // pin at (5,5), adjacent to the mob
+
+	for i := 0; i < 20; i++ {
+		h, _, ok := readMaybeHeader(t, c)
+		if !ok || h.Type != protocol.MsgAttack {
+			continue
+		}
+		if h.ID != protocol.IDScene {
+			t.Fatalf("mob attack HEADER.ID = %d, want ESCENE_FIELD %d", h.ID, protocol.IDScene)
+		}
+		return // success
+	}
+	t.Fatal("player never received a mob MSG_Attack")
+}
+
 func TestRegenStep(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -71,3 +71,36 @@ func EncodeUpdateEtcCoin(coin int32) []byte {
 	le.PutUint32(b[28:], uint32(coin))          // Coin @abs40 → body28
 	return b
 }
+
+// UpdateEtcData mirrors MSG_UpdateEtc (SendFunc.cpp SendEtc, Basedef.h): the status
+// fields the client reads OUTSIDE STRUCT_SCORE. Notably ScoreBonus (free attribute
+// points) lives here, NOT in MSG_UpdateScore — so the client only learns of points
+// gained on level-up from this packet. The original always sends the full struct, so
+// a partial (coin-only) refresh would zero the client's ScoreBonus/Exp.
+type UpdateEtcData struct {
+	Hold         uint32
+	Exp          int64
+	Learn        int64
+	ScoreBonus   uint16
+	SpecialBonus uint16
+	SkillBonus   uint16
+	Magic        uint16
+	Coin         int32
+}
+
+// EncodeUpdateEtc builds the full MSG_UpdateEtc (0x0337). Field offsets are the
+// natural-aligned MSVC layout of MSG_UpdateEtc (Basedef.h): Hold@body0, Exp@body4,
+// Learn@body12, ScoreBonus@body20, SpecialBonus@body22, SkillBonus@body24,
+// Magic@body26, Coin@body28. Send with HEADER.ID = conn.
+func EncodeUpdateEtc(d UpdateEtcData) []byte {
+	b := make([]byte, updateEtcSize-HeaderSize) // 36
+	le.PutUint32(b[0:], d.Hold)                 // Hold @abs12 → body0
+	le.PutUint64(b[4:], uint64(d.Exp))          // Exp @abs16 → body4
+	le.PutUint64(b[12:], uint64(d.Learn))       // Learn @abs24 → body12
+	le.PutUint16(b[20:], d.ScoreBonus)          // ScoreBonus @abs32 → body20
+	le.PutUint16(b[22:], d.SpecialBonus)        // SpecialBonus @abs34 → body22
+	le.PutUint16(b[24:], d.SkillBonus)          // SkillBonus @abs36 → body24
+	le.PutUint16(b[26:], d.Magic)               // Magic @abs38 → body26
+	le.PutUint32(b[28:], uint32(d.Coin))        // Coin @abs40 → body28
+	return b
+}

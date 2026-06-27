@@ -121,6 +121,17 @@ Build/test padrão: `go build ./...`, `go test -race ./...`, `make lint`.
    loop). Para o logout-para-seleção (mesma conexão, reload rápido), use `World.SaveCharacterThen` (só
    confirma ao cliente DEPOIS do save commitar). `shutdown()` espera saves em voo via `saveWG`.
 
+6. **Header `ESCENE_FIELD` é obrigatório p/ campos do PRÓPRIO atacante (barra de XP/HP).** O cliente
+   aplica o `Dam[]` aos alvos **independente do `HEADER.ID`** (por isso o ataque do mob fere o player
+   mesmo com `ID`=id do mob), MAS só aplica os campos do atacante no pacote — `CurrentExp`/`CurrentHp`/
+   `CurrentMp`, i.e. a **barra de experiência** — quando o ataque chega como evento de cena, ou seja com
+   `HEADER.ID = ESCENE_FIELD` (30000 = `protocol.IDScene`). O original faz `m->ID = ESCENE_FIELD`
+   (`_MSG_Attack.cpp:25`) e multicasta via `GridMulticast` (que inclui o atacante). Sintoma quando errado:
+   servidor conta o exp certo (logs), mato/loot/gold normais, mas a **barra de XP não anda e o char não
+   upa**. Fix em `handler/combat.go` (broadcast do attack com `ID=protocol.IDScene` p/ atacante + in-view);
+   teste `TestAttackHeaderIsSceneField`. **Regra geral:** todo pacote S→C autoritativo de cena
+   (attack/score/etc.) vai com `HEADER.ID = ESCENE_FIELD`, não com o conn do dono.
+
 ## 6. Fatos/constantes úteis
 
 - ClientVersion **12000**. Contas teste **test/test123** e **test2/test123** (a segunda serve pra
