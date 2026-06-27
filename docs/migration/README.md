@@ -24,6 +24,7 @@
 | 8 | [parity-tests.md](parity-tests.md) | **COMPLETO** | golden cases por subsistema, **esquema de fixture** + **harness de replay** (Go), proxy de captura nos 3 links reais, **paridade EXATA de RNG via LCG do MSVC**, matriz de cobertura, dimensionamento estatístico, plano de captura |
 | 9 | [migration-plan.md](migration-plan.md) | **COMPLETO** | NFRs, comparação de stacks + recomendação, sequência, riscos, DoD |
 | 10 | [glossary.md](glossary.md) | **COMPLETO** | termos WYD/PT-BR e do código |
+| — | [client-patch-hooks.md](client-patch-hooks.md) | **COMPLETO** | mapa dos hooks/patches da `ClientPatch_v7662.dll` por endereço (checksum off, força-gráficos, SkillDelay, título); 4 pontos de extensão p/ customizar o cliente fechado (ReadMessage/SendChat/UI/SendPack) |
 
 ---
 
