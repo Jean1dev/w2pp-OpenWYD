@@ -16,12 +16,12 @@ Reescrita **big-bang em Go** do servidor do MMORPG **WYD (With Your Destiny)**, 
 Login → seleção/criação de personagem (com equipamento visual correto + **preview de atributos**:
 score level/HP/MP/STR-INT-DEX-CON na própria tela de seleção, via `protocol/selchar.go`) → entrar no
 mundo → andar → ver outros players → ver ~10.500 NPCs (nomes visíveis, aparência correta) → **lojas de
-NPC** (abrir, comprar, vender, item aparece no inventário ao vivo, economia de gold) → **teleporte
+NPC** (abrir, comprar inclusive item com preço 0, vender, item aparece no inventário ao vivo, economia de gold) → **teleporte
 entre cidades** (por tile, Armia↔Noatum↔Azran/Erion/Nippleheim) → **persistência** de inventário, gold
 e **última cidade** (spawn na área default da última cidade) ao deslogar/relogar.
 
-> Atenção (bug aberto B6): a **posição exata NÃO é persistida** — ao relogar o char nasce no spawn
-> default da última cidade, não onde deslogou. Detalhe em `docs/migration/ingame-bugs.md`.
+> Regra confirmada: a **posição exata NÃO é persistida por design** — ao relogar o char nasce no centro/
+> spawn da última cidade visitada, não onde deslogou. Detalhe em `docs/migration/ingame-bugs.md`.
 
 ## 2. Arquitetura (o essencial)
 
@@ -184,14 +184,10 @@ põem o req de STR na 2ª posição; pos1 capa em 399 = nível). Equipar (useIte
 `e.Level/Str/Int/Dex/Con` (current) ≥ req; se não bate, `NoticeReqNotMet` e não equipa. Item sem entrada
 no catálogo passa livre. (Validação de SLOT correto por `nPos` ainda não checada.)
 
-### Bugs abertos conhecidos (rastreador: `docs/migration/ingame-bugs.md`)
-- **B6** (P2): posição exata não persiste — `LoadCharacter` volta 0,0 e usamos o spawn do template;
-  falta adicionar campos de posição ao proto `CharacterState` + dbServer salvar/carregar `SaveX/SaveY`
-  (regerar proto). NÃO precisa do agente Windows.
-- **B1** (P0, parcial): falta enviar `CreateMob`/`RemoveMob` quando players **cruzam a visão andando**
-  (hoje só na entrada no mundo) + **equip visual** dos players (`BASE_VisualItemCode` — aparecem sem
-  equipamento).
-- **B5** (P3): level mostra +1 na seleção (provável quirk 1-indexado do cliente; confirmar campo/offset).
+### Bugs conhecidos / rastreador (`docs/migration/ingame-bugs.md`)
+- **B1**: não reproduzido no cliente real com 2 usuários; manter apenas como histórico/observação.
+- **B6**: não é bug; spawn por centro da última cidade visitada é comportamento esperado.
+- **B5**: resolvido; `SELCHAR` envia `level-1` só no preview para compensar o display one-based do cliente.
 
 ### IA / movimento / combate de mob (frente grande — iteração 1 FEITA)
 O loop é event-driven; o **tick de IA** agora existe (`world/tick.go`: `SetTickHandler`+`runTicker`

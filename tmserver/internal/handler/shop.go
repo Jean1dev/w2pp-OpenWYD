@@ -48,11 +48,10 @@ func (d *Dispatcher) reqShopList(w *world.World, s *world.Session, _ protocol.He
 }
 
 // buy handles _MSG_Buy (0x0379): purchase a shop item from an NPC. Price =
-// itemPrices[index] (no city tax — village shortcut). Debits gold, adds the item
-// to the player's Carry, echoes MSG_Buy (new Coin) + MSG_UpdateEtc.
-//
-// UNVERIFIED: MSG_SendItem layout not yet implemented, so the bought item shows in
-// the inventory only after relog; the gold transaction is correct now.
+// itemPrices[index] (no city tax — village shortcut). The original accepts
+// Price==0 (free item) and rejects only negative prices / insufficient gold.
+// Debits gold, adds the item to the player's Carry, echoes MSG_Buy (new Coin) +
+// MSG_UpdateEtc.
 func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay || len(payload) < 6 {
 		return
@@ -72,8 +71,8 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	if item.Index == 0 || e.Carry[myPos].Index != 0 {
 		return // empty shop slot or destination occupied
 	}
-	price := d.itemPrices[int(item.Index)]
-	if price <= 0 || price > e.Coin {
+	price, ok := d.itemPrices[int(item.Index)]
+	if !ok || price < 0 || price > e.Coin {
 		d.log.Info("buy denied", "conn", s.Conn, "item", item.Index, "price", price, "gold", e.Coin)
 		return
 	}
