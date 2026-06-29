@@ -40,6 +40,26 @@ func (d *Dispatcher) Tick(w *world.World) {
 		}
 	})
 	d.regenPlayers(w)
+	d.respawnMobs(w)
+}
+
+// respawnMobs re-spawns monsters whose post-death delay has elapsed and reveals
+// each one to the players already in view, so a respawn is seen immediately rather
+// than only when a player next walks (revealMobsInView). MarkSeen guards against a
+// duplicate CreateMob if that walk-reveal also fires this tick.
+func (d *Dispatcher) respawnMobs(w *world.World) {
+	for _, id := range w.SpawnDueRespawns(w.Now()) {
+		mob := w.Entity(id)
+		if mob == nil {
+			continue
+		}
+		body := protocol.EncodeCreateMobBody(createMobFrom(mob, 0))
+		w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+			if w.MarkSeen(vs, id) {
+				w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
+			}
+		})
+	}
 }
 
 // inSafeCity reports whether player conn is standing inside a city rectangle —
@@ -154,7 +174,15 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		AttackerID: uint16(id),
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
-	w.BroadcastInView(id, protocol.MsgAttack, body.Encode())
+	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
+	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
+	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
+	// with HEADER.ID = the mob the dead player wasn't put into the death state and kept
+	// acting (attacking, auto-potting). The target is in-view, so it receives this.
+	payload := body.Encode()
+	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
+	})
 
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {

@@ -240,8 +240,8 @@ func TestLoginOK(t *testing.T) {
 	if got := cstr(payload[36:52]); got != "Hero" {
 		t.Errorf("slot-0 name = %q, want Hero", got)
 	}
-	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 50 {
-		t.Errorf("slot-0 level = %d, want 50", lvl)
+	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 49 {
+		t.Errorf("slot-0 wire level = %d, want 49 so the client displays 50", lvl)
 	}
 	// slot-0 gold is the real value, not a placeholder: Coin[0] at sel@20 + 792.
 	if coin := binary.LittleEndian.Uint32(payload[812:816]); coin != 987654 {
@@ -250,6 +250,25 @@ func TestLoginOK(t *testing.T) {
 	// slot-0 MaxHp is the real value: Score[0].MaxHp at sel@20 + 80 + 16 = 116.
 	if hp := binary.LittleEndian.Uint32(payload[116:120]); hp != 1500 {
 		t.Errorf("slot-0 max_hp = %d, want 1500", hp)
+	}
+}
+
+func TestSelCharWireLevel(t *testing.T) {
+	tests := []struct {
+		name  string
+		level int
+		want  int32
+	}{
+		{name: "zero", level: 0, want: 0},
+		{name: "one", level: 1, want: 0},
+		{name: "normal", level: 50, want: 49},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := selCharWireLevel(tt.level); got != tt.want {
+				t.Errorf("selCharWireLevel(%d) = %d, want %d", tt.level, got, tt.want)
+			}
+		})
 	}
 }
 

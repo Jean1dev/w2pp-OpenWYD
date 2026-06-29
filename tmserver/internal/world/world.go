@@ -129,6 +129,10 @@ type World struct {
 	// tick.go. nil disables the ticker (e.g. in protocol/transport tests).
 	onTick       func(*World)
 	tickInterval time.Duration
+
+	// respawnQueue holds dead monsters awaiting respawn, drained by SpawnDueRespawns
+	// from the tick (world/respawn.go). Loop-owned.
+	respawnQueue []respawnEntry
 }
 
 // New creates a World with the given dependencies. A nil handler installs a

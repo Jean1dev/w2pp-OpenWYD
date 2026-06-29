@@ -116,7 +116,7 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 			return // not enough money (the original shows a notice)
 		}
 		e.Coin -= cost
-		w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(e.Coin))
+		d.sendEtc(w, s, e)
 	}
 	d.doTeleport(w, s, destX, destY)
 }

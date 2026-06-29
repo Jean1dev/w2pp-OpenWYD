@@ -359,6 +359,20 @@ func (d *Dispatcher) sendScore(w *world.World, s *world.Session, e *world.Entity
 	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, protocol.EncodeUpdateScore(d.computeScore(e)))
 }
 
+// sendEtc pushes the player's MSG_UpdateEtc (SendFunc.cpp SendEtc): gold, exp and —
+// crucially — the free attribute points (ScoreBonus). STRUCT_SCORE/UpdateScore does
+// NOT carry ScoreBonus, so the client only learns of points gained on level-up from
+// this packet. It is the full struct (not coin-only) because the original always
+// sends all fields; a partial refresh would zero the client's ScoreBonus/Exp.
+// SpecialBonus/SkillBonus/Magic/Learn/Hold are not modeled yet (0).
+func (d *Dispatcher) sendEtc(w *world.World, s *world.Session, e *world.Entity) {
+	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtc(protocol.UpdateEtcData{
+		Exp:        e.Exp,
+		ScoreBonus: e.ScoreBonus,
+		Coin:       e.Coin,
+	}))
+}
+
 // tradingItem handles _MSG_TradingItem (0x0376): the client's universal
 // drag-and-drop item swap between two slots — within the inventory, between
 // inventory and equipment, and to/from the account warehouse (cargo). Despite the

@@ -38,7 +38,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 			killer.Coin = coinCap
 		}
 		if ks != nil {
-			w.Send(ks, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(killer.Coin))
+			d.sendEtc(w, ks, killer)
 		}
 	}
 
@@ -101,11 +101,14 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 	killer.HP, killer.MP = killer.MaxHP, killer.MaxMP // full heal on level-up
 	killer.ScoreBonus = uint16(level.ScoreBonus(killer.Class, killer.Level, killer.Str, killer.Int, killer.Dex, killer.Con))
 
-	// Visible level-up: a fresh score window (own attributes) to the killer, and the
+	// Visible level-up: a fresh score window (own attributes) + the etc packet that
+	// carries the new ScoreBonus (free attribute points) — UpdateScore does NOT carry
+	// it, so without SendEtc the client never shows the points gained. Plus the
 	// level-up sparkle to the killer and everyone who can see it.
 	motion := protocol.EncodeMotion(motionLevelUp, motionLevelUpParm)
 	if ks != nil {
 		d.sendScore(w, ks, killer)
+		d.sendEtc(w, ks, killer)
 		w.Send(ks, protocol.MsgMotion, motion)
 	}
 	w.BroadcastInView(killer.ID, protocol.MsgMotion, motion)

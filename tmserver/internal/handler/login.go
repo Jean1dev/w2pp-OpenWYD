@@ -97,15 +97,18 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 
 // selCharsFrom maps the dbServer character summaries to protocol.SelChar rows for
 // the byte-exact STRUCT_SELCHAR (MSG_CNFAccountLogin / MSG_CNFNewCharacter). The
-// summary carries the real score (level, gold, HP/MP, attributes) so the selection
-// screen previews each slot's actual character, not placeholders.
+// summary carries the real score (gold, HP/MP, attributes) so the selection
+// screen previews each slot's actual character, not placeholders. Level is the
+// one exception: this client renders SelChar.Score.Level as one-based, so the
+// wire preview stores level-1 while the in-world CharacterLogin snapshot keeps
+// the authoritative level unchanged.
 func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
 	out := make([]protocol.SelChar, 0, len(chars))
 	for _, c := range chars {
 		sc := protocol.SelChar{
 			Slot:  c.Slot,
 			Name:  c.Name,
-			Level: int32(c.Level),
+			Level: selCharWireLevel(c.Level),
 			Exp:   c.Exp,
 			Guild: c.GuildID,
 			Coin:  c.Coin,
@@ -120,4 +123,11 @@ func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar 
 		out = append(out, sc)
 	}
 	return out
+}
+
+func selCharWireLevel(level int) int32 {
+	if level <= 0 {
+		return 0
+	}
+	return int32(level - 1)
 }

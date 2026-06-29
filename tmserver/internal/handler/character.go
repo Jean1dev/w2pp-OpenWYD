@@ -407,7 +407,7 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 	// DoRecall: jump to the last-city default spawn (RemoveMob old view + reveal).
 	rx, ry := world.CitySpawn(int(e.LastCity))
 	d.doTeleport(w, s, rx, ry)
-	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtcCoin(e.Coin)) // SendEtc
+	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)
 }
 
 // Starter-gear constants. The Shire is a no-level-restriction mount (ItemList

@@ -89,8 +89,12 @@ type Entity struct {
 	Target         int
 	AtkTick        uint32
 	SpawnX, SpawnY int16
-	Merchant       uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
-	Grade          uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
+	// Template is the raw STRUCT_MOB bytes this mob was spawned from (boot template,
+	// shared by reference — no copy). Retained so the mob can be re-spawned at its
+	// SpawnX/SpawnY after it dies (world/respawn.go). nil for players.
+	Template []byte
+	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
+	Grade    uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
 	Class       uint8  // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
 	LastCity    int16  // last city visited (0..3); login spawn = its default area

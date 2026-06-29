@@ -112,3 +112,40 @@ func TestUpdateEtcCoinLayout(t *testing.T) {
 		t.Errorf("Coin = %d, want 123456", got)
 	}
 }
+
+// TestUpdateEtcLayout pins the full MSG_UpdateEtc field offsets (Basedef.h SendEtc).
+// ScoreBonus@body20 is the field that carries the free attribute points to the
+// client on level-up — UpdateScore does NOT carry it.
+func TestUpdateEtcLayout(t *testing.T) {
+	b := EncodeUpdateEtc(UpdateEtcData{
+		Hold: 1, Exp: 5_000_000_000, Learn: 0x0102030405060708,
+		ScoreBonus: 25, SpecialBonus: 7, SkillBonus: 9, Magic: 3, Coin: 123456,
+	})
+	if len(b) != updateEtcSize-HeaderSize {
+		t.Fatalf("UpdateEtc body = %d, want %d", len(b), updateEtcSize-HeaderSize)
+	}
+	if got := binary.LittleEndian.Uint32(b[0:]); got != 1 {
+		t.Errorf("Hold = %d, want 1", got)
+	}
+	if got := binary.LittleEndian.Uint64(b[4:]); got != 5_000_000_000 {
+		t.Errorf("Exp = %d, want 5000000000", got)
+	}
+	if got := binary.LittleEndian.Uint64(b[12:]); got != 0x0102030405060708 {
+		t.Errorf("Learn = %#x, want 0x0102030405060708", got)
+	}
+	if got := binary.LittleEndian.Uint16(b[20:]); got != 25 {
+		t.Errorf("ScoreBonus = %d, want 25", got)
+	}
+	if got := binary.LittleEndian.Uint16(b[22:]); got != 7 {
+		t.Errorf("SpecialBonus = %d, want 7", got)
+	}
+	if got := binary.LittleEndian.Uint16(b[24:]); got != 9 {
+		t.Errorf("SkillBonus = %d, want 9", got)
+	}
+	if got := binary.LittleEndian.Uint16(b[26:]); got != 3 {
+		t.Errorf("Magic = %d, want 3", got)
+	}
+	if got := binary.LittleEndian.Uint32(b[28:]); got != 123456 {
+		t.Errorf("Coin = %d, want 123456", got)
+	}
+}
