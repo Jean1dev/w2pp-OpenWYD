@@ -230,6 +230,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
 		// counting the gear already baked into the stored CurrentScore.
 		d.deriveBaseScore(e)
+		// Re-apply a still-active Divine buff from the persisted deadline (the buff is
+		// read-time, so this doesn't affect the base just derived). Expired → dropped.
+		if st.DivineEnd > time.Now().Unix() {
+			if slot := e.EmptyAffect(world.AffectDivine); slot >= 0 {
+				e.DivineEnd = st.DivineEnd
+				e.Affect[slot] = world.Affect{Type: world.AffectDivine, Level: 1, Time: divineAffectTime}
+			}
+		}
 	}
 	s.Mode = world.UserPlay
 	var shortSkill [16]uint8
@@ -301,7 +309,10 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		return
 	}
 	w.ClearSeen(s)          // fresh view set on (re)entering the world
-	d.sendScore(w, s, self) // CurrentScore (attributes after equipment)
+	d.sendScore(w, s, self) // CurrentScore (attributes after equipment + active buffs)
+	if self.HasAnyAffect() {
+		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
+	}
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer

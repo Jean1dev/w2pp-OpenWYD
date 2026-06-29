@@ -68,12 +68,14 @@ func run(logger *slog.Logger) error {
 	var itemPrices map[int]int32
 	var itemEffects map[int][]content.BaseEffect
 	var itemReqs map[int]content.ItemReq
+	var itemVolatiles, itemPos, itemUnique map[int]int
 	if *contentDir != "" {
 		items, err := loadContent(*contentDir, logger)
 		if err != nil {
 			return err
 		}
 		itemPrices, itemEffects, itemReqs = items.Prices(), items.BaseEffects(), items.Requirements()
+		itemVolatiles, itemPos, itemUnique = items.Volatiles(), items.Positions(), items.Uniques()
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -116,6 +118,7 @@ func run(logger *slog.Logger) error {
 
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
+		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,

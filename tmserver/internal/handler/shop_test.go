@@ -70,9 +70,14 @@ func TestBuyFreeShopItem(t *testing.T) {
 	defer c.Close()
 
 	buyFrame(t, c, shopNPCID, 0, 3)
+	// Reply order mirrors the original: MSG_Buy → MSG_UpdateEtc → MSG_SendItem (item last).
 	echo := expect(t, c, protocol.MsgBuy)
 	if got := int32(le(echo[8:12])); got != 1234 {
 		t.Errorf("echo coin = %d, want unchanged 1234", got)
+	}
+	etc := expect(t, c, protocol.MsgUpdateEtc)
+	if got := int32(le(etc[28:32])); got != 1234 {
+		t.Errorf("etc coin = %d, want unchanged 1234", got)
 	}
 	item := expect(t, c, protocol.MsgSendItem)
 	if place := int(le16(item[0:2])); place != protocol.ItemPlaceCarry {
@@ -84,9 +89,33 @@ func TestBuyFreeShopItem(t *testing.T) {
 	if idx := le16(item[4:6]); idx != 1100 {
 		t.Errorf("item index = %d, want 1100", idx)
 	}
-	etc := expect(t, c, protocol.MsgUpdateEtc)
-	if got := int32(le(etc[28:32])); got != 1234 {
-		t.Errorf("etc coin = %d, want unchanged 1234", got)
+}
+
+// TestBuyOccupiedSlotResync reproduces B12: the client targets a carry slot it
+// believes is empty but the server has an item there (e.g. a class/body item the
+// client doesn't render in the bag). The original re-syncs that slot via SendItem
+// instead of failing silently, so the client stops retrying the occupied slot.
+func TestBuyOccupiedSlotResync(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Coin: 1234}
+	st.Carry[3] = world.Item{Index: 21} // phantom-to-client item in the target slot
+	db.loadResult = st
+	addr, stop := startServerShop(t, db, map[int]int32{1100: 0})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	buyFrame(t, c, shopNPCID, 0, 3) // buy into the occupied slot 3
+	// Expect a SendItem re-sync for slot 3 carrying the real item (21) — NOT a Buy.
+	item := expect(t, c, protocol.MsgSendItem)
+	if slot := le16(item[2:4]); slot != 3 {
+		t.Errorf("resync slot = %d, want 3", slot)
+	}
+	if idx := le16(item[4:6]); idx != 21 {
+		t.Errorf("resync item = %d, want the real occupant 21", idx)
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("occupied-slot buy also produced %#x; should only re-sync", ty)
 	}
 }
 

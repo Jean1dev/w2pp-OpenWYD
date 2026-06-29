@@ -60,11 +60,15 @@ func anctApply(items []world.Item) world.Item {
 	return result
 }
 
-// setSanc records the refine level on an item.
+// setSanc records the refine ("anc") level on an item as a real EF_SANC effect pair,
+// so equipBonus/itemSanc can read it back and scale the item's stats (the joias). It
+// is written to the last instance slot (Effects[2]) to leave the first two for divines.
 //
-// UNVERIFIED: the real sanc encoding within STRUCT_ITEM effects is unconfirmed;
-// stored in Effects[0].Value as a placeholder.
-func setSanc(it *world.Item, level uint8) { it.Effects[0].Value = level }
+// UNVERIFIED: the exact STRUCT_ITEM slot the legacy uses for sanc is unconfirmed; the
+// EF_SANC id (43) is from ItemEffect.h.
+func setSanc(it *world.Item, level uint8) {
+	it.Effects[2] = world.Effect{Effect: efSanc, Value: level}
+}
 
 // combineItem is the shared engine handler for the Item[]-based variants. It
 // follows the original ORDER exactly: validate recipe FIRST (invalid ⇒ inputs

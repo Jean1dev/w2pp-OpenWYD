@@ -58,9 +58,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	s.LastAttack = int(body.SkillIndex)
 
 	useSkill := body.SkillIndex != 0
-	// Server-authoritative attack power = base CurrentScore.Damage + the equipped
-	// weapon's damage (so equipping a weapon actually raises the hit).
-	atkDamage := int(e.Damage) + int(d.weaponDamage(e))
+	// Server-authoritative attack power = CurrentScore.Damage + the equipped weapon's
+	// damage, with the Divine buff's +20% folded in (effectiveDamage).
+	atkDamage := int(d.effectiveDamage(e))
 	for i := range body.Dam {
 		tid := int(body.Dam[i].TargetID)
 		target := w.Entity(tid)

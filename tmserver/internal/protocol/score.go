@@ -21,6 +21,7 @@ type ScoreData struct {
 	Int       int16
 	Dex       int16
 	Con       int16
+	Special   [4]int16 // STRUCT_SCORE.Special[4] — equipment-derived "especial" attributes
 }
 
 // EncodeUpdateScore builds _MSG_UpdateScore (0x0336). The STRUCT_SCORE sits at the
@@ -41,7 +42,11 @@ func EncodeUpdateScore(s ScoreData) []byte {
 	le.PutUint16(b[34:], uint16(s.Int))   // Int @34
 	le.PutUint16(b[36:], uint16(s.Dex))   // Dex @36
 	le.PutUint16(b[38:], uint16(s.Con))   // Con @38
-	// Tail: CurrHp/CurrMp (the status bars). Affect/Resist/Magic/Special stay zero.
+	// Special[4] @40-46 (STRUCT_SCORE) — divine "especial" bonuses fold in here.
+	for i, sp := range s.Special {
+		le.PutUint16(b[40+i*2:], uint16(sp))
+	}
+	// Tail: CurrHp/CurrMp (the status bars). Affect/Resist/Magic stay zero.
 	le.PutUint32(b[124:], uint32(s.Hp)) // CurrHp @body124
 	le.PutUint32(b[128:], uint32(s.Mp)) // CurrMp @body128
 	return b

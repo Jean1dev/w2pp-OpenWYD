@@ -8,6 +8,7 @@ package dbclient
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -218,6 +219,13 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Con:      int16(c.GetCon()),
 		LastCity: int16(c.GetLastCity()),
 	}
+	// The Divine buff persists as an affect row whose Time holds the absolute Unix
+	// deadline (DivineEnd); reconstruct it so login can re-apply (captura §B).
+	for _, a := range c.GetAffects() {
+		if a.GetType() == world.AffectDivine {
+			st.DivineEnd = int64(a.GetTime())
+		}
+	}
 	for _, it := range c.GetEquip() {
 		slot := int(it.GetSlot())
 		if slot < 0 || slot >= world.MaxEquip {
@@ -249,7 +257,7 @@ func itemFromProto(it *dbv1.Item) world.Item {
 }
 
 func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
-	return &dbv1.Character{
+	c := &dbv1.Character{
 		Slot:     int32(s.Slot),
 		Clan:     int32(s.Clan),
 		GuildId:  uint32(s.GuildID),
@@ -268,6 +276,12 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Carry:    savedItemsToProto(s.Carry),
 		Equip:    savedItemsToProto(s.Equip),
 	}
+	// Persist the Divine buff (only while still active) as one affect row carrying the
+	// absolute deadline in Time, so it survives relog (captura §B).
+	if s.DivineEnd > time.Now().Unix() {
+		c.Affects = []*dbv1.Affect{{Type: int32(world.AffectDivine), Level: 1, Time: uint32(s.DivineEnd)}}
+	}
+	return c
 }
 
 func savedItemsToProto(items []world.SavedItem) []*dbv1.Item {

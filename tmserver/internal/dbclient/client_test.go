@@ -3,6 +3,7 @@ package dbclient
 import (
 	"context"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -138,6 +139,48 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	}
 	if len(c.GetCarry()) != 1 || c.GetCarry()[0].GetIndex() != 1234 {
 		t.Fatalf("save carry not mapped: %+v", c.GetCarry())
+	}
+}
+
+// TestDivinePersistMapping round-trips the Divine buff: it is saved as one affect row
+// carrying the absolute deadline in Time, and loaded back into CharacterState.DivineEnd.
+func TestDivinePersistMapping(t *testing.T) {
+	deadline := time.Now().Unix() + 30*86400
+
+	// Save: an active Divine buff produces one type-34 affect with Time == deadline.
+	api := &fakeAPI{}
+	save := world.CharacterSave{AccountID: 1, Slot: 0, DivineEnd: deadline}
+	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {
+		t.Fatalf("SaveOnShutdown: %v", err)
+	}
+	aff := api.saved.GetCharacter().GetAffects()
+	if len(aff) != 1 || aff[0].GetType() != int32(world.AffectDivine) || aff[0].GetTime() != uint32(deadline) {
+		t.Fatalf("divine affect not persisted: %+v", aff)
+	}
+
+	// Load: a type-34 affect reconstructs DivineEnd.
+	api2 := &fakeAPI{loadResp: &dbv1.LoadCharacterResponse{Character: &dbv1.Character{
+		Slot: 0, Name: "div",
+		Affects: []*dbv1.Affect{{Type: int32(world.AffectDivine), Level: 1, Time: uint32(deadline)}},
+	}}}
+	st, err := newClient(api2).LoadCharacter(context.Background(), 1, 0)
+	if err != nil {
+		t.Fatalf("LoadCharacter: %v", err)
+	}
+	if st.DivineEnd != deadline {
+		t.Fatalf("DivineEnd = %d, want %d", st.DivineEnd, deadline)
+	}
+}
+
+// TestDivineNotPersistedWhenExpired confirms an expired/absent buff writes no affect.
+func TestDivineNotPersistedWhenExpired(t *testing.T) {
+	api := &fakeAPI{}
+	save := world.CharacterSave{AccountID: 1, Slot: 0, DivineEnd: time.Now().Unix() - 100}
+	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {
+		t.Fatalf("SaveOnShutdown: %v", err)
+	}
+	if aff := api.saved.GetCharacter().GetAffects(); len(aff) != 0 {
+		t.Fatalf("expired divine should not persist: %+v", aff)
 	}
 }
 

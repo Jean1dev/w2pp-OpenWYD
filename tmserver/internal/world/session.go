@@ -107,7 +107,8 @@ type Entity struct {
 	Int        int16
 	Dex        int16
 	Con        int16
-	ScoreBonus uint16 // free attribute points
+	Special    [4]int16 // CurrentScore.Special[4]: equipment-derived only (allocated SpecialBonus not modeled yet)
+	ScoreBonus uint16   // free attribute points
 
 	// BaseScore: the equipment-free score (allocated attributes + level/class-derived
 	// AC/Damage/MaxHP/MaxMP). CurrentScore (the live fields above + AC/Damage/MaxHP/
@@ -117,6 +118,18 @@ type Entity struct {
 	BaseStr, BaseInt, BaseDex, BaseCon int16
 	BaseAC, BaseDamage                 int32
 	BaseMaxHP, BaseMaxMP               int32
+
+	// HpAddPct/MpAddPct: EF_HPADD/EF_MPADD percent bonus from equipment (e.g. +10 =
+	// +10%). Cached by refreshScore and applied at READ time (effective max HP/MP),
+	// never baked into MaxHP/MaxMP — so the persisted score stays flat and the base
+	// derivation by subtraction holds (captura-wyd-affect-divina.md §E).
+	HpAddPct, MpAddPct int32
+
+	// Affect holds the active buffs/debuffs (STRUCT_AFFECT[32]). DivineEnd is the
+	// wall-clock (Unix seconds) deadline of the Divine buff — the source of truth for
+	// its expiry; the slot's Affect.Time is only the client icon timer.
+	Affect    [MaxAffect]Affect
+	DivineEnd int64
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 

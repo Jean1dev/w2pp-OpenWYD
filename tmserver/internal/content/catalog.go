@@ -57,13 +57,17 @@ type BaseEffect struct {
 }
 
 // efName maps the ItemList.csv EF_<name> tokens to their STRUCT_EFFECT.cEffect ids
-// (the same ids the instance refines use). Only score-relevant effects are mapped;
-// the rest (EF_CLASS/EF_GRID/EF_RANGE/EF_ITEMLEVEL/…) don't affect combat stats and
-// are ignored. UNVERIFIED: EF_ACADD/EF_HPADD/EF_MPADD ids are not confirmed, so the
-// "ADD" variants are not mapped yet.
+// (the same ids the instance refines use). Only effects the score model can represent
+// are mapped; the purely visual/requirement ones (EF_CLASS/EF_GRID/EF_RANGE/EF_WTYPE/
+// EF_ITEMLEVEL/EF_REGEN*/EF_CRITICAL/…) don't fold into CurrentScore here and are
+// ignored. The ids match ItemEffect.h. EF_SANC carries an item's refine level (the
+// joias), consumed as a multiplier by the handler rather than a flat stat.
 var efName = map[string]uint8{
 	"EF_DAMAGE": 2, "EF_AC": 3, "EF_HP": 4, "EF_MP": 5,
 	"EF_STR": 7, "EF_INT": 8, "EF_DEX": 9, "EF_CON": 10,
+	"EF_SPECIAL1": 11, "EF_SPECIAL2": 12, "EF_SPECIAL3": 13, "EF_SPECIAL4": 14,
+	"EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
+	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70,
 }
 
 // BaseEffects returns item index → its score-relevant static effects, parsed from
@@ -87,6 +91,56 @@ func (l *ItemList) BaseEffects() map[int][]BaseEffect {
 		}
 		if len(effs) > 0 {
 			out[idx] = effs
+		}
+	}
+	return out
+}
+
+// Volatiles returns item index → its EF_VOLATILE value (the cValue of the EF_VOLATILE
+// pair). On _MSG_UseItem the server classifies the action by this value: 0 = equippable,
+// 64/65/66 = Divine 7/15/30d, 58 = Vigor, 1 = HP/MP potion, etc.
+// (captura-wyd-affect-divina.md §B; note EF_VOLATILE the *id* is 38).
+func (l *ItemList) Volatiles() map[int]int {
+	out := make(map[int]int)
+	for idx, e := range l.items {
+		for i := 0; i+1 < len(e.Fields); i++ {
+			if strings.TrimSpace(e.Fields[i]) == "EF_VOLATILE" {
+				if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[i+1])); err == nil {
+					out[idx] = v
+				}
+				break
+			}
+		}
+	}
+	return out
+}
+
+// Positions returns item index → nPos (STRUCT_ITEMLIST.nPos, the equip-slot class —
+// CSV column 6). nPos drives the refine (+9) threshold bonuses: weapons 64/192 add
+// +40 weapon damage, defense pieces 4/8/128 add +25 AC (captura §E). Confirmed by
+// Garra (weapon) nPos=64 and potions nPos=0.
+func (l *ItemList) Positions() map[int]int {
+	out := make(map[int]int)
+	for idx, e := range l.items {
+		if len(e.Fields) > 6 {
+			if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[6])); err == nil {
+				out[idx] = v
+			}
+		}
+	}
+	return out
+}
+
+// Uniques returns item index → nUnique (STRUCT_ITEMLIST.nUnique — CSV column 7).
+// nUnique in [41,50] marks the damage-jewel items whose EF_DAMAGEADD actually counts
+// in the score (BASE_GetItemAbility, captura §B/E).
+func (l *ItemList) Uniques() map[int]int {
+	out := make(map[int]int)
+	for idx, e := range l.items {
+		if len(e.Fields) > 7 {
+			if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[7])); err == nil {
+				out[idx] = v
+			}
 		}
 	}
 	return out

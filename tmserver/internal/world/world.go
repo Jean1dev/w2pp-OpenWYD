@@ -275,6 +275,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP
 	cs.MP, cs.MaxMP = e.MP, e.MaxMP
+	cs.DivineEnd = e.DivineEnd // 0 once the buff has expired (cleared by the tick sweep)
 	cs.Carry = savedItems(e.Carry[:])
 	cs.Equip = savedItems(e.Equip[:])
 	return cs
