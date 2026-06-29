@@ -272,6 +272,57 @@ func TestEquipBonusHpAddPercent(t *testing.T) {
 	}
 }
 
+// TestCanEquipSlot verifies the nPos bitmask gate: an item fits a slot iff nPos has
+// that slot's bit; consumables (nPos 0) fit nowhere; unknown items are allowed.
+func TestCanEquipSlot(t *testing.T) {
+	d := New(Config{ItemPos: map[int]int{
+		3381: 0,     // Poção Divina: fits nowhere
+		11:   1,     // body item: slot 0 (1<<0)
+		861:  192,   // dual weapon: slots 6,7
+		342:  16384, // mount: slot 14
+	}})
+	cases := []struct {
+		idx  int16
+		slot int
+		want bool
+	}{
+		{3381, 0, false}, {11, 0, true}, {11, 1, false},
+		{861, 6, true}, {861, 7, true}, {861, 0, false},
+		{342, 14, true}, {342, 7, false},
+		{0, 0, true}, {9999, 0, true}, // empty + unknown are allowed
+	}
+	for _, c := range cases {
+		if got := d.canEquipSlot(c.idx, c.slot); got != c.want {
+			t.Errorf("canEquipSlot(%d, %d) = %v, want %v", c.idx, c.slot, got, c.want)
+		}
+	}
+}
+
+// TestRepairEquip confirms a mis-equipped consumable (potion in the body slot) is
+// moved back to the inventory and the valid gear is left in place.
+func TestRepairEquip(t *testing.T) {
+	d := New(Config{ItemPos: map[int]int{3381: 0, 1406: 4}}) // 1406 nPos 4 = slot 2
+	st := world.CharacterState{Class: 1}
+	st.Equip[0] = world.Item{Index: 3381} // potion wrongly in the body slot
+	st.Equip[2] = world.Item{Index: 1406} // armor correctly in slot 2
+	d.repairEquip(&st)
+	if st.Equip[0].Index == 3381 {
+		t.Error("potion still in the body slot after repair")
+	}
+	if st.Equip[2].Index != 1406 {
+		t.Error("valid armor was wrongly relocated")
+	}
+	found := false
+	for _, it := range st.Carry {
+		if it.Index == 3381 {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("displaced potion was not preserved in the inventory")
+	}
+}
+
 // TestDivineAffectBonus verifies the Poção Divina buff (Affect 34) adds +20% to the
 // effective MaxHp/MaxMp/Damage at read time, and is the identity when absent (captura §C).
 func TestDivineAffectBonus(t *testing.T) {

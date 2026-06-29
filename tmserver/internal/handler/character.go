@@ -189,6 +189,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		st.Equip = d.starterEquip(int(st.Class))
 		d.grantStarterCarry(&st.Carry, int(st.Class))
 	}
+	// Heal characters whose equip slots were corrupted by an earlier bug that let
+	// non-gear (a potion, a mount in the wrong hand) be equipped — most visibly a
+	// consumable in the body slot, which makes the body invisible/wrong. Mis-slotted
+	// items go back to the inventory and the class body item is restored.
+	d.repairEquip(&st)
 	// A character must never enter the world dead. Now that mobs can kill players
 	// (mobai.go), one that was slain and then disconnected without restarting is
 	// persisted at HP 0 — reviving it on login (full HP/MP) puts it back in play in
@@ -438,6 +443,33 @@ func equipEmpty(equip [world.MaxEquip]world.Item) bool {
 		}
 	}
 	return true
+}
+
+// repairEquip moves any item sitting in an equip slot it does not belong in (nPos
+// mismatch — a consumable in the body slot, a mount in a weapon hand) back into the
+// inventory, then restores the class body item if slot 0 ended up empty. This heals
+// characters corrupted before equip-slot validation existed; for clean characters it
+// is a no-op.
+func (d *Dispatcher) repairEquip(st *world.CharacterState) {
+	for s := 0; s < world.MaxEquip; s++ {
+		it := st.Equip[s]
+		if it.Empty() || d.canEquipSlot(it.Index, s) {
+			continue
+		}
+		if dst := firstEmptyCarry(&st.Carry); dst >= 0 {
+			st.Carry[dst] = it // preserve the displaced item
+		}
+		st.Equip[s] = world.Item{}
+	}
+	if st.Equip[0].Empty() {
+		st.Equip[0] = d.classBody(int(st.Class)) // restore the class look
+	}
+}
+
+// classBody returns the class's body item (template Equip slot 0), the item that gives
+// a TK/FM/BM/HT its appearance. Empty when the class template is unavailable.
+func (d *Dispatcher) classBody(class int) world.Item {
+	return d.starterEquip(class)[0]
 }
 
 // starterEquip builds the new-character starter gear for a class: the class

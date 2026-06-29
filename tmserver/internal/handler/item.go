@@ -171,6 +171,9 @@ func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity
 	if dst < 0 || dst >= world.MaxEquip {
 		return
 	}
+	if !d.canEquipSlot(e.Carry[src].Index, dst) {
+		return // wrong slot for this item (e.g. a consumable into the body slot)
+	}
 	if !d.meetsEquipReq(e, e.Carry[src]) {
 		d.notify(w, s, NoticeReqNotMet) // level/attributes too low for this item
 		return
@@ -229,6 +232,23 @@ func (d *Dispatcher) sendAffect(w *world.World, s *world.Session, e *world.Entit
 		a[i] = ad
 	}
 	w.Send(s, protocol.MsgSendAffect, protocol.EncodeSendAffect(a))
+}
+
+// canEquipSlot reports whether an item may be equipped in equip slot dst. nPos
+// (STRUCT_ITEMLIST.nPos) is a BITMASK of the slots an item fits — body=1<<0, hat=1<<1,
+// armor 1<<2/1<<3, weapons 1<<6/1<<7, mount 1<<14 — confirmed against the template gear
+// (Garra nPos 64=slot6, Shire 16384=slot14, body items nPos 1=slot0). A consumable or
+// material has nPos 0 and fits nowhere, so this rejects a potion landing in an equip
+// slot. Items absent from the catalog are allowed (legacy/unknown gear, e.g. tests).
+func (d *Dispatcher) canEquipSlot(idx int16, dst int) bool {
+	if idx == 0 {
+		return true // empty/unequip is always fine
+	}
+	pos, ok := d.itemPos[int(idx)]
+	if !ok {
+		return true
+	}
+	return pos != 0 && pos&(1<<uint(dst)) != 0
 }
 
 // meetsEquipReq reports whether the entity satisfies an item's equip requirement
@@ -617,10 +637,11 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	if src.Empty() && dst.Empty() {
 		return // nothing to move
 	}
-	// Equip requirement: the item that would land in an equip slot must be usable.
-	// On a swap the src item moves into the dst slot (and vice-versa).
-	if dstPlace == world.ItemPlaceEquip && !src.Empty() && !d.meetsEquipReq(e, *src) ||
-		srcPlace == world.ItemPlaceEquip && !dst.Empty() && !d.meetsEquipReq(e, *dst) {
+	// Equip rules: the item that would land in an equip slot must fit that slot (nPos)
+	// AND meet the level/attribute requirement. On a swap the src item moves into the
+	// dst slot (and vice-versa).
+	if dstPlace == world.ItemPlaceEquip && !src.Empty() && (!d.canEquipSlot(src.Index, dstSlot) || !d.meetsEquipReq(e, *src)) ||
+		srcPlace == world.ItemPlaceEquip && !dst.Empty() && (!d.canEquipSlot(dst.Index, srcSlot) || !d.meetsEquipReq(e, *dst)) {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
