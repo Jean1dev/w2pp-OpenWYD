@@ -30,6 +30,53 @@ func whisperFrame(t *testing.T, c net.Conn, target, text string) {
 	send(t, c, protocol.MsgMessageWhisper, body.Encode())
 }
 
+// TestCommandTeleport verifies a /city command (delivered as a whisper to the city
+// name) teleports the player (MSG_Action jump) instead of being a whisper.
+func TestCommandTeleport(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "armia", "")
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgAction {
+		t.Errorf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+	}
+}
+
+// TestCommandBuffs verifies /buffs clears affects and pushes a fresh score.
+func TestCommandBuffs(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "buffs", "")
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgUpdateScore {
+		t.Errorf("got %#x ok=%v, want MsgUpdateScore after /buffs", ty, ok)
+	}
+}
+
+// TestCommandSair verifies /sair is handled as a command (not delivered as a whisper
+// to a missing player): a guilded player leaving with no one in view produces no packet.
+func TestCommandSair(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, GuildID: 5},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "sair", "")
+	// Handled as a command → no NoticeNotConnected (which a real whisper to "sair" would
+	// trigger). With no in-view players, the guild-tag broadcast reaches no one.
+	if ty, _, ok := readMaybe(t, a); ok {
+		t.Errorf("/sair produced %#x; want a silent handled command", ty)
+	}
+}
+
 func TestChatPublicBroadcast(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
 	defer stop()

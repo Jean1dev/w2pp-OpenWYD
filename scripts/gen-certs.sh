@@ -7,7 +7,8 @@
 #
 # The server cert carries SANs for the docker-compose service names so the
 # tmServer client can verify each peer by its dial authority (dbserver:7514,
-# binserver:3000) without setting W2PP_TLS_SERVER_NAME. localhost/127.0.0.1 are
+# binserver:3000, webserver:7600) without setting W2PP_TLS_SERVER_NAME.
+# localhost/127.0.0.1 are
 # included for running the binaries directly on the host.
 #
 # These are throwaway dev certs — NEVER ship them. `certs/` is gitignored.
@@ -21,7 +22,7 @@ set -euo pipefail
 CERT_DIR=${CERT_DIR:-certs}
 DAYS=${DAYS:-825}        # < 825d keeps the leaf certs within common TLS limits
 FORCE=${FORCE:-0}
-SERVER_SAN=${SERVER_SAN:-DNS:dbserver,DNS:binserver,DNS:localhost,IP:127.0.0.1}
+SERVER_SAN=${SERVER_SAN:-DNS:dbserver,DNS:binserver,DNS:webserver,DNS:localhost,IP:127.0.0.1}
 
 if [[ -f "$CERT_DIR/server.crt" && "$FORCE" != "1" ]]; then
 	echo "certs already present in $CERT_DIR (set FORCE=1 to regenerate)"

@@ -44,6 +44,22 @@ services:
     expose:
       - "3000"
 
+  webserver:
+    build:
+      context: .
+      args:
+        SVC: webserver
+    environment:
+      W2PP_DB_DSN: postgres://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/postgres
+    command: ["-addr", ":7600"]
+    depends_on:
+      db:
+        condition: service_healthy
+    # Published for local dev so the Next.js BFF (running on the host) can reach
+    # the web-api over gRPC. In production the BFF lives inside the network.
+    ports:
+      - "7600:7600"
+
   tmserver:
     build:
       context: .

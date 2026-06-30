@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/savefmt"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 )
 
 // cstr trims a fixed-size C char array to a Go string: it cuts at the first NUL
@@ -35,15 +36,15 @@ func Account(af savefmt.AccountFile) (domain.Account, error) {
 		return domain.Account{}, fmt.Errorf("convert: account has empty name")
 	}
 
-	passHash, err := HashSecret(cstr(af.Info.AccountPass[:]))
+	passHash, err := secret.HashSecret(cstr(af.Info.AccountPass[:]))
 	if err != nil {
 		return domain.Account{}, fmt.Errorf("convert: hash password for %q: %w", name, err)
 	}
-	pinHash, err := HashSecret(cstr(af.Info.NumericToken[:]))
+	pinHash, err := secret.HashSecret(cstr(af.Info.NumericToken[:]))
 	if err != nil {
 		return domain.Account{}, fmt.Errorf("convert: hash PIN for %q: %w", name, err)
 	}
-	blockHash, err := HashSecret(cstr(af.BlockPass[:]))
+	blockHash, err := secret.HashSecret(cstr(af.BlockPass[:]))
 	if err != nil {
 		return domain.Account{}, fmt.Errorf("convert: hash block password for %q: %w", name, err)
 	}

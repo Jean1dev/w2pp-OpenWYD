@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
 
 // Store persists migrated data to PostgreSQL.

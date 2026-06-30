@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/secret"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
 // fakeStore is an in-memory Store for unit tests (no PostgreSQL).
@@ -104,7 +104,7 @@ func (f *fakeStore) SaveCargo(_ context.Context, accountID int64, coin int32, it
 
 func mustHash(t *testing.T, pw string) string {
 	t.Helper()
-	h, err := convert.HashSecret(pw)
+	h, err := secret.HashSecret(pw)
 	if err != nil {
 		t.Fatalf("hash: %v", err)
 	}

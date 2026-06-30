@@ -1,22 +1,29 @@
 # Comandos do jogo
 
-/torre: se teleportará para a guerra de torres <br/>
-/armia: se teleportará para a cidade de Armia <br/>
-/erion: se teleportará para a cidade de Erion <br/>
-/azran: se teleportará para a cidade de Azran <br/>
-/gelo: se teleportará para a cidade de Gelo <br/>
-/kefra: se teleportará para a cidade de Kefra <br/>
-/red: se teleportará para o rei de Akelonia <br/>
-/blue: se teleportará para o rei de Hekalotia <br/>
-/arch: se teleportará para a cidade dos reinos (destrave Arch) <br/>
-/crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) <br/>
-/destravar40: destrava o level 40 do celestial <br/>
-/destravar90: destrava  o level 90 do celestial <br/>
-/arcana: realiza a quest  da cythera arcana <br/>
-/create: (nome da guild): cria guild <br/>
-/sair: sai da sua guild <br/>
-/guild: mostra o index (ID) da sua guild <br/>
-/buffs: Remove todos os buffs do personagem <br/>
+> Status no servidor Go: ✅ funciona · ⏳ pendente (depende de sistema ainda não modelado).
+> Os comandos são digitados no chat (`/comando`); o cliente os envia como um "sussurro"
+> cujo alvo é o nome do comando (`_MSG_MessageWhisper`).
+
+✅ /torre: se teleportará para a guerra de torres <br/>
+✅ /armia: se teleportará para a cidade de Armia <br/>
+✅ /erion: se teleportará para a cidade de Erion <br/>
+✅ /azran: se teleportará para a cidade de Azran <br/>
+✅ /gelo: se teleportará para a cidade de Gelo <br/>
+✅ /kefra: se teleportará para a cidade de Kefra <br/>
+✅ /red: se teleportará para o rei de Akelonia <br/>
+✅ /blue: se teleportará para o rei de Hekalotia <br/>
+✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>
+⏳ /crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) — sem coordenada na fonte legada <br/>
+⏳ /destravar40: destrava o level 40 do celestial — sistema Celestial não modelado <br/>
+⏳ /destravar90: destrava  o level 90 do celestial — sistema Celestial não modelado <br/>
+⏳ /arcana: realiza a quest  da cythera arcana — sistema de quests não modelado <br/>
+⏳ /create: (nome da guild): cria guild — sistema de guild não modelado <br/>
+✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
+⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>
+✅ /buffs: Remove todos os buffs do personagem <br/>
+
+> Bônus já implementados (existem na fonte legada, fora da lista acima): `/selados`,
+> `/amagos`, `/agua` (teleportes).
 
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.

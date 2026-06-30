@@ -1,8 +1,8 @@
-// Package convert maps the raw save structs (savefmt) into the relational
-// domain model, hashing all secrets on import. The legacy plaintext passwords
-// and PINs (data-formats.md §1.3) are NEVER carried into the new stack —
-// migration-plan.md §5.
-package convert
+// Package secret hashes and verifies account secrets (passwords, PINs, block
+// passwords) with argon2id. The legacy plaintext credentials (data-formats.md
+// §1.3) are NEVER carried into the new stack — migration-plan.md §5. It is the
+// single hashing implementation shared by the dbServer importer and the web-api.
+package secret
 
 import (
 	"crypto/rand"
@@ -35,7 +35,7 @@ func HashSecret(plain string) (string, error) {
 	}
 	salt := make([]byte, defaultArgon.saltLen)
 	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("convert: generate salt: %w", err)
+		return "", fmt.Errorf("secret: generate salt: %w", err)
 	}
 	h := argon2.IDKey([]byte(plain), salt, defaultArgon.time, defaultArgon.memory, defaultArgon.threads, defaultArgon.keyLen)
 	b64 := base64.RawStdEncoding
@@ -46,7 +46,7 @@ func HashSecret(plain string) (string, error) {
 
 // ErrBadHash is returned by VerifySecret when phc is not a hash this package
 // produced (wrong scheme, version, or malformed encoding).
-var ErrBadHash = errors.New("convert: malformed argon2id hash")
+var ErrBadHash = errors.New("secret: malformed argon2id hash")
 
 // VerifySecret reports whether plain matches the argon2id PHC hash produced by
 // HashSecret. The comparison is constant-time. An empty stored hash means the

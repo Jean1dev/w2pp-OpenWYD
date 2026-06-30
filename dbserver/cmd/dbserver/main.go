@@ -32,10 +32,11 @@ import (
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/grpcsrv"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
 func main() {
@@ -94,7 +95,7 @@ func runSeedAccount(args []string, logger *slog.Logger) error {
 	}
 	canonical := strings.ToLower(*name)
 
-	passHash, err := convert.HashSecret(*pass)
+	passHash, err := secret.HashSecret(*pass)
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}

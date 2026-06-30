@@ -10,16 +10,16 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/secret"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
 // TestServiceOverWire runs the real AccountService through a gRPC connection
 // (bufconn) end to end against the in-memory fakeStore, proving the generated
 // codec + registration wire up correctly (not just the method logic).
 func TestServiceOverWire(t *testing.T) {
-	hash, _ := convert.HashSecret("pw")
+	hash, _ := secret.HashSecret("pw")
 	fs := &fakeStore{
 		byName: map[string]store.AccountAuth{"alice": {ID: 1, PassHash: hash}},
 		chars:  map[int64][]domain.Character{1: {{Slot: 0, Name: "hero", Level: 9}}},

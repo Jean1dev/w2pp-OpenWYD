@@ -3,7 +3,7 @@
 // Integration tests for the live-game store queries (AccountByName, list/load/
 // save/create/delete). Require a real database; excluded from the default build.
 //
-//	W2PP_TEST_DSN=postgres://postgres:dev@localhost:5432/postgres go test -tags=integration ./dbserver/internal/store/
+//	W2PP_TEST_DSN=postgres://postgres:dev@localhost:5432/postgres go test -tags=integration ./internal/store/
 package store
 
 import (
@@ -11,7 +11,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
 
 func freshStore(t *testing.T) (*Store, context.Context) {
