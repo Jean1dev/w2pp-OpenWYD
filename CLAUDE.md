@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A **big-bang rewrite in Go** of the WYD (With Your Destiny) MMORPG server, targeting the
 **unmodified `WYD.exe` 7662 client** (protocol version **7640** — 7662 is the build/patch name).
 The legacy C++ server sources live in `Source/`, the runnable legacy binaries + game content in
-`Release/`, and the new Go services in `tmserver/`, `dbserver/`, `binserver/`. The rewrite is
+`Release/`, and the new Go services in `tmserver/`, `dbserver/`, `binserver/`, `webserver/`. The rewrite is
 driven by reverse-engineering documentation under `docs/migration/` — read it before changing
 wire/format/gameplay behavior; it cites evidence as `Source/.../file.cpp:line` and marks unconfirmed
 points **UNVERIFIED**.
@@ -18,7 +18,7 @@ Module path: `github.com/jeanluca/w2pp-openwyd` (Go 1.25/1.26, Linux/Docker targ
 
 ```bash
 make build          # go build ./...
-make binaries       # build each service into bin/ (tmserver, dbserver, binserver)
+make binaries       # build each service into bin/ (tmserver, dbserver, binserver, webserver)
 make test           # go test -race -cover ./...
 make lint           # golangci-lint run (needs golangci-lint v2; staticcheck/govet/errcheck/gosec)
 make vet            # go vet ./...
@@ -32,7 +32,7 @@ Run a single test / package:
 ```bash
 go test -run TestChecksum ./tmserver/internal/protocol
 go test -race ./tmserver/internal/world
-go test -tags=integration ./dbserver/...   # integration tests are behind the `integration` build tag
+go test -tags=integration ./internal/store/...   # integration tests are behind the `integration` build tag
 ```
 
 Running the stack:
@@ -49,7 +49,7 @@ server. The account has no characters — create them in the client.
 
 ## Architecture
 
-Three microservices (`migration-plan.md §3.5`). Only the client↔tmServer edge speaks the legacy
+Four microservices (`migration-plan.md §3.5`). Only the client↔tmServer edge speaks the legacy
 protocol; internal links are gRPC (+mTLS):
 
 - **tmServer** (`tmserver/`, port `8281` game + `80` status) — the game server. Speaks the legacy
@@ -60,10 +60,23 @@ protocol; internal links are gRPC (+mTLS):
   PostgreSQL (pgx v5). Subcommands: `serve`, `convert` (one-shot legacy account-file → DB import),
   `seed-account` (idempotent password-only account for local testing).
 - **binServer** (`binserver/`, port `3000`) — billing gate over gRPC (`api/bin/v1`).
+- **webServer** (`webserver/`, port `7600`) — the **web-api**: the gRPC edge (`api/web/v1`,
+  `AccountWebService`: `CreateAccount`, `VerifyCredentials`) that the planned **Next.js BFF** calls
+  server-side for the web platform (sign-up, web login, later cash/ranking/web-shop). It is a
+  *separate* service from dbServer's legacy `AccountService` but shares the same `account` table and
+  argon2id hashing. **Critical constraint:** the web never writes live character state — see
+  `docs/migration/web-platform-plan.md` (the single-owner loop makes direct writes a dup/lost-write
+  hazard; grants flow through a `delivery_queue` the tmServer drains).
 
 Wiring is in each `cmd/<svc>/main.go` (flags, logging, gRPC clients, listeners, graceful shutdown
 via signal-cancelled context). tmServer degrades gracefully: without `-dbserver` it uses no-op
 persistence (logins report no account); without `-binserver` billing is allow-all.
+
+**Shared packages** live at the repo-root `internal/` (not under any one service) so both dbServer
+and webServer reuse them: `internal/store` (PostgreSQL queries, pgx v5), `internal/migrations`
+(embedded `*.up.sql`/`*.down.sql`, applied by `store.Migrate` from whichever service boots first),
+`internal/domain` (relational model), `internal/secure` (mTLS creds), and `internal/secret`
+(argon2id hash/verify — the single hashing implementation; formerly `dbserver/internal/convert/hash`).
 
 ### The single-owner game loop (the one invariant that matters)
 
@@ -89,6 +102,12 @@ routes by message `Type` to a handler (`tmserver/internal/handler/dispatch.go` r
 grouped into "batches": login/char-select, movement, combat, items, trade, combine, party/guild,
 chat/misc). Session state follows the `CUser.Mode` state machine (`UserEmpty`→`UserLogin`→
 `UserSelChar`→`UserPlay`…) defined in `world/world.go`.
+
+Chat **slash commands** (`/armia`, `/buffs`, `/sair`, …) arrive as a *whisper* whose target name is
+the command keyword (the legacy `_MSG_MessageWhisper` quirk), so `handler/chat.go` intercepts them in
+the whisper handler before normal delivery. Implemented: city/RvR teleports, `/buffs` (clear affects),
+`/sair` (leave guild). Deferred commands (`/destravar40/90`, `/arcana`, guild create) wait on systems
+not modeled yet — see `docs/game.md` (✅/⏳ status) and `docs/migration/celestial-system-plan.md`.
 
 ### Protocol & parity notes
 
