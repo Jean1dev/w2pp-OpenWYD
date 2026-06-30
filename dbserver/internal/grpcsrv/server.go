@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/secret"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
 // Store is the persistence surface the service depends on (satisfied by
@@ -41,7 +41,7 @@ type Server struct {
 func New(s Store) *Server { return &Server{store: s} }
 
 // AccountLogin authenticates an account name + password against the stored
-// argon2id hash. Plaintext is never compared (convert.VerifySecret).
+// argon2id hash. Plaintext is never compared (secret.VerifySecret).
 func (s *Server) AccountLogin(ctx context.Context, req *dbv1.AccountLoginRequest) (*dbv1.AccountLoginResponse, error) {
 	auth, err := s.store.AccountByName(ctx, req.GetAccountName())
 	if errors.Is(err, store.ErrNotFound) {
@@ -53,7 +53,7 @@ func (s *Server) AccountLogin(ctx context.Context, req *dbv1.AccountLoginRequest
 	if auth.IsBlocked {
 		return &dbv1.AccountLoginResponse{Result: dbv1.LoginResult_LOGIN_RESULT_BLOCKED}, nil
 	}
-	ok, err := convert.VerifySecret(req.GetPassword(), auth.PassHash)
+	ok, err := secret.VerifySecret(req.GetPassword(), auth.PassHash)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "verify password: %v", err)
 	}
@@ -182,7 +182,7 @@ func (s *Server) DeleteCharacter(ctx context.Context, req *dbv1.DeleteCharacterR
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "account lookup: %v", err)
 	}
-	ok, err := convert.VerifySecret(req.GetPassword(), auth.PassHash)
+	ok, err := secret.VerifySecret(req.GetPassword(), auth.PassHash)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "verify password: %v", err)
 	}

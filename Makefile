@@ -8,6 +8,7 @@ binaries:
 	go build -o bin/tmserver ./tmserver/cmd/tmserver
 	go build -o bin/dbserver ./dbserver/cmd/dbserver
 	go build -o bin/binserver ./binserver/cmd/binserver
+	go build -o bin/webserver ./webserver/cmd/webserver
 
 test:
 	go test -race -cover ./...
@@ -44,7 +45,7 @@ run-local:
 proto:
 	protoc --go_out=. --go_opt=module=github.com/jeanluca/w2pp-openwyd \
 	       --go-grpc_out=. --go-grpc_opt=module=github.com/jeanluca/w2pp-openwyd \
-	       api/db/v1/db.proto api/bin/v1/bin.proto
+	       api/db/v1/db.proto api/bin/v1/bin.proto api/web/v1/web.proto
 
 # Generate dev mTLS certs into ./certs (gitignored). Apply with the mTLS overlay:
 #   make certs && docker compose -f docker-compose.yaml -f docker-compose.mtls.yaml up --build

@@ -7,26 +7,6 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/savefmt"
 )
 
-func TestHashSecret(t *testing.T) {
-	if h, err := HashSecret(""); err != nil || h != "" {
-		t.Errorf("HashSecret(\"\") = %q, %v; want empty", h, err)
-	}
-	h1, err := HashSecret("secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(h1, "$argon2id$") {
-		t.Errorf("hash not PHC-encoded: %q", h1)
-	}
-	if strings.Contains(h1, "secret") {
-		t.Errorf("hash leaks plaintext")
-	}
-	h2, _ := HashSecret("secret")
-	if h1 == h2 {
-		t.Errorf("expected distinct salts to yield distinct hashes")
-	}
-}
-
 func TestAccountConversion(t *testing.T) {
 	var af savefmt.AccountFile
 	copy(af.Info.AccountName[:], "Tester") // mixed case → canonical lowercase

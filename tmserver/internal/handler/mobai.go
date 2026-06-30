@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"time"
+
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -78,12 +80,22 @@ func inSafeCity(w *world.World, conn int) bool {
 // is not in the available source; regenStep is a sane stand-in (~5% of max + a
 // small floor). Combat-reduced regen and town-vs-field rates are deferred.
 func (d *Dispatcher) regenPlayers(w *world.World) {
+	now := time.Now().Unix()
 	w.ForEachPlayer(func(s *world.Session, e *world.Entity) {
 		if e.HP <= 0 {
 			return
 		}
-		hp := regenStep(e.HP, e.MaxHP)
-		mp := regenStep(e.MP, e.MaxMP)
+		// Expire the Divine buff when its wall-clock deadline passes (captura §B): drop
+		// the affect and push the (now lower) score + buff snapshot.
+		if e.DivineEnd > 0 && now >= e.DivineEnd && e.HasAffect(world.AffectDivine) {
+			e.ClearAffect(world.AffectDivine)
+			e.DivineEnd = 0
+			d.refreshScore(e)
+			d.sendScore(w, s, e)
+			d.sendAffect(w, s, e)
+		}
+		hp := regenStep(e.HP, effectiveMaxHP(e))
+		mp := regenStep(e.MP, effectiveMaxMP(e))
 		if hp == e.HP && mp == e.MP {
 			return // already full — nothing to push
 		}

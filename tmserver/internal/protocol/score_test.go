@@ -10,6 +10,7 @@ func TestEncodeUpdateScore(t *testing.T) {
 		Level: 50, Ac: 120, Damage: 200, AttackRun: 0x58,
 		MaxHp: 1500, MaxMp: 400, Hp: 1490, Mp: 390,
 		Str: 80, Int: 12, Dex: 34, Con: 56,
+		Special: [4]int16{5, 6, 7, 8},
 	})
 	if len(b) != updateScoreSize-HeaderSize { // 152 - 12 = 140
 		t.Fatalf("UpdateScore body = %d, want %d", len(b), updateScoreSize-HeaderSize)
@@ -26,6 +27,12 @@ func TestEncodeUpdateScore(t *testing.T) {
 	}
 	if le.Uint16(b[32:]) != 80 || le.Uint16(b[38:]) != 56 {
 		t.Errorf("Str/Con = %d/%d", le.Uint16(b[32:]), le.Uint16(b[38:]))
+	}
+	// Special[4] @40-46.
+	for i, want := range []uint16{5, 6, 7, 8} {
+		if got := le.Uint16(b[40+i*2:]); got != want {
+			t.Errorf("Special[%d] = %d, want %d", i, got, want)
+		}
 	}
 	// Status bars duplicated near the tail.
 	if le.Uint32(b[124:]) != 1490 || le.Uint32(b[128:]) != 390 {

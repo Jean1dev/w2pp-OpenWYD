@@ -46,6 +46,15 @@ type Config struct {
 	// ItemReqs maps item index → its equip requirement (level/attributes,
 	// content.ItemList.Requirements). When nil, no equip is gated.
 	ItemReqs map[int]content.ItemReq
+
+	// ItemVolatiles maps item index → EF_VOLATILE value, classifying consumables on
+	// use (64-66 Divine, 58 Vigor; content.ItemList.Volatiles). 0/absent = equippable.
+	ItemVolatiles map[int]int
+
+	// ItemPos maps item index → nPos (equip-slot class) for the refine (+9) threshold
+	// bonuses. ItemUnique maps index → nUnique (gates EF_DAMAGEADD to jewels).
+	ItemPos    map[int]int
+	ItemUnique map[int]int
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -64,6 +73,9 @@ type Dispatcher struct {
 	itemPrices      map[int]int32                // item index → base price (NPC shop)
 	itemEffects     map[int][]content.BaseEffect // item index → static base effects (equip score)
 	itemReqs        map[int]content.ItemReq      // item index → equip requirement (level/attrs)
+	itemVolatiles   map[int]int                  // item index → EF_VOLATILE (consumable class)
+	itemPos         map[int]int                  // item index → nPos (refine threshold)
+	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -87,6 +99,9 @@ func New(cfg Config) *Dispatcher {
 		itemPrices:      cfg.ItemPrices,
 		itemEffects:     cfg.ItemEffects,
 		itemReqs:        cfg.ItemReqs,
+		itemVolatiles:   cfg.ItemVolatiles,
+		itemPos:         cfg.ItemPos,
+		itemUnique:      cfg.ItemUnique,
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)

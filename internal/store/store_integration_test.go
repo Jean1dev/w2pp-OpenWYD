@@ -3,7 +3,7 @@
 // Integration tests for the PostgreSQL store. They require a real database and
 // are excluded from the default build (guidelines §13.2). Run with:
 //
-//	W2PP_TEST_DSN=postgres://postgres:dev@localhost:5432/postgres go test -tags=integration ./dbserver/internal/store/
+//	W2PP_TEST_DSN=postgres://postgres:dev@localhost:5432/postgres go test -tags=integration ./internal/store/
 package store
 
 import (
@@ -14,7 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
 
 func testPool(t *testing.T) *pgxpool.Pool {

@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+// web-api contract — DESIGNED FROM SCRATCH (web-platform-plan.md). This is the
+// edge the Next.js BFF (Route Handlers / Server Actions) calls server-side over
+// gRPC + mTLS; the browser never speaks gRPC. It is SEPARATE from the legacy
+// CPSock game login and from dbServer's AccountService (api/db/v1), which
+// mirrors the legacy G↔DB messages. web-api reuses the same `account` table and
+// argon2id hashing underneath, but exposes its own web-facing surface.
+//
+// Generate with `make proto` (protoc + protoc-gen-go/-grpc).
+package web.v1;
+
+option go_package = "github.com/jeanluca/w2pp-openwyd/api/web/v1;webv1";
+
+// AccountWebService owns the web platform's account flows (sign-up, credential
+// check for the BFF session cookie). Game state is never written here — that
+// stays in tmServer's single-owner loop (web-platform-plan.md).
+service AccountWebService {
+  // CreateAccount registers a new web/game account (argon2id-hashed password).
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  // VerifyCredentials validates name + password so the BFF can mint a session
+  // cookie. It is the web login path, independent of the CPSock game login.
+  rpc VerifyCredentials(VerifyCredentialsRequest) returns (VerifyCredentialsResponse);
+}
+
+// CreateResult is the outcome of a sign-up. Business outcomes (name taken,
+// invalid input) are carried here, not as gRPC error codes — only infra
+// failures surface as errors.
+enum CreateResult {
+  CREATE_RESULT_UNSPECIFIED = 0;
+  CREATE_RESULT_OK = 1;          // account created; account_id is set
+  CREATE_RESULT_NAME_TAKEN = 2;  // canonical name already exists
+  CREATE_RESULT_INVALID = 3;     // name/password/email failed validation
+}
+
+message CreateAccountRequest {
+  string name = 1;     // canonicalized to lowercase server-side
+  string password = 2; // plaintext over the mTLS link; hashed before storage
+  string email = 3;    // optional
+}
+
+message CreateAccountResponse {
+  CreateResult result = 1;
+  int64 account_id = 2; // set only when result is CREATE_RESULT_OK
+}
+
+message VerifyCredentialsRequest {
+  string name = 1;
+  string password = 2;
+}
+
+message VerifyCredentialsResponse {
+  bool ok = 1;          // name exists and password matches
+  int64 account_id = 2; // set only when ok
+  bool blocked = 3;     // account.is_blocked — caller decides how to surface it
+}

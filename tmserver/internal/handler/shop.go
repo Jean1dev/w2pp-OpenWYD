@@ -68,8 +68,17 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 		return
 	}
 	item := npc.Carry[npcPos]
-	if item.Index == 0 || e.Carry[myPos].Index != 0 {
-		return // empty shop slot or destination occupied
+	if item.Index == 0 {
+		return // empty shop slot
+	}
+	// Destination slot occupied: re-sync the client with what is REALLY in that slot,
+	// exactly as the original (_MSG_Buy.cpp:158-162). Without this the client keeps a
+	// stale "empty" view (e.g. a class/body item it doesn't render in the bag) and
+	// retries the same occupied slot forever — every buy silently fails (B11).
+	if e.Carry[myPos].Index != 0 {
+		d.log.Info("buy resync (dest occupied)", "conn", s.Conn, "npcPos", npcPos, "wantItem", item.Index, "myPos", myPos, "destItem", e.Carry[myPos].Index)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, myPos, itemToSel(e.Carry[myPos])))
+		return
 	}
 	price, ok := d.itemPrices[int(item.Index)]
 	if !ok || price < 0 || price > e.Coin {
@@ -78,16 +87,19 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	}
 	e.Coin -= price
 	e.Carry[myPos] = item
-	d.log.Info("buy ok", "conn", s.Conn, "item", item.Index, "price", price, "gold", e.Coin)
-	// Echo MSG_Buy with the new Coin (@body8) + show the item in the slot + gold.
+	d.log.Info("buy ok", "conn", s.Conn, "npcPos", npcPos, "item", item.Index, "myPos", myPos, "price", price, "gold", e.Coin)
+	// Reply in the EXACT order of the original (_MSG_Buy.cpp:271-296): the MSG_Buy
+	// echo (ID=ESCENE_FIELD, new Coin) first, then SendEtc, and the SendItem LAST —
+	// the client commits the bought item to the bag on the SendItem, so it must arrive
+	// after the buy/gold acknowledgement or the item appears one purchase behind (B?).
 	echo := make([]byte, len(payload))
 	copy(echo, payload)
 	if len(echo) >= 12 {
-		binary.LittleEndian.PutUint32(echo[8:12], uint32(e.Coin))
+		binary.LittleEndian.PutUint32(echo[8:12], uint32(e.Coin)) // Coin @body8
 	}
 	w.SendTo(s, protocol.Header{Type: protocol.MsgBuy, ID: protocol.IDScene}, echo)
-	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, myPos, itemToSel(item)))
 	d.sendEtc(w, s, e)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, myPos, itemToSel(item)))
 }
 
 // itemToSel converts a world inventory item to the wire STRUCT_ITEM form.

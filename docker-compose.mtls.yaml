@@ -23,6 +23,14 @@ services:
     volumes:
       - ./certs:/certs:ro
 
+  webserver:
+    environment:
+      W2PP_TLS_CERT: /certs/server.crt
+      W2PP_TLS_KEY: /certs/server.key
+      W2PP_TLS_CA: /certs/ca.crt
+    volumes:
+      - ./certs:/certs:ro
+
   tmserver:
     environment:
       W2PP_TLS_CERT: /certs/client.crt

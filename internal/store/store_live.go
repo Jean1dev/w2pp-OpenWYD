@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
 
 // ErrNotFound is returned when a queried account or character does not exist.

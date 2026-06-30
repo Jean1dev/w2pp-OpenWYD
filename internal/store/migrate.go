@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/migrations"
+	"github.com/jeanluca/w2pp-openwyd/internal/migrations"
 )
 
 // Migrate applies every not-yet-applied *.up.sql migration in lexical order,

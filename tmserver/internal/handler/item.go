@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/binary"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -121,10 +122,20 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
 }
 
-// useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. This batch
-// covers the equip path (CARRY → EQUIP). Consume, refine (batch 6) and teleport
-// are UNVERIFIED and not handled here. Drag-and-drop between slots (including the
-// account cargo) is a different message — see tradingItem (_MSG_TradingItem).
+// Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
+// The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
+const (
+	volDivine7  = 64
+	volDivine30 = 66
+	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —
+	// the actual expiry is DivineEnd (wall-clock), not this field (captura §B).
+	divineAffectTime = 2000000000
+)
+
+// useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
+// classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
+// 0 = equip (CARRY → EQUIP); 64-66 = Poção Divina; other consumables are UNVERIFIED and
+// not handled yet. Drag-and-drop between slots is a different message (tradingItem).
 func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -134,15 +145,34 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	if err := body.Decode(payload); err != nil {
 		return
 	}
-	if int(body.SourType) != world.ItemPlaceCarry || int(body.DestType) != world.ItemPlaceEquip {
-		return // only equip in this batch
+	if int(body.SourType) != world.ItemPlaceCarry {
+		return // consumed/equipped items come from the inventory
+	}
+	src := int(body.SourPos)
+	if src < 0 || src >= world.MaxCarry || e.Carry[src].Empty() {
+		return
+	}
+	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
+	case vol == 0:
+		d.equipItem(w, s, e, body, payload)
+	case vol >= volDivine7 && vol <= volDivine30:
+		d.useDivine(w, s, e, src, vol)
+	default:
+		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
+	}
+}
+
+// equipItem is the CARRY → EQUIP path of _MSG_UseItem (Vol==0 items).
+func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, payload []byte) {
+	if int(body.DestType) != world.ItemPlaceEquip {
+		return
 	}
 	src, dst := int(body.SourPos), int(body.DestPos)
-	if src < 0 || src >= world.MaxCarry || dst < 0 || dst >= world.MaxEquip {
+	if dst < 0 || dst >= world.MaxEquip {
 		return
 	}
-	if e.Carry[src].Empty() {
-		return
+	if !d.canEquipSlot(e.Carry[src].Index, dst) {
+		return // wrong slot for this item (e.g. a consumable into the body slot)
 	}
 	if !d.meetsEquipReq(e, e.Carry[src]) {
 		d.notify(w, s, NoticeReqNotMet) // level/attributes too low for this item
@@ -151,6 +181,74 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
 	d.refreshEquip(w, s, e)                 // update the rendered gear
+}
+
+// useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31
+// days and recomputes the score so the client sees +20% MaxHp/MaxMp/Damage. Mirrors
+// _MSG_UseItem.cpp:2128 (captura §B,C). If the player is already divine, it refuses
+// (_NN_CantEatMore) and re-syncs the item slot.
+//
+// NOTE: DivineEnd/Affect are NOT persisted yet — the buff is lost on relog (a focused
+// follow-up; the DB `affect` table and a DivineEnd column are the next step).
+func (d *Dispatcher) useDivine(w *world.World, s *world.Session, e *world.Entity, src, vol int) {
+	slot := e.EmptyAffect(world.AffectDivine)
+	if slot < 0 || e.Affect[slot].Type == world.AffectDivine {
+		d.notify(w, s, NoticeCantEatMore)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	// Vol 64/65/66 → 8/16/31 days (the +1 grace matches _MSG_UseItem.cpp:2142).
+	days := int64(8)
+	switch vol {
+	case 65:
+		days = 16
+	case volDivine30:
+		days = 31
+	}
+	e.DivineEnd = time.Now().Unix() + days*86400
+	e.Affect[slot] = world.Affect{Type: world.AffectDivine, Level: 1, Time: divineAffectTime}
+	e.Carry[src] = world.Item{} // consume one unit (stacking not modeled yet)
+	d.refreshScore(e)           // re-clamp; the +20% is read-time (effective getters)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
+// client renders the buff icons/timers. The Divine slot's displayed Time is the
+// remaining seconds until DivineEnd (SendFunc.cpp:1901, captura §D).
+func (d *Dispatcher) sendAffect(w *world.World, s *world.Session, e *world.Entity) {
+	now := time.Now().Unix()
+	var a [protocol.MaxAffect]protocol.AffectData
+	for i := range e.Affect {
+		af := e.Affect[i]
+		if af.Type == 0 {
+			continue
+		}
+		ad := protocol.AffectData{Type: af.Type, Value: af.Value, Level: af.Level, Time: af.Time}
+		if af.Type == world.AffectDivine && e.DivineEnd > now {
+			ad.Time = uint32(e.DivineEnd - now)
+		}
+		a[i] = ad
+	}
+	w.Send(s, protocol.MsgSendAffect, protocol.EncodeSendAffect(a))
+}
+
+// canEquipSlot reports whether an item may be equipped in equip slot dst. nPos
+// (STRUCT_ITEMLIST.nPos) is a BITMASK of the slots an item fits — body=1<<0, hat=1<<1,
+// armor 1<<2/1<<3, weapons 1<<6/1<<7, mount 1<<14 — confirmed against the template gear
+// (Garra nPos 64=slot6, Shire 16384=slot14, body items nPos 1=slot0). A consumable or
+// material has nPos 0 and fits nowhere, so this rejects a potion landing in an equip
+// slot. Items absent from the catalog are allowed (legacy/unknown gear, e.g. tests).
+func (d *Dispatcher) canEquipSlot(idx int16, dst int) bool {
+	if idx == 0 {
+		return true // empty/unequip is always fine
+	}
+	pos, ok := d.itemPos[int(idx)]
+	if !ok {
+		return true
+	}
+	return pos != 0 && pos&(1<<uint(dst)) != 0
 }
 
 // meetsEquipReq reports whether the entity satisfies an item's equip requirement
@@ -196,14 +294,25 @@ func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Ent
 
 // Item-effect type bytes (ItemEffect.h) summed into the CurrentScore.
 const (
-	efDamage = 2
-	efAc     = 3
-	efHp     = 4
-	efMp     = 5
-	efStr    = 7
-	efInt    = 8
-	efDex    = 9
-	efCon    = 10
+	efDamage    = 2
+	efAc        = 3
+	efHp        = 4
+	efMp        = 5
+	efStr       = 7
+	efInt       = 8
+	efDex       = 9
+	efCon       = 10
+	efSpecial1  = 11 // EF_SPECIAL1..4 → CurrentScore.Special[0..3]
+	efSpecial2  = 12
+	efSpecial3  = 13
+	efSpecial4  = 14
+	efSanc      = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
+	efHpAdd     = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
+	efMpAdd     = 46 // EF_MPADD: % bonus to MaxMp
+	efAcAdd     = 53 // EF_ACADD: extra AC — FLAT (summed with EF_AC), captura §E
+	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
+	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
+	efMpAdd2    = 70
 
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
 	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
@@ -218,8 +327,37 @@ const (
 	weaponSlotL = 7
 )
 
+// itemSanc reads an item's refine ("anc") level from its instance effects (the
+// EF_SANC pair written by combine/refine), clamped to [0,15]. 0 = unrefined.
+func itemSanc(it world.Item) int {
+	for _, ef := range it.Effects {
+		if ef.Effect == efSanc {
+			lvl := int(ef.Value)
+			if lvl < 0 {
+				return 0
+			}
+			if lvl > 15 {
+				return 15
+			}
+			return lvl
+		}
+	}
+	return 0
+}
+
+// nPos equip-slot classes that get refine (+9) threshold bonuses (captura §E).
+const (
+	nPosWeapon1     = 64  // weapon hand → +40 WeaponDamage at sanc>=9
+	nPosWeapon2     = 192 // dual-class weapon → +40
+	nPosDef1        = 4   // armor/helm/boots → +25 AC
+	nPosDef2        = 8
+	nPosDef3        = 128 // shield → +25 AC
+	refineThreshold = 9
+)
+
 // itemBaseDamage returns an equipped item's catalog EF_DAMAGE (its inherent weapon
-// damage), or 0 if the slot is empty or the catalog has no entry.
+// damage) at face value — the refined value is already stored in the item's effects,
+// so no multiplier is applied (captura §E). 0 if empty or no catalog entry.
 func (d *Dispatcher) itemBaseDamage(it world.Item) int32 {
 	if it.Empty() {
 		return 0
@@ -233,9 +371,9 @@ func (d *Dispatcher) itemBaseDamage(it world.Item) int32 {
 }
 
 // weaponDamage is GetCurrentScore's WeaponDamage (CMob.cpp:756-789): the stronger
-// weapon hand at full damage plus the weaker at half (dual-wield). The original
-// keeps this in a SEPARATE field from CurrentScore.Damage and adds it at hit time,
-// so it is NOT already baked into e.Damage — adding it here does not double-count.
+// weapon hand at full damage plus the weaker at half (dual-wield), plus a +40 refine
+// threshold per weapon hand at sanc>=9 (captura §E). It is a SEPARATE field from
+// CurrentScore.Damage, added at hit/display time, so it is not in e.Damage.
 //
 // UNVERIFIED / deferred: per-class weapon-mastery (full instead of half for the
 // off-hand) and the skill +40 bonuses (CMob.cpp:763-817).
@@ -245,23 +383,36 @@ func (d *Dispatcher) weaponDamage(e *world.Entity) int32 {
 	if w1 < w2 {
 		w1, w2 = w2, w1
 	}
-	return w1 + w2/2
+	dmg := w1 + w2/2
+	for _, slot := range [2]int{weaponSlotR, weaponSlotL} {
+		it := e.Equip[slot]
+		if !it.Empty() && itemSanc(it) >= refineThreshold {
+			if pos := d.itemPos[int(it.Index)]; pos == nPosWeapon1 || pos == nPosWeapon2 {
+				dmg += 40
+			}
+		}
+	}
+	return dmg
 }
 
-// equipBonus is the summed contribution of all equipped items to the CurrentScore
-// (catalog base effects + per-item instance refines). EF_DAMAGE from the two weapon
-// hands is EXCLUDED — weapon damage is a separate field (weaponDamage) added at hit
-// time, not part of the stored CurrentScore; non-weapon EF_DAMAGE (e.g. boots) IS
-// included.
+// equipBonus is the summed FLAT contribution of all equipped items to the CurrentScore
+// (catalog base effects + per-item instance refines/divines). EF_DAMAGE from the two
+// weapon hands is EXCLUDED (it is the separate weaponDamage). The percent effects
+// EF_HPADD/EF_MPADD are accumulated separately (hpAddPct/mpAddPct) and applied at READ
+// time, never baked here — so the stored score stays flat (captura §E).
 type equipBonus struct {
 	str, intel, dex, con int16
+	special              [4]int16
 	ac, damage           int32
 	maxHP, maxMP         int32
+	hpAddPct, mpAddPct   int32
 }
 
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	var b equipBonus
-	add := func(eff uint8, val int32, weaponSlot bool) {
+	// add folds one effect/value pair into the bonus. weaponSlot excludes weapon-hand
+	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD to the damage-jewel items (nUnique 41-50).
+	add := func(eff uint8, val int32, weaponSlot, dmgJewel bool) {
 		switch eff {
 		case efStr:
 			b.str += int16(val)
@@ -271,16 +422,32 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			b.dex += int16(val)
 		case efCon:
 			b.con += int16(val)
-		case efAc:
+		case efSpecial1:
+			b.special[0] += int16(val)
+		case efSpecial2:
+			b.special[1] += int16(val)
+		case efSpecial3:
+			b.special[2] += int16(val)
+		case efSpecial4:
+			b.special[3] += int16(val)
+		case efAc, efAcAdd: // EF_AC (refined value already in the effect) + EF_ACADD, both FLAT
 			b.ac += val
 		case efDamage:
 			if !weaponSlot { // weapon-hand damage is the separate WeaponDamage
+				b.damage += val
+			}
+		case efDamageAdd:
+			if dmgJewel { // only jewels (nUnique 41-50) contribute EF_DAMAGEADD
 				b.damage += val
 			}
 		case efHp:
 			b.maxHP += val
 		case efMp:
 			b.maxMP += val
+		case efHpAdd, efHpAdd2:
+			b.hpAddPct += val
+		case efMpAdd, efMpAdd2:
+			b.mpAddPct += val
 		}
 	}
 	for slot := range e.Equip {
@@ -289,11 +456,21 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			continue
 		}
 		weaponSlot := slot == weaponSlotR || slot == weaponSlotL
+		nUnique := d.itemUnique[int(it.Index)]
+		dmgJewel := nUnique >= 41 && nUnique <= 50
 		for _, be := range d.itemEffects[int(it.Index)] { // catalog base effects
-			add(be.Eff, int32(be.Val), weaponSlot)
+			add(be.Eff, int32(be.Val), weaponSlot, dmgJewel)
 		}
-		for _, ef := range it.Effects { // per-item instance refines
-			add(ef.Effect, int32(ef.Value), weaponSlot)
+		for _, ef := range it.Effects { // per-item instance refines/divines
+			add(ef.Effect, int32(ef.Value), weaponSlot, dmgJewel)
+		}
+		// Refine (+9) threshold: defense pieces gain +25 AC (weapons' +40 is in
+		// weaponDamage). captura §E.
+		if itemSanc(it) >= refineThreshold {
+			switch d.itemPos[int(it.Index)] {
+			case nPosDef1, nPosDef2, nPosDef3:
+				b.ac += 25
+			}
 		}
 	}
 	return b
@@ -315,35 +492,76 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 }
 
-// refreshScore recomputes the live CurrentScore = BaseScore + equipment, after any
-// equipment or attribute change. HP/MP are clamped down to the new maxima (e.g. on
-// unequipping an HP item). Weapon damage is added separately at display/hit time.
+// refreshScore recomputes the live CurrentScore = BaseScore + FLAT equipment, after any
+// equipment or attribute change, and caches the percent EF_HPADD/EF_MPADD bonuses. The
+// multiplicative effects (HPADD%/MPADD% and the Divine/Vigor buffs) are NOT baked here —
+// they are layered at read time (effectiveMaxHP/MP, effectiveDamage), so the stored
+// score stays flat and the base derivation by subtraction holds. HP/MP are clamped to
+// the live (effective) maxima.
 func (d *Dispatcher) refreshScore(e *world.Entity) {
 	b := d.equipBonus(e)
 	e.Str = e.BaseStr + b.str
 	e.Int = e.BaseInt + b.intel
 	e.Dex = e.BaseDex + b.dex
 	e.Con = e.BaseCon + b.con
+	e.Special = b.special // equipment-derived only (no allocated SpecialBonus base yet)
 	e.AC = e.BaseAC + b.ac
 	e.Damage = e.BaseDamage + b.damage
 	e.MaxHP = e.BaseMaxHP + b.maxHP
 	e.MaxMP = e.BaseMaxMP + b.maxMP
-	if e.HP > e.MaxHP {
-		e.HP = e.MaxHP
+	e.HpAddPct = b.hpAddPct
+	e.MpAddPct = b.mpAddPct
+	if m := effectiveMaxHP(e); e.HP > m {
+		e.HP = m
 	}
-	if e.MP > e.MaxMP {
-		e.MP = e.MaxMP
+	if m := effectiveMaxMP(e); e.MP > m {
+		e.MP = m
 	}
 }
 
-// computeScore builds the CurrentScore the client shows. The live entity fields
-// already include the equipment (kept current by refreshScore); only the separate
-// weapon damage and the mount speed bump are folded in here.
+// affectMul returns the buff multiplier (×100) on MaxHp/MaxMp from active buffs:
+// Divine (+20%) or Vigor (+10%). 100 = no buff (captura §C).
+func affectMul(e *world.Entity) int32 {
+	switch {
+	case e.HasAffect(world.AffectDivine):
+		return 120
+	case e.HasAffect(world.AffectVigor):
+		return 110
+	}
+	return 100
+}
+
+// effectiveMaxHP is the player's real max HP: flat MaxHP × EF_HPADD% × buff. Applied at
+// read time (display/combat/regen), never stored (captura §C,E).
+func effectiveMaxHP(e *world.Entity) int32 {
+	return e.MaxHP * (e.HpAddPct + 100) / 100 * affectMul(e) / 100
+}
+
+// effectiveMaxMP is the player's real max MP: flat MaxMP × EF_MPADD% × buff.
+func effectiveMaxMP(e *world.Entity) int32 {
+	return e.MaxMP * (e.MpAddPct + 100) / 100 * affectMul(e) / 100
+}
+
+// effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage
+// boosted +20% by the Divine buff, plus the separate WeaponDamage (which the Divine does
+// NOT multiply — it is a separate field added after, captura §C).
+func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
+	dmg := e.Damage
+	if e.HasAffect(world.AffectDivine) {
+		dmg += dmg * 20 / 100
+	}
+	return dmg + d.weaponDamage(e)
+}
+
+// computeScore builds the CurrentScore the client shows. Multiplicative effects
+// (EF_HPADD%/MPADD% and the Divine/Vigor buffs) and the separate weapon damage are
+// folded in here via the effective getters; the mount speed bump too.
 func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 	sc := protocol.ScoreData{
-		Level: e.Level, Ac: e.AC, Damage: e.Damage + d.weaponDamage(e),
-		MaxHp: e.MaxHP, Hp: e.HP, MaxMp: e.MaxMP, Mp: e.MP,
+		Level: e.Level, Ac: e.AC, Damage: d.effectiveDamage(e),
+		MaxHp: effectiveMaxHP(e), Hp: e.HP, MaxMp: effectiveMaxMP(e), Mp: e.MP,
 		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
+		Special:   e.Special,
 		AttackRun: baseAttackRun,
 	}
 	// A mount in the mount slot raises the move-speed (low) nibble of AttackRun.
@@ -419,10 +637,11 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	if src.Empty() && dst.Empty() {
 		return // nothing to move
 	}
-	// Equip requirement: the item that would land in an equip slot must be usable.
-	// On a swap the src item moves into the dst slot (and vice-versa).
-	if dstPlace == world.ItemPlaceEquip && !src.Empty() && !d.meetsEquipReq(e, *src) ||
-		srcPlace == world.ItemPlaceEquip && !dst.Empty() && !d.meetsEquipReq(e, *dst) {
+	// Equip rules: the item that would land in an equip slot must fit that slot (nPos)
+	// AND meet the level/attribute requirement. On a swap the src item moves into the
+	// dst slot (and vice-versa).
+	if dstPlace == world.ItemPlaceEquip && !src.Empty() && (!d.canEquipSlot(src.Index, dstSlot) || !d.meetsEquipReq(e, *src)) ||
+		srcPlace == world.ItemPlaceEquip && !dst.Empty() && (!d.canEquipSlot(dst.Index, srcSlot) || !d.meetsEquipReq(e, *dst)) {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}

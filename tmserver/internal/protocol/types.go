@@ -52,6 +52,7 @@ const (
 	MsgDropItem            Type = 0x0272 // 626
 	MsgGetItem             Type = 0x0270 // 624
 	MsgUseItem             Type = 0x0373 // 883
+	MsgSendAffect          Type = 0x03B9 // 953  buff/debuff snapshot (STRUCT_AFFECT[32])
 	MsgTradingItem         Type = 0x0376 // 886
 	MsgTrade               Type = 0x0383 // 899
 	MsgQuitTrade           Type = 0x0384 // 900

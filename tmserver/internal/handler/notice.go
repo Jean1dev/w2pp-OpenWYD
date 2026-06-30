@@ -30,6 +30,7 @@ const (
 	NoticeBillingDenied                 // binServer denied entry (expired/blocked)
 	NoticeCargoFull                     // deposit/withdraw would exceed the 2G ceiling
 	NoticeReqNotMet                     // equip requirement (level/attributes) not met
+	NoticeCantEatMore                   // _NN_CantEatMore (a buff of this kind is already active)
 )
 
 // notify sends a client notification.

@@ -102,6 +102,7 @@ type CharacterState struct {
 	Dex         int16
 	Con         int16
 	ScoreBonus  uint16
+	DivineEnd   int64          // Unix-seconds deadline of the Divine buff (0 = none)
 	Equip       [MaxEquip]Item // equipped gear
 	Carry       [MaxCarry]Item // inventory
 }
@@ -143,6 +144,7 @@ type CharacterSave struct {
 	MaxHP     int32
 	MP        int32
 	MaxMP     int32
+	DivineEnd int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
 	Carry     []SavedItem
 	Equip     []SavedItem
 }

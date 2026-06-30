@@ -26,5 +26,7 @@
 
 | B10 | **Level-up não concede pontos de atributo** | ~~P1~~ **RESOLVIDO** | `ScoreBonus` (pontos livres) **não fica no `STRUCT_SCORE`/`MSG_UpdateScore`** — fica no `MSG_UpdateEtc` (`SendEtc`, `Basedef.h`). No level-up mandávamos só `UpdateScore`+`Motion`, então o cliente nunca via os pontos novos. Bônus: `EncodeUpdateEtcCoin` (só gold) zerava `ScoreBonus`/`Exp` no cliente a cada compra/teleporte. | — (novo `EncodeUpdateEtc` completo + `sendEtc`; enviado no level-up (`grantExp`) e em todos os refreshes de gold (shop/cargo/teleporte/restart/loot); testes `TestUpdateEtcLayout`; fonte `SendFunc.cpp:SendEtc`) | — |
 
+| B11 | **Não consegue comprar itens** (todas as compras falham em silêncio) | ~~P1~~ **RESOLVIDO** | O cliente manda `_MSG_Buy` com o slot de destino (`MyInvenPos`) que ELE acha vazio, mas o servidor tinha um item nesse slot (no caso visto, índice 21 = `BeastMaster`, item de modelo de classe que o cliente não desenha na mochila → o slot aparenta vazio). O Go só dava `return` mudo na condição "destino ocupado", então o cliente nunca aprendia que o slot estava ocupado e **reenviava o mesmo `myPos` infinitamente** → nenhuma compra acontecia. Diagnóstico via log `buy reject ... myPos=10 destItem=21`. | — (na condição destino-ocupado o `buy` agora reenvia `MSG_SendItem` daquele slot p/ re-sincronizar o cliente, igual ao original `_MSG_Buy.cpp:158-162`; teste `TestBuyOccupiedSlotResync`, `handler/shop.go`) | — |
+
 ## (adicione aqui os bugs que você já viu)
 - …
