@@ -2,6 +2,8 @@
 *.md
 tmserver/test/fixtures
 bin/
+!api/bin/
+!api/bin/**
 *.log
 *.rar
 Release
