@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+// binServer billing contract — DESIGNED FROM SCRATCH (migration-plan.md §4).
+// The legacy TMSrv↔BISrv link was a fixed 196-byte _AUTH_GAME packet whose
+// layout is UNVERIFIED (protocol-spec.md §4.3); it is NOT reproduced. tmServer's
+// character-login billing gate calls CheckBilling over gRPC + mTLS instead.
+//
+// Generate with `make proto` (protoc + protoc-gen-go/-grpc).
+package bin.v1;
+
+option go_package = "github.com/jeanluca/w2pp-openwyd/api/bin/v1;binv1";
+
+// BillingService is the new billing API (binserver/internal/billing).
+service BillingService {
+  // CheckBilling decides whether an account may enter the world.
+  rpc CheckBilling(CheckBillingRequest) returns (CheckBillingResponse);
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_BLOCKED = 2;
+  STATUS_EXPIRED = 3;
+}
+
+message CheckBillingRequest {
+  string account_name = 1;
+}
+
+message CheckBillingResponse {
+  bool allowed = 1;
+  Status status = 2;
+}

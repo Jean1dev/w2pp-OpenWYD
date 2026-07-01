@@ -20,6 +20,8 @@
 [Bb]uild/
 bld/
 [Bb]in/
+!api/bin/
+!api/bin/**
 [Oo]bj/
 
 # Visual Studio 2015 cache/options directory
