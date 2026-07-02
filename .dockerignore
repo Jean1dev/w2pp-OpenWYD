@@ -6,7 +6,15 @@ bin/
 !api/bin/**
 *.log
 *.rar
-Release
+# Release/ carries the game content tmServer loads at boot (W2PP_CONTENT: rates,
+# catalogs, BaseMob templates, serv00.htm, maps), so it must stay in the build
+# context — but drop the heavyweight legacy build/debug artifacts we never read
+# (MSVC symbols, incremental-link files, the legacy binaries, a 4.6 MB test dump).
+Release/**/*.pdb
+Release/**/*.ilk
+Release/**/*.exe
+Release/**/*.dll
+Release/TMsrv/run/AttackDieTeste.txt
 Source
 serverlist bin
 project-analizer

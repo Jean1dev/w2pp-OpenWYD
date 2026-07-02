@@ -56,6 +56,15 @@ func envInt(key string, def int) int {
 	return n
 }
 
+// addrOrNone renders an empty flag value as "(none)" so the boot log reads
+// clearly when an optional address (dbServer/binServer/content) is unset.
+func addrOrNone(v string) string {
+	if v == "" {
+		return "(none)"
+	}
+	return v
+}
+
 func run(logger *slog.Logger) error {
 	addr := flag.String("addr", ":8281", "CPSock listen address for the client edge")
 	dbAddr := flag.String("dbserver", os.Getenv("W2PP_DBSERVER"), "dbServer gRPC address (empty = no-op persistence)")
@@ -75,6 +84,16 @@ func run(logger *slog.Logger) error {
 	statusAddr := flag.String("status-addr", defStatusAddr, "HTTP channel-status listen address (serv00.htm); real WYD serves status on :80, separate from the game port. Empty disables")
 	clientVersion := flag.Int("client-version", envInt("W2PP_CLIENT_VERSION", 7640), "MSG_AccountLogin.ClientVersion the client must send (protocol-spec says 7640; this 7662 'Cavaleiros de Kersef' build sends 12000)")
 	flag.Parse()
+
+	// Echo the effective wiring at boot: the client-version and the resolved
+	// dbServer/binServer addresses are the knobs most often misconfigured in a
+	// container deploy (version-mismatch drops, or "produced zero addresses" when
+	// an internal hostname is wrong), so surface them before anything connects.
+	logger.Info("tmserver config",
+		"client_version", *clientVersion,
+		"dbserver", addrOrNone(*dbAddr),
+		"binserver", addrOrNone(*binAddr),
+		"content", addrOrNone(*contentDir))
 
 	// When -content is set, load and validate the content tree up front so a
 	// missing/corrupt mount fails fast instead of surfacing mid-session. The
