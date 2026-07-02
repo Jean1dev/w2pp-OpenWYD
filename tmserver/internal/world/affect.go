@@ -77,11 +77,6 @@ const (
 	RsvBlock uint8 = 0x80
 )
 
-// affectInfiniteTime: an Affect.Time at/above this never decrements in the tick
-// sweep (Server.cpp:5832 `Time < 32400000`); the Divine slot uses it (its real
-// deadline is the wall-clock DivineEnd).
-const affectInfiniteTime = 32400000
-
 // SetAffect is the legacy SetAffect (Server.cpp:9209): install a timed affect
 // from a cast. Only PLAYERS take affects (`conn > MAX_USER` returns FALSE);
 // aggressive casts bounce off RSV_BLOCK. time is the cast Delay (100+Special);
