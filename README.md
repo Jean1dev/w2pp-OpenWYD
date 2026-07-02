@@ -1,6 +1,8 @@
 # w2pp-OpenWYD
 servidor aberto de wyd
 
+[![CI](https://github.com/Jean1dev/w2pp-OpenWYD/actions/workflows/ci.yml/badge.svg)](https://github.com/Jean1dev/w2pp-OpenWYD/actions/workflows/ci.yml)
+
 Reescrita em **Go** (big-bang) do servidor do WYD (With Your Destiny), mirando o **client `WYD.exe`
 7662 sem modificação** (protocolo 7640). Os fontes legados em C++ ficam em `Source/`, os binários
 legados + conteúdo do jogo em `Release/`, e os serviços Go novos em `tmserver/`, `dbserver/`,

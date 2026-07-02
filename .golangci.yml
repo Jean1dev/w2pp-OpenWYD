@@ -1,24 +1,37 @@
-# Baseline lint config for the big-bang rewrite (guidelines §25).
-# Run inside the golang:1.26-alpine container or after `go install`.
-run:
-  timeout: 5m
-
+# golangci-lint v2 config (guidelines §25). The v2 default set already enables
+# errcheck/govet/ineffassign/staticcheck/unused; we add revive/misspell/unconvert
+# on top and run gofmt/goimports as formatters. CI gates only *new* issues
+# (only-new-issues) so pre-existing debt doesn't block; run `golangci-lint run`
+# locally for the full picture. Regenerate via `golangci-lint migrate` if bumping.
+version: "2"
 linters:
   enable:
-    - govet
-    - staticcheck
-    - errcheck
+    - misspell
     - revive
+    - unconvert
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - revive
+          - staticcheck
+        path: \.pb\.go$
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
     - gofmt
     - goimports
-    - ineffassign
-    - unconvert
-    - misspell
-
-issues:
-  exclude-rules:
-    # Generated protobuf code (Phase 2+) is exempt from style linters.
-    - path: \.pb\.go$
-      linters:
-        - revive
-        - staticcheck
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

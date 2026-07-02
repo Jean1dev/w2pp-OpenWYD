@@ -54,16 +54,16 @@ func writeSelItem(b []byte, it SelItem) {
 
 // writeStructScore writes a 48-byte STRUCT_SCORE preview (Level/HP/MP/stats).
 func writeStructScore(b []byte, c SelChar) {
-	le.PutUint32(b[0:], uint32(c.Level))   // Level @0
-	b[14] = c.Direction                    // Direction @14
-	le.PutUint32(b[16:], uint32(c.MaxHp))  // MaxHp @16
-	le.PutUint32(b[20:], uint32(c.MaxMp))  // MaxMp @20
-	le.PutUint32(b[24:], uint32(c.Hp))     // Hp @24
-	le.PutUint32(b[28:], uint32(c.Mp))     // Mp @28
-	le.PutUint16(b[32:], uint16(c.Str))    // Str @32
-	le.PutUint16(b[34:], uint16(c.Int))    // Int @34
-	le.PutUint16(b[36:], uint16(c.Dex))    // Dex @36
-	le.PutUint16(b[38:], uint16(c.Con))    // Con @38
+	le.PutUint32(b[0:], uint32(c.Level))  // Level @0
+	b[14] = c.Direction                   // Direction @14
+	le.PutUint32(b[16:], uint32(c.MaxHp)) // MaxHp @16
+	le.PutUint32(b[20:], uint32(c.MaxMp)) // MaxMp @20
+	le.PutUint32(b[24:], uint32(c.Hp))    // Hp @24
+	le.PutUint32(b[28:], uint32(c.Mp))    // Mp @28
+	le.PutUint16(b[32:], uint16(c.Str))   // Str @32
+	le.PutUint16(b[34:], uint16(c.Int))   // Int @34
+	le.PutUint16(b[36:], uint16(c.Dex))   // Dex @36
+	le.PutUint16(b[38:], uint16(c.Con))   // Con @38
 }
 
 // writeSelChar fills a 840-byte STRUCT_SELCHAR (4 slots) from chars (by Slot).
@@ -109,8 +109,8 @@ func MobEquip(mob816 []byte) [16]SelItem {
 func EncodeCNFAccountLoginBody(accountName string, chars []SelChar) []byte {
 	b := make([]byte, cnfAccountLoginSize-HeaderSize) // 1996
 	le.PutUint32(b[16:], 1)                           // Unknow_28=1 (don't recreate starter potions)
-	writeSelChar(b[20:20+structSelCharSize], chars)  // sel @ abs32 → body20
-	copy(b[1888:1888+16], accountName)               // AccountName @ abs1900 → body1888
+	writeSelChar(b[20:20+structSelCharSize], chars)   // sel @ abs32 → body20
+	copy(b[1888:1888+16], accountName)                // AccountName @ abs1900 → body1888
 	return b
 }
 

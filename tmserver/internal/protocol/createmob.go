@@ -53,13 +53,13 @@ func EncodeCreateMobBody(d CreateMobData) []byte {
 	le.PutUint16(b[2:], uint16(d.PosY))         // PosY @abs14 → body2
 	le.PutUint16(b[4:], uint16(d.MobID))        // MobID @abs16 → body4
 	copy(b[6:6+16], d.Name)                     // MobName @abs18 → body6
-	for i := 0; i < 16; i++ {                    // Equip[16] @abs34 → body22
+	for i := 0; i < 16; i++ {                   // Equip[16] @abs34 → body22
 		le.PutUint16(b[22+i*2:], d.Equip[i])
 	}
-	le.PutUint16(b[118:], d.Guild)        // Guild @abs130 → body118
-	b[120] = d.GuildMemberType            // GuildMemberType @abs132 → body120
-	writeCreateMobScore(b[124:], d)       // Score @abs136 → body124
-	le.PutUint16(b[172:], d.CreateType)   // CreateType @abs184 → body172
+	le.PutUint16(b[118:], d.Guild)      // Guild @abs130 → body118
+	b[120] = d.GuildMemberType          // GuildMemberType @abs132 → body120
+	writeCreateMobScore(b[124:], d)     // Score @abs136 → body124
+	le.PutUint16(b[172:], d.CreateType) // CreateType @abs184 → body172
 	return b
 }
 
