@@ -29,6 +29,7 @@ services:
     environment:
       W2PP_DB_DSN: postgres://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/postgres
     command: ["serve", "-addr", ":7514"]
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -79,8 +80,10 @@ services:
       - "-client-version"
       - "12000"
     depends_on:
-      - dbserver
-      - binserver
+      dbserver:
+        condition: service_started
+      binserver:
+        condition: service_started
     volumes:
       - ./Release:/Release:ro   # content tree (rates/catalogs/maps), validated at boot
     ports:

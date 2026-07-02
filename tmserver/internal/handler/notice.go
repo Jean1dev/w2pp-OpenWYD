@@ -14,23 +14,30 @@ type Notice uint32
 // Notification codes used by batch 1 (handlers/*.md). The numeric values are
 // local identifiers, NOT the original notification numbers.
 const (
-	NoticeVersionMismatch Notice = iota // _NN_Version_Not_Match_Rerun
-	NoticeLoginNow                      // "Login now, wait a moment."
-	Notice3WrongPass                    // _NN_3_Tims_Wrong_Pass
-	NoticeBadPass                       // _MSG_DBAccountLoginFail_Pass
-	NoticeNoAccount                     // _MSG_DBAccountLoginFail_Account
-	NoticeBlocked                       // _MSG_DBAccountLoginFail_Block
-	NoticeSelectCharacter               // _NN_SelectCharacter
-	NoticeDeletingWait                  // "Deleting Character. wait a moment."
-	NoticeDBError                       // DB call failed
-	NoticeCantDropHere                  // _NN_Cant_Drop_Here
-	NoticeCantAutoTrade                 // _NN_CantWhenAutoTrade
-	NoticeNotConnected                  // whisper target offline
-	NoticeDenyWhisper                   // whisper target blocked whispers
-	NoticeBillingDenied                 // binServer denied entry (expired/blocked)
-	NoticeCargoFull                     // deposit/withdraw would exceed the 2G ceiling
-	NoticeReqNotMet                     // equip requirement (level/attributes) not met
-	NoticeCantEatMore                   // _NN_CantEatMore (a buff of this kind is already active)
+	NoticeVersionMismatch     Notice = iota // _NN_Version_Not_Match_Rerun
+	NoticeLoginNow                          // "Login now, wait a moment."
+	Notice3WrongPass                        // _NN_3_Tims_Wrong_Pass
+	NoticeBadPass                           // _MSG_DBAccountLoginFail_Pass
+	NoticeNoAccount                         // _MSG_DBAccountLoginFail_Account
+	NoticeBlocked                           // _MSG_DBAccountLoginFail_Block
+	NoticeSelectCharacter                   // _NN_SelectCharacter
+	NoticeDeletingWait                      // "Deleting Character. wait a moment."
+	NoticeDBError                           // DB call failed
+	NoticeCantDropHere                      // _NN_Cant_Drop_Here
+	NoticeCantAutoTrade                     // _NN_CantWhenAutoTrade
+	NoticeNotConnected                      // whisper target offline
+	NoticeDenyWhisper                       // whisper target blocked whispers
+	NoticeBillingDenied                     // binServer denied entry (expired/blocked)
+	NoticeCargoFull                         // deposit/withdraw would exceed the 2G ceiling
+	NoticeReqNotMet                         // equip requirement (level/attributes) not met
+	NoticeCantEatMore                       // _NN_CantEatMore (a buff of this kind is already active)
+	NoticeOtherClassSkill                   // _NN_Cant_Learn_Other_Class_Skill
+	NoticeNotEnoughSkillPoint               // _NN_Not_Enough_Skill_Point
+	NoticeOnlyOneEighthSkill                // _NN_Only_OneSkillLearn (8th skill is exclusive)
+	NoticeLearnPrereq                       // _NN_Befor_LearnSkill (learn the tree's 7 first)
+	NoticeAlreadyLearned                    // _NN_Already_Learned_It
+	NoticeNotEnoughCoin                     // _DN_D_Cost (8th skill costs 50M gold)
+	NoticeMaxPoint                          // _NN_Maximum_Point_Now / _200_Now (mastery cap)
 )
 
 // notify sends a client notification.

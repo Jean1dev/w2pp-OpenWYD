@@ -87,21 +87,21 @@ func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.C
 func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (domain.Character, error) {
 	var ch domain.Character
 	var charID int64
-	var skillBar, shortSkill []int16
+	var skillBar, shortSkill, special []int16
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, slot, name, class, clan, guild_id, guild_level, level, exp, coin,
 		       str, int, dex, con, score_bonus, special_bonus, skill_bonus,
 		       max_hp, max_mp, hp, mp, critical, regen_hp, regen_mp,
 		       resist_fire, resist_ice, resist_thunder, resist_magic,
 		       learned_skill, magic, save_x, save_y, last_city, citizen, class_master,
-		       skill_bar, short_skill
+		       skill_bar, short_skill, special
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
 			&ch.ScoreBonus, &ch.SpecialBonus, &ch.SkillBonus, &ch.MaxHp, &ch.MaxMp, &ch.Hp, &ch.Mp,
 			&ch.Critical, &ch.RegenHP, &ch.RegenMP, &ch.ResistFire, &ch.ResistIce, &ch.ResistThunder,
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
-			&ch.ClassMaster, &skillBar, &shortSkill)
+			&ch.ClassMaster, &skillBar, &shortSkill, &special)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -110,6 +110,9 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 	}
 	int16ArrToByteArr(skillBar, ch.SkillBar[:])
 	int16ArrToByteArr(shortSkill, ch.ShortSkill[:])
+	for i := 0; i < len(special) && i < len(ch.Special); i++ {
+		ch.Special[i] = special[i]
+	}
 
 	if ch.Equip, err = s.loadItems(ctx, charID, "char_equip"); err != nil {
 		return domain.Character{}, err
@@ -201,12 +204,14 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 // account_id + slot); equip, carry and affects are replaced atomically.
 //
 // This is a PARTIAL update on purpose: it touches only the columns the in-world
-// Entity authoritatively tracks this phase (world.CharacterSave) — clan,
-// guild_id, level, exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city.
-// Everything else (class, guild_level, bonuses, regen/resist, skills, magic,
-// save_x/y, citizen, class_master, skill bars) is left UNTOUCHED so an in-game
-// save never wipes imported data the world does not simulate. Widening to the
-// full STRUCT_MOB is UNVERIFIED and waits on capture (PROGRESS Fase 4).
+// Entity authoritatively tracks (world.CharacterSave) — clan, guild_id, level,
+// exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, and the skill
+// state the world now simulates (score_bonus, special_bonus, learned_skill,
+// special, skill_bar, short_skill). Everything else (class, guild_level,
+// regen/resist, magic, save_x/y, citizen, class_master) is left UNTOUCHED so an
+// in-game save never wipes imported data the world does not simulate.
+// skill_bonus is also untouched: the tmServer re-derives it at login
+// (BASE_GetBonusSkillPoint) instead of trusting the stored value.
 func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -219,12 +224,16 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		UPDATE character SET
 			clan=$3, guild_id=$4, level=$5, coin=$6,
 			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13, exp=$14,
-			mp=$15, max_mp=$16
+			mp=$15, max_mp=$16,
+			score_bonus=$17, special_bonus=$18, learned_skill=$19,
+			special=$20, skill_bar=$21, short_skill=$22
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.Level, ch.Coin,
 		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity, ch.Exp,
 		ch.Mp, ch.MaxMp,
+		ch.ScoreBonus, ch.SpecialBonus, ch.LearnedSkill,
+		ch.Special[:], byteArrToInt16Arr(ch.SkillBar[:]), byteArrToInt16Arr(ch.ShortSkill[:]),
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
@@ -351,4 +360,13 @@ func int16ArrToByteArr(src []int16, dst []uint8) {
 			dst[i] = uint8(src[i])
 		}
 	}
+}
+
+// byteArrToInt16Arr widens a fixed byte array into the smallint[] column shape.
+func byteArrToInt16Arr(src []uint8) []int16 {
+	out := make([]int16, len(src))
+	for i, v := range src {
+		out[i] = int16(v)
+	}
+	return out
 }

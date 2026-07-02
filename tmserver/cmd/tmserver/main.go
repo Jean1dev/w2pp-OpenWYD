@@ -104,13 +104,15 @@ func run(logger *slog.Logger) error {
 	var itemEffects map[int][]content.BaseEffect
 	var itemReqs map[int]content.ItemReq
 	var itemVolatiles, itemPos, itemUnique map[int]int
+	var spells *content.SkillData
 	if *contentDir != "" {
-		items, err := loadContent(*contentDir, logger)
+		items, skills, err := loadContent(*contentDir, logger)
 		if err != nil {
 			return err
 		}
 		itemPrices, itemEffects, itemReqs = items.Prices(), items.BaseEffects(), items.Requirements()
 		itemVolatiles, itemPos, itemUnique = items.Volatiles(), items.Positions(), items.Uniques()
+		spells = skills
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -153,7 +155,7 @@ func run(logger *slog.Logger) error {
 
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique,
+		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, Spells: spells,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -276,22 +278,22 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) (*content.ItemList, error) {
+func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.SkillData, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sanc, err := content.LoadSancRate(filepath.Join(dir, "Common", "Settings", "SancRate.txt"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	skills, err := content.LoadSkillData(filepath.Join(dir, "Common", "SkillData.csv"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Info("content loaded",
 		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
@@ -305,5 +307,5 @@ func loadContent(dir string, logger *slog.Logger) (*content.ItemList, error) {
 	if _, err := content.LoadHeightMap(filepath.Join(dir, "TMsrv", "run", "HeightMap.dat")); err != nil {
 		logger.Warn("height map not loaded", "err", err)
 	}
-	return items, nil
+	return items, skills, nil
 }

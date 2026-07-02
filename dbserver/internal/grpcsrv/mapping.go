@@ -44,7 +44,31 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		Equip:    itemsToProto(ch.Equip),
 		Carry:    itemsToProto(ch.Carry),
 		Affects:  affectsToProto(ch.Affects),
+
+		ScoreBonus:   int32(ch.ScoreBonus),
+		SpecialBonus: int32(ch.SpecialBonus),
+		LearnedSkill: ch.LearnedSkill,
+		Magic:        int64(ch.Magic),
+		Special:      int16ArrToProto(ch.Special[:]),
+		SkillBar:     byteArrToProto(ch.SkillBar[:]),
+		ShortSkill:   byteArrToProto(ch.ShortSkill[:]),
 	}
+}
+
+func int16ArrToProto(v []int16) []int32 {
+	out := make([]int32, len(v))
+	for i, x := range v {
+		out[i] = int32(x)
+	}
+	return out
+}
+
+func byteArrToProto(v []uint8) []uint32 {
+	out := make([]uint32, len(v))
+	for i, x := range v {
+		out[i] = uint32(x)
+	}
+	return out
 }
 
 // protoToCharacter maps the wire contract back to the relational character.
@@ -73,7 +97,31 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		Equip:    protoToItems(c.GetEquip()),
 		Carry:    protoToItems(c.GetCarry()),
 		Affects:  protoToAffects(c.GetAffects()),
+
+		ScoreBonus:   uint16(c.GetScoreBonus()),
+		SpecialBonus: uint16(c.GetSpecialBonus()),
+		LearnedSkill: c.GetLearnedSkill(),
+		Magic:        uint32(c.GetMagic()),
+		Special:      protoToInt16Arr4(c.GetSpecial()),
+		SkillBar:     [4]uint8(protoToByteArr(c.GetSkillBar(), 4)),
+		ShortSkill:   [16]uint8(protoToByteArr(c.GetShortSkill(), 16)),
 	}
+}
+
+func protoToInt16Arr4(v []int32) [4]int16 {
+	var out [4]int16
+	for i := 0; i < len(v) && i < 4; i++ {
+		out[i] = int16(v[i])
+	}
+	return out
+}
+
+func protoToByteArr(v []uint32, n int) []uint8 {
+	out := make([]uint8, n)
+	for i := 0; i < len(v) && i < n; i++ {
+		out[i] = uint8(v[i])
+	}
+	return out
 }
 
 func itemsToProto(items []domain.Item) []*dbv1.Item {

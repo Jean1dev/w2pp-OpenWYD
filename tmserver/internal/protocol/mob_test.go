@@ -46,7 +46,15 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	var carry [64]SelItem
 	carry[3] = SelItem{Index: 831} // a bought item
 	var sk [16]uint8
-	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 1, 0, sk)
+	sk[0] = 42 // hotbar echo (ShortSkill @body1034)
+	skill := SkillState{
+		LearnedSkill: 0x0000_00FF, // first 8 skills learned
+		ScoreBonus:   11, SpecialBonus: 22, SkillBonus: 33,
+		Special:     [4]int16{5, 6, 7, 8},
+		BaseSpecial: [4]int16{1, 2, 3, 4},
+		SkillBar:    [4]uint8{9, 10, 11, 12},
+	}
+	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 1, 0, sk, skill)
 
 	if len(b) != cnfCharacterLoginSize-HeaderSize { // 1832 - 12 = 1820
 		t.Fatalf("CNFCharacterLogin body = %d, want %d", len(b), cnfCharacterLoginSize-HeaderSize)
@@ -79,6 +87,27 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	// Persisted carry overlays the template's Carry@268 (mob) → body 4+268 + 3*8.
 	if got := le.Uint16(b[4+structMobCarry+3*8:]); got != 831 {
 		t.Errorf("carry[3] overlay = %d, want 831", got)
+	}
+	// Skill block patched over the template: LearnedSkill@780, bonuses@788-793,
+	// SkillBar@796, Special in BaseScore@44+40 / CurrentScore@92+40, hotbar tail.
+	if got := le.Uint32(b[4+780:]); got != 0xFF {
+		t.Errorf("LearnedSkill @780 = %#x, want 0xff", got)
+	}
+	if le.Uint16(b[4+788:]) != 11 || le.Uint16(b[4+790:]) != 22 || le.Uint16(b[4+792:]) != 33 {
+		t.Errorf("bonuses @788/790/792 = %d/%d/%d, want 11/22/33",
+			le.Uint16(b[4+788:]), le.Uint16(b[4+790:]), le.Uint16(b[4+792:]))
+	}
+	if got := b[4+796 : 4+800]; got[0] != 9 || got[3] != 12 {
+		t.Errorf("SkillBar @796 = %v, want [9 10 11 12]", got)
+	}
+	if le.Uint16(b[4+44+40:]) != 1 || le.Uint16(b[4+44+46:]) != 4 {
+		t.Errorf("BaseScore.Special @84 = %d..%d, want 1..4", le.Uint16(b[4+44+40:]), le.Uint16(b[4+44+46:]))
+	}
+	if le.Uint16(b[4+92+40:]) != 5 || le.Uint16(b[4+92+46:]) != 8 {
+		t.Errorf("CurrentScore.Special @132 = %d..%d, want 5..8", le.Uint16(b[4+92+40:]), le.Uint16(b[4+92+46:]))
+	}
+	if b[1034] != 42 {
+		t.Errorf("ShortSkill tail @1034 = %d, want 42", b[1034])
 	}
 }
 

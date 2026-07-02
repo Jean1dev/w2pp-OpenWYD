@@ -103,6 +103,17 @@ message Character {
   repeated Item carry = 18;
   repeated Affect affects = 19;
   int32 last_city = 20; // last city visited (0..3); spawn = that city's default area
+
+  // Skill/bonus state (skills front). skill_bonus is NOT carried: the tmServer
+  // re-derives it at login from level and the learned mask, exactly as the
+  // legacy BASE_GetBonusSkillPoint does on character load.
+  int32 score_bonus = 21;          // free attribute points
+  int32 special_bonus = 22;        // free mastery points (incremental, +2/level)
+  int32 learned_skill = 23;        // MOB.LearnedSkill bitmask
+  int64 magic = 24;                // CurrentScore.Magic
+  repeated int32 special = 25;     // BaseScore.Special[4] (allocated mastery)
+  repeated uint32 skill_bar = 26;  // MOB.SkillBar[4]
+  repeated uint32 short_skill = 27; // CUser.ShortSkill[16] (client hotbar)
 }
 
 message Item {

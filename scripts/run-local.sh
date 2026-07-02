@@ -44,7 +44,21 @@ HOST_IP=$(lan_ip)
 [ -n "$HOST_IP" ] || HOST_IP="<this-machine-LAN-IP>"
 
 echo "==> Building and starting the stack (db, dbserver, binserver, tmserver)…"
-"${COMPOSE[@]}" up -d --build
+# Boot persistence before the game edge: dbserver must survive Migrate (it races
+# webserver on a fresh DB) or logins hang with no response while tmserver waits
+# on a dead gRPC backend.
+"${COMPOSE[@]}" up -d --build db binserver dbserver webserver
+for _ in $(seq 1 30); do
+	if "${COMPOSE[@]}" ps dbserver 2>/dev/null | grep -qE 'dbserver.*Up'; then
+		break
+	fi
+	sleep 1
+done
+if ! "${COMPOSE[@]}" ps dbserver 2>/dev/null | grep -qE 'dbserver.*Up'; then
+	echo "error: dbserver is not running — check: ${COMPOSE[*]} logs dbserver" >&2
+	exit 1
+fi
+"${COMPOSE[@]}" up -d --build tmserver
 
 echo "==> Seeding test account '${ACCOUNT}' (idempotent)…"
 # One-off container on the compose network; waits for db (depends_on healthy) and

@@ -42,6 +42,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 		}
 	})
 	d.regenPlayers(w)
+	d.sweepAffects(w)
 	d.respawnMobs(w)
 }
 

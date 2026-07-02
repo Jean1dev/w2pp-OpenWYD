@@ -118,11 +118,53 @@ func TestLoadSkillData(t *testing.T) {
 	if err != nil {
 		t.Skipf("SkillData.csv unavailable: %v", err)
 	}
-	if e, ok := s.Get(1); !ok || e.Name != "Toque_Sagrado" {
-		t.Errorf("Get(1) = %+v, want name Toque_Sagrado", e)
+	// Golden rows straight from the CSV (sscanf order, AffectTime already ÷4).
+	tests := []struct {
+		index int
+		want  Spell
+	}{
+		{0, Spell{Index: 0, SkillPoint: 24, TargetType: 3, ManaSpent: 15, Delay: 3,
+			Range: 5, InstanceType: 4, InstanceValue: 5, InstanceAttribute: 4,
+			Aggressive: 1, MaxTarget: 13, AffectResist: 3, Name: "Giro_da_F\xfaria"}},
+		{5, Spell{Index: 5, SkillPoint: 81, ManaSpent: 53, TickType: 17, TickValue: 75,
+			AffectTime: 150, MaxTarget: 1, Name: "Aura_da_Vida"}},
 	}
-	if s.Len() < 1 {
-		t.Errorf("skill count = %d, want >= 1", s.Len())
+	for _, tt := range tests {
+		got, ok := s.Get(tt.index)
+		if !ok {
+			t.Errorf("Get(%d): missing", tt.index)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("Get(%d) = %+v, want %+v", tt.index, got, tt.want)
+		}
+	}
+	// Indexes are sparse past the row count: the legacy loader keys on column 0.
+	// Names keep the file's Latin-1 bytes (the client charset) — no re-encode.
+	if e, ok := s.Get(200); !ok || e.Name != "Prote\xe7\xe3o_Divina" {
+		t.Errorf("Get(200) = %+v, %v, want Proteção_Divina (Latin-1)", e, ok)
+	}
+	if s.Len() < 100 {
+		t.Errorf("skill count = %d, want >= 100", s.Len())
+	}
+}
+
+func TestSkillKindAndClass(t *testing.T) {
+	tests := []struct{ index, kind, class int }{
+		{0, 1, 0},   // TK tree 1
+		{8, 2, 0},   // TK tree 2
+		{16, 3, 0},  // TK tree 3
+		{25, 1, 1},  // Foema tree 1
+		{95, 3, 3},  // Huntress last
+		{100, 1, 4}, // Sephira range
+	}
+	for _, tt := range tests {
+		if got := SkillKind(tt.index); got != tt.kind {
+			t.Errorf("SkillKind(%d) = %d, want %d", tt.index, got, tt.kind)
+		}
+		if got := SkillClass(tt.index); got != tt.class {
+			t.Errorf("SkillClass(%d) = %d, want %d", tt.index, got, tt.class)
+		}
 	}
 }
 

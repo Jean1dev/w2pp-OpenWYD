@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -46,6 +47,7 @@ func (d *Dispatcher) accountLogin(w *world.World, s *world.Session, _ protocol.H
 		return
 	}
 	if d.fails[name] >= d.cfg.MaxFailLogin {
+		d.log.Warn("account login: locked out after wrong passwords", "conn", s.Conn, "account", name, "fails", d.fails[name])
 		d.notify(w, s, Notice3WrongPass)
 		return
 	}
@@ -53,10 +55,13 @@ func (d *Dispatcher) accountLogin(w *world.World, s *world.Session, _ protocol.H
 	pass := cstr(body.AccountPassword[:])
 	s.AccountName = name
 	s.Mode = world.UserLogin
+	d.log.Info("account login: relaying to dbServer", "conn", s.Conn, "account", name)
 
 	p := w.Persistence()
 	w.Go(s, func() func(*world.World, *world.Session) {
-		out, err := p.AccountLogin(context.Background(), name, pass)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		out, err := p.AccountLogin(ctx, name, pass)
 		return func(w *world.World, s *world.Session) { d.completeAccountLogin(w, s, out, err) }
 	})
 }
@@ -64,7 +69,8 @@ func (d *Dispatcher) accountLogin(w *world.World, s *world.Session, _ protocol.H
 // completeAccountLogin applies the dbServer login result back in the loop.
 func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out world.LoginOutcome, err error) {
 	if err != nil {
-		d.log.Error("account login backend error", "conn", s.Conn, "err", err)
+		d.log.Error("account login backend error", "conn", s.Conn, "account", s.AccountName, "err", err)
+		s.Mode = world.UserAccept
 		d.notify(w, s, NoticeDBError)
 		w.Close(s)
 		return
@@ -73,6 +79,7 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	case world.LoginOK:
 		delete(d.fails, s.AccountName)
 		s.AccountID = out.AccountID
+		d.log.Info("account login: OK", "conn", s.Conn, "account", s.AccountName, "id", out.AccountID, "chars", len(out.Characters))
 		// Install the account-shared cargo, loaded in the same backend round-trip.
 		// It lives for the whole account session and is released on disconnect.
 		cargo := out.Cargo
@@ -82,6 +89,7 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)
 	case world.LoginBadPassword:
 		d.fails[s.AccountName]++
+		d.log.Warn("account login: bad password", "conn", s.Conn, "account", s.AccountName, "fails", d.fails[s.AccountName])
 		s.Mode = world.UserAccept // allow retry
 		d.notify(w, s, NoticeBadPass)
 	case world.LoginNoAccount:

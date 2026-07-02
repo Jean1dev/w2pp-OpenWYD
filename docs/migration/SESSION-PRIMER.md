@@ -132,6 +132,18 @@ Build/test padrão: `go build ./...`, `go test -race ./...`, `make lint`.
    teste `TestAttackHeaderIsSceneField`. **Regra geral:** todo pacote S→C autoritativo de cena
    (attack/score/etc.) vai com `HEADER.ID = ESCENE_FIELD`, não com o conn do dono.
 
+7. **NUNCA use campo UNVERIFIED do cliente como GATE de ação server-authoritative.** Regressão real
+   (B12): a frente de skills fez o `attack` derrubar o pacote quando `SkillIndex`/`Dam` não batiam
+   com os sentinelas da fonte parcial (`-2` melee / `-1` skill) → **todo dano player→mob morreu**
+   (mob→player seguia OK porque é gerado no servidor — assimetria é a assinatura desse tipo de bug).
+   Regra: para campo cujo comportamento do cliente 12000 não foi capturado, **tolere + logue e siga
+   pelo caminho conservador** (aqui: resolver como melee, que ignora o valor mesmo); só rejeite/craque
+   depois de captura confirmando. Corolário de teste: **o harness deve espelhar o wiring de PROD** —
+   o bug ficou invisível porque os testes de handler criavam o Dispatcher SEM `Spells` no Config,
+   então o caminho novo nunca era exercitado. Ao adicionar um Config novo que muda comportamento,
+   adicione/atualize um teste com ele LIGADO (ver `TestMeleeAlwaysDamagesMob`,
+   `combat_regression_test.go` — as 4 codificações plausíveis de melee contra um MOB real).
+
 ## 6. Fatos/constantes úteis
 
 - ClientVersion **12000**. Contas teste **test/test123** e **test2/test123** (a segunda serve pra
@@ -172,6 +184,47 @@ player** (`_MSG_Restart` 0x0289: reviver HP=2 + recall à última cidade + refre
 Expiração de item: server-side via `item.expires_at` (coluna TIMESTAMPTZ, migração 0003 + campo
 proto `expires_at`); setada na entrega do Perzen (now+30d) e checada no login (`dropExpired` remove
 vencidos de equip/carry). O cliente mostra "(30dias)" pelo nome do item.
+
+**SKILLS + BUFFS/AFFECTS (frente grande FEITA — jul/2026).** Catálogo `SkillData.csv` tipado
+(`content/skilldata.go`: STRUCT_SPELL, índice pela coluna 0 — esparso até 247; parser espelha o
+sscanf legado: 22 conversões, a 23ª coluna é IGNORADA, `AffectTime/=4`; nomes em Latin-1).
+Fórmulas puras em `combat/skill.go` (`ManaSpent`, `SkillBaseDamage` per-class Basedef.cpp:6998,
+`SkillResistScale (150-res)*dam/100`, resist de mob /2; skill 79 = 180% do Damage; 97 = 15*level).
+**Cast entra pelo `_MSG_Attack`** com sentinelas por alvo: `Dam=-2` melee, `-1` skill (o switch
+antigo `SkillIndex!=0` estava ERRADO — melee real vem com SkillIndex=-1); validação fiel
+(`handler/combat.go validateCast`): Passive, gate de classe `skillnum/24`, learn-mask
+(`1<<(skillnum%24)`; ≥96 usa `1<<(skillnum-72)`), mana `BASE_GetManaSpent` (aborta sem MP; eco
+carrega `CurrentMp@40`+`ReqMp@46`), skill 85 cobra 100×Special de gold, master de skill só TK com
+bit 14 (`Special[2]/20` cap 15). Aprendizado (`handler/skill.go` + `misc.go applyBonus`): BonusType
+0 (quirk: lote de 100 pontos com ScoreBonus≥300; Int/Con dão +2×pontos em MaxMP/MaxHP), 1
+(Special, caps 200/255-com-8ª-skill e `3*(level+1)/2`), 2 (custo SkillPoint, exclusividade da 8ª
+skill pos 7/15/23 + 7 anteriores + 50M gold); **SkillBonus é DERIVADO no login** (level*3 −
+Σcustos, `deriveSkillBonus` = BASE_GetBonusSkillPoint, ProcessDBMessage.cpp:816) — não persiste;
+SpecialBonus é incremental (+2/level, CMob.cpp:1128) e persiste. Level-up agora soma na BASE
+(BaseMaxHP/MP) + grants. Livros Sephira no useItem (Vol 31-38 → bit Vol-7). **Affects**: ports de
+`SetAffect`/`SetTick` (`world/affect.go`; só PLAYER recebe SetAffect, mob aceita tick; slot-reuse
+por tipo; `Time=(AffectTime+1)*delay/100` em TICKS DE 8s — timer 500ms × gate %16 do legado);
+aplicação no cast (`applyCastAffect`: aliados pulam agressivo, roll `rand()%100 >
+RegenMP+AffectResist+difLevel`, clan 6 imune a player); estágio de score (`handler/affect_score.go`,
+port do Buff Loop.txt: types 2/3/4/9/10/11/13/14/15/19/21/24/25/26/28/42) com contribuições
+CACHEADAS read-time (`Aff*`/`Rsv` na Entity — nunca bakeadas no score flat persistido, mesmo
+padrão do Divine → sem double-count no relogin); expiração na sub-cadência de 8s do tick
+(`handler/affect_tick.go sweepAffects`, stagger conn%8; HoT 17, DoT 20 UNVERIFIED −1000/tick,
+`Time<32400000` decrementa, Divine nunca); `MSG_SetHpDam` 0x018A (20B) flutua o heal/dano.
+**`MSG_UpdateScore` agora vai completo** (152B pack(1) CONFIRMADO na fonte: `Affect[32]` u16
+@body50 = `(Type<<8)|(Time&0xFF)` clamp 2550000, Guild@114, Resist@118, Magic@132, tail
+Special[4]=0xCC quirk byte-exato). Affects persistem (rows na tabela `affect`; Divine continua
+como deadline wall-clock) e re-hidratam no login + `SendAffect`. Hotbar `_MSG_SetShortSkill`
+0x0378 (Skill1[4]→MOB.SkillBar persiste, Skill2[16]→Session.ShortSkill → ecoa no
+CNFCharacterLogin@1034). Persistência: migração 0004 (`special SMALLINT[]`), proto Character
+campos 21-27, SaveCharacter ampliado (score_bonus/special_bonus/learned_skill/special/skill_bar/
+short_skill — **rebuild --no-cache nos dois lados!**). Blob do login patcha LearnedSkill@780/
+bonuses@788-793/SkillBar@796/Special@Score+40. `Entity.Resist[4]` agora vem do template (@806).
+**UNVERIFIED (perguntas prontas em `docs/migration/prompts/agent-prompt-skills.md`):** GetParryRate/
+BASE_GetDoubleCritical (ainda confiamos no cliente), init de ReqMp, origem de SaveMana/Magic/
+RegenMP de player, weather, pTransBonus (Type 16 transform), Soul (29), DoT exato, unidade 8s
+validar com buff curto no cliente real. Deferidos: types 1/5/6/7/12/16/22/27/29/36, skills
+especiais 6/22/30/31/41(multi-alvo)/44/47/97-mortar/98/99/102, sweep de affect em mobs.
 
 Atributos (CurrentScore) — **separação Base↔Current FEITA** (`handler/item.go`). Modelo: a `Entity`
 guarda `Base*` (score sem equipamento) e o live `Str/AC/Damage/MaxHP/MaxMP` (= base + equip). No login

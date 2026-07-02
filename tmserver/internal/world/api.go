@@ -82,6 +82,9 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
 		Template: template, // retained for runtime respawn (world/respawn.go)
 	}
+	for i, r := range b.Resist {
+		e.Resist[i] = int16(r)
+	}
 	eq := protocol.MobEquip(template)
 	for i := range eq {
 		e.EquipVisual[i] = eq[i].Index
@@ -325,6 +328,10 @@ func (w *World) Go(s *Session, work func() func(*World, *Session)) {
 		if cb == nil {
 			return
 		}
-		w.emit(callbackEvent{conn: s.Conn, sess: s, cb: cb})
+		ce := callbackEvent{conn: s.Conn, sess: s, cb: cb}
+		select {
+		case w.callbacks <- ce:
+		case <-w.done:
+		}
 	}()
 }

@@ -67,6 +67,7 @@ const (
 	MsgCombineItemAlquimia Type = 0x02E1 // 737
 	MsgCombineItemExtracao Type = 0x02D4 // 724  (MSG_STANDARDPARM2)
 	MsgApplyBonus          Type = 0x0277 // 631  distribute attribute points
+	MsgSetShortSkill       Type = 0x0378 // 888  set the skill hotbar (Skill1[4]+Skill2[16])
 	MsgQuest               Type = 0x028B // 651  quest NPC (MSG_STANDARDPARM2)
 	MsgReqRanking          Type = 0x039F // 927  duel / PvP ranking (MSG_STANDARDPARM2)
 	MsgCapsuleInfo         Type = 0x02CD // 717  capsule/cash info (relay to DB)
@@ -113,5 +114,6 @@ const (
 	MsgDecayItem          Type = 0x016F // 367  ground item gone
 	MsgCombineComplete    Type = 0x03A7 // 935  combine result (parm 0/1/2)
 	MsgUpdateScore        Type = 0x0336 // 822  attributes/score update
+	MsgSetHpDam           Type = 0x018A // 394  S→C HP + floated heal/damage (affect ticks)
 	MsgSetHpMp            Type = 0x0181 // 385
 )

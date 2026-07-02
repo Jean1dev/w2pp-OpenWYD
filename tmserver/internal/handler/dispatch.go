@@ -55,6 +55,10 @@ type Config struct {
 	// bonuses. ItemUnique maps index → nUnique (gates EF_DAMAGEADD to jewels).
 	ItemPos    map[int]int
 	ItemUnique map[int]int
+
+	// Spells is the SkillData.csv catalog (g_pSpell). When nil, skill casting is
+	// rejected and skill learning is refused (no costs are knowable without it).
+	Spells *content.SkillData
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -76,6 +80,8 @@ type Dispatcher struct {
 	itemVolatiles   map[int]int                  // item index → EF_VOLATILE (consumable class)
 	itemPos         map[int]int                  // item index → nPos (refine threshold)
 	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
+	spells          *content.SkillData           // skill catalog (g_pSpell)
+	tickCount       int                          // loop-only tick counter (affect sweep phase)
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -102,6 +108,7 @@ func New(cfg Config) *Dispatcher {
 		itemVolatiles:   cfg.ItemVolatiles,
 		itemPos:         cfg.ItemPos,
 		itemUnique:      cfg.ItemUnique,
+		spells:          cfg.Spells,
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)
@@ -162,6 +169,7 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgMessageChat] = d.messageChat
 	d.routes[protocol.MsgMessageWhisper] = d.messageWhisper
 	d.routes[protocol.MsgApplyBonus] = d.applyBonus
+	d.routes[protocol.MsgSetShortSkill] = d.setShortSkill
 	d.routes[protocol.MsgAccountSecure] = d.accountSecure
 	d.routes[protocol.MsgQuest] = d.quest
 	d.routes[protocol.MsgReqRanking] = d.reqRanking

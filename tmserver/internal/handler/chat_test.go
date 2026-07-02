@@ -152,7 +152,11 @@ func TestApplyBonusScore(t *testing.T) {
 
 	body := protocol.MsgApplyBonusBody{BonusType: protocol.BonusScore, Detail: protocol.DetailStr}
 	send(t, c, protocol.MsgApplyBonus, body.Encode())
+	// The legacy replies SendEtc (remaining points) THEN SendScore (_MSG_ApplyBonus.cpp).
+	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgUpdateEtc {
+		t.Errorf("got %#x ok=%v, want UpdateEtc first", ty, ok)
+	}
 	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgUpdateScore {
-		t.Errorf("got %#x ok=%v, want UpdateScore", ty, ok)
+		t.Errorf("got %#x ok=%v, want UpdateScore second", ty, ok)
 	}
 }

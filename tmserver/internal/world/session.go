@@ -30,6 +30,7 @@ type Session struct {
 	Trade          TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
 	LastAttackTick uint32     // ClientTick of the last accepted attack (cadence gate)
 	LastAttack     int        // SkillIndex of the last attack
+	ShortSkill     [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
 
@@ -107,8 +108,22 @@ type Entity struct {
 	Int        int16
 	Dex        int16
 	Con        int16
-	Special    [4]int16 // CurrentScore.Special[4]: equipment-derived only (allocated SpecialBonus not modeled yet)
+	Special    [4]int16 // CurrentScore.Special[4] = BaseSpecial + equipment/affects
 	ScoreBonus uint16   // free attribute points
+
+	// Skill state (skills front). SkillBonus is derived (level*3 − Σ learned
+	// costs, BASE_GetBonusSkillPoint) at login and level-up; SpecialBonus is
+	// incremental (+2/level) and persisted. Magic scales caster skill damage;
+	// SaveMana discounts mana costs (source of both on players UNVERIFIED —
+	// zero until captured). Resist[4] feeds SkillResistScale (mobs: template).
+	LearnedSkill int32
+	SkillBonus   uint16
+	SpecialBonus uint16
+	BaseSpecial  [4]int16 // allocated mastery points (BaseScore.Special)
+	SkillBar     [4]uint8 // MOB.SkillBar (persisted with the character)
+	Magic        int16
+	SaveMana     int16
+	Resist       [4]int16
 
 	// BaseScore: the equipment-free score (allocated attributes + level/class-derived
 	// AC/Damage/MaxHP/MaxMP). CurrentScore (the live fields above + AC/Damage/MaxHP/
@@ -130,6 +145,20 @@ type Entity struct {
 	// its expiry; the slot's Affect.Time is only the client icon timer.
 	Affect    [MaxAffect]Affect
 	DivineEnd int64
+
+	// Rsv is the MOB.Rsv state-flag byte (RSV_HASTE/BLOCK/…), recomputed from
+	// the active affects by refreshScore. The affect score contributions (Aff*)
+	// are cached the same way and applied at READ time (effective getters), so
+	// the persisted flat score never bakes a buff in (no double-count on
+	// re-login — same policy as HpAddPct/Divine).
+	Rsv        uint8
+	AffDamage  int32
+	AffAC      int32
+	AffMaxHP   int32
+	AffMaxMP   int32
+	AffCon     int16
+	AffSpecial [4]int16
+	AffResist  [4]int16
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 
