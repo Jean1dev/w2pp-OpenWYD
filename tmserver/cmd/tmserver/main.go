@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -40,6 +41,21 @@ func main() {
 	logger.Info("tmserver stopped")
 }
 
+// envInt reads an integer flag default from the environment so container
+// deployments (Railway) can set it as a variable like the other W2PP_* knobs;
+// a missing or malformed value falls back to def.
+func envInt(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
 func run(logger *slog.Logger) error {
 	addr := flag.String("addr", ":8281", "CPSock listen address for the client edge")
 	dbAddr := flag.String("dbserver", os.Getenv("W2PP_DBSERVER"), "dbServer gRPC address (empty = no-op persistence)")
@@ -57,7 +73,7 @@ func run(logger *slog.Logger) error {
 		defStatusAddr = ":80"
 	}
 	statusAddr := flag.String("status-addr", defStatusAddr, "HTTP channel-status listen address (serv00.htm); real WYD serves status on :80, separate from the game port. Empty disables")
-	clientVersion := flag.Int("client-version", 7640, "MSG_AccountLogin.ClientVersion the client must send (protocol-spec says 7640; this 7662 build's Config.bin reports 7649)")
+	clientVersion := flag.Int("client-version", envInt("W2PP_CLIENT_VERSION", 7640), "MSG_AccountLogin.ClientVersion the client must send (protocol-spec says 7640; this 7662 'Cavaleiros de Kersef' build sends 12000)")
 	flag.Parse()
 
 	// When -content is set, load and validate the content tree up front so a
