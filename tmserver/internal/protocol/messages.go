@@ -577,6 +577,14 @@ func StandardParm2(b []byte) (parm1, parm2 int32, ok bool) {
 	return int32(le.Uint32(b[0:4])), int32(le.Uint32(b[4:8])), true
 }
 
+// EncodeStandardParm builds a MSG_STANDARDPARM body (single int32 Parm), e.g.
+// MSG_PKInfo (SendPKInfo, SendFunc.cpp:1869).
+func EncodeStandardParm(parm int32) []byte {
+	b := make([]byte, 4)
+	le.PutUint32(b, uint32(parm))
+	return b
+}
+
 // EncodeStandardParm2 builds a MSG_STANDARDPARM2 body.
 func EncodeStandardParm2(parm1, parm2 int32) []byte {
 	b := make([]byte, 8)

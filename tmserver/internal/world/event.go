@@ -145,7 +145,13 @@ func (w *World) removeSession(s *Session) {
 		body := protocol.EncodeRemoveMobBody(2) // 2 = logout
 		w.ForEachInView(s.Conn, func(vs *Session, _ *Entity) {
 			w.enqueue(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
+			w.UnmarkSeen(vs, s.Conn) // a future player on this conn id must re-create
 		})
+		// Free the player's grid cell (occupied since login/last move), or mob
+		// aggro and view scans keep hitting a ghost.
+		if cur, ok := w.grid.MobAt(int(e.X), int(e.Y)); ok && int(cur) == s.Conn {
+			w.grid.ClearMob(int(e.X), int(e.Y))
+		}
 	}
 	s.close()
 	w.sessions[s.Conn] = nil

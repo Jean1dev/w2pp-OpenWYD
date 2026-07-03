@@ -56,8 +56,14 @@ func (d *Dispatcher) inviteGuild(w *world.World, s *world.Session, _ protocol.He
 	te.Guild = e.Guild
 	te.GuildLevel = 0 // member
 
-	w.BroadcastInView(target, protocol.MsgCreateMob, nil) // refresh the target's tag in view
-	w.Send(other, protocol.MsgMessagePanel, nil)          // welcome (UNVERIFIED payload)
+	// Refresh the target's guild tag in view: full CreateMob snapshot (same
+	// pattern as leaveGuild — a nil body makes the client rebuild the avatar
+	// from a truncated packet).
+	tagBody := protocol.EncodeCreateMobBody(createMobFrom(te, 0))
+	w.ForEachInView(target, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, tagBody)
+	})
+	w.Send(other, protocol.MsgMessagePanel, nil) // welcome (UNVERIFIED payload)
 }
 
 // guildAlly handles _MSG_GuildAlly (0x0E12): relay an alliance to the dbServer.

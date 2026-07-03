@@ -112,3 +112,14 @@ func TestAuthGameLayout(t *testing.T) {
 	}
 	t.Skip("UNVERIFIED: _AUTH_GAME internal layout needs a real TMSrv↔BISrv capture (protocol-spec.md §4.3) — Phase 6")
 }
+
+func TestEncodeStandardParm(t *testing.T) {
+	got := EncodeStandardParm(-2)
+	want := []byte{0xFE, 0xFF, 0xFF, 0xFF} // int32 LE
+	if len(got) != 4 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] || got[3] != want[3] {
+		t.Fatalf("EncodeStandardParm(-2) = %v, want %v", got, want)
+	}
+	if parm, ok := StandardParm(got); !ok || parm != -2 {
+		t.Fatalf("round-trip = %d ok=%v, want -2", parm, ok)
+	}
+}

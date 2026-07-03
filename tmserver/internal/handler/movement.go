@@ -7,22 +7,29 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// Anti-speedhack tick window (lote2-movimento.md _MSG_Action): the client's
-// movetime (HEADER.ClientTick) must stay within this band of server time, else
-// AddCrackError and the action is dropped (no broadcast). These constants are
-// the parity-critical values from the doc.
+// Anti-speedhack tick window (_MSG_Action.cpp): the client's movetime
+// (HEADER.ClientTick) must stay within this band of server time, else
+// AddCrackError and the action is dropped (no broadcast). The comparison works
+// with any server clock base because the client resyncs its movetime from the
+// server-stamped ticks it receives (CPSock.cpp:541 stamps CurrentTime on every
+// outbound frame; our enqueue mirrors that).
 const (
-	moveFutureWindow = 15000  // movetime > now + 15000 ⇒ crack(105)
-	movePastWindow   = 120000 // movetime < now - 120000 ⇒ crack(104)
+	moveFutureWindow = 15000  // movetime > now + 15000
+	movePastWindow   = 120000 // movetime < now - 120000
 )
 
 // action handles _MSG_Action / _MSG_Action2 / _MSG_Action3 (0x036C/0366/0368),
-// lote2-movimento.md. It enforces play state, liveness, position bounds and the
-// anti-speedhack tick window, then updates the mover's position/grid and
-// multicasts the move (same route) to in-view players.
+// _MSG_Action.cpp. It enforces play state, liveness, the anti-speedhack tick
+// window and position bounds, cancels an in-progress trade, then moves the
+// entity to its DESTINATION (pMob.TargetX/Y — the position every legacy read
+// uses) and runs the GridMulticast view reconciliation (moveMulticast), which
+// forwards the raw frame — preserving its Type — to old∪new view windows.
 //
-// UNVERIFIED: Action3 ("Skill Ilusão", Class==3 + LearnedSkill&2 + MP cost) and
-// the exact route-stepping are not reproduced here — treated as a normal move.
+// UNVERIFIED / deferred (not reproduced here): Action3's Skill Ilusão gate
+// (Class==3 + LearnedSkill&2 + MP cost), the Speed clamp vs AttackRun&0xF
+// (AttackRun not modeled; legacy clamps and continues), the >VIEWGRID jump
+// correction (GetAction + crack(1,5)) and the occupied-target-cell reroute
+// (GetEmptyMobGrid/BASE_GetRoute).
 func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
 		return // SendHpMode in the original; no world effect
@@ -32,12 +39,30 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 		w.AddCrackError(s, 5, 3) // acting while dead
 		return
 	}
+	// Moving cancels an in-progress trade for both parties (_MSG_Action.cpp:41-50).
+	if s.Trade.Active {
+		d.removeTrade(w, s)
+		return
+	}
 	var body protocol.MsgActionBody
 	if err := body.Decode(payload); err != nil {
 		return
 	}
 
-	// Bounds: positions must be inside the world grid (move_out_of_bounds).
+	// Anti-speedhack: movetime must be within the window of server time.
+	// Crack codes per legacy: 102 for Action/Action2, 104 for Action3.
+	mt, now := int64(h.ClientTick), int64(w.Now())
+	if mt > now+moveFutureWindow || mt < now-movePastWindow {
+		code := 102
+		if h.Type == protocol.MsgAction3 {
+			code = 104
+		}
+		w.AddCrackError(s, 1, code)
+		return
+	}
+
+	// Bounds: the destination must be inside the world grid (legacy drops
+	// TargetX/Y <= 0 or >= 4096 silently; we keep the crack accounting).
 	dim := int16(w.GridDim())
 	if outOfBounds(body.PosX, dim) || outOfBounds(body.PosY, dim) ||
 		outOfBounds(body.TargetX, dim) || outOfBounds(body.TargetY, dim) {
@@ -45,23 +70,25 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 		return
 	}
 
-	// Anti-speedhack: movetime must be within the window of server time.
-	mt, now := int64(h.ClientTick), int64(w.Now())
-	if mt > now+moveFutureWindow || mt < now-movePastWindow {
-		w.AddCrackError(s, 1, 105)
+	// No-op move: legacy only processes when the destination differs from the
+	// current (destination-authoritative) position.
+	if body.TargetX == e.X && body.TargetY == e.Y {
 		return
 	}
 
-	w.SetEntityPos(s.Conn, body.PosX, body.PosY)
+	oldX, oldY := e.X, e.Y
+	// Destination-authoritative, like legacy pMob.TargetX/Y (GridMulticast tail,
+	// SendFunc.cpp:929-930): every server-side read — multicast center, combat,
+	// GetInView, NoViewMob — uses the destination, never the route start.
+	w.SetEntityPos(s.Conn, body.TargetX, body.TargetY)
+	e.Route = body.Route
 	// Track the last city the player is in (for the city-based respawn rule).
-	if city := world.Village(body.PosX, body.PosY); city >= 0 && city <= 3 {
+	if city := world.Village(body.TargetX, body.TargetY); city >= 0 && city <= 3 {
 		e.LastCity = int16(city)
 	}
-	// Forward the same Action body (same route) to everyone in view; HEADER.ID is
-	// the mover so clients apply it to the right entity.
-	w.BroadcastInView(s.Conn, protocol.MsgAction, payload)
-	// Reveal NPCs/monsters that entered view as the player moved (B3 exploration).
-	d.revealMobsInView(w, s)
+	// GridMulticast: view create/remove deltas + raw frame (original Type) to
+	// everyone in the old or new view window.
+	d.moveMulticast(w, s.Conn, oldX, oldY, h.Type, payload)
 }
 
 func outOfBounds(v, dim int16) bool { return v < 0 || v >= dim }
@@ -146,8 +173,13 @@ func (d *Dispatcher) doTeleport(w *world.World, s *world.Session, x, y int16) {
 	d.enterWorldView(w, s)
 }
 
-// noViewMob handles _MSG_NoViewMob (0x0369): client asks to re-sync one entity's
-// visibility. Parm = target id (MSG_STANDARDPARM).
+// noViewMob handles _MSG_NoViewMob (0x0369): the client asks to re-sync one
+// entity's visibility (Parm = target id). Port of _MSG_NoViewMob.cpp: a live
+// target within GetInView range (±NoViewRange, looser than the multicast
+// window) gets a full CreateMob snapshot + PKInfo; anything else — empty slot,
+// player not in play, or out of range — gets a RemoveMob. The nil-payload
+// CreateMob this used to send made the client rebuild the avatar from a
+// truncated body: the multiplayer "snap-back" bug.
 func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
 		return
@@ -156,13 +188,26 @@ func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Head
 	if id <= 0 || id >= world.MaxMob {
 		return
 	}
+	self := w.Entity(s.Conn)
 	target := w.Entity(id)
-	// In view ⇒ (re)create it; otherwise tell the client to remove it.
-	// UNVERIFIED: _MSG_CreateMob snapshot layout — placeholder empty payload.
-	if target != nil && target.Mode != world.MobEmpty {
-		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: uint16(id)}, nil)
+	inPlay := target != nil && target.Mode != world.MobEmpty
+	if inPlay && id < world.MaxUser {
+		// A player only exists for others while in play (pUser[MobID].Mode check).
+		ts := w.Session(id)
+		inPlay = ts != nil && ts.Mode == world.UserPlay
+	}
+	if inPlay && self != nil && chebyshev(self.X, self.Y, target.X, target.Y) <= world.NoViewRange {
+		w.MarkSeen(s, id)
+		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
+			protocol.EncodeCreateMobBody(createMobFrom(target, 1)))
+		if id < world.MaxUser {
+			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869);
+			// Parm=0 — PK/war state not modeled yet.
+			w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(id)}, protocol.EncodeStandardParm(0))
+		}
 	} else {
-		w.SendTo(s, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, nil)
+		w.SendTo(s, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, protocol.EncodeRemoveMobBody(0))
+		w.UnmarkSeen(s, id)
 	}
 }
 

@@ -218,7 +218,10 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
 		e.LastCity = st.LastCity
-		e.X, e.Y = spawnX, spawnY
+		// Register the player in the spatial grid, not just the entity fields —
+		// mob aggro (FindEnemyFromView) and the view reconciliation scan the
+		// grid, so a player standing still since login must be there.
+		w.SetEntityPos(s.Conn, spawnX, spawnY)
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.MP, e.MaxMP = st.MP, st.MaxMP
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master

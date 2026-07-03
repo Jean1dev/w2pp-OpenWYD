@@ -98,8 +98,8 @@ func startServerMobAISpawn(t *testing.T, persist world.Persistence, gridDim int,
 	}
 }
 
-// actionFrameAt pins the player at (x,y): _MSG_Action sets the entity position to
-// the body's PosX/PosY (the route target is cosmetic).
+// actionFrameAt pins the player at (x,y): _MSG_Action sets the entity position
+// to the body's DESTINATION (TargetX/TargetY, legacy pMob.TargetX semantics).
 func actionFrameAt(t *testing.T, c net.Conn, tick uint32, x, y int16) {
 	t.Helper()
 	body := protocol.MsgActionBody{PosX: x, PosY: y, Speed: 30, TargetX: x, TargetY: y}

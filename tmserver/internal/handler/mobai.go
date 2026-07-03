@@ -21,7 +21,7 @@ const (
 	// widest aggro window (clan 7/8 scan [x-6, x+10) → offset 9); 12 leaves margin.
 	// Pure optimization — the original processed every mob each cycle.
 	wakeRadius = 12
-	// roamRadius gates roaming the same way, but must exceed ViewRange (18) so a
+	// roamRadius gates roaming the same way, but must exceed ViewRange (16) so a
 	// player never watches a frozen patrol: mobs start walking just beyond what
 	// the client can see. Same divergence class as wakeRadius.
 	roamRadius = 20
@@ -529,7 +529,7 @@ func (d *Dispatcher) mobRetreat(w *world.World, id int, e, target *world.Entity)
 	w.SetEntityPos(id, nx, ny)
 
 	body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Speed: 2, TargetX: nx, TargetY: ny}
-	w.BroadcastInView(id, protocol.MsgAction, body.Encode())
+	d.moveMulticast(w, id, oldX, oldY, protocol.MsgAction, body.Encode())
 }
 
 // mobDistance is BASE_GetDistance (Basedef.cpp:6484): a rounded-Euclidean lookup
@@ -605,7 +605,7 @@ func (d *Dispatcher) stepToward(w *world.World, id int, e *world.Entity, tx, ty 
 	w.SetEntityPos(id, nx, ny)
 
 	body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Speed: 2, TargetX: nx, TargetY: ny}
-	w.BroadcastInView(id, protocol.MsgAction, body.Encode())
+	d.moveMulticast(w, id, oldX, oldY, protocol.MsgAction, body.Encode())
 	return true
 }
 

@@ -119,12 +119,13 @@ type Entity struct {
 	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
 	Grade    uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
-	Class       uint8  // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
-	LastCity    int16  // last city visited (0..3); login spawn = its default area
-	Clan        uint8  // clan/race
-	Guild       uint16 // guild id (0 = none)
-	GuildLevel  uint8  // 0 = member … 9 = leader
-	ClassMaster uint8  // party tier (MobExtra.ClassMaster)
+	Class       uint8    // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
+	Route       [24]byte // last walk route from _MSG_Action (pMob.Route, MAX_ROUTE=24)
+	LastCity    int16    // last city visited (0..3); login spawn = its default area
+	Clan        uint8    // clan/race
+	Guild       uint16   // guild id (0 = none)
+	GuildLevel  uint8    // 0 = member … 9 = leader
+	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 
 	Str        int16 // CurrentScore attributes (base + equipment, kept live by refreshScore)
 	Int        int16

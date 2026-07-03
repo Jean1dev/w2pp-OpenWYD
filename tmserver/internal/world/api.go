@@ -10,12 +10,15 @@ import (
 // Handler or a Go callback) — never from a connection goroutine — so that world
 // state stays single-owner.
 
-// ViewRange is the broadcast radius (in grid cells) used for in-view multicast.
-//
-// UNVERIFIED: the original's exact view distance / GridMulticast geometry is not
-// documented (lote2-movimento.md). This square (Chebyshev) radius is a
-// placeholder to be confirmed by capture.
-const ViewRange = 18
+// ViewRange is the broadcast radius (in grid cells) used for in-view multicast:
+// GridMulticast scans the window [Target−HALFGRIDX, Target+HALFGRIDX] per axis
+// (VIEWGRIDX=33, HALFGRIDX=16 — Basedef.h:155-158, SendFunc.cpp GridMulticast),
+// i.e. a Chebyshev radius of 16.
+const ViewRange = 16
+
+// NoViewRange is the looser radius GetInView uses (±VIEWGRIDX, GetFunc.cpp:764)
+// when the client asks to re-sync one entity via _MSG_NoViewMob.
+const NoViewRange = 33
 
 // efGrade0 is the EF_GRADE0 item-effect type. On a quest NPC's Equip[0] it carries
 // the NPC sub-type used to dispatch _MSG_Quest (Basedef.h item effects).
@@ -266,6 +269,13 @@ func (w *World) MarkSeen(s *Session, id int) bool {
 	return true
 }
 
+// UnmarkSeen forgets that session s's client knows entity id, so a later
+// MarkSeen sends a fresh CreateMob. Must accompany every RemoveMob, or an
+// entity that walks back into view is never re-created.
+func (w *World) UnmarkSeen(s *Session, id int) {
+	delete(s.seen, id)
+}
+
 // ForEachMobInView calls fn for each mob entity (id >= MaxUser) on a grid cell
 // within ViewRange of the player playerID. Used to spawn nearby NPCs on a client.
 func (w *World) ForEachMobInView(playerID int, fn func(e *Entity)) {
@@ -273,9 +283,15 @@ func (w *World) ForEachMobInView(playerID int, fn func(e *Entity)) {
 	if src == nil {
 		return
 	}
+	w.ForEachMobInViewAt(src.X, src.Y, fn)
+}
+
+// ForEachMobInViewAt is ForEachMobInView centered on an arbitrary point — used
+// for the OLD view window when a player moves (GridMulticast's old-window scan).
+func (w *World) ForEachMobInViewAt(x, y int16, fn func(e *Entity)) {
 	for dy := -ViewRange; dy <= ViewRange; dy++ {
 		for dx := -ViewRange; dx <= ViewRange; dx++ {
-			id, ok := w.grid.MobAt(int(src.X)+dx, int(src.Y)+dy)
+			id, ok := w.grid.MobAt(int(x)+dx, int(y)+dy)
 			if !ok || int(id) < MaxUser {
 				continue
 			}
@@ -293,17 +309,33 @@ func (w *World) ForEachInView(srcID int, fn func(s *Session, e *Entity)) {
 	if src == nil {
 		return
 	}
+	w.ForEachInViewAt(src.X, src.Y, srcID, fn)
+}
+
+// ForEachInViewAt is ForEachInView centered on an arbitrary point — needed for
+// the OLD view window of an entity that has already moved (GridMulticast scans
+// both the old- and new-position windows). exclude is skipped. Loop-only.
+func (w *World) ForEachInViewAt(x, y int16, exclude int, fn func(s *Session, e *Entity)) {
+	w.ForEachPlaying(exclude, func(s *Session, e *Entity) {
+		if chebyshev(x, y, e.X, e.Y) <= ViewRange {
+			fn(s, e)
+		}
+	})
+}
+
+// ForEachPlaying calls fn for every in-play player session except exclude —
+// no distance filter. The movement multicast needs it to classify each watcher
+// against BOTH the old and new view windows in one pass. Loop-only.
+func (w *World) ForEachPlaying(exclude int, fn func(s *Session, e *Entity)) {
 	for _, s := range w.sessions {
-		if s == nil || s.Conn == srcID || s.Mode != UserPlay {
+		if s == nil || s.Conn == exclude || s.Mode != UserPlay {
 			continue
 		}
 		e := w.entities[s.Conn]
 		if e == nil || e.Mode != MobUser {
 			continue
 		}
-		if chebyshev(src.X, src.Y, e.X, e.Y) <= ViewRange {
-			fn(s, e)
-		}
+		fn(s, e)
 	}
 }
 
