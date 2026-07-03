@@ -39,3 +39,52 @@ func TestEncodeUpdateScore(t *testing.T) {
 		t.Errorf("CurrHp/CurrMp = %d/%d", le.Uint32(b[124:]), le.Uint32(b[128:]))
 	}
 }
+
+func TestEncodeUpdateScoreTail(t *testing.T) {
+	var s ScoreData
+	s.Critical, s.SaveMana = 3, 10
+	s.Affect[0] = PackAffect(AffectData{Type: 11, Time: 0x1234}) // buff icon slot 0
+	s.Affect[31] = PackAffect(AffectData{Type: 34, Time: 3000000})
+	s.Guild, s.GuildLevel = 77, 9
+	s.Resist = [4]int8{1, -2, 3, 4}
+	s.Magic = 42
+	b := EncodeUpdateScore(s)
+	le := binary.LittleEndian
+	if b[48] != 3 || b[49] != 10 {
+		t.Errorf("Critical/SaveMana @48/49 = %d/%d", b[48], b[49])
+	}
+	// Affect icon = (Type<<8) | (Time&0xFF); Time clamps at 2550000 first.
+	if got := le.Uint16(b[50:]); got != (11<<8)|0x34 {
+		t.Errorf("Affect[0] @50 = %#x, want %#x", got, (11<<8)|0x34)
+	}
+	if got := le.Uint16(b[50+31*2:]); got != (34<<8)|uint16(2550000&0xFF) {
+		t.Errorf("Affect[31] = %#x, want clamped time byte", got)
+	}
+	if le.Uint16(b[114:]) != 77 || le.Uint16(b[116:]) != 9 {
+		t.Errorf("Guild/GuildLevel @114/116 = %d/%d", le.Uint16(b[114:]), le.Uint16(b[116:]))
+	}
+	if int8(b[118]) != 1 || int8(b[119]) != -2 {
+		t.Errorf("Resist @118 = %d,%d", int8(b[118]), int8(b[119]))
+	}
+	if le.Uint32(b[132:]) != 42 {
+		t.Errorf("Magic @132 = %d, want 42", le.Uint32(b[132:]))
+	}
+	// The legacy sends the trailing Special[4] bytes as its 0xCC stack quirk.
+	if b[136] != 0xCC || b[139] != 0xCC {
+		t.Errorf("tail Special quirk = %#x %#x, want 0xCC", b[136], b[139])
+	}
+}
+
+func TestEncodeSetHpDam(t *testing.T) {
+	b := EncodeSetHpDam(950, -50)
+	if len(b) != setHpDamSize-HeaderSize { // 20 - 12 = 8
+		t.Fatalf("SetHpDam body = %d, want 8", len(b))
+	}
+	le := binary.LittleEndian
+	if le.Uint32(b[0:]) != 950 {
+		t.Errorf("Hp = %d, want 950", le.Uint32(b[0:]))
+	}
+	if int32(le.Uint32(b[4:])) != -50 {
+		t.Errorf("Dam = %d, want -50", int32(le.Uint32(b[4:])))
+	}
+}

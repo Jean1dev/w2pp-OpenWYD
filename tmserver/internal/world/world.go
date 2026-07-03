@@ -93,6 +93,12 @@ type Config struct {
 	MaxMsgPerSec float64
 	MsgBurst     int
 
+	// ItemRanges maps item index → its catalog EF_RANGE value (content
+	// ItemList.Ranges). SpawnMob uses it to derive a mob's attack reach from its
+	// template equips (BASE_GetMobAbility, Basedef.cpp:2415). Immutable after
+	// boot; nil means no catalog (every mob fights at melee reach).
+	ItemRanges map[int]int16
+
 	// StatusFile is the path to the channel-status page (serv00.htm) the client
 	// fetches over HTTP before opening the CPSock game connection. When set, the
 	// edge answers a "GET" probe with this file's contents; empty serves a
@@ -121,7 +127,9 @@ type World struct {
 	// select ↔ play), so it is keyed by account, not session/conn. Loop-owned.
 	cargo map[int64]*CargoState
 
-	events chan event
+	events    chan event
+	callbacks chan callbackEvent // async handler results (World.Go); separate from
+	// events so a long mob-AI tick cannot block login/db callbacks on the main queue.
 	done   chan struct{}  // closed when the loop stops; unblocks conn goroutines
 	saveWG sync.WaitGroup // tracks in-flight async character saves (logout/disconnect)
 
@@ -133,6 +141,12 @@ type World struct {
 	// respawnQueue holds dead monsters awaiting respawn, drained by SpawnDueRespawns
 	// from the tick (world/respawn.go). Loop-owned.
 	respawnQueue []respawnEntry
+
+	// generators is the NPCGener block table (world/generator.go): spawn recipes
+	// plus live CurrentNumMob accounting. mobCount tracks the live mob/NPC total
+	// (the generateWorldCap gate). Loop-owned.
+	generators []*Generator
+	mobCount   int
 }
 
 // New creates a World with the given dependencies. A nil handler installs a
@@ -157,19 +171,20 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		handler = func(*World, *Session, protocol.Header, []byte) {}
 	}
 	return &World{
-		cfg:      cfg,
-		log:      log,
-		persist:  persist,
-		billing:  AllowAllBilling{},
-		handler:  handler,
-		sessions: make([]*Session, MaxUser),
-		entities: make([]*Entity, MaxMob),
-		ground:   make([]*GroundItem, MaxItem),
-		cargo:    make(map[int64]*CargoState),
-		grid:     newGrid(cfg.GridDim),
-		rng:      rng.New(),
-		events:   make(chan event, cfg.EventQueue),
-		done:     make(chan struct{}),
+		cfg:       cfg,
+		log:       log,
+		persist:   persist,
+		billing:   AllowAllBilling{},
+		handler:   handler,
+		sessions:  make([]*Session, MaxUser),
+		entities:  make([]*Entity, MaxMob),
+		ground:    make([]*GroundItem, MaxItem),
+		cargo:     make(map[int64]*CargoState),
+		grid:      newGrid(cfg.GridDim),
+		rng:       rng.New(),
+		events:    make(chan event, cfg.EventQueue),
+		callbacks: make(chan callbackEvent, 256),
+		done:      make(chan struct{}),
 	}
 }
 
@@ -185,6 +200,17 @@ func (w *World) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			w.shutdown()
 			return ctx.Err()
+		case cb := <-w.callbacks:
+			cb.apply(w)
+			continue
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			w.shutdown()
+			return ctx.Err()
+		case cb := <-w.callbacks:
+			cb.apply(w)
 		case ev := <-w.events:
 			ev.apply(w)
 		}
@@ -276,6 +302,16 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP
 	cs.MP, cs.MaxMP = e.MP, e.MaxMP
 	cs.DivineEnd = e.DivineEnd // 0 once the buff has expired (cleared by the tick sweep)
+	cs.ScoreBonus, cs.SpecialBonus = e.ScoreBonus, e.SpecialBonus
+	cs.LearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.BaseSpecial
+	cs.SkillBar, cs.ShortSkill = e.SkillBar, s.ShortSkill
+	for _, a := range e.Affect {
+		// Divine persists separately as the wall-clock DivineEnd; empty slots drop.
+		if a.Type == 0 || a.Type == AffectDivine {
+			continue
+		}
+		cs.Affects = append(cs.Affects, a)
+	}
 	cs.Carry = savedItems(e.Carry[:])
 	cs.Equip = savedItems(e.Equip[:])
 	return cs

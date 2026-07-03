@@ -13,7 +13,6 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
-	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +28,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/dbclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -104,13 +104,19 @@ func run(logger *slog.Logger) error {
 	var itemEffects map[int][]content.BaseEffect
 	var itemReqs map[int]content.ItemReq
 	var itemVolatiles, itemPos, itemUnique map[int]int
+	var itemRanges map[int]int16
+	var spells *content.SkillData
+	var heights *content.Grid
 	if *contentDir != "" {
-		items, err := loadContent(*contentDir, logger)
+		items, skills, hm, err := loadContent(*contentDir, logger)
 		if err != nil {
 			return err
 		}
 		itemPrices, itemEffects, itemReqs = items.Prices(), items.BaseEffects(), items.Requirements()
 		itemVolatiles, itemPos, itemUnique = items.Volatiles(), items.Positions(), items.Uniques()
+		itemRanges = items.Ranges()
+		spells = skills
+		heights = hm
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -153,13 +159,14 @@ func run(logger *slog.Logger) error {
 
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique,
+		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, Spells: spells, Heights: heights,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
 		MaxMsgPerSec:   *maxMsgPerSec,
 		MsgBurst:       *msgBurst,
 		StatusFile:     statusFile,
+		ItemRanges:     itemRanges,
 	}, logger, persist, dispatch.Handle)
 	// Mob-AI pulse: monsters acquire/chase/melee nearby players each tick (mobai.go).
 	w.SetTickHandler(world.DefaultMobTick, dispatch.Tick)
@@ -199,49 +206,69 @@ func run(logger *slog.Logger) error {
 	return w.Serve(ctx, ln)
 }
 
-// spawnNPCs parses NPCGener.txt and spawns each generator's group (MinGroup,
-// capped) of its Leader mob around the start point, up to a global cap that fits
-// the mob slots. Templates are cached by name.
+// spawnNPCs parses NPCGener.txt, registers every block as a world.Generator
+// (spawn recipe + live population accounting) and fires one GenerateMob per
+// block to populate the world: leader + rolled followers per group, instance
+// waypoints randomized per mob, respecting each block's MaxNumMob. From then on
+// the AI tick regenerates MinuteGenerate>0 blocks on their minute phase and the
+// 15s respawn queue covers the rest.
+//
+// Boot divergence (deliberate): the original starts EMPTY and fills over time
+// via the minute timer — blocks with MinuteGenerate<=0 (~45% of the file, e.g.
+// the Coliseum) only ever spawn through event code. We populate everything up
+// front so the world is playable immediately. This burns the LCG at boot (one
+// stream for all spawns, like the original's global rand()); there is no legacy
+// boot rand order to diverge from.
 func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
 		return
 	}
-	const totalCap = 20000
-	const perGenCap = 6
 	templates := make(map[string][]byte)
-	total := 0
-	for _, g := range gens {
-		if total >= totalCap || g.Leader == "" {
-			continue
+	load := func(name string) []byte {
+		if name == "" {
+			return nil
 		}
-		tmpl, seen := templates[g.Leader]
+		tmpl, seen := templates[name]
 		if !seen {
-			if b, terr := content.LoadNPCTemplate(dir, g.Leader); terr == nil {
+			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
 				tmpl = b
 			}
-			templates[g.Leader] = tmpl
+			templates[name] = tmpl
 		}
-		if tmpl == nil {
-			continue
+		return tmpl
+	}
+
+	wgens := make([]*world.Generator, len(gens))
+	for i, g := range gens {
+		leader := load(g.Leader)
+		if leader == nil {
+			continue // block unusable without its Leader template (~1400 miss files)
 		}
-		n := g.MinGroup
-		if n < 1 {
-			n = 1
+		wg := &world.Generator{
+			MinuteGenerate: g.MinuteGenerate,
+			MinGroup:       g.MinGroup,
+			MaxGroup:       g.MaxGroup,
+			MaxNumMob:      g.MaxNumMob,
+			RouteType:      uint8(g.RouteType),
+			SegX:           g.SegX,
+			SegY:           g.SegY,
+			LeaderTmpl:     leader,
+			FollowerTmpl:   load(g.Follower),
 		}
-		if n > perGenCap {
-			n = perGenCap
+		for s := 0; s < 5; s++ {
+			wg.SegRange[s] = int16(g.SegRange[s])
+			wg.SegWait[s] = int16(g.SegWait[s])
 		}
-		for i := 0; i < n && total < totalCap; i++ {
-			x, y := g.StartX, g.StartY
-			if g.StartRange > 0 {
-				x += int16(rand.Intn(2*g.StartRange+1) - g.StartRange)
-				y += int16(rand.Intn(2*g.StartRange+1) - g.StartRange)
-			}
-			if w.SpawnMob(tmpl, x, y) >= 0 {
-				total++
-			}
+		wgens[i] = wg
+	}
+	w.RegisterGenerators(wgens)
+
+	total := 0
+	for i := range wgens {
+		if wgens[i] != nil {
+			total += len(w.GenerateMob(i))
 		}
 	}
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates))
@@ -276,34 +303,46 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) (*content.ItemList, error) {
+func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.SkillData, *content.Grid, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	sanc, err := content.LoadSancRate(filepath.Join(dir, "Common", "Settings", "SancRate.txt"))
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	skills, err := content.LoadSkillData(filepath.Join(dir, "Common", "SkillData.csv"))
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	logger.Info("content loaded",
 		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
 		"items", items.Len(), "skills", skills.Len())
 
 	// Maps are optional: 17 MiB HeightMap + 1 MiB AttributeMap aren't required to
-	// accept logins; warn rather than fail when they aren't mounted.
-	if _, err := content.LoadGrid(filepath.Join(dir, "TMsrv", "run", "AttributeMap.dat"), content.AttributeMapDim); err != nil {
+	// accept logins; warn rather than fail when they aren't mounted. When both
+	// load, bake the attribute blocks into the height grid once (the boot-time
+	// BASE_ApplyAttribute) — the result drives mob pathfinding (route.Next).
+	var heights *content.Grid
+	attr, err := content.LoadGrid(filepath.Join(dir, "TMsrv", "run", "AttributeMap.dat"), content.AttributeMapDim)
+	if err != nil {
 		logger.Warn("attribute map not loaded", "err", err)
 	}
-	if _, err := content.LoadHeightMap(filepath.Join(dir, "TMsrv", "run", "HeightMap.dat")); err != nil {
+	hm, err := content.LoadHeightMap(filepath.Join(dir, "TMsrv", "run", "HeightMap.dat"))
+	if err != nil {
 		logger.Warn("height map not loaded", "err", err)
 	}
-	return items, nil
+	if hm != nil && attr != nil {
+		route.Bake(hm, attr)
+		heights = hm
+		logger.Info("walkability grid baked", "dim", hm.Dim)
+	} else if hm != nil || attr != nil {
+		logger.Warn("mob pathfinding disabled: need BOTH HeightMap.dat and AttributeMap.dat")
+	}
+	return items, skills, heights, nil
 }

@@ -15,11 +15,30 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/migrations"
 )
 
+// migrationLockKey serializes Migrate across dbserver, webserver, and one-off
+// seed/convert containers that all call store.Migrate on parallel docker compose
+// boots; without it two processes can race the same *.up.sql (e.g. ADD COLUMN
+// already exists while schema_migrations is still empty for that version).
+const migrationLockKey int64 = 0x77327070
+
 // Migrate applies every not-yet-applied *.up.sql migration in lexical order,
 // each in its own transaction, recording applied versions in schema_migrations.
 // It is idempotent and safe to run on every boot.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, `
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("store: acquire migration conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, migrationLockKey); err != nil {
+		return fmt.Errorf("store: migration lock: %w", err)
+	}
+	defer func() {
+		_, _ = conn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock($1)`, migrationLockKey)
+	}()
+
+	if _, err := conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version    TEXT PRIMARY KEY,
 			applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -37,7 +56,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		version := strings.TrimSuffix(name, ".up.sql")
 
 		var applied bool
-		if err := pool.QueryRow(ctx,
+		if err := conn.QueryRow(ctx,
 			`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)`, version,
 		).Scan(&applied); err != nil {
 			return fmt.Errorf("store: check migration %s: %w", version, err)
@@ -50,15 +69,15 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		if err != nil {
 			return fmt.Errorf("store: read migration %s: %w", name, err)
 		}
-		if err := applyOne(ctx, pool, version, string(sqlText)); err != nil {
+		if err := applyOne(ctx, conn, version, string(sqlText)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func applyOne(ctx context.Context, pool *pgxpool.Pool, version, sqlText string) error {
-	tx, err := pool.Begin(ctx)
+func applyOne(ctx context.Context, conn *pgxpool.Conn, version, sqlText string) error {
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("store: begin migration %s: %w", version, err)
 	}

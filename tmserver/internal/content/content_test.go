@@ -95,6 +95,34 @@ func TestBaseEffects(t *testing.T) {
 	}
 }
 
+func TestRanges(t *testing.T) {
+	// Mob-model rows (real format): the archer's body item carries EF_RANGE,4 —
+	// the source of a mob's ranged reach (BASE_GetMobAbility). A row without
+	// EF_RANGE must be absent from the map.
+	const rows = "242,Ciclope_Arqueiro,6.0,0.0.0.0.0,0,0,1,0,0,EF_CLASS,21,EF_RANGE,4\n" +
+		"168,Botas_de_Guarda(Az),17.0,0.0.0.0.0,0,0,32,0,0,EF_CLASS,1,EF_AC,96\n"
+	l, err := parseItemList(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := l.Ranges()
+	if r[242] != 4 {
+		t.Errorf("Ranges()[242] = %d, want 4", r[242])
+	}
+	if v, ok := r[168]; ok {
+		t.Errorf("Ranges()[168] = %d, want absent (no EF_RANGE)", v)
+	}
+
+	// The real catalog (when mounted) must agree on the archer model.
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	if got := full.Ranges()[242]; got != 4 {
+		t.Errorf("real ItemList Ranges()[242] = %d, want 4 (Ciclope_Arqueiro)", got)
+	}
+}
+
 func TestRequirements(t *testing.T) {
 	// A sword needing level 100 + STR 50 (col 4 = ReqLvl.Str.Int.Dex.Con); plus a
 	// no-requirement item that must be omitted.
@@ -118,11 +146,53 @@ func TestLoadSkillData(t *testing.T) {
 	if err != nil {
 		t.Skipf("SkillData.csv unavailable: %v", err)
 	}
-	if e, ok := s.Get(1); !ok || e.Name != "Toque_Sagrado" {
-		t.Errorf("Get(1) = %+v, want name Toque_Sagrado", e)
+	// Golden rows straight from the CSV (sscanf order, AffectTime already ÷4).
+	tests := []struct {
+		index int
+		want  Spell
+	}{
+		{0, Spell{Index: 0, SkillPoint: 24, TargetType: 3, ManaSpent: 15, Delay: 3,
+			Range: 5, InstanceType: 4, InstanceValue: 5, InstanceAttribute: 4,
+			Aggressive: 1, MaxTarget: 13, AffectResist: 3, Name: "Giro_da_F\xfaria"}},
+		{5, Spell{Index: 5, SkillPoint: 81, ManaSpent: 53, TickType: 17, TickValue: 75,
+			AffectTime: 150, MaxTarget: 1, Name: "Aura_da_Vida"}},
 	}
-	if s.Len() < 1 {
-		t.Errorf("skill count = %d, want >= 1", s.Len())
+	for _, tt := range tests {
+		got, ok := s.Get(tt.index)
+		if !ok {
+			t.Errorf("Get(%d): missing", tt.index)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("Get(%d) = %+v, want %+v", tt.index, got, tt.want)
+		}
+	}
+	// Indexes are sparse past the row count: the legacy loader keys on column 0.
+	// Names keep the file's Latin-1 bytes (the client charset) — no re-encode.
+	if e, ok := s.Get(200); !ok || e.Name != "Prote\xe7\xe3o_Divina" {
+		t.Errorf("Get(200) = %+v, %v, want Proteção_Divina (Latin-1)", e, ok)
+	}
+	if s.Len() < 100 {
+		t.Errorf("skill count = %d, want >= 100", s.Len())
+	}
+}
+
+func TestSkillKindAndClass(t *testing.T) {
+	tests := []struct{ index, kind, class int }{
+		{0, 1, 0},   // TK tree 1
+		{8, 2, 0},   // TK tree 2
+		{16, 3, 0},  // TK tree 3
+		{25, 1, 1},  // Foema tree 1
+		{95, 3, 3},  // Huntress last
+		{100, 1, 4}, // Sephira range
+	}
+	for _, tt := range tests {
+		if got := SkillKind(tt.index); got != tt.kind {
+			t.Errorf("SkillKind(%d) = %d, want %d", tt.index, got, tt.kind)
+		}
+		if got := SkillClass(tt.index); got != tt.class {
+			t.Errorf("SkillClass(%d) = %d, want %d", tt.index, got, tt.class)
+		}
 	}
 }
 

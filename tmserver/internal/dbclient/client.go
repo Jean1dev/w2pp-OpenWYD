@@ -196,9 +196,9 @@ func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 // characterStateFromProto maps the loaded character to the world injection shape.
 //
 // UNVERIFIED: the contract (api/db/v1 Character) does not carry position (X/Y),
-// the derived combat scores (Damage/AC/Master), GuildLevel, ClassMaster or
-// ScoreBonus, so those stay zero until the full STRUCT_MOB snapshot is captured
-// (PROGRESS Fase 4). Position especially must be resolved before live play.
+// the derived combat scores (Damage/AC/Master), GuildLevel or ClassMaster, so
+// those stay zero until the full STRUCT_MOB snapshot is captured (PROGRESS
+// Fase 4). Position especially must be resolved before live play.
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
 		Slot:     int(c.GetSlot()),
@@ -218,13 +218,44 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Dex:      int16(c.GetDex()),
 		Con:      int16(c.GetCon()),
 		LastCity: int16(c.GetLastCity()),
+
+		ScoreBonus:   uint16(c.GetScoreBonus()),
+		SpecialBonus: uint16(c.GetSpecialBonus()),
+		LearnedSkill: c.GetLearnedSkill(),
+		Magic:        int16(c.GetMagic()),
+	}
+	for i, v := range c.GetSpecial() {
+		if i >= len(st.BaseSpecial) {
+			break
+		}
+		st.BaseSpecial[i] = int16(v)
+	}
+	for i, v := range c.GetSkillBar() {
+		if i >= len(st.SkillBar) {
+			break
+		}
+		st.SkillBar[i] = uint8(v)
+	}
+	for i, v := range c.GetShortSkill() {
+		if i >= len(st.ShortSkill) {
+			break
+		}
+		st.ShortSkill[i] = uint8(v)
 	}
 	// The Divine buff persists as an affect row whose Time holds the absolute Unix
 	// deadline (DivineEnd); reconstruct it so login can re-apply (captura §B).
+	// Every other row is a live buff slot (Time in 8s affect ticks).
 	for _, a := range c.GetAffects() {
 		if a.GetType() == world.AffectDivine {
 			st.DivineEnd = int64(a.GetTime())
+			continue
 		}
+		st.Affects = append(st.Affects, world.Affect{
+			Type:  uint8(a.GetType()),
+			Value: uint8(a.GetValue()),
+			Level: uint16(a.GetLevel()),
+			Time:  a.GetTime(),
+		})
 	}
 	for _, it := range c.GetEquip() {
 		slot := int(it.GetSlot())
@@ -275,11 +306,39 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		LastCity: int32(s.LastCity),
 		Carry:    savedItemsToProto(s.Carry),
 		Equip:    savedItemsToProto(s.Equip),
+
+		ScoreBonus:   int32(s.ScoreBonus),
+		SpecialBonus: int32(s.SpecialBonus),
+		LearnedSkill: s.LearnedSkill,
+		Special:      make([]int32, len(s.BaseSpecial)),
+		SkillBar:     make([]uint32, len(s.SkillBar)),
+		ShortSkill:   make([]uint32, len(s.ShortSkill)),
+	}
+	for i, v := range s.BaseSpecial {
+		c.Special[i] = int32(v)
+	}
+	for i, v := range s.SkillBar {
+		c.SkillBar[i] = uint32(v)
+	}
+	for i, v := range s.ShortSkill {
+		c.ShortSkill[i] = uint32(v)
 	}
 	// Persist the Divine buff (only while still active) as one affect row carrying the
-	// absolute deadline in Time, so it survives relog (captura §B).
+	// absolute deadline in Time, so it survives relog (captura §B). The other live
+	// buff slots persist as raw rows (Time in 8s affect ticks).
 	if s.DivineEnd > time.Now().Unix() {
-		c.Affects = []*dbv1.Affect{{Type: int32(world.AffectDivine), Level: 1, Time: uint32(s.DivineEnd)}}
+		c.Affects = append(c.Affects, &dbv1.Affect{Type: int32(world.AffectDivine), Level: 1, Time: uint32(s.DivineEnd)})
+	}
+	for _, a := range s.Affects {
+		if a.Type == 0 || a.Type == world.AffectDivine {
+			continue
+		}
+		c.Affects = append(c.Affects, &dbv1.Affect{
+			Type:  int32(a.Type),
+			Value: int32(a.Value),
+			Level: int32(a.Level),
+			Time:  a.Time,
+		})
 	}
 	return c
 }

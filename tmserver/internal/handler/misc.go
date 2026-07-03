@@ -11,38 +11,61 @@ import (
 // BASE_SetItemDate(30)).
 const mountExpiryDays = 30
 
-// applyBonus handles _MSG_ApplyBonus (0x0277): spend a free attribute point
-// (protocol-spec.md §3.5). This batch implements the Score path (Str/Int/Dex/Con);
-// Special/Skill bonuses are UNVERIFIED.
+// applyBonus handles _MSG_ApplyBonus (0x0277): spend a free point
+// (protocol-spec.md §3.5, _MSG_ApplyBonus.cpp). BonusType routes: 0 = attribute
+// point (Str/Int/Dex/Con), 1 = mastery point (Special tree), 2 = learn a skill
+// from a class master.
 func (d *Dispatcher) applyBonus(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
-	if e == nil || s.Mode != world.UserPlay {
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		return
 	}
 	var body protocol.MsgApplyBonusBody
 	if err := body.Decode(payload); err != nil {
 		return
 	}
-	if body.BonusType != protocol.BonusScore || e.ScoreBonus == 0 {
+	switch body.BonusType {
+	case protocol.BonusScore:
+		d.applyScoreBonus(w, s, e, int(body.Detail))
+	case protocol.BonusSpecial:
+		d.applySpecialBonus(w, s, e, int(body.Detail))
+	case protocol.BonusSkill:
+		d.learnSkill(w, s, e, int(body.Detail), int(body.TargetID))
+	}
+}
+
+// applyScoreBonus is ApplyBonus BonusType==0 (_MSG_ApplyBonus.cpp:32-84):
+// allocate attribute points into the BaseScore; refreshScore folds them into
+// the live CurrentScore (= base + equipment) and sendScore shows it. Parity
+// quirks: a ScoreBonus stockpile ≥300 spends 100 points per click, and Int/Con
+// also add 2×points to MaxMP/MaxHP directly.
+func (d *Dispatcher) applyScoreBonus(w *world.World, s *world.Session, e *world.Entity, detail int) {
+	if e.ScoreBonus == 0 {
+		d.sendScore(w, s, e)
 		return
 	}
-	// Allocate the point into the BaseScore; refreshScore folds it into the live
-	// CurrentScore (= base + equipment) and sendScore shows it.
-	switch int(body.Detail) {
+	points := int16(1)
+	if e.ScoreBonus >= 300 {
+		points = 100
+	}
+	switch detail {
 	case protocol.DetailStr:
-		e.BaseStr++
+		e.BaseStr += points
 	case protocol.DetailInt:
-		e.BaseInt++
+		e.BaseInt += points
+		e.BaseMaxMP += 2 * int32(points)
 	case protocol.DetailDex:
-		e.BaseDex++
+		e.BaseDex += points
 	case protocol.DetailCon:
-		e.BaseCon++
+		e.BaseCon += points
+		e.BaseMaxHP += 2 * int32(points)
 	default:
 		return
 	}
-	e.ScoreBonus--
+	e.ScoreBonus -= uint16(points)
 	d.refreshScore(e)
-	d.sendScore(w, s, e) // refresh the status window with the new attribute
+	d.sendEtc(w, s, e) // remaining points live in UpdateEtc (B10)
+	d.sendScore(w, s, e)
 }
 
 // accountSecure handles _MSG_AccountSecure (0x0FDE): the numeric PIN, relayed to

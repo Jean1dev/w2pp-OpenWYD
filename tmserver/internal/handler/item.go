@@ -155,11 +155,38 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
 	case vol == 0:
 		d.equipItem(w, s, e, body, payload)
+	case vol >= volSephiraLo && vol <= volSephiraHi:
+		d.useSkillBook(w, s, e, src, vol)
 	case vol >= volDivine7 && vol <= volDivine30:
 		d.useDivine(w, s, e, src, vol)
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
 	}
+}
+
+// Sephira skill-book volatile range: Vol 31-38 teaches LearnedSkill bit Vol-7
+// (bits 24-31, the extra-class skills; _MSG_UseItem.cpp "Livros Sephira").
+const (
+	volSephiraLo = 31
+	volSephiraHi = 38
+)
+
+// useSkillBook consumes a Sephira book: sets the learned bit, refreshes the
+// skill window (Learn rides UpdateEtc) and eats one unit. Already-learned
+// refuses and re-syncs the slot. The legacy also sets a cosmetic Affect(44)
+// flash — deferred until the affect engine (M4) lands.
+func (d *Dispatcher) useSkillBook(w *world.World, s *world.Session, e *world.Entity, src, vol int) {
+	bit := int32(1) << (vol - 7)
+	if e.LearnedSkill&bit != 0 {
+		d.notify(w, s, NoticeAlreadyLearned)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	e.LearnedSkill |= bit
+	e.Carry[src] = world.Item{} // consume one unit (stacking not modeled yet)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendEtc(w, s, e)
+	d.log.Info("sephira book learned", "conn", s.Conn, "bit", vol-7)
 }
 
 // equipItem is the CARRY → EQUIP path of _MSG_UseItem (Vol==0 items).
@@ -504,13 +531,18 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.Int = e.BaseInt + b.intel
 	e.Dex = e.BaseDex + b.dex
 	e.Con = e.BaseCon + b.con
-	e.Special = b.special // equipment-derived only (no allocated SpecialBonus base yet)
+	for i := range e.Special { // allocated mastery + gear (EF_SPECIAL1..4)
+		e.Special[i] = e.BaseSpecial[i] + b.special[i]
+	}
 	e.AC = e.BaseAC + b.ac
 	e.Damage = e.BaseDamage + b.damage
 	e.MaxHP = e.BaseMaxHP + b.maxHP
 	e.MaxMP = e.BaseMaxMP + b.maxMP
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
+	// Affect stage (Buff Loop): recompute the read-time buff caches + Rsv flags
+	// over the flat score just rebuilt.
+	applyAffectScore(e)
 	if m := effectiveMaxHP(e); e.HP > m {
 		e.HP = m
 	}
@@ -531,22 +563,25 @@ func affectMul(e *world.Entity) int32 {
 	return 100
 }
 
-// effectiveMaxHP is the player's real max HP: flat MaxHP × EF_HPADD% × buff. Applied at
-// read time (display/combat/regen), never stored (captura §C,E).
+// effectiveMaxHP is the player's real max HP: (flat MaxHP + affect deltas) ×
+// EF_HPADD% × buff. Applied at read time (display/combat/regen), never stored
+// (captura §C,E).
 func effectiveMaxHP(e *world.Entity) int32 {
-	return e.MaxHP * (e.HpAddPct + 100) / 100 * affectMul(e) / 100
+	return (e.MaxHP + e.AffMaxHP) * (e.HpAddPct + 100) / 100 * affectMul(e) / 100
 }
 
-// effectiveMaxMP is the player's real max MP: flat MaxMP × EF_MPADD% × buff.
+// effectiveMaxMP is the player's real max MP: (flat MaxMP + affect deltas) ×
+// EF_MPADD% × buff.
 func effectiveMaxMP(e *world.Entity) int32 {
-	return e.MaxMP * (e.MpAddPct + 100) / 100 * affectMul(e) / 100
+	return (e.MaxMP + e.AffMaxMP) * (e.MpAddPct + 100) / 100 * affectMul(e) / 100
 }
 
 // effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage
-// boosted +20% by the Divine buff, plus the separate WeaponDamage (which the Divine does
-// NOT multiply — it is a separate field added after, captura §C).
+// plus the affect deltas (Buff Loop), boosted +20% by the Divine buff, plus the separate
+// WeaponDamage (which the Divine does NOT multiply — it is a separate field added after,
+// captura §C).
 func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
-	dmg := e.Damage
+	dmg := e.Damage + e.AffDamage
 	if e.HasAffect(world.AffectDivine) {
 		dmg += dmg * 20 / 100
 	}
@@ -557,12 +592,33 @@ func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
 // (EF_HPADD%/MPADD% and the Divine/Vigor buffs) and the separate weapon damage are
 // folded in here via the effective getters; the mount speed bump too.
 func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
+	var special [4]int16
+	for i := range special {
+		special[i] = int16(effectiveSpecial(e, i))
+	}
 	sc := protocol.ScoreData{
-		Level: e.Level, Ac: e.AC, Damage: d.effectiveDamage(e),
+		Level: e.Level, Ac: effectiveAC(e), Damage: d.effectiveDamage(e),
 		MaxHp: effectiveMaxHP(e), Hp: e.HP, MaxMp: effectiveMaxMP(e), Mp: e.MP,
-		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
-		Special:   e.Special,
-		AttackRun: baseAttackRun,
+		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con + e.AffCon,
+		Special:    special,
+		AttackRun:  baseAttackRun,
+		SaveMana:   uint8(e.SaveMana),
+		Guild:      e.Guild,
+		GuildLevel: uint16(e.GuildLevel),
+		Magic:      int32(e.Magic),
+	}
+	// Buff icon array (SendScore → GetAffect): the client renders/refreshes the
+	// buff bar from this, so every score push keeps the icons in sync.
+	for i := range e.Affect {
+		if e.Affect[i].Type == 0 {
+			continue
+		}
+		sc.Affect[i] = protocol.PackAffect(protocol.AffectData{
+			Type: e.Affect[i].Type, Time: e.Affect[i].Time,
+		})
+	}
+	for i := range sc.Resist {
+		sc.Resist[i] = int8(e.Resist[i] + e.AffResist[i])
 	}
 	// A mount in the mount slot raises the move-speed (low) nibble of AttackRun.
 	if !e.Equip[mountEquipSlot].Empty() {
@@ -578,16 +634,21 @@ func (d *Dispatcher) sendScore(w *world.World, s *world.Session, e *world.Entity
 }
 
 // sendEtc pushes the player's MSG_UpdateEtc (SendFunc.cpp SendEtc): gold, exp and —
-// crucially — the free attribute points (ScoreBonus). STRUCT_SCORE/UpdateScore does
-// NOT carry ScoreBonus, so the client only learns of points gained on level-up from
-// this packet. It is the full struct (not coin-only) because the original always
-// sends all fields; a partial refresh would zero the client's ScoreBonus/Exp.
-// SpecialBonus/SkillBonus/Magic/Learn/Hold are not modeled yet (0).
+// crucially — the free points (ScoreBonus/SpecialBonus/SkillBonus) and the
+// learned-skill mask (Learn), which is what populates the client's skill window.
+// STRUCT_SCORE/UpdateScore does NOT carry these, so this packet is the only
+// refresh path. It is the full struct (not coin-only) because the original
+// always sends all fields; a partial refresh would zero the client's state.
+// Hold is not modeled yet (0).
 func (d *Dispatcher) sendEtc(w *world.World, s *world.Session, e *world.Entity) {
 	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtc(protocol.UpdateEtcData{
-		Exp:        e.Exp,
-		ScoreBonus: e.ScoreBonus,
-		Coin:       e.Coin,
+		Exp:          e.Exp,
+		Learn:        int64(e.LearnedSkill),
+		ScoreBonus:   e.ScoreBonus,
+		SpecialBonus: e.SpecialBonus,
+		SkillBonus:   e.SkillBonus,
+		Magic:        uint16(e.Magic),
+		Coin:         e.Coin,
 	}))
 }
 

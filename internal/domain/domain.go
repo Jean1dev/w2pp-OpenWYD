@@ -48,6 +48,7 @@ type Character struct {
 	ScoreBonus    uint16
 	SpecialBonus  uint16
 	SkillBonus    uint16
+	Special       [4]int16 // BaseScore.Special[4]: allocated mastery points
 	MaxHp         int32
 	MaxMp         int32
 	Hp            int32

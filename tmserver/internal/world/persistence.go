@@ -102,9 +102,24 @@ type CharacterState struct {
 	Dex         int16
 	Con         int16
 	ScoreBonus  uint16
-	DivineEnd   int64          // Unix-seconds deadline of the Divine buff (0 = none)
-	Equip       [MaxEquip]Item // equipped gear
-	Carry       [MaxCarry]Item // inventory
+	DivineEnd   int64 // Unix-seconds deadline of the Divine buff (0 = none)
+
+	// Skill state (skills front). SkillBonus is not loaded from the DB — the
+	// login path re-derives it from Level and LearnedSkill, as the legacy
+	// BASE_GetBonusSkillPoint does on character load.
+	SpecialBonus uint16
+	LearnedSkill int32
+	Magic        int16
+	BaseSpecial  [4]int16 // allocated mastery points (BaseScore.Special)
+	SkillBar     [4]uint8
+	ShortSkill   [16]uint8
+
+	// Affects are the persisted buff slots (minus Divine, which travels as
+	// DivineEnd — its Time is a wall-clock deadline, not ticks).
+	Affects []Affect
+
+	Equip [MaxEquip]Item // equipped gear
+	Carry [MaxCarry]Item // inventory
 }
 
 // SavedItem is one positional inventory/equip slot in a CharacterSave. Slot is
@@ -145,8 +160,17 @@ type CharacterSave struct {
 	MP        int32
 	MaxMP     int32
 	DivineEnd int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
-	Carry     []SavedItem
-	Equip     []SavedItem
+
+	ScoreBonus   uint16
+	SpecialBonus uint16
+	LearnedSkill int32
+	BaseSpecial  [4]int16
+	SkillBar     [4]uint8
+	ShortSkill   [16]uint8
+	Affects      []Affect // active buff slots (minus Divine — see DivineEnd)
+
+	Carry []SavedItem
+	Equip []SavedItem
 }
 
 // Persistence is the port the loop/handlers use to talk to the dbServer. The

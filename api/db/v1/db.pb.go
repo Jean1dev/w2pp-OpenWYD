@@ -499,27 +499,37 @@ func (x *LoadCharacterRequest) GetSlot() int32 {
 // Character carries the relational character state (domain.Character). Equip,
 // carry and affects are normalized lists; empty item slots are omitted.
 type Character struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Class         int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
-	Clan          int32                  `protobuf:"varint,4,opt,name=clan,proto3" json:"clan,omitempty"`
-	GuildId       uint32                 `protobuf:"varint,5,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
-	Level         int32                  `protobuf:"varint,6,opt,name=level,proto3" json:"level,omitempty"`
-	Exp           int64                  `protobuf:"varint,7,opt,name=exp,proto3" json:"exp,omitempty"`
-	Coin          int32                  `protobuf:"varint,8,opt,name=coin,proto3" json:"coin,omitempty"`
-	Str           int32                  `protobuf:"varint,9,opt,name=str,proto3" json:"str,omitempty"`
-	Int           int32                  `protobuf:"varint,10,opt,name=int,proto3" json:"int,omitempty"`
-	Dex           int32                  `protobuf:"varint,11,opt,name=dex,proto3" json:"dex,omitempty"`
-	Con           int32                  `protobuf:"varint,12,opt,name=con,proto3" json:"con,omitempty"`
-	MaxHp         int32                  `protobuf:"varint,13,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
-	MaxMp         int32                  `protobuf:"varint,14,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
-	Hp            int32                  `protobuf:"varint,15,opt,name=hp,proto3" json:"hp,omitempty"`
-	Mp            int32                  `protobuf:"varint,16,opt,name=mp,proto3" json:"mp,omitempty"`
-	Equip         []*Item                `protobuf:"bytes,17,rep,name=equip,proto3" json:"equip,omitempty"`
-	Carry         []*Item                `protobuf:"bytes,18,rep,name=carry,proto3" json:"carry,omitempty"`
-	Affects       []*Affect              `protobuf:"bytes,19,rep,name=affects,proto3" json:"affects,omitempty"`
-	LastCity      int32                  `protobuf:"varint,20,opt,name=last_city,json=lastCity,proto3" json:"last_city,omitempty"` // last city visited (0..3); spawn = that city's default area
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Slot     int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Class    int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
+	Clan     int32                  `protobuf:"varint,4,opt,name=clan,proto3" json:"clan,omitempty"`
+	GuildId  uint32                 `protobuf:"varint,5,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	Level    int32                  `protobuf:"varint,6,opt,name=level,proto3" json:"level,omitempty"`
+	Exp      int64                  `protobuf:"varint,7,opt,name=exp,proto3" json:"exp,omitempty"`
+	Coin     int32                  `protobuf:"varint,8,opt,name=coin,proto3" json:"coin,omitempty"`
+	Str      int32                  `protobuf:"varint,9,opt,name=str,proto3" json:"str,omitempty"`
+	Int      int32                  `protobuf:"varint,10,opt,name=int,proto3" json:"int,omitempty"`
+	Dex      int32                  `protobuf:"varint,11,opt,name=dex,proto3" json:"dex,omitempty"`
+	Con      int32                  `protobuf:"varint,12,opt,name=con,proto3" json:"con,omitempty"`
+	MaxHp    int32                  `protobuf:"varint,13,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
+	MaxMp    int32                  `protobuf:"varint,14,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
+	Hp       int32                  `protobuf:"varint,15,opt,name=hp,proto3" json:"hp,omitempty"`
+	Mp       int32                  `protobuf:"varint,16,opt,name=mp,proto3" json:"mp,omitempty"`
+	Equip    []*Item                `protobuf:"bytes,17,rep,name=equip,proto3" json:"equip,omitempty"`
+	Carry    []*Item                `protobuf:"bytes,18,rep,name=carry,proto3" json:"carry,omitempty"`
+	Affects  []*Affect              `protobuf:"bytes,19,rep,name=affects,proto3" json:"affects,omitempty"`
+	LastCity int32                  `protobuf:"varint,20,opt,name=last_city,json=lastCity,proto3" json:"last_city,omitempty"` // last city visited (0..3); spawn = that city's default area
+	// Skill/bonus state (skills front). skill_bonus is NOT carried: the tmServer
+	// re-derives it at login from level and the learned mask, exactly as the
+	// legacy BASE_GetBonusSkillPoint does on character load.
+	ScoreBonus    int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`        // free attribute points
+	SpecialBonus  int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`  // free mastery points (incremental, +2/level)
+	LearnedSkill  int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`  // MOB.LearnedSkill bitmask
+	Magic         int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                    // CurrentScore.Magic
+	Special       []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                         // BaseScore.Special[4] (allocated mastery)
+	SkillBar      []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`       // MOB.SkillBar[4]
+	ShortSkill    []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"` // CUser.ShortSkill[16] (client hotbar)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -692,6 +702,55 @@ func (x *Character) GetLastCity() int32 {
 		return x.LastCity
 	}
 	return 0
+}
+
+func (x *Character) GetScoreBonus() int32 {
+	if x != nil {
+		return x.ScoreBonus
+	}
+	return 0
+}
+
+func (x *Character) GetSpecialBonus() int32 {
+	if x != nil {
+		return x.SpecialBonus
+	}
+	return 0
+}
+
+func (x *Character) GetLearnedSkill() int32 {
+	if x != nil {
+		return x.LearnedSkill
+	}
+	return 0
+}
+
+func (x *Character) GetMagic() int64 {
+	if x != nil {
+		return x.Magic
+	}
+	return 0
+}
+
+func (x *Character) GetSpecial() []int32 {
+	if x != nil {
+		return x.Special
+	}
+	return nil
+}
+
+func (x *Character) GetSkillBar() []uint32 {
+	if x != nil {
+		return x.SkillBar
+	}
+	return nil
+}
+
+func (x *Character) GetShortSkill() []uint32 {
+	if x != nil {
+		return x.ShortSkill
+	}
+	return nil
 }
 
 type Item struct {
@@ -1479,7 +1538,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xd6\x03\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xaf\x05\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -1501,7 +1560,16 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x05equip\x18\x11 \x03(\v2\v.db.v1.ItemR\x05equip\x12!\n" +
 	"\x05carry\x18\x12 \x03(\v2\v.db.v1.ItemR\x05carry\x12'\n" +
 	"\aaffects\x18\x13 \x03(\v2\r.db.v1.AffectR\aaffects\x12\x1b\n" +
-	"\tlast_city\x18\x14 \x01(\x05R\blastCity\"\xcd\x01\n" +
+	"\tlast_city\x18\x14 \x01(\x05R\blastCity\x12\x1f\n" +
+	"\vscore_bonus\x18\x15 \x01(\x05R\n" +
+	"scoreBonus\x12#\n" +
+	"\rspecial_bonus\x18\x16 \x01(\x05R\fspecialBonus\x12#\n" +
+	"\rlearned_skill\x18\x17 \x01(\x05R\flearnedSkill\x12\x14\n" +
+	"\x05magic\x18\x18 \x01(\x03R\x05magic\x12\x18\n" +
+	"\aspecial\x18\x19 \x03(\x05R\aspecial\x12\x1b\n" +
+	"\tskill_bar\x18\x1a \x03(\rR\bskillBar\x12\x1f\n" +
+	"\vshort_skill\x18\x1b \x03(\rR\n" +
+	"shortSkill\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

@@ -13,12 +13,14 @@ const (
 // MobBasics is the subset of a raw STRUCT_MOB needed to spawn a world entity.
 type MobBasics struct {
 	Name               string
+	Clan               uint8 // STRUCT_MOB.Clan @16 — drives the g_pClanTable hostility check
 	Class              uint8
 	Merchant           uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
 	Level, Ac, Damage  int32
 	MaxHp, Hp          int32
 	Str, Int, Dex, Con int16
-	Exp                int64 // STRUCT_MOB.Exp @32; for a monster this is its kill reward
+	Exp                int64    // STRUCT_MOB.Exp @32; for a monster this is its kill reward
+	Resist             [4]uint8 // STRUCT_MOB.Resist @806 — elemental skill resists
 }
 
 // ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
@@ -27,6 +29,7 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 	const cs = 92 // CurrentScore offset within STRUCT_MOB
 	return MobBasics{
 		Name:     cstr16(mob816[0:16]),
+		Clan:     mob816[16], // Clan @16 (same offset writeStructMob writes)
 		Class:    mob816[20],
 		Exp:      int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
 		Merchant: mob816[cs+12],                 // CurrentScore.Merchant
@@ -39,6 +42,7 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 		Int:      int16(le.Uint16(mob816[cs+34:])),
 		Dex:      int16(le.Uint16(mob816[cs+36:])),
 		Con:      int16(le.Uint16(mob816[cs+38:])),
+		Resist:   [4]uint8(mob816[806:810]), // STRUCT_MOB.Resist @806 (skill mitigation)
 	}
 }
 
@@ -68,6 +72,7 @@ type MobSnapshot struct {
 	Ac, Damage           int32
 	MaxHp, MaxMp, Hp, Mp int32
 	Str, Int, Dex, Con   int16
+	Special              [4]int16 // STRUCT_SCORE.Special @40 (skill-tree mastery)
 	Direction            uint8
 	Equip                [16]SelItem
 	Carry                [64]SelItem
@@ -97,6 +102,9 @@ func writeMobScore(b []byte, m MobSnapshot) {
 	le.PutUint16(b[34:], uint16(m.Int))   // Int @34
 	le.PutUint16(b[36:], uint16(m.Dex))   // Dex @36
 	le.PutUint16(b[38:], uint16(m.Con))   // Con @38
+	for i, v := range m.Special {         // Special[4] @40
+		le.PutUint16(b[40+i*2:], uint16(v))
+	}
 }
 
 // writeStructMob writes a 816-byte STRUCT_MOB.
@@ -138,12 +146,26 @@ func BaseMobSpawn(mob816 []byte) (x, y int16) {
 	return int16(le.Uint16(mob816[40:42])), int16(le.Uint16(mob816[42:44]))
 }
 
+// SkillState is the persisted skill block patched over the BaseMob template on
+// login (STRUCT_MOB @780-799 + STRUCT_SCORE.Special): the learned-skill mask,
+// the free points and the skill bar. Without the patch the client would show
+// the template's (empty) skill window regardless of what the character learned.
+type SkillState struct {
+	LearnedSkill int32
+	ScoreBonus   uint16
+	SpecialBonus uint16
+	SkillBonus   uint16
+	Special      [4]int16 // CurrentScore.Special (base + equip)
+	BaseSpecial  [4]int16 // BaseScore.Special (allocated)
+	SkillBar     [4]uint8
+}
+
 // EncodeCNFCharacterLoginRaw builds the snapshot from a RAW 816-byte STRUCT_MOB
 // (a per-class BaseMob template, which already carries valid stats, starter
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
@@ -178,6 +200,18 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int6
 	le.PutUint16(b[2:], uint16(spawnY)) // PosY @ body2
 	le.PutUint16(b[4+40:], uint16(spawnX))
 	le.PutUint16(b[4+42:], uint16(spawnY))
+	// Persisted skill state over the template's: learned mask + free points
+	// @780-793, skill bar @796, and the Special mastery in both scores @+40
+	// (BaseScore @44, CurrentScore @92). The template ships all-zero here.
+	le.PutUint32(b[4+780:], uint32(skill.LearnedSkill))
+	le.PutUint16(b[4+788:], skill.ScoreBonus)
+	le.PutUint16(b[4+790:], skill.SpecialBonus)
+	le.PutUint16(b[4+792:], skill.SkillBonus)
+	copy(b[4+796:4+800], skill.SkillBar[:])
+	for i := 0; i < 4; i++ {
+		le.PutUint16(b[4+44+40+i*2:], uint16(skill.BaseSpecial[i]))
+		le.PutUint16(b[4+92+40+i*2:], uint16(skill.Special[i]))
+	}
 	le.PutUint16(b[1028:], uint16(slot))
 	le.PutUint16(b[1030:], uint16(clientID))
 	le.PutUint16(b[1032:], weather)

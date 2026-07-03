@@ -115,6 +115,27 @@ func (l *ItemList) Volatiles() map[int]int {
 	return out
 }
 
+// Ranges returns item index → its EF_RANGE value (the attack reach an equipped
+// item grants). A mob's reach is the max EF_RANGE over its template's 16 equips
+// (BASE_GetMobAbility → BASE_GetMaxAbility, Basedef.cpp:2415/2523); EF_RANGE is
+// deliberately NOT in efName/BaseEffects — it isn't a score stat and must not
+// fold into CurrentScore. Note EF_RANGE is exempt from the refine multiplier
+// (Basedef.cpp:1854).
+func (l *ItemList) Ranges() map[int]int16 {
+	out := make(map[int]int16)
+	for idx, e := range l.items {
+		for i := 0; i+1 < len(e.Fields); i++ {
+			if strings.TrimSpace(e.Fields[i]) == "EF_RANGE" {
+				if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[i+1])); err == nil {
+					out[idx] = int16(v)
+				}
+				break
+			}
+		}
+	}
+	return out
+}
+
 // Positions returns item index → nPos (STRUCT_ITEMLIST.nPos, the equip-slot class —
 // CSV column 6). nPos drives the refine (+9) threshold bonuses: weapons 64/192 add
 // +40 weapon damage, defense pieces 4/8/128 add +25 AC (captura §E). Confirmed by
@@ -215,53 +236,4 @@ func parseItemList(r io.Reader) (*ItemList, error) {
 		l.items[idx] = ItemEntry{Index: idx, Name: strings.TrimSpace(fields[1]), Fields: fields}
 	}
 	return l, sc.Err()
-}
-
-// SkillEntry is one row of SkillData.csv (data-formats.md §3.2).
-//
-// UNVERIFIED: only the row Index and the trailing Name are reliably mapped; the
-// numeric column order (SkillPoint/ManaSpent/Delay/Range/…) needs confirmation,
-// so the raw columns are kept. Note SkillDelay is divided by 4 client-side
-// (Hook.cpp:230) — the effective cooldown is Delay/4.
-type SkillEntry struct {
-	Index  int
-	Name   string
-	Fields []string
-}
-
-// SkillData is the skill catalog indexed by row.
-type SkillData struct {
-	skills map[int]SkillEntry
-}
-
-// Get returns the entry for a skill index.
-func (s *SkillData) Get(index int) (SkillEntry, bool) { e, ok := s.skills[index]; return e, ok }
-
-// Len returns the number of loaded skills.
-func (s *SkillData) Len() int { return len(s.skills) }
-
-// LoadSkillData reads SkillData.csv. The skill index is the 0-based row number.
-func LoadSkillData(path string) (*SkillData, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("content: open SkillData: %w", err)
-	}
-	defer f.Close()
-	return parseSkillData(f)
-}
-
-func parseSkillData(r io.Reader) (*SkillData, error) {
-	s := &SkillData{skills: make(map[int]SkillEntry)}
-	sc := bufio.NewScanner(r)
-	row := 0
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-		fields := strings.Split(line, ",")
-		s.skills[row] = SkillEntry{Index: row, Name: strings.TrimSpace(fields[len(fields)-1]), Fields: fields}
-		row++
-	}
-	return s, sc.Err()
 }

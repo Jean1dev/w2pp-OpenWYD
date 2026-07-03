@@ -64,3 +64,75 @@ func (e *Entity) ClearAffect(t uint8) {
 		}
 	}
 }
+
+// Rsv state flags (Basedef.h:244-251) — recomputed from the active affects by
+// the score refresh; combat and the affect engine read them.
+const (
+	RsvFrost uint8 = 0x01
+	RsvDrain uint8 = 0x02
+	RsvParry uint8 = 0x08
+	RsvHide  uint8 = 0x10
+	RsvHaste uint8 = 0x20
+	RsvCast  uint8 = 0x40
+	RsvBlock uint8 = 0x80
+)
+
+// SetAffect is the legacy SetAffect (Server.cpp:9209): install a timed affect
+// from a cast. Only PLAYERS take affects (`conn > MAX_USER` returns FALSE);
+// aggressive casts bounce off RSV_BLOCK. time is the cast Delay (100+Special);
+// the stored Time is (affectTime+1)*time/100 ticks (one tick = 8s of real time).
+// A slot being reused whose PREVIOUS type is 1/3/10 gets the short 4-tick timer
+// (the legacy's odd sType clamp). Returns false when nothing was applied.
+func (e *Entity) SetAffect(affectType, affectValue, affectTime, aggressive, time, level int) bool {
+	if !IsPlayer(e.ID) || e.Merchant == 1 {
+		return false
+	}
+	if e.Rsv&RsvBlock != 0 && aggressive != 0 {
+		return false
+	}
+	if affectType <= 0 {
+		return false
+	}
+	slot := e.EmptyAffect(uint8(affectType))
+	if slot < 0 {
+		return false
+	}
+	prev := e.Affect[slot].Type
+	t := (affectTime + 1) * time / 100
+	if prev == 1 || prev == 3 || prev == 10 {
+		t = 4
+	}
+	if time >= 2139062143 {
+		t = 2139062143
+	}
+	e.Affect[slot] = Affect{Type: uint8(affectType), Value: uint8(affectValue), Level: uint16(level), Time: uint32(t)}
+	return true
+}
+
+// SetTick is the legacy SetTick (Server.cpp:9256): install a periodic affect
+// (HoT 17 / DoT 20 / …). Unlike SetAffect, MOBS may carry ticks (only merchant
+// NPCs are excluded); types 1/3/10 clamp to 2 ticks.
+func (e *Entity) SetTick(tickType, tickValue, affectTime, aggressive, delay, level int) bool {
+	if e.Merchant == 1 && !IsPlayer(e.ID) {
+		return false
+	}
+	if e.Rsv&RsvBlock != 0 && aggressive != 0 {
+		return false
+	}
+	if tickType <= 0 {
+		return false
+	}
+	slot := e.EmptyAffect(uint8(tickType))
+	if slot < 0 {
+		return false
+	}
+	t := delay * (affectTime + 1) / 100
+	if delay >= 500000000 {
+		t = 500000000
+	}
+	if t >= 3 && (tickType == 1 || tickType == 3 || tickType == 10) {
+		t = 2
+	}
+	e.Affect[slot] = Affect{Type: uint8(tickType), Value: uint8(tickValue), Level: uint16(level), Time: uint32(t)}
+	return true
+}

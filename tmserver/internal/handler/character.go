@@ -225,6 +225,13 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
+		// Skill state: the learned mask, allocated mastery and the hotbar come
+		// straight from the DB; SkillBonus is re-derived from level + learned
+		// costs (BASE_GetBonusSkillPoint on character load, ProcessDBMessage.cpp:816).
+		e.LearnedSkill, e.SpecialBonus = st.LearnedSkill, st.SpecialBonus
+		e.BaseSpecial, e.SkillBar, e.Magic = st.BaseSpecial, st.SkillBar, st.Magic
+		s.ShortSkill = st.ShortSkill
+		d.deriveSkillBonus(e)
 		e.Equip = st.Equip
 		e.Carry = st.Carry
 		// Visual gear codes from the character's REAL equipment, so others (and the
@@ -243,9 +250,35 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 				e.Affect[slot] = world.Affect{Type: world.AffectDivine, Level: 1, Time: divineAffectTime}
 			}
 		}
+		// Rehydrate the other persisted buff slots (Time in 8s affect ticks; the
+		// tick sweep resumes counting them down).
+		for _, a := range st.Affects {
+			if a.Type == 0 || a.Type == world.AffectDivine || a.Time == 0 {
+				continue
+			}
+			if slot := e.EmptyAffect(a.Type); slot >= 0 {
+				e.Affect[slot] = a
+			}
+		}
+		// Recompute the live score once (idempotent right after deriveBaseScore:
+		// current = base + equip reproduces the loaded values) — this is what fills
+		// the live Special (= BaseSpecial + gear) and the affect caches, which are
+		// not persisted.
+		d.refreshScore(e)
 	}
 	s.Mode = world.UserPlay
-	var shortSkill [16]uint8
+	// The persisted skill block rides the login snapshot (mask/points/bar/Special);
+	// the live Special (base + equip) is on the Entity after refreshScore-on-login
+	// hasn't run yet, so send base+equip via the entity when available.
+	var skill protocol.SkillState
+	if e := w.Entity(s.Conn); e != nil {
+		skill = protocol.SkillState{
+			LearnedSkill: e.LearnedSkill,
+			ScoreBonus:   e.ScoreBonus, SpecialBonus: e.SpecialBonus, SkillBonus: e.SkillBonus,
+			Special: e.Special, BaseSpecial: e.BaseSpecial, SkillBar: e.SkillBar,
+		}
+	}
+	shortSkill := s.ShortSkill
 	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
 	// → correct class model and no client crash); patch name + position.
 	if tmpl, ok := d.baseMobs[st.Class]; ok && len(tmpl) == content.BaseMobSize {
@@ -260,11 +293,12 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
+		d.sendLoginAffects(w, s)
 		return
 	}
 	d.log.Info("char login: sending CNFCharacterLogin (fallback, no template)",
@@ -283,6 +317,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
 		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
 		ScoreBonus: st.ScoreBonus, GuildLevel: st.GuildLevel,
+		LearnedSkill: skill.LearnedSkill, SpecialBonus: skill.SpecialBonus,
+		SkillBonus: skill.SkillBonus, Special: skill.Special, SkillBar: skill.SkillBar,
 	}
 	for i := range st.Carry {
 		if i >= len(m.Carry) {
@@ -300,6 +336,16 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, 0, m, shortSkill)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 	d.enterWorldView(w, s)
+	d.sendLoginAffects(w, s)
+}
+
+// sendLoginAffects pushes the rehydrated buff snapshot right after the world
+// entry, so persisted buffs show their icons without waiting for a cast/score
+// event (the CNFCharacterLogin blob carries no affect array).
+func (d *Dispatcher) sendLoginAffects(w *world.World, s *world.Session) {
+	if e := w.Entity(s.Conn); e != nil && e.HasAnyAffect() {
+		d.sendAffect(w, s, e)
+	}
 }
 
 // enterWorldView wires entity visibility after a player enters the world

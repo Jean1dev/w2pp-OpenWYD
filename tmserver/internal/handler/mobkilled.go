@@ -74,10 +74,9 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 // killer's client gets a fresh score and the level-up effect, with the effect also
 // shown to in-view players.
 //
-// UNVERIFIED / deferred: the ARCH/CELESTIAL curves and quest gates, AC++ (we don't
-// separate base/current score, so a +1 here would be lost on the next equip
-// recompute), the skill/special bonus points (not modeled on the Entity), party
-// distribution, and the per-level reward items (DoItemLevel).
+// UNVERIFIED / deferred: the ARCH/CELESTIAL curves and quest gates, AC++
+// (BaseAC exists but the legacy's +1/level needs the exact recompute order),
+// party distribution, and the per-level reward items (DoItemLevel).
 func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
 	gain := level.ExpApply(mob.Exp, killer.Level, mob.Level)
 	if gain <= 0 {
@@ -91,15 +90,26 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 	leveled := false
 	for killer.Level < level.MaxLevel && killer.Exp >= level.NextLevelExp(killer.Level) {
 		killer.Level++
-		killer.MaxHP = addClamp(killer.MaxHP, level.IncHP(killer.Class), level.MaxHPCap)
-		killer.MaxMP = addClamp(killer.MaxMP, level.IncMP(killer.Class), level.MaxMPCap)
+		// The HP/MP increments belong to the BaseScore (CMob.cpp:1116) — writing
+		// only the live MaxHP would be undone by the next refreshScore (= base +
+		// equip). SkillBonus +3/level (+4 from 200) and SpecialBonus +2/level are
+		// the MORTAL level-up grants (CMob.cpp:1121-1129; tiers deferred).
+		killer.BaseMaxHP = addClamp(killer.BaseMaxHP, level.IncHP(killer.Class), level.MaxHPCap)
+		killer.BaseMaxMP = addClamp(killer.BaseMaxMP, level.IncMP(killer.Class), level.MaxMPCap)
+		if killer.Level >= 200 {
+			killer.SkillBonus += 4
+		} else {
+			killer.SkillBonus += 3
+		}
+		killer.SpecialBonus += 2
 		leveled = true
 	}
 	if !leveled {
 		return
 	}
-	killer.HP, killer.MP = killer.MaxHP, killer.MaxMP // full heal on level-up
 	killer.ScoreBonus = uint16(level.ScoreBonus(killer.Class, killer.Level, killer.Str, killer.Int, killer.Dex, killer.Con))
+	d.refreshScore(killer)                            // fold the base HP/MP gains into the live score
+	killer.HP, killer.MP = killer.MaxHP, killer.MaxMP // full heal on level-up
 
 	// Visible level-up: a fresh score window (own attributes) + the etc packet that
 	// carries the new ScoreBonus (free attribute points) — UpdateScore does NOT carry

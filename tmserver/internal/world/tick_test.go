@@ -22,8 +22,10 @@ func TestTickHandlerPlumbing(t *testing.T) {
 	tickEvent{}.apply(w2) // must not panic
 }
 
-// TestMobAISeams covers the helpers the AI tick relies on: FindPlayerNear (grid
-// proximity probe), EntityAt, and ForEachMob. Runs on a non-started World.
+// TestMobAISeams covers the helpers the AI tick relies on: FindEnemyFromView
+// (grid aggro probe with the clan table), EntityAt, and ForEachMob. Runs on a
+// non-started World. Clan 5 vs the player's clan 0 is hostile in g_pClanTable;
+// clan 2 vs 0 is friendly.
 func TestMobAISeams(t *testing.T) {
 	w := New(Config{GridDim: 64}, slogDiscard(), nil, nil)
 
@@ -33,21 +35,53 @@ func TestMobAISeams(t *testing.T) {
 	w.entities[pconn] = &Entity{ID: pconn, Mode: MobUser, HP: 100, X: 10, Y: 10}
 	w.grid.SetMob(10, 10, pconn)
 
-	// A mob 3 tiles away (inside the aggro box of 4) and one far away.
+	// A mob 3 tiles away (inside the 9×9 aggro window) and one far away.
 	near := w.SpawnMob(make([]byte, structMobTemplateSize), 12, 11)
 	far := w.SpawnMob(make([]byte, structMobTemplateSize), 40, 40)
 
-	if got := w.FindPlayerNear(12, 11, 4); got != pconn {
-		t.Errorf("FindPlayerNear near mob = %d, want player %d", got, pconn)
+	if got := w.FindEnemyFromView(12, 11, 5); got != pconn {
+		t.Errorf("FindEnemyFromView near mob = %d, want player %d", got, pconn)
 	}
-	if got := w.FindPlayerNear(40, 40, 4); got != 0 {
-		t.Errorf("FindPlayerNear far mob = %d, want 0 (no player in box)", got)
+	if got := w.FindEnemyFromView(40, 40, 5); got != 0 {
+		t.Errorf("FindEnemyFromView far mob = %d, want 0 (no player in box)", got)
 	}
+	// A friendly clan must not acquire the player even when adjacent.
+	if got := w.FindEnemyFromView(12, 11, 2); got != 0 {
+		t.Errorf("FindEnemyFromView friendly clan = %d, want 0", got)
+	}
+	// A hidden player (RSV_HIDE) draws no aggro (CMob.cpp:1342).
+	w.entities[pconn].Rsv = RsvHide
+	if got := w.FindEnemyFromView(12, 11, 5); got != 0 {
+		t.Errorf("FindEnemyFromView with hidden player = %d, want 0", got)
+	}
+	w.entities[pconn].Rsv = 0
 	// A dead player must not be aggroable.
 	w.entities[pconn].HP = 0
-	if got := w.FindPlayerNear(12, 11, 4); got != 0 {
-		t.Errorf("FindPlayerNear with dead player = %d, want 0", got)
+	if got := w.FindEnemyFromView(12, 11, 5); got != 0 {
+		t.Errorf("FindEnemyFromView with dead player = %d, want 0", got)
 	}
+	w.entities[pconn].HP = 100
+
+	// Window geometry: normal clans scan [x-4, x+5); clans 7/8 scan the wider,
+	// asymmetric [x-6, x+10) box (CMob.cpp:1316-1322). Clan 7 is only hostile to
+	// clans 1/5/8, so give the player clan 1 — hostile to both 7 and the
+	// normal-window clan 3 (positive control below). A player 6 tiles west of
+	// the mob is outside the normal window but inside the clan-7 one.
+	w.entities[pconn].Clan = 1
+	if got := w.FindEnemyFromView(13, 10, 3); got != pconn {
+		t.Errorf("FindEnemyFromView clan 3 at dx=3 = %d, want player %d (in 9×9)", got, pconn)
+	}
+	if got := w.FindEnemyFromView(16, 10, 3); got != 0 {
+		t.Errorf("FindEnemyFromView clan 3 at dx=6 = %d, want 0 (outside 9×9)", got)
+	}
+	if got := w.FindEnemyFromView(16, 10, 7); got != pconn {
+		t.Errorf("FindEnemyFromView clan 7 at dx=6 = %d, want player %d", got, pconn)
+	}
+	// Mob west of the player: +9 east is still inside the clan-7 window [x-6,x+10).
+	if got := w.FindEnemyFromView(1, 10, 7); got != pconn {
+		t.Errorf("FindEnemyFromView clan 7 at dx=+9 = %d, want player %d", got, pconn)
+	}
+	w.entities[pconn].Clan = 0
 
 	// EntityAt reflects the grid.
 	if id, ok := w.EntityAt(12, 11); !ok || id != near {
