@@ -93,6 +93,12 @@ type Config struct {
 	MaxMsgPerSec float64
 	MsgBurst     int
 
+	// ItemRanges maps item index → its catalog EF_RANGE value (content
+	// ItemList.Ranges). SpawnMob uses it to derive a mob's attack reach from its
+	// template equips (BASE_GetMobAbility, Basedef.cpp:2415). Immutable after
+	// boot; nil means no catalog (every mob fights at melee reach).
+	ItemRanges map[int]int16
+
 	// StatusFile is the path to the channel-status page (serv00.htm) the client
 	// fetches over HTTP before opening the CPSock game connection. When set, the
 	// edge answers a "GET" probe with this file's contents; empty serves a
@@ -135,6 +141,12 @@ type World struct {
 	// respawnQueue holds dead monsters awaiting respawn, drained by SpawnDueRespawns
 	// from the tick (world/respawn.go). Loop-owned.
 	respawnQueue []respawnEntry
+
+	// generators is the NPCGener block table (world/generator.go): spawn recipes
+	// plus live CurrentNumMob accounting. mobCount tracks the live mob/NPC total
+	// (the generateWorldCap gate). Loop-owned.
+	generators []*Generator
+	mobCount   int
 }
 
 // New creates a World with the given dependencies. A nil handler installs a

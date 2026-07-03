@@ -95,6 +95,34 @@ func TestBaseEffects(t *testing.T) {
 	}
 }
 
+func TestRanges(t *testing.T) {
+	// Mob-model rows (real format): the archer's body item carries EF_RANGE,4 —
+	// the source of a mob's ranged reach (BASE_GetMobAbility). A row without
+	// EF_RANGE must be absent from the map.
+	const rows = "242,Ciclope_Arqueiro,6.0,0.0.0.0.0,0,0,1,0,0,EF_CLASS,21,EF_RANGE,4\n" +
+		"168,Botas_de_Guarda(Az),17.0,0.0.0.0.0,0,0,32,0,0,EF_CLASS,1,EF_AC,96\n"
+	l, err := parseItemList(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := l.Ranges()
+	if r[242] != 4 {
+		t.Errorf("Ranges()[242] = %d, want 4", r[242])
+	}
+	if v, ok := r[168]; ok {
+		t.Errorf("Ranges()[168] = %d, want absent (no EF_RANGE)", v)
+	}
+
+	// The real catalog (when mounted) must agree on the archer model.
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	if got := full.Ranges()[242]; got != 4 {
+		t.Errorf("real ItemList Ranges()[242] = %d, want 4 (Ciclope_Arqueiro)", got)
+	}
+}
+
 func TestRequirements(t *testing.T) {
 	// A sword needing level 100 + STR 50 (col 4 = ReqLvl.Str.Int.Dex.Con); plus a
 	// no-requirement item that must be omitted.

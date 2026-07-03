@@ -14,12 +14,12 @@ package world
 // is a tunable stand-in (mirrors how DefaultMobTick is handled in tick.go).
 const DefaultRespawnDelay = 15_000 // 15s
 
-// respawnEntry is a dead monster awaiting respawn: the raw template to rebuild it
-// from and the (x,y) leash origin to put it back at, after `due` (World.Now units).
+// respawnEntry is a dead monster awaiting respawn: the full MobSpawn to rebuild
+// it (template, spawn point AND its instance patrol route), after `due`
+// (World.Now units).
 type respawnEntry struct {
-	template []byte
-	x, y     int16
-	due      uint32
+	spawn MobSpawn
+	due   uint32
 }
 
 // SpawnDueRespawns re-spawns every queued monster whose delay has elapsed (due <=
@@ -37,7 +37,7 @@ func (w *World) SpawnDueRespawns(now uint32) []int {
 			kept = append(kept, r)
 			continue
 		}
-		if id := w.SpawnMob(r.template, r.x, r.y); id >= 0 {
+		if id := w.SpawnMobAt(r.spawn); id >= 0 {
 			ids = append(ids, id)
 		}
 		// On SpawnMob failure (world full) the entry is dropped rather than retried

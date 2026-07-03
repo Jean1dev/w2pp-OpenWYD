@@ -115,6 +115,27 @@ func (l *ItemList) Volatiles() map[int]int {
 	return out
 }
 
+// Ranges returns item index → its EF_RANGE value (the attack reach an equipped
+// item grants). A mob's reach is the max EF_RANGE over its template's 16 equips
+// (BASE_GetMobAbility → BASE_GetMaxAbility, Basedef.cpp:2415/2523); EF_RANGE is
+// deliberately NOT in efName/BaseEffects — it isn't a score stat and must not
+// fold into CurrentScore. Note EF_RANGE is exempt from the refine multiplier
+// (Basedef.cpp:1854).
+func (l *ItemList) Ranges() map[int]int16 {
+	out := make(map[int]int16)
+	for idx, e := range l.items {
+		for i := 0; i+1 < len(e.Fields); i++ {
+			if strings.TrimSpace(e.Fields[i]) == "EF_RANGE" {
+				if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[i+1])); err == nil {
+					out[idx] = int16(v)
+				}
+				break
+			}
+		}
+	}
+	return out
+}
+
 // Positions returns item index → nPos (STRUCT_ITEMLIST.nPos, the equip-slot class —
 // CSV column 6). nPos drives the refine (+9) threshold bonuses: weapons 64/192 add
 // +40 weapon damage, defense pieces 4/8/128 add +25 AC (captura §E). Confirmed by

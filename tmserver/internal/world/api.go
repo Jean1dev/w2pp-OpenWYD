@@ -21,6 +21,10 @@ const ViewRange = 18
 // the NPC sub-type used to dispatch _MSG_Quest (Basedef.h item effects).
 const efGrade0 = 100
 
+// efRange is the EF_RANGE item-effect type (ItemEffect.h:83): the attack reach an
+// equipped item grants its wearer.
+const efRange = 27
+
 // Send queues an "about you" S→C message: HEADER.ID is set to the session's own
 // conn and ClientTick is filled in.
 func (w *World) Send(s *Session, t protocol.Type, payload []byte) {
@@ -59,12 +63,32 @@ func (w *World) BroadcastInView(srcID int, t protocol.Type, payload []byte) {
 	}
 }
 
-// SpawnMob creates an NPC/monster entity from a raw STRUCT_MOB template at (x,y)
-// and inserts it into the grid. Returns the new mob id (>= MaxUser) or -1 when
-// the world is full. It only touches world state, so it is loop-safe: it is
-// called both during init (before Serve) and at runtime from SpawnDueRespawns
-// (inside the loop, via the tick).
+// MobSpawn describes one mob instance to create: the raw template, where it
+// appears, and its patrol route (instance waypoints, already randomized by the
+// caller — GenerateMob randomizes SegmentList[i]±SegmentRange[i] per mob,
+// Server.cpp:3536-3546). Zero-value route = stationary guard at (X,Y).
+type MobSpawn struct {
+	Template   []byte
+	X, Y       int16
+	RouteType  uint8
+	SegX, SegY [5]int16
+	SegWait    [5]int16
+	GenIndex   int16 // NPCGener block index (-1 = none; respawn accounting, M5)
+}
+
+// SpawnMob creates a stationary NPC/monster from a raw STRUCT_MOB template at
+// (x,y) — the no-route shorthand for SpawnMobAt.
 func (w *World) SpawnMob(template []byte, x, y int16) int {
+	return w.SpawnMobAt(MobSpawn{Template: template, X: x, Y: y, GenIndex: -1})
+}
+
+// SpawnMobAt creates an NPC/monster entity per the MobSpawn and inserts it into
+// the grid. Returns the new mob id (>= MaxUser) or -1 when the world is full.
+// It only touches world state, so it is loop-safe: it is called both during
+// init (before Serve) and at runtime from SpawnDueRespawns (inside the loop,
+// via the tick).
+func (w *World) SpawnMobAt(sp MobSpawn) int {
+	template, x, y := sp.Template, sp.X, sp.Y
 	id := -1
 	for i := MaxUser; i < MaxMob; i++ {
 		if w.entities[i] == nil {
@@ -77,10 +101,18 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	}
 	b := protocol.ParseMobBasics(template)
 	e := &Entity{
-		ID: id, Mode: MobIdle, Name: b.Name, Class: b.Class, Merchant: b.Merchant,
+		ID: id, Mode: MobIdle, Name: b.Name, Clan: b.Clan, Class: b.Class, Merchant: b.Merchant,
 		X: x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
-		Template: template, // retained for runtime respawn (world/respawn.go)
+		Template:  template, // retained for runtime respawn (world/respawn.go)
+		RouteType: sp.RouteType, SegListX: sp.SegX, SegListY: sp.SegY, SegWait: sp.SegWait,
+		GenIndex: sp.GenIndex,
+		// The current waypoint doubles as the aggro/leash anchor (CMob.cpp:292);
+		// it starts at waypoint 0 = the spawn point (GenerateMob Server.cpp:3649).
+		// The initial waypoint pause comes pre-armed (WaitSec = SegmentWait[0],
+		// Server.cpp:3665), so a patrol idles at home before its first leg.
+		SegmentX: x, SegmentY: y,
+		WaitTicks: sp.SegWait[0],
 	}
 	for i, r := range b.Resist {
 		e.Resist[i] = int16(r)
@@ -88,6 +120,26 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	eq := protocol.MobEquip(template)
 	for i := range eq {
 		e.EquipVisual[i] = eq[i].Index
+	}
+	// Attack reach = BASE_GetMobAbility(EF_RANGE) (Basedef.cpp:2415): the MAX over
+	// the equips of each item's EF_RANGE — catalog base effect plus the instance
+	// effects on the template's STRUCT_ITEM (BASE_GetItemAbility sums both;
+	// EF_RANGE is exempt from the refine multiplier, Basedef.cpp:1854). The HT
+	// special case (Equip[0]/10==3 + LearnedSkill bit 20 → min 2) is player-only
+	// and left out here.
+	for i := range eq {
+		if eq[i].Index == 0 {
+			continue
+		}
+		v := w.cfg.ItemRanges[int(eq[i].Index)]
+		for _, ef := range eq[i].Eff {
+			if ef[0] == efRange {
+				v += int16(ef[1])
+			}
+		}
+		if v > e.Range {
+			e.Range = v
+		}
 	}
 	// The quest-NPC sub-type (Merchant==100) is the EF_GRADE0 (effect 100) of the
 	// NPC's Equip[0] — e.g. Perzen grades 7/8/9 (handlers/_MSG_Quest-npcs.md).
@@ -110,6 +162,13 @@ func (w *World) SpawnMob(template []byte, x, y int16) int {
 	}
 	w.entities[id] = e
 	w.grid.SetMob(int(x), int(y), uint16(id))
+	w.mobCount++
+	// Population accounting: every mob from an NPCGener block counts toward its
+	// CurrentNumMob (GenerateMob increments per leader AND per follower,
+	// Server.cpp:3660/3810) — centralized here so queue respawns count too.
+	if g := w.GeneratorAt(int(sp.GenIndex)); g != nil {
+		g.CurrentNumMob++
+	}
 	return id
 }
 
@@ -133,21 +192,60 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	w.ForEachInView(id, func(vs *Session, _ *Entity) {
 		w.enqueue(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, body)
 	})
-	// A slain monster respawns at its leash origin after a delay. NPCs (shops/quest
-	// givers) don't die, so only schedule for monsters (Merchant==0) killed in
+	// Generator population accounting on death (DeleteMob decrements
+	// CurrentNumMob, Server.cpp:7825-7831, clamped at 0).
+	gen := w.GeneratorAt(int(e.GenIndex))
+	if removeType == 1 && e.Merchant == 0 && gen != nil {
+		if gen.CurrentNumMob--; gen.CurrentNumMob < 0 {
+			gen.CurrentNumMob = 0
+		}
+	}
+	// Group links: a dying follower leaves its leader's PartyList; a dying
+	// leader releases its followers (they become self-sufficient — Leader=0
+	// re-enables their own aggro). Prevents a reused slot from inheriting a
+	// stale group.
+	if e.Leader != 0 {
+		if le := w.Entity(e.Leader); le != nil {
+			for i, m := range le.PartyList {
+				if m == id {
+					le.PartyList[i] = 0
+				}
+			}
+		}
+	}
+	for _, m := range e.PartyList {
+		if m >= MaxUser {
+			if fe := w.Entity(m); fe != nil && fe.Leader == id {
+				fe.Leader = 0
+			}
+		}
+	}
+	// A slain monster respawns at its spawn point after a delay, keeping its
+	// instance route (waypoints/RouteType) so a patrol resumes patrolling —
+	// UNLESS its generator regenerates on the minute timer (MinuteGenerate>0):
+	// there the timer refills whole groups and the queue would double-spawn.
+	// The 15s queue for MinuteGenerate<=0 blocks is our deliberate divergence
+	// (the original never regenerates those outside events). NPCs (shops/quest
+	// givers) don't die, so only schedule monsters (Merchant==0) killed in
 	// combat (removeType 1).
-	if removeType == 1 && e.Merchant == 0 && e.Template != nil {
+	if removeType == 1 && e.Merchant == 0 && e.Template != nil &&
+		(gen == nil || gen.MinuteGenerate <= 0) {
 		w.respawnQueue = append(w.respawnQueue, respawnEntry{
-			template: e.Template,
-			x:        e.SpawnX,
-			y:        e.SpawnY,
-			due:      w.Now() + DefaultRespawnDelay,
+			spawn: MobSpawn{
+				Template: e.Template, X: e.SpawnX, Y: e.SpawnY,
+				RouteType: e.RouteType, SegX: e.SegListX, SegY: e.SegListY,
+				SegWait: e.SegWait, GenIndex: e.GenIndex,
+			},
+			due: w.Now() + DefaultRespawnDelay,
 		})
 	}
 	if cur, ok := w.grid.MobAt(int(e.X), int(e.Y)); ok && int(cur) == id {
 		w.grid.ClearMob(int(e.X), int(e.Y))
 	}
 	w.entities[id] = nil
+	if w.mobCount--; w.mobCount < 0 {
+		w.mobCount = 0
+	}
 	w.clearSeenAll(id)
 }
 

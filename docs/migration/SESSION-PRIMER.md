@@ -277,10 +277,93 @@ Int (BattleProcessor). Lógica fiel ao `CMob.cpp` (StandingBy/BattleProcessor/Ge
 - **Não loga morto** (`completeCharacterLogin`): como mob salva o player com HP=0 ao matá-lo, no login um
   char com HP≤0 é revivido pra full (senão logava travado/morto — o regen exclui HP=0). Espelha o respawn
   vivo. (Causa do bug "loga e morre/fica morto na cidade".)
-- **Falta (iteração 2+):** tabela de hostilidade por clan (hoje todo monstro agro qualquer player);
-  ataque ranged/`EF_RANGE`; pathfinding real (`BASE_GetRoute` — hoje passo Chebyshev simples);
-  roaming/segmentos/rotas (`RouteType`), summons; reveal ao cruzar visão andando (compartilha
-  com B1); respawn de mob (slot é liberado no kill, `SpawnMob` é init-only).
+- **Iteração 2 parte 1 FEITA (jul/2026) — clan hostility + ranged.** (a) **Hostilidade por clan**:
+  `ParseMobBasics` lê `Clan@16`; `world/clan.go` porta `g_pClanTable[9][9]` (Basedef.cpp:207-220,
+  0=hostil/1=amigo); `FindEnemyFromView` (`world/tick.go`) porta a geometria exata do
+  `GetEnemyFromView` (CMob.cpp:1308-1358: janela `[x-4,x+5)`, clan 7/8 `[x-6,x+10)` assimétrica,
+  scan y-externo, pula `RsvHide`, clan≥9 aborta o scan — 8 templates reais têm clan 9). Templates
+  reais: clan 1/5 = agressivo, 2/3/4/6/7/8 = passivo até retaliação (o `Lobo` starter é clan 2 e
+  NÃO agride — fiel; retaliação segue sem filtro de clan, como `SetBattle`). **Cuidado em testes:
+  template clan 0 é AMIGO de player** (`clanTable[0][0]==1`) — o harness usa clan 5. (b) **Ranged**:
+  `Entity.Range` cacheado no `SpawnMob` = max de EF_RANGE sobre os 16 equips (catálogo
+  `ItemList.Ranges()` via `Config.ItemRanges` + efeitos de instância; port de `BASE_GetMobAbility`
+  Basedef.cpp:2415/2523; EF_RANGE fora do multiplicador de refino e NUNCA no `BaseEffects`/score);
+  o alcance dos mobs vem do item-modelo do Equip[0] (ex.: `Ciclope_Arqueiro` 242 → EF_RANGE 4).
+  `mobBattle` porta a decisão do BattleProcessor (CMob.cpp:308-327): métrica `mobDistance` =
+  `BASE_GetDistance`/`g_pDistanceTable` (Euclidiana arredondada, NÃO Chebyshev); `dis<=Range` →
+  roll %100 SEMPRE consumido (paridade de rand); `Range>=4 && dis<=4 && roll>Dex` → **recua**
+  (`mobRetreat`, 1+rand%2 por eixo, GetTargetPosDistance CMob.cpp:892-954); senão ataca (mesma
+  MSG_Attack, sem projétil); fora de alcance persegue. Testes: `TestClanHostile`, `TestMobAISeams`
+  (geometria), `TestFriendlyClanMobDoesNotAttack`, `TestBattleCode`, `TestMobDistance`,
+  `TestRangedMobAttacksFromDistance`, `TestSpawnMobRange`.
+- **Iteração 2 parte 2 FEITA (jul/2026) — pathfinding real.** Pacote novo `tmserver/internal/route`:
+  `Bake` (port de `BASE_ApplyAttribute` Basedef.cpp:2624 — cada byte do AttributeMap cobre bloco 4×4
+  do HeightMap; `att&2` → height 127 = `route.Blocked`) e `Next` (port 1:1 do `BASE_GetRoute`
+  Basedef.cpp:6194-6482: line-walk guloso 8-direções, ordem EXATA dos 25 ramos — primária → fallbacks
+  diagonais → bailout adjacente (:6379) → desvios de linha reta; passável = |Δh| < `MH`=8 EXCLUSIVO;
+  alturas são **int8 SIGNED**; máx `MaxRoute-1`=23 passos; margem de borda 1). Wiring: `loadContent`
+  carrega HeightMap.dat (4096²)+AttributeMap.dat (1024²) e faz o Bake uma vez → `handler.Config.Heights`
+  (read-only; **nil = fallback** no passo Chebyshev cego — testes/boot sem mapas funcionam igual).
+  `mobStep` mira o vizinho NW do alvo (`tx-1,ty-1` — quirk do `GetTargetPos` CMob.cpp:1034) e anda
+  **1 passo de rota por tick de 1s** (mesma trajetória do original que pula `speed*8/4` tiles por
+  ciclo de 8s — cada passo aplica a mesma regra gulosa; cadência UNVERIFIED); preso (`Route[0]==0`)
+  = segura posição, NUNCA atravessa parede. `mobRetreat` também roteia o recuo. **Gate de dormência**
+  (`wakeRadius`=12, cobre a janela clan 7/8 de offset +9): snapshot das posições dos players 1×/tick
+  (scratch no Dispatcher, sem alloc); mob idle sem player perto pula o scan de aggro —
+  `BenchmarkTickIdle10k` ≈ **0,2ms/tick com 10k mobs**. Greedy NÃO é A*: contorna obstáculo de
+  1 célula (desvio lateral) mas fica retido por muro comprido — fiel. Testes: `route/route_test.go`
+  (ramos golden), `TestMobRoutesAroundObstacle`, `TestMobHeldByWall`.
+- **Iteração 2 parte 3 FEITA (jul/2026) — roaming/patrulha (M4).** Parser NPCGener COMPLETO
+  (`content/npc.go`: MinuteGenerate/MaxGroup/Follower ("0"=nenhum)/RouteType/Formation +
+  waypoints com o mapeamento do ParseString: **Start→Seg[0], Segment1-3→Seg[1-3], Dest→Seg[4]**;
+  slots não usados ficam 0 e o walker PULA — bloco Start/Dest patrulha 0→4→0). `world.MobSpawn` +
+  `SpawnMobAt` (SpawnMob virou atalho sem rota); cada instância recebe waypoints RANDOMIZADOS
+  `seg − Range + rand()%(Range+1)` (viés p/ −Range, fiel a GenerateMob Server.cpp:3536-3546;
+  boot usa math/rand de propósito — não queimar o stream do LCG) e **nasce no waypoint 0**.
+  Entity ganhou RouteType/SegListX-Y/SegWait/SegProgress/SegDir/WaitTicks/**SegmentX-Y**(=waypoint
+  atual e ÂNCORA de aggro+leash, CMob.cpp:292 — validTarget e o gate de aggro usam ele, não mais
+  SpawnX)/GenIndex. IA: `mobRoam` porta o ramo não-summon do StandingByProcessor (CMob.cpp:156-229:
+  chegou→arma SegWait→conta→`setSegment`→anda 1 passo de rota; preso→pula waypoint) e `setSegment`
+  porta CMob.cpp:494-620 (RT1 reinicia, RT2/3 vai-e-volta via SegDir, RT4 circular, RT6 reset;
+  RT0 no fim = PARA de andar — NÃO tocamos Merchant como o legado, divergência documentada; os
+  paths OOB de RT1/RT3 do decompile foram clampados). Mob SEM rota volta ao âncora se deslocado
+  (= MOB_RETURN emergente). Respawn preserva a rota da instância (respawnEntry carrega MobSpawn).
+  Gate: `roamRadius`=20 (>ViewRange 18 — player nunca vê patrulha congelada; mobs sem player a 20
+  ficam dormentes, divergência de otimização). RouteType real: 5894×RT2, 66×RT3, 63×RT0, 42×RT6,
+  38×RT1. WaitTicks ≈ segundos no nosso tick de 1s (legado `WaitSec -= 6`/ciclo, cadência
+  UNVERIFIED). RT5/summon deferido; RT3 no fim vira idle em casa (legado retorna 0x10000,
+  não modelado). Testes: `TestSetSegment`, `TestMobRoamPatrolAndWait`,
+  `TestMobReturnsHomeAfterCombat`, `TestPatrolVisibleToPlayer` (e2e), parser em `npc_test.go`.
+- **Iteração 2 parte 4 FEITA (jul/2026) — respawn por gerador + grupos (M5, ÚLTIMO).**
+  `world/generator.go`: `Generator` (recipe do bloco NPCGener + `CurrentNumMob` vivo) +
+  `RegisterGenerators` + **`GenerateMob(idx)` port de Server.cpp:3442-3810 no LCG** com a ordem
+  de rand fiel: (1) roll do tamanho do grupo `MinGroup+rand()%qmob` ANTES do check de população
+  (:3489); (2) 2 rolls por waypoint com Range (X depois Y, viés −Range); (3) roll `%10` só se
+  `Clan==1` (demote p/ clan 2, :3624 — short-circuit). **Quirk mantido:** o clamp de MaxNumMob
+  ignora o líder → bloco MaxNumMob=1 fica com 2 mobs. Follower herda os waypoints randomizados
+  do líder (offsets de `g_pFormation` deferidos c/ Formation); `emptyCellNear` porta o scan de
+  caixas do GetEmptyMobGrid (GetFunc.cpp:2027, sem rand; check de altura-127 não feito no world).
+  Contabilidade centralizada: `SpawnMobAt` incrementa CurrentNumMob (queue respawn também conta),
+  `DespawnMob` decrementa (DeleteMob :7825) + limpa links de grupo (follower morto sai da
+  PartyList; líder morto liberta os followers → voltam a ter aggro próprio). **Timer**: 1×/min
+  (`d.tickCount%60`), bloco com `MinuteGenerate>0` dispara em `min%MG == idx%MG`
+  (ProcessSecMinTimer.cpp:2727; hacks de skip {0,1,2,5,6,7} e ≥500 NÃO portados). **Política**:
+  bloco de timer NÃO entra na fila de 15s (o timer repõe grupos inteiros); `MinuteGenerate<=0`
+  (~45% dos blocos — no legado só spawna via evento!) usa a fila de 15s = divergência deliberada.
+  Gate global `generateWorldCap`=20000 protege os slots. **Grupos em combate**: follower
+  (`Leader!=0`) NUNCA agride sozinho (CMob.cpp:158); bater em qualquer membro arrasta o grupo
+  (`setGroupBattle` = SetBattle Server.cpp:8013 + propagação de PartyList
+  ProcessSecMinTimer.cpp:1882; caixa ±23; membro já engajado mantém o alvo; líder incluído no
+  drag — pequena divergência coerente). **Boot** agora = `RegisterGenerators` + 1 `GenerateMob`
+  por bloco (~equilíbrio 12-13k mobs; MaxNumMob real: 3858 blocos com 1); boot queima o LCG
+  (não há ordem legada de boot p/ divergir — o original começa VAZIO). WaitTicks inicial =
+  SegWait[0] (paridade Server.cpp:3665). Testes: `generator_test.go` (grupo/clamp-quirk/
+  contabilidade/fila), `TestSetGroupBattleDragsGroup`, `TestFollowerDoesNotSelfAggro` (e2e),
+  `TestGroupFocusesAttacker` (e2e wiring PROD), `TestGenerateMobsTimer`.
+- **B3 ENCERRADO (iteração 2 completa).** Deferidos p/ frentes futuras: mob-vs-mob (guardas),
+  summons/RouteType 5, Formation (g_pFormation), FightAction/DieAction (chat de mob),
+  EnemyList[13]/SelectTargetFromEnemyList, KEFRA_BOSS, ~1400 templates de Leader sem arquivo,
+  reveal de players ao cruzar visão andando (compartilha com B1).
 - **Level-up** (da frente anterior) **Falta:** tiers ARCH/CELESTIAL (curva `g_pNextLevel_2`, quest-gates)
   + AC++/skill/special bonus (Entity não modela base-score separado) + itens por nível (`DoItemLevel`)
   + `MSG_CreateMob` p/ refletir novo nível/visual aos outros; EXP de party (divisores não confiáveis —

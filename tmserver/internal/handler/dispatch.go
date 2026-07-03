@@ -59,6 +59,13 @@ type Config struct {
 	// Spells is the SkillData.csv catalog (g_pSpell). When nil, skill casting is
 	// rejected and skill learning is refused (no costs are knowable without it).
 	Spells *content.SkillData
+
+	// Heights is the walkability grid the mob AI paths over: HeightMap.dat with
+	// AttributeMap.dat already baked in (route.Bake, the boot-time
+	// BASE_ApplyAttribute). Read-only after boot, so sharing it with the loop is
+	// safe. When nil (maps not mounted, or tests) mobs fall back to the blind
+	// one-tile Chebyshev step.
+	Heights *content.Grid
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -81,7 +88,12 @@ type Dispatcher struct {
 	itemPos         map[int]int                  // item index → nPos (refine threshold)
 	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
 	spells          *content.SkillData           // skill catalog (g_pSpell)
+	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
+
+	// playersX/Y are per-tick scratch snapshots of in-play player positions
+	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
+	playersX, playersY []int16
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -109,6 +121,7 @@ func New(cfg Config) *Dispatcher {
 		itemPos:         cfg.ItemPos,
 		itemUnique:      cfg.ItemUnique,
 		spells:          cfg.Spells,
+		heights:         cfg.Heights,
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)

@@ -70,22 +70,51 @@ func (w *World) ForEachPlayer(fn func(s *Session, e *Entity)) {
 	}
 }
 
-// FindPlayerNear returns the id of an in-play, living player within Chebyshev
-// radius of (x,y), scanning the spatial grid box, or 0 if none. It is the cheap
-// proximity-aggro probe (a faithful stand-in for GetEnemyFromView's 9×9 scan,
-// minus the clan-hostility table which is UNVERIFIED). Loop-only.
-func (w *World) FindPlayerNear(x, y int16, radius int) int {
-	for dy := -radius; dy <= radius; dy++ {
-		for dx := -radius; dx <= radius; dx++ {
-			id, ok := w.grid.MobAt(int(x)+dx, int(y)+dy)
+// FindEnemyFromView returns the id of the first in-play, living player around
+// (x,y) that clan treats as hostile (g_pClanTable), or 0 if none. It ports
+// GetEnemyFromView (CMob.cpp:1308-1358) exactly:
+//   - window [x-4, x+5) × [y-4, y+5) (StartX = TargetX-4, Size 9);
+//   - clans 7/8 scan [x-6, x+10) — start −6 with HALFGRIDX=16 width, an
+//     intentionally asymmetric box in the original;
+//   - y-outer/x-inner scan order (it decides WHICH enemy is found first);
+//   - the mob's own cell is skipped, and hidden players (Rsv & RsvHide) are
+//     invisible to aggro (CMob.cpp:1342);
+//   - an out-of-range clan aborts the whole scan (CMob.cpp:1345-1350).
+//
+// Divergence: the original also returns hostile MOBS (mob-vs-mob combat, e.g.
+// town guards); we only acquire players for now — deferred. Loop-only.
+func (w *World) FindEnemyFromView(x, y int16, clan uint8) int {
+	startX, startY, sizeX, sizeY := int(x)-4, int(y)-4, 9, 9
+	if clan == 7 || clan == 8 {
+		startX, startY, sizeX, sizeY = int(x)-6, int(y)-6, 16, 16
+	}
+	for gy := startY; gy < startY+sizeY; gy++ {
+		for gx := startX; gx < startX+sizeX; gx++ {
+			if gx == int(x) && gy == int(y) {
+				continue
+			}
+			id, ok := w.grid.MobAt(gx, gy)
 			if !ok || int(id) >= MaxUser {
-				continue // empty cell or a mob, not a player
+				continue // empty/out-of-bounds cell, or a mob (mob-vs-mob deferred)
 			}
 			e := w.entities[id]
 			if e == nil || e.Mode != MobUser || e.HP <= 0 {
 				continue
 			}
-			return int(id)
+			if e.Rsv&RsvHide != 0 {
+				continue // hidden players don't draw aggro (CMob.cpp:1342 Rsv & 0x10)
+			}
+			if clan >= 9 || e.Clan >= 9 {
+				// A handful of real event/arena templates ship Clan 9 (Aberest, Pikeman,
+				// Wizard, …), and this scan runs every tick — Debug, not Warn, or they
+				// would flood the log. The original logs and aborts the whole scan
+				// (CMob.cpp:1345-1350), not just this cell.
+				w.log.Debug("clan out of range in aggro scan", "clan", clan, "target_clan", e.Clan)
+				return 0
+			}
+			if clanTable[clan][e.Clan] == 0 {
+				return int(id)
+			}
 		}
 	}
 	return 0

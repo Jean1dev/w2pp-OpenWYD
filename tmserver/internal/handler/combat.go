@@ -181,14 +181,15 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			}
 		}
 		// A struck mob either dies (rewards) or retaliates: it focuses the attacker
-		// so the AI tick (mobai.go) chases and fights back. Provocation happens even
-		// on a blocked hit, matching the original AddEnemyList-on-attack.
+		// — and drags its spawn group into the fight (SetBattle + the PartyList
+		// propagation, setGroupBattle) — so the AI tick (mobai.go) chases and
+		// fights back. Provocation happens even on a blocked hit, matching the
+		// original AddEnemyList-on-attack.
 		if !world.IsPlayer(tid) {
 			if target.HP == 0 {
 				d.mobKilled(w, e, target)
 			} else {
-				target.Target = s.Conn
-				target.Mode = world.MobCombat
+				setGroupBattle(w, tid, target, e)
 			}
 		}
 		writeDamage(payload, i, int32(dmg))

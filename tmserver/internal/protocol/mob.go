@@ -13,6 +13,7 @@ const (
 // MobBasics is the subset of a raw STRUCT_MOB needed to spawn a world entity.
 type MobBasics struct {
 	Name               string
+	Clan               uint8 // STRUCT_MOB.Clan @16 — drives the g_pClanTable hostility check
 	Class              uint8
 	Merchant           uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
 	Level, Ac, Damage  int32
@@ -28,6 +29,7 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 	const cs = 92 // CurrentScore offset within STRUCT_MOB
 	return MobBasics{
 		Name:     cstr16(mob816[0:16]),
+		Clan:     mob816[16], // Clan @16 (same offset writeStructMob writes)
 		Class:    mob816[20],
 		Exp:      int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
 		Merchant: mob816[cs+12],                 // CurrentScore.Merchant

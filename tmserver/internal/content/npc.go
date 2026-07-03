@@ -9,20 +9,30 @@ import (
 	"strings"
 )
 
-// NPCGenerator is one spawn block of NPCGener.txt (CNPCGene.cpp): it spawns
-// MinGroup..MaxGroup mobs of Leader around (StartX,StartY) within StartRange.
+// NPCGenerator is one spawn block of NPCGener.txt (CNPCGene.cpp ParseString):
+// it spawns MinGroup..MaxGroup mobs of Leader (plus Followers) patrolling the
+// SegX/SegY waypoints per RouteType, regenerating every MinuteGenerate minutes.
+//
+// Waypoint index mapping is the original's: Start*→[0], Segment1..3*→[1..3],
+// Dest*→[4]. Unused waypoints stay 0 and the segment walker skips them
+// (SetSegment, CMob.cpp:608) — so the common Start/Dest-only block patrols
+// 0→4→0. StartX/StartY accessors keep the spawn-point name used elsewhere.
 type NPCGenerator struct {
-	Leader     string
-	StartX     int16
-	StartY     int16
-	StartRange int
-	MinGroup   int
-	MaxNumMob  int
+	Leader         string
+	Follower       string
+	MinuteGenerate int // respawn period in minutes; <=0 = never regenerate
+	MinGroup       int
+	MaxGroup       int
+	MaxNumMob      int
+	RouteType      int
+	Formation      int // parsed, not modeled yet (group formation offsets)
+	SegX, SegY     [5]int16
+	SegRange       [5]int
+	SegWait        [5]int
 }
 
 // LoadNPCGenerators parses NPCGener.txt. Blocks start with '#'; lines are
-// "Key:\tvalue"; '//' lines are comments. Only the fields needed to spawn are
-// read (Leader, StartX/Y, StartRange, MinGroup).
+// "Key:\tvalue"; '//' lines are comments.
 func LoadNPCGenerators(path string) ([]NPCGenerator, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -61,16 +71,56 @@ func LoadNPCGenerators(path string) ([]NPCGenerator, error) {
 		switch key {
 		case "Leader":
 			cur.Leader = val
-		case "StartX":
-			cur.StartX = int16(atoi(val))
-		case "StartY":
-			cur.StartY = int16(atoi(val))
-		case "StartRange":
-			cur.StartRange = atoi(val)
+		case "Follower":
+			if val != "0" { // "0" = no follower template (ParseString rejects it)
+				cur.Follower = val
+			}
+		case "MinuteGenerate":
+			cur.MinuteGenerate = atoi(val)
 		case "MinGroup":
 			cur.MinGroup = atoi(val)
+		case "MaxGroup":
+			cur.MaxGroup = atoi(val)
 		case "MaxNumMob":
 			cur.MaxNumMob = atoi(val)
+		case "RouteType":
+			cur.RouteType = atoi(val)
+		case "Formation":
+			cur.Formation = atoi(val)
+		// Waypoints: Start→[0], Segment1..3→[1..3], Dest→[4] (ParseString).
+		case "StartX":
+			cur.SegX[0] = int16(atoi(val))
+		case "StartY":
+			cur.SegY[0] = int16(atoi(val))
+		case "StartRange":
+			cur.SegRange[0] = atoi(val)
+		case "StartWait":
+			cur.SegWait[0] = atoi(val)
+		case "DestX":
+			cur.SegX[4] = int16(atoi(val))
+		case "DestY":
+			cur.SegY[4] = int16(atoi(val))
+		case "DestRange":
+			cur.SegRange[4] = atoi(val)
+		case "DestWait":
+			cur.SegWait[4] = atoi(val)
+		default:
+			// Segment1..3{X,Y,Range,Wait} → indices 1..3. *Action keys (mob chat
+			// lines) are not modeled.
+			if strings.HasPrefix(key, "Segment") && len(key) > 8 {
+				if i := int(key[7] - '0'); i >= 1 && i <= 3 {
+					switch key[8:] {
+					case "X":
+						cur.SegX[i] = int16(atoi(val))
+					case "Y":
+						cur.SegY[i] = int16(atoi(val))
+					case "Range":
+						cur.SegRange[i] = atoi(val)
+					case "Wait":
+						cur.SegWait[i] = atoi(val)
+					}
+				}
+			}
 		}
 	}
 	flush()

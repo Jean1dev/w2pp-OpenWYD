@@ -86,10 +86,32 @@ type Entity struct {
 
 	// Mob AI (mobai.go; only meaningful for monsters). Target is the current
 	// combat target's conn (0 = none); AtkTick is the mob's last-attack server
-	// time (cadence); SpawnX/SpawnY is the leash origin it returns toward.
+	// time (cadence); SpawnX/SpawnY is the position the mob (re)spawned at.
+	// Range is the mob's attack reach — the max EF_RANGE over its template's
+	// equips (BASE_GetMobAbility, Basedef.cpp:2415), cached at spawn; 0 means
+	// no ranged gear (the AI falls back to melee adjacency).
 	Target         int
 	AtkTick        uint32
 	SpawnX, SpawnY int16
+	Range          int16
+
+	// Mob roaming (CMob.h:47-69, StandingByProcessor/SetSegment). SegX/SegY are
+	// this INSTANCE's waypoints (already randomized ±SegmentRange at spawn,
+	// GenerateMob Server.cpp:3536-3546; 0 = unused slot, skipped by the walker).
+	// SegmentX/SegmentY is the current waypoint — also the aggro/leash anchor
+	// (BattleProcessor leashes on SegmentX±HALFGRIDX, CMob.cpp:292) — always set,
+	// even for mobs without a route (= spawn point). WaitTicks counts down the
+	// pause at a waypoint (legacy WaitSec; our tick≈1s so ticks≈seconds,
+	// cadence UNVERIFIED). GenIndex is the NPCGener block that spawned this mob
+	// (-1 = none), reserved for the per-generator respawn accounting (M5).
+	RouteType          uint8
+	SegListX, SegListY [5]int16
+	SegWait            [5]int16
+	SegProgress        int8
+	SegDir             uint8 // 0 = forward, 1 = backward (RouteType 2/3 ping-pong)
+	WaitTicks          int16
+	SegmentX, SegmentY int16
+	GenIndex           int16
 	// Template is the raw STRUCT_MOB bytes this mob was spawned from (boot template,
 	// shared by reference — no copy). Retained so the mob can be re-spawned at its
 	// SpawnX/SpawnY after it dies (world/respawn.go). nil for players.
