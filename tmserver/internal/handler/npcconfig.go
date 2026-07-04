@@ -63,14 +63,14 @@ func (d *Dispatcher) pollNPCConfig(w *world.World) {
 		defer cancel()
 		version, err := d.npcSource.Version(ctx)
 		if err != nil {
-			return func(w *world.World) { d.npcPolling = false; d.log.Warn("npc config version poll failed", "err", err) }
+			return func(*world.World) { d.npcPolling = false; d.log.Warn("npc config version poll failed", "err", err) }
 		}
 		if version == known {
-			return func(w *world.World) { d.npcPolling = false }
+			return func(*world.World) { d.npcPolling = false }
 		}
 		snap, err := d.npcSource.Snapshot(ctx)
 		if err != nil {
-			return func(w *world.World) { d.npcPolling = false; d.log.Warn("npc config reload failed", "err", err) }
+			return func(*world.World) { d.npcPolling = false; d.log.Warn("npc config reload failed", "err", err) }
 		}
 		return func(w *world.World) {
 			d.applyNPCConfig(w, snap, true)
