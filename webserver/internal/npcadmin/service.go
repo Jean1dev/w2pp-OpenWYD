@@ -1,0 +1,188 @@
+// Package npcadmin holds the web platform's moderator NPC-editing logic
+// (npc-editing-plan.md): CRUD over the cold NPC definition in Postgres, gated by
+// account.role and recorded in the audit trail by the store. It never touches
+// live game state — that stays in tmServer's single-owner loop; the tmServer
+// polls the config version and materializes the definitions.
+package npcadmin
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
+)
+
+// Store is the persistence surface the service needs (satisfied by *store.Store).
+type Store interface {
+	AccountRole(ctx context.Context, id int64) (string, error)
+	ListNPCDefinitions(ctx context.Context) ([]domain.NPCDefinition, error)
+	GetNPCDefinition(ctx context.Context, id int64) (domain.NPCDefinition, error)
+	UpsertNPCDefinition(ctx context.Context, d domain.NPCDefinition, moderatorID int64) (int64, error)
+	SetNPCShop(ctx context.Context, npcID int64, items []domain.NPCShopItem, moderatorID int64) error
+	SetNPCVisibility(ctx context.Context, npcID int64, enabled bool, moderatorID int64) error
+	SetItemPrice(ctx context.Context, itemIndex int32, price int64, moderatorID int64) error
+	DeleteNPCDefinition(ctx context.Context, npcID int64, moderatorID int64) error
+}
+
+// Result is the business outcome of an admin operation. Only infra failures are
+// returned as errors; these ride in the response body.
+type Result int
+
+const (
+	// OK means the operation succeeded.
+	OK Result = iota
+	// Forbidden means the caller is not a moderator/admin.
+	Forbidden
+	// Invalid means the request failed validation.
+	Invalid
+	// NotFound means the target definition does not exist.
+	NotFound
+)
+
+// Shop slots mirror MSG_ShopList's 27 entries; a merchant NPC's stock lives in
+// slots 0..26. maxSlot bounds shop-item validation.
+const maxSlot = 26
+
+// Service implements the moderator NPC-editing operations.
+type Service struct {
+	store Store
+}
+
+// New builds the service over the given store.
+func New(s Store) *Service { return &Service{store: s} }
+
+// List returns every NPC definition, after authorizing the caller.
+func (s *Service) List(ctx context.Context, moderatorID int64) (Result, []domain.NPCDefinition, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	defs, err := s.store.ListNPCDefinitions(ctx)
+	if err != nil {
+		return Invalid, nil, fmt.Errorf("npcadmin: list: %w", err)
+	}
+	return OK, defs, nil
+}
+
+// Get returns one definition by id.
+func (s *Service) Get(ctx context.Context, moderatorID, npcID int64) (Result, domain.NPCDefinition, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, domain.NPCDefinition{}, err
+	}
+	def, err := s.store.GetNPCDefinition(ctx, npcID)
+	if errors.Is(err, store.ErrNotFound) {
+		return NotFound, domain.NPCDefinition{}, nil
+	}
+	if err != nil {
+		return Invalid, domain.NPCDefinition{}, fmt.Errorf("npcadmin: get %d: %w", npcID, err)
+	}
+	return OK, def, nil
+}
+
+// Upsert creates or updates a definition (position, visibility, merchant type).
+func (s *Service) Upsert(ctx context.Context, moderatorID int64, d domain.NPCDefinition) (Result, int64, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, 0, err
+	}
+	if d.Slug == "" || d.TemplateName == "" || !validMerchant(d.Merchant) {
+		return Invalid, 0, nil
+	}
+	id, err := s.store.UpsertNPCDefinition(ctx, d, moderatorID)
+	if err != nil {
+		return Invalid, 0, fmt.Errorf("npcadmin: upsert %q: %w", d.Slug, err)
+	}
+	return OK, id, nil
+}
+
+// SetVisibility toggles whether the NPC appears in the world.
+func (s *Service) SetVisibility(ctx context.Context, moderatorID, npcID int64, enabled bool) (Result, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, err
+	}
+	err := s.store.SetNPCVisibility(ctx, npcID, enabled, moderatorID)
+	return classifyWrite(err, "set visibility")
+}
+
+// SetShop replaces a merchant NPC's shop stock after validating the slots.
+func (s *Service) SetShop(ctx context.Context, moderatorID, npcID int64, items []domain.NPCShopItem) (Result, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, err
+	}
+	seen := make(map[int16]bool, len(items))
+	for _, it := range items {
+		if it.Slot < 0 || it.Slot > maxSlot || it.ItemIndex <= 0 || seen[it.Slot] {
+			return Invalid, nil
+		}
+		seen[it.Slot] = true
+	}
+	err := s.store.SetNPCShop(ctx, npcID, items, moderatorID)
+	return classifyWrite(err, "set shop")
+}
+
+// SetItemPrice sets (price>=0) or clears (price<0) the global item price.
+func (s *Service) SetItemPrice(ctx context.Context, moderatorID int64, itemIndex int32, price int64) (Result, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, err
+	}
+	if itemIndex <= 0 {
+		return Invalid, nil
+	}
+	if err := s.store.SetItemPrice(ctx, itemIndex, price, moderatorID); err != nil {
+		return Invalid, fmt.Errorf("npcadmin: set item price %d: %w", itemIndex, err)
+	}
+	return OK, nil
+}
+
+// Delete removes a definition.
+func (s *Service) Delete(ctx context.Context, moderatorID, npcID int64) (Result, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, err
+	}
+	err := s.store.DeleteNPCDefinition(ctx, npcID, moderatorID)
+	return classifyWrite(err, "delete")
+}
+
+// authorize checks the caller has a moderator/admin role. A missing account or a
+// plain-player role yields Forbidden (never leaks whether the account exists).
+func (s *Service) authorize(ctx context.Context, moderatorID int64) (Result, error) {
+	if moderatorID <= 0 {
+		return Forbidden, nil
+	}
+	role, err := s.store.AccountRole(ctx, moderatorID)
+	if errors.Is(err, store.ErrNotFound) {
+		return Forbidden, nil
+	}
+	if err != nil {
+		return Invalid, fmt.Errorf("npcadmin: role lookup %d: %w", moderatorID, err)
+	}
+	if role != "moderator" && role != "admin" {
+		return Forbidden, nil
+	}
+	return OK, nil
+}
+
+// classifyWrite maps a store write error to a Result: ErrNotFound → NotFound,
+// nil → OK, anything else → Invalid (wrapped).
+func classifyWrite(err error, op string) (Result, error) {
+	switch {
+	case err == nil:
+		return OK, nil
+	case errors.Is(err, store.ErrNotFound):
+		return NotFound, nil
+	default:
+		return Invalid, fmt.Errorf("npcadmin: %s: %w", op, err)
+	}
+}
+
+// validMerchant accepts the merchant sub-types the game knows: 0 (none/monster),
+// 1 (shop), 2 (cargo guard), 19 (shop type 3), 100 (quest NPC). Others are
+// rejected until confirmed by capture (npc-editing-plan.md §9.4).
+func validMerchant(m int16) bool {
+	switch m {
+	case 0, 1, 2, 19, 100:
+		return true
+	default:
+		return false
+	}
+}

@@ -28,6 +28,8 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/dbclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -129,14 +131,17 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	// Persistence: real dbServer adapter when -dbserver is set, else no-op.
+	// Persistence: real dbServer adapter when -dbserver is set, else no-op. The
+	// connection is retained (dbConn) so the NPC-config overlay can share it.
 	var persist world.Persistence = world.NopPersistence{}
+	var dbConn *grpc.ClientConn
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
 			return err
 		}
 		defer func() { _ = conn.Close() }()
+		dbConn = conn
 		persist = dbclient.New(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
@@ -157,9 +162,20 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Moderator NPC-editing overlay (npc-editing-plan.md): available only with both
+	// a dbServer (config source) and a content tree (to resolve template bytes).
+	var npcConfig npccfg.Source
+	if dbConn != nil && *contentDir != "" {
+		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
+			return content.LoadNPCTemplate(*contentDir, name)
+		})
+		logger.Info("npc config overlay enabled (moderator editing)")
+	}
+
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, Spells: spells, Heights: heights,
+		NpcConfig: npcConfig,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -192,9 +208,14 @@ func run(logger *slog.Logger) error {
 	}
 
 	// Populate the world with NPCs/monsters from NPCGener.txt (before Serve starts
-	// the loop, so spawning is single-threaded). Capped to fit the mob slots.
+	// the loop, so spawning is single-threaded). Capped to fit the mob slots. When
+	// the DB overlay is active, merchant blocks are skipped here (owned by
+	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
-		spawnNPCs(w, *contentDir, logger)
+		spawnNPCs(w, *contentDir, npcConfig != nil, logger)
+	}
+	if npcConfig != nil {
+		dispatch.ApplyNPCConfigBoot(w)
 	}
 
 	ln, err := net.Listen("tcp", *addr)
@@ -219,7 +240,7 @@ func run(logger *slog.Logger) error {
 // front so the world is playable immediately. This burns the LCG at boot (one
 // stream for all spawns, like the original's global rand()); there is no legacy
 // boot rand order to diverge from.
-func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
+func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
@@ -241,10 +262,18 @@ func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
 	}
 
 	wgens := make([]*world.Generator, len(gens))
+	skipped := 0
 	for i, g := range gens {
 		leader := load(g.Leader)
 		if leader == nil {
 			continue // block unusable without its Leader template (~1400 miss files)
+		}
+		// When DB-managed NPC config is active, merchant blocks are owned by
+		// npc_definition (materialized by the dispatcher overlay), so skip them here
+		// to avoid double-spawning. Monsters / non-shop NPCs stay on NPCGener.txt.
+		if skipMerchants && protocol.ParseMobBasics(leader).Merchant != 0 {
+			skipped++
+			continue
 		}
 		wg := &world.Generator{
 			MinuteGenerate: g.MinuteGenerate,
@@ -271,7 +300,8 @@ func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
 			total += len(w.GenerateMob(i))
 		}
 	}
-	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates))
+	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
+		"merchant_blocks_skipped", skipped)
 }
 
 // serveStatusHTTP runs the channel-status web server (serv00.htm). It answers any

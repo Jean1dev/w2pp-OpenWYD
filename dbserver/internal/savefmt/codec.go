@@ -246,6 +246,15 @@ func encodeQuest(b []byte, q Quest) {
 	}
 }
 
+// DecodeMob parses a standalone 816-byte STRUCT_MOB blob (e.g. an NPC template in
+// Release/TMsrv/run/npc/). It returns an error unless b is exactly MobSize bytes.
+func DecodeMob(b []byte) (Mob, error) {
+	if len(b) != MobSize {
+		return Mob{}, fmt.Errorf("savefmt: DecodeMob: length %d != %d", len(b), MobSize)
+	}
+	return decodeMob(b), nil
+}
+
 // --- STRUCT_ACCOUNTFILE (7952) ---
 
 // Decode parses a current-format (7952-byte) account blob. It returns an error

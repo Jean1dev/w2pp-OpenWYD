@@ -1,10 +1,19 @@
 # Plano: Sistema de Edição de NPCs (painel de moderação)
 
-> Status: PLANO (não implementado). Origem: necessidade de **moderadores de jogo** editarem NPCs pela
-> web — se o NPC **aparece ou não**, **onde** ele fica, e **quais itens vende e por qual preço**. Este
-> doc é a fonte da verdade dessa decisão de arquitetura. Escopo pedido: **apenas estruturas de dados e
-> backend** (o front-end Next.js não faz parte deste plano; ele apenas consome a mesma borda `web-api`
-> descrita em `web-platform-plan.md`).
+> Status: **IMPLEMENTADO** (backend + estruturas de dados; front-end Next.js fora de escopo). Origem:
+> necessidade de **moderadores de jogo** editarem NPCs pela web — se o NPC **aparece ou não**, **onde**
+> ele fica, e **quais itens vende e por qual preço**. Este doc é a fonte da verdade dessa decisão de
+> arquitetura. Escopo entregue: **apenas estruturas de dados e backend** (o front-end Next.js apenas
+> consome a mesma borda `web-api` descrita em `web-platform-plan.md`).
+>
+> **Decisões tomadas na implementação** (as perguntas em aberto de §9 foram respondidas assim):
+> - **Preço é GLOBAL por índice de item** (tabela `item_price` sobrepõe o catálogo), não override
+>   por-NPC — o mesmo item custa o mesmo em todo NPC (§9.1).
+> - **Posição = só ponto de spawn** (`map_id + x/y`); waypoints de patrulha ficam para depois (§9.2).
+> - **Unidade de edição = a definição/bloco** (uma linha `npc_definition`), não a entidade viva (§9.3).
+> - **NPCs geridos pelo banco = o subconjunto MERCHANT.** No boot, com o overlay ativo, os blocos
+>   merchant do `NPCGener.txt` são pulados (a definição do banco os materializa); monstros e NPCs
+>   sem loja continuam vindo do `NPCGener.txt`. Isso particiona limpo e evita spawn duplo.
 
 ## 1. O que existe hoje (ponto de partida)
 
@@ -110,40 +119,47 @@ dbServer, no espírito do `dbserver convert`/`seed-account`) que lê `NPCGener.t
 popula `npc_definition` — um id por bloco. A partir daí o `.txt` vira *bootstrap read-only* e o banco é a
 fonte da verdade. Merchants (`Merchant != 0`) são o subconjunto que ganha linhas em `npc_shop_item`.
 
-## 5. Modelo de dados (nova migration `internal/migrations/000N_npc_editing.up.sql`)
+## 5. Modelo de dados (migration `internal/migrations/0005_npc_editing.up.sql`)
 
-Esboço (nomes/colunas a refinar na implementação; `snake_case`, seguindo o estilo das migrations
-existentes):
+Como implementado (`snake_case`, seguindo o estilo das migrations existentes):
 
 ```sql
 -- Definição editável de um NPC. Fonte da verdade da CONFIGURAÇÃO; o tmServer é
 -- dono só da INSTÂNCIA viva materializada a partir daqui.
 CREATE TABLE npc_definition (
   id            bigserial PRIMARY KEY,
-  slug          text NOT NULL UNIQUE,        -- id humano estável (ex. "armia-merchant-1")
+  slug          text NOT NULL UNIQUE,        -- id humano estável (ex. "Karkarian-42")
   template_name text NOT NULL,               -- nome do arquivo em Release/TMsrv/run/npc/
-  display_name  text NOT NULL,
+  display_name  text NOT NULL DEFAULT '',
   enabled       boolean NOT NULL DEFAULT true,   -- "aparece ou não"
-  map_id        integer NOT NULL,            -- mapa/cidade
-  pos_x         integer NOT NULL,            -- "onde fica"
-  pos_y         integer NOT NULL,
-  route_type    smallint NOT NULL DEFAULT 0, -- parado / patrulha
-  merchant      smallint NOT NULL DEFAULT 0, -- 0=não-merchant, 1=loja, 2=guarda-carga, 19=shop tipo 3 ...
-  updated_by    bigint,                      -- account.id do moderador
+  map_id        integer NOT NULL DEFAULT 0,  -- carregado, mas o overlay usa só x/y (grid único)
+  pos_x         integer NOT NULL DEFAULT 0,  -- "onde fica" (ponto de spawn)
+  pos_y         integer NOT NULL DEFAULT 0,
+  route_type    smallint NOT NULL DEFAULT 0,
+  merchant      smallint NOT NULL DEFAULT 0, -- 0=não-merchant, 1=loja, 2=guarda-carga, 19=shop tipo 3
+  updated_by    bigint REFERENCES account(id) ON DELETE SET NULL,
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
--- Estoque da loja de um NPC merchant. Sobrepõe o Carry[] do template binário.
--- price_override NULL = usa o preço global do catálogo (itemPrices) — comportamento atual.
+-- Estoque da loja de um NPC merchant. Sobrepõe o Carry[] do template binário. SEM
+-- preço aqui: o preço é GLOBAL (item_price), decisão desta feature.
 CREATE TABLE npc_shop_item (
-  npc_id         bigint NOT NULL REFERENCES npc_definition(id) ON DELETE CASCADE,
-  slot           smallint NOT NULL,          -- 0..26 (MSG_ShopList tem 27 slots)
-  item_index     integer NOT NULL,           -- índice no ItemList
-  eff1_effect    smallint NOT NULL DEFAULT 0, eff1_value smallint NOT NULL DEFAULT 0,
-  eff2_effect    smallint NOT NULL DEFAULT 0, eff2_value smallint NOT NULL DEFAULT 0,
-  eff3_effect    smallint NOT NULL DEFAULT 0, eff3_value smallint NOT NULL DEFAULT 0,
-  price_override bigint,                      -- NULL = catálogo
+  npc_id     bigint NOT NULL REFERENCES npc_definition(id) ON DELETE CASCADE,
+  slot       smallint NOT NULL CHECK (slot BETWEEN 0 AND 26), -- MSG_ShopList tem 27 slots
+  item_index integer NOT NULL,
+  eff1 smallint NOT NULL DEFAULT 0, effv1 smallint NOT NULL DEFAULT 0,
+  eff2 smallint NOT NULL DEFAULT 0, effv2 smallint NOT NULL DEFAULT 0,
+  eff3 smallint NOT NULL DEFAULT 0, effv3 smallint NOT NULL DEFAULT 0,
   PRIMARY KEY (npc_id, slot)
+);
+
+-- Override GLOBAL de preço por índice de item (sobrepõe o preço do catálogo/itemPrices
+-- em TODO NPC que vende o item). Ausente = preço do catálogo.
+CREATE TABLE item_price (
+  item_index integer PRIMARY KEY,
+  price      bigint NOT NULL,
+  updated_by bigint REFERENCES account(id) ON DELETE SET NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Sinal de hot-reload: incrementado em TODA escrita (mesma transação).
@@ -155,13 +171,16 @@ CREATE TABLE npc_config_meta (
 -- Trilha de auditoria: quem mudou o quê (moderação = ação privilegiada).
 CREATE TABLE npc_audit (
   id         bigserial PRIMARY KEY,
-  npc_id     bigint,
-  account_id bigint NOT NULL,     -- moderador
-  action     text NOT NULL,       -- 'create' | 'update' | 'delete' | 'toggle'
+  npc_id     bigint,             -- sem FK: sobrevive ao delete da definição
+  account_id bigint NOT NULL,    -- moderador
+  action     text NOT NULL,      -- 'create'|'update'|'delete'|'set_shop'|'set_price'|'set_visibility'
   before     jsonb,
   after      jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Papel de moderação (autorização das RPCs de admin na web-api).
+ALTER TABLE account ADD COLUMN role text NOT NULL DEFAULT 'player';
 ```
 
 Além disso: **papel de moderador**. Adicionar `account.role text NOT NULL DEFAULT 'player'` (ou uma
@@ -187,11 +206,12 @@ de `domain.Account`/`domain.Character`.
 ```proto
 service NpcAdminService {
   rpc ListNpcs(ListNpcsRequest) returns (ListNpcsResponse);          // vitrine de moderação
-  rpc GetNpc(GetNpcRequest) returns (NpcDefinition);
+  rpc GetNpc(GetNpcRequest) returns (GetNpcResponse);
   rpc UpsertNpc(UpsertNpcRequest) returns (UpsertNpcResponse);       // criar/editar posição, enabled, merchant
-  rpc SetNpcVisibility(SetNpcVisibilityRequest) returns (Ack);       // "aparece ou não" (atalho comum)
-  rpc SetNpcShop(SetNpcShopRequest) returns (Ack);                   // itens + efeitos + price_override
-  rpc DeleteNpc(DeleteNpcRequest) returns (Ack);
+  rpc SetNpcVisibility(SetNpcVisibilityRequest) returns (AdminAck);  // "aparece ou não" (atalho comum)
+  rpc SetNpcShop(SetNpcShopRequest) returns (AdminAck);              // itens + efeitos (slots 0..26)
+  rpc SetItemPrice(SetItemPriceRequest) returns (AdminAck);          // preço GLOBAL do item (price<0 limpa)
+  rpc DeleteNpc(DeleteNpcRequest) returns (AdminAck);
 }
 ```
 
@@ -219,7 +239,7 @@ rpc ListNpcDefinitions(ListNpcDefinitionsRequest) returns (ListNpcDefinitionsRes
 - `dbServer`: `ListNpcDefinitions`.
 - `tmServer`: em `spawnNPCs`, quando `-dbserver` está setado, **preferir** a definição do banco sobre o
   `.txt` (posição, `enabled`, merchant Carry via `npc_shop_item`). Sem dbServer → comportamento atual.
-- Handlers `buy`/`sell`: consultar `price_override` do NPC antes de cair no `itemPrices` global.
+- Handlers `buy`/`sell`: usam `itemPrices` efetivo (catálogo + `item_price` global sobreposto no reload).
 - Entrega: moderar exige restart, mas já é 100% via banco/web.
 
 **Milestone 2 — CRUD do moderador (web-api).**
@@ -238,25 +258,42 @@ rpc ListNpcDefinitions(ListNpcDefinitionsRequest) returns (ListNpcDefinitionsRes
 - Histórico/rollback via `npc_audit`.
 - Métricas/observabilidade das reconfigurações (contagem de spawn/despawn por reload).
 
-## 9. Pontos em aberto (decidir antes de construir)
+## 9. Pontos em aberto — resolvidos na implementação
 
-1. **Preço: global vs por-NPC.** Hoje o preço é global por índice de item (`itemPrices`). O plano
-   introduz `price_override` **por slot de NPC** — confirmar que é isso que os moderadores querem (vs.
-   editar o catálogo global). Recomendação: manter override por-NPC (mais localizado e reversível).
-2. **Granularidade de "onde fica".** `map_id + pos_x/pos_y` cobre NPC estático. Para NPCs **patrulhando**
-   (waypoints do `NPCGener.txt`), decidir se os moderadores editam waypoints ou só o ponto de spawn.
-   Recomendação: milestone inicial só ponto de spawn; waypoints depois.
-3. **Instância única vs grupo.** Um bloco `NPCGener` pode spawnar líder + seguidores. Definir se a
-   edição de moderador opera por **bloco** (grupo) ou por **entidade**. Recomendação: por definição
-   (bloco), que é a unidade natural do conteúdo.
-4. **Validação de `merchant` / tipos de loja.** O mapeamento `Merchant → ShopType` (1→1, 19→3, 2=guarda-
-   carga) está **UNVERIFIED** no código (`handler/shop.go:23`). Fixar o conjunto permitido antes de expor
-   na UI de moderação.
-5. **Autoridade de spawn no boot.** O boot atual popula tudo do `.txt` (divergência deliberada,
-   `main.go:216`). Com o overlay do banco, decidir a precedência exata quando um bloco existe no `.txt`
-   mas não no banco (e vice-versa). Recomendação: banco vence quando presente; `.txt` é só o seed.
+1. **Preço: global vs por-NPC.** ✅ **Global** (tabela `item_price`; sem `price_override` por-NPC). O
+   moderador edita o preço global do item; vale em todo NPC. O tmServer mescla `item_price` sobre o
+   `itemPrices` do catálogo no reload.
+2. **Granularidade de "onde fica".** ✅ **Só ponto de spawn** (`map_id + pos_x/pos_y`; `map_id` carregado
+   mas o grid é único, então o overlay usa x/y). Waypoints de patrulha ficam para depois.
+3. **Instância única vs grupo.** ✅ **Por definição/bloco** (uma linha `npc_definition` = um NPC gerido).
+4. **Validação de `merchant` / tipos de loja.** ✅ Conjunto permitido fixado em `{0,1,2,19,100}`
+   (`npcadmin.validMerchant`). O mapeamento `Merchant → ShopType` segue **UNVERIFIED** em `handler/shop.go`.
+5. **Autoridade de spawn no boot.** ✅ **Banco vence para merchants:** com o overlay ativo, os blocos
+   merchant do `NPCGener.txt` são pulados (`spawnNPCs`, `skipMerchants`) e materializados do banco;
+   monstros/NPCs sem loja continuam vindo do `.txt`. Partição limpa, sem spawn duplo.
 
-## 10. Relação com o resto da plataforma
+Ainda em aberto (não bloqueiam): waypoints editáveis; preço-base por-NPC; rollback via `npc_audit`;
+verificação do mapeamento `Merchant → ShopType` por captura.
+
+## 10. Implementação — mapa de arquivos
+
+- **Migration/modelo:** `internal/migrations/0005_npc_editing.{up,down}.sql`, tipos em
+  `internal/domain/domain.go` (`NPCDefinition`, `NPCShopItem`, `ItemPriceOverride`).
+- **Store:** `internal/store/npc.go` (CRUD + `SeedNPCDefinitions` + bump de versão + auditoria);
+  integração em `internal/store/npc_integration_test.go` (`-tags=integration`).
+- **Protos:** `api/db/v1` (`NpcConfigService`: `NpcConfigVersion`, `ListNpcDefinitions`);
+  `api/web/v1` (`NpcAdminService`).
+- **dbServer:** `dbserver/internal/grpcsrv/npcconfig.go` (serve leitura); subcomando
+  `dbserver import-npcs` (`dbserver/cmd/dbserver/main.go`, usa `savefmt.DecodeMob` +
+  `CurrentScore.Merchant`).
+- **web-api:** `webserver/internal/npcadmin/service.go` (papel + validação; testes em
+  `service_test.go`), `webserver/internal/grpcsrv/npcadmin.go`.
+- **tmServer:** `tmserver/internal/npccfg` (tipos + `Source`), `tmserver/internal/dbclient/npcconfig.go`
+  (fonte gRPC + resolução de template), `tmserver/internal/world` (`GoDetached` + `worldCallbackEvent`),
+  `tmserver/internal/handler/npcconfig.go` (boot overlay + poll + `applyNPCConfig`, testes em
+  `npcconfig_test.go`), wiring em `tmserver/cmd/tmserver/main.go`.
+
+## 11. Relação com o resto da plataforma
 
 Este plano é **irmão** de `web-platform-plan.md` e reusa toda a sua infraestrutura (web-api, mTLS,
 `internal/store`, hashing/sessão, o padrão mailbox). A diferença conceitual — e por que é mais seguro que

@@ -27,6 +27,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
 )
 
 func main() {
@@ -69,7 +70,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	srv := grpc.NewServer(grpc.Creds(creds))
-	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(store.New(pool))))
+	st := store.New(pool)
+	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
+	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcadmin.New(st)))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

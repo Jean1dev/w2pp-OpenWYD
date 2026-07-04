@@ -180,3 +180,361 @@ var AccountWebService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/web/v1/web.proto",
 }
+
+const (
+	NpcAdminService_ListNpcs_FullMethodName         = "/web.v1.NpcAdminService/ListNpcs"
+	NpcAdminService_GetNpc_FullMethodName           = "/web.v1.NpcAdminService/GetNpc"
+	NpcAdminService_UpsertNpc_FullMethodName        = "/web.v1.NpcAdminService/UpsertNpc"
+	NpcAdminService_SetNpcVisibility_FullMethodName = "/web.v1.NpcAdminService/SetNpcVisibility"
+	NpcAdminService_SetNpcShop_FullMethodName       = "/web.v1.NpcAdminService/SetNpcShop"
+	NpcAdminService_SetItemPrice_FullMethodName     = "/web.v1.NpcAdminService/SetItemPrice"
+	NpcAdminService_DeleteNpc_FullMethodName        = "/web.v1.NpcAdminService/DeleteNpc"
+)
+
+// NpcAdminServiceClient is the client API for NpcAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).
+// The Next.js BFF calls it server-side after establishing a moderator session;
+// every request carries the moderator's account_id, which the web-api authorizes
+// against account.role ('moderator'/'admin') and records in the audit trail. All
+// writes are cold config in Postgres — never live game state, which stays in
+// tmServer's single-owner loop.
+type NpcAdminServiceClient interface {
+	// ListNpcs returns every NPC definition (moderation table).
+	ListNpcs(ctx context.Context, in *ListNpcsRequest, opts ...grpc.CallOption) (*ListNpcsResponse, error)
+	// GetNpc returns one definition with its shop stock.
+	GetNpc(ctx context.Context, in *GetNpcRequest, opts ...grpc.CallOption) (*GetNpcResponse, error)
+	// UpsertNpc creates or updates a definition (position, visibility, merchant type).
+	UpsertNpc(ctx context.Context, in *UpsertNpcRequest, opts ...grpc.CallOption) (*UpsertNpcResponse, error)
+	// SetNpcVisibility toggles whether the NPC appears ("aparece ou não").
+	SetNpcVisibility(ctx context.Context, in *SetNpcVisibilityRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// SetNpcShop replaces a merchant NPC's shop stock.
+	SetNpcShop(ctx context.Context, in *SetNpcShopRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// SetItemPrice sets (price>=0) or clears (price<0) the GLOBAL price of an item.
+	SetItemPrice(ctx context.Context, in *SetItemPriceRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// DeleteNpc removes a definition.
+	DeleteNpc(ctx context.Context, in *DeleteNpcRequest, opts ...grpc.CallOption) (*AdminAck, error)
+}
+
+type npcAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNpcAdminServiceClient(cc grpc.ClientConnInterface) NpcAdminServiceClient {
+	return &npcAdminServiceClient{cc}
+}
+
+func (c *npcAdminServiceClient) ListNpcs(ctx context.Context, in *ListNpcsRequest, opts ...grpc.CallOption) (*ListNpcsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNpcsResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListNpcs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) GetNpc(ctx context.Context, in *GetNpcRequest, opts ...grpc.CallOption) (*GetNpcResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNpcResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_GetNpc_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) UpsertNpc(ctx context.Context, in *UpsertNpcRequest, opts ...grpc.CallOption) (*UpsertNpcResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertNpcResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_UpsertNpc_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) SetNpcVisibility(ctx context.Context, in *SetNpcVisibilityRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, NpcAdminService_SetNpcVisibility_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) SetNpcShop(ctx context.Context, in *SetNpcShopRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, NpcAdminService_SetNpcShop_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) SetItemPrice(ctx context.Context, in *SetItemPriceRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, NpcAdminService_SetItemPrice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) DeleteNpc(ctx context.Context, in *DeleteNpcRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, NpcAdminService_DeleteNpc_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NpcAdminServiceServer is the server API for NpcAdminService service.
+// All implementations must embed UnimplementedNpcAdminServiceServer
+// for forward compatibility.
+//
+// NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).
+// The Next.js BFF calls it server-side after establishing a moderator session;
+// every request carries the moderator's account_id, which the web-api authorizes
+// against account.role ('moderator'/'admin') and records in the audit trail. All
+// writes are cold config in Postgres — never live game state, which stays in
+// tmServer's single-owner loop.
+type NpcAdminServiceServer interface {
+	// ListNpcs returns every NPC definition (moderation table).
+	ListNpcs(context.Context, *ListNpcsRequest) (*ListNpcsResponse, error)
+	// GetNpc returns one definition with its shop stock.
+	GetNpc(context.Context, *GetNpcRequest) (*GetNpcResponse, error)
+	// UpsertNpc creates or updates a definition (position, visibility, merchant type).
+	UpsertNpc(context.Context, *UpsertNpcRequest) (*UpsertNpcResponse, error)
+	// SetNpcVisibility toggles whether the NPC appears ("aparece ou não").
+	SetNpcVisibility(context.Context, *SetNpcVisibilityRequest) (*AdminAck, error)
+	// SetNpcShop replaces a merchant NPC's shop stock.
+	SetNpcShop(context.Context, *SetNpcShopRequest) (*AdminAck, error)
+	// SetItemPrice sets (price>=0) or clears (price<0) the GLOBAL price of an item.
+	SetItemPrice(context.Context, *SetItemPriceRequest) (*AdminAck, error)
+	// DeleteNpc removes a definition.
+	DeleteNpc(context.Context, *DeleteNpcRequest) (*AdminAck, error)
+	mustEmbedUnimplementedNpcAdminServiceServer()
+}
+
+// UnimplementedNpcAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNpcAdminServiceServer struct{}
+
+func (UnimplementedNpcAdminServiceServer) ListNpcs(context.Context, *ListNpcsRequest) (*ListNpcsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNpcs not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) GetNpc(context.Context, *GetNpcRequest) (*GetNpcResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetNpc not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) UpsertNpc(context.Context, *UpsertNpcRequest) (*UpsertNpcResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertNpc not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) SetNpcVisibility(context.Context, *SetNpcVisibilityRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetNpcVisibility not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) SetNpcShop(context.Context, *SetNpcShopRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetNpcShop not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) SetItemPrice(context.Context, *SetItemPriceRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetItemPrice not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) DeleteNpc(context.Context, *DeleteNpcRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteNpc not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) mustEmbedUnimplementedNpcAdminServiceServer() {}
+func (UnimplementedNpcAdminServiceServer) testEmbeddedByValue()                         {}
+
+// UnsafeNpcAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NpcAdminServiceServer will
+// result in compilation errors.
+type UnsafeNpcAdminServiceServer interface {
+	mustEmbedUnimplementedNpcAdminServiceServer()
+}
+
+func RegisterNpcAdminServiceServer(s grpc.ServiceRegistrar, srv NpcAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedNpcAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NpcAdminService_ServiceDesc, srv)
+}
+
+func _NpcAdminService_ListNpcs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNpcsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListNpcs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListNpcs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListNpcs(ctx, req.(*ListNpcsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_GetNpc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNpcRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).GetNpc(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_GetNpc_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).GetNpc(ctx, req.(*GetNpcRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_UpsertNpc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertNpcRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).UpsertNpc(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_UpsertNpc_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).UpsertNpc(ctx, req.(*UpsertNpcRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_SetNpcVisibility_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetNpcVisibilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).SetNpcVisibility(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_SetNpcVisibility_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).SetNpcVisibility(ctx, req.(*SetNpcVisibilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_SetNpcShop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetNpcShopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).SetNpcShop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_SetNpcShop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).SetNpcShop(ctx, req.(*SetNpcShopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_SetItemPrice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetItemPriceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).SetItemPrice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_SetItemPrice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).SetItemPrice(ctx, req.(*SetItemPriceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_DeleteNpc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNpcRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).DeleteNpc(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_DeleteNpc_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).DeleteNpc(ctx, req.(*DeleteNpcRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NpcAdminService_ServiceDesc is the grpc.ServiceDesc for NpcAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NpcAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.NpcAdminService",
+	HandlerType: (*NpcAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListNpcs",
+			Handler:    _NpcAdminService_ListNpcs_Handler,
+		},
+		{
+			MethodName: "GetNpc",
+			Handler:    _NpcAdminService_GetNpc_Handler,
+		},
+		{
+			MethodName: "UpsertNpc",
+			Handler:    _NpcAdminService_UpsertNpc_Handler,
+		},
+		{
+			MethodName: "SetNpcVisibility",
+			Handler:    _NpcAdminService_SetNpcVisibility_Handler,
+		},
+		{
+			MethodName: "SetNpcShop",
+			Handler:    _NpcAdminService_SetNpcShop_Handler,
+		},
+		{
+			MethodName: "SetItemPrice",
+			Handler:    _NpcAdminService_SetItemPrice_Handler,
+		},
+		{
+			MethodName: "DeleteNpc",
+			Handler:    _NpcAdminService_DeleteNpc_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}

@@ -79,6 +79,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.sweepAffects(w)
 	d.respawnMobs(w)
 	d.generateMobs(w)
+	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
 }
 
 // battleDragBox is the SetBattle engage box: a group member joins the fight only

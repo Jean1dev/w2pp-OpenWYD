@@ -128,8 +128,8 @@ type World struct {
 	cargo map[int64]*CargoState
 
 	events    chan event
-	callbacks chan callbackEvent // async handler results (World.Go); separate from
-	// events so a long mob-AI tick cannot block login/db callbacks on the main queue.
+	callbacks chan event // async handler results (World.Go / World.GoDetached); separate
+	// from events so a long mob-AI tick cannot block login/db callbacks on the main queue.
 	done   chan struct{}  // closed when the loop stops; unblocks conn goroutines
 	saveWG sync.WaitGroup // tracks in-flight async character saves (logout/disconnect)
 
@@ -183,7 +183,7 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		grid:      newGrid(cfg.GridDim),
 		rng:       rng.New(),
 		events:    make(chan event, cfg.EventQueue),
-		callbacks: make(chan callbackEvent, 256),
+		callbacks: make(chan event, 256),
 		done:      make(chan struct{}),
 	}
 }

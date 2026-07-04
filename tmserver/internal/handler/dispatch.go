@@ -15,6 +15,7 @@ import (
 	"log/slog"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -66,6 +67,11 @@ type Config struct {
 	// safe. When nil (maps not mounted, or tests) mobs fall back to the blind
 	// one-tile Chebyshev step.
 	Heights *content.Grid
+
+	// NpcConfig is the moderator-edited NPC configuration source (npc-editing-plan.md).
+	// When set, the dispatcher overlays DB-defined merchant NPCs on boot and polls
+	// for changes each tick (hot-reload). When nil, NPCs come only from NPCGener.txt.
+	NpcConfig npccfg.Source
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -90,6 +96,18 @@ type Dispatcher struct {
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
+
+	// NPC-config overlay (npc-editing-plan.md). All loop-only. baseItemPrices is the
+	// immutable content catalog; itemPrices is the effective map (base + global
+	// overrides), rebuilt on reload. managedNPCs maps a definition slug → its live
+	// entity id. npcVersion is the last applied config version; npcPolling guards a
+	// single in-flight version poll; npcPollTick phases the poll cadence.
+	npcSource      npccfg.Source
+	baseItemPrices map[int]int32
+	managedNPCs    map[string]int
+	npcVersion     int64
+	npcPolling     bool
+	npcPollTick    int
 
 	// playersX/Y are per-tick scratch snapshots of in-play player positions
 	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
@@ -122,7 +140,14 @@ func New(cfg Config) *Dispatcher {
 		itemUnique:      cfg.ItemUnique,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
+		npcSource:       cfg.NpcConfig,
+		managedNPCs:     make(map[string]int),
 	}
+	// The effective price map starts as the content catalog and is later overlaid
+	// with moderator overrides; keep the base immutable so an override can be
+	// cleared. When there is no catalog both stay nil (buy/sell simply find no price).
+	d.baseItemPrices = cfg.ItemPrices
+	d.itemPrices = cloneInt32Map(cfg.ItemPrices)
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)
 	}
