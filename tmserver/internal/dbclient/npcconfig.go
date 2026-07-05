@@ -3,6 +3,7 @@ package dbclient
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"google.golang.org/grpc"
 
@@ -21,11 +22,17 @@ type TemplateLoader func(name string) ([]byte, error)
 type NpcConfig struct {
 	api      dbv1.NpcConfigServiceClient
 	template TemplateLoader
+	log      *slog.Logger
 }
 
-// NewNpcConfig wraps a gRPC connection + template loader as an npccfg.Source.
-func NewNpcConfig(conn grpc.ClientConnInterface, loader TemplateLoader) *NpcConfig {
-	return &NpcConfig{api: dbv1.NewNpcConfigServiceClient(conn), template: loader}
+// NewNpcConfig wraps a gRPC connection + template loader as an npccfg.Source. log
+// receives a warning whenever a template fails to resolve (nil defaults to the
+// slog default), so a missing/corrupt NPC file is never silently dropped.
+func NewNpcConfig(conn grpc.ClientConnInterface, loader TemplateLoader, log *slog.Logger) *NpcConfig {
+	if log == nil {
+		log = slog.Default()
+	}
+	return &NpcConfig{api: dbv1.NewNpcConfigServiceClient(conn), template: loader, log: log}
 }
 
 var _ npccfg.Source = (*NpcConfig)(nil)
@@ -52,7 +59,12 @@ func (c *NpcConfig) Snapshot(ctx context.Context) (npccfg.Snapshot, error) {
 	for _, d := range resp.GetDefinitions() {
 		tmpl, ok := cache[d.GetTemplateName()]
 		if !ok {
-			if b, lerr := c.template(d.GetTemplateName()); lerr == nil {
+			b, lerr := c.template(d.GetTemplateName())
+			if lerr != nil {
+				// Don't fail the whole reload for one bad template; leave it nil (the
+				// applier skips + warns) but surface why here.
+				c.log.Warn("npc template resolve failed", "template", d.GetTemplateName(), "slug", d.GetSlug(), "err", lerr)
+			} else {
 				tmpl = b
 			}
 			cache[d.GetTemplateName()] = tmpl

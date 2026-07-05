@@ -179,15 +179,17 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 			RouteType:    int16(b.routeType),
 			Merchant:     int16(mob.CurrentScore.Merchant),
 		}
-		// Shop slots are positional (MSG_ShopList sends slots 0..26 verbatim), so
-		// keep each item at its template Carry index rather than compacting.
-		for ci := 0; ci < 27; ci++ {
-			c := mob.Carry[ci]
+		// Slot is the MSG_ShopList display index (0..26); it maps to the real Carry
+		// slot via shopCarrySlot (3 tabs of 9). Reading Carry directly would miss
+		// tabs 2/3 (Carry[27..35],[54..62]) — the same mapping the tmServer writes
+		// (applyShop) and reads back (reqShopList).
+		for i := 0; i < 27; i++ {
+			c := mob.Carry[shopCarrySlot(i)]
 			if c.Index == 0 {
 				continue
 			}
 			def.Shop = append(def.Shop, domain.NPCShopItem{
-				Slot:      int16(ci),
+				Slot:      int16(i),
 				ItemIndex: int32(c.Index),
 				Eff1:      c.Effects[0].Effect, EffV1: c.Effects[0].Value,
 				Eff2: c.Effects[1].Effect, EffV2: c.Effects[1].Value,
@@ -198,6 +200,11 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 	}
 	return out, nil
 }
+
+// shopCarrySlot maps a MSG_ShopList display index (0..26) to the NPC Carry slot
+// it occupies (3 tabs of 9: Carry[0..8],[27..35],[54..62]). Mirrors
+// protocol.ShopSlot, which dbserver cannot import (tmserver internal package).
+func shopCarrySlot(i int) int { return (i % 9) + (i/9)*27 }
 
 // npcGenerBlock is the subset of an NPCGener.txt spawn block the importer needs:
 // the leader template name, the Start waypoint (spawn point) and the route type.

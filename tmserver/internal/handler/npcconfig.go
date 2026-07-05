@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -95,7 +96,14 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 	}
 
 	for _, def := range snap.Defs {
-		if !def.Enabled || def.Template == nil {
+		if !def.Enabled {
+			continue
+		}
+		if def.Template == nil {
+			// Template failed to resolve (missing/corrupt file) — logged in the
+			// dbclient source too, but warn here so the skip is visible alongside
+			// the other skip branches (bad position, no free slot).
+			d.log.Warn("npc definition has no template — skipped", "slug", def.Slug)
 			continue
 		}
 		if def.X <= 0 || def.Y <= 0 {
@@ -125,8 +133,11 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 }
 
 // applyShop overwrites a merchant entity's shop stock (its Carry[]) with the
-// moderator-defined slots. The shop is authoritative: slots not listed are
-// cleared, so emptying the shop in the web sells nothing.
+// moderator-defined slots. Slot is the MSG_ShopList index (0..26); it is mapped
+// to the real Carry index via protocol.ShopSlot (3 tabs of 9: Carry[0..8],
+// [27..35], [54..62]) — the same mapping reqShopList reads back, so an item in
+// tab 2/3 (slot >= 9) actually reaches the client. The shop is authoritative:
+// slots not listed are cleared, so emptying the shop in the web sells nothing.
 func applyShop(e *world.Entity, shop []npccfg.ShopItem) {
 	if e == nil {
 		return
@@ -135,10 +146,10 @@ func applyShop(e *world.Entity, shop []npccfg.ShopItem) {
 		e.Carry[i] = world.Item{}
 	}
 	for _, it := range shop {
-		if it.Slot < 0 || it.Slot >= world.MaxCarry {
+		if it.Slot < 0 || it.Slot >= maxShopSlots {
 			continue
 		}
-		e.Carry[it.Slot] = world.Item{
+		e.Carry[protocol.ShopSlot(it.Slot)] = world.Item{
 			Index: int16(it.Index),
 			Effects: [3]world.Effect{
 				{Effect: it.Eff[0][0], Value: it.Eff[0][1]},
@@ -148,6 +159,10 @@ func applyShop(e *world.Entity, shop []npccfg.ShopItem) {
 		}
 	}
 }
+
+// maxShopSlots is the number of MSG_ShopList slots (3 tabs of 9); a shop item's
+// Slot is a display index in [0, maxShopSlots).
+const maxShopSlots = 27
 
 // rebuildItemPrices resets the effective price map to the content catalog, then
 // applies the moderator's global overrides on top. Loop-only, so handlers reading

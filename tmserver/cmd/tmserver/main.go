@@ -193,7 +193,7 @@ func run(logger *slog.Logger) error {
 		}
 		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
 			return content.LoadNPCTemplate(*contentDir, name)
-		})
+		}, logger)
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
 
