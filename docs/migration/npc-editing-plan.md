@@ -295,10 +295,12 @@ verificação do mapeamento `Merchant → ShopType` por captura.
 
 ### Feature flag (opt-in) e ordem de ativação
 
-O overlay é **desligado por padrão** — habilite com `-npc-editing` (ou `W2PP_NPC_EDITING=true`), e só faz
-efeito com `-dbserver` **e** `-content` presentes. Motivo de segurança: com o overlay ligado, os blocos
-merchant do `NPCGener.txt` são pulados e materializados do banco; se `npc_definition` estiver **vazia**
-(seed não rodou), os NPCs de loja **sumiriam**. Ordem correta de ativação:
+O overlay é **desligado por padrão** — a chave única é `-npc-editing` (ou `W2PP_NPC_EDITING=true`). Ligado,
+ele **exige** `-dbserver` (fonte da config) **e** `-content` (para resolver os templates); faltando
+qualquer um, o tmServer **falha no boot** com erro claro (não sobe um overlay que não teria de onde ler
+nem como spawnar). Motivo do default OFF: com o overlay ligado, os blocos merchant do `NPCGener.txt` são
+pulados e materializados do banco; se `npc_definition` estiver **vazia** (seed não rodou), os NPCs de loja
+**sumiriam**. Ordem correta de ativação:
 
 1. `dbserver import-npcs -content <Release/> -dsn <dsn>` — seeda os merchants no banco.
 2. Suba o tmServer com `-npc-editing` (`W2PP_NPC_EDITING=true`).

@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -179,21 +180,21 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
-	// Moderator NPC-editing overlay (npc-editing-plan.md): opt-in via -npc-editing
-	// (W2PP_NPC_EDITING), and only usable with both a dbServer (config source) and a
-	// content tree (to resolve template bytes). Off by default so an unseeded DB
-	// never makes the NPCGener.txt merchants vanish.
+	// Moderator NPC-editing overlay (npc-editing-plan.md): the single switch is
+	// -npc-editing (W2PP_NPC_EDITING), off by default so an unseeded DB never makes
+	// the NPCGener.txt merchants vanish. When on, it MUST have a dbServer (the config
+	// source) and a content tree (to resolve template bytes into the 816-byte
+	// STRUCT_MOB) — both are hard dependencies, not optional, so fail fast with a
+	// clear error rather than booting an overlay that can't read or spawn anything.
 	var npcConfig npccfg.Source
 	if *npcEditing {
-		switch {
-		case dbConn == nil || *contentDir == "":
-			logger.Warn("npc-editing requested but disabled: it needs both -dbserver and -content")
-		default:
-			npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
-				return content.LoadNPCTemplate(*contentDir, name)
-			})
-			logger.Info("npc config overlay enabled (moderator editing)")
+		if dbConn == nil || *contentDir == "" {
+			return fmt.Errorf("-npc-editing requires both -dbserver (config source) and -content (NPC templates)")
 		}
+		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
+			return content.LoadNPCTemplate(*contentDir, name)
+		})
+		logger.Info("npc config overlay enabled (moderator editing)")
 	}
 
 	dispatch := handler.New(handler.Config{
