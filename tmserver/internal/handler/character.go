@@ -181,10 +181,10 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// Seed the starter gear for characters that have none yet (newly created, or
 	// created before seeding existed). This restores the class look (the body item
 	// in equip slot 0 is what gives a TK/FM/BM/HT its appearance), hands out the
-	// class armor/weapon plus a Shire mount, AND the class starter inventory (HP/MP
-	// potions, etc. from the template's Carry). It persists on the next save. An
-	// empty equip is the "fresh character" marker, so the inventory is granted only
-	// once (not re-granted after a player uses up the potions).
+	// class armor/weapon, AND the class starter inventory (HP/MP potions, etc. from
+	// the template's Carry). It persists on the next save. An empty equip is the
+	// "fresh character" marker, so the inventory is granted only once (not
+	// re-granted after a player uses up the potions).
 	if equipEmpty(st.Equip) {
 		st.Equip = d.starterEquip(int(st.Class))
 		d.grantStarterCarry(&st.Carry, int(st.Class))
@@ -475,13 +475,11 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)
 }
 
-// Starter-gear constants. The Shire is a no-level-restriction mount (ItemList
-// item 342); it occupies the mount equip slot (Equip[14], see _MSG_TradingItem.cpp
-// `Mount = &MOB.Equip[14]`).
-const (
-	shireMountIndex = 342
-	mountEquipSlot  = 14
-)
+// mountEquipSlot is the mount equip slot (Equip[14]). Mounts are acquired in-game
+// (capture/shop, quest reward, the Perzen sphere trade-in — docs/migration/handlers/
+// npc-map.md, _MSG_Quest-npcs.md) — no class starts with one, so starterEquip never
+// populates this slot.
+const mountEquipSlot = 14
 
 // equipEmpty reports whether a character has no equipped items at all (a fresh or
 // never-seeded character), so starter gear should be granted.
@@ -523,8 +521,9 @@ func (d *Dispatcher) classBody(class int) world.Item {
 
 // starterEquip builds the new-character starter gear for a class: the class
 // template's equipment (the body item @slot 0 — which drives the class look —
-// plus armor and weapon) and a Shire mount in the mount slot. Returns an empty set
-// if the class template is unavailable.
+// plus armor and weapon). Returns an empty set if the class template is
+// unavailable. The mount slot (14) is intentionally left empty — matching every
+// shipped BaseMob template — since mounts are acquired in-game, not granted.
 func (d *Dispatcher) starterEquip(class int) [world.MaxEquip]world.Item {
 	var eq [world.MaxEquip]world.Item
 	if tmpl, ok := d.baseMobs[class]; ok && len(tmpl) == content.BaseMobSize {
@@ -539,7 +538,6 @@ func (d *Dispatcher) starterEquip(class int) [world.MaxEquip]world.Item {
 			}
 		}
 	}
-	eq[mountEquipSlot] = world.Item{Index: shireMountIndex}
 	return eq
 }
 
