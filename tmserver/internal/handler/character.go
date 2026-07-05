@@ -319,6 +319,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		Level: int32(st.Level), Ac: st.AC, Damage: st.Damage,
 		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
 		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
+		AttackRun:  baseAttackRun,
 		ScoreBonus: st.ScoreBonus, GuildLevel: st.GuildLevel,
 		LearnedSkill: skill.LearnedSkill, SpecialBonus: skill.SpecialBonus,
 		SkillBonus: skill.SkillBonus, Special: skill.Special, SkillBar: skill.SkillBar,
@@ -411,6 +412,7 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Hp:              e.HP,
 		Str:             e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
 		Merchant:   e.Merchant,
+		AttackRun:  attackRunOf(e),
 		Equip:      e.EquipVisual,
 		CreateType: createType,
 	}

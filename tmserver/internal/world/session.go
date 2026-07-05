@@ -120,6 +120,7 @@ type Entity struct {
 	Grade    uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
 	Class       uint8    // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
+	AttackRun   uint8    // CurrentScore.AttackRun speed byte — mobs: template value (set at spawn); players: derived live (handler attackRunOf)
 	Route       [24]byte // last walk route from _MSG_Action (pMob.Route, MAX_ROUTE=24)
 	LastCity    int16    // last city visited (0..3); login spawn = its default area
 	Clan        uint8    // clan/race

@@ -163,6 +163,14 @@ func TestMoveViewDelta(t *testing.T) {
 	if x, y, id := createMobFields(t, payload); id != 2 || x != 5 || y != 21 {
 		t.Errorf("A sees B = id %d at (%d,%d), want id 2 at (5,21)", id, x, y)
 	}
+	// The snapshot must carry the player's speed byte (Score.AttackRun @body137):
+	// a 0 here makes the remote client animate the avatar at crawl speed and
+	// rubber-band to catch up (the "anda devagar + teleporta" bug). Fresh test
+	// chars get the starter Shire mount, so the move nibble is the mounted 5:
+	// (82 & 0xF0) | 5 = 85.
+	if payload[124+13] != 85 {
+		t.Errorf("A sees B with AttackRun %d, want 85 (mounted starter char)", payload[124+13])
+	}
 	if ty, _, ok = readMaybeRaw(t, a); !ok || ty != protocol.MsgPKInfo {
 		t.Fatalf("A frame 2 = %#x ok=%v, want PKInfo", ty, ok)
 	}
