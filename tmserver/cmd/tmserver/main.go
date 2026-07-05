@@ -58,6 +58,21 @@ func envInt(key string, def int) int {
 	return n
 }
 
+// envBool reads a boolean flag default from the environment (Railway-style knob),
+// accepting the usual truthy spellings; a missing or malformed value falls back to
+// def.
+func envBool(key string, def bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return b
+}
+
 // addrOrNone renders an empty flag value as "(none)" so the boot log reads
 // clearly when an optional address (dbServer/binServer/content) is unset.
 func addrOrNone(v string) string {
@@ -79,6 +94,7 @@ func run(logger *slog.Logger) error {
 	maxMsgPerSec := flag.Float64("max-msg-per-sec", 200, "per-connection inbound message rate limit (0 = disabled)")
 	msgBurst := flag.Int("msg-burst", 400, "per-connection message burst depth")
 	contentDir := flag.String("content", os.Getenv("W2PP_CONTENT"), "path to the Release/ content tree (empty = skip; validates rates/catalogs/maps at boot)")
+	npcEditing := flag.Bool("npc-editing", envBool("W2PP_NPC_EDITING", false), "enable the moderator NPC-editing overlay (npc-editing-plan.md); needs -dbserver and -content. OFF by default: turn it on only after `dbserver import-npcs` has seeded npc_definition, else DB-managed merchant NPCs would be skipped from NPCGener.txt with nothing to replace them")
 	defStatusAddr := os.Getenv("W2PP_STATUS_ADDR")
 	if defStatusAddr == "" {
 		defStatusAddr = ":80"
@@ -95,7 +111,8 @@ func run(logger *slog.Logger) error {
 		"client_version", *clientVersion,
 		"dbserver", addrOrNone(*dbAddr),
 		"binserver", addrOrNone(*binAddr),
-		"content", addrOrNone(*contentDir))
+		"content", addrOrNone(*contentDir),
+		"npc_editing", *npcEditing)
 
 	// When -content is set, load and validate the content tree up front so a
 	// missing/corrupt mount fails fast instead of surfacing mid-session. The
@@ -162,14 +179,21 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
-	// Moderator NPC-editing overlay (npc-editing-plan.md): available only with both
-	// a dbServer (config source) and a content tree (to resolve template bytes).
+	// Moderator NPC-editing overlay (npc-editing-plan.md): opt-in via -npc-editing
+	// (W2PP_NPC_EDITING), and only usable with both a dbServer (config source) and a
+	// content tree (to resolve template bytes). Off by default so an unseeded DB
+	// never makes the NPCGener.txt merchants vanish.
 	var npcConfig npccfg.Source
-	if dbConn != nil && *contentDir != "" {
-		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
-			return content.LoadNPCTemplate(*contentDir, name)
-		})
-		logger.Info("npc config overlay enabled (moderator editing)")
+	if *npcEditing {
+		switch {
+		case dbConn == nil || *contentDir == "":
+			logger.Warn("npc-editing requested but disabled: it needs both -dbserver and -content")
+		default:
+			npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
+				return content.LoadNPCTemplate(*contentDir, name)
+			})
+			logger.Info("npc config overlay enabled (moderator editing)")
+		}
 	}
 
 	dispatch := handler.New(handler.Config{

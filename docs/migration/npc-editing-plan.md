@@ -293,6 +293,18 @@ verificação do mapeamento `Merchant → ShopType` por captura.
   `tmserver/internal/handler/npcconfig.go` (boot overlay + poll + `applyNPCConfig`, testes em
   `npcconfig_test.go`), wiring em `tmserver/cmd/tmserver/main.go`.
 
+### Feature flag (opt-in) e ordem de ativação
+
+O overlay é **desligado por padrão** — habilite com `-npc-editing` (ou `W2PP_NPC_EDITING=true`), e só faz
+efeito com `-dbserver` **e** `-content` presentes. Motivo de segurança: com o overlay ligado, os blocos
+merchant do `NPCGener.txt` são pulados e materializados do banco; se `npc_definition` estiver **vazia**
+(seed não rodou), os NPCs de loja **sumiriam**. Ordem correta de ativação:
+
+1. `dbserver import-npcs -content <Release/> -dsn <dsn>` — seeda os merchants no banco.
+2. Suba o tmServer com `-npc-editing` (`W2PP_NPC_EDITING=true`).
+
+Sem a flag, o comportamento é o de antes (NPCs 100% do `NPCGener.txt`).
+
 ## 11. Relação com o resto da plataforma
 
 Este plano é **irmão** de `web-platform-plan.md` e reusa toda a sua infraestrutura (web-api, mTLS,
