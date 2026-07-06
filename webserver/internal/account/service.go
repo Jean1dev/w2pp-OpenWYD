@@ -97,24 +97,26 @@ func (s *Service) Create(ctx context.Context, name, password, email string) (Cre
 // Verify reports whether name+password match a stored account. A missing account
 // or wrong password both return ok=false (no account enumeration via timing is
 // attempted here beyond the constant-time hash compare). blocked reflects
-// account.is_blocked so the caller can decide how to surface a banned login.
-func (s *Service) Verify(ctx context.Context, name, password string) (ok bool, accountID int64, blocked bool, err error) {
+// account.is_blocked; role is account.role ('player'/'moderator'/'admin') so the
+// BFF can gate the moderator UI — authorization itself stays server-side in the
+// NpcAdminService, this is only a UI hint.
+func (s *Service) Verify(ctx context.Context, name, password string) (ok bool, accountID int64, blocked bool, role string, err error) {
 	canonical := strings.ToLower(strings.TrimSpace(name))
 	auth, err := s.store.AccountByName(ctx, canonical)
 	if errors.Is(err, store.ErrNotFound) {
-		return false, 0, false, nil
+		return false, 0, false, "", nil
 	}
 	if err != nil {
-		return false, 0, false, fmt.Errorf("account: lookup %q: %w", canonical, err)
+		return false, 0, false, "", fmt.Errorf("account: lookup %q: %w", canonical, err)
 	}
 	match, err := secret.VerifySecret(password, auth.PassHash)
 	if err != nil {
-		return false, 0, false, fmt.Errorf("account: verify password: %w", err)
+		return false, 0, false, "", fmt.Errorf("account: verify password: %w", err)
 	}
 	if !match {
-		return false, 0, false, nil
+		return false, 0, false, "", nil
 	}
-	return true, auth.ID, auth.IsBlocked, nil
+	return true, auth.ID, auth.IsBlocked, auth.Role, nil
 }
 
 // validName enforces the 4–12 ASCII-alphanumeric login rule on an already

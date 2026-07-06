@@ -43,15 +43,21 @@ Regras que **não** mudam:
 Reaproveita o **mesmo `AccountWebService`** que o Next.js já usa para login web (ver
 `web-platform-plan.md`):
 
-- `VerifyCredentials(name, password)` → `{ ok, account_id, blocked }`.
-- Em caso de `ok`, o BFF cria o **cookie de sessão `httpOnly`** contendo (ou referenciando) o
-  `account_id`.
+- `VerifyCredentials(name, password)` → `{ ok, account_id, blocked, role }`.
+  - `role` é `account.role`: `"player"` | `"moderator"` | `"admin"`.
+- Em caso de `ok`, o BFF cria o **cookie de sessão `httpOnly`** guardando (ou referenciando) o
+  `account_id` **e** o `role`.
 
 **`account_id` da sessão = `moderator_id`** de toda RPC do `NpcAdminService`. Regras:
 
 - O BFF **sempre deriva `moderator_id` do cookie de sessão**, nunca do corpo enviado pelo browser.
-- A autorização (papel `moderator`/`admin`) é feita **server-side no `web-api`**; um `player` recebe
-  `ADMIN_RESULT_FORBIDDEN`.
+- **Gate da página de edição de NPC:** `role ∈ { "moderator", "admin" }`. Esse flag é **só para UX**
+  (mostrar/esconder o menu e a rota). **Não é a decisão de autorização** — o `NpcAdminService` revalida
+  o papel server-side em **toda** chamada, então uma sessão adulterada ainda recebe
+  `ADMIN_RESULT_FORBIDDEN`. Trate o `role` da sessão como uma dica de UI, nunca como permissão.
+- **Setar quem é moderador (fase inicial):** direto no banco — não há RPC de promoção. Ex.:
+  `UPDATE account SET role = 'moderator' WHERE name = 'fulano';`. O `role` só passa a valer no próximo
+  login (é lido no `VerifyCredentials`); se precisar refletir na hora, invalide a sessão do usuário.
 - Não reaproveitar o login CPSock do jogo — é outro mundo (`web-platform-plan.md §Autenticação`).
 
 ## 4. Contrato — `web.v1.NpcAdminService`
@@ -192,6 +198,28 @@ export const npcAdmin = new NpcAdminServiceClient(process.env.WEB_API_ADDR!, ssl
 ```
 
 ```ts
+// app/api/login/route.ts  — grava account_id + role na sessão
+import { NextResponse } from "next/server";
+import { accountWeb } from "@/lib/accountWebClient"; // AccountWebServiceClient (mesmo padrão mTLS)
+import { createSession } from "@/lib/session";
+
+export async function POST(req: Request) {
+  const { name, password } = await req.json();
+  const r = await new Promise<any>((resolve, reject) =>
+    accountWeb.verifyCredentials({ name, password }, (e: unknown, x: unknown) => (e ? reject(e) : resolve(x))),
+  ).catch(() => null);
+
+  if (!r) return NextResponse.json({ error: "upstream" }, { status: 502 });
+  if (!r.ok) return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
+  if (r.blocked) return NextResponse.json({ error: "blocked" }, { status: 403 });
+
+  await createSession({ accountId: r.accountId, role: r.role }); // cookie httpOnly
+  const isModerator = r.role === "moderator" || r.role === "admin";
+  return NextResponse.json({ accountId: r.accountId, role: r.role, isModerator });
+}
+```
+
+```ts
 // app/api/admin/npcs/route.ts
 import { NextResponse } from "next/server";
 import { npcAdmin } from "@/lib/npcAdminClient";
@@ -241,7 +269,8 @@ feature). Ferramentas usuais: `@grpc/grpc-js` + `grpc-tools`/`ts-proto`, ou `buf
 
 - [ ] Gerar stubs de `web.proto` (`web.v1.NpcAdminService`).
 - [ ] Cliente gRPC+mTLS server-side (singleton), certs via env.
-- [ ] Login do moderador via `AccountWebService.VerifyCredentials` → cookie `httpOnly`.
+- [ ] Login via `AccountWebService.VerifyCredentials` → cookie `httpOnly` guardando `account_id` **e** `role`.
+- [ ] Gate da página/menu de NPC por `role ∈ { moderator, admin }` (só UX — o web-api reautoriza).
 - [ ] Toda rota admin deriva `moderator_id` da sessão (nunca do corpo).
 - [ ] Mapear `AdminResult` → HTTP; tratar reject de gRPC como 502.
 - [ ] UI da loja em 3 abas de 9 (slots 0..8 / 9..17 / 18..26); `SetNpcShop` envia a loja inteira.

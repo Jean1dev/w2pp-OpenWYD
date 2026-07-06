@@ -102,7 +102,7 @@ func TestVerify(t *testing.T) {
 		t.Fatalf("hash: %v", err)
 	}
 	fs := &fakeStore{byName: map[string]store.AccountAuth{
-		"alice":  {ID: 1, PassHash: hash},
+		"alice":  {ID: 1, PassHash: hash, Role: "moderator"},
 		"banned": {ID: 2, PassHash: hash, IsBlocked: true},
 	}}
 	s := New(fs)
@@ -111,21 +111,22 @@ func TestVerify(t *testing.T) {
 		name, login, pass string
 		wantOK, wantBlk   bool
 		wantID            int64
+		wantRole          string
 	}{
-		{"ok", "Alice", pw, true, false, 1},
-		{"wrong password", "alice", "nope", false, false, 0},
-		{"no account", "ghost", pw, false, false, 0},
-		{"blocked but valid", "banned", pw, true, true, 2},
+		{"ok moderator", "Alice", pw, true, false, 1, "moderator"},
+		{"wrong password", "alice", "nope", false, false, 0, ""},
+		{"no account", "ghost", pw, false, false, 0, ""},
+		{"blocked but valid", "banned", pw, true, true, 2, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok, id, blocked, err := s.Verify(context.Background(), tc.login, tc.pass)
+			ok, id, blocked, role, err := s.Verify(context.Background(), tc.login, tc.pass)
 			if err != nil {
 				t.Fatalf("Verify: %v", err)
 			}
-			if ok != tc.wantOK || blocked != tc.wantBlk || id != tc.wantID {
-				t.Fatalf("got ok=%v blocked=%v id=%d; want ok=%v blocked=%v id=%d",
-					ok, blocked, id, tc.wantOK, tc.wantBlk, tc.wantID)
+			if ok != tc.wantOK || blocked != tc.wantBlk || id != tc.wantID || role != tc.wantRole {
+				t.Fatalf("got ok=%v blocked=%v id=%d role=%q; want ok=%v blocked=%v id=%d role=%q",
+					ok, blocked, id, role, tc.wantOK, tc.wantBlk, tc.wantID, tc.wantRole)
 			}
 		})
 	}

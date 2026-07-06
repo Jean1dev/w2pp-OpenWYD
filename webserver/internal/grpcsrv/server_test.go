@@ -15,18 +15,19 @@ type fakeAccounts struct {
 	createID  int64
 	createErr error
 
-	verifyOK  bool
-	verifyID  int64
-	verifyBlk bool
-	verifyErr error
+	verifyOK   bool
+	verifyID   int64
+	verifyBlk  bool
+	verifyRole string
+	verifyErr  error
 }
 
 func (f *fakeAccounts) Create(context.Context, string, string, string) (account.CreateResult, int64, error) {
 	return f.createRes, f.createID, f.createErr
 }
 
-func (f *fakeAccounts) Verify(context.Context, string, string) (bool, int64, bool, error) {
-	return f.verifyOK, f.verifyID, f.verifyBlk, f.verifyErr
+func (f *fakeAccounts) Verify(context.Context, string, string) (bool, int64, bool, string, error) {
+	return f.verifyOK, f.verifyID, f.verifyBlk, f.verifyRole, f.verifyErr
 }
 
 func TestCreateAccountMapping(t *testing.T) {

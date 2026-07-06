@@ -17,7 +17,7 @@ import (
 // *account.Service). Kept as an interface so the server is unit-testable.
 type Accounts interface {
 	Create(ctx context.Context, name, password, email string) (account.CreateResult, int64, error)
-	Verify(ctx context.Context, name, password string) (ok bool, accountID int64, blocked bool, err error)
+	Verify(ctx context.Context, name, password string) (ok bool, accountID int64, blocked bool, role string, err error)
 }
 
 // Server implements webv1.AccountWebServiceServer.
@@ -41,11 +41,11 @@ func (s *Server) CreateAccount(ctx context.Context, req *webv1.CreateAccountRequ
 
 // VerifyCredentials validates name + password for the BFF session cookie.
 func (s *Server) VerifyCredentials(ctx context.Context, req *webv1.VerifyCredentialsRequest) (*webv1.VerifyCredentialsResponse, error) {
-	ok, id, blocked, err := s.accounts.Verify(ctx, req.GetName(), req.GetPassword())
+	ok, id, blocked, role, err := s.accounts.Verify(ctx, req.GetName(), req.GetPassword())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "verify credentials: %v", err)
 	}
-	return &webv1.VerifyCredentialsResponse{Ok: ok, AccountId: id, Blocked: blocked}, nil
+	return &webv1.VerifyCredentialsResponse{Ok: ok, AccountId: id, Blocked: blocked, Role: role}, nil
 }
 
 // createResultToProto maps the domain outcome to the wire enum.

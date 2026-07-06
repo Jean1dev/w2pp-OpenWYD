@@ -53,6 +53,11 @@ message VerifyCredentialsResponse {
   bool ok = 1;          // name exists and password matches
   int64 account_id = 2; // set only when ok
   bool blocked = 3;     // account.is_blocked — caller decides how to surface it
+  // role is account.role ('player'/'moderator'/'admin'). The BFF stores it in the
+  // session to gate the moderator UI (page visibility only). It is NOT the
+  // authorization decision — NpcAdminService re-checks the role server-side on
+  // every call, so a tampered session flag still gets ADMIN_RESULT_FORBIDDEN.
+  string role = 4;
 }
 
 // NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).

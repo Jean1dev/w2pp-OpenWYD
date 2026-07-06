@@ -307,10 +307,15 @@ func (x *VerifyCredentialsRequest) GetPassword() string {
 }
 
 type VerifyCredentialsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                // name exists and password matches
-	AccountId     int64                  `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"` // set only when ok
-	Blocked       bool                   `protobuf:"varint,3,opt,name=blocked,proto3" json:"blocked,omitempty"`                      // account.is_blocked — caller decides how to surface it
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Ok        bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                // name exists and password matches
+	AccountId int64                  `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"` // set only when ok
+	Blocked   bool                   `protobuf:"varint,3,opt,name=blocked,proto3" json:"blocked,omitempty"`                      // account.is_blocked — caller decides how to surface it
+	// role is account.role ('player'/'moderator'/'admin'). The BFF stores it in the
+	// session to gate the moderator UI (page visibility only). It is NOT the
+	// authorization decision — NpcAdminService re-checks the role server-side on
+	// every call, so a tampered session flag still gets ADMIN_RESULT_FORBIDDEN.
+	Role          string `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -364,6 +369,13 @@ func (x *VerifyCredentialsResponse) GetBlocked() bool {
 		return x.Blocked
 	}
 	return false
+}
+
+func (x *VerifyCredentialsResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
 }
 
 type AdminAck struct {
@@ -1252,12 +1264,13 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"account_id\x18\x02 \x01(\x03R\taccountId\"J\n" +
 	"\x18VerifyCredentialsRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"d\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"x\n" +
 	"\x19VerifyCredentialsResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x02 \x01(\x03R\taccountId\x12\x18\n" +
-	"\ablocked\x18\x03 \x01(\bR\ablocked\"7\n" +
+	"\ablocked\x18\x03 \x01(\bR\ablocked\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"7\n" +
 	"\bAdminAck\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\"\xc3\x01\n" +
 	"\x10AdminNpcShopItem\x12\x12\n" +
