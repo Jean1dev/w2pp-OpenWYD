@@ -2819,3 +2819,5 @@ INSERT INTO npc_shop_item (npc_id, slot, item_index, eff1, effv1, eff2, effv2, e
     SELECT id, 26, 4191, 0, 0, 0, 0, 0, 0 FROM npc_definition WHERE slug = 'Trajes2-6068'
     ON CONFLICT (npc_id, slot) DO NOTHING;
 
+UPDATE npc_config_meta SET version = version + 1 WHERE id = TRUE;
+
