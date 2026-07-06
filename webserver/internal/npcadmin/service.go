@@ -12,6 +12,9 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
 
 // Store is the persistence surface the service needs (satisfied by *store.Store).
@@ -47,11 +50,25 @@ const maxSlot = 26
 
 // Service implements the moderator NPC-editing operations.
 type Service struct {
-	store Store
+	store     Store
+	templates []npctemplates.Template
+	items     []itemcatalog.Entry
 }
 
 // New builds the service over the given store.
 func New(s Store) *Service { return &Service{store: s} }
+
+// SetTemplates installs the merchant templates ListMerchantTemplates serves.
+// Called once at boot after scanning the content tree (npctemplates.Scan);
+// left unset (nil) when -content/W2PP_CONTENT wasn't configured, in which case
+// ListMerchantTemplates returns an empty list rather than failing.
+func (s *Service) SetTemplates(templates []npctemplates.Template) { s.templates = templates }
+
+// SetItems installs the item catalog ListItemCatalog serves. Called once at
+// boot after scanning the content tree (itemcatalog.Scan); left unset (nil)
+// when -content/W2PP_CONTENT wasn't configured, in which case
+// ListItemCatalog returns an empty list rather than failing.
+func (s *Service) SetItems(items []itemcatalog.Entry) { s.items = items }
 
 // List returns every NPC definition, after authorizing the caller.
 func (s *Service) List(ctx context.Context, moderatorID int64) (Result, []domain.NPCDefinition, error) {
@@ -63,6 +80,38 @@ func (s *Service) List(ctx context.Context, moderatorID int64) (Result, []domain
 		return Invalid, nil, fmt.Errorf("npcadmin: list: %w", err)
 	}
 	return OK, defs, nil
+}
+
+// ListMerchantTemplates returns the merchant NPC templates scanned from the
+// content tree at boot (npctemplates.Scan), after authorizing the caller. It is
+// never an error for the list to be empty — that just means -content wasn't
+// configured, and the UI falls back to manual template_name entry.
+func (s *Service) ListMerchantTemplates(ctx context.Context, moderatorID int64) (Result, []npctemplates.Template, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	return OK, s.templates, nil
+}
+
+// ListItemCatalog returns the item index/name catalog scanned from the
+// content tree at boot (itemcatalog.Scan), after authorizing the caller. It is
+// never an error for the list to be empty — that just means -content wasn't
+// configured, and the shop-item editor falls back to a raw item_index field.
+func (s *Service) ListItemCatalog(ctx context.Context, moderatorID int64) (Result, []itemcatalog.Entry, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	return OK, s.items, nil
+}
+
+// ListMapZones returns the fixed map_id label table (mapzones.All), after
+// authorizing the caller. Unlike the template/item lists this never depends
+// on -content — it's a static table, not scanned content.
+func (s *Service) ListMapZones(ctx context.Context, moderatorID int64) (Result, []mapzones.Zone, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	return OK, mapzones.All, nil
 }
 
 // Get returns one definition by id.

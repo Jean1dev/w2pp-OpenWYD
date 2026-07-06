@@ -81,6 +81,21 @@ service NpcAdminService {
   rpc SetItemPrice(SetItemPriceRequest) returns (AdminAck);
   // DeleteNpc removes a definition.
   rpc DeleteNpc(DeleteNpcRequest) returns (AdminAck);
+  // ListMerchantTemplates returns the merchant NPC templates found in the
+  // content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
+  // moderator UI can offer a searchable picker instead of a free-text
+  // template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
+  // empty when that flag is unset.
+  rpc ListMerchantTemplates(ListMerchantTemplatesRequest) returns (ListMerchantTemplatesResponse);
+  // ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
+  // item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can
+  // offer a searchable picker instead of a raw item_index typed by hand.
+  // Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
+  rpc ListItemCatalog(ListItemCatalogRequest) returns (ListItemCatalogResponse);
+  // ListMapZones returns the fixed city-zone table (label only: the world runs
+  // a single grid, so map_id has no gameplay effect today) for the NPC form's
+  // map picker instead of a raw map_id typed by hand.
+  rpc ListMapZones(ListMapZonesRequest) returns (ListMapZonesResponse);
 }
 
 // AdminResult carries the business outcome of an admin write (authorization,
@@ -173,4 +188,46 @@ message SetItemPriceRequest {
 message DeleteNpcRequest {
   int64 moderator_id = 1;
   int64 npc_id = 2;
+}
+
+// MerchantTemplate is one merchant-type STRUCT_MOB template found under
+// Release/TMsrv/run/npc/.
+message MerchantTemplate {
+  string template_name = 1; // exact value for UpsertNpc.template_name (no .txt)
+  string display_name = 2;  // the template's mob.Name, for the picker UI
+  int32 merchant = 3;       // CurrentScore.Merchant (1, 2, 19, 100, …)
+}
+
+message ListMerchantTemplatesRequest { int64 moderator_id = 1; }
+message ListMerchantTemplatesResponse {
+  AdminResult result = 1;
+  repeated MerchantTemplate templates = 2;
+}
+
+// ItemCatalogEntry is one row of Release/Common/ItemList.csv, trimmed to what
+// the shop-item picker needs (the full row also carries price/effects, not
+// relevant here — see tmserver/internal/content.ItemEntry for that).
+message ItemCatalogEntry {
+  int32 item_index = 1;
+  string name = 2;
+}
+
+message ListItemCatalogRequest { int64 moderator_id = 1; }
+message ListItemCatalogResponse {
+  AdminResult result = 1;
+  repeated ItemCatalogEntry items = 2;
+}
+
+// MapZone is one of the fixed city zones (tmserver/internal/world/city.go's
+// cities table). Label only, for the map_id picker — the world runs a single
+// grid, so map_id itself has no gameplay effect today.
+message MapZone {
+  int32 id = 1;
+  string name = 2;
+}
+
+message ListMapZonesRequest { int64 moderator_id = 1; }
+message ListMapZonesResponse {
+  AdminResult result = 1;
+  repeated MapZone zones = 2;
 }

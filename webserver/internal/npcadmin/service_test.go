@@ -2,10 +2,14 @@ package npcadmin
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
 
 // fakeStore is an in-memory Store for exercising the service's authorization and
@@ -181,5 +185,105 @@ func TestDeleteNotFound(t *testing.T) {
 	}
 	if got != NotFound {
 		t.Errorf("Delete result = %v, want NotFound", got)
+	}
+}
+
+// TestListMerchantTemplates checks the authorization gate and that it returns
+// whatever SetTemplates installed (or an empty list when unset — -content not
+// configured, so the UI falls back to manual entry).
+func TestListMerchantTemplates(t *testing.T) {
+	want := []npctemplates.Template{
+		{TemplateName: "AkeMerchant", DisplayName: "Ake", Merchant: 1},
+		{TemplateName: "HekalMerchant", DisplayName: "Hekal", Merchant: 19},
+	}
+
+	s := New(newFake())
+	s.SetTemplates(want)
+
+	got, tmpls, err := s.ListMerchantTemplates(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("ListMerchantTemplates: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("result = %v, want OK", got)
+	}
+	if !reflect.DeepEqual(tmpls, want) {
+		t.Errorf("templates = %+v, want %+v", tmpls, want)
+	}
+
+	if got, _, err := s.ListMerchantTemplates(context.Background(), 3); err != nil || got != Forbidden {
+		t.Errorf("player ListMerchantTemplates result = %v, err %v, want Forbidden, nil", got, err)
+	}
+}
+
+// TestListMerchantTemplatesEmptyWhenUnset checks a service with no SetTemplates
+// call (content dir not configured) returns an empty, non-error list.
+func TestListMerchantTemplatesEmptyWhenUnset(t *testing.T) {
+	s := New(newFake())
+	got, tmpls, err := s.ListMerchantTemplates(context.Background(), 1)
+	if err != nil || got != OK {
+		t.Fatalf("result = %v, err %v, want OK, nil", got, err)
+	}
+	if len(tmpls) != 0 {
+		t.Errorf("templates = %+v, want empty", tmpls)
+	}
+}
+
+// TestListItemCatalog checks the authorization gate and that it returns
+// whatever SetItems installed (or an empty list when unset).
+func TestListItemCatalog(t *testing.T) {
+	want := []itemcatalog.Entry{
+		{Index: 1100, Name: "Espada Curta"},
+		{Index: 1101, Name: "Adaga"},
+	}
+
+	s := New(newFake())
+	s.SetItems(want)
+
+	got, items, err := s.ListItemCatalog(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("ListItemCatalog: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("result = %v, want OK", got)
+	}
+	if !reflect.DeepEqual(items, want) {
+		t.Errorf("items = %+v, want %+v", items, want)
+	}
+
+	if got, _, err := s.ListItemCatalog(context.Background(), 3); err != nil || got != Forbidden {
+		t.Errorf("player ListItemCatalog result = %v, err %v, want Forbidden, nil", got, err)
+	}
+}
+
+func TestListItemCatalogEmptyWhenUnset(t *testing.T) {
+	s := New(newFake())
+	got, items, err := s.ListItemCatalog(context.Background(), 1)
+	if err != nil || got != OK {
+		t.Fatalf("result = %v, err %v, want OK, nil", got, err)
+	}
+	if len(items) != 0 {
+		t.Errorf("items = %+v, want empty", items)
+	}
+}
+
+// TestListMapZones checks the authorization gate and that it always returns
+// mapzones.All (a static table, not dependent on -content).
+func TestListMapZones(t *testing.T) {
+	s := New(newFake())
+
+	got, zones, err := s.ListMapZones(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("ListMapZones: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("result = %v, want OK", got)
+	}
+	if !reflect.DeepEqual(zones, mapzones.All) {
+		t.Errorf("zones = %+v, want %+v", zones, mapzones.All)
+	}
+
+	if got, _, err := s.ListMapZones(context.Background(), 3); err != nil || got != Forbidden {
+		t.Errorf("player ListMapZones result = %v, err %v, want Forbidden, nil", got, err)
 	}
 }

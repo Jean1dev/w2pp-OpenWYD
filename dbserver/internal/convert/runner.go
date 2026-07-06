@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
 // FileResult is the outcome of converting one account file.

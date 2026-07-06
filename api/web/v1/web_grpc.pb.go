@@ -182,13 +182,16 @@ var AccountWebService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	NpcAdminService_ListNpcs_FullMethodName         = "/web.v1.NpcAdminService/ListNpcs"
-	NpcAdminService_GetNpc_FullMethodName           = "/web.v1.NpcAdminService/GetNpc"
-	NpcAdminService_UpsertNpc_FullMethodName        = "/web.v1.NpcAdminService/UpsertNpc"
-	NpcAdminService_SetNpcVisibility_FullMethodName = "/web.v1.NpcAdminService/SetNpcVisibility"
-	NpcAdminService_SetNpcShop_FullMethodName       = "/web.v1.NpcAdminService/SetNpcShop"
-	NpcAdminService_SetItemPrice_FullMethodName     = "/web.v1.NpcAdminService/SetItemPrice"
-	NpcAdminService_DeleteNpc_FullMethodName        = "/web.v1.NpcAdminService/DeleteNpc"
+	NpcAdminService_ListNpcs_FullMethodName              = "/web.v1.NpcAdminService/ListNpcs"
+	NpcAdminService_GetNpc_FullMethodName                = "/web.v1.NpcAdminService/GetNpc"
+	NpcAdminService_UpsertNpc_FullMethodName             = "/web.v1.NpcAdminService/UpsertNpc"
+	NpcAdminService_SetNpcVisibility_FullMethodName      = "/web.v1.NpcAdminService/SetNpcVisibility"
+	NpcAdminService_SetNpcShop_FullMethodName            = "/web.v1.NpcAdminService/SetNpcShop"
+	NpcAdminService_SetItemPrice_FullMethodName          = "/web.v1.NpcAdminService/SetItemPrice"
+	NpcAdminService_DeleteNpc_FullMethodName             = "/web.v1.NpcAdminService/DeleteNpc"
+	NpcAdminService_ListMerchantTemplates_FullMethodName = "/web.v1.NpcAdminService/ListMerchantTemplates"
+	NpcAdminService_ListItemCatalog_FullMethodName       = "/web.v1.NpcAdminService/ListItemCatalog"
+	NpcAdminService_ListMapZones_FullMethodName          = "/web.v1.NpcAdminService/ListMapZones"
 )
 
 // NpcAdminServiceClient is the client API for NpcAdminService service.
@@ -216,6 +219,21 @@ type NpcAdminServiceClient interface {
 	SetItemPrice(ctx context.Context, in *SetItemPriceRequest, opts ...grpc.CallOption) (*AdminAck, error)
 	// DeleteNpc removes a definition.
 	DeleteNpc(ctx context.Context, in *DeleteNpcRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// ListMerchantTemplates returns the merchant NPC templates found in the
+	// content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
+	// moderator UI can offer a searchable picker instead of a free-text
+	// template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
+	// empty when that flag is unset.
+	ListMerchantTemplates(ctx context.Context, in *ListMerchantTemplatesRequest, opts ...grpc.CallOption) (*ListMerchantTemplatesResponse, error)
+	// ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
+	// item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can
+	// offer a searchable picker instead of a raw item_index typed by hand.
+	// Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
+	ListItemCatalog(ctx context.Context, in *ListItemCatalogRequest, opts ...grpc.CallOption) (*ListItemCatalogResponse, error)
+	// ListMapZones returns the fixed city-zone table (label only: the world runs
+	// a single grid, so map_id has no gameplay effect today) for the NPC form's
+	// map picker instead of a raw map_id typed by hand.
+	ListMapZones(ctx context.Context, in *ListMapZonesRequest, opts ...grpc.CallOption) (*ListMapZonesResponse, error)
 }
 
 type npcAdminServiceClient struct {
@@ -296,6 +314,36 @@ func (c *npcAdminServiceClient) DeleteNpc(ctx context.Context, in *DeleteNpcRequ
 	return out, nil
 }
 
+func (c *npcAdminServiceClient) ListMerchantTemplates(ctx context.Context, in *ListMerchantTemplatesRequest, opts ...grpc.CallOption) (*ListMerchantTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMerchantTemplatesResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListMerchantTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) ListItemCatalog(ctx context.Context, in *ListItemCatalogRequest, opts ...grpc.CallOption) (*ListItemCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListItemCatalogResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListItemCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) ListMapZones(ctx context.Context, in *ListMapZonesRequest, opts ...grpc.CallOption) (*ListMapZonesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMapZonesResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListMapZones_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NpcAdminServiceServer is the server API for NpcAdminService service.
 // All implementations must embed UnimplementedNpcAdminServiceServer
 // for forward compatibility.
@@ -321,6 +369,21 @@ type NpcAdminServiceServer interface {
 	SetItemPrice(context.Context, *SetItemPriceRequest) (*AdminAck, error)
 	// DeleteNpc removes a definition.
 	DeleteNpc(context.Context, *DeleteNpcRequest) (*AdminAck, error)
+	// ListMerchantTemplates returns the merchant NPC templates found in the
+	// content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
+	// moderator UI can offer a searchable picker instead of a free-text
+	// template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
+	// empty when that flag is unset.
+	ListMerchantTemplates(context.Context, *ListMerchantTemplatesRequest) (*ListMerchantTemplatesResponse, error)
+	// ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
+	// item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can
+	// offer a searchable picker instead of a raw item_index typed by hand.
+	// Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
+	ListItemCatalog(context.Context, *ListItemCatalogRequest) (*ListItemCatalogResponse, error)
+	// ListMapZones returns the fixed city-zone table (label only: the world runs
+	// a single grid, so map_id has no gameplay effect today) for the NPC form's
+	// map picker instead of a raw map_id typed by hand.
+	ListMapZones(context.Context, *ListMapZonesRequest) (*ListMapZonesResponse, error)
 	mustEmbedUnimplementedNpcAdminServiceServer()
 }
 
@@ -351,6 +414,15 @@ func (UnimplementedNpcAdminServiceServer) SetItemPrice(context.Context, *SetItem
 }
 func (UnimplementedNpcAdminServiceServer) DeleteNpc(context.Context, *DeleteNpcRequest) (*AdminAck, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteNpc not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListMerchantTemplates(context.Context, *ListMerchantTemplatesRequest) (*ListMerchantTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMerchantTemplates not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListItemCatalog(context.Context, *ListItemCatalogRequest) (*ListItemCatalogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListItemCatalog not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListMapZones(context.Context, *ListMapZonesRequest) (*ListMapZonesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMapZones not implemented")
 }
 func (UnimplementedNpcAdminServiceServer) mustEmbedUnimplementedNpcAdminServiceServer() {}
 func (UnimplementedNpcAdminServiceServer) testEmbeddedByValue()                         {}
@@ -499,6 +571,60 @@ func _NpcAdminService_DeleteNpc_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcAdminService_ListMerchantTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMerchantTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListMerchantTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListMerchantTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListMerchantTemplates(ctx, req.(*ListMerchantTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_ListItemCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListItemCatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListItemCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListItemCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListItemCatalog(ctx, req.(*ListItemCatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_ListMapZones_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMapZonesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListMapZones(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListMapZones_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListMapZones(ctx, req.(*ListMapZonesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NpcAdminService_ServiceDesc is the grpc.ServiceDesc for NpcAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -533,6 +659,18 @@ var NpcAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteNpc",
 			Handler:    _NpcAdminService_DeleteNpc_Handler,
+		},
+		{
+			MethodName: "ListMerchantTemplates",
+			Handler:    _NpcAdminService_ListMerchantTemplates_Handler,
+		},
+		{
+			MethodName: "ListItemCatalog",
+			Handler:    _NpcAdminService_ListItemCatalog_Handler,
+		},
+		{
+			MethodName: "ListMapZones",
+			Handler:    _NpcAdminService_ListMapZones_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -52,7 +52,9 @@ services:
         SVC: webserver
     environment:
       W2PP_DB_DSN: postgres://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/postgres
-    command: ["-addr", ":7600"]
+    command: ["-addr", ":7600", "-content", "/Release"]
+    volumes:
+      - ./Release:/Release:ro   # merchant NPC templates for ListMerchantTemplates
     depends_on:
       db:
         condition: service_healthy
