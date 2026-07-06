@@ -5,7 +5,7 @@
 //
 // Usage:
 //
-//	webserver [-addr :7600] -dsn <postgres-url> [-tls-cert … -tls-key … -tls-ca …]
+//	webserver [-addr :7600] -dsn <postgres-url> [-tls-cert … -tls-key … -tls-ca …] [-content <Release/>]
 package main
 
 import (
@@ -27,7 +27,9 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
 
 func main() {
@@ -47,6 +49,7 @@ func run(logger *slog.Logger) error {
 	tlsCert := flag.String("tls-cert", os.Getenv("W2PP_TLS_CERT"), "server certificate (PEM)")
 	tlsKey := flag.String("tls-key", os.Getenv("W2PP_TLS_KEY"), "server private key (PEM)")
 	tlsCA := flag.String("tls-ca", os.Getenv("W2PP_TLS_CA"), "client CA (PEM) for mTLS")
+	contentDir := flag.String("content", os.Getenv("W2PP_CONTENT"), "path to the Release/ content tree (empty = skip; ListMerchantTemplates/ListItemCatalog return empty lists and the UI falls back to manual entry)")
 	flag.Parse()
 
 	if *dsn == "" {
@@ -71,8 +74,26 @@ func run(logger *slog.Logger) error {
 	}
 	srv := grpc.NewServer(grpc.Creds(creds))
 	st := store.New(pool)
+	npcAdmin := npcadmin.New(st)
+	if *contentDir != "" {
+		templates, err := npctemplates.Scan(*contentDir, logger)
+		if err != nil {
+			logger.Warn("npc template scan failed; merchant picker will be empty", "content", *contentDir, "err", err)
+		} else {
+			logger.Info("scanned merchant npc templates", "count", len(templates))
+			npcAdmin.SetTemplates(templates)
+		}
+
+		items, err := itemcatalog.Scan(*contentDir)
+		if err != nil {
+			logger.Warn("item catalog scan failed; item picker will be empty", "content", *contentDir, "err", err)
+		} else {
+			logger.Info("scanned item catalog", "count", len(items))
+			npcAdmin.SetItems(items)
+		}
+	}
 	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
-	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcadmin.New(st)))
+	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

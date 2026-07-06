@@ -88,6 +88,9 @@ Erros gRPC (ex.: `UNAVAILABLE`, `INTERNAL`) = falha de infraestrutura → 502/50
 | `SetNpcShop` | `npc_id, items: AdminNpcShopItem[]` | `AdminAck{ result }` | substituir a loja inteira |
 | `SetItemPrice` | `item_index, price` | `AdminAck{ result }` | preço **global** do item |
 | `DeleteNpc` | `npc_id` | `AdminAck{ result }` | remover definição |
+| `ListMerchantTemplates` | — | `{ result, templates: MerchantTemplate[] }` | combobox de `template_name` no formulário |
+| `ListItemCatalog` | — | `{ result, items: ItemCatalogEntry[] }` | combobox de `item_index` na loja/preço |
+| `ListMapZones` | — | `{ result, zones: MapZone[] }` | combobox de `map_id` no formulário |
 
 ### 4.3 Mensagens
 
@@ -112,6 +115,43 @@ message AdminNpcShopItem {
   int32 eff1 = 3; int32 effv1 = 4;  // efeitos opcionais (0 = sem efeito)
   int32 eff2 = 5; int32 effv2 = 6;
   int32 eff3 = 7; int32 effv3 = 8;
+}
+
+// Um template merchant encontrado em Release/TMsrv/run/npc/ (CurrentScore.Merchant
+// != 0). Alimenta o combobox de template_name do formulário (ver §5.5).
+message MerchantTemplate {
+  string template_name = 1;  // valor exato para UpsertNpc.template_name (sem .txt)
+  string display_name  = 2;  // mob.Name do template, para exibir na UI
+  int32  merchant      = 3;  // ver §5.1 (1, 2, 19, 100…)
+}
+message ListMerchantTemplatesRequest { int64 moderator_id = 1; }
+message ListMerchantTemplatesResponse {
+  AdminResult result = 1;
+  repeated MerchantTemplate templates = 2;
+}
+
+// Uma linha de Release/Common/ItemList.csv, só o que o picker de item_index
+// precisa (o resto da linha — preço, grade, efeitos — não viaja aqui).
+message ItemCatalogEntry {
+  int32 item_index = 1;
+  string name = 2;
+}
+message ListItemCatalogRequest { int64 moderator_id = 1; }
+message ListItemCatalogResponse {
+  AdminResult result = 1;
+  repeated ItemCatalogEntry items = 2;
+}
+
+// Uma das 5 zonas fixas de cidade (mesma ordem da tabela `cities` do tmServer).
+// Só rótulo: map_id não tem efeito de jogo hoje (mundo roda num grid único).
+message MapZone {
+  int32 id = 1;
+  string name = 2;
+}
+message ListMapZonesRequest { int64 moderator_id = 1; }
+message ListMapZonesResponse {
+  AdminResult result = 1;
+  repeated MapZone zones = 2;
 }
 ```
 
@@ -166,6 +206,46 @@ A escrita vai para o Postgres na hora, mas o mundo do jogo só reflete quando o 
 Ou seja: comunique ao moderador algo como *"a alteração aparece no jogo em alguns segundos"*. Requer o
 overlay ligado (`W2PP_NPC_EDITING=true`). Sem isso, a edição fica só no banco.
 
+### 5.5 Combobox de `template_name` (`ListMerchantTemplates`)
+
+`template_name` é texto livre no `UpsertNpc`, mas precisa bater **exatamente** com um arquivo em
+`Release/TMsrv/run/npc/` (sem `.txt`). Um valor errado não dá erro nenhum na hora — o Postgres aceita a
+definição, mas o tmServer não spawna o NPC (`npc template resolve failed` / `npc definition has no
+template — skipped` só nos logs do servidor). `ListMerchantTemplates` existe para eliminar essa classe de
+erro:
+
+- Retorna só os templates com `merchant != 0` (mesmo filtro que `dbserver import-npcs` usa para decidir
+  o que é merchant), escaneados **uma vez no boot** do web-api a partir de `-content`/`W2PP_CONTENT` — não
+  há leitura de disco por request.
+- **Vazio não é erro:** se o operador não configurou `-content` no web-api, a resposta vem `result = OK`
+  com `templates = []`. A UI deve tratar isso como "picker indisponível" e cair no campo de texto manual
+  (com o aviso de validação), não como falha.
+- UX sugerida: combobox pesquisável por `template_name` ou `display_name`; ao selecionar, preencher
+  `template_name` (exato) e sugerir `merchant` (o form ainda permite o moderador trocar, já que o mesmo
+  template pode ser reaproveitado com outro `merchant` intencionalmente). Manter a opção "digitar
+  manualmente" colapsada para o caso raro de um template ainda não coberto pelo scan.
+
+### 5.6 Combobox de `item_index` (`ListItemCatalog`) e de `map_id` (`ListMapZones`)
+
+Os mesmos dois problemas de digitação existem em outros dois campos numéricos do formulário:
+
+- **`item_index`** (usado em `SetNpcShop.items[].item_index` e em `SetItemPrice.item_index`): um índice
+  errado não é validado contra o catálogo — o backend aceita qualquer `item_index > 0` (§5.2/§5.3). Um
+  valor que não existe em `Release/Common/ItemList.csv` faz o NPC "vender" um item inexistente/errado no
+  jogo, sem aviso nenhum na hora de salvar.
+- **`map_id`** (usado em `UpsertNpc.map_id`): hoje é só um rótulo — o mundo roda num **grid único**, então
+  o spawn efetivo depende só de `pos_x`/`pos_y` (§9.2 de `npc-editing-plan.md`). Ainda assim vale
+  padronizar o valor (evita um `map_id` aleatório/inconsistente entre NPCs da mesma cidade).
+
+Ambas as RPCs seguem exatamente o mesmo contrato de `ListMerchantTemplates`:
+
+- `ListItemCatalog`: escaneado **uma vez no boot** do web-api a partir do mesmo `-content`/`W2PP_CONTENT`
+  (não é uma flag nova — reaproveita a mesma configuração). `items = []` quando `-content` não foi setado;
+  UI cai no campo `item_index` numérico manual. Catálogo é grande (~3200 entradas) — carregar uma vez no
+  client e filtrar localmente (combobox pesquisável por nome), sem round-trip a cada tecla.
+- `ListMapZones`: **não depende de `-content`** — é uma tabela fixa de 5 zonas (`0 Armia … 4 Noatum`),
+  sempre retornada (nunca vazia). Simples `<select>` de 5 opções, sem necessidade de busca.
+
 ## 6. Camada BFF (Next.js) — como implementar
 
 O browser fala com **rotas REST do próprio Next.js**; essas rotas (server-side) chamam o `web-api` por
@@ -180,6 +260,9 @@ gRPC+mTLS. Sugestão de mapeamento REST → RPC:
 | `PUT /api/admin/npcs/:id/shop` | `SetNpcShop` |
 | `PUT /api/admin/items/:index/price` | `SetItemPrice` |
 | `DELETE /api/admin/npcs/:id` | `DeleteNpc` |
+| `GET /api/admin/npc-templates` | `ListMerchantTemplates` |
+| `GET /api/admin/items` | `ListItemCatalog` |
+| `GET /api/admin/map-zones` | `ListMapZones` |
 
 Esqueleto de um Route Handler (TypeScript, server-side; `@grpc/grpc-js` + stubs gerados do `.proto`):
 
@@ -243,6 +326,37 @@ export async function GET() {
 }
 ```
 
+```ts
+// app/api/admin/npc-templates/route.ts — alimenta o combobox de template_name (§5.5)
+import { NextResponse } from "next/server";
+import { npcAdmin } from "@/lib/npcAdminClient";
+import { getSession } from "@/lib/session";
+
+export async function GET() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const resp = await new Promise<any>((resolve, reject) =>
+    npcAdmin.listMerchantTemplates({ moderatorId: session.accountId }, (err: unknown, r: unknown) =>
+      err ? reject(err) : resolve(r)),
+  ).catch(() => null);
+
+  if (!resp) return NextResponse.json({ error: "upstream" }, { status: 502 });
+  if (resp.result === 2 /* ADMIN_RESULT_FORBIDDEN */) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  // templates: [] é resposta válida (web-api sem -content configurado) — o form
+  // deve cair no campo de texto manual, não tratar como erro.
+  return NextResponse.json({ templates: resp.templates });
+}
+```
+
+`GET /api/admin/items` (`ListItemCatalog`) e `GET /api/admin/map-zones` (`ListMapZones`) seguem o
+**mesmo esqueleto** acima, só trocando `npcAdmin.listMerchantTemplates(...)` por
+`npcAdmin.listItemCatalog(...)` / `npcAdmin.listMapZones(...)` e o campo da resposta (`items` / `zones`).
+`zones` nunca vem vazio (tabela fixa, não depende de `-content`); `items` vazio tem o mesmo significado de
+`templates` vazio — `-content` não configurado, caia no campo numérico manual.
+
 Pontos importantes do BFF:
 
 - **`moderatorId` vem SEMPRE da sessão** (`session.accountId`), nunca do corpo do request.
@@ -265,6 +379,13 @@ feature). Ferramentas usuais: `@grpc/grpc-js` + `grpc-tools`/`ts-proto`, ou `buf
 | `WEB_API_CLIENT_CERT` / `WEB_API_CLIENT_KEY` | par cliente (PEM) para o mTLS |
 | `SESSION_SECRET` | assinatura/criptografia do cookie de sessão |
 
+> **Nota (lado backend, não Next.js):** `ListMerchantTemplates` **e** `ListItemCatalog` só retornam dados
+> se o **próprio `webserver`** (web-api) tiver sido iniciado com `-content <Release/>` (ou
+> `W2PP_CONTENT`), o mesmo diretório montado no `tmServer` — é a mesma flag para as duas RPCs, não precisa
+> configurar duas vezes. Sem essa flag no `webserver`, ambas respondem `result = OK` com lista vazia — não
+> é um erro de configuração do Next.js, é do serviço Go. `ListMapZones` **não** depende dessa flag (tabela
+> fixa). Ver `docker-compose.yaml` (serviço `webserver`).
+
 ## 9. Checklist de integração
 
 - [ ] Gerar stubs de `web.proto` (`web.v1.NpcAdminService`).
@@ -277,3 +398,9 @@ feature). Ferramentas usuais: `@grpc/grpc-js` + `grpc-tools`/`ts-proto`, ou `buf
 - [ ] Preço via `SetItemPrice` (global; `price < 0` limpa).
 - [ ] Avisar que a mudança aparece no jogo em ~alguns segundos (poll do tmServer).
 - [ ] Garantir que o operador setou `account.role` do moderador e rodou `import-npcs`.
+- [ ] Moderador vê um combobox pesquisável de templates merchant válidos (`ListMerchantTemplates`,
+      §5.5) em vez de digitar `template_name` à mão; `templates = []` cai no campo manual, não é erro.
+- [ ] Moderador vê um combobox pesquisável de itens (`ListItemCatalog`, §5.6) em vez de digitar
+      `item_index` à mão na loja/preço; `items = []` cai no campo numérico manual, não é erro.
+- [ ] Moderador vê um `<select>` com os nomes das 5 cidades (`ListMapZones`, §5.6) em vez de digitar
+      `map_id` à mão.

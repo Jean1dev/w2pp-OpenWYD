@@ -8,7 +8,10 @@ import (
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
 
 // NpcAdmin is the moderator NPC-editing surface the server depends on (satisfied
@@ -21,6 +24,9 @@ type NpcAdmin interface {
 	SetShop(ctx context.Context, moderatorID, npcID int64, items []domain.NPCShopItem) (npcadmin.Result, error)
 	SetItemPrice(ctx context.Context, moderatorID int64, itemIndex int32, price int64) (npcadmin.Result, error)
 	Delete(ctx context.Context, moderatorID, npcID int64) (npcadmin.Result, error)
+	ListMerchantTemplates(ctx context.Context, moderatorID int64) (npcadmin.Result, []npctemplates.Template, error)
+	ListItemCatalog(ctx context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error)
+	ListMapZones(ctx context.Context, moderatorID int64) (npcadmin.Result, []mapzones.Zone, error)
 }
 
 // NpcAdminServer implements webv1.NpcAdminServiceServer.
@@ -116,6 +122,56 @@ func (s *NpcAdminServer) DeleteNpc(ctx context.Context, req *webv1.DeleteNpcRequ
 		return nil, status.Errorf(codes.Internal, "delete npc: %v", err)
 	}
 	return &webv1.AdminAck{Result: resultToProto(res)}, nil
+}
+
+// ListMerchantTemplates returns the merchant templates scanned from the
+// content tree, for the moderator UI's template_name picker.
+func (s *NpcAdminServer) ListMerchantTemplates(ctx context.Context, req *webv1.ListMerchantTemplatesRequest) (*webv1.ListMerchantTemplatesResponse, error) {
+	res, tmpls, err := s.admin.ListMerchantTemplates(ctx, req.GetModeratorId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list merchant templates: %v", err)
+	}
+	out := make([]*webv1.MerchantTemplate, 0, len(tmpls))
+	for _, t := range tmpls {
+		out = append(out, merchantTemplateToProto(t))
+	}
+	return &webv1.ListMerchantTemplatesResponse{Result: resultToProto(res), Templates: out}, nil
+}
+
+func merchantTemplateToProto(t npctemplates.Template) *webv1.MerchantTemplate {
+	return &webv1.MerchantTemplate{
+		TemplateName: t.TemplateName,
+		DisplayName:  t.DisplayName,
+		Merchant:     int32(t.Merchant),
+	}
+}
+
+// ListItemCatalog returns the item index/name catalog for the shop-item
+// picker (SetNpcShop/SetItemPrice take a raw item_index).
+func (s *NpcAdminServer) ListItemCatalog(ctx context.Context, req *webv1.ListItemCatalogRequest) (*webv1.ListItemCatalogResponse, error) {
+	res, items, err := s.admin.ListItemCatalog(ctx, req.GetModeratorId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list item catalog: %v", err)
+	}
+	out := make([]*webv1.ItemCatalogEntry, 0, len(items))
+	for _, it := range items {
+		out = append(out, &webv1.ItemCatalogEntry{ItemIndex: it.Index, Name: it.Name})
+	}
+	return &webv1.ListItemCatalogResponse{Result: resultToProto(res), Items: out}, nil
+}
+
+// ListMapZones returns the fixed map_id label table for the NPC form's map
+// picker.
+func (s *NpcAdminServer) ListMapZones(ctx context.Context, req *webv1.ListMapZonesRequest) (*webv1.ListMapZonesResponse, error) {
+	res, zones, err := s.admin.ListMapZones(ctx, req.GetModeratorId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list map zones: %v", err)
+	}
+	out := make([]*webv1.MapZone, 0, len(zones))
+	for _, z := range zones {
+		out = append(out, &webv1.MapZone{Id: z.ID, Name: z.Name})
+	}
+	return &webv1.ListMapZonesResponse{Result: resultToProto(res), Zones: out}, nil
 }
 
 func adminNpcToProto(d domain.NPCDefinition) *webv1.AdminNpc {

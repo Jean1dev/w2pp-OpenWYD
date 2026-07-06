@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/savefmt"
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
 func TestWalkAccounts(t *testing.T) {

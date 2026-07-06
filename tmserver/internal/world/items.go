@@ -1,7 +1,9 @@
 package world
 
 // Effect is one of an item's three effect/value pairs (STRUCT_ITEM, data-formats
-// §1.5). World-local mirror (tmserver cannot import dbserver/internal/savefmt).
+// §1.5). World-local mirror, kept separate from internal/savefmt on purpose: this
+// type backs the hot wire/world path, while internal/savefmt models the on-disk
+// save-file layout (different concerns, same bytes).
 type Effect struct {
 	Effect uint8
 	Value  uint8
