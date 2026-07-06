@@ -307,6 +307,18 @@ pulados e materializados do banco; se `npc_definition` estiver **vazia** (seed n
 
 Sem a flag, o comportamento é o de antes (NPCs 100% do `NPCGener.txt`).
 
+> **Atualização (issue #29 — [npc-default-roster.md](./npc-default-roster.md)):** o passo 1 acima já
+> não é manual. A migration `internal/migrations/0006_default_npc_seed.up.sql` seeda um roster
+> curado (63 templates / 80 blocos, congelado em SQL a partir do conteúdo real) direto no
+> `npc_definition`, e `store.Migrate` roda automaticamente no boot de qualquer serviço — então
+> **`npc_definition` nunca está vazia** a partir do primeiro boot, mesmo sem rodar `import-npcs`.
+> Isso muda o risco de "seed não rodou" para "seed rodou, mas é só o subconjunto curado": ligar
+> `-npc-editing` sem também ter rodado `import-npcs` (que traz **todos** os 544 blocos merchant do
+> conteúdo) faz **qualquer merchant fora do roster da migration** (variantes regionais colapsadas,
+> e tudo fora de `Merchant ∈ {1,2,19,100}`) sumir do jogo assim que a flag liga — mesmo em um
+> ambiente que nunca rodou `import-npcs` manualmente. Para paridade completa antes de ligar a flag,
+> rode `dbserver import-npcs -content <Release/> -dsn <dsn>`.
+
 ## 11. Relação com o resto da plataforma
 
 Este plano é **irmão** de `web-platform-plan.md` e reusa toda a sua infraestrutura (web-api, mTLS,
