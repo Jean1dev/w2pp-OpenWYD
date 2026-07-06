@@ -63,3 +63,33 @@ func TestScanMissingDirErrors(t *testing.T) {
 		t.Fatal("expected an error for a content dir with no TMsrv/run/npc")
 	}
 }
+
+// TestScanDecodesLatin1Names checks accented display names survive intact:
+// STRUCT_MOB.Name is ISO-8859-1 like the rest of Release/, and 'ã' (0xE3 in
+// Latin-1) is not valid UTF-8 on its own — a missing conversion would corrupt
+// it instead of erroring, which is easy to miss without an explicit check
+// (mirrors itemcatalog's TestScanDecodesLatin1Names for the same bug class).
+func TestScanDecodesLatin1Names(t *testing.T) {
+	dir := t.TempDir()
+	npcDir := filepath.Join(dir, "TMsrv", "run", "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	b := make([]byte, savefmt.MobSize)
+	// Raw ISO-8859-1 bytes for "Guaraná" (G-u-a-r-a-n-á): 'á' = 0xE1.
+	copy(b[0:16], []byte{'G', 'u', 'a', 'r', 'a', 'n', 0xE1})
+	b[104] = 1 // CurrentScore.Merchant
+	if err := os.WriteFile(filepath.Join(npcDir, "GuaranaMerchant"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	got, err := Scan(dir, logger)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(got) != 1 || got[0].DisplayName != "Guaraná" {
+		t.Fatalf("got %+v, want single entry named Guaraná", got)
+	}
+}

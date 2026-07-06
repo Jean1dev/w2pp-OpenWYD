@@ -5,6 +5,10 @@
 // npc-editing-plan.md). It reuses internal/savefmt.DecodeMob, the same decoder
 // dbserver's `import-npcs` importer (buildNPCDefinitions) uses to identify
 // merchants, so both agree on what counts as one.
+//
+// STRUCT_MOB.Name is ISO-8859-1 (same source tree, same encoding as
+// itemcatalog's ItemList.csv) — see cString for the transcoding, needed here
+// too since DisplayName is surfaced to the moderator UI.
 package npctemplates
 
 import (
@@ -67,12 +71,20 @@ func Scan(contentDir string, logger *slog.Logger) ([]Template, error) {
 	return out, nil
 }
 
-// cString trims a fixed-size name field at the first NUL byte.
+// cString trims a fixed-size name field at the first NUL byte and converts it
+// from ISO-8859-1 to UTF-8 (each Latin-1 byte's value IS its Unicode code
+// point, by definition of that encoding) — without this, accented names come
+// out mojibake over gRPC/JSON, same bug class as itemcatalog.latin1ToUTF8.
 func cString(b []byte) string {
 	for i, c := range b {
 		if c == 0 {
-			return string(b[:i])
+			b = b[:i]
+			break
 		}
 	}
-	return string(b)
+	runes := make([]rune, len(b))
+	for i, c := range b {
+		runes[i] = rune(c)
+	}
+	return string(runes)
 }
