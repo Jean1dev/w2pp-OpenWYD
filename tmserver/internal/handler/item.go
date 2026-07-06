@@ -601,7 +601,7 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 		MaxHp: effectiveMaxHP(e), Hp: e.HP, MaxMp: effectiveMaxMP(e), Mp: e.MP,
 		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con + e.AffCon,
 		Special:    special,
-		AttackRun:  baseAttackRun,
+		AttackRun:  attackRunOf(e),
 		SaveMana:   uint8(e.SaveMana),
 		Guild:      e.Guild,
 		GuildLevel: uint16(e.GuildLevel),
@@ -620,11 +620,24 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 	for i := range sc.Resist {
 		sc.Resist[i] = int8(e.Resist[i] + e.AffResist[i])
 	}
-	// A mount in the mount slot raises the move-speed (low) nibble of AttackRun.
-	if !e.Equip[mountEquipSlot].Empty() {
-		sc.AttackRun = (baseAttackRun & 0xF0) | mountedMoveSpeed
-	}
 	return sc
+}
+
+// attackRunOf is the entity's live speed byte (run<<4 | move). Players get the
+// class base plus the mount bump; mobs carry their template's CurrentScore
+// value (set at spawn). Every S→C score/snapshot (UpdateScore, CreateMob, the
+// login MOB blob) must carry it: the client animates walks — its own and remote
+// entities' — at this speed, and a 0 here renders a crawling, rubber-banding
+// avatar.
+func attackRunOf(e *world.Entity) uint8 {
+	if !world.IsPlayer(e.ID) {
+		return e.AttackRun
+	}
+	// A mount in the mount slot raises the move-speed (low) nibble.
+	if !e.Equip[mountEquipSlot].Empty() {
+		return (baseAttackRun & 0xF0) | mountedMoveSpeed
+	}
+	return baseAttackRun
 }
 
 // sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so

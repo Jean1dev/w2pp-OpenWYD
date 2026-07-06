@@ -24,6 +24,7 @@ type CreateMobData struct {
 	MaxHp, MaxMp, Hp, Mp int32
 	Str, Int, Dex, Con   int16
 	Merchant             uint8 // NPC type (shop/bank/…); makes the name always-visible
+	AttackRun            uint8 // speed byte (run<<4 | move): the client animates this entity's walks with it — 0 = crawling avatar that rubber-bands
 	Direction            uint8
 	CreateType           uint16 // 0 normal, 2 "just entered"
 	Equip                [16]uint16
@@ -33,7 +34,8 @@ func writeCreateMobScore(b []byte, d CreateMobData) {
 	le.PutUint32(b[0:], uint32(d.Level))
 	le.PutUint32(b[4:], uint32(d.Ac))
 	le.PutUint32(b[8:], uint32(d.Damage))
-	b[12] = d.Merchant // STRUCT_SCORE.Merchant — NPC type
+	b[12] = d.Merchant  // STRUCT_SCORE.Merchant — NPC type
+	b[13] = d.AttackRun // STRUCT_SCORE.AttackRun — speed
 	b[14] = d.Direction
 	le.PutUint32(b[16:], uint32(d.MaxHp))
 	le.PutUint32(b[20:], uint32(d.MaxMp))

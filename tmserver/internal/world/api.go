@@ -105,7 +105,8 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 	b := protocol.ParseMobBasics(template)
 	e := &Entity{
 		ID: id, Mode: MobIdle, Name: b.Name, Clan: b.Clan, Class: b.Class, Merchant: b.Merchant,
-		X: x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
+		AttackRun: b.AttackRun,
+		X:         x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
 		Template:  template, // retained for runtime respawn (world/respawn.go)
 		RouteType: sp.RouteType, SegListX: sp.SegX, SegListY: sp.SegY, SegWait: sp.SegWait,

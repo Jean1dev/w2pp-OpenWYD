@@ -13,7 +13,7 @@ func TestCreateMobBodyLayout(t *testing.T) {
 	d := CreateMobData{
 		MobID: 1001, Name: "Ciclope", PosX: 100, PosY: 200,
 		Guild: 7, GuildMemberType: 3, Level: 171, Hp: 15000, MaxHp: 15000,
-		Merchant: 1, CreateType: 2,
+		Merchant: 1, AttackRun: 82, CreateType: 2,
 	}
 	d.Equip[0] = 831
 	b := EncodeCreateMobBody(d)
@@ -33,6 +33,9 @@ func TestCreateMobBodyLayout(t *testing.T) {
 	}
 	if b[124+12] != 1 { // Score.Merchant @abs148 → body124+12 (name-visible NPC flag)
 		t.Errorf("Score.Merchant = %d, want 1", b[124+12])
+	}
+	if b[124+13] != 82 { // Score.AttackRun @abs149 → body124+13 (walk-animation speed)
+		t.Errorf("Score.AttackRun = %d, want 82", b[124+13])
 	}
 	if got := le.Uint32(b[124:]); got != 171 { // Score.Level @abs136 → body124
 		t.Errorf("Score.Level = %d, want 171", got)

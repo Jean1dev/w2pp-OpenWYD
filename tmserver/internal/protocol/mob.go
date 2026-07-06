@@ -16,6 +16,7 @@ type MobBasics struct {
 	Clan               uint8 // STRUCT_MOB.Clan @16 — drives the g_pClanTable hostility check
 	Class              uint8
 	Merchant           uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
+	AttackRun          uint8 // CurrentScore.AttackRun — speed byte, echoed into CreateMob so clients animate the mob's walks
 	Level, Ac, Damage  int32
 	MaxHp, Hp          int32
 	Str, Int, Dex, Con int16
@@ -28,21 +29,22 @@ type MobBasics struct {
 func ParseMobBasics(mob816 []byte) MobBasics {
 	const cs = 92 // CurrentScore offset within STRUCT_MOB
 	return MobBasics{
-		Name:     cstr16(mob816[0:16]),
-		Clan:     mob816[16], // Clan @16 (same offset writeStructMob writes)
-		Class:    mob816[20],
-		Exp:      int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
-		Merchant: mob816[cs+12],                 // CurrentScore.Merchant
-		Level:    int32(le.Uint32(mob816[cs+0:])),
-		Ac:       int32(le.Uint32(mob816[cs+4:])),
-		Damage:   int32(le.Uint32(mob816[cs+8:])),
-		MaxHp:    int32(le.Uint32(mob816[cs+16:])),
-		Hp:       int32(le.Uint32(mob816[cs+24:])),
-		Str:      int16(le.Uint16(mob816[cs+32:])),
-		Int:      int16(le.Uint16(mob816[cs+34:])),
-		Dex:      int16(le.Uint16(mob816[cs+36:])),
-		Con:      int16(le.Uint16(mob816[cs+38:])),
-		Resist:   [4]uint8(mob816[806:810]), // STRUCT_MOB.Resist @806 (skill mitigation)
+		Name:      cstr16(mob816[0:16]),
+		Clan:      mob816[16], // Clan @16 (same offset writeStructMob writes)
+		Class:     mob816[20],
+		Exp:       int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
+		Merchant:  mob816[cs+12],                 // CurrentScore.Merchant
+		AttackRun: mob816[cs+13],                 // CurrentScore.AttackRun (speed)
+		Level:     int32(le.Uint32(mob816[cs+0:])),
+		Ac:        int32(le.Uint32(mob816[cs+4:])),
+		Damage:    int32(le.Uint32(mob816[cs+8:])),
+		MaxHp:     int32(le.Uint32(mob816[cs+16:])),
+		Hp:        int32(le.Uint32(mob816[cs+24:])),
+		Str:       int16(le.Uint16(mob816[cs+32:])),
+		Int:       int16(le.Uint16(mob816[cs+34:])),
+		Dex:       int16(le.Uint16(mob816[cs+36:])),
+		Con:       int16(le.Uint16(mob816[cs+38:])),
+		Resist:    [4]uint8(mob816[806:810]), // STRUCT_MOB.Resist @806 (skill mitigation)
 	}
 }
 
@@ -73,6 +75,7 @@ type MobSnapshot struct {
 	MaxHp, MaxMp, Hp, Mp int32
 	Str, Int, Dex, Con   int16
 	Special              [4]int16 // STRUCT_SCORE.Special @40 (skill-tree mastery)
+	AttackRun            uint8    // STRUCT_SCORE.AttackRun @13 — the client reads its own speed from here and stamps it into _MSG_Action.Speed
 	Direction            uint8
 	Equip                [16]SelItem
 	Carry                [64]SelItem
@@ -93,6 +96,8 @@ func writeMobScore(b []byte, m MobSnapshot) {
 	le.PutUint32(b[0:], uint32(m.Level))  // Level @0
 	le.PutUint32(b[4:], uint32(m.Ac))     // Ac @4
 	le.PutUint32(b[8:], uint32(m.Damage)) // Damage @8
+	b[12] = m.Merchant                    // Merchant @12
+	b[13] = m.AttackRun                   // AttackRun @13 (speed)
 	b[14] = m.Direction                   // Direction @14
 	le.PutUint32(b[16:], uint32(m.MaxHp)) // MaxHp @16
 	le.PutUint32(b[20:], uint32(m.MaxMp)) // MaxMp @20
