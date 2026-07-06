@@ -1498,6 +1498,460 @@ func (x *SaveCargoResponse) GetOk() bool {
 	return false
 }
 
+type NpcConfigVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NpcConfigVersionRequest) Reset() {
+	*x = NpcConfigVersionRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NpcConfigVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NpcConfigVersionRequest) ProtoMessage() {}
+
+func (x *NpcConfigVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NpcConfigVersionRequest.ProtoReflect.Descriptor instead.
+func (*NpcConfigVersionRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{20}
+}
+
+type NpcConfigVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       int64                  `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NpcConfigVersionResponse) Reset() {
+	*x = NpcConfigVersionResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NpcConfigVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NpcConfigVersionResponse) ProtoMessage() {}
+
+func (x *NpcConfigVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NpcConfigVersionResponse.ProtoReflect.Descriptor instead.
+func (*NpcConfigVersionResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *NpcConfigVersionResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type ListNpcDefinitionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNpcDefinitionsRequest) Reset() {
+	*x = ListNpcDefinitionsRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNpcDefinitionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNpcDefinitionsRequest) ProtoMessage() {}
+
+func (x *ListNpcDefinitionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNpcDefinitionsRequest.ProtoReflect.Descriptor instead.
+func (*ListNpcDefinitionsRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{22}
+}
+
+type ListNpcDefinitionsResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Version        int64                  `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Definitions    []*NpcDefinition       `protobuf:"bytes,2,rep,name=definitions,proto3" json:"definitions,omitempty"`
+	PriceOverrides []*ItemPrice           `protobuf:"bytes,3,rep,name=price_overrides,json=priceOverrides,proto3" json:"price_overrides,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListNpcDefinitionsResponse) Reset() {
+	*x = ListNpcDefinitionsResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNpcDefinitionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNpcDefinitionsResponse) ProtoMessage() {}
+
+func (x *ListNpcDefinitionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNpcDefinitionsResponse.ProtoReflect.Descriptor instead.
+func (*ListNpcDefinitionsResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ListNpcDefinitionsResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *ListNpcDefinitionsResponse) GetDefinitions() []*NpcDefinition {
+	if x != nil {
+		return x.Definitions
+	}
+	return nil
+}
+
+func (x *ListNpcDefinitionsResponse) GetPriceOverrides() []*ItemPrice {
+	if x != nil {
+		return x.PriceOverrides
+	}
+	return nil
+}
+
+// NpcShopItem is one merchant shop slot (overlays the template Carry[]). Effects
+// are the 3 STRUCT_ITEM effect pairs. Price is NOT here — it is global (ItemPrice).
+type NpcShopItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	ItemIndex     int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NpcShopItem) Reset() {
+	*x = NpcShopItem{}
+	mi := &file_api_db_v1_db_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NpcShopItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NpcShopItem) ProtoMessage() {}
+
+func (x *NpcShopItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NpcShopItem.ProtoReflect.Descriptor instead.
+func (*NpcShopItem) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *NpcShopItem) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetEff1() int32 {
+	if x != nil {
+		return x.Eff1
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetEffv1() int32 {
+	if x != nil {
+		return x.Effv1
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetEff2() int32 {
+	if x != nil {
+		return x.Eff2
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetEffv2() int32 {
+	if x != nil {
+		return x.Effv2
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetEff3() int32 {
+	if x != nil {
+		return x.Eff3
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetEffv3() int32 {
+	if x != nil {
+		return x.Effv3
+	}
+	return 0
+}
+
+type NpcDefinition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Slug          string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	TemplateName  string                 `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	MapId         int32                  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
+	PosX          int32                  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
+	PosY          int32                  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
+	RouteType     int32                  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
+	Merchant      int32                  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
+	Shop          []*NpcShopItem         `protobuf:"bytes,11,rep,name=shop,proto3" json:"shop,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NpcDefinition) Reset() {
+	*x = NpcDefinition{}
+	mi := &file_api_db_v1_db_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NpcDefinition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NpcDefinition) ProtoMessage() {}
+
+func (x *NpcDefinition) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NpcDefinition.ProtoReflect.Descriptor instead.
+func (*NpcDefinition) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *NpcDefinition) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *NpcDefinition) GetTemplateName() string {
+	if x != nil {
+		return x.TemplateName
+	}
+	return ""
+}
+
+func (x *NpcDefinition) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *NpcDefinition) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *NpcDefinition) GetMapId() int32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetPosX() int32 {
+	if x != nil {
+		return x.PosX
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetPosY() int32 {
+	if x != nil {
+		return x.PosY
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetRouteType() int32 {
+	if x != nil {
+		return x.RouteType
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetMerchant() int32 {
+	if x != nil {
+		return x.Merchant
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetShop() []*NpcShopItem {
+	if x != nil {
+		return x.Shop
+	}
+	return nil
+}
+
+type ItemPrice struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ItemIndex     int32                  `protobuf:"varint,1,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Price         int64                  `protobuf:"varint,2,opt,name=price,proto3" json:"price,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemPrice) Reset() {
+	*x = ItemPrice{}
+	mi := &file_api_db_v1_db_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemPrice) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemPrice) ProtoMessage() {}
+
+func (x *ItemPrice) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemPrice.ProtoReflect.Descriptor instead.
+func (*ItemPrice) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ItemPrice) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *ItemPrice) GetPrice() int64 {
+	if x != nil {
+		return x.Price
+	}
+	return 0
+}
+
 var File_api_db_v1_db_proto protoreflect.FileDescriptor
 
 const file_api_db_v1_db_proto_rawDesc = "" +
@@ -1624,7 +2078,43 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"cargo_coin\x18\x02 \x01(\x05R\tcargoCoin\x12!\n" +
 	"\x05items\x18\x03 \x03(\v2\v.db.v1.ItemR\x05items\"#\n" +
 	"\x11SaveCargoResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok*\xb8\x01\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x19\n" +
+	"\x17NpcConfigVersionRequest\"4\n" +
+	"\x18NpcConfigVersionResponse\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x03R\aversion\"\x1b\n" +
+	"\x19ListNpcDefinitionsRequest\"\xa9\x01\n" +
+	"\x1aListNpcDefinitionsResponse\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x03R\aversion\x126\n" +
+	"\vdefinitions\x18\x02 \x03(\v2\x14.db.v1.NpcDefinitionR\vdefinitions\x129\n" +
+	"\x0fprice_overrides\x18\x03 \x03(\v2\x10.db.v1.ItemPriceR\x0epriceOverrides\"\xbe\x01\n" +
+	"\vNpcShopItem\x12\x12\n" +
+	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x02 \x01(\x05R\titemIndex\x12\x12\n" +
+	"\x04eff1\x18\x03 \x01(\x05R\x04eff1\x12\x14\n" +
+	"\x05effv1\x18\x04 \x01(\x05R\x05effv1\x12\x12\n" +
+	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
+	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
+	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\xb9\x02\n" +
+	"\rNpcDefinition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +
+	"\rtemplate_name\x18\x03 \x01(\tR\ftemplateName\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x18\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x15\n" +
+	"\x06map_id\x18\x06 \x01(\x05R\x05mapId\x12\x13\n" +
+	"\x05pos_x\x18\a \x01(\x05R\x04posX\x12\x13\n" +
+	"\x05pos_y\x18\b \x01(\x05R\x04posY\x12\x1d\n" +
+	"\n" +
+	"route_type\x18\t \x01(\x05R\trouteType\x12\x1a\n" +
+	"\bmerchant\x18\n" +
+	" \x01(\x05R\bmerchant\x12&\n" +
+	"\x04shop\x18\v \x03(\v2\x12.db.v1.NpcShopItemR\x04shop\"@\n" +
+	"\tItemPrice\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x01 \x01(\x05R\titemIndex\x12\x14\n" +
+	"\x05price\x18\x02 \x01(\x03R\x05price*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOGIN_RESULT_OK\x10\x01\x12\x1b\n" +
@@ -1640,7 +2130,10 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x0fCreateCharacter\x12\x1d.db.v1.CreateCharacterRequest\x1a\x1e.db.v1.CreateCharacterResponse\x12P\n" +
 	"\x0fDeleteCharacter\x12\x1d.db.v1.DeleteCharacterRequest\x1a\x1e.db.v1.DeleteCharacterResponse\x12>\n" +
 	"\tLoadCargo\x12\x17.db.v1.LoadCargoRequest\x1a\x18.db.v1.LoadCargoResponse\x12>\n" +
-	"\tSaveCargo\x12\x17.db.v1.SaveCargoRequest\x1a\x18.db.v1.SaveCargoResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
+	"\tSaveCargo\x12\x17.db.v1.SaveCargoRequest\x1a\x18.db.v1.SaveCargoResponse2\xc2\x01\n" +
+	"\x10NpcConfigService\x12S\n" +
+	"\x10NpcConfigVersion\x12\x1e.db.v1.NpcConfigVersionRequest\x1a\x1f.db.v1.NpcConfigVersionResponse\x12Y\n" +
+	"\x12ListNpcDefinitions\x12 .db.v1.ListNpcDefinitionsRequest\x1a!.db.v1.ListNpcDefinitionsResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
 
 var (
 	file_api_db_v1_db_proto_rawDescOnce sync.Once
@@ -1655,29 +2148,36 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 }
 
 var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_api_db_v1_db_proto_goTypes = []any{
-	(LoginResult)(0),                // 0: db.v1.LoginResult
-	(*AccountLoginRequest)(nil),     // 1: db.v1.AccountLoginRequest
-	(*AccountLoginResponse)(nil),    // 2: db.v1.AccountLoginResponse
-	(*ListCharactersRequest)(nil),   // 3: db.v1.ListCharactersRequest
-	(*CharacterSummary)(nil),        // 4: db.v1.CharacterSummary
-	(*ListCharactersResponse)(nil),  // 5: db.v1.ListCharactersResponse
-	(*LoadCharacterRequest)(nil),    // 6: db.v1.LoadCharacterRequest
-	(*Character)(nil),               // 7: db.v1.Character
-	(*Item)(nil),                    // 8: db.v1.Item
-	(*Affect)(nil),                  // 9: db.v1.Affect
-	(*LoadCharacterResponse)(nil),   // 10: db.v1.LoadCharacterResponse
-	(*SaveCharacterRequest)(nil),    // 11: db.v1.SaveCharacterRequest
-	(*SaveCharacterResponse)(nil),   // 12: db.v1.SaveCharacterResponse
-	(*CreateCharacterRequest)(nil),  // 13: db.v1.CreateCharacterRequest
-	(*CreateCharacterResponse)(nil), // 14: db.v1.CreateCharacterResponse
-	(*DeleteCharacterRequest)(nil),  // 15: db.v1.DeleteCharacterRequest
-	(*DeleteCharacterResponse)(nil), // 16: db.v1.DeleteCharacterResponse
-	(*LoadCargoRequest)(nil),        // 17: db.v1.LoadCargoRequest
-	(*LoadCargoResponse)(nil),       // 18: db.v1.LoadCargoResponse
-	(*SaveCargoRequest)(nil),        // 19: db.v1.SaveCargoRequest
-	(*SaveCargoResponse)(nil),       // 20: db.v1.SaveCargoResponse
+	(LoginResult)(0),                   // 0: db.v1.LoginResult
+	(*AccountLoginRequest)(nil),        // 1: db.v1.AccountLoginRequest
+	(*AccountLoginResponse)(nil),       // 2: db.v1.AccountLoginResponse
+	(*ListCharactersRequest)(nil),      // 3: db.v1.ListCharactersRequest
+	(*CharacterSummary)(nil),           // 4: db.v1.CharacterSummary
+	(*ListCharactersResponse)(nil),     // 5: db.v1.ListCharactersResponse
+	(*LoadCharacterRequest)(nil),       // 6: db.v1.LoadCharacterRequest
+	(*Character)(nil),                  // 7: db.v1.Character
+	(*Item)(nil),                       // 8: db.v1.Item
+	(*Affect)(nil),                     // 9: db.v1.Affect
+	(*LoadCharacterResponse)(nil),      // 10: db.v1.LoadCharacterResponse
+	(*SaveCharacterRequest)(nil),       // 11: db.v1.SaveCharacterRequest
+	(*SaveCharacterResponse)(nil),      // 12: db.v1.SaveCharacterResponse
+	(*CreateCharacterRequest)(nil),     // 13: db.v1.CreateCharacterRequest
+	(*CreateCharacterResponse)(nil),    // 14: db.v1.CreateCharacterResponse
+	(*DeleteCharacterRequest)(nil),     // 15: db.v1.DeleteCharacterRequest
+	(*DeleteCharacterResponse)(nil),    // 16: db.v1.DeleteCharacterResponse
+	(*LoadCargoRequest)(nil),           // 17: db.v1.LoadCargoRequest
+	(*LoadCargoResponse)(nil),          // 18: db.v1.LoadCargoResponse
+	(*SaveCargoRequest)(nil),           // 19: db.v1.SaveCargoRequest
+	(*SaveCargoResponse)(nil),          // 20: db.v1.SaveCargoResponse
+	(*NpcConfigVersionRequest)(nil),    // 21: db.v1.NpcConfigVersionRequest
+	(*NpcConfigVersionResponse)(nil),   // 22: db.v1.NpcConfigVersionResponse
+	(*ListNpcDefinitionsRequest)(nil),  // 23: db.v1.ListNpcDefinitionsRequest
+	(*ListNpcDefinitionsResponse)(nil), // 24: db.v1.ListNpcDefinitionsResponse
+	(*NpcShopItem)(nil),                // 25: db.v1.NpcShopItem
+	(*NpcDefinition)(nil),              // 26: db.v1.NpcDefinition
+	(*ItemPrice)(nil),                  // 27: db.v1.ItemPrice
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
@@ -1689,27 +2189,34 @@ var file_api_db_v1_db_proto_depIdxs = []int32{
 	7,  // 6: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
 	8,  // 7: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
 	8,  // 8: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
-	1,  // 9: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	3,  // 10: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	6,  // 11: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	11, // 12: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	13, // 13: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	15, // 14: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	17, // 15: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
-	19, // 16: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
-	2,  // 17: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	5,  // 18: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	10, // 19: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	12, // 20: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	14, // 21: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	16, // 22: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	18, // 23: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
-	20, // 24: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
-	17, // [17:25] is the sub-list for method output_type
-	9,  // [9:17] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	26, // 9: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
+	27, // 10: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
+	25, // 11: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
+	1,  // 12: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	3,  // 13: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	6,  // 14: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	11, // 15: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	13, // 16: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	15, // 17: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	17, // 18: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	19, // 19: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	21, // 20: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
+	23, // 21: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
+	2,  // 22: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	5,  // 23: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	10, // 24: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	12, // 25: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	14, // 26: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	16, // 27: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	18, // 28: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	20, // 29: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	22, // 30: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
+	24, // 31: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
+	22, // [22:32] is the sub-list for method output_type
+	12, // [12:22] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }
@@ -1723,9 +2230,9 @@ func file_api_db_v1_db_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   20,
+			NumMessages:   27,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_api_db_v1_db_proto_goTypes,
 		DependencyIndexes: file_api_db_v1_db_proto_depIdxs,

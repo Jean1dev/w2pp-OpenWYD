@@ -15,6 +15,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -23,6 +25,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -33,6 +37,7 @@ import (
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/grpcsrv"
+	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
@@ -61,6 +66,11 @@ func main() {
 			logger.Error("seed-account failed", "err", err)
 			os.Exit(1)
 		}
+	case "import-npcs":
+		if err := runImportNPCs(os.Args[2:], logger); err != nil {
+			logger.Error("import-npcs failed", "err", err)
+			os.Exit(1)
+		}
 	default:
 		usage()
 		os.Exit(2)
@@ -72,6 +82,205 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  dbserver convert -accounts <dir> [-dsn <postgres-url>]")
 	fmt.Fprintln(os.Stderr, "  dbserver serve [-addr :7514] -dsn <postgres-url> [-tls-cert -tls-key -tls-ca]")
 	fmt.Fprintln(os.Stderr, "  dbserver seed-account -name <login> -pass <password> [-dsn <postgres-url>]")
+	fmt.Fprintln(os.Stderr, "  dbserver import-npcs -content <Release/> [-dsn <postgres-url>]")
+}
+
+// runImportNPCs seeds npc_definition (+ npc_shop_item) from the NPCGener.txt
+// spawn blocks (npc-editing-plan.md §4.1). It imports only MERCHANT blocks — the
+// NPCs whose shop the moderator edits; monsters and non-shop NPCs keep spawning
+// from NPCGener.txt. Idempotent by slug, so re-running only adds new blocks.
+// Without -dsn it is a dry run that reports what it would import.
+func runImportNPCs(args []string, logger *slog.Logger) error {
+	fs := flag.NewFlagSet("import-npcs", flag.ExitOnError)
+	contentDir := fs.String("content", "", "path to the Release/ content tree")
+	dsn := fs.String("dsn", envOr("W2PP_DB_DSN", ""), "PostgreSQL DSN; if unset, dry run")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *contentDir == "" {
+		return fmt.Errorf("-content is required")
+	}
+
+	defs, err := buildNPCDefinitions(*contentDir, logger)
+	if err != nil {
+		return err
+	}
+	logger.Info("scanned NPC generators", "merchant_definitions", len(defs))
+
+	if *dsn == "" {
+		logger.Info("dry run (no -dsn) — not persisting")
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, *dsn)
+	if err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer pool.Close()
+	if err := store.Migrate(ctx, pool); err != nil {
+		return err
+	}
+	inserted, err := store.New(pool).SeedNPCDefinitions(ctx, defs)
+	if err != nil {
+		return fmt.Errorf("seed npc definitions: %w", err)
+	}
+	logger.Info("import complete", "inserted", inserted, "already_present", len(defs)-inserted)
+	return nil
+}
+
+// buildNPCDefinitions parses NPCGener.txt and returns one domain.NPCDefinition
+// per MERCHANT spawn block (leader template Merchant != 0), with its shop stock
+// read from the template's Carry[]. The slug is stable across re-imports:
+// "<template>-<blockIndex>". A block whose leader template is missing or is not a
+// merchant is skipped.
+func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDefinition, error) {
+	blocks, err := parseNPCGener(filepath.Join(contentDir, "TMsrv", "run", "NPCGener.txt"))
+	if err != nil {
+		return nil, err
+	}
+	templates := make(map[string]*savefmt.Mob)
+	load := func(name string) *savefmt.Mob {
+		if name == "" {
+			return nil
+		}
+		if m, seen := templates[name]; seen {
+			return m
+		}
+		var m *savefmt.Mob
+		if b, terr := os.ReadFile(filepath.Join(contentDir, "TMsrv", "run", "npc", name)); terr == nil {
+			if mob, derr := savefmt.DecodeMob(b); derr == nil {
+				m = &mob
+			} else {
+				logger.Warn("npc template decode failed", "name", name, "err", derr)
+			}
+		}
+		templates[name] = m
+		return m
+	}
+
+	var out []domain.NPCDefinition
+	for i, b := range blocks {
+		mob := load(b.leader)
+		// The shop flag the tmServer honours is CurrentScore.Merchant (STRUCT_MOB
+		// offset 104), NOT the top-level Mob.Merchant (offset 17) — read the same
+		// field here so importer and runtime agree on what is a merchant.
+		if mob == nil || mob.CurrentScore.Merchant == 0 {
+			continue // missing template, or a monster / non-shop NPC (stays in NPCGener.txt)
+		}
+		def := domain.NPCDefinition{
+			Slug:         fmt.Sprintf("%s-%d", b.leader, i),
+			TemplateName: b.leader,
+			DisplayName:  cString(mob.Name[:]),
+			Enabled:      true,
+			PosX:         int32(b.startX),
+			PosY:         int32(b.startY),
+			RouteType:    int16(b.routeType),
+			Merchant:     int16(mob.CurrentScore.Merchant),
+		}
+		// Slot is the MSG_ShopList display index (0..26); it maps to the real Carry
+		// slot via shopCarrySlot (3 tabs of 9). Reading Carry directly would miss
+		// tabs 2/3 (Carry[27..35],[54..62]) — the same mapping the tmServer writes
+		// (applyShop) and reads back (reqShopList).
+		for i := 0; i < 27; i++ {
+			c := mob.Carry[shopCarrySlot(i)]
+			if c.Index == 0 {
+				continue
+			}
+			def.Shop = append(def.Shop, domain.NPCShopItem{
+				Slot:      int16(i),
+				ItemIndex: int32(c.Index),
+				Eff1:      c.Effects[0].Effect, EffV1: c.Effects[0].Value,
+				Eff2: c.Effects[1].Effect, EffV2: c.Effects[1].Value,
+				Eff3: c.Effects[2].Effect, EffV3: c.Effects[2].Value,
+			})
+		}
+		out = append(out, def)
+	}
+	return out, nil
+}
+
+// shopCarrySlot maps a MSG_ShopList display index (0..26) to the NPC Carry slot
+// it occupies (3 tabs of 9: Carry[0..8],[27..35],[54..62]). Mirrors
+// protocol.ShopSlot, which dbserver cannot import (tmserver internal package).
+func shopCarrySlot(i int) int { return (i % 9) + (i/9)*27 }
+
+// npcGenerBlock is the subset of an NPCGener.txt spawn block the importer needs:
+// the leader template name, the Start waypoint (spawn point) and the route type.
+type npcGenerBlock struct {
+	leader         string
+	startX, startY int
+	routeType      int
+}
+
+// parseNPCGener reads NPCGener.txt. Blocks begin with '#'; lines are "Key:\tvalue";
+// '//' lines are comments. This is a minimal text parser for the import (the full
+// spawn semantics live in tmserver/internal/content, which the tmServer uses at
+// runtime; only the fields the seed needs are read here).
+func parseNPCGener(path string) ([]npcGenerBlock, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("import-npcs: open NPCGener: %w", err)
+	}
+	defer f.Close()
+
+	var out []npcGenerBlock
+	var cur *npcGenerBlock
+	flush := func() {
+		if cur != nil && cur.leader != "" {
+			out = append(out, *cur)
+		}
+	}
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1024), 1<<20)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "//") {
+			continue
+		}
+		if strings.HasPrefix(line, "#") {
+			flush()
+			cur = &npcGenerBlock{}
+			continue
+		}
+		if cur == nil {
+			continue
+		}
+		key, val, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		key, val = strings.TrimSpace(key), strings.TrimSpace(val)
+		switch key {
+		case "Leader":
+			cur.leader = val
+		case "StartX":
+			cur.startX = atoiSafe(val)
+		case "StartY":
+			cur.startY = atoiSafe(val)
+		case "RouteType":
+			cur.routeType = atoiSafe(val)
+		}
+	}
+	flush()
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("import-npcs: scan NPCGener: %w", err)
+	}
+	return out, nil
+}
+
+// cString trims a fixed-size C string field at its first NUL.
+func cString(b []byte) string {
+	if i := bytes.IndexByte(b, 0); i >= 0 {
+		b = b[:i]
+	}
+	return string(b)
+}
+
+func atoiSafe(s string) int {
+	n, _ := strconv.Atoi(strings.TrimSpace(s))
+	return n
 }
 
 // runSeedAccount creates one password-only account for local testing. The name
@@ -161,7 +370,9 @@ func runServe(args []string, logger *slog.Logger) error {
 		return err
 	}
 	srv := grpc.NewServer(grpc.Creds(creds))
-	dbv1.RegisterAccountServiceServer(srv, grpcsrv.New(store.New(pool)))
+	st := store.New(pool)
+	dbv1.RegisterAccountServiceServer(srv, grpcsrv.New(st))
+	dbv1.RegisterNpcConfigServiceServer(srv, grpcsrv.NewNpcConfig(st))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

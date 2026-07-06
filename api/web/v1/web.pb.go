@@ -85,6 +85,63 @@ func (CreateResult) EnumDescriptor() ([]byte, []int) {
 	return file_api_web_v1_web_proto_rawDescGZIP(), []int{0}
 }
 
+// AdminResult carries the business outcome of an admin write (authorization,
+// validation, missing target) in the body — only infra failures become gRPC errors.
+type AdminResult int32
+
+const (
+	AdminResult_ADMIN_RESULT_UNSPECIFIED AdminResult = 0
+	AdminResult_ADMIN_RESULT_OK          AdminResult = 1
+	AdminResult_ADMIN_RESULT_FORBIDDEN   AdminResult = 2 // caller is not a moderator/admin
+	AdminResult_ADMIN_RESULT_INVALID     AdminResult = 3 // validation failed (bad slot, unknown target, …)
+	AdminResult_ADMIN_RESULT_NOT_FOUND   AdminResult = 4 // target definition does not exist
+)
+
+// Enum value maps for AdminResult.
+var (
+	AdminResult_name = map[int32]string{
+		0: "ADMIN_RESULT_UNSPECIFIED",
+		1: "ADMIN_RESULT_OK",
+		2: "ADMIN_RESULT_FORBIDDEN",
+		3: "ADMIN_RESULT_INVALID",
+		4: "ADMIN_RESULT_NOT_FOUND",
+	}
+	AdminResult_value = map[string]int32{
+		"ADMIN_RESULT_UNSPECIFIED": 0,
+		"ADMIN_RESULT_OK":          1,
+		"ADMIN_RESULT_FORBIDDEN":   2,
+		"ADMIN_RESULT_INVALID":     3,
+		"ADMIN_RESULT_NOT_FOUND":   4,
+	}
+)
+
+func (x AdminResult) Enum() *AdminResult {
+	p := new(AdminResult)
+	*p = x
+	return p
+}
+
+func (x AdminResult) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AdminResult) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_web_v1_web_proto_enumTypes[1].Descriptor()
+}
+
+func (AdminResult) Type() protoreflect.EnumType {
+	return &file_api_web_v1_web_proto_enumTypes[1]
+}
+
+func (x AdminResult) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AdminResult.Descriptor instead.
+func (AdminResult) EnumDescriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{1}
+}
+
 type CreateAccountRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`         // canonicalized to lowercase server-side
@@ -250,10 +307,15 @@ func (x *VerifyCredentialsRequest) GetPassword() string {
 }
 
 type VerifyCredentialsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                // name exists and password matches
-	AccountId     int64                  `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"` // set only when ok
-	Blocked       bool                   `protobuf:"varint,3,opt,name=blocked,proto3" json:"blocked,omitempty"`                      // account.is_blocked — caller decides how to surface it
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Ok        bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                // name exists and password matches
+	AccountId int64                  `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"` // set only when ok
+	Blocked   bool                   `protobuf:"varint,3,opt,name=blocked,proto3" json:"blocked,omitempty"`                      // account.is_blocked — caller decides how to surface it
+	// role is account.role ('player'/'moderator'/'admin'). The BFF stores it in the
+	// session to gate the moderator UI (page visibility only). It is NOT the
+	// authorization decision — NpcAdminService re-checks the role server-side on
+	// every call, so a tampered session flag still gets ADMIN_RESULT_FORBIDDEN.
+	Role          string `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -309,6 +371,884 @@ func (x *VerifyCredentialsResponse) GetBlocked() bool {
 	return false
 }
 
+func (x *VerifyCredentialsResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type AdminAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAck) Reset() {
+	*x = AdminAck{}
+	mi := &file_api_web_v1_web_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAck) ProtoMessage() {}
+
+func (x *AdminAck) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAck.ProtoReflect.Descriptor instead.
+func (*AdminAck) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AdminAck) GetResult() AdminResult {
+	if x != nil {
+		return x.Result
+	}
+	return AdminResult_ADMIN_RESULT_UNSPECIFIED
+}
+
+// AdminNpcShopItem mirrors the DB shop slot; price is global, not per-slot.
+type AdminNpcShopItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	ItemIndex     int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminNpcShopItem) Reset() {
+	*x = AdminNpcShopItem{}
+	mi := &file_api_web_v1_web_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminNpcShopItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminNpcShopItem) ProtoMessage() {}
+
+func (x *AdminNpcShopItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminNpcShopItem.ProtoReflect.Descriptor instead.
+func (*AdminNpcShopItem) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *AdminNpcShopItem) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetEff1() int32 {
+	if x != nil {
+		return x.Eff1
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetEffv1() int32 {
+	if x != nil {
+		return x.Effv1
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetEff2() int32 {
+	if x != nil {
+		return x.Eff2
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetEffv2() int32 {
+	if x != nil {
+		return x.Effv2
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetEff3() int32 {
+	if x != nil {
+		return x.Eff3
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetEffv3() int32 {
+	if x != nil {
+		return x.Effv3
+	}
+	return 0
+}
+
+type AdminNpc struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Slug          string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	TemplateName  string                 `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	MapId         int32                  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
+	PosX          int32                  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
+	PosY          int32                  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
+	RouteType     int32                  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
+	Merchant      int32                  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
+	Shop          []*AdminNpcShopItem    `protobuf:"bytes,11,rep,name=shop,proto3" json:"shop,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminNpc) Reset() {
+	*x = AdminNpc{}
+	mi := &file_api_web_v1_web_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminNpc) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminNpc) ProtoMessage() {}
+
+func (x *AdminNpc) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminNpc.ProtoReflect.Descriptor instead.
+func (*AdminNpc) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AdminNpc) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *AdminNpc) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *AdminNpc) GetTemplateName() string {
+	if x != nil {
+		return x.TemplateName
+	}
+	return ""
+}
+
+func (x *AdminNpc) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *AdminNpc) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *AdminNpc) GetMapId() int32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
+}
+
+func (x *AdminNpc) GetPosX() int32 {
+	if x != nil {
+		return x.PosX
+	}
+	return 0
+}
+
+func (x *AdminNpc) GetPosY() int32 {
+	if x != nil {
+		return x.PosY
+	}
+	return 0
+}
+
+func (x *AdminNpc) GetRouteType() int32 {
+	if x != nil {
+		return x.RouteType
+	}
+	return 0
+}
+
+func (x *AdminNpc) GetMerchant() int32 {
+	if x != nil {
+		return x.Merchant
+	}
+	return 0
+}
+
+func (x *AdminNpc) GetShop() []*AdminNpcShopItem {
+	if x != nil {
+		return x.Shop
+	}
+	return nil
+}
+
+type ListNpcsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNpcsRequest) Reset() {
+	*x = ListNpcsRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNpcsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNpcsRequest) ProtoMessage() {}
+
+func (x *ListNpcsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNpcsRequest.ProtoReflect.Descriptor instead.
+func (*ListNpcsRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListNpcsRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+type ListNpcsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	Npcs          []*AdminNpc            `protobuf:"bytes,2,rep,name=npcs,proto3" json:"npcs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNpcsResponse) Reset() {
+	*x = ListNpcsResponse{}
+	mi := &file_api_web_v1_web_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNpcsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNpcsResponse) ProtoMessage() {}
+
+func (x *ListNpcsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNpcsResponse.ProtoReflect.Descriptor instead.
+func (*ListNpcsResponse) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListNpcsResponse) GetResult() AdminResult {
+	if x != nil {
+		return x.Result
+	}
+	return AdminResult_ADMIN_RESULT_UNSPECIFIED
+}
+
+func (x *ListNpcsResponse) GetNpcs() []*AdminNpc {
+	if x != nil {
+		return x.Npcs
+	}
+	return nil
+}
+
+type GetNpcRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	NpcId         int64                  `protobuf:"varint,2,opt,name=npc_id,json=npcId,proto3" json:"npc_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetNpcRequest) Reset() {
+	*x = GetNpcRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNpcRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNpcRequest) ProtoMessage() {}
+
+func (x *GetNpcRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNpcRequest.ProtoReflect.Descriptor instead.
+func (*GetNpcRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetNpcRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *GetNpcRequest) GetNpcId() int64 {
+	if x != nil {
+		return x.NpcId
+	}
+	return 0
+}
+
+type GetNpcResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	Npc           *AdminNpc              `protobuf:"bytes,2,opt,name=npc,proto3" json:"npc,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetNpcResponse) Reset() {
+	*x = GetNpcResponse{}
+	mi := &file_api_web_v1_web_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNpcResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNpcResponse) ProtoMessage() {}
+
+func (x *GetNpcResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNpcResponse.ProtoReflect.Descriptor instead.
+func (*GetNpcResponse) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetNpcResponse) GetResult() AdminResult {
+	if x != nil {
+		return x.Result
+	}
+	return AdminResult_ADMIN_RESULT_UNSPECIFIED
+}
+
+func (x *GetNpcResponse) GetNpc() *AdminNpc {
+	if x != nil {
+		return x.Npc
+	}
+	return nil
+}
+
+type UpsertNpcRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	// id is ignored on create; the slug is the stable key. Position/visibility/
+	// merchant fields are applied as given.
+	Slug          string `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	TemplateName  string `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DisplayName   string `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Enabled       bool   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	MapId         int32  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
+	PosX          int32  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
+	PosY          int32  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
+	RouteType     int32  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
+	Merchant      int32  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpsertNpcRequest) Reset() {
+	*x = UpsertNpcRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertNpcRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertNpcRequest) ProtoMessage() {}
+
+func (x *UpsertNpcRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertNpcRequest.ProtoReflect.Descriptor instead.
+func (*UpsertNpcRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpsertNpcRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *UpsertNpcRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *UpsertNpcRequest) GetTemplateName() string {
+	if x != nil {
+		return x.TemplateName
+	}
+	return ""
+}
+
+func (x *UpsertNpcRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *UpsertNpcRequest) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *UpsertNpcRequest) GetMapId() int32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
+}
+
+func (x *UpsertNpcRequest) GetPosX() int32 {
+	if x != nil {
+		return x.PosX
+	}
+	return 0
+}
+
+func (x *UpsertNpcRequest) GetPosY() int32 {
+	if x != nil {
+		return x.PosY
+	}
+	return 0
+}
+
+func (x *UpsertNpcRequest) GetRouteType() int32 {
+	if x != nil {
+		return x.RouteType
+	}
+	return 0
+}
+
+func (x *UpsertNpcRequest) GetMerchant() int32 {
+	if x != nil {
+		return x.Merchant
+	}
+	return 0
+}
+
+type UpsertNpcResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	NpcId         int64                  `protobuf:"varint,2,opt,name=npc_id,json=npcId,proto3" json:"npc_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpsertNpcResponse) Reset() {
+	*x = UpsertNpcResponse{}
+	mi := &file_api_web_v1_web_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertNpcResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertNpcResponse) ProtoMessage() {}
+
+func (x *UpsertNpcResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertNpcResponse.ProtoReflect.Descriptor instead.
+func (*UpsertNpcResponse) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *UpsertNpcResponse) GetResult() AdminResult {
+	if x != nil {
+		return x.Result
+	}
+	return AdminResult_ADMIN_RESULT_UNSPECIFIED
+}
+
+func (x *UpsertNpcResponse) GetNpcId() int64 {
+	if x != nil {
+		return x.NpcId
+	}
+	return 0
+}
+
+type SetNpcVisibilityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	NpcId         int64                  `protobuf:"varint,2,opt,name=npc_id,json=npcId,proto3" json:"npc_id,omitempty"`
+	Enabled       bool                   `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetNpcVisibilityRequest) Reset() {
+	*x = SetNpcVisibilityRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetNpcVisibilityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetNpcVisibilityRequest) ProtoMessage() {}
+
+func (x *SetNpcVisibilityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetNpcVisibilityRequest.ProtoReflect.Descriptor instead.
+func (*SetNpcVisibilityRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SetNpcVisibilityRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *SetNpcVisibilityRequest) GetNpcId() int64 {
+	if x != nil {
+		return x.NpcId
+	}
+	return 0
+}
+
+func (x *SetNpcVisibilityRequest) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+type SetNpcShopRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	NpcId         int64                  `protobuf:"varint,2,opt,name=npc_id,json=npcId,proto3" json:"npc_id,omitempty"`
+	Items         []*AdminNpcShopItem    `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetNpcShopRequest) Reset() {
+	*x = SetNpcShopRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetNpcShopRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetNpcShopRequest) ProtoMessage() {}
+
+func (x *SetNpcShopRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetNpcShopRequest.ProtoReflect.Descriptor instead.
+func (*SetNpcShopRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SetNpcShopRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *SetNpcShopRequest) GetNpcId() int64 {
+	if x != nil {
+		return x.NpcId
+	}
+	return 0
+}
+
+func (x *SetNpcShopRequest) GetItems() []*AdminNpcShopItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type SetItemPriceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	ItemIndex     int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Price         int64                  `protobuf:"varint,3,opt,name=price,proto3" json:"price,omitempty"` // < 0 clears the override
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetItemPriceRequest) Reset() {
+	*x = SetItemPriceRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetItemPriceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetItemPriceRequest) ProtoMessage() {}
+
+func (x *SetItemPriceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetItemPriceRequest.ProtoReflect.Descriptor instead.
+func (*SetItemPriceRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SetItemPriceRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *SetItemPriceRequest) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *SetItemPriceRequest) GetPrice() int64 {
+	if x != nil {
+		return x.Price
+	}
+	return 0
+}
+
+type DeleteNpcRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	NpcId         int64                  `protobuf:"varint,2,opt,name=npc_id,json=npcId,proto3" json:"npc_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteNpcRequest) Reset() {
+	*x = DeleteNpcRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteNpcRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNpcRequest) ProtoMessage() {}
+
+func (x *DeleteNpcRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNpcRequest.ProtoReflect.Descriptor instead.
+func (*DeleteNpcRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DeleteNpcRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *DeleteNpcRequest) GetNpcId() int64 {
+	if x != nil {
+		return x.NpcId
+	}
+	return 0
+}
+
 var File_api_web_v1_web_proto protoreflect.FileDescriptor
 
 const file_api_web_v1_web_proto_rawDesc = "" +
@@ -324,20 +1264,105 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"account_id\x18\x02 \x01(\x03R\taccountId\"J\n" +
 	"\x18VerifyCredentialsRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"d\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"x\n" +
 	"\x19VerifyCredentialsResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x02 \x01(\x03R\taccountId\x12\x18\n" +
-	"\ablocked\x18\x03 \x01(\bR\ablocked*|\n" +
+	"\ablocked\x18\x03 \x01(\bR\ablocked\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"7\n" +
+	"\bAdminAck\x12+\n" +
+	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\"\xc3\x01\n" +
+	"\x10AdminNpcShopItem\x12\x12\n" +
+	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x02 \x01(\x05R\titemIndex\x12\x12\n" +
+	"\x04eff1\x18\x03 \x01(\x05R\x04eff1\x12\x14\n" +
+	"\x05effv1\x18\x04 \x01(\x05R\x05effv1\x12\x12\n" +
+	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
+	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
+	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\xba\x02\n" +
+	"\bAdminNpc\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +
+	"\rtemplate_name\x18\x03 \x01(\tR\ftemplateName\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x18\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x15\n" +
+	"\x06map_id\x18\x06 \x01(\x05R\x05mapId\x12\x13\n" +
+	"\x05pos_x\x18\a \x01(\x05R\x04posX\x12\x13\n" +
+	"\x05pos_y\x18\b \x01(\x05R\x04posY\x12\x1d\n" +
+	"\n" +
+	"route_type\x18\t \x01(\x05R\trouteType\x12\x1a\n" +
+	"\bmerchant\x18\n" +
+	" \x01(\x05R\bmerchant\x12,\n" +
+	"\x04shop\x18\v \x03(\v2\x18.web.v1.AdminNpcShopItemR\x04shop\"4\n" +
+	"\x0fListNpcsRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"e\n" +
+	"\x10ListNpcsResponse\x12+\n" +
+	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12$\n" +
+	"\x04npcs\x18\x02 \x03(\v2\x10.web.v1.AdminNpcR\x04npcs\"I\n" +
+	"\rGetNpcRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x15\n" +
+	"\x06npc_id\x18\x02 \x01(\x03R\x05npcId\"a\n" +
+	"\x0eGetNpcResponse\x12+\n" +
+	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12\"\n" +
+	"\x03npc\x18\x02 \x01(\v2\x10.web.v1.AdminNpcR\x03npc\"\xa7\x02\n" +
+	"\x10UpsertNpcRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +
+	"\rtemplate_name\x18\x03 \x01(\tR\ftemplateName\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x18\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x15\n" +
+	"\x06map_id\x18\x06 \x01(\x05R\x05mapId\x12\x13\n" +
+	"\x05pos_x\x18\a \x01(\x05R\x04posX\x12\x13\n" +
+	"\x05pos_y\x18\b \x01(\x05R\x04posY\x12\x1d\n" +
+	"\n" +
+	"route_type\x18\t \x01(\x05R\trouteType\x12\x1a\n" +
+	"\bmerchant\x18\n" +
+	" \x01(\x05R\bmerchant\"W\n" +
+	"\x11UpsertNpcResponse\x12+\n" +
+	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12\x15\n" +
+	"\x06npc_id\x18\x02 \x01(\x03R\x05npcId\"m\n" +
+	"\x17SetNpcVisibilityRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x15\n" +
+	"\x06npc_id\x18\x02 \x01(\x03R\x05npcId\x12\x18\n" +
+	"\aenabled\x18\x03 \x01(\bR\aenabled\"}\n" +
+	"\x11SetNpcShopRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x15\n" +
+	"\x06npc_id\x18\x02 \x01(\x03R\x05npcId\x12.\n" +
+	"\x05items\x18\x03 \x03(\v2\x18.web.v1.AdminNpcShopItemR\x05items\"m\n" +
+	"\x13SetItemPriceRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x02 \x01(\x05R\titemIndex\x12\x14\n" +
+	"\x05price\x18\x03 \x01(\x03R\x05price\"L\n" +
+	"\x10DeleteNpcRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x15\n" +
+	"\x06npc_id\x18\x02 \x01(\x03R\x05npcId*|\n" +
 	"\fCreateResult\x12\x1d\n" +
 	"\x19CREATE_RESULT_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CREATE_RESULT_OK\x10\x01\x12\x1c\n" +
 	"\x18CREATE_RESULT_NAME_TAKEN\x10\x02\x12\x19\n" +
-	"\x15CREATE_RESULT_INVALID\x10\x032\xbb\x01\n" +
+	"\x15CREATE_RESULT_INVALID\x10\x03*\x92\x01\n" +
+	"\vAdminResult\x12\x1c\n" +
+	"\x18ADMIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fADMIN_RESULT_OK\x10\x01\x12\x1a\n" +
+	"\x16ADMIN_RESULT_FORBIDDEN\x10\x02\x12\x18\n" +
+	"\x14ADMIN_RESULT_INVALID\x10\x03\x12\x1a\n" +
+	"\x16ADMIN_RESULT_NOT_FOUND\x10\x042\xbb\x01\n" +
 	"\x11AccountWebService\x12L\n" +
 	"\rCreateAccount\x12\x1c.web.v1.CreateAccountRequest\x1a\x1d.web.v1.CreateAccountResponse\x12X\n" +
-	"\x11VerifyCredentials\x12 .web.v1.VerifyCredentialsRequest\x1a!.web.v1.VerifyCredentialsResponseB3Z1github.com/jeanluca/w2pp-openwyd/api/web/v1;webv1b\x06proto3"
+	"\x11VerifyCredentials\x12 .web.v1.VerifyCredentialsRequest\x1a!.web.v1.VerifyCredentialsResponse2\xc5\x03\n" +
+	"\x0fNpcAdminService\x12=\n" +
+	"\bListNpcs\x12\x17.web.v1.ListNpcsRequest\x1a\x18.web.v1.ListNpcsResponse\x127\n" +
+	"\x06GetNpc\x12\x15.web.v1.GetNpcRequest\x1a\x16.web.v1.GetNpcResponse\x12@\n" +
+	"\tUpsertNpc\x12\x18.web.v1.UpsertNpcRequest\x1a\x19.web.v1.UpsertNpcResponse\x12E\n" +
+	"\x10SetNpcVisibility\x12\x1f.web.v1.SetNpcVisibilityRequest\x1a\x10.web.v1.AdminAck\x129\n" +
+	"\n" +
+	"SetNpcShop\x12\x19.web.v1.SetNpcShopRequest\x1a\x10.web.v1.AdminAck\x12=\n" +
+	"\fSetItemPrice\x12\x1b.web.v1.SetItemPriceRequest\x1a\x10.web.v1.AdminAck\x127\n" +
+	"\tDeleteNpc\x12\x18.web.v1.DeleteNpcRequest\x1a\x10.web.v1.AdminAckB3Z1github.com/jeanluca/w2pp-openwyd/api/web/v1;webv1b\x06proto3"
 
 var (
 	file_api_web_v1_web_proto_rawDescOnce sync.Once
@@ -351,26 +1376,62 @@ func file_api_web_v1_web_proto_rawDescGZIP() []byte {
 	return file_api_web_v1_web_proto_rawDescData
 }
 
-var file_api_web_v1_web_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_api_web_v1_web_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_api_web_v1_web_proto_goTypes = []any{
 	(CreateResult)(0),                 // 0: web.v1.CreateResult
-	(*CreateAccountRequest)(nil),      // 1: web.v1.CreateAccountRequest
-	(*CreateAccountResponse)(nil),     // 2: web.v1.CreateAccountResponse
-	(*VerifyCredentialsRequest)(nil),  // 3: web.v1.VerifyCredentialsRequest
-	(*VerifyCredentialsResponse)(nil), // 4: web.v1.VerifyCredentialsResponse
+	(AdminResult)(0),                  // 1: web.v1.AdminResult
+	(*CreateAccountRequest)(nil),      // 2: web.v1.CreateAccountRequest
+	(*CreateAccountResponse)(nil),     // 3: web.v1.CreateAccountResponse
+	(*VerifyCredentialsRequest)(nil),  // 4: web.v1.VerifyCredentialsRequest
+	(*VerifyCredentialsResponse)(nil), // 5: web.v1.VerifyCredentialsResponse
+	(*AdminAck)(nil),                  // 6: web.v1.AdminAck
+	(*AdminNpcShopItem)(nil),          // 7: web.v1.AdminNpcShopItem
+	(*AdminNpc)(nil),                  // 8: web.v1.AdminNpc
+	(*ListNpcsRequest)(nil),           // 9: web.v1.ListNpcsRequest
+	(*ListNpcsResponse)(nil),          // 10: web.v1.ListNpcsResponse
+	(*GetNpcRequest)(nil),             // 11: web.v1.GetNpcRequest
+	(*GetNpcResponse)(nil),            // 12: web.v1.GetNpcResponse
+	(*UpsertNpcRequest)(nil),          // 13: web.v1.UpsertNpcRequest
+	(*UpsertNpcResponse)(nil),         // 14: web.v1.UpsertNpcResponse
+	(*SetNpcVisibilityRequest)(nil),   // 15: web.v1.SetNpcVisibilityRequest
+	(*SetNpcShopRequest)(nil),         // 16: web.v1.SetNpcShopRequest
+	(*SetItemPriceRequest)(nil),       // 17: web.v1.SetItemPriceRequest
+	(*DeleteNpcRequest)(nil),          // 18: web.v1.DeleteNpcRequest
 }
 var file_api_web_v1_web_proto_depIdxs = []int32{
-	0, // 0: web.v1.CreateAccountResponse.result:type_name -> web.v1.CreateResult
-	1, // 1: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
-	3, // 2: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
-	2, // 3: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
-	4, // 4: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: web.v1.CreateAccountResponse.result:type_name -> web.v1.CreateResult
+	1,  // 1: web.v1.AdminAck.result:type_name -> web.v1.AdminResult
+	7,  // 2: web.v1.AdminNpc.shop:type_name -> web.v1.AdminNpcShopItem
+	1,  // 3: web.v1.ListNpcsResponse.result:type_name -> web.v1.AdminResult
+	8,  // 4: web.v1.ListNpcsResponse.npcs:type_name -> web.v1.AdminNpc
+	1,  // 5: web.v1.GetNpcResponse.result:type_name -> web.v1.AdminResult
+	8,  // 6: web.v1.GetNpcResponse.npc:type_name -> web.v1.AdminNpc
+	1,  // 7: web.v1.UpsertNpcResponse.result:type_name -> web.v1.AdminResult
+	7,  // 8: web.v1.SetNpcShopRequest.items:type_name -> web.v1.AdminNpcShopItem
+	2,  // 9: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
+	4,  // 10: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
+	9,  // 11: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
+	11, // 12: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
+	13, // 13: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
+	15, // 14: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
+	16, // 15: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
+	17, // 16: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
+	18, // 17: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
+	3,  // 18: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
+	5,  // 19: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
+	10, // 20: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
+	12, // 21: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
+	14, // 22: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
+	6,  // 23: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
+	6,  // 24: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
+	6,  // 25: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
+	6,  // 26: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
+	18, // [18:27] is the sub-list for method output_type
+	9,  // [9:18] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_web_v1_web_proto_init() }
@@ -383,10 +1444,10 @@ func file_api_web_v1_web_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_web_v1_web_proto_rawDesc), len(file_api_web_v1_web_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   4,
+			NumEnums:      2,
+			NumMessages:   17,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_api_web_v1_web_proto_goTypes,
 		DependencyIndexes: file_api_web_v1_web_proto_depIdxs,

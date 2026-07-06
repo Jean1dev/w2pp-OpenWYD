@@ -96,3 +96,41 @@ type Affect struct {
 	Level uint16
 	Time  uint32
 }
+
+// NPCDefinition is a moderator-editable NPC/spawn block (npc-editing-plan.md).
+// It is cold configuration owned by Postgres, materialized into a live entity by
+// tmServer's single-owner loop — never the reverse. Slug is the stable id;
+// TemplateName points at the 816-byte STRUCT_MOB in Release/TMsrv/run/npc/.
+type NPCDefinition struct {
+	ID           int64
+	Slug         string
+	TemplateName string
+	DisplayName  string
+	Enabled      bool
+	MapID        int32
+	PosX         int32
+	PosY         int32
+	RouteType    int16
+	Merchant     int16
+	Shop         []NPCShopItem // merchant stock; overlays the template Carry[]
+}
+
+// NPCShopItem is one shop slot of a merchant NPC. Prices are NOT stored here —
+// the moderator edits the global catalog price (ItemPriceOverride).
+type NPCShopItem struct {
+	Slot      int16
+	ItemIndex int32
+	Eff1      uint8
+	EffV1     uint8
+	Eff2      uint8
+	EffV2     uint8
+	Eff3      uint8
+	EffV3     uint8
+}
+
+// ItemPriceOverride is a global per-item price set by a moderator. It overlays
+// the content catalog price for every NPC that sells the item.
+type ItemPriceOverride struct {
+	ItemIndex int32
+	Price     int64
+}

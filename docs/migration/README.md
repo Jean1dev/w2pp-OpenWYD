@@ -25,6 +25,8 @@
 | 9 | [migration-plan.md](migration-plan.md) | **COMPLETO** | NFRs, comparação de stacks + recomendação, sequência, riscos, DoD |
 | 10 | [glossary.md](glossary.md) | **COMPLETO** | termos WYD/PT-BR e do código |
 | — | [client-patch-hooks.md](client-patch-hooks.md) | **COMPLETO** | mapa dos hooks/patches da `ClientPatch_v7662.dll` por endereço (checksum off, força-gráficos, SkillDelay, título); 4 pontos de extensão p/ customizar o cliente fechado (ReadMessage/SendChat/UI/SendPack) |
+| — | [web-platform-plan.md](web-platform-plan.md) | **PLANO** | integração da plataforma web (contas, cash, recompensas, loja-web, ranking); web-api + `delivery_queue` (mailbox) preservando o single-owner |
+| — | [npc-editing-plan.md](npc-editing-plan.md) | **PLANO** | edição de NPCs por moderadores via web (aparece/não, posição, itens/preços da loja); overlay em Postgres + hot-reload no loop single-owner |
 
 ---
 

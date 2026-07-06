@@ -21,6 +21,7 @@ type AccountAuth struct {
 	ID        int64
 	PassHash  string
 	IsBlocked bool
+	Role      string // account.role ('player'/'moderator'/'admin'); web-only UI gate
 }
 
 // AccountByName fetches the auth row for a canonical (lowercase) account name.
@@ -28,8 +29,8 @@ type AccountAuth struct {
 func (s *Store) AccountByName(ctx context.Context, name string) (AccountAuth, error) {
 	var a AccountAuth
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, pass_hash, is_blocked FROM account WHERE name = $1`, name).
-		Scan(&a.ID, &a.PassHash, &a.IsBlocked)
+		`SELECT id, pass_hash, is_blocked, role FROM account WHERE name = $1`, name).
+		Scan(&a.ID, &a.PassHash, &a.IsBlocked, &a.Role)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AccountAuth{}, ErrNotFound
 	}

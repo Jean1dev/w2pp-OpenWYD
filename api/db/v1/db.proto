@@ -177,3 +177,54 @@ message SaveCargoRequest {
   repeated Item items = 3;
 }
 message SaveCargoResponse { bool ok = 1; }
+
+// NpcConfigService serves the moderator-editable NPC configuration to tmServer
+// (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes
+// the definitions to Postgres; tmServer polls the version and reloads the full
+// snapshot when it changes, then materializes the live entities inside its
+// single-owner loop. Separate from AccountService, which mirrors legacy G↔DB.
+service NpcConfigService {
+  // NpcConfigVersion returns the monotonic config version (cheap poll).
+  rpc NpcConfigVersion(NpcConfigVersionRequest) returns (NpcConfigVersionResponse);
+  // ListNpcDefinitions returns the full definition snapshot + global price overrides.
+  rpc ListNpcDefinitions(ListNpcDefinitionsRequest) returns (ListNpcDefinitionsResponse);
+}
+
+message NpcConfigVersionRequest {}
+message NpcConfigVersionResponse { int64 version = 1; }
+
+message ListNpcDefinitionsRequest {}
+message ListNpcDefinitionsResponse {
+  int64 version = 1;
+  repeated NpcDefinition definitions = 2;
+  repeated ItemPrice price_overrides = 3;
+}
+
+// NpcShopItem is one merchant shop slot (overlays the template Carry[]). Effects
+// are the 3 STRUCT_ITEM effect pairs. Price is NOT here — it is global (ItemPrice).
+message NpcShopItem {
+  int32 slot = 1;
+  int32 item_index = 2;
+  int32 eff1 = 3;  int32 effv1 = 4;
+  int32 eff2 = 5;  int32 effv2 = 6;
+  int32 eff3 = 7;  int32 effv3 = 8;
+}
+
+message NpcDefinition {
+  int64 id = 1;
+  string slug = 2;
+  string template_name = 3;
+  string display_name = 4;
+  bool enabled = 5;
+  int32 map_id = 6;
+  int32 pos_x = 7;
+  int32 pos_y = 8;
+  int32 route_type = 9;
+  int32 merchant = 10;
+  repeated NpcShopItem shop = 11;
+}
+
+message ItemPrice {
+  int32 item_index = 1;
+  int64 price = 2;
+}

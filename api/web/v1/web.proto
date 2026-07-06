@@ -53,4 +53,124 @@ message VerifyCredentialsResponse {
   bool ok = 1;          // name exists and password matches
   int64 account_id = 2; // set only when ok
   bool blocked = 3;     // account.is_blocked — caller decides how to surface it
+  // role is account.role ('player'/'moderator'/'admin'). The BFF stores it in the
+  // session to gate the moderator UI (page visibility only). It is NOT the
+  // authorization decision — NpcAdminService re-checks the role server-side on
+  // every call, so a tampered session flag still gets ADMIN_RESULT_FORBIDDEN.
+  string role = 4;
+}
+
+// NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).
+// The Next.js BFF calls it server-side after establishing a moderator session;
+// every request carries the moderator's account_id, which the web-api authorizes
+// against account.role ('moderator'/'admin') and records in the audit trail. All
+// writes are cold config in Postgres — never live game state, which stays in
+// tmServer's single-owner loop.
+service NpcAdminService {
+  // ListNpcs returns every NPC definition (moderation table).
+  rpc ListNpcs(ListNpcsRequest) returns (ListNpcsResponse);
+  // GetNpc returns one definition with its shop stock.
+  rpc GetNpc(GetNpcRequest) returns (GetNpcResponse);
+  // UpsertNpc creates or updates a definition (position, visibility, merchant type).
+  rpc UpsertNpc(UpsertNpcRequest) returns (UpsertNpcResponse);
+  // SetNpcVisibility toggles whether the NPC appears ("aparece ou não").
+  rpc SetNpcVisibility(SetNpcVisibilityRequest) returns (AdminAck);
+  // SetNpcShop replaces a merchant NPC's shop stock.
+  rpc SetNpcShop(SetNpcShopRequest) returns (AdminAck);
+  // SetItemPrice sets (price>=0) or clears (price<0) the GLOBAL price of an item.
+  rpc SetItemPrice(SetItemPriceRequest) returns (AdminAck);
+  // DeleteNpc removes a definition.
+  rpc DeleteNpc(DeleteNpcRequest) returns (AdminAck);
+}
+
+// AdminResult carries the business outcome of an admin write (authorization,
+// validation, missing target) in the body — only infra failures become gRPC errors.
+enum AdminResult {
+  ADMIN_RESULT_UNSPECIFIED = 0;
+  ADMIN_RESULT_OK = 1;
+  ADMIN_RESULT_FORBIDDEN = 2;  // caller is not a moderator/admin
+  ADMIN_RESULT_INVALID = 3;    // validation failed (bad slot, unknown target, …)
+  ADMIN_RESULT_NOT_FOUND = 4;  // target definition does not exist
+}
+
+message AdminAck { AdminResult result = 1; }
+
+// AdminNpcShopItem mirrors the DB shop slot; price is global, not per-slot.
+message AdminNpcShopItem {
+  int32 slot = 1;
+  int32 item_index = 2;
+  int32 eff1 = 3;  int32 effv1 = 4;
+  int32 eff2 = 5;  int32 effv2 = 6;
+  int32 eff3 = 7;  int32 effv3 = 8;
+}
+
+message AdminNpc {
+  int64 id = 1;
+  string slug = 2;
+  string template_name = 3;
+  string display_name = 4;
+  bool enabled = 5;
+  int32 map_id = 6;
+  int32 pos_x = 7;
+  int32 pos_y = 8;
+  int32 route_type = 9;
+  int32 merchant = 10;
+  repeated AdminNpcShopItem shop = 11;
+}
+
+message ListNpcsRequest { int64 moderator_id = 1; }
+message ListNpcsResponse {
+  AdminResult result = 1;
+  repeated AdminNpc npcs = 2;
+}
+
+message GetNpcRequest {
+  int64 moderator_id = 1;
+  int64 npc_id = 2;
+}
+message GetNpcResponse {
+  AdminResult result = 1;
+  AdminNpc npc = 2;
+}
+
+message UpsertNpcRequest {
+  int64 moderator_id = 1;
+  // id is ignored on create; the slug is the stable key. Position/visibility/
+  // merchant fields are applied as given.
+  string slug = 2;
+  string template_name = 3;
+  string display_name = 4;
+  bool enabled = 5;
+  int32 map_id = 6;
+  int32 pos_x = 7;
+  int32 pos_y = 8;
+  int32 route_type = 9;
+  int32 merchant = 10;
+}
+message UpsertNpcResponse {
+  AdminResult result = 1;
+  int64 npc_id = 2;
+}
+
+message SetNpcVisibilityRequest {
+  int64 moderator_id = 1;
+  int64 npc_id = 2;
+  bool enabled = 3;
+}
+
+message SetNpcShopRequest {
+  int64 moderator_id = 1;
+  int64 npc_id = 2;
+  repeated AdminNpcShopItem items = 3;
+}
+
+message SetItemPriceRequest {
+  int64 moderator_id = 1;
+  int32 item_index = 2;
+  int64 price = 3; // < 0 clears the override
+}
+
+message DeleteNpcRequest {
+  int64 moderator_id = 1;
+  int64 npc_id = 2;
 }

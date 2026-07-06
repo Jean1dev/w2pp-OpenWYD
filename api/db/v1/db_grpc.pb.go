@@ -415,3 +415,159 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	NpcConfigService_NpcConfigVersion_FullMethodName   = "/db.v1.NpcConfigService/NpcConfigVersion"
+	NpcConfigService_ListNpcDefinitions_FullMethodName = "/db.v1.NpcConfigService/ListNpcDefinitions"
+)
+
+// NpcConfigServiceClient is the client API for NpcConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// NpcConfigService serves the moderator-editable NPC configuration to tmServer
+// (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes
+// the definitions to Postgres; tmServer polls the version and reloads the full
+// snapshot when it changes, then materializes the live entities inside its
+// single-owner loop. Separate from AccountService, which mirrors legacy G↔DB.
+type NpcConfigServiceClient interface {
+	// NpcConfigVersion returns the monotonic config version (cheap poll).
+	NpcConfigVersion(ctx context.Context, in *NpcConfigVersionRequest, opts ...grpc.CallOption) (*NpcConfigVersionResponse, error)
+	// ListNpcDefinitions returns the full definition snapshot + global price overrides.
+	ListNpcDefinitions(ctx context.Context, in *ListNpcDefinitionsRequest, opts ...grpc.CallOption) (*ListNpcDefinitionsResponse, error)
+}
+
+type npcConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNpcConfigServiceClient(cc grpc.ClientConnInterface) NpcConfigServiceClient {
+	return &npcConfigServiceClient{cc}
+}
+
+func (c *npcConfigServiceClient) NpcConfigVersion(ctx context.Context, in *NpcConfigVersionRequest, opts ...grpc.CallOption) (*NpcConfigVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NpcConfigVersionResponse)
+	err := c.cc.Invoke(ctx, NpcConfigService_NpcConfigVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcConfigServiceClient) ListNpcDefinitions(ctx context.Context, in *ListNpcDefinitionsRequest, opts ...grpc.CallOption) (*ListNpcDefinitionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNpcDefinitionsResponse)
+	err := c.cc.Invoke(ctx, NpcConfigService_ListNpcDefinitions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NpcConfigServiceServer is the server API for NpcConfigService service.
+// All implementations must embed UnimplementedNpcConfigServiceServer
+// for forward compatibility.
+//
+// NpcConfigService serves the moderator-editable NPC configuration to tmServer
+// (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes
+// the definitions to Postgres; tmServer polls the version and reloads the full
+// snapshot when it changes, then materializes the live entities inside its
+// single-owner loop. Separate from AccountService, which mirrors legacy G↔DB.
+type NpcConfigServiceServer interface {
+	// NpcConfigVersion returns the monotonic config version (cheap poll).
+	NpcConfigVersion(context.Context, *NpcConfigVersionRequest) (*NpcConfigVersionResponse, error)
+	// ListNpcDefinitions returns the full definition snapshot + global price overrides.
+	ListNpcDefinitions(context.Context, *ListNpcDefinitionsRequest) (*ListNpcDefinitionsResponse, error)
+	mustEmbedUnimplementedNpcConfigServiceServer()
+}
+
+// UnimplementedNpcConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNpcConfigServiceServer struct{}
+
+func (UnimplementedNpcConfigServiceServer) NpcConfigVersion(context.Context, *NpcConfigVersionRequest) (*NpcConfigVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NpcConfigVersion not implemented")
+}
+func (UnimplementedNpcConfigServiceServer) ListNpcDefinitions(context.Context, *ListNpcDefinitionsRequest) (*ListNpcDefinitionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNpcDefinitions not implemented")
+}
+func (UnimplementedNpcConfigServiceServer) mustEmbedUnimplementedNpcConfigServiceServer() {}
+func (UnimplementedNpcConfigServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeNpcConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NpcConfigServiceServer will
+// result in compilation errors.
+type UnsafeNpcConfigServiceServer interface {
+	mustEmbedUnimplementedNpcConfigServiceServer()
+}
+
+func RegisterNpcConfigServiceServer(s grpc.ServiceRegistrar, srv NpcConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedNpcConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NpcConfigService_ServiceDesc, srv)
+}
+
+func _NpcConfigService_NpcConfigVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NpcConfigVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcConfigServiceServer).NpcConfigVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcConfigService_NpcConfigVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcConfigServiceServer).NpcConfigVersion(ctx, req.(*NpcConfigVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcConfigService_ListNpcDefinitions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNpcDefinitionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcConfigServiceServer).ListNpcDefinitions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcConfigService_ListNpcDefinitions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcConfigServiceServer).ListNpcDefinitions(ctx, req.(*ListNpcDefinitionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NpcConfigService_ServiceDesc is the grpc.ServiceDesc for NpcConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NpcConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.NpcConfigService",
+	HandlerType: (*NpcConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "NpcConfigVersion",
+			Handler:    _NpcConfigService_NpcConfigVersion_Handler,
+		},
+		{
+			MethodName: "ListNpcDefinitions",
+			Handler:    _NpcConfigService_ListNpcDefinitions_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

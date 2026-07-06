@@ -465,3 +465,21 @@ func (w *World) Go(s *Session, work func() func(*World, *Session)) {
 		}
 	}()
 }
+
+// GoDetached runs blocking work off the loop (like Go) but re-enters with a
+// world-scoped callback — for background maintenance not bound to any session,
+// such as polling the NPC config. The callback runs in the loop goroutine and
+// may mutate world state directly. A nil callback does nothing. It rides the
+// callbacks queue so a slow mob-AI tick never delays it.
+func (w *World) GoDetached(work func() func(*World)) {
+	go func() {
+		cb := work()
+		if cb == nil {
+			return
+		}
+		select {
+		case w.callbacks <- worldCallbackEvent{cb: cb}:
+		case <-w.done:
+		}
+	}()
+}

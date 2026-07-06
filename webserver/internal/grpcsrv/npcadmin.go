@@ -1,0 +1,158 @@
+package grpcsrv
+
+import (
+	"context"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
+)
+
+// NpcAdmin is the moderator NPC-editing surface the server depends on (satisfied
+// by *npcadmin.Service). Kept as an interface so the server is unit-testable.
+type NpcAdmin interface {
+	List(ctx context.Context, moderatorID int64) (npcadmin.Result, []domain.NPCDefinition, error)
+	Get(ctx context.Context, moderatorID, npcID int64) (npcadmin.Result, domain.NPCDefinition, error)
+	Upsert(ctx context.Context, moderatorID int64, d domain.NPCDefinition) (npcadmin.Result, int64, error)
+	SetVisibility(ctx context.Context, moderatorID, npcID int64, enabled bool) (npcadmin.Result, error)
+	SetShop(ctx context.Context, moderatorID, npcID int64, items []domain.NPCShopItem) (npcadmin.Result, error)
+	SetItemPrice(ctx context.Context, moderatorID int64, itemIndex int32, price int64) (npcadmin.Result, error)
+	Delete(ctx context.Context, moderatorID, npcID int64) (npcadmin.Result, error)
+}
+
+// NpcAdminServer implements webv1.NpcAdminServiceServer.
+type NpcAdminServer struct {
+	webv1.UnimplementedNpcAdminServiceServer
+	admin NpcAdmin
+}
+
+// NewNpcAdmin builds the NpcAdminService over the given admin logic.
+func NewNpcAdmin(a NpcAdmin) *NpcAdminServer { return &NpcAdminServer{admin: a} }
+
+// ListNpcs returns every NPC definition (after authorization).
+func (s *NpcAdminServer) ListNpcs(ctx context.Context, req *webv1.ListNpcsRequest) (*webv1.ListNpcsResponse, error) {
+	res, defs, err := s.admin.List(ctx, req.GetModeratorId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list npcs: %v", err)
+	}
+	out := make([]*webv1.AdminNpc, 0, len(defs))
+	for _, d := range defs {
+		out = append(out, adminNpcToProto(d))
+	}
+	return &webv1.ListNpcsResponse{Result: resultToProto(res), Npcs: out}, nil
+}
+
+// GetNpc returns one definition with its shop stock.
+func (s *NpcAdminServer) GetNpc(ctx context.Context, req *webv1.GetNpcRequest) (*webv1.GetNpcResponse, error) {
+	res, def, err := s.admin.Get(ctx, req.GetModeratorId(), req.GetNpcId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "get npc: %v", err)
+	}
+	resp := &webv1.GetNpcResponse{Result: resultToProto(res)}
+	if res == npcadmin.OK {
+		resp.Npc = adminNpcToProto(def)
+	}
+	return resp, nil
+}
+
+// UpsertNpc creates or updates a definition.
+func (s *NpcAdminServer) UpsertNpc(ctx context.Context, req *webv1.UpsertNpcRequest) (*webv1.UpsertNpcResponse, error) {
+	def := domain.NPCDefinition{
+		Slug:         req.GetSlug(),
+		TemplateName: req.GetTemplateName(),
+		DisplayName:  req.GetDisplayName(),
+		Enabled:      req.GetEnabled(),
+		MapID:        req.GetMapId(),
+		PosX:         req.GetPosX(),
+		PosY:         req.GetPosY(),
+		RouteType:    int16(req.GetRouteType()),
+		Merchant:     int16(req.GetMerchant()),
+	}
+	res, id, err := s.admin.Upsert(ctx, req.GetModeratorId(), def)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "upsert npc: %v", err)
+	}
+	return &webv1.UpsertNpcResponse{Result: resultToProto(res), NpcId: id}, nil
+}
+
+// SetNpcVisibility toggles whether the NPC appears.
+func (s *NpcAdminServer) SetNpcVisibility(ctx context.Context, req *webv1.SetNpcVisibilityRequest) (*webv1.AdminAck, error) {
+	res, err := s.admin.SetVisibility(ctx, req.GetModeratorId(), req.GetNpcId(), req.GetEnabled())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "set visibility: %v", err)
+	}
+	return &webv1.AdminAck{Result: resultToProto(res)}, nil
+}
+
+// SetNpcShop replaces a merchant NPC's shop stock.
+func (s *NpcAdminServer) SetNpcShop(ctx context.Context, req *webv1.SetNpcShopRequest) (*webv1.AdminAck, error) {
+	items := make([]domain.NPCShopItem, 0, len(req.GetItems()))
+	for _, it := range req.GetItems() {
+		items = append(items, protoToShopItem(it))
+	}
+	res, err := s.admin.SetShop(ctx, req.GetModeratorId(), req.GetNpcId(), items)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "set shop: %v", err)
+	}
+	return &webv1.AdminAck{Result: resultToProto(res)}, nil
+}
+
+// SetItemPrice sets or clears the global price of an item.
+func (s *NpcAdminServer) SetItemPrice(ctx context.Context, req *webv1.SetItemPriceRequest) (*webv1.AdminAck, error) {
+	res, err := s.admin.SetItemPrice(ctx, req.GetModeratorId(), req.GetItemIndex(), req.GetPrice())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "set item price: %v", err)
+	}
+	return &webv1.AdminAck{Result: resultToProto(res)}, nil
+}
+
+// DeleteNpc removes a definition.
+func (s *NpcAdminServer) DeleteNpc(ctx context.Context, req *webv1.DeleteNpcRequest) (*webv1.AdminAck, error) {
+	res, err := s.admin.Delete(ctx, req.GetModeratorId(), req.GetNpcId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "delete npc: %v", err)
+	}
+	return &webv1.AdminAck{Result: resultToProto(res)}, nil
+}
+
+func adminNpcToProto(d domain.NPCDefinition) *webv1.AdminNpc {
+	shop := make([]*webv1.AdminNpcShopItem, 0, len(d.Shop))
+	for _, it := range d.Shop {
+		shop = append(shop, &webv1.AdminNpcShopItem{
+			Slot: int32(it.Slot), ItemIndex: it.ItemIndex,
+			Eff1: int32(it.Eff1), Effv1: int32(it.EffV1),
+			Eff2: int32(it.Eff2), Effv2: int32(it.EffV2),
+			Eff3: int32(it.Eff3), Effv3: int32(it.EffV3),
+		})
+	}
+	return &webv1.AdminNpc{
+		Id: d.ID, Slug: d.Slug, TemplateName: d.TemplateName, DisplayName: d.DisplayName,
+		Enabled: d.Enabled, MapId: d.MapID, PosX: d.PosX, PosY: d.PosY,
+		RouteType: int32(d.RouteType), Merchant: int32(d.Merchant), Shop: shop,
+	}
+}
+
+func protoToShopItem(it *webv1.AdminNpcShopItem) domain.NPCShopItem {
+	return domain.NPCShopItem{
+		Slot: int16(it.GetSlot()), ItemIndex: it.GetItemIndex(),
+		Eff1: uint8(it.GetEff1()), EffV1: uint8(it.GetEffv1()),
+		Eff2: uint8(it.GetEff2()), EffV2: uint8(it.GetEffv2()),
+		Eff3: uint8(it.GetEff3()), EffV3: uint8(it.GetEffv3()),
+	}
+}
+
+func resultToProto(r npcadmin.Result) webv1.AdminResult {
+	switch r {
+	case npcadmin.OK:
+		return webv1.AdminResult_ADMIN_RESULT_OK
+	case npcadmin.Forbidden:
+		return webv1.AdminResult_ADMIN_RESULT_FORBIDDEN
+	case npcadmin.NotFound:
+		return webv1.AdminResult_ADMIN_RESULT_NOT_FOUND
+	default:
+		return webv1.AdminResult_ADMIN_RESULT_INVALID
+	}
+}

@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -28,6 +29,8 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/dbclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -56,6 +59,21 @@ func envInt(key string, def int) int {
 	return n
 }
 
+// envBool reads a boolean flag default from the environment (Railway-style knob),
+// accepting the usual truthy spellings; a missing or malformed value falls back to
+// def.
+func envBool(key string, def bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return b
+}
+
 // addrOrNone renders an empty flag value as "(none)" so the boot log reads
 // clearly when an optional address (dbServer/binServer/content) is unset.
 func addrOrNone(v string) string {
@@ -77,6 +95,7 @@ func run(logger *slog.Logger) error {
 	maxMsgPerSec := flag.Float64("max-msg-per-sec", 200, "per-connection inbound message rate limit (0 = disabled)")
 	msgBurst := flag.Int("msg-burst", 400, "per-connection message burst depth")
 	contentDir := flag.String("content", os.Getenv("W2PP_CONTENT"), "path to the Release/ content tree (empty = skip; validates rates/catalogs/maps at boot)")
+	npcEditing := flag.Bool("npc-editing", envBool("W2PP_NPC_EDITING", false), "enable the moderator NPC-editing overlay (npc-editing-plan.md); needs -dbserver and -content. OFF by default: turn it on only after `dbserver import-npcs` has seeded npc_definition, else DB-managed merchant NPCs would be skipped from NPCGener.txt with nothing to replace them")
 	defStatusAddr := os.Getenv("W2PP_STATUS_ADDR")
 	if defStatusAddr == "" {
 		defStatusAddr = ":80"
@@ -93,7 +112,8 @@ func run(logger *slog.Logger) error {
 		"client_version", *clientVersion,
 		"dbserver", addrOrNone(*dbAddr),
 		"binserver", addrOrNone(*binAddr),
-		"content", addrOrNone(*contentDir))
+		"content", addrOrNone(*contentDir),
+		"npc_editing", *npcEditing)
 
 	// When -content is set, load and validate the content tree up front so a
 	// missing/corrupt mount fails fast instead of surfacing mid-session. The
@@ -129,14 +149,17 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	// Persistence: real dbServer adapter when -dbserver is set, else no-op.
+	// Persistence: real dbServer adapter when -dbserver is set, else no-op. The
+	// connection is retained (dbConn) so the NPC-config overlay can share it.
 	var persist world.Persistence = world.NopPersistence{}
+	var dbConn *grpc.ClientConn
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
 			return err
 		}
 		defer func() { _ = conn.Close() }()
+		dbConn = conn
 		persist = dbclient.New(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
@@ -157,9 +180,27 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Moderator NPC-editing overlay (npc-editing-plan.md): the single switch is
+	// -npc-editing (W2PP_NPC_EDITING), off by default so an unseeded DB never makes
+	// the NPCGener.txt merchants vanish. When on, it MUST have a dbServer (the config
+	// source) and a content tree (to resolve template bytes into the 816-byte
+	// STRUCT_MOB) — both are hard dependencies, not optional, so fail fast with a
+	// clear error rather than booting an overlay that can't read or spawn anything.
+	var npcConfig npccfg.Source
+	if *npcEditing {
+		if dbConn == nil || *contentDir == "" {
+			return fmt.Errorf("-npc-editing requires both -dbserver (config source) and -content (NPC templates)")
+		}
+		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
+			return content.LoadNPCTemplate(*contentDir, name)
+		}, logger)
+		logger.Info("npc config overlay enabled (moderator editing)")
+	}
+
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, Spells: spells, Heights: heights,
+		NpcConfig: npcConfig,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -192,9 +233,14 @@ func run(logger *slog.Logger) error {
 	}
 
 	// Populate the world with NPCs/monsters from NPCGener.txt (before Serve starts
-	// the loop, so spawning is single-threaded). Capped to fit the mob slots.
+	// the loop, so spawning is single-threaded). Capped to fit the mob slots. When
+	// the DB overlay is active, merchant blocks are skipped here (owned by
+	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
-		spawnNPCs(w, *contentDir, logger)
+		spawnNPCs(w, *contentDir, npcConfig != nil, logger)
+	}
+	if npcConfig != nil {
+		dispatch.ApplyNPCConfigBoot(w)
 	}
 
 	ln, err := net.Listen("tcp", *addr)
@@ -219,7 +265,7 @@ func run(logger *slog.Logger) error {
 // front so the world is playable immediately. This burns the LCG at boot (one
 // stream for all spawns, like the original's global rand()); there is no legacy
 // boot rand order to diverge from.
-func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
+func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
@@ -241,10 +287,18 @@ func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
 	}
 
 	wgens := make([]*world.Generator, len(gens))
+	skipped := 0
 	for i, g := range gens {
 		leader := load(g.Leader)
 		if leader == nil {
 			continue // block unusable without its Leader template (~1400 miss files)
+		}
+		// When DB-managed NPC config is active, merchant blocks are owned by
+		// npc_definition (materialized by the dispatcher overlay), so skip them here
+		// to avoid double-spawning. Monsters / non-shop NPCs stay on NPCGener.txt.
+		if skipMerchants && protocol.ParseMobBasics(leader).Merchant != 0 {
+			skipped++
+			continue
 		}
 		wg := &world.Generator{
 			MinuteGenerate: g.MinuteGenerate,
@@ -271,7 +325,8 @@ func spawnNPCs(w *world.World, dir string, logger *slog.Logger) {
 			total += len(w.GenerateMob(i))
 		}
 	}
-	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates))
+	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
+		"merchant_blocks_skipped", skipped)
 }
 
 // serveStatusHTTP runs the channel-status web server (serv00.htm). It answers any

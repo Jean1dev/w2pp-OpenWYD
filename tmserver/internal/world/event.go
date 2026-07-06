@@ -112,6 +112,16 @@ func (e callbackEvent) apply(w *World) {
 	e.cb(w, e.sess)
 }
 
+// worldCallbackEvent carries the result of off-loop work that is NOT tied to a
+// session (World.GoDetached) — e.g. an NPC-config reload. It always applies (no
+// session-liveness guard), so its callback runs inside the loop goroutine and
+// may mutate world state directly.
+type worldCallbackEvent struct {
+	cb func(*World)
+}
+
+func (e worldCallbackEvent) apply(w *World) { e.cb(w) }
+
 // --- disconnect ---
 
 type disconnectEvent struct {
