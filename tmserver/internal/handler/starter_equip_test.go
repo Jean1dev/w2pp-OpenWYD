@@ -28,13 +28,13 @@ func TestStarterEquip(t *testing.T) {
 	if eq[6].Index != 816 {
 		t.Errorf("weapon = %d, want 816", eq[6].Index)
 	}
-	if eq[mountEquipSlot].Index != shireMountIndex {
-		t.Errorf("mount[14] = %d, want %d (Shire)", eq[mountEquipSlot].Index, shireMountIndex)
+	if !eq[mountEquipSlot].Empty() {
+		t.Errorf("mount[14] = %+v, want empty (mounts are acquired in-game, not granted)", eq[mountEquipSlot])
 	}
 
-	// A class with no template still receives the Shire mount (and nothing else).
+	// A class with no template receives nothing at all.
 	noTmpl := d.starterEquip(99)
-	if noTmpl[mountEquipSlot].Index != shireMountIndex || !noTmpl[0].Empty() {
+	if !noTmpl[mountEquipSlot].Empty() || !noTmpl[0].Empty() {
 		t.Errorf("no-template seed = %+v", noTmpl)
 	}
 
@@ -118,7 +118,7 @@ func TestComputeScoreReadsLiveFields(t *testing.T) {
 		t.Errorf("AttackRun = %#x, want base %#x", sc.AttackRun, baseAttackRun)
 	}
 	// Equipping a mount raises the move-speed (low) nibble.
-	e.Equip[mountEquipSlot] = world.Item{Index: shireMountIndex}
+	e.Equip[mountEquipSlot] = world.Item{Index: 342} // any mount item, e.g. Shire
 	if sc := d.computeScore(e); sc.AttackRun != (baseAttackRun&0xF0)|mountedMoveSpeed {
 		t.Errorf("mounted AttackRun = %#x, want %#x", sc.AttackRun, (baseAttackRun&0xF0)|mountedMoveSpeed)
 	}
