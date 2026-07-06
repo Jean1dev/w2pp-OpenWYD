@@ -94,13 +94,27 @@ func (d *Dispatcher) deleteCharacter(w *world.World, s *world.Session, _ protoco
 	p := w.Persistence()
 	w.Go(s, func() func(*world.World, *world.Session) {
 		ok, err := p.DeleteCharacter(context.Background(), accID, slot, name, pass)
+		if err != nil || !ok {
+			return func(w *world.World, s *world.Session) {
+				s.Mode = world.UserSelChar
+				w.Send(s, protocol.MsgNewCharacterFail, nil)
+			}
+		}
+		// Success: re-fetch the list and resend the full SELCHAR, same as
+		// createCharacter. MSG_CNFDeleteCharacter (Basedef.h:1646-1652) carries the
+		// identical `STRUCT_SELCHAR sel` body as MSG_CNFNewCharacter — without
+		// resending the refreshed list, the client keeps its stale pre-delete slot
+		// array, which desyncs the remaining characters on screen until relogin.
+		chars, lerr := p.ListCharacters(context.Background(), accID)
 		return func(w *world.World, s *world.Session) {
 			s.Mode = world.UserSelChar
-			if err != nil || !ok {
+			if lerr != nil {
+				d.log.Warn("delete char: list after delete failed", "conn", s.Conn, "err", lerr)
 				w.Send(s, protocol.MsgNewCharacterFail, nil)
 				return
 			}
-			w.Send(s, protocol.MsgCNFDeleteCharacter, nil)
+			respBody := protocol.EncodeCNFNewCharacterBody(d.selCharsFrom(chars))
+			w.SendTo(s, protocol.Header{Type: protocol.MsgCNFDeleteCharacter, ID: protocol.IDNewCharacter}, respBody)
 		}
 	})
 }

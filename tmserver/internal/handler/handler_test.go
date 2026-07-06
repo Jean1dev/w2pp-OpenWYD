@@ -96,9 +96,33 @@ func (f *fakeDB) CreateCharacter(context.Context, int64, int, string, int) (bool
 	return true, nil
 }
 
-func (f *fakeDB) DeleteCharacter(context.Context, int64, int, string, string) (bool, error) {
+func (f *fakeDB) DeleteCharacter(_ context.Context, accountID int64, slot int, _, _ string) (bool, error) {
 	f.deleted++
+	for _, a := range f.accounts {
+		if a.id != accountID {
+			continue
+		}
+		kept := a.chars[:0]
+		for _, c := range a.chars {
+			if c.Slot != slot {
+				kept = append(kept, c)
+			}
+		}
+		a.chars = kept
+	}
 	return true, nil
+}
+
+// ListCharacters mirrors the account's remaining chars (minus deletions), so
+// tests can assert the post-delete SELCHAR response reflects the real list
+// instead of an empty/stale one.
+func (f *fakeDB) ListCharacters(_ context.Context, accountID int64) ([]world.CharSummary, error) {
+	for _, a := range f.accounts {
+		if a.id == accountID {
+			return a.chars, nil
+		}
+	}
+	return nil, nil
 }
 
 func (f *fakeDB) LoadCharacter(_ context.Context, accountID int64, _ int) (world.CharacterState, error) {
@@ -214,7 +238,10 @@ func noticeCode(t *testing.T, payload []byte) Notice {
 
 func newDB() *fakeDB {
 	return &fakeDB{accounts: map[string]*fakeAccount{
-		"tester": {id: 7, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "Hero", Class: 1, Level: 50, Coin: 987654, MaxHp: 1500, Str: 75}}},
+		"tester": {id: 7, pass: "secret", chars: []world.CharSummary{
+			{Slot: 0, Name: "Hero", Class: 1, Level: 50, Coin: 987654, MaxHp: 1500, Str: 75},
+			{Slot: 1, Name: "Sidekick", Class: 1, Level: 10},
+		}},
 		"banned": {id: 8, pass: "x", blocked: true},
 		"online": {id: 9, pass: "x", alreadyPlaying: true},
 		"tradeb": {id: 11, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "HeroB", Class: 1, Level: 50}}},
@@ -406,11 +433,25 @@ func TestDeleteCharacter(t *testing.T) {
 	copy(body.MobName[:], "Hero")
 	copy(body.Password[:], "secret")
 	send(t, c, protocol.MsgDeleteCharacter, body.Encode())
-	if ty, _ := read(t, c); ty != protocol.MsgCNFDeleteCharacter {
-		t.Errorf("got %#x, want CNFDeleteCharacter", ty)
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFDeleteCharacter {
+		t.Fatalf("got %#x, want CNFDeleteCharacter", ty)
 	}
 	if db.deleted != 1 {
 		t.Errorf("backend DeleteCharacter called %d times, want 1", db.deleted)
+	}
+	// MSG_CNFDeleteCharacter (Basedef.h:1646-1652) carries a full STRUCT_SELCHAR,
+	// byte-identical to MSG_CNFNewCharacter's body (sel@4, 840 bytes). Sending an
+	// empty payload here leaves the client's pre-delete slot array stale, which is
+	// the "other characters disappear / bugged entries" bug (issue #20).
+	if len(payload) != 844 {
+		t.Fatalf("CNFDeleteCharacter body = %d bytes, want 844 (refreshed SELCHAR)", len(payload))
+	}
+	if got := cstr(payload[4+16 : 4+16+16]); got != "" {
+		t.Errorf("deleted slot-0 name = %q, want empty", got)
+	}
+	if got := cstr(payload[4+16+16 : 4+16+32]); got != "Sidekick" {
+		t.Errorf("slot-1 name = %q, want Sidekick (remaining char must still be reported)", got)
 	}
 }
 
