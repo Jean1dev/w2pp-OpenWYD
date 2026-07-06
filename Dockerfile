@@ -17,9 +17,10 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./${SVC}/cmd/$
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/app /app
 # Bake the game content tree so tmServer (W2PP_CONTENT=/Release) can load
-# rates/catalogs/BaseMob templates at boot. Without it the char-login handler
-# falls back to a template-less CNFCharacterLogin that the real client rejects
-# (crash on entering the world). Only tmServer reads it; other services ignore it.
+# rates/catalogs/BaseMob templates at boot and webserver can scan merchant
+# templates + ItemList.csv for the moderator UI. Without it the char-login
+# handler falls back to a template-less CNFCharacterLogin that the real client
+# rejects (crash on entering the world). dbserver/binserver ignore it.
 # The heavy legacy artifacts are stripped by .dockerignore.
 COPY --from=build /src/Release /Release
 ENTRYPOINT ["/app"]
