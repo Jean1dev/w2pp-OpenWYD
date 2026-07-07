@@ -203,7 +203,7 @@ func run(logger *slog.Logger) error {
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, Spells: spells, Heights: heights,
 		CombineFamilies: combineFamilies,
-		NpcConfig: npcConfig,
+		NpcConfig:       npcConfig,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
