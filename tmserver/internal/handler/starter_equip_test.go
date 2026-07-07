@@ -73,7 +73,7 @@ func TestEquipScoreRoundTrip(t *testing.T) {
 	}})
 	// Loaded CurrentScore (with the chest already equipped: AC/Con include it).
 	e := &world.Entity{
-		ID: world.MaxUser + 1,
+		ID:    world.MaxUser + 1,
 		Level: 50, AC: 150, Damage: 200, MaxHP: 1000, HP: 1000, MaxMP: 300, MP: 300,
 		Str: 60, Int: 10, Dex: 20, Con: 35,
 	}

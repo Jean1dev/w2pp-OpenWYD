@@ -147,9 +147,9 @@ func TestApplyBonusScore(t *testing.T) {
 	db.loadResult = world.CharacterState{
 		Slot: 0, Name: "Hero", Class: 0, ClassMaster: classMasterMortal, X: 5, Y: 5,
 		HP: 1000, MaxHP: 1000, Str: 11, Dex: 10, Level: 10,
-		Damage: 50 + 11/2 + 10/3 + 10,
+		Damage:     50 + 11/2 + 10/3 + 10,
 		ScoreBonus: 5,
-		Equip: [world.MaxEquip]world.Item{{Index: 11}},
+		Equip:      [world.MaxEquip]world.Item{{Index: 11}},
 	}
 	addr, stop, _ := startServerClock(t, db)
 	defer stop()

@@ -115,9 +115,9 @@ func TestApplyBonusScoreIncreasesDamage(t *testing.T) {
 		Slot: 0, Name: "Hero", Class: 0, ClassMaster: classMasterMortal, X: 5, Y: 5,
 		HP: 500, MaxHP: 500, MP: 200, MaxMP: 200,
 		Level: 10, Str: 20, Dex: 15, Con: 10, AC: 50,
-		Damage: flat + attributeDamageBonus(e, false),
+		Damage:     flat + attributeDamageBonus(e, false),
 		ScoreBonus: 10,
-		Equip: [world.MaxEquip]world.Item{{Index: 11}},
+		Equip:      [world.MaxEquip]world.Item{{Index: 11}},
 	}
 	addr, stop, _ := startServerClock(t, db)
 	defer stop()
