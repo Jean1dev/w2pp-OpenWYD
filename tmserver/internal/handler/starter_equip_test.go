@@ -73,6 +73,7 @@ func TestEquipScoreRoundTrip(t *testing.T) {
 	}})
 	// Loaded CurrentScore (with the chest already equipped: AC/Con include it).
 	e := &world.Entity{
+		ID: world.MaxUser + 1,
 		Level: 50, AC: 150, Damage: 200, MaxHP: 1000, HP: 1000, MaxMP: 300, MP: 300,
 		Str: 60, Int: 10, Dex: 20, Con: 35,
 	}
@@ -109,7 +110,8 @@ func TestEquipScoreRoundTrip(t *testing.T) {
 
 func TestComputeScoreReadsLiveFields(t *testing.T) {
 	d := New(Config{})
-	e := &world.Entity{Level: 50, AC: 120, Damage: 205, Str: 70, MaxHP: 1000, HP: 990}
+	e := &world.Entity{ID: 1, Level: 50, AC: 120, Damage: 205, Str: 70, MaxHP: 1000, HP: 990}
+	e.Equip[0] = world.Item{Index: 11}
 	sc := d.computeScore(e)
 	if sc.Ac != 120 || sc.Damage != 205 || sc.Str != 70 {
 		t.Errorf("computeScore = AC %d Damage %d Str %d, want 120/205/70", sc.Ac, sc.Damage, sc.Str)
