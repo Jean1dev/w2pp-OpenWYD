@@ -1,11 +1,11 @@
 package level
 
 const (
-	classArch       uint8 = 1
-	classMortal     uint8 = 2
-	classCelestial  uint8 = 3
+	classArch        uint8 = 1
+	classMortal      uint8 = 2
+	classCelestial   uint8 = 3
 	classCelestialCS uint8 = 4
-	classSCelestial uint8 = 5
+	classSCelestial  uint8 = 5
 
 	soloExpCap int64 = 10_000_000
 )

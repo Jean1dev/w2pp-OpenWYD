@@ -56,9 +56,9 @@ type Config struct {
 	// ItemPos maps item index → nPos (equip-slot class) for the refine (+9) threshold
 	// bonuses. ItemUnique maps index → nUnique (gates EF_DAMAGEADD to jewels).
 	// ItemGrades maps index → Grade (grade-7 pieces grant +2 ExpBonus).
-	ItemPos     map[int]int
-	ItemUnique  map[int]int
-	ItemGrades  map[int]int
+	ItemPos    map[int]int
+	ItemUnique map[int]int
+	ItemGrades map[int]int
 
 	// ExpEvents toggles global EXP modifiers (MobKilled.cpp:537-549, Server.cpp defaults).
 	ExpEvents level.ExpEvents

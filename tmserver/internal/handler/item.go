@@ -125,10 +125,10 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
-	volExpChest = 198
-	volDivine7  = 64
-	volDivine30 = 66
-	affect1H    = 450
+	volExpChest       = 198
+	volDivine7        = 64
+	volDivine30       = 66
+	affect1H          = 450
 	affectExpChestInc = affect1H * 2
 	affectTimeCap     = 324000
 	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —

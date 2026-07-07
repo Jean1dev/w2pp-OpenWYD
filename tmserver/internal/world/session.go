@@ -175,7 +175,7 @@ type Entity struct {
 	// are cached the same way and applied at READ time (effective getters), so
 	// the persisted flat score never bakes a buff in (no double-count on
 	// re-login — same policy as HpAddPct/Divine).
-	Rsv        uint8
+	Rsv           uint8
 	AffDamage     int32
 	AffAC         int32
 	AffMaxHP      int32
