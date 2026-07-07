@@ -347,6 +347,20 @@ func TestDivineAffectBonus(t *testing.T) {
 	}
 }
 
+// TestVigorAffectBonus verifies Poção de Vigor (Affect 35) adds +10% MaxHp/MaxMp.
+func TestVigorAffectBonus(t *testing.T) {
+	e := &world.Entity{BaseMaxHP: 1000, BaseMaxMP: 500}
+	d := New(Config{})
+	d.refreshScore(e)
+	e.Affect[0] = world.Affect{Type: world.AffectVigor, Level: 1}
+	if got := effectiveMaxHP(e); got != 1100 {
+		t.Errorf("vigor effectiveMaxHP = %d, want 1100 (+10%%)", got)
+	}
+	if got := effectiveMaxMP(e); got != 550 {
+		t.Errorf("vigor effectiveMaxMP = %d, want 550 (+10%%)", got)
+	}
+}
+
 // TestEquipBonusRefine verifies the refine (+9) THRESHOLD on a defense piece: a
 // refined (sanc>=9) item whose nPos is a defense slot (4/8/128) gains a flat +25 AC on
 // top of its catalog AC; below +9 there is no threshold bonus (captura §E).

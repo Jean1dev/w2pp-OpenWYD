@@ -127,9 +127,13 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 const (
 	volDivine7  = 64
 	volDivine30 = 66
+	volVigor    = 58
 	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —
 	// the actual expiry is DivineEnd (wall-clock), not this field (captura §B).
 	divineAffectTime = 2000000000
+	// affect tick units (Basedef.h): one tick = 8s of real time.
+	affect1H = 450
+	affect1D = 10800
 )
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
@@ -159,6 +163,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useSkillBook(w, s, e, src, vol)
 	case vol >= volDivine7 && vol <= volDivine30:
 		d.useDivine(w, s, e, src, vol)
+	case vol == volVigor:
+		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
 	}
@@ -214,9 +220,6 @@ func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity
 // days and recomputes the score so the client sees +20% MaxHp/MaxMp/Damage. Mirrors
 // _MSG_UseItem.cpp:2128 (captura §B,C). If the player is already divine, it refuses
 // (_NN_CantEatMore) and re-syncs the item slot.
-//
-// NOTE: DivineEnd/Affect are NOT persisted yet — the buff is lost on relog (a focused
-// follow-up; the DB `affect` table and a DivineEnd column are the next step).
 func (d *Dispatcher) useDivine(w *world.World, s *world.Session, e *world.Entity, src, vol int) {
 	slot := e.EmptyAffect(world.AffectDivine)
 	if slot < 0 || e.Affect[slot].Type == world.AffectDivine {
@@ -236,6 +239,32 @@ func (d *Dispatcher) useDivine(w *world.World, s *world.Session, e *world.Entity
 	e.Affect[slot] = world.Affect{Type: world.AffectDivine, Level: 1, Time: divineAffectTime}
 	e.Carry[src] = world.Item{} // consume one unit (stacking not modeled yet)
 	d.refreshScore(e)           // re-clamp; the +20% is read-time (effective getters)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// useVigor consumes a Poção de Vigor (EF_VOLATILE 58): Affect 35 adds +10% MaxHp/MaxMp
+// at read time (_MSG_UseItem.cpp:2174, captura §B,C). Re-applying refreshes the slot.
+func (d *Dispatcher) useVigor(w *world.World, s *world.Session, e *world.Entity, src, itemIdx int) {
+	slot := e.EmptyAffect(world.AffectVigor)
+	if slot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	ticks := uint32(affect1H)
+	switch itemIdx {
+	case 3364:
+		ticks = affect1D * 7
+	case 3365:
+		ticks = affect1D * 15
+	case 3366:
+		ticks = affect1D * 30
+	}
+	e.Affect[slot] = world.Affect{Type: world.AffectVigor, Level: 1, Time: ticks}
+	e.Carry[src] = world.Item{}
+	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)

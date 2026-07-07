@@ -37,6 +37,10 @@ func TestLoadCompRate(t *testing.T) {
 	if c.Families() < 4 {
 		t.Errorf("families = %d, want >= 4", c.Families())
 	}
+	ch := c.AnctChance()
+	if ch != [3]int{2, 4, 10} {
+		t.Errorf("AnctChance = %v, want [2 4 10]", ch)
+	}
 }
 
 func TestLoadSancRate(t *testing.T) {
@@ -88,10 +92,9 @@ func TestBaseEffects(t *testing.T) {
 	for _, e := range eff {
 		got[e.Eff] = e.Val
 	}
-	// Only score-relevant effects are kept: EF_AC=3 →96, EF_DAMAGE=2 →24. The rest
-	// (EF_CLASS/EF_GRID/EF_RUNSPEED/EF_REGENMP/EF_ITEMLEVEL) are ignored.
-	if len(got) != 2 || got[3] != 96 || got[2] != 24 {
-		t.Errorf("BaseEffects = %v, want {AC(3):96, DAMAGE(2):24}", got)
+	// Score-relevant effects plus EF_ITEMLEVEL (used by combine matching).
+	if len(got) != 3 || got[3] != 96 || got[2] != 24 || got[87] != 5 {
+		t.Errorf("BaseEffects = %v, want AC(3):96, DAMAGE(2):24, ITEMLEVEL(87):5", got)
 	}
 }
 
