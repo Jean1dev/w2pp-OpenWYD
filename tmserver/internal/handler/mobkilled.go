@@ -79,6 +79,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 // party distribution, and the per-level reward items (DoItemLevel).
 func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
 	gain := level.ExpApply(mob.Exp, killer.Level, mob.Level)
+	gain = level.SoloExpReward(gain, killer.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
 	if gain <= 0 {
 		return
 	}

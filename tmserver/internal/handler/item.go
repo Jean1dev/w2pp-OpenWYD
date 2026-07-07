@@ -125,8 +125,12 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
+	volExpChest = 198
 	volDivine7  = 64
 	volDivine30 = 66
+	affect1H    = 450
+	affectExpChestInc = affect1H * 2
+	affectTimeCap     = 324000
 	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —
 	// the actual expiry is DivineEnd (wall-clock), not this field (captura §B).
 	divineAffectTime = 2000000000
@@ -157,6 +161,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.equipItem(w, s, e, body, payload)
 	case vol >= volSephiraLo && vol <= volSephiraHi:
 		d.useSkillBook(w, s, e, src, vol)
+	case vol == volExpChest:
+		d.useExpChest(w, s, e, src)
 	case vol >= volDivine7 && vol <= volDivine30:
 		d.useDivine(w, s, e, src, vol)
 	default:
@@ -208,6 +214,28 @@ func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
 	d.refreshEquip(w, s, e)                 // update the rendered gear
+}
+
+func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Entity, src int) {
+	slot := e.EmptyAffect(world.AffectExpChest)
+	if slot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	af := &e.Affect[slot]
+	af.Type = world.AffectExpChest
+	af.Level = 0
+	af.Value = 0
+	af.Time += affectExpChestInc
+	if af.Time > affectTimeCap {
+		af.Time = affectTimeCap
+	}
+	e.Carry[src] = world.Item{}
+	d.refreshScore(e)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
 }
 
 // useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31
@@ -543,6 +571,7 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	// Affect stage (Buff Loop): recompute the read-time buff caches + Rsv flags
 	// over the flat score just rebuilt.
 	applyAffectScore(e)
+	e.EquipExpBonus = d.equipExpBonus(e)
 	if m := effectiveMaxHP(e); e.HP > m {
 		e.HP = m
 	}

@@ -136,6 +136,21 @@ func (l *ItemList) Ranges() map[int]int16 {
 	return out
 }
 
+// Grades returns item index → Grade (STRUCT_ITEMLIST.Grade — CSV column 8 per
+// BASE_ReadItemListFile sscanf in Basedef.cpp:5718). UNVERIFIED against every row
+// until content_test pins samples; used for grade-7 ExpBonus (+2 per piece).
+func (l *ItemList) Grades() map[int]int {
+	out := make(map[int]int)
+	for idx, e := range l.items {
+		if len(e.Fields) > 8 {
+			if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[8])); err == nil {
+				out[idx] = v
+			}
+		}
+	}
+	return out
+}
+
 // Positions returns item index → nPos (STRUCT_ITEMLIST.nPos, the equip-slot class —
 // CSV column 6). nPos drives the refine (+9) threshold bonuses: weapons 64/192 add
 // +40 weapon damage, defense pieces 4/8/128 add +25 AC (captura §E). Confirmed by

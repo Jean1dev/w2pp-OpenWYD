@@ -1,10 +1,16 @@
 package handler
 
 import (
+	"context"
+	"encoding/binary"
+	"io"
+	"log/slog"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -423,5 +429,79 @@ func TestTradingItemEmptyMove(t *testing.T) {
 	tradeItemFrame(t, c, world.ItemPlaceCarry, 10, world.ItemPlaceCarry, 11, 0) // both empty
 	if ty, _, ok := readMaybe(t, c); ok {
 		t.Errorf("empty→empty move produced %#x; should be a no-op", ty)
+	}
+}
+
+func expChestDB() *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 4140}
+	db.loadResult = st
+	return db
+}
+
+func startServerClockVol(t *testing.T, persist world.Persistence, vols map[int]int) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, ItemVolatiles: vols, ExpEvents: level.ExpEvents{KefraLive: true}})
+	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
+func TestUseExpChest(t *testing.T) {
+	addr, stop := startServerClockVol(t, expChestDB(), map[int]int{4140: volExpChest})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawAffect, sawScore := false, false, false
+	for range 6 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[4:6]) != 0 {
+				t.Errorf("carry slot 0 item = %d, want empty after use", le16(payload[4:6]))
+			}
+		case protocol.MsgSendAffect:
+			sawAffect = true
+			if payload[0] != world.AffectExpChest {
+				t.Errorf("affect type = %d, want %d", payload[0], world.AffectExpChest)
+			}
+			if got := binary.LittleEndian.Uint32(payload[4:8]); got != affectExpChestInc {
+				t.Errorf("affect time = %d, want %d", got, affectExpChestInc)
+			}
+		case protocol.MsgUpdateScore:
+			sawScore = true
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using exp chest")
+	}
+	if !sawAffect {
+		t.Error("missing MsgSendAffect after using exp chest")
+	}
+	if !sawScore {
+		t.Error("missing MsgUpdateScore after using exp chest")
 	}
 }
