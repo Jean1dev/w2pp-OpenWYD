@@ -207,9 +207,9 @@ func run(logger *slog.Logger) error {
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, Spells: spells, Heights: heights,
-		ExpEvents: level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
-    CombineFamilies: combineFamilies,
-		NpcConfig: npcConfig,
+		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
+		CombineFamilies: combineFamilies,
+		NpcConfig:       npcConfig,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,

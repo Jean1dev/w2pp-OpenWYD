@@ -125,18 +125,18 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
-	volExpChest       = 198
-	volDivine7        = 64
-	volDivine30       = 66
+	volExpChest = 198
+	volDivine7  = 64
+	volDivine30 = 66
+	volVigor    = 58
+	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
+	affect1D          = 10800
 	affectExpChestInc = affect1H * 2
 	affectTimeCap     = 324000
 	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —
 	// the actual expiry is DivineEnd (wall-clock), not this field (captura §B).
 	divineAffectTime = 2000000000
-	// affect tick units (Basedef.h): one tick = 8s of real time.
-	affect1H = 450
-	affect1D = 10800
 )
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
@@ -600,7 +600,7 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	applyAffectScore(e)
-  
+
 	e.EquipExpBonus = d.equipExpBonus(e)
 	if isPlayerMob(e) {
 		e.Damage += attributeDamageBonus(e, true)
