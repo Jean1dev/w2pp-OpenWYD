@@ -333,7 +333,7 @@ func TestRepairEquip(t *testing.T) {
 // effective MaxHp/MaxMp/Damage at read time, and is the identity when absent (captura §C).
 func TestDivineAffectBonus(t *testing.T) {
 	d := New(Config{})
-	e := &world.Entity{BaseMaxHP: 1000, BaseMaxMP: 500, BaseDamage: 200}
+	e := &world.Entity{ID: world.MaxUser + 1, BaseMaxHP: 1000, BaseMaxMP: 500, BaseDamage: 200}
 	d.refreshScore(e)
 	if got := effectiveMaxHP(e); got != 1000 {
 		t.Fatalf("no-buff effectiveMaxHP = %d, want 1000", got)
@@ -350,6 +350,20 @@ func TestDivineAffectBonus(t *testing.T) {
 	}
 	if got := d.effectiveDamage(e); got != 240 {
 		t.Errorf("divine effectiveDamage = %d, want 240 (+20%%)", got)
+	}
+}
+
+// TestVigorAffectBonus verifies Poção de Vigor (Affect 35) adds +10% MaxHp/MaxMp.
+func TestVigorAffectBonus(t *testing.T) {
+	e := &world.Entity{BaseMaxHP: 1000, BaseMaxMP: 500}
+	d := New(Config{})
+	d.refreshScore(e)
+	e.Affect[0] = world.Affect{Type: world.AffectVigor, Level: 1}
+	if got := effectiveMaxHP(e); got != 1100 {
+		t.Errorf("vigor effectiveMaxHP = %d, want 1100 (+10%%)", got)
+	}
+	if got := effectiveMaxMP(e); got != 550 {
+		t.Errorf("vigor effectiveMaxMP = %d, want 550 (+10%%)", got)
 	}
 }
 

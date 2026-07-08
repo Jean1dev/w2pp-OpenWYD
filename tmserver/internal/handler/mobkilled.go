@@ -97,6 +97,7 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 		// the MORTAL level-up grants (CMob.cpp:1121-1129; tiers deferred).
 		killer.BaseMaxHP = addClamp(killer.BaseMaxHP, level.IncHP(killer.Class), level.MaxHPCap)
 		killer.BaseMaxMP = addClamp(killer.BaseMaxMP, level.IncMP(killer.Class), level.MaxMPCap)
+		killer.BaseAC++
 		if killer.Level >= 200 {
 			killer.SkillBonus += 4
 		} else {

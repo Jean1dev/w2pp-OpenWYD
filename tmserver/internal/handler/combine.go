@@ -44,16 +44,12 @@ func defaultCombineFamily(name string) CombineFamily {
 	return CombineFamily{Name: name, Rate: func([]world.Item) int { return 0 }, Apply: anctApply}
 }
 
-// anctApply is the base Anct result (game-rules.md §3.1).
-//
-// UNVERIFIED: extra = ItemList[base].Extra needs the item catalog (Phase 5), and
-// the sanc storage (BASE_SetItemSanc) encoding is unconfirmed — this sets the
-// jewel-derived index and leaves the byte-exact effect layout for later.
+// anctApply is the base Anct result fallback when no content catalog is mounted.
 func anctApply(items []world.Item) world.Item {
 	result := items[0]
 	if len(items) >= 2 {
 		if joia := int(items[1].Index) - jewelBase; joia >= 0 && joia <= 3 {
-			result.Index = int16(joia) // + ItemList[base].Extra (UNVERIFIED)
+			result.Index = int16(joia)
 		}
 	}
 	setSanc(&result, resultSanc)

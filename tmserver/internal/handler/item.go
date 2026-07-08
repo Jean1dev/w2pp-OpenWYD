@@ -134,6 +134,9 @@ const (
 	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —
 	// the actual expiry is DivineEnd (wall-clock), not this field (captura §B).
 	divineAffectTime = 2000000000
+	// affect tick units (Basedef.h): one tick = 8s of real time.
+	affect1H = 450
+	affect1D = 10800
 )
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
@@ -165,6 +168,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useExpChest(w, s, e, src)
 	case vol >= volDivine7 && vol <= volDivine30:
 		d.useDivine(w, s, e, src, vol)
+	case vol == volVigor:
+		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
 	}
@@ -242,9 +247,6 @@ func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Enti
 // days and recomputes the score so the client sees +20% MaxHp/MaxMp/Damage. Mirrors
 // _MSG_UseItem.cpp:2128 (captura §B,C). If the player is already divine, it refuses
 // (_NN_CantEatMore) and re-syncs the item slot.
-//
-// NOTE: DivineEnd/Affect are NOT persisted yet — the buff is lost on relog (a focused
-// follow-up; the DB `affect` table and a DivineEnd column are the next step).
 func (d *Dispatcher) useDivine(w *world.World, s *world.Session, e *world.Entity, src, vol int) {
 	slot := e.EmptyAffect(world.AffectDivine)
 	if slot < 0 || e.Affect[slot].Type == world.AffectDivine {
@@ -264,6 +266,32 @@ func (d *Dispatcher) useDivine(w *world.World, s *world.Session, e *world.Entity
 	e.Affect[slot] = world.Affect{Type: world.AffectDivine, Level: 1, Time: divineAffectTime}
 	e.Carry[src] = world.Item{} // consume one unit (stacking not modeled yet)
 	d.refreshScore(e)           // re-clamp; the +20% is read-time (effective getters)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// useVigor consumes a Poção de Vigor (EF_VOLATILE 58): Affect 35 adds +10% MaxHp/MaxMp
+// at read time (_MSG_UseItem.cpp:2174, captura §B,C). Re-applying refreshes the slot.
+func (d *Dispatcher) useVigor(w *world.World, s *world.Session, e *world.Entity, src, itemIdx int) {
+	slot := e.EmptyAffect(world.AffectVigor)
+	if slot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	ticks := uint32(affect1H)
+	switch itemIdx {
+	case 3364:
+		ticks = affect1D * 7
+	case 3365:
+		ticks = affect1D * 15
+	case 3366:
+		ticks = affect1D * 30
+	}
+	e.Affect[slot] = world.Affect{Type: world.AffectVigor, Level: 1, Time: ticks}
+	e.Carry[src] = world.Item{}
+	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
@@ -532,17 +560,19 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 }
 
 // deriveBaseScore captures the equipment-free BaseScore from the loaded
-// CurrentScore (called once on login): base = current − equipBonus. The weapon
-// damage is not in the loaded CurrentScore, so it is not subtracted. After this,
-// refreshScore reproduces the loaded CurrentScore exactly until gear changes.
+// CurrentScore (called once on login): base = current − equipBonus − derived
+// combat bonuses (attribute/class-weapon damage, skill AC). WeaponDamage is not
+// in the loaded CurrentScore, so it is not subtracted. After this, refreshScore
+// reproduces the loaded CurrentScore exactly until gear changes.
 func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	b := d.equipBonus(e)
 	e.BaseStr = e.Str - b.str
 	e.BaseInt = e.Int - b.intel
 	e.BaseDex = e.Dex - b.dex
 	e.BaseCon = e.Con - b.con
-	e.BaseAC = e.AC - b.ac
-	e.BaseDamage = e.Damage - b.damage
+	flatAC := invertSkillACBonus(e, e.AC-b.ac)
+	e.BaseAC = flatAC
+	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 }
@@ -562,16 +592,19 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	for i := range e.Special { // allocated mastery + gear (EF_SPECIAL1..4)
 		e.Special[i] = e.BaseSpecial[i] + b.special[i]
 	}
-	e.AC = e.BaseAC + b.ac
-	e.Damage = e.BaseDamage + b.damage
+	flatAC := e.BaseAC + b.ac
+	e.AC = flatAC + skillDerivedACBonus(e, flatAC)
+	e.Damage = e.BaseDamage + b.damage + d.derivedDamageBeforeAffects(e)
 	e.MaxHP = e.BaseMaxHP + b.maxHP
 	e.MaxMP = e.BaseMaxMP + b.maxMP
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
-	// Affect stage (Buff Loop): recompute the read-time buff caches + Rsv flags
-	// over the flat score just rebuilt.
 	applyAffectScore(e)
+  
 	e.EquipExpBonus = d.equipExpBonus(e)
+	if isPlayerMob(e) {
+		e.Damage += attributeDamageBonus(e, true)
+	}
 	if m := effectiveMaxHP(e); e.HP > m {
 		e.HP = m
 	}

@@ -129,10 +129,11 @@ func run(logger *slog.Logger) error {
 	var itemReqs map[int]content.ItemReq
 	var itemVolatiles, itemPos, itemUnique, itemGrades map[int]int
 	var itemRanges map[int]int16
+	var combineFamilies map[protocol.Type]handler.CombineFamily
 	var spells *content.SkillData
 	var heights *content.Grid
 	if *contentDir != "" {
-		items, skills, hm, err := loadContent(*contentDir, logger)
+		items, comp, skills, hm, err := loadContent(*contentDir, logger)
 		if err != nil {
 			return err
 		}
@@ -140,6 +141,7 @@ func run(logger *slog.Logger) error {
 		itemVolatiles, itemPos, itemUnique = items.Volatiles(), items.Positions(), items.Uniques()
 		itemGrades = items.Grades()
 		itemRanges = items.Ranges()
+		combineFamilies = handler.DefaultCombineFamilies(handler.NewCombineCatalog(items, comp))
 		spells = skills
 		heights = hm
 	}
@@ -206,6 +208,7 @@ func run(logger *slog.Logger) error {
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, Spells: spells, Heights: heights,
 		ExpEvents: level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
+    CombineFamilies: combineFamilies,
 		NpcConfig: npcConfig,
 	})
 	w := world.New(world.Config{
@@ -364,22 +367,22 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.SkillData, *content.Grid, error) {
+func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.CompRate, *content.SkillData, *content.Grid, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	sanc, err := content.LoadSancRate(filepath.Join(dir, "Common", "Settings", "SancRate.txt"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	skills, err := content.LoadSkillData(filepath.Join(dir, "Common", "SkillData.csv"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	logger.Info("content loaded",
 		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
@@ -405,5 +408,5 @@ func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.S
 	} else if hm != nil || attr != nil {
 		logger.Warn("mob pathfinding disabled: need BOTH HeightMap.dat and AttributeMap.dat")
 	}
-	return items, skills, heights, nil
+	return items, comp, skills, heights, nil
 }

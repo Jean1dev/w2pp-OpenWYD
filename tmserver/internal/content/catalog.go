@@ -66,8 +66,9 @@ var efName = map[string]uint8{
 	"EF_DAMAGE": 2, "EF_AC": 3, "EF_HP": 4, "EF_MP": 5,
 	"EF_STR": 7, "EF_INT": 8, "EF_DEX": 9, "EF_CON": 10,
 	"EF_SPECIAL1": 11, "EF_SPECIAL2": 12, "EF_SPECIAL3": 13, "EF_SPECIAL4": 14,
-	"EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
+	"EF_POS": 17, "EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
 	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70,
+	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112,
 }
 
 // BaseEffects returns item index → its score-relevant static effects, parsed from
@@ -167,10 +168,25 @@ func (l *ItemList) Positions() map[int]int {
 	return out
 }
 
-// Uniques returns item index → nUnique (STRUCT_ITEMLIST.nUnique — CSV column 7).
-// nUnique in [41,50] marks the damage-jewel items whose EF_DAMAGEADD actually counts
-// in the score (BASE_GetItemAbility, captura §B/E).
+// Uniques returns item index → nUnique (STRUCT_ITEMLIST.nUnique — CSV column 4,
+// sscanf field `unique` in BASE_ReadItemListFile). nUnique in [41,50] marks the
+// damage-jewel items whose EF_DAMAGEADD counts in the score (captura §B/E) and
+// gates the base Anct combine recipe (GetMatchCombine, GetFunc.cpp:94).
 func (l *ItemList) Uniques() map[int]int {
+	out := make(map[int]int)
+	for idx, e := range l.items {
+		if len(e.Fields) > 4 {
+			if v, err := strconv.Atoi(strings.TrimSpace(e.Fields[4])); err == nil {
+				out[idx] = v
+			}
+		}
+	}
+	return out
+}
+
+// Extras returns item index → Extra (STRUCT_ITEMLIST.Extra — CSV column 7).
+// Extra is the result-item base index used by the Anct combine (joia + Extra).
+func (l *ItemList) Extras() map[int]int {
 	out := make(map[int]int)
 	for idx, e := range l.items {
 		if len(e.Fields) > 7 {
