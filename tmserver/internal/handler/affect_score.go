@@ -19,10 +19,10 @@ import (
 // 1/5/6/7/12 (slowdown/dex — Run speed not modeled), 16 (transform,
 // pTransBonus UNVERIFIED), 17/20/22 (periodic — handled by the tick engine),
 // 27/36 (need the weapon EF_WTYPE check), 29 (Soul), 34/35 (Divine/Vigor —
-// already read-time via affectMul).
+// already read-time via affectMul), 39 (Baú de XP → AffExpBonus).
 func applyAffectScore(e *world.Entity) {
 	e.Rsv = 0
-	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffCon = 0, 0, 0, 0, 0
+	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffCon, e.AffExpBonus = 0, 0, 0, 0, 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
 	if !e.HasAnyAffect() {
@@ -89,6 +89,8 @@ func applyAffectScore(e *world.Entity) {
 			e.Rsv |= world.RsvParry
 		case 28:
 			e.Rsv |= world.RsvHide
+		case world.AffectExpChest:
+			e.AffExpBonus += 100
 		case 42: // soul link: shift a fifth of the mana pool into HP
 			mana := e.MaxMP/5 + (e.Level+level)/2
 			e.AffMaxHP += mana

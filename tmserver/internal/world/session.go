@@ -175,14 +175,16 @@ type Entity struct {
 	// are cached the same way and applied at READ time (effective getters), so
 	// the persisted flat score never bakes a buff in (no double-count on
 	// re-login — same policy as HpAddPct/Divine).
-	Rsv        uint8
-	AffDamage  int32
-	AffAC      int32
-	AffMaxHP   int32
-	AffMaxMP   int32
-	AffCon     int16
-	AffSpecial [4]int16
-	AffResist  [4]int16
+	Rsv           uint8
+	AffDamage     int32
+	AffAC         int32
+	AffMaxHP      int32
+	AffMaxMP      int32
+	AffCon        int16
+	AffSpecial    [4]int16
+	AffResist     [4]int16
+	AffExpBonus   int32 // from affect type 39 (Baú de XP)
+	EquipExpBonus int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 

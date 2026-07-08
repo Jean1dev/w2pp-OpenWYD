@@ -15,6 +15,7 @@ import (
 	"log/slog"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -54,8 +55,13 @@ type Config struct {
 
 	// ItemPos maps item index → nPos (equip-slot class) for the refine (+9) threshold
 	// bonuses. ItemUnique maps index → nUnique (gates EF_DAMAGEADD to jewels).
+	// ItemGrades maps index → Grade (grade-7 pieces grant +2 ExpBonus).
 	ItemPos    map[int]int
 	ItemUnique map[int]int
+	ItemGrades map[int]int
+
+	// ExpEvents toggles global EXP modifiers (MobKilled.cpp:537-549, Server.cpp defaults).
+	ExpEvents level.ExpEvents
 
 	// Spells is the SkillData.csv catalog (g_pSpell). When nil, skill casting is
 	// rejected and skill learning is refused (no costs are knowable without it).
@@ -93,6 +99,8 @@ type Dispatcher struct {
 	itemVolatiles   map[int]int                  // item index → EF_VOLATILE (consumable class)
 	itemPos         map[int]int                  // item index → nPos (refine threshold)
 	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
+	itemGrades      map[int]int                  // item index → Grade (ExpBonus)
+	expEvents       level.ExpEvents              // global EXP event flags
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
@@ -138,6 +146,8 @@ func New(cfg Config) *Dispatcher {
 		itemVolatiles:   cfg.ItemVolatiles,
 		itemPos:         cfg.ItemPos,
 		itemUnique:      cfg.ItemUnique,
+		itemGrades:      cfg.ItemGrades,
+		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
 		npcSource:       cfg.NpcConfig,
