@@ -327,7 +327,7 @@ func TestRepairEquip(t *testing.T) {
 // effective MaxHp/MaxMp/Damage at read time, and is the identity when absent (captura §C).
 func TestDivineAffectBonus(t *testing.T) {
 	d := New(Config{})
-	e := &world.Entity{BaseMaxHP: 1000, BaseMaxMP: 500, BaseDamage: 200}
+	e := &world.Entity{ID: world.MaxUser + 1, BaseMaxHP: 1000, BaseMaxMP: 500, BaseDamage: 200}
 	d.refreshScore(e)
 	if got := effectiveMaxHP(e); got != 1000 {
 		t.Fatalf("no-buff effectiveMaxHP = %d, want 1000", got)

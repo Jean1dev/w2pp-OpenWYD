@@ -144,7 +144,13 @@ func TestWhisperBlocked(t *testing.T) {
 
 func TestApplyBonusScore(t *testing.T) {
 	db := newDB()
-	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Str: 10, ScoreBonus: 5}
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", Class: 0, ClassMaster: classMasterMortal, X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, Str: 11, Dex: 10, Level: 10,
+		Damage:     50 + 11/2 + 10/3 + 10,
+		ScoreBonus: 5,
+		Equip:      [world.MaxEquip]world.Item{{Index: 11}},
+	}
 	addr, stop, _ := startServerClock(t, db)
 	defer stop()
 	c := enterWorld(t, addr)
@@ -152,11 +158,14 @@ func TestApplyBonusScore(t *testing.T) {
 
 	body := protocol.MsgApplyBonusBody{BonusType: protocol.BonusScore, Detail: protocol.DetailStr}
 	send(t, c, protocol.MsgApplyBonus, body.Encode())
-	// The legacy replies SendEtc (remaining points) THEN SendScore (_MSG_ApplyBonus.cpp).
 	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgUpdateEtc {
 		t.Errorf("got %#x ok=%v, want UpdateEtc first", ty, ok)
 	}
-	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgUpdateScore {
+	ty, payload, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgUpdateScore {
 		t.Errorf("got %#x ok=%v, want UpdateScore second", ty, ok)
+	}
+	if dmg := scoreDamage(payload); dmg != 69 {
+		t.Errorf("UpdateScore Damage = %d, want 69 after +1 STR (11→12)", dmg)
 	}
 }

@@ -533,17 +533,19 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 }
 
 // deriveBaseScore captures the equipment-free BaseScore from the loaded
-// CurrentScore (called once on login): base = current − equipBonus. The weapon
-// damage is not in the loaded CurrentScore, so it is not subtracted. After this,
-// refreshScore reproduces the loaded CurrentScore exactly until gear changes.
+// CurrentScore (called once on login): base = current − equipBonus − derived
+// combat bonuses (attribute/class-weapon damage, skill AC). WeaponDamage is not
+// in the loaded CurrentScore, so it is not subtracted. After this, refreshScore
+// reproduces the loaded CurrentScore exactly until gear changes.
 func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	b := d.equipBonus(e)
 	e.BaseStr = e.Str - b.str
 	e.BaseInt = e.Int - b.intel
 	e.BaseDex = e.Dex - b.dex
 	e.BaseCon = e.Con - b.con
-	e.BaseAC = e.AC - b.ac
-	e.BaseDamage = e.Damage - b.damage
+	flatAC := invertSkillACBonus(e, e.AC-b.ac)
+	e.BaseAC = flatAC
+	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 }
@@ -563,15 +565,17 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	for i := range e.Special { // allocated mastery + gear (EF_SPECIAL1..4)
 		e.Special[i] = e.BaseSpecial[i] + b.special[i]
 	}
-	e.AC = e.BaseAC + b.ac
-	e.Damage = e.BaseDamage + b.damage
+	flatAC := e.BaseAC + b.ac
+	e.AC = flatAC + skillDerivedACBonus(e, flatAC)
+	e.Damage = e.BaseDamage + b.damage + d.derivedDamageBeforeAffects(e)
 	e.MaxHP = e.BaseMaxHP + b.maxHP
 	e.MaxMP = e.BaseMaxMP + b.maxMP
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
-	// Affect stage (Buff Loop): recompute the read-time buff caches + Rsv flags
-	// over the flat score just rebuilt.
 	applyAffectScore(e)
+	if isPlayerMob(e) {
+		e.Damage += attributeDamageBonus(e, true)
+	}
 	if m := effectiveMaxHP(e); e.HP > m {
 		e.HP = m
 	}
