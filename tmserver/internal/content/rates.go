@@ -30,6 +30,42 @@ func (c *CompRate) Rate(family, key string) (int, bool) {
 // Families returns the loaded family count (for diagnostics/tests).
 func (c *CompRate) Families() int { return len(c.rates) }
 
+// AnctChance returns the Compositor ITEM_+7/+8/+9 sacrifice bonuses added to the
+// base Anct rate (g_pAnctChance, Basedef.cpp:113 defaults {2,4,10}). Keys are
+// matched case-insensitively because CompRate.txt uses mixed case.
+func (c *CompRate) AnctChance() [3]int {
+	def := [3]int{2, 4, 10}
+	if c == nil {
+		return def
+	}
+	keys := []string{"ITEM_+7", "ITEM_+8", "ITEM_+9"}
+	for i, want := range keys {
+		if r, ok := c.rateCI("Compositor", want); ok {
+			def[i] = r
+		}
+	}
+	return def
+}
+
+func (c *CompRate) rateCI(family, key string) (int, bool) {
+	if r, ok := c.Rate(family, key); ok {
+		return r, true
+	}
+	fu := strings.ToUpper(family)
+	ku := strings.ToUpper(key)
+	for fam, m := range c.rates {
+		if strings.ToUpper(fam) != fu {
+			continue
+		}
+		for k, r := range m {
+			if strings.ToUpper(k) == ku {
+				return r, true
+			}
+		}
+	}
+	return 0, false
+}
+
 // LoadCompRate reads CompRate.txt.
 func LoadCompRate(path string) (*CompRate, error) {
 	f, err := os.Open(path)

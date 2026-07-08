@@ -165,9 +165,10 @@ func TestMoveViewDelta(t *testing.T) {
 	}
 	// The snapshot must carry the player's speed byte (Score.AttackRun @body137):
 	// a 0 here makes the remote client animate the avatar at crawl speed and
-	// rubber-band to catch up (the "anda devagar + teleporta" bug).
+	// rubber-band to catch up (the "anda devagar + teleporta" bug). Test chars
+	// from viewDeltaDB have no mount (starterEquip never grants slot 14).
 	if payload[124+13] != baseAttackRun {
-		t.Errorf("A sees B with AttackRun %d, want %d", payload[124+13], baseAttackRun)
+		t.Errorf("A sees B with AttackRun %d, want %d (base player speed)", payload[124+13], baseAttackRun)
 	}
 	if ty, _, ok = readMaybeRaw(t, a); !ok || ty != protocol.MsgPKInfo {
 		t.Fatalf("A frame 2 = %#x ok=%v, want PKInfo", ty, ok)
