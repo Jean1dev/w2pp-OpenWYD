@@ -60,6 +60,41 @@ message VerifyCredentialsResponse {
   string role = 4;
 }
 
+// CharacterWebService exposes player-facing, read-only character summaries for
+// the Next.js BFF. The BFF must pass the account_id from its httpOnly session;
+// the browser must never provide account_id directly.
+service CharacterWebService {
+  // ListMyCharacters returns the character-selection projection for the logged
+  // account. It is cold-storage data and can be slightly stale while a character
+  // is online; live state remains owned by tmServer's single goroutine.
+  rpc ListMyCharacters(ListMyCharactersRequest) returns (ListMyCharactersResponse);
+}
+
+message ListMyCharactersRequest {
+  int64 account_id = 1; // from the BFF session, never from browser input
+}
+
+message WebCharacterSummary {
+  int32 slot = 1;
+  string name = 2;
+  int32 class = 3;
+  int32 level = 4;
+  int64 exp = 5;
+  int32 coin = 6;
+  int32 max_hp = 7;
+  int32 hp = 8;
+  int32 max_mp = 9;
+  int32 mp = 10;
+  int32 str = 11;
+  int32 int = 12;
+  int32 dex = 13;
+  int32 con = 14;
+}
+
+message ListMyCharactersResponse {
+  repeated WebCharacterSummary characters = 1;
+}
+
 // NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).
 // The Next.js BFF calls it server-side after establishing a moderator session;
 // every request carries the moderator's account_id, which the web-api authorizes
