@@ -454,6 +454,17 @@ func expChestDB() *fakeDB {
 	return db
 }
 
+func fairyDustDB(levelValue int, item world.Item) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Class: 1, Level: levelValue,
+		X: 5, Y: 5, HP: 1000, MaxHP: 1000, MP: 100, MaxMP: 100,
+	}
+	st.Carry[0] = item
+	db.loadResult = st
+	return db
+}
+
 func startServerClockVol(t *testing.T, persist world.Persistence, vols map[int]int) (string, func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -517,5 +528,114 @@ func TestUseExpChest(t *testing.T) {
 	}
 	if !sawScore {
 		t.Error("missing MsgUpdateScore after using exp chest")
+	}
+}
+
+func TestUseFairyDust(t *testing.T) {
+	const dust = 5001
+	addr, stop := startServerClockVol(t, fairyDustDB(0, world.Item{Index: dust}), map[int]int{dust: volFairyDust})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawScore, sawEtc, sawMotion := false, false, false, false
+	for range 6 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[4:6]) != 0 {
+				t.Errorf("carry slot 0 item = %d, want empty after use", le16(payload[4:6]))
+			}
+		case protocol.MsgUpdateScore:
+			sawScore = true
+		case protocol.MsgUpdateEtc:
+			sawEtc = true
+			if got := int64(binary.LittleEndian.Uint64(payload[4:12])); got != level.NextLevelExp(0) {
+				t.Errorf("UpdateEtc.Exp = %d, want %d", got, level.NextLevelExp(0))
+			}
+		case protocol.MsgMotion:
+			sawMotion = true
+			if got := le16(payload[0:2]); got != motionLevelUp {
+				t.Errorf("motion = %d, want %d", got, motionLevelUp)
+			}
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using fairy dust")
+	}
+	if !sawScore {
+		t.Error("missing MsgUpdateScore after using fairy dust")
+	}
+	if !sawEtc {
+		t.Error("missing MsgUpdateEtc after using fairy dust")
+	}
+	if !sawMotion {
+		t.Error("missing MsgMotion after using fairy dust")
+	}
+}
+
+func TestUseFairyDustStack(t *testing.T) {
+	const dust = 5001
+	item := world.Item{Index: dust, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	addr, stop := startServerClockVol(t, fairyDustDB(0, item), map[int]int{dust: volFairyDust})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	payload := expect(t, c, protocol.MsgSendItem)
+	if got := le16(payload[4:6]); got != dust {
+		t.Fatalf("carry slot 0 item = %d, want stacked dust", got)
+	}
+	if payload[6] != efAmount || payload[7] != 2 {
+		t.Errorf("effect0 = %d.%d, want %d.2", payload[6], payload[7], efAmount)
+	}
+}
+
+func TestUseFairyDustAtCap(t *testing.T) {
+	const dust = 5001
+	addr, stop := startServerClockVol(t, fairyDustDB(int(level.MaxLevel), world.Item{Index: dust}), map[int]int{dust: volFairyDust})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawEtc := false, false
+	for range 4 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[4:6]) != 0 {
+				t.Errorf("carry slot 0 item = %d, want empty after use", le16(payload[4:6]))
+			}
+		case protocol.MsgUpdateEtc:
+			sawEtc = true
+			if got := int64(binary.LittleEndian.Uint64(payload[4:12])); got != level.MaxExp {
+				t.Errorf("UpdateEtc.Exp = %d, want %d", got, level.MaxExp)
+			}
+		case protocol.MsgMotion:
+			t.Fatalf("got level-up motion at cap")
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using fairy dust at cap")
+	}
+	if !sawEtc {
+		t.Error("missing MsgUpdateEtc after using fairy dust at cap")
 	}
 }

@@ -91,42 +91,50 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 		killer.Exp = level.MaxExp
 	}
 
+	d.applyMortalLevelUps(w, ks, killer)
+}
+
+// applyMortalLevelUps ports the MORTAL path of CMob::CheckGetLevel after Exp has
+// already been raised to the desired total. It is shared by kill EXP and Poeira
+// de Fada, whose legacy handler sets Exp directly to the next threshold.
+func (d *Dispatcher) applyMortalLevelUps(w *world.World, s *world.Session, e *world.Entity) bool {
 	leveled := false
-	for killer.Level < level.MaxLevel && killer.Exp >= level.NextLevelExp(killer.Level) {
-		killer.Level++
+	for e.Level < level.MaxLevel && e.Exp >= level.NextLevelExp(e.Level) {
+		e.Level++
 		// The HP/MP increments belong to the BaseScore (CMob.cpp:1116) — writing
 		// only the live MaxHP would be undone by the next refreshScore (= base +
 		// equip). SkillBonus +3/level (+4 from 200) and SpecialBonus +2/level are
 		// the MORTAL level-up grants (CMob.cpp:1121-1129; tiers deferred).
-		killer.BaseMaxHP = addClamp(killer.BaseMaxHP, level.IncHP(killer.Class), level.MaxHPCap)
-		killer.BaseMaxMP = addClamp(killer.BaseMaxMP, level.IncMP(killer.Class), level.MaxMPCap)
-		killer.BaseAC++
-		if killer.Level >= 200 {
-			killer.SkillBonus += 4
+		e.BaseMaxHP = addClamp(e.BaseMaxHP, level.IncHP(e.Class), level.MaxHPCap)
+		e.BaseMaxMP = addClamp(e.BaseMaxMP, level.IncMP(e.Class), level.MaxMPCap)
+		e.BaseAC++
+		if e.Level >= 200 {
+			e.SkillBonus += 4
 		} else {
-			killer.SkillBonus += 3
+			e.SkillBonus += 3
 		}
-		killer.SpecialBonus += 2
+		e.SpecialBonus += 2
 		leveled = true
 	}
 	if !leveled {
-		return
+		return false
 	}
-	killer.ScoreBonus = uint16(level.ScoreBonus(killer.Class, killer.Level, killer.Str, killer.Int, killer.Dex, killer.Con))
-	d.refreshScore(killer)                            // fold the base HP/MP gains into the live score
-	killer.HP, killer.MP = killer.MaxHP, killer.MaxMP // full heal on level-up
+	e.ScoreBonus = uint16(level.ScoreBonus(e.Class, e.Level, e.Str, e.Int, e.Dex, e.Con))
+	d.refreshScore(e)             // fold the base HP/MP gains into the live score
+	e.HP, e.MP = e.MaxHP, e.MaxMP // full heal on level-up
 
 	// Visible level-up: a fresh score window (own attributes) + the etc packet that
 	// carries the new ScoreBonus (free attribute points) — UpdateScore does NOT carry
 	// it, so without SendEtc the client never shows the points gained. Plus the
 	// level-up sparkle to the killer and everyone who can see it.
 	motion := protocol.EncodeMotion(motionLevelUp, motionLevelUpParm)
-	if ks != nil {
-		d.sendScore(w, ks, killer)
-		d.sendEtc(w, ks, killer)
-		w.Send(ks, protocol.MsgMotion, motion)
+	if s != nil {
+		d.sendScore(w, s, e)
+		d.sendEtc(w, s, e)
+		w.Send(s, protocol.MsgMotion, motion)
 	}
-	w.BroadcastInView(killer.ID, protocol.MsgMotion, motion)
+	w.BroadcastInView(e.ID, protocol.MsgMotion, motion)
+	return true
 }
 
 // addClamp returns v+inc clamped to [0, limit], avoiding int32 overflow.
