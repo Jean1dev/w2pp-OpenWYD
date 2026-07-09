@@ -6,6 +6,13 @@
 >
 > **Implementado** (MORTAL solo) em `tmserver/internal/level` + `handler/mobkilled.go`
 > (`grantExp`). Este doc é a evidência + o que ficou **deferido**.
+>
+> **Correção (issue #43):** a fórmula de ganho solo foi reportada primeiro pelo branch dos
+> mapas de Pesadelo; o branch de campo geral (`MobKilled.cpp:1272-1425`) — o que vale em mapas
+> normais — usa `exp = 450*isExp/(30+myLevel)`, tabelas de divisores próprias, o gate
+> `0 < exp ≤ 10M` (pula, não clampa) e o cap `exp ≤ eMob`. Ver `game-rules.md §1` (corrigido) e
+> `level.SoloExpReward`. Mortal = `ClassMaster 2` (Basedef.h:238); o load de personagem no Go
+> assume mortal enquanto ARCH/CELESTIAL não existem.
 
 ## 1. Constantes (em código: `level.MaxLevel`, etc.)
 | const | valor | fonte |

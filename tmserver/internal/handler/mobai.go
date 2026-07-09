@@ -228,14 +228,14 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 	})
 }
 
-// regenStep moves cur toward max by ~5% of max (min 2 per tick), capped at max.
-func regenStep(cur, max int32) int32 {
-	if cur >= max || max <= 0 {
+// regenStep moves cur toward full by ~5% of full (min 2 per tick), capped at full.
+func regenStep(cur, full int32) int32 {
+	if cur >= full || full <= 0 {
 		return cur
 	}
-	inc := max/20 + 2
-	if cur+inc > max {
-		return max
+	inc := full/20 + 2
+	if cur+inc > full {
+		return full
 	}
 	return cur + inc
 }

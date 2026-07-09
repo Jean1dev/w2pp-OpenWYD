@@ -311,7 +311,9 @@ func TestLoginBadVersionClosed(t *testing.T) {
 		t.Errorf("got %#x/%d, want version-mismatch notice", ty, noticeCode(t, payload))
 	}
 	// Connection must be closed after a version mismatch.
-	c.SetReadDeadline(time.Now().Add(time.Second))
+	if err := c.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := c.Read(make([]byte, 1)); err == nil {
 		t.Errorf("expected connection to be closed")
 	}

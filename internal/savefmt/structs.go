@@ -104,11 +104,11 @@ type AccountInfo struct {
 type Quest struct {
 	IndexQuest int16
 	Nivel      int16
-	IdMob1     int16
+	IDMob1     int16
 	QtdMob1    int16
-	IdMob2     int16
+	IDMob2     int16
 	QtdMob2    int16
-	IdMob3     int16
+	IDMob3     int16
 	QtdMob3    int16
 	ExpReward  int32 // long
 	GoldReward int32
