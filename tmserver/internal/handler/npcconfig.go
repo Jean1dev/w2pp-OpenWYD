@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
@@ -110,8 +111,9 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 			d.log.Warn("npc definition has no valid position — skipped", "slug", def.Slug, "x", def.X, "y", def.Y)
 			continue
 		}
+		template := npcTemplateWithDisplayName(def.Template, def.DisplayName)
 		id := w.SpawnMobAt(world.MobSpawn{
-			Template:  def.Template,
+			Template:  template,
 			X:         def.X,
 			Y:         def.Y,
 			RouteType: def.RouteType,
@@ -130,6 +132,21 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 		}
 	}
 	d.npcVersion = snap.Version
+}
+
+// npcTemplateWithDisplayName overlays the moderator display name onto a copy of
+// the raw STRUCT_MOB. Templates are shared by the dbclient cache, so mutating the
+// input would leak one NPC's translated name into every NPC using that template.
+func npcTemplateWithDisplayName(template []byte, displayName string) []byte {
+	if strings.TrimSpace(displayName) == "" {
+		return template
+	}
+	out := append([]byte(nil), template...)
+	for i := 0; i < 16 && i < len(out); i++ {
+		out[i] = 0
+	}
+	copy(out[0:min(16, len(out))], displayName)
+	return out
 }
 
 // applyShop overwrites a merchant entity's shop stock (its Carry[]) with the

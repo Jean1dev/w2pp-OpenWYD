@@ -44,7 +44,7 @@ func TestApplyNPCConfigSpawnsMerchant(t *testing.T) {
 	snap := npccfg.Snapshot{
 		Version: 1,
 		Defs: []npccfg.Definition{{
-			Slug: "shop-1", Template: merchantTemplate("Keeper"), Enabled: true,
+			Slug: "shop-1", Template: merchantTemplate("Keeper"), DisplayName: "Ferreiro", Enabled: true,
 			X: 8, Y: 8, Merchant: 1,
 			// Slots 0/2 are tab 1 (identity); slot 9 is tab 2 → Carry[27]; slot 18
 			// is tab 3 → Carry[54]. Proves the ShopSlot mapping is applied.
@@ -71,6 +71,9 @@ func TestApplyNPCConfigSpawnsMerchant(t *testing.T) {
 	if e.X != 8 || e.Y != 8 {
 		t.Errorf("entity at (%d,%d), want (8,8)", e.X, e.Y)
 	}
+	if e.Name != "Ferreiro" {
+		t.Errorf("entity Name = %q, want Ferreiro", e.Name)
+	}
 	if e.Carry[0].Index != 1100 || e.Carry[2].Index != 1101 {
 		t.Errorf("shop stock = [0]=%d [2]=%d, want 1100/1101", e.Carry[0].Index, e.Carry[2].Index)
 	}
@@ -92,6 +95,36 @@ func TestApplyNPCConfigSpawnsMerchant(t *testing.T) {
 	}
 	if d.npcVersion != 1 {
 		t.Errorf("npcVersion = %d, want 1", d.npcVersion)
+	}
+}
+
+func TestApplyNPCConfigDisplayNameFallbackAndSharedTemplate(t *testing.T) {
+	d, w := newNPCDispatcher(nil)
+	tmpl := merchantTemplate("Default")
+	d.applyNPCConfig(w, npccfg.Snapshot{
+		Version: 1,
+		Defs: []npccfg.Definition{
+			{Slug: "named-a", Template: tmpl, DisplayName: "Armeiro", Enabled: true, X: 7, Y: 7, Merchant: 1},
+			{Slug: "named-b", Template: tmpl, DisplayName: "Alquimista", Enabled: true, X: 8, Y: 8, Merchant: 1},
+			{Slug: "fallback", Template: tmpl, DisplayName: " ", Enabled: true, X: 9, Y: 9, Merchant: 1},
+		},
+	}, false)
+
+	for slug, want := range map[string]string{
+		"named-a":  "Armeiro",
+		"named-b":  "Alquimista",
+		"fallback": "Default",
+	} {
+		id, ok := d.managedNPCs[slug]
+		if !ok {
+			t.Fatalf("%s not spawned", slug)
+		}
+		if got := w.Entity(id).Name; got != want {
+			t.Errorf("%s name = %q, want %q", slug, got, want)
+		}
+	}
+	if got := string(tmpl[:7]); got != "Default" {
+		t.Errorf("shared template mutated to %q, want Default", got)
 	}
 }
 
