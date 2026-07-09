@@ -167,7 +167,7 @@ func TestPingAndSkipTickIgnored(t *testing.T) {
 func TestConcurrentConnections(t *testing.T) {
 	const n = 64
 	var served atomic.Int64
-	h := func(w *World, s *Session, hh protocol.Header, payload []byte) {
+	h := func(w *World, s *Session, _ protocol.Header, payload []byte) {
 		served.Add(1)
 		w.Send(s, protocol.MsgMessagePanel, payload)
 	}
@@ -194,7 +194,7 @@ func TestConcurrentConnections(t *testing.T) {
 func TestGracefulShutdownSavesPlayers(t *testing.T) {
 	fake := &fakePersistence{}
 	ready := make(chan struct{}, 1)
-	h := func(w *World, s *Session, hh protocol.Header, payload []byte) {
+	h := func(_ *World, s *Session, _ protocol.Header, _ []byte) {
 		s.Mode = UserPlay
 		s.AccountID = 42
 		select {
@@ -254,8 +254,8 @@ func (c *cargoCapture) last() (CargoSave, int) {
 // ReleaseCargo. These run on a non-started World (loop-only helpers touch only the
 // map and persistence port).
 func TestCargoLifecycle(t *testing.T) {
-	cap := &cargoCapture{}
-	w := New(Config{GridDim: 16}, slogDiscard(), cap, nil)
+	capture := &cargoCapture{}
+	w := New(Config{GridDim: 16}, slogDiscard(), capture, nil)
 
 	// Unknown account → nil; account 0 is never stored.
 	if w.Cargo(42) != nil || w.Cargo(0) != nil {
@@ -285,7 +285,7 @@ func TestCargoLifecycle(t *testing.T) {
 	if w.Cargo(42) != nil {
 		t.Fatalf("cargo not evicted after ReleaseCargo")
 	}
-	last, n := cap.last()
+	last, n := capture.last()
 	if n != 1 || last.Coin != 1500 || last.AccountID != 42 {
 		t.Fatalf("ReleaseCargo did not persist latest state: %+v (n=%d)", last, n)
 	}
@@ -293,7 +293,7 @@ func TestCargoLifecycle(t *testing.T) {
 	// Releasing an unknown account is a no-op (no extra save).
 	w.ReleaseCargo(42)
 	w.saveWG.Wait()
-	if _, n := cap.last(); n != 1 {
+	if _, n := capture.last(); n != 1 {
 		t.Fatalf("ReleaseCargo of evicted account saved again: n=%d", n)
 	}
 }

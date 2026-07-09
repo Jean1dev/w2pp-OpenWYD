@@ -9,6 +9,12 @@ linters:
     - misspell
     - revive
     - unconvert
+  settings:
+    misspell:
+      ignore-rules:
+        # The legacy protocol really spells it this way (_MSG_Challange.cpp);
+        # handlers/comments mirror that name for parity.
+        - challange
   exclusions:
     generated: lax
     presets:

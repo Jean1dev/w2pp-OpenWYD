@@ -99,13 +99,13 @@ func (d *Dispatcher) guildRelay(w *world.World, s *world.Session, payload []byte
 //
 // UNVERIFIED: the WeekMode-driven zone-tax economy (GuildImpostoID, Exp-as-vault,
 // item 4011) is not reproduced (lote2-party-guilda-guerra.md) — stub.
-func (d *Dispatcher) challange(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
+func (d *Dispatcher) challange(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	d.log.Debug("Challange not yet implemented (UNVERIFIED zone-tax economy)", "conn", s.Conn)
 }
 
 // challangeConfirm handles _MSG_ChallangeConfirm (0x028F).
 //
 // UNVERIFIED: Challange(conn,target,0) lives in Server.cpp — stub.
-func (d *Dispatcher) challangeConfirm(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
+func (d *Dispatcher) challangeConfirm(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	d.log.Debug("ChallangeConfirm not yet implemented (UNVERIFIED)", "conn", s.Conn)
 }

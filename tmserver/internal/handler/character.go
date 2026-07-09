@@ -200,8 +200,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// "fresh character" marker, so the inventory is granted only once (not
 	// re-granted after a player uses up the potions).
 	if equipEmpty(st.Equip) {
-		st.Equip = d.starterEquip(int(st.Class))
-		d.grantStarterCarry(&st.Carry, int(st.Class))
+		st.Equip = d.starterEquip(st.Class)
+		d.grantStarterCarry(&st.Carry, st.Class)
 	}
 	// Heal characters whose equip slots were corrupted by an earlier bug that let
 	// non-gear (a potion, a mount in the wrong hand) be equipped — most visibly a
@@ -533,7 +533,7 @@ func (d *Dispatcher) repairEquip(st *world.CharacterState) {
 		st.Equip[s] = world.Item{}
 	}
 	if st.Equip[0].Empty() {
-		st.Equip[0] = d.classBody(int(st.Class)) // restore the class look
+		st.Equip[0] = d.classBody(st.Class) // restore the class look
 	}
 }
 

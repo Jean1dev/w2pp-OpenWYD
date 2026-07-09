@@ -151,20 +151,20 @@ func (d *Dispatcher) perzenExchange(w *world.World, s *world.Session, npc *world
 //
 // UNVERIFIED: the request→accept duel state machine and DoRanking (Server.cpp)
 // are not reproduced — stub.
-func (d *Dispatcher) reqRanking(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
+func (d *Dispatcher) reqRanking(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	d.log.Debug("ReqRanking not yet implemented (UNVERIFIED duel)", "conn", s.Conn)
 }
 
 // capsuleInfo handles _MSG_CapsuleInfo (0x02CD): a pure relay to the dbServer.
 //
 // UNVERIFIED: becomes a dbServer cash/capsule RPC (Phase 6).
-func (d *Dispatcher) capsuleInfo(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
+func (d *Dispatcher) capsuleInfo(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	d.log.Debug("CapsuleInfo relay (DB cash RPC pending)", "conn", s.Conn)
 }
 
 // putoutSeal handles _MSG_PutoutSeal (0x03CC).
 //
 // UNVERIFIED: seal semantics not documented — stub.
-func (d *Dispatcher) putoutSeal(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
+func (d *Dispatcher) putoutSeal(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	d.log.Debug("PutoutSeal not yet implemented (UNVERIFIED)", "conn", s.Conn)
 }

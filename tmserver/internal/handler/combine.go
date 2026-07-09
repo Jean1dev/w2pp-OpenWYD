@@ -135,7 +135,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 //
 // UNVERIFIED: the extraction recipe/semantics are not documented
 // (lote2-combine-variantes.md) — stub until captured.
-func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
+func (d *Dispatcher) combineExtracao(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	d.log.Debug("CombineItemExtracao not yet implemented (UNVERIFIED)", "conn", s.Conn)
 }
 
