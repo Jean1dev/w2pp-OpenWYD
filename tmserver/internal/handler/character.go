@@ -241,6 +241,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
+		// Every character is MORTAL (=2, Basedef.h:238) until the ARCH/CELESTIAL
+		// promotions are modeled; the dbServer contract doesn't carry ClassMaster
+		// yet (dbclient leaves it 0), and 0 would route the EXP formula onto the
+		// celestial divisors — the "no EXP" bug of issue #43. TODO: persist the
+		// tier once promotion exists.
+		if e.ClassMaster == 0 {
+			e.ClassMaster = classMasterMortal
+		}
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned

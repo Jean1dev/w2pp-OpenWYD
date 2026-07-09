@@ -1,4 +1,4 @@
-.PHONY: build binaries test lint fmt vet run run-local vuln tidy proto certs certs-clean
+.PHONY: build binaries test lint fmt vet run run-local vuln tidy proto certs certs-clean exp-data
 
 build:
 	go build ./...
@@ -9,6 +9,12 @@ binaries:
 	go build -o bin/dbserver ./dbserver/cmd/dbserver
 	go build -o bin/binserver ./binserver/cmd/binserver
 	go build -o bin/webserver ./webserver/cmd/webserver
+	go build -o bin/exptool ./tmserver/cmd/exptool
+
+# Restamp the monster templates' Exp field with the balanced curve (issue #43).
+# Run after adding/editing Release npc templates, review with -dry-run first.
+exp-data:
+	go run ./tmserver/cmd/exptool -npc Release/TMsrv/run/npc -quiet
 
 test:
 	go test -race -cover ./...

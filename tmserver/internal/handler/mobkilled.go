@@ -44,7 +44,11 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 
 	// Experience → killer (solo). The raw total reaches the client via the attack
 	// handler's MSG_Attack echo (CurrentExp); grantExp also applies any level-ups.
-	d.grantExp(w, ks, killer, mob)
+	// Clan 4 mobs never award EXP: the legacy wraps the whole distribution in
+	// `MOB.Clan != 4` (MobKilled.cpp:402); gold and drops sit outside that gate.
+	if mob.Clan != 4 {
+		d.grantExp(w, ks, killer, mob)
+	}
 
 	// Item drop: each occupied loot slot rolls against its g_pDropRate odds.
 	for slot := range mob.Carry {
@@ -78,8 +82,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 // (BaseAC exists but the legacy's +1/level needs the exact recompute order),
 // party distribution, and the per-level reward items (DoItemLevel).
 func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
-	gain := level.ExpApply(mob.Exp, killer.Level, mob.Level)
-	gain = level.SoloExpReward(gain, killer.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
+	gain := level.SoloExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
 	if gain <= 0 {
 		return
 	}

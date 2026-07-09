@@ -13,8 +13,19 @@
 
 ## 1. Curva de EXP e distribuição em party (PvE)
 
-Fonte: `TMSrv/MobKilled.cpp:397-590` (`#pragma region PvE`). Disparado quando um mob (`target >=
+Fonte: `TMSrv/MobKilled.cpp:397-1425` (`#pragma region PvE`). Disparado quando um mob (`target >=
 MAX_USER`) morre por um jogador (`conn < MAX_USER`).
+
+> **Correção (issue #43):** a primeira versão desta seção transcreveu o branch dos mapas de
+> Pesadelo (`MobKilled.cpp:443-590`). O branch que governa mapas normais (incl. campo de treino)
+> é o **branch geral** em `MobKilled.cpp:1272-1425`, que difere no fator `450/(30+myLevel)`, nas
+> tabelas de divisores e no cap `eMob`. As §1.3–1.5 abaixo documentam o branch geral (o que o Go
+> implementa em `tmserver/internal/level/expreward.go`); os branches por mapa (Pesadelo
+> `:443-590/:592-735/:737-849`, Pergaminho da Água `:851+`) ficam para quando esses mapas forem
+> modelados.
+
+**Gate de clã:** toda a distribuição está dentro de `if (pMob[target].MOB.Clan != 4)`
+(`MobKilled.cpp:402`) — mob de clã 4 **nunca** dá EXP (gold/drop ficam fora do gate).
 
 ### 1.1. Base
 
@@ -38,47 +49,49 @@ if 0 < ClassMaster <= MAX_PARTY (12):                 # :419
 > `g_EmptyMob` e `PARTYBONUS` são constantes globais (verificar valores em `Server.cpp`). UNK_3 ser
 > "ClassMaster" como proxy de tamanho de party é peculiar — **UNVERIFIED** se intencional; preservar.
 
-### 1.3. Loop de distribuição por membro
+### 1.3. Loop de distribuição por membro (branch geral)
 
-Para cada membro `party` da `PartyList` do líder (`MAX_PARTY+1` iterações, `:434-441`):
+Para cada membro `party` da `PartyList` do líder (`MAX_PARTY+1` iterações, `:434`), exigindo o
+membro vivo e dentro de `±HALFGRIDX/±HALFGRIDY` do kill (`:1272`):
 
 ```text
-isExp_membro = GetExpApply(party.extra, target.Exp, party.Level, target.Level)
+isExp = GetExpApply(party.extra, target.MOB.Exp, party.Level, target.Level)   # :1276
 myLevel = party.Level
-if ClassMaster not in {MORTAL, ARCH}:  myLevel += MAX_LEVEL + 1      # :452 (tier alto)
+if ClassMaster not in {MORTAL, ARCH}:  myLevel += MAX_LEVEL + 1                # :1281
 
-exp = (UNK_1 + myLevel) * isExp / (UNK_1 + myLevel)   # = isExp  (:454; simplifica)
-clamp: 0 < exp <= 10_000_000
+exp = 450 * isExp / (UNK_1 + myLevel)                  # fator 450/(30+myLevel)  (:1283)
+gate: só premia se 0 < exp <= 10_000_000               # NÃO clampa — pula o prêmio  (:1284)
 ```
 
 ### 1.4. Divisores por tier e faixa de nível (tabela determinística)
 
-`MobKilled.cpp:457-527`. Aplicar conforme `ClassMaster`:
+`MobKilled.cpp:1286-1356`. Aplicar conforme `ClassMaster` sobre `myLevel` (divisão int/float do C,
+trunca):
 
-**MORTAL** (`:457-479`):
+**MORTAL** (`:1286-1308`):
 | Nível ≤ | divide exp por |
 |--------:|---------------:|
-| 200 | 1.00 |
-| 300 | 0.84 |
-| 356 | 1.05 |
-| 370 | 1.63 |
-| 380 | 1.95 |
-| 390 | 2.55 |
-| 399 | 3.70 |
+| 200 | 1 |
+| 300 | 1.07f |
+| 356 | 1.25f |
+| 370 | 1.70 |
+| 380 | 2.10f |
+| 390 | 2.60 |
+| 399 | 4 |
 
-**ARCH** (`:481-506`):
+**ARCH** (`:1310-1335`):
 | Nível ≤ | divide por |
 |--------:|-----------:|
-| 200 | 0.84 |
-| 300 | 0.72 |
-| 356 | 1.40 |
-| 360 | 4.75 |
-| 370 | 6.60 |
-| 380 | 15 |
-| 390 | 21 |
+| 200 | 1 |
+| 300 | 0.85f |
+| 356 | 0.90f |
+| 360 | 4.50f |
+| 370 | 5.90f |
+| 380 | 11 |
+| 390 | 17 |
 | 400 | 35 |
 
-**Outros tiers (Celestial/SD/SP/DK/CS — não MORTAL nem ARCH)** (`:508-527`):
+**Outros tiers (Celestial/SD/SP/DK/CS — não MORTAL nem ARCH)** (`:1337-1356`):
 | Nível < | divide por |
 |--------:|-----------:|
 | 120 | 10 |
@@ -91,20 +104,28 @@ clamp: 0 < exp <= 10_000_000
 ### 1.5. Ajustes finais e eventos
 
 ```text
-exp = 6 * exp / 10                                    # corte fixo de 40%  (:529)
-if 0 < killer.ExpBonus < 500:  exp += exp * ExpBonus / 100      # bônus de item  (:534)
+exp = 6 * exp / 10                                    # corte fixo de 40%  (:1358)
+if exp > eMob:  exp = eMob                            # cap no GetExpApply do killer  (:1360)
+if 0 < killer.ExpBonus < 500:
+    exp += exp * (ExpBonus + fairy) / 100             # bônus de item + fada  (:1363)
+if g_pRvrWar.Bonus == party.Clan:  exp += exp*5/100   # RvR +5%  (:1366-1370)
 if NewbieEventServer and party.Level < 100 and tier not Celestial*:
-    exp += exp / 4                                    # +25% newbie  (:537)
-if DOUBLEMODE:   exp *= 2                              # evento exp dobrada  (:540)
-if KefraLive == 0:  exp /= 2                           # boss Kefra vivo penaliza?  (:543)
-if NewbieEventServer:  exp += exp*15/100  else  exp -= exp*15/100   # ±15%  (:546-549)
+    exp += exp / 4                                    # +25% newbie  (:1372)
+if DOUBLEMODE:   exp *= 2                              # evento exp dobrada  (:1375)
+if KefraLive == 0:  exp /= 2                           # Kefra derrubado penaliza  (:1378)
+if NewbieEventServer:  exp += exp*15/100  else  exp -= exp*15/100   # ±15%  (:1381-1384)
 
-# Log diário de exp (reset por dia)  (:552-556)
-# "Hold" de exp (trava de ganho)  (:558-573)
+# Log diário de exp (reset por dia)  (:1386-1391)
+# "Hold" de exp (trava de ganho — consome o ganho até quitar o Hold)  (:1393-1408)
 # Clamp ao máximo:
 if party.MOB.Exp + exp > g_pNextLevel[MAX_LEVEL+1]:
-    party.MOB.Exp = g_pNextLevel[MAX_LEVEL+1]          # :575-577
+    party.MOB.Exp = g_pNextLevel[MAX_LEVEL+1]          # :1410-1417
 ```
+
+> **Dados (issue #43):** os templates originais de `Release/TMsrv/run/npc/` traziam `Exp` zerado
+> ou absurdo em centenas de monstros. O campo é regravado offline por `tmserver/cmd/exptool`
+> usando a curva `level.MobExpForLevel` (pacing clássico em kills-por-level, invertendo o
+> pipeline acima com flags default). Rode a ferramenta após adicionar/editar templates.
 
 `g_pNextLevel[]` é a tabela de XP por nível (curva de level-up). Flags globais `DOUBLEMODE`,
 `NewbieEventServer`, `KefraLive` controlam eventos. A `Rates.txt` (não-código, é descritiva ao
