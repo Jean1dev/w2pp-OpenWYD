@@ -70,13 +70,14 @@ func (c *NpcConfig) Snapshot(ctx context.Context) (npccfg.Snapshot, error) {
 			cache[d.GetTemplateName()] = tmpl
 		}
 		def := npccfg.Definition{
-			Slug:      d.GetSlug(),
-			Template:  tmpl,
-			Enabled:   d.GetEnabled(),
-			X:         int16(d.GetPosX()),
-			Y:         int16(d.GetPosY()),
-			RouteType: uint8(d.GetRouteType()),
-			Merchant:  uint8(d.GetMerchant()),
+			Slug:        d.GetSlug(),
+			Template:    tmpl,
+			DisplayName: d.GetDisplayName(),
+			Enabled:     d.GetEnabled(),
+			X:           int16(d.GetPosX()),
+			Y:           int16(d.GetPosY()),
+			RouteType:   uint8(d.GetRouteType()),
+			Merchant:    uint8(d.GetMerchant()),
 		}
 		for _, it := range d.GetShop() {
 			def.Shop = append(def.Shop, npccfg.ShopItem{
