@@ -71,6 +71,7 @@ var teleportCmds = map[string][2]int16{
 	"gelo": {3650, 3130}, "kefra": {2365, 3884}, "torre": {2506, 1878},
 	"red": {1744, 1880}, "blue": {1745, 1573}, "arch": {1706, 1723},
 	"selados": {1843, 3652}, "amagos": {3910, 2878}, "agua": {1966, 1770},
+	"noatun": {1052, 1726},
 }
 
 // runCommand executes a chat slash command delivered as a whisper whose target name is
