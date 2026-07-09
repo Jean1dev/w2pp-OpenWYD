@@ -30,6 +30,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/ranking"
 )
 
 func main() {
@@ -93,6 +94,7 @@ func run(logger *slog.Logger) error {
 		}
 	}
 	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
+	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
 
 	ln, err := net.Listen("tcp", *addr)

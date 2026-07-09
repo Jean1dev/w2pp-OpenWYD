@@ -23,6 +23,14 @@ service AccountWebService {
   rpc VerifyCredentials(VerifyCredentialsRequest) returns (VerifyCredentialsResponse);
 }
 
+// RankingWebService exposes public ranking projections for the web front-end.
+// It reads persisted character state from Postgres; the browser calls the
+// Next.js BFF, and the BFF calls this service over gRPC + mTLS.
+service RankingWebService {
+  // ListExpRanking returns the Top EXP character ranking.
+  rpc ListExpRanking(ListExpRankingRequest) returns (ListExpRankingResponse);
+}
+
 // CreateResult is the outcome of a sign-up. Business outcomes (name taken,
 // invalid input) are carried here, not as gRPC error codes — only infra
 // failures surface as errors.
@@ -58,6 +66,27 @@ message VerifyCredentialsResponse {
   // authorization decision — NpcAdminService re-checks the role server-side on
   // every call, so a tampered session flag still gets ADMIN_RESULT_FORBIDDEN.
   string role = 4;
+}
+
+message ListExpRankingRequest {
+  int32 limit = 1;  // default 50, max 100
+  int32 offset = 2; // negative values are treated as 0
+}
+
+message RankingEntry {
+  int32 rank = 1; // 1-based rank in the full ordered list
+  string name = 2;
+  int32 class = 3;
+  int32 clan = 4;
+  uint32 guild_id = 5;
+  int32 level = 6;
+  int64 exp = 7;
+  int32 class_master = 8;
+}
+
+message ListExpRankingResponse {
+  repeated RankingEntry entries = 1;
+  int32 total_count = 2;
 }
 
 // NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).

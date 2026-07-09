@@ -182,6 +182,118 @@ var AccountWebService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	RankingWebService_ListExpRanking_FullMethodName = "/web.v1.RankingWebService/ListExpRanking"
+)
+
+// RankingWebServiceClient is the client API for RankingWebService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// RankingWebService exposes public ranking projections for the web front-end.
+// It reads persisted character state from Postgres; the browser calls the
+// Next.js BFF, and the BFF calls this service over gRPC + mTLS.
+type RankingWebServiceClient interface {
+	// ListExpRanking returns the Top EXP character ranking.
+	ListExpRanking(ctx context.Context, in *ListExpRankingRequest, opts ...grpc.CallOption) (*ListExpRankingResponse, error)
+}
+
+type rankingWebServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRankingWebServiceClient(cc grpc.ClientConnInterface) RankingWebServiceClient {
+	return &rankingWebServiceClient{cc}
+}
+
+func (c *rankingWebServiceClient) ListExpRanking(ctx context.Context, in *ListExpRankingRequest, opts ...grpc.CallOption) (*ListExpRankingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListExpRankingResponse)
+	err := c.cc.Invoke(ctx, RankingWebService_ListExpRanking_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RankingWebServiceServer is the server API for RankingWebService service.
+// All implementations must embed UnimplementedRankingWebServiceServer
+// for forward compatibility.
+//
+// RankingWebService exposes public ranking projections for the web front-end.
+// It reads persisted character state from Postgres; the browser calls the
+// Next.js BFF, and the BFF calls this service over gRPC + mTLS.
+type RankingWebServiceServer interface {
+	// ListExpRanking returns the Top EXP character ranking.
+	ListExpRanking(context.Context, *ListExpRankingRequest) (*ListExpRankingResponse, error)
+	mustEmbedUnimplementedRankingWebServiceServer()
+}
+
+// UnimplementedRankingWebServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRankingWebServiceServer struct{}
+
+func (UnimplementedRankingWebServiceServer) ListExpRanking(context.Context, *ListExpRankingRequest) (*ListExpRankingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListExpRanking not implemented")
+}
+func (UnimplementedRankingWebServiceServer) mustEmbedUnimplementedRankingWebServiceServer() {}
+func (UnimplementedRankingWebServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeRankingWebServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RankingWebServiceServer will
+// result in compilation errors.
+type UnsafeRankingWebServiceServer interface {
+	mustEmbedUnimplementedRankingWebServiceServer()
+}
+
+func RegisterRankingWebServiceServer(s grpc.ServiceRegistrar, srv RankingWebServiceServer) {
+	// If the following call panics, it indicates UnimplementedRankingWebServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RankingWebService_ServiceDesc, srv)
+}
+
+func _RankingWebService_ListExpRanking_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListExpRankingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RankingWebServiceServer).ListExpRanking(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RankingWebService_ListExpRanking_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RankingWebServiceServer).ListExpRanking(ctx, req.(*ListExpRankingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RankingWebService_ServiceDesc is the grpc.ServiceDesc for RankingWebService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RankingWebService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.RankingWebService",
+	HandlerType: (*RankingWebServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListExpRanking",
+			Handler:    _RankingWebService_ListExpRanking_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
 	NpcAdminService_ListNpcs_FullMethodName              = "/web.v1.NpcAdminService/ListNpcs"
 	NpcAdminService_GetNpc_FullMethodName                = "/web.v1.NpcAdminService/GetNpc"
 	NpcAdminService_UpsertNpc_FullMethodName             = "/web.v1.NpcAdminService/UpsertNpc"
