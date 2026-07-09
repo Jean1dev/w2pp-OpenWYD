@@ -294,6 +294,122 @@ var RankingWebService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	CharacterWebService_ListMyCharacters_FullMethodName = "/web.v1.CharacterWebService/ListMyCharacters"
+)
+
+// CharacterWebServiceClient is the client API for CharacterWebService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// CharacterWebService exposes player-facing, read-only character summaries for
+// the Next.js BFF. The BFF must pass the account_id from its httpOnly session;
+// the browser must never provide account_id directly.
+type CharacterWebServiceClient interface {
+	// ListMyCharacters returns the character-selection projection for the logged
+	// account. It is cold-storage data and can be slightly stale while a character
+	// is online; live state remains owned by tmServer's single goroutine.
+	ListMyCharacters(ctx context.Context, in *ListMyCharactersRequest, opts ...grpc.CallOption) (*ListMyCharactersResponse, error)
+}
+
+type characterWebServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCharacterWebServiceClient(cc grpc.ClientConnInterface) CharacterWebServiceClient {
+	return &characterWebServiceClient{cc}
+}
+
+func (c *characterWebServiceClient) ListMyCharacters(ctx context.Context, in *ListMyCharactersRequest, opts ...grpc.CallOption) (*ListMyCharactersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyCharactersResponse)
+	err := c.cc.Invoke(ctx, CharacterWebService_ListMyCharacters_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CharacterWebServiceServer is the server API for CharacterWebService service.
+// All implementations must embed UnimplementedCharacterWebServiceServer
+// for forward compatibility.
+//
+// CharacterWebService exposes player-facing, read-only character summaries for
+// the Next.js BFF. The BFF must pass the account_id from its httpOnly session;
+// the browser must never provide account_id directly.
+type CharacterWebServiceServer interface {
+	// ListMyCharacters returns the character-selection projection for the logged
+	// account. It is cold-storage data and can be slightly stale while a character
+	// is online; live state remains owned by tmServer's single goroutine.
+	ListMyCharacters(context.Context, *ListMyCharactersRequest) (*ListMyCharactersResponse, error)
+	mustEmbedUnimplementedCharacterWebServiceServer()
+}
+
+// UnimplementedCharacterWebServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCharacterWebServiceServer struct{}
+
+func (UnimplementedCharacterWebServiceServer) ListMyCharacters(context.Context, *ListMyCharactersRequest) (*ListMyCharactersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMyCharacters not implemented")
+}
+func (UnimplementedCharacterWebServiceServer) mustEmbedUnimplementedCharacterWebServiceServer() {}
+func (UnimplementedCharacterWebServiceServer) testEmbeddedByValue()                             {}
+
+// UnsafeCharacterWebServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CharacterWebServiceServer will
+// result in compilation errors.
+type UnsafeCharacterWebServiceServer interface {
+	mustEmbedUnimplementedCharacterWebServiceServer()
+}
+
+func RegisterCharacterWebServiceServer(s grpc.ServiceRegistrar, srv CharacterWebServiceServer) {
+	// If the following call panics, it indicates UnimplementedCharacterWebServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CharacterWebService_ServiceDesc, srv)
+}
+
+func _CharacterWebService_ListMyCharacters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyCharactersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CharacterWebServiceServer).ListMyCharacters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CharacterWebService_ListMyCharacters_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CharacterWebServiceServer).ListMyCharacters(ctx, req.(*ListMyCharactersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CharacterWebService_ServiceDesc is the grpc.ServiceDesc for CharacterWebService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CharacterWebService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.CharacterWebService",
+	HandlerType: (*CharacterWebServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListMyCharacters",
+			Handler:    _CharacterWebService_ListMyCharacters_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
 	NpcAdminService_ListNpcs_FullMethodName              = "/web.v1.NpcAdminService/ListNpcs"
 	NpcAdminService_GetNpc_FullMethodName                = "/web.v1.NpcAdminService/GetNpc"
 	NpcAdminService_UpsertNpc_FullMethodName             = "/web.v1.NpcAdminService/UpsertNpc"
