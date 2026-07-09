@@ -102,6 +102,17 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		}
 		e.MP -= int32(spent)
 		body.ReqMp -= int16(spent)
+
+		// BM evocation (InstanceType 11, _MSG_Attack.cpp:809-837): spawn the
+		// summons once per cast — the Dam entries carry no damage for it. A cast
+		// that spawns nothing refunds its mana (the legacy restores Mp/ReqMp).
+		if cast.spell.InstanceType == 11 {
+			count := summonCount(cast.spell.InstanceValue, effectiveSpecial(e, 2))
+			if !d.generateSummon(w, s, e, cast.spell.InstanceValue-1, count) {
+				e.MP += int32(spent)
+				body.ReqMp += int16(spent)
+			}
+		}
 	}
 
 	// Server-authoritative attack power = CurrentScore.Damage + the equipped weapon's
@@ -190,6 +201,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				d.mobKilled(w, e, target)
 			} else {
 				setGroupBattle(w, tid, target, e)
+				// The attacker's summons join their owner's fight (the legacy
+				// EnemyList propagation; summon.go).
+				d.commandSummons(w, s.Conn, target)
 			}
 		}
 		writeDamage(payload, i, int32(dmg))
@@ -334,6 +348,18 @@ func (d *Dispatcher) applyCastAffect(w *world.World, e, target *world.Entity, ti
 	}
 	if !applied {
 		return
+	}
+	// A landed transform (skills 64/66/68/70/71) also swaps the body mesh, which
+	// everyone in view must render — the legacy follows the SetAffect with
+	// GetCurrentScore + SendScore + SendEquip(conn,0) (_MSG_Attack.cpp:1242-1248).
+	// refreshEquip recomputes EquipVisual (where the beast override lives),
+	// broadcasts UpdateEquip self+in-view and re-sends the score.
+	if sp.AffectType == affectTransform {
+		if ts := w.Session(tid); ts != nil {
+			d.refreshEquip(w, ts, target)
+			d.sendAffect(w, ts, target)
+			return
+		}
 	}
 	d.refreshScore(target)
 	if ts := w.Session(tid); ts != nil {

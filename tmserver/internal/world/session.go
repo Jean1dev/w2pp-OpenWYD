@@ -175,16 +175,22 @@ type Entity struct {
 	// are cached the same way and applied at READ time (effective getters), so
 	// the persisted flat score never bakes a buff in (no double-count on
 	// re-login — same policy as HpAddPct/Divine).
-	Rsv           uint8
-	AffDamage     int32
-	AffAC         int32
-	AffMaxHP      int32
-	AffMaxMP      int32
-	AffCon        int16
-	AffSpecial    [4]int16
-	AffResist     [4]int16
-	AffExpBonus   int32 // from affect type 39 (Baú de XP)
-	EquipExpBonus int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
+	Rsv         uint8
+	AffDamage   int32
+	AffAC       int32
+	AffMaxHP    int32
+	AffMaxMP    int32
+	AffCon      int16
+	AffSpecial  [4]int16
+	AffResist   [4]int16
+	AffExpBonus int32 // from affect type 39 (Baú de XP)
+	// AffDamageMultiPct is the legacy DAMAGEMULTI percentage (100 = neutral): a
+	// READ-time damage multiplier applied over Damage+AffDamage but before
+	// WeaponDamage, exactly where Basedef.cpp:4654 multiplies CurrentScore.Damage.
+	// Additive deltas can't express it — attributeDamageBonus lands on the flat
+	// Damage after the affect pass, and the multiplier must cover it too.
+	AffDamageMultiPct int32
+	EquipExpBonus     int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 
@@ -192,7 +198,12 @@ type Entity struct {
 	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).
 	Leader       int
 	LastReqParty int
-	PartyList    [MaxParty]int
+
+	// Summoner is the conn of the player that evoked this mob (GenerateSummon's
+	// pMob.Summoner, Server.cpp:3244); 0 = not a summon. A summon's Leader is
+	// its owner's party leader (or the owner), matching the legacy binding.
+	Summoner  int
+	PartyList [MaxParty]int
 
 	Equip [MaxEquip]Item // equipped items
 	Carry [MaxCarry]Item // inventory; for mobs this is also the loot table (§2.2)

@@ -229,6 +229,10 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// Inject the player entity into the world (the slot was docked at connect).
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUser
+		// The entity is per-connection: wipe any affect left by a previously
+		// played character before rehydrating this one's persisted slots (the
+		// rehydrate below only ADDS slots — issue #21's cross-class transform).
+		e.ResetAffects()
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
 		e.LastCity = st.LastCity
@@ -251,10 +255,6 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.deriveSkillBonus(e)
 		e.Equip = st.Equip
 		e.Carry = st.Carry
-		// Visual gear codes from the character's REAL equipment, so others (and the
-		// own client, via UpdateEquip) see what is actually equipped — not the class
-		// starter set. Empty slots → 0 (no item).
-		e.EquipVisual = equipVisual(e)
 		// Capture the equipment-free BaseScore from the loaded CurrentScore, so later
 		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
 		// counting the gear already baked into the stored CurrentScore.
@@ -282,6 +282,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// the live Special (= BaseSpecial + gear) and the affect caches, which are
 		// not persisted.
 		d.refreshScore(e)
+		// Visual gear codes from the character's REAL equipment, so others (and the
+		// own client, via UpdateEquip) see what is actually equipped — not the class
+		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
+		// refreshScore, so a persisted transform (affect 16) renders its beast mesh.
+		e.EquipVisual = equipVisual(e)
 	}
 	s.Mode = world.UserPlay
 	// The persisted skill block rides the login snapshot (mask/points/bar/Special);
@@ -456,6 +461,10 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 		w.SaveCargoThen(s, func(w *world.World, s *world.Session) {
 			if e := w.Entity(s.Conn); e != nil {
 				e.Mode = world.MobUserDock
+				// The save above already captured this character's buffs; drop
+				// them from the per-connection entity so they can't bleed into
+				// the next character selected on this session (issue #21).
+				e.ResetAffects()
 			}
 			s.Mode = world.UserSelChar
 			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
