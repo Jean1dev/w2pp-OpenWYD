@@ -264,7 +264,7 @@ func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Enti
 	if af.Time > affectTimeCap {
 		af.Time = affectTimeCap
 	}
-	e.Carry[src] = world.Item{}
+	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
