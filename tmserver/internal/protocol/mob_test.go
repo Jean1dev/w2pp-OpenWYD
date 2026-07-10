@@ -109,6 +109,56 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	if b[1034] != 42 {
 		t.Errorf("ShortSkill tail @1034 = %d, want 42", b[1034])
 	}
+	if le.Uint16(b[1028:]) != 0 || le.Uint16(b[1030:]) != 1 || le.Uint16(b[1032:]) != 0 {
+		t.Errorf("tail Slot/ClientID/Weather = %d/%d/%d, want 0/1/0",
+			le.Uint16(b[1028:]), le.Uint16(b[1030:]), le.Uint16(b[1032:]))
+	}
+	assertZeroRange(t, b, 820, 1028)
+	assertZeroRange(t, b, 1050, len(b))
+}
+
+func TestCNFCharacterLoginBodyLayout(t *testing.T) {
+	var short [16]uint8
+	short[15] = 77
+	b := EncodeCNFCharacterLoginBody(2, 33, 4, MobSnapshot{
+		Name:      "Fallback",
+		SPX:       2494,
+		SPY:       1707,
+		Coin:      123,
+		Exp:       456,
+		AttackRun: 2,
+	}, short)
+
+	if len(b) != cnfCharacterLoginSize-HeaderSize {
+		t.Fatalf("CNFCharacterLogin body = %d, want %d", len(b), cnfCharacterLoginSize-HeaderSize)
+	}
+	le := binary.LittleEndian
+	if le.Uint16(b[0:]) != 2494 || le.Uint16(b[2:]) != 1707 {
+		t.Errorf("msg PosX/PosY = %d,%d want 2494,1707", le.Uint16(b[0:]), le.Uint16(b[2:]))
+	}
+	if le.Uint16(b[4+40:]) != 2494 || le.Uint16(b[4+42:]) != 1707 {
+		t.Errorf("mob SPX/SPY = %d,%d want 2494,1707", le.Uint16(b[4+40:]), le.Uint16(b[4+42:]))
+	}
+	if got := cstr16(b[4:20]); got != "Fallback" {
+		t.Errorf("name = %q, want Fallback", got)
+	}
+	if le.Uint16(b[1028:]) != 2 || le.Uint16(b[1030:]) != 33 || le.Uint16(b[1032:]) != 4 {
+		t.Errorf("tail Slot/ClientID/Weather = %d/%d/%d, want 2/33/4",
+			le.Uint16(b[1028:]), le.Uint16(b[1030:]), le.Uint16(b[1032:]))
+	}
+	if b[1034+15] != 77 {
+		t.Errorf("ShortSkill[15] = %d, want 77", b[1034+15])
+	}
+	assertZeroRange(t, b, 1050, len(b))
+}
+
+func assertZeroRange(t *testing.T, b []byte, start, end int) {
+	t.Helper()
+	for i := start; i < end; i++ {
+		if b[i] != 0 {
+			t.Fatalf("byte[%d] = %#x, want zero", i, b[i])
+		}
+	}
 }
 
 func TestSelCharSizes(t *testing.T) {

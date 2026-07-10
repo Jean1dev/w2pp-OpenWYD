@@ -48,6 +48,24 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	if err := body.Decode(payload); err != nil {
 		return
 	}
+	if !s.LoggedFirstAction {
+		s.LoggedFirstAction = true
+		d.log.Info("movement: first action after login",
+			"conn", s.Conn,
+			"type", h.Type,
+			"client_tick", h.ClientTick,
+			"server_x", e.X,
+			"server_y", e.Y,
+			"login_spawn_x", s.LoginSpawnX,
+			"login_spawn_y", s.LoginSpawnY,
+			"pos_x", body.PosX,
+			"pos_y", body.PosY,
+			"target_x", body.TargetX,
+			"target_y", body.TargetY,
+			"effect", body.Effect,
+			"speed", body.Speed,
+			"route", body.Route)
+	}
 
 	// Anti-speedhack: movetime must be within the window of server time.
 	// Crack codes per legacy: 102 for Action/Action2, 104 for Action3.

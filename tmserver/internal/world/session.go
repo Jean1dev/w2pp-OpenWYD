@@ -17,20 +17,23 @@ type outFrame struct {
 // domain-model.md §2.1). It is owned by the loop goroutine; the conn/out/closeCh
 // plumbing is shared with this session's reader and writer goroutines only.
 type Session struct {
-	Conn           int // index into pUser/pMob; also HEADER.ID on the wire
-	AccountName    string
-	AccountID      int64
-	Slot           int
-	Mode           Mode
-	IP             string
-	CrackError     int        // anti-cheat violation count (CUser.NumError)
-	Whisper        bool       // true blocks incoming whispers
-	GuildDisable   bool       // hide guild tag (guildon/guildoff)
-	TradeMode      int        // non-zero while in auto-trade (blocks attacks)
-	Trade          TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
-	LastAttackTick uint32     // ClientTick of the last accepted attack (cadence gate)
-	LastAttack     int        // SkillIndex of the last attack
-	ShortSkill     [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	Conn              int // index into pUser/pMob; also HEADER.ID on the wire
+	AccountName       string
+	AccountID         int64
+	Slot              int
+	Mode              Mode
+	IP                string
+	CrackError        int        // anti-cheat violation count (CUser.NumError)
+	Whisper           bool       // true blocks incoming whispers
+	GuildDisable      bool       // hide guild tag (guildon/guildoff)
+	TradeMode         int        // non-zero while in auto-trade (blocks attacks)
+	Trade             TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
+	LastAttackTick    uint32     // ClientTick of the last accepted attack (cadence gate)
+	LastAttack        int        // SkillIndex of the last attack
+	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
+	LoginSpawnY       int16
+	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
 
