@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/binary"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -139,14 +140,19 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// skillHit: this entry resolves through the skill pipeline; anything
 		// else (sentinel -2, 0, or an unknown claim) is melee.
 		skillHit := cast.isSkill && claim == damSkill
-		// Town safe zone: players in a city cannot be hit by melee or aggressive
-		// skills (the legacy gates on the attribute map's PK bit + PKMode; we use
-		// the city rectangles until the attribute map semantics are verified).
-		if world.IsPlayer(tid) && tid != s.Conn && world.Village(target.X, target.Y) >= 0 {
-			if !skillHit || cast.spell.Aggressive != 0 {
-				writeDamage(payload, i, 0)
-				continue
-			}
+		// PvP gate: combat damage (melee or an aggressive skill) against another
+		// player requires BOTH that the target isn't standing in a city safe zone
+		// (the legacy gates on the attribute map's PK bit + PKMode; we use the
+		// city rectangles until the attribute map semantics are verified) AND that
+		// the attacker has opted into PK mode (K key, _MSG_PKMode) — outside a
+		// city, PKMode is the consent flag that lets a hit land at all. Landing
+		// one then starts the "chaotic" red-blink timer below, regardless of the
+		// gate (a non-aggressive skill, e.g. a buff, always passes through).
+		pvpHit := world.IsPlayer(tid) && tid != s.Conn
+		combatHit := !skillHit || cast.spell.Aggressive != 0
+		if pvpHit && combatHit && (world.Village(target.X, target.Y) >= 0 || !e.PKMode) {
+			writeDamage(payload, i, 0)
+			continue
 		}
 
 		var dmg int
@@ -172,6 +178,15 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			target.HP -= int32(dmg)
 			if target.HP < 0 {
 				target.HP = 0
+			}
+			if pvpHit && combatHit {
+				// Landing a PvP hit starts (or refreshes) the chaotic red-blink
+				// timer, independent of whether it's already running.
+				wasGuilty := pkInfoParm(e) != 0
+				e.GuiltyUntil = time.Now().Add(pkGuiltyDuration).Unix()
+				if !wasGuilty {
+					broadcastPKInfo(w, s, e)
+				}
 			}
 		} else if dmg < 0 && cast.isSkill && cast.spell.InstanceType == 6 {
 			// Heal: a negative Dam is the healed amount; clamp to the target's max.

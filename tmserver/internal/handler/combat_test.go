@@ -48,6 +48,7 @@ func TestAttackHitExact(t *testing.T) {
 	target := enterWorld(t, addr) // conn 2 (target), in view
 	defer target.Close()
 
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1)) // PvP requires PK mode
 	attackFrame(t, attacker, serverTime, 2, 0)
 
 	ty, payload, ok := readMaybe(t, target)
@@ -63,6 +64,83 @@ func TestAttackHitExact(t *testing.T) {
 	}
 	if got.Dam[0].Damage != 145 {
 		t.Errorf("server damage = %d, want 145 (exact LCG golden)", got.Dam[0].Damage)
+	}
+}
+
+// TestAttackPlayerWithoutPKModeBlocked: PvP damage never lands without the
+// attacker having opted into PK mode first (K key, _MSG_PKMode) — issue #59
+// follow-up (pressing K alone must not blink the nickname; only a landed PvP
+// hit does, and a hit can't land without PK mode).
+func TestAttackPlayerWithoutPKModeBlocked(t *testing.T) {
+	addr, stop, _ := startServerClock(t, combatDB())
+	defer stop()
+
+	attacker := enterWorld(t, addr) // conn 1, PK mode never toggled
+	defer attacker.Close()
+	target := enterWorld(t, addr) // conn 2, in view
+	defer target.Close()
+
+	attackFrame(t, attacker, serverTime, 2, 0)
+
+	ty, payload, ok := readMaybe(t, target)
+	if !ok || ty != protocol.MsgAttack {
+		t.Fatalf("target got %#x ok=%v, want MsgAttack broadcast", ty, ok)
+	}
+	var got protocol.MsgAttackBody
+	if err := got.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Dam) != 1 || got.Dam[0].Damage != 0 {
+		t.Errorf("Dam = %+v, want damage 0 (blocked, no PK mode)", got.Dam)
+	}
+}
+
+// TestAttackPlayerWithPKModeSetsGuilty: toggling PK mode alone must not blink
+// the nickname (no PKInfo(1) on the ack); landing a PvP hit afterward must.
+func TestAttackPlayerWithPKModeSetsGuilty(t *testing.T) {
+	addr, stop, _ := startServerClock(t, combatDB())
+	defer stop()
+
+	attacker := enterWorld(t, addr) // conn 1
+	defer attacker.Close()
+	target := enterWorld(t, addr) // conn 2, in view
+	defer target.Close()
+	drainRaw(t, attacker)
+	drainRaw(t, target)
+
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
+	// The toggle ack must NOT claim guilty — pressing K alone doesn't blink.
+	ty, payload, ok := readMaybeRaw(t, attacker)
+	if !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("attacker got %#x ok=%v, want PKInfo ack", ty, ok)
+	}
+	if parm, _ := protocol.StandardParm(payload); parm != 0 {
+		t.Errorf("PKInfo ack parm = %d, want 0 (PK mode alone must not blink)", parm)
+	}
+	drainRaw(t, target) // the toggle also reaches the target as a viewer
+
+	attackFrame(t, attacker, serverTime, 2, 0)
+
+	// Landing the hit must broadcast PKInfo(1) about the attacker before the
+	// attack frame itself (combat.go: broadcastPKInfo inside the damage loop,
+	// the MsgAttack forward after it).
+	ty, payload, ok = readMaybeRaw(t, target)
+	if !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("target got %#x ok=%v, want PKInfo (guilty) before the attack frame", ty, ok)
+	}
+	if parm, _ := protocol.StandardParm(payload); parm != 1 {
+		t.Errorf("PKInfo parm = %d, want 1 (attacker now chaotic)", parm)
+	}
+	ty, payload, ok = readMaybeRaw(t, target)
+	if !ok || ty != protocol.MsgAttack {
+		t.Fatalf("target got %#x ok=%v, want MsgAttack broadcast", ty, ok)
+	}
+	var got protocol.MsgAttackBody
+	if err := got.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Dam) != 1 || got.Dam[0].Damage <= 0 {
+		t.Errorf("Dam = %+v, want a landed hit (PK mode on)", got.Dam)
 	}
 }
 

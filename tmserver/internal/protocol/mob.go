@@ -170,7 +170,7 @@ type SkillState struct {
 // equipment, skills AND a valid spawn position), patching only the name. The
 // position comes from the template itself (the stored relational position is not
 // yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState) []byte {
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState, chaosRate uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
@@ -217,6 +217,14 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int6
 		le.PutUint16(b[4+44+40+i*2:], uint16(skill.BaseSpecial[i]))
 		le.PutUint16(b[4+92+40+i*2:], uint16(skill.Special[i]))
 	}
+	// STRUCT_SCORE.ChaosRate@15 in BOTH scores (BaseScore@44+15=59, CurrentScore@92+15=107).
+	// The BaseMob template ships this byte as uninitialized 0xCC memory (same 0xCC
+	// dump as the gold/Quest padding, B2), which the client reads as a non-zero
+	// chaos level → it blinks the player's OWN nickname red (issue #59). Overwrite
+	// it with the real PK/chaos state (0 = clean) so a fresh, non-guilty character
+	// never blinks.
+	b[4+44+15] = chaosRate
+	b[4+92+15] = chaosRate
 	le.PutUint16(b[1028:], uint16(slot))
 	le.PutUint16(b[1030:], uint16(clientID))
 	le.PutUint16(b[1032:], weather)

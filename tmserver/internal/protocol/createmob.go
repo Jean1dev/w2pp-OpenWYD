@@ -26,6 +26,7 @@ type CreateMobData struct {
 	Merchant             uint8 // NPC type (shop/bank/…); makes the name always-visible
 	AttackRun            uint8 // speed byte (run<<4 | move): the client animates this entity's walks with it — 0 = crawling avatar that rubber-bands
 	Direction            uint8
+	ChaosRate            uint8  // STRUCT_SCORE.ChaosRate: non-zero → the client blinks the nickname red (PK/chaos). MUST be 0 for a clean player.
 	CreateType           uint16 // 0 normal, 2 "just entered"
 	Equip                [16]uint16
 }
@@ -37,6 +38,7 @@ func writeCreateMobScore(b []byte, d CreateMobData) {
 	b[12] = d.Merchant  // STRUCT_SCORE.Merchant — NPC type
 	b[13] = d.AttackRun // STRUCT_SCORE.AttackRun — speed
 	b[14] = d.Direction
+	b[15] = d.ChaosRate // STRUCT_SCORE.ChaosRate — PK/chaos nickname blink (0 = clean)
 	le.PutUint32(b[16:], uint32(d.MaxHp))
 	le.PutUint32(b[20:], uint32(d.MaxMp))
 	le.PutUint32(b[24:], uint32(d.Hp))

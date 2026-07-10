@@ -201,9 +201,8 @@ func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Head
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
 			protocol.EncodeCreateMobBody(createMobFrom(target, 1)))
 		if id < world.MaxUser {
-			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869);
-			// Parm=0 — PK/war state not modeled yet.
-			w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(id)}, protocol.EncodeStandardParm(0))
+			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869).
+			w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(id)}, protocol.EncodeStandardParm(pkInfoParm(target)))
 		}
 	} else {
 		w.SendTo(s, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, protocol.EncodeRemoveMobBody(0))

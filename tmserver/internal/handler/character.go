@@ -296,12 +296,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// the live Special (base + equip) is on the Entity after refreshScore-on-login
 	// hasn't run yet, so send base+equip via the entity when available.
 	var skill protocol.SkillState
+	var loginChaos uint8 // PK/chaos nick blink (0 at login: GuiltyUntil isn't persisted)
 	if e := w.Entity(s.Conn); e != nil {
 		skill = protocol.SkillState{
 			LearnedSkill: e.LearnedSkill,
 			ScoreBonus:   e.ScoreBonus, SpecialBonus: e.SpecialBonus, SkillBonus: e.SkillBonus,
 			Special: e.Special, BaseSpecial: e.BaseSpecial, SkillBar: e.SkillBar,
 		}
+		loginChaos = chaosRate(e)
 	}
 	shortSkill := s.ShortSkill
 	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
@@ -318,7 +320,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill, loginChaos)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
@@ -391,21 +393,21 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
-	// PKInfo (Parm=0 — PK/war state not modeled yet) must follow every player
-	// CreateMob here, same as movement.go/view.go: without it the client never
-	// learns the entity's clean PK state and renders its nickname red/blinking
-	// (SendPKInfo/SendGridMob, SendFunc.cpp:1869; ProcessDBMessage.cpp:1021).
-	w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(0))
+	// PKInfo must follow every player CreateMob here, same as movement.go/view.go:
+	// without it the client never learns the entity's PK state and renders its
+	// nickname red/blinking (SendPKInfo/SendGridMob, SendFunc.cpp:1869;
+	// ProcessDBMessage.cpp:1021).
+	w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer
 		w.MarkSeen(vs, s.Conn)
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, selfMob)
-		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(0))
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 		// (B) the newcomer sees each player already in view
 		w.MarkSeen(s, ve.ID)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
 			protocol.EncodeCreateMobBody(createMobFrom(ve, 0)))
-		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(0))
+		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(pkInfoParm(ve)))
 	})
 	// (C) the newcomer sees the NPCs/monsters in view.
 	d.revealMobsInView(w, s)
@@ -442,6 +444,7 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Str:             e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
 		Merchant:   e.Merchant,
 		AttackRun:  attackRunOf(e),
+		ChaosRate:  chaosRate(e), // PK/chaos nickname blink (0 = clean); mobs are never guilty
 		Equip:      e.EquipVisual,
 		CreateType: createType,
 	}

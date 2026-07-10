@@ -72,6 +72,7 @@ func TestSkillCastSpendsMana(t *testing.T) {
 	target := enterWorld(t, addr) // conn 2, in view
 	defer target.Close()
 
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1)) // PvP requires PK mode
 	skillAttackFrame(t, attacker, serverTime, 2, 2, -1)
 	ty, payload, ok := readMaybe(t, target)
 	if !ok || ty != protocol.MsgAttack {
@@ -181,6 +182,7 @@ func TestMeleeWithNegativeSkillIndex(t *testing.T) {
 	target := enterWorld(t, addr)
 	defer target.Close()
 
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1)) // PvP requires PK mode
 	skillAttackFrame(t, attacker, serverTime, 2, -1, -2)
 	ty, payload, ok := readMaybe(t, target)
 	if !ok || ty != protocol.MsgAttack {

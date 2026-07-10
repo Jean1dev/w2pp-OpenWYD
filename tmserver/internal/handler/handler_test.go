@@ -480,6 +480,37 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	}
 }
 
+// TestCharacterLoginSendsCleanPKInfo is the login-time regression guard for
+// issue #59: a freshly logged-in character (nobody else in view) must receive
+// its own PKInfo(Parm=0) right after the score, so the client never renders the
+// nickname red/blinking before it has ever toggled PK mode or landed a hit.
+func TestCharacterLoginSendsCleanPKInfo(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", X: 2100, Y: 2100, HP: 1200, MaxHP: 1200}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	if ty, _, ok := readMaybeRaw(t, c); !ok || ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x ok=%v, want CNFCharacterLogin", ty, ok)
+	}
+	if ty, _, ok := readMaybeRaw(t, c); !ok || ty != protocol.MsgUpdateScore {
+		t.Fatalf("got %#x ok=%v, want UpdateScore", ty, ok)
+	}
+	ty, payload, ok := readMaybeRaw(t, c)
+	if !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("got %#x ok=%v, want PKInfo (self) right after login", ty, ok)
+	}
+	parm, decodeOK := protocol.StandardParm(payload)
+	if !decodeOK || parm != 0 {
+		t.Errorf("login PKInfo parm = %d (ok=%v), want 0 (clean, never toggled/attacked)", parm, decodeOK)
+	}
+}
+
 func TestCharacterLoginBillingDenied(t *testing.T) {
 	db := newDB()
 	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero"}

@@ -127,6 +127,15 @@ type Entity struct {
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
+	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
+	// legacy pUser[conn].PKMode) — it gates whether the player can land a hit on
+	// another player outside a safe city; it does NOT by itself blink the nickname.
+	// GuiltyUntil is the wall-clock deadline (Unix seconds) of the "chaotic" state
+	// set when a PvP hit actually lands (refreshed on every hit); the nickname
+	// blinks red while now < GuiltyUntil and reverts once it decays with no further
+	// PvP (handler.pkGuiltyDuration). Neither is persisted (session-only).
+	PKMode      bool
+	GuiltyUntil int64
 
 	Str        int16 // CurrentScore attributes (base + equipment, kept live by refreshScore)
 	Int        int16
