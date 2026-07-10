@@ -1677,15 +1677,18 @@ func (x *ListNpcDefinitionsResponse) GetPriceOverrides() []*ItemPrice {
 // NpcShopItem is one merchant shop slot (overlays the template Carry[]). Effects
 // are the 3 STRUCT_ITEM effect pairs. Price is NOT here — it is global (ItemPrice).
 type NpcShopItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	ItemIndex     int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
-	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
-	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
-	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
-	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
-	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
-	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Slot      int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	ItemIndex int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Eff1      int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1     int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2      int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2     int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3      int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3     int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	// quantity is the stack amount sold by this slot. The tmServer converts
+	// values >1 into EF_AMOUNT on the live STRUCT_ITEM.
+	Quantity      int32 `protobuf:"varint,9,opt,name=quantity,proto3" json:"quantity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1772,6 +1775,13 @@ func (x *NpcShopItem) GetEff3() int32 {
 func (x *NpcShopItem) GetEffv3() int32 {
 	if x != nil {
 		return x.Effv3
+	}
+	return 0
+}
+
+func (x *NpcShopItem) GetQuantity() int32 {
+	if x != nil {
+		return x.Quantity
 	}
 	return 0
 }
@@ -2086,7 +2096,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x1aListNpcDefinitionsResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x126\n" +
 	"\vdefinitions\x18\x02 \x03(\v2\x14.db.v1.NpcDefinitionR\vdefinitions\x129\n" +
-	"\x0fprice_overrides\x18\x03 \x03(\v2\x10.db.v1.ItemPriceR\x0epriceOverrides\"\xbe\x01\n" +
+	"\x0fprice_overrides\x18\x03 \x03(\v2\x10.db.v1.ItemPriceR\x0epriceOverrides\"\xda\x01\n" +
 	"\vNpcShopItem\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x1d\n" +
 	"\n" +
@@ -2096,7 +2106,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
 	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
 	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
-	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\xb9\x02\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\x12\x1a\n" +
+	"\bquantity\x18\t \x01(\x05R\bquantity\"\xb9\x02\n" +
 	"\rNpcDefinition\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +

@@ -167,14 +167,30 @@ func applyShop(e *world.Entity, shop []npccfg.ShopItem) {
 			continue
 		}
 		e.Carry[protocol.ShopSlot(it.Slot)] = world.Item{
-			Index: int16(it.Index),
-			Effects: [3]world.Effect{
-				{Effect: it.Eff[0][0], Value: it.Eff[0][1]},
-				{Effect: it.Eff[1][0], Value: it.Eff[1][1]},
-				{Effect: it.Eff[2][0], Value: it.Eff[2][1]},
-			},
+			Index:   int16(it.Index),
+			Effects: shopEffects(it),
 		}
 	}
+}
+
+const amountEffect = 61
+
+func shopEffects(it npccfg.ShopItem) [3]world.Effect {
+	eff := [3]world.Effect{
+		{Effect: it.Eff[0][0], Value: it.Eff[0][1]},
+		{Effect: it.Eff[1][0], Value: it.Eff[1][1]},
+		{Effect: it.Eff[2][0], Value: it.Eff[2][1]},
+	}
+	if it.Quantity <= 1 {
+		return eff
+	}
+	for i := range eff {
+		if eff[i].Effect == 0 {
+			eff[i] = world.Effect{Effect: amountEffect, Value: it.Quantity}
+			return eff
+		}
+	}
+	return eff
 }
 
 // maxShopSlots is the number of MSG_ShopList slots (3 tabs of 9); a shop item's

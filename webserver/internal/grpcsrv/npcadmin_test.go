@@ -29,6 +29,8 @@ type fakeNpcAdmin struct {
 	listZonesRes npcadmin.Result
 	listZones    []mapzones.Zone
 	listZonesErr error
+
+	setShopItems []domain.NPCShopItem
 }
 
 func (f *fakeNpcAdmin) List(context.Context, int64) (npcadmin.Result, []domain.NPCDefinition, error) {
@@ -43,7 +45,8 @@ func (f *fakeNpcAdmin) Upsert(context.Context, int64, domain.NPCDefinition) (npc
 func (f *fakeNpcAdmin) SetVisibility(context.Context, int64, int64, bool) (npcadmin.Result, error) {
 	return npcadmin.OK, nil
 }
-func (f *fakeNpcAdmin) SetShop(context.Context, int64, int64, []domain.NPCShopItem) (npcadmin.Result, error) {
+func (f *fakeNpcAdmin) SetShop(_ context.Context, _ int64, _ int64, items []domain.NPCShopItem) (npcadmin.Result, error) {
+	f.setShopItems = items
 	return npcadmin.OK, nil
 }
 func (f *fakeNpcAdmin) SetItemPrice(context.Context, int64, int32, int64) (npcadmin.Result, error) {
@@ -164,6 +167,42 @@ func TestListItemCatalogInfraError(t *testing.T) {
 
 	if _, err := s.ListItemCatalog(context.Background(), &webv1.ListItemCatalogRequest{}); err == nil {
 		t.Fatal("expected gRPC error on infra failure")
+	}
+}
+
+func TestSetNpcShopMapsQuantity(t *testing.T) {
+	fake := &fakeNpcAdmin{}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.SetNpcShop(context.Background(), &webv1.SetNpcShopRequest{
+		ModeratorId: 7,
+		NpcId:       10,
+		Items: []*webv1.AdminNpcShopItem{{
+			Slot: 0, ItemIndex: 1100, Quantity: 120,
+			Eff1: 2, Effv1: 9,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("SetNpcShop: %v", err)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_OK {
+		t.Fatalf("result = %v, want OK", resp.GetResult())
+	}
+	if len(fake.setShopItems) != 1 {
+		t.Fatalf("items = %+v, want 1", fake.setShopItems)
+	}
+	got := fake.setShopItems[0]
+	if got.Quantity != 120 || got.Eff1 != 2 || got.EffV1 != 9 {
+		t.Errorf("mapped item = %+v, want quantity 120 and effect 2/9", got)
+	}
+}
+
+func TestProtoQuantityRejectsOutOfRange(t *testing.T) {
+	if got := protoQuantity(65537); got != -1 {
+		t.Errorf("protoQuantity overflow = %d, want -1", got)
+	}
+	if got := protoQuantity(0); got != 0 {
+		t.Errorf("protoQuantity default marker = %d, want 0", got)
 	}
 }
 

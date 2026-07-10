@@ -69,7 +69,7 @@ func npcDefinitionsToProto(defs []domain.NPCDefinition) []*dbv1.NpcDefinition {
 		shop := make([]*dbv1.NpcShopItem, 0, len(d.Shop))
 		for _, it := range d.Shop {
 			shop = append(shop, &dbv1.NpcShopItem{
-				Slot: int32(it.Slot), ItemIndex: it.ItemIndex,
+				Slot: int32(it.Slot), ItemIndex: it.ItemIndex, Quantity: int32(it.Quantity),
 				Eff1: int32(it.Eff1), Effv1: int32(it.EffV1),
 				Eff2: int32(it.Eff2), Effv2: int32(it.EffV2),
 				Eff3: int32(it.Eff3), Effv3: int32(it.EffV3),
