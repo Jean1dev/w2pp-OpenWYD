@@ -90,8 +90,8 @@ func readMaybe(t *testing.T, c net.Conn) (protocol.Type, []byte, bool) {
 		if err != nil {
 			t.Fatalf("decode: %v", err)
 		}
-		// Skip entity-visibility noise (CreateMob/RemoveMob) for gameplay asserts.
-		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+		// Skip entity-visibility noise (CreateMob/RemoveMob/PKInfo) for gameplay asserts.
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob || h.Type == protocol.MsgPKInfo {
 			continue
 		}
 		return h.Type, payload, true
@@ -117,7 +117,7 @@ func readMaybeHeader(t *testing.T, c net.Conn) (protocol.Header, []byte, bool) {
 		if err != nil {
 			t.Fatalf("decode: %v", err)
 		}
-		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob || h.Type == protocol.MsgPKInfo {
 			continue
 		}
 		return h, payload, true

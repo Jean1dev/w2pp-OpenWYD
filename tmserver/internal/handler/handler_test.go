@@ -211,7 +211,7 @@ func read(t *testing.T, c net.Conn) (protocol.Type, []byte) {
 			t.Fatalf("decode: %v", err)
 		}
 		// Entity-visibility packets are background noise for gameplay assertions.
-		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob || h.Type == protocol.MsgPKInfo {
 			continue
 		}
 		return h.Type, payload

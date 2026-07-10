@@ -391,14 +391,21 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
+	// PKInfo (Parm=0 — PK/war state not modeled yet) must follow every player
+	// CreateMob here, same as movement.go/view.go: without it the client never
+	// learns the entity's clean PK state and renders its nickname red/blinking
+	// (SendPKInfo/SendGridMob, SendFunc.cpp:1869; ProcessDBMessage.cpp:1021).
+	w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(0))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer
 		w.MarkSeen(vs, s.Conn)
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, selfMob)
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(0))
 		// (B) the newcomer sees each player already in view
 		w.MarkSeen(s, ve.ID)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
 			protocol.EncodeCreateMobBody(createMobFrom(ve, 0)))
+		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(0))
 	})
 	// (C) the newcomer sees the NPCs/monsters in view.
 	d.revealMobsInView(w, s)
