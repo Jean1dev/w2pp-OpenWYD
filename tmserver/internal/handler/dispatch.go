@@ -227,6 +227,7 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgSetShortSkill] = d.setShortSkill
 	d.routes[protocol.MsgAccountSecure] = d.accountSecure
 	d.routes[protocol.MsgQuest] = d.quest
+	d.routes[protocol.MsgMasterGriff] = d.masterGriff
 	d.routes[protocol.MsgReqRanking] = d.reqRanking
 	d.routes[protocol.MsgCapsuleInfo] = d.capsuleInfo
 	d.routes[protocol.MsgPutoutSeal] = d.putoutSeal
