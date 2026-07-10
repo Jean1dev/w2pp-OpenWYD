@@ -181,11 +181,13 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			}
 			if pvpHit && combatHit {
 				// Landing a PvP hit starts (or refreshes) the chaotic red-blink
-				// timer, independent of whether it's already running.
-				wasGuilty := pkInfoParm(e) != 0
+				// timer, independent of whether it's already running. On the 0→1
+				// transition, re-broadcast the PK state so the attacker's nick turns
+				// red (MobName[12]=0) for itself and everyone in view.
+				wasGuilty := pkGuilty(e)
 				e.GuiltyUntil = time.Now().Add(pkGuiltyDuration).Unix()
 				if !wasGuilty {
-					broadcastPKInfo(w, s, e)
+					d.broadcastPKState(w, s, e)
 				}
 			}
 		} else if dmg < 0 && cast.isSkill && cast.spell.InstanceType == 6 {

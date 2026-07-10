@@ -109,38 +109,48 @@ func TestAttackPlayerWithPKModeSetsGuilty(t *testing.T) {
 	drainRaw(t, target)
 
 	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
-	// The toggle ack must NOT claim guilty — pressing K alone doesn't blink.
-	ty, payload, ok := readMaybeRaw(t, attacker)
-	if !ok || ty != protocol.MsgPKInfo {
-		t.Fatalf("attacker got %#x ok=%v, want PKInfo ack", ty, ok)
-	}
-	if parm, _ := protocol.StandardParm(payload); parm != 0 {
-		t.Errorf("PKInfo ack parm = %d, want 0 (PK mode alone must not blink)", parm)
+	// Pressing K only sends a PKInfo (attackable flag) — NO CreateMob, so the nick
+	// color (MobName[12]) is untouched. Just drain the ack.
+	if ty, _, ok := readMaybeRaw(t, attacker); !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("attacker K-ack = %#x ok=%v, want PKInfo", ty, ok)
 	}
 	drainRaw(t, target) // the toggle also reaches the target as a viewer
 
 	attackFrame(t, attacker, serverTime, 2, 0)
 
-	// Landing the hit must broadcast PKInfo(1) about the attacker before the
-	// attack frame itself (combat.go: broadcastPKInfo inside the damage loop,
-	// the MsgAttack forward after it).
-	ty, payload, ok = readMaybeRaw(t, target)
-	if !ok || ty != protocol.MsgPKInfo {
-		t.Fatalf("target got %#x ok=%v, want PKInfo (guilty) before the attack frame", ty, ok)
+	// Landing the hit recolors the attacker's nick red: the target (in view) gets a
+	// fresh CreateMob for the attacker (id 1) whose MobName[12] = 0 (chaos/red),
+	// before the MsgAttack frame. Scan for it, then for the damage.
+	sawRedNick, sawAttack := false, false
+	for i := 0; i < 20 && !sawAttack; i++ {
+		ty, payload, ok := readMaybeRaw(t, target)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgCreateMob:
+			if _, _, id := createMobFields(t, payload); id == 1 {
+				if payload[6+12] != 0 {
+					t.Errorf("attacker self-CreateMob MobName[12] = %d, want 0 (red/chaos after PvP hit)", payload[6+12])
+				}
+				sawRedNick = true
+			}
+		case protocol.MsgAttack:
+			var got protocol.MsgAttackBody
+			if err := got.Decode(payload); err != nil {
+				t.Fatal(err)
+			}
+			if len(got.Dam) != 1 || got.Dam[0].Damage <= 0 {
+				t.Errorf("Dam = %+v, want a landed hit (PK mode on)", got.Dam)
+			}
+			sawAttack = true
+		}
 	}
-	if parm, _ := protocol.StandardParm(payload); parm != 1 {
-		t.Errorf("PKInfo parm = %d, want 1 (attacker now chaotic)", parm)
+	if !sawRedNick {
+		t.Error("attacker's nick was not recolored red (no CreateMob with MobName[12]=0) after landing a PvP hit")
 	}
-	ty, payload, ok = readMaybeRaw(t, target)
-	if !ok || ty != protocol.MsgAttack {
-		t.Fatalf("target got %#x ok=%v, want MsgAttack broadcast", ty, ok)
-	}
-	var got protocol.MsgAttackBody
-	if err := got.Decode(payload); err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Dam) != 1 || got.Dam[0].Damage <= 0 {
-		t.Errorf("Dam = %+v, want a landed hit (PK mode on)", got.Dam)
+	if !sawAttack {
+		t.Error("no MsgAttack broadcast to target")
 	}
 }
 

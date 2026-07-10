@@ -296,14 +296,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// the live Special (base + equip) is on the Entity after refreshScore-on-login
 	// hasn't run yet, so send base+equip via the entity when available.
 	var skill protocol.SkillState
-	var loginChaos uint8 // PK/chaos nick blink (0 at login: GuiltyUntil isn't persisted)
+	loginPKPoint := pkPointNeutral // MobName[12] for the own nick: 75 = white (fresh char is never guilty)
 	if e := w.Entity(s.Conn); e != nil {
 		skill = protocol.SkillState{
 			LearnedSkill: e.LearnedSkill,
 			ScoreBonus:   e.ScoreBonus, SpecialBonus: e.SpecialBonus, SkillBonus: e.SkillBonus,
 			Special: e.Special, BaseSpecial: e.BaseSpecial, SkillBar: e.SkillBar,
 		}
-		loginChaos = chaosRate(e)
+		loginPKPoint = pkPoint(e)
 	}
 	shortSkill := s.ShortSkill
 	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
@@ -320,7 +320,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill, loginChaos)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill, loginPKPoint)
 		d.log.Info("char login: sending CNFCharacterLogin (template)",
 			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
@@ -344,6 +344,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
 		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
 		AttackRun:  baseAttackRun,
+		PKPoint:    loginPKPoint, // MobName[12]: 75 = white nick (issue #59)
 		ScoreBonus: st.ScoreBonus, GuildLevel: st.GuildLevel,
 		LearnedSkill: skill.LearnedSkill, SpecialBonus: skill.SpecialBonus,
 		SkillBonus: skill.SkillBonus, Special: skill.Special, SkillBar: skill.SkillBar,
@@ -393,10 +394,12 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
-	// PKInfo must follow every player CreateMob here, same as movement.go/view.go:
-	// without it the client never learns the entity's PK state and renders its
-	// nickname red/blinking (SendPKInfo/SendGridMob, SendFunc.cpp:1869;
-	// ProcessDBMessage.cpp:1021).
+	// Send the newcomer its OWN CreateMob (the legacy GridMulticast has skip=0, so
+	// the conn — already in the grid — receives its own, ProcessDBMessage.cpp:1029).
+	// This is what colors the player's OWN nick via MobName[12] (PKPoint): without
+	// it the own nick renders forever from the login blob and can't recolor. PKInfo
+	// (attackable flag) rides along for parity (SendPKInfo, SendFunc.cpp:1869).
+	w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, selfMob)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer
@@ -444,10 +447,22 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Str:             e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
 		Merchant:   e.Merchant,
 		AttackRun:  attackRunOf(e),
-		ChaosRate:  chaosRate(e), // PK/chaos nickname blink (0 = clean); mobs are never guilty
 		Equip:      e.EquipVisual,
 		CreateType: createType,
+		// Players pack PKPoint into MobName[12] to color the nick (75 neutral/white,
+		// 0 chaos/red); mobs send a raw name with no PK coloring.
+		IsPlayer: world.IsPlayer(e.ID),
+		PKPoint:  playerPKPoint(e),
 	}
+}
+
+// playerPKPoint is pkPoint(e) for a player, or 0 for a mob (mobs never carry PK
+// coloring and their MobName is sent raw, so the value is ignored anyway).
+func playerPKPoint(e *world.Entity) uint8 {
+	if !world.IsPlayer(e.ID) {
+		return 0
+	}
+	return pkPoint(e)
 }
 
 // characterLogout handles _MSG_CharacterLogout (0x0215): return to the selection
