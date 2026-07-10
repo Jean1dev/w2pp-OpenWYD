@@ -495,10 +495,13 @@ func TestWeaponDamageRefine(t *testing.T) {
 }
 
 // TestAttackRunOfBoots verifies EF_RUNSPEED (boots) raises the move-speed (low)
-// nibble of AttackRun (issue #64: base speed 2 stayed 2 with boots equipped).
+// nibble of AttackRun to the issue #64 tier: bare=2, boots=4, mount=6.
 func TestAttackRunOfBoots(t *testing.T) {
 	d := New(Config{
-		ItemEffects: map[int][]content.BaseEffect{321: {{Eff: efRunSpeed, Val: 1}}}, // boots, +1 speed
+		ItemEffects: map[int][]content.BaseEffect{
+			321: {{Eff: efRunSpeed, Val: 1}},  // boots
+			322: {{Eff: efRunSpeed, Val: 99}}, // overboosted boots still use the boots tier
+		},
 	})
 
 	bare := &world.Entity{}
@@ -510,15 +513,23 @@ func TestAttackRunOfBoots(t *testing.T) {
 	booted := &world.Entity{}
 	booted.Equip[5] = world.Item{Index: 321} // boots occupy equip slot 5 (nPos 32)
 	d.refreshScore(booted)
-	if got := attackRunOf(booted); got != baseAttackRun+1 {
-		t.Errorf("boots +1: attackRunOf = %#x, want %#x", got, baseAttackRun+1)
+	if got := attackRunOf(booted); got != (baseAttackRun&0xF0)|bootMoveSpeed {
+		t.Errorf("boots: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|bootMoveSpeed)
 	}
 
-	// Clamp parity with legacy BASE_GetSpeed: an oversized bonus still clamps
-	// the nibble to 6, never wrapping past it.
-	overboosted := &world.Entity{RunSpeedBonus: 99}
-	if got := attackRunOf(overboosted); got != (baseAttackRun&0xF0)|6 {
-		t.Errorf("clamped: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|6)
+	overboosted := &world.Entity{}
+	overboosted.Equip[5] = world.Item{Index: 322}
+	d.refreshScore(overboosted)
+	if got := attackRunOf(overboosted); got != (baseAttackRun&0xF0)|bootMoveSpeed {
+		t.Errorf("overboosted boots: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|bootMoveSpeed)
+	}
+
+	mounted := &world.Entity{}
+	mounted.Equip[5] = world.Item{Index: 321}
+	mounted.Equip[mountEquipSlot] = world.Item{Index: 342}
+	d.refreshScore(mounted)
+	if got := attackRunOf(mounted); got != (baseAttackRun&0xF0)|mountedMoveSpeed {
+		t.Errorf("mounted with boots: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|mountedMoveSpeed)
 	}
 }
 
