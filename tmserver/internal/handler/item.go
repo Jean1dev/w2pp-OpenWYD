@@ -834,10 +834,39 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+	d.shiftWeaponToRightHand(w, s, e)
 	// An equip/unequip changes the rendered gear: refresh the model everywhere.
 	if srcPlace == world.ItemPlaceEquip || dstPlace == world.ItemPlaceEquip {
 		d.refreshEquip(w, s, e)
 	}
+}
+
+// shiftWeaponToRightHand mirrors _MSG_TradingItem.cpp:394-414: after any
+// trading-item swap, if the primary weapon hand (slot 6) is left empty while
+// the off-hand (slot 7) holds a non-shield item, the server force-moves it
+// into slot 6 and echoes a synthetic swap so the client stays in sync. This
+// is what makes quick-equipping (double-click) a one-handed weapon land in
+// the primary hand instead of the shield slot, since the client itself
+// picks the destination slot and sometimes targets slot 7 directly.
+func (d *Dispatcher) shiftWeaponToRightHand(w *world.World, s *world.Session, e *world.Entity) {
+	if !e.Equip[weaponSlotR].Empty() {
+		return
+	}
+	off := &e.Equip[weaponSlotL]
+	if off.Empty() {
+		return
+	}
+	if pos, ok := d.itemPos[int(off.Index)]; ok && pos == nPosDef3 {
+		return // a real shield stays in the off-hand
+	}
+	e.Equip[weaponSlotR], *off = *off, world.Item{}
+	shiftBody := protocol.MsgTradingItemBody{
+		DestPlace: world.ItemPlaceEquip, DestSlot: weaponSlotR,
+		SrcPlace: world.ItemPlaceEquip, SrcSlot: weaponSlotL,
+	}
+	w.Send(s, protocol.MsgTradingItem, shiftBody.Encode())
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(world.ItemPlaceEquip, weaponSlotR, itemToSel(e.Equip[weaponSlotR])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(world.ItemPlaceEquip, weaponSlotL, itemToSel(e.Equip[weaponSlotL])))
 }
 
 // itemSlot returns a pointer to the live item slot for a place/slot pair, or nil
