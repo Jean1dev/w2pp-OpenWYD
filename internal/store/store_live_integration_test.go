@@ -18,8 +18,7 @@ func freshStore(t *testing.T) (*Store, context.Context) {
 	t.Helper()
 	ctx := context.Background()
 	pool := testPool(t)
-	_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS affect, item, character, account, schema_migrations CASCADE`)
-	_, _ = pool.Exec(ctx, `DROP TYPE IF EXISTS item_owner_kind`)
+	resetTestSchema(ctx, pool)
 	if err := Migrate(ctx, pool); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
@@ -166,5 +165,59 @@ func TestLiveCargo(t *testing.T) {
 	}
 	if err := s.SaveCargo(ctx, 999999, 1, nil); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("SaveCargo(ghost) = %v, want ErrNotFound", err)
+	}
+}
+
+func TestExpRankingOrder(t *testing.T) {
+	s, ctx := freshStore(t)
+
+	if _, err := s.SaveAccount(ctx, domain.Account{
+		Name: "rank1", PassHash: "$argon2id$hash",
+		Characters: []domain.Character{
+			{Slot: 0, Name: "MortalHigh", Class: 0, Clan: 1, GuildID: 10, Level: 400, Exp: 999, ClassMaster: 2},
+			{Slot: 1, Name: "ArchLow", Class: 1, Clan: 2, GuildID: 20, Level: 300, Exp: 10, ClassMaster: 1},
+			{Slot: 2, Name: "TooHigh", Level: 1000, Exp: 999999, ClassMaster: 5},
+		},
+	}); err != nil {
+		t.Fatalf("SaveAccount rank1: %v", err)
+	}
+	if _, err := s.SaveAccount(ctx, domain.Account{
+		Name: "rank2", PassHash: "$argon2id$hash",
+		Characters: []domain.Character{
+			{Slot: 0, Name: "Celestial", Class: 2, Level: 100, Exp: 1, ClassMaster: 3},
+			{Slot: 1, Name: "MortalTieA", Class: 3, Level: 401, Exp: 999, ClassMaster: 2},
+			{Slot: 2, Name: "MortalTieB", Class: 3, Level: 401, Exp: 999, ClassMaster: 2},
+		},
+	}); err != nil {
+		t.Fatalf("SaveAccount rank2: %v", err)
+	}
+
+	entries, total, err := s.ListExpRanking(ctx, 10, 0)
+	if err != nil {
+		t.Fatalf("ListExpRanking: %v", err)
+	}
+	if total != 5 {
+		t.Fatalf("total = %d, want 5", total)
+	}
+	gotNames := make([]string, 0, len(entries))
+	for _, e := range entries {
+		gotNames = append(gotNames, e.Name)
+	}
+	wantNames := []string{"Celestial", "ArchLow", "MortalTieA", "MortalTieB", "MortalHigh"}
+	if len(gotNames) != len(wantNames) {
+		t.Fatalf("names = %v, want %v", gotNames, wantNames)
+	}
+	for i := range wantNames {
+		if gotNames[i] != wantNames[i] {
+			t.Fatalf("names = %v, want %v", gotNames, wantNames)
+		}
+	}
+
+	page, total, err := s.ListExpRanking(ctx, 2, 10)
+	if err != nil {
+		t.Fatalf("ListExpRanking empty page: %v", err)
+	}
+	if len(page) != 0 || total != 5 {
+		t.Fatalf("empty page len=%d total=%d, want len=0 total=5", len(page), total)
 	}
 }

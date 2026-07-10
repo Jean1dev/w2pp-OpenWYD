@@ -16,6 +16,13 @@ func genMobTemplate(clan uint8) []byte {
 	return b
 }
 
+func genMerchantTemplate(merchant uint8) []byte {
+	b := genMobTemplate(0)
+	const cs = 92
+	b[cs+12] = merchant
+	return b
+}
+
 // TestGenerateMobGroup covers the GenerateMob port (Server.cpp:3442-3810):
 // group size, leader/follower linking, per-block population accounting
 // (including the leader-not-counted-in-the-clamp quirk) and the cap.
@@ -137,5 +144,26 @@ func TestGenerateMobQueueFallback(t *testing.T) {
 	}
 	if g.CurrentNumMob != 1 {
 		t.Fatalf("CurrentNumMob after queue respawn = %d, want 1 (SpawnMobAt re-counts)", g.CurrentNumMob)
+	}
+}
+
+func TestGenerateMobNegativeCapSpawnsStaticMerchant(t *testing.T) {
+	w := New(Config{GridDim: 4096}, slogDiscard(), nil, nil)
+	g := &Generator{
+		MinuteGenerate: 1, MinGroup: 0, MaxGroup: 0, MaxNumMob: -1,
+		SegX: [5]int16{2116}, SegY: [5]int16{2080},
+		LeaderTmpl: genMerchantTemplate(23),
+	}
+	w.RegisterGenerators([]*Generator{g})
+
+	ids := w.GenerateMob(0)
+	if len(ids) != 1 {
+		t.Fatalf("GenerateMob negative cap spawned %d mobs, want 1", len(ids))
+	}
+	if g.CurrentNumMob != 1 {
+		t.Fatalf("CurrentNumMob = %d, want 1", g.CurrentNumMob)
+	}
+	if got := len(w.GenerateMob(0)); got != 0 {
+		t.Fatalf("second GenerateMob spawned %d, want cap reached", got)
 	}
 }

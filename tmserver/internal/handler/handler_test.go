@@ -480,6 +480,45 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	}
 }
 
+func TestCharacterLoginFallbackCNFUsesComputedCitySpawn(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", LastCity: 2, HP: 1200, MaxHP: 1200}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x, want CNFCharacterLogin", ty)
+	}
+	if len(payload) != 1820 {
+		t.Fatalf("CNFCharacterLogin body = %d, want 1820", len(payload))
+	}
+
+	msgX := int16(binary.LittleEndian.Uint16(payload[0:]))
+	msgY := int16(binary.LittleEndian.Uint16(payload[2:]))
+	mobSPX := int16(binary.LittleEndian.Uint16(payload[4+40:]))
+	mobSPY := int16(binary.LittleEndian.Uint16(payload[4+42:]))
+	if msgX != mobSPX || msgY != mobSPY {
+		t.Fatalf("CNF PosX/Y = %d,%d but embedded SPX/SPY = %d,%d", msgX, msgY, mobSPX, mobSPY)
+	}
+	if city := world.Village(msgX, msgY); city != int(db.loadResult.LastCity) {
+		t.Fatalf("CNF spawn = %d,%d in city %d, want city %d", msgX, msgY, city, db.loadResult.LastCity)
+	}
+	if binary.LittleEndian.Uint16(payload[1028:]) != 0 ||
+		binary.LittleEndian.Uint16(payload[1030:]) != 1 ||
+		binary.LittleEndian.Uint16(payload[1032:]) != 0 {
+		t.Fatalf("tail Slot/ClientID/Weather = %d/%d/%d, want 0/1/0",
+			binary.LittleEndian.Uint16(payload[1028:]),
+			binary.LittleEndian.Uint16(payload[1030:]),
+			binary.LittleEndian.Uint16(payload[1032:]))
+	}
+}
+
 func TestCharacterLoginBillingDenied(t *testing.T) {
 	db := newDB()
 	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero"}

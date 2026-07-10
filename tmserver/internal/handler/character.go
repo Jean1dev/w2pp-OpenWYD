@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/binary"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -226,9 +227,16 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	if spawnX == 0 && spawnY == 0 {
 		spawnX, spawnY = world.CitySpawn(int(st.LastCity))
 	}
+	s.LoginSpawnX, s.LoginSpawnY = spawnX, spawnY
+	s.LoggedFirstAction = false
 	// Inject the player entity into the world (the slot was docked at connect).
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUser
+		// The entity is per-connection: wipe any affect left by a previously
+		// played character before rehydrating this one's persisted slots (the
+		// rehydrate below only ADDS slots, which caused the issue #21/#47
+		// cross-character leaks).
+		e.ResetAffects()
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
 		e.LastCity = st.LastCity
@@ -259,10 +267,6 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.deriveSkillBonus(e)
 		e.Equip = st.Equip
 		e.Carry = st.Carry
-		// Visual gear codes from the character's REAL equipment, so others (and the
-		// own client, via UpdateEquip) see what is actually equipped — not the class
-		// starter set. Empty slots → 0 (no item).
-		e.EquipVisual = equipVisual(e)
 		// Capture the equipment-free BaseScore from the loaded CurrentScore, so later
 		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
 		// counting the gear already baked into the stored CurrentScore.
@@ -290,6 +294,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// the live Special (= BaseSpecial + gear) and the affect caches, which are
 		// not persisted.
 		d.refreshScore(e)
+		// Visual gear codes from the character's REAL equipment, so others (and the
+		// own client, via UpdateEquip) see what is actually equipped — not the class
+		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
+		// refreshScore, so a persisted transform (affect 16) renders its beast mesh.
+		e.EquipVisual = equipVisual(e)
 	}
 	s.Mode = world.UserPlay
 	// The persisted skill block rides the login snapshot (mask/points/bar/Special);
@@ -319,8 +328,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			carry[i] = itemToSel(st.Carry[i])
 		}
 		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill)
-		d.log.Info("char login: sending CNFCharacterLogin (template)",
-			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
+		d.logCNFCharacterLogin("template", s, st, spawnX, spawnY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
 		d.sendLoginAffects(w, s)
@@ -337,7 +345,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		Class: uint8(st.Class),
 		Coin:  st.Coin,
 		Exp:   st.Exp,
-		SPX:   st.X, SPY: st.Y,
+		SPX:   spawnX, SPY: spawnY,
 		Level: int32(st.Level), Ac: st.AC, Damage: st.Damage,
 		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
 		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
@@ -360,9 +368,35 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		}
 	}
 	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, 0, m, shortSkill)
+	d.logCNFCharacterLogin("fallback", s, st, spawnX, spawnY, body)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 	d.enterWorldView(w, s)
 	d.sendLoginAffects(w, s)
+}
+
+func (d *Dispatcher) logCNFCharacterLogin(path string, s *world.Session, st world.CharacterState, spawnX, spawnY int16, body []byte) {
+	var msgX, msgY, mobSPX, mobSPY uint16
+	if len(body) >= 4+44 {
+		msgX = binary.LittleEndian.Uint16(body[0:])
+		msgY = binary.LittleEndian.Uint16(body[2:])
+		mobSPX = binary.LittleEndian.Uint16(body[4+40:])
+		mobSPY = binary.LittleEndian.Uint16(body[4+42:])
+	}
+	d.log.Info("char login: sending CNFCharacterLogin",
+		"path", path,
+		"conn", s.Conn,
+		"slot", s.Slot,
+		"client_id", s.Conn,
+		"class", st.Class,
+		"name", st.Name,
+		"last_city", st.LastCity,
+		"spawn_x", spawnX,
+		"spawn_y", spawnY,
+		"cnf_pos_x", int16(msgX),
+		"cnf_pos_y", int16(msgY),
+		"mob_spx", int16(mobSPX),
+		"mob_spy", int16(mobSPY),
+		"body", len(body))
 }
 
 // sendLoginAffects pushes the rehydrated buff snapshot right after the world
@@ -464,6 +498,10 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 		w.SaveCargoThen(s, func(w *world.World, s *world.Session) {
 			if e := w.Entity(s.Conn); e != nil {
 				e.Mode = world.MobUserDock
+				// The save above already captured this character's buffs; drop
+				// them from the per-connection entity so they can't bleed into
+				// the next character selected on this session (issue #21/#47).
+				e.ResetAffects()
 			}
 			s.Mode = world.UserSelChar
 			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
@@ -493,10 +531,14 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 	s.CrackError = 0 // NumError = 0
 	d.sendScore(w, s, e)
 
-	// DoRecall: jump to the last-city default spawn (RemoveMob old view + reveal).
+	d.recall(w, s, e)
+	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)
+}
+
+func (d *Dispatcher) recall(w *world.World, s *world.Session, e *world.Entity) {
+	e.QuestFlag = 0
 	rx, ry := world.CitySpawn(int(e.LastCity))
 	d.doTeleport(w, s, rx, ry)
-	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)
 }
 
 // mountEquipSlot is the mount equip slot (Equip[14]). Mounts are acquired in-game

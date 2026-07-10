@@ -37,6 +37,11 @@ type Config struct {
 	// stored relational state (no equipment).
 	BaseMobs map[int][]byte
 
+	// SummonMobs are the BM evocation STRUCT_MOB templates indexed by summon id
+	// (content.LoadBaseSummons; GenerateSummon's mSummon.Mob). Slots may be nil
+	// (optional mount templates); when the slice is nil evocation casts fizzle.
+	SummonMobs [][]byte
+
 	// ItemPrices maps item index → base Price (g_pItemList[].Price) for NPC buy/sell.
 	ItemPrices map[int]int32
 
@@ -93,6 +98,7 @@ type Dispatcher struct {
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
 	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
+	summonMobs      [][]byte                     // BM evocation templates (summon id → STRUCT_MOB)
 	itemPrices      map[int]int32                // item index → base price (NPC shop)
 	itemEffects     map[int][]content.BaseEffect // item index → static base effects (equip score)
 	itemReqs        map[int]content.ItemReq      // item index → equip requirement (level/attrs)
@@ -140,6 +146,7 @@ func New(cfg Config) *Dispatcher {
 		fails:           make(map[string]int),
 		combineFamilies: cfg.CombineFamilies,
 		baseMobs:        cfg.BaseMobs,
+		summonMobs:      cfg.SummonMobs,
 		itemPrices:      cfg.ItemPrices,
 		itemEffects:     cfg.ItemEffects,
 		itemReqs:        cfg.ItemReqs,
@@ -220,6 +227,7 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgSetShortSkill] = d.setShortSkill
 	d.routes[protocol.MsgAccountSecure] = d.accountSecure
 	d.routes[protocol.MsgQuest] = d.quest
+	d.routes[protocol.MsgMasterGriff] = d.masterGriff
 	d.routes[protocol.MsgReqRanking] = d.reqRanking
 	d.routes[protocol.MsgCapsuleInfo] = d.capsuleInfo
 	d.routes[protocol.MsgPutoutSeal] = d.putoutSeal

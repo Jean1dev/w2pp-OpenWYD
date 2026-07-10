@@ -23,8 +23,9 @@ const affectInfiniteTime = 32400000
 // deltas and a fresh score/affect snapshot when anything changed.
 //
 // Deferred vs the original: mobs are not swept (only players carry affects
-// today; mob poison lands with the mob-AI iteration), Type 22 (thunder storm
-// AoE) and the Type 16/24 expiry side effects (transform face, summon end).
+// today; a summon's Type-24 lifespan is ticked by summonTick in the mob-AI
+// pass) and Type 22 (thunder storm AoE). The Type-16 expiry reverts the
+// transform mesh via refreshEquip (the legacy FaceChange).
 func (d *Dispatcher) sweepAffects(w *world.World) {
 	d.tickCount++
 	phase := d.tickCount % affectTickPeriod
@@ -40,7 +41,7 @@ func (d *Dispatcher) sweepAffects(w *world.World) {
 }
 
 func (d *Dispatcher) processAffect(w *world.World, s *world.Session, e *world.Entity) {
-	regen, upScore := false, false
+	regen, upScore, faceChange := false, false, false
 	var delta int32
 	for i := range e.Affect {
 		af := &e.Affect[i]
@@ -79,6 +80,11 @@ func (d *Dispatcher) processAffect(w *world.World, s *world.Session, e *world.En
 			af.Time--
 		}
 		if af.Time == 0 {
+			// A transform running out must also revert the beast mesh in view —
+			// the legacy's FaceChange → SendEquip (Server.cpp:5836-5839).
+			if af.Type == affectTransform {
+				faceChange = true
+			}
 			*af = world.Affect{}
 			upScore = true
 		}
@@ -94,8 +100,12 @@ func (d *Dispatcher) processAffect(w *world.World, s *world.Session, e *world.En
 		})
 	}
 	if upScore {
-		d.refreshScore(e)
-		d.sendScore(w, s, e)
+		if faceChange {
+			d.refreshEquip(w, s, e) // recompute + broadcast the reverted mesh
+		} else {
+			d.refreshScore(e)
+			d.sendScore(w, s, e)
+		}
 		d.sendAffect(w, s, e)
 	}
 }

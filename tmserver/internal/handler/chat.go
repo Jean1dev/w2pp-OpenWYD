@@ -119,17 +119,21 @@ func (d *Dispatcher) leaveGuild(w *world.World, s *world.Session) {
 
 // clearBuffs removes every active buff/debuff (the /buffs command), recomputes the score
 // — dropping e.g. the Divine +20% — and refreshes the client (_MSG_MessageWhisper.cpp:42).
+// A cleared transform (affect 16) also needs its beast mesh reverted in view, so
+// that path re-broadcasts the equip instead of only the score.
 func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 	e := w.Entity(s.Conn)
 	if e == nil {
 		return
 	}
-	for i := range e.Affect {
-		e.Affect[i] = world.Affect{}
+	_, _, wasTransformed := activeTransform(e)
+	e.ResetAffects()
+	if wasTransformed {
+		d.refreshEquip(w, s, e) // recomputes EquipVisual + score, broadcasts both
+	} else {
+		d.refreshScore(e)
+		d.sendScore(w, s, e)
 	}
-	e.DivineEnd = 0
-	d.refreshScore(e)
-	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -126,6 +127,7 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
 	volExpChest  = 198
+	volFairyDust = 7
 	volDivine7   = 64
 	volDivine30  = 66
 	volVigor     = 58
@@ -165,6 +167,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.equipItem(w, s, e, body, payload)
 	case vol >= volSephiraLo && vol <= volSephiraHi:
 		d.useSkillBook(w, s, e, src, vol)
+	case vol == volFairyDust:
+		d.useFairyDust(w, s, e, src)
 	case vol == volExpChest:
 		d.useExpChest(w, s, e, src)
 	case vol >= volDivine7 && vol <= volDivine30:
@@ -175,6 +179,30 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useSilverBar(w, s, e, src)
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
+	}
+}
+
+const efAmount = 61
+
+func itemAmount(it world.Item) int {
+	for _, ef := range it.Effects {
+		if ef.Effect == efAmount {
+			return int(ef.Value)
+		}
+	}
+	return 1
+}
+
+func consumeOneItem(it *world.Item) {
+	if itemAmount(*it) <= 1 {
+		*it = world.Item{}
+		return
+	}
+	for i := range it.Effects {
+		if it.Effects[i].Effect == efAmount {
+			it.Effects[i].Value--
+			return
+		}
 	}
 }
 
@@ -239,11 +267,31 @@ func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Enti
 	if af.Time > affectTimeCap {
 		af.Time = affectTimeCap
 	}
-	e.Carry[src] = world.Item{}
+	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
+}
+
+// useFairyDust consumes Poeira de Fada (EF_VOLATILE 7). The legacy handler sets
+// Exp directly to the next curve threshold, then calls CheckGetLevel; both sides
+// of its rand()%2 branch do the same in this fork.
+func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if e.Level < 0 {
+		return
+	}
+	if e.Level >= level.MaxLevel {
+		e.Exp = level.MaxExp
+	} else {
+		e.Exp = level.NextLevelExp(e.Level)
+	}
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	if !d.applyMortalLevelUps(w, s, e) {
+		d.sendEtc(w, s, e)
+	}
+	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
 }
 
 // useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31
@@ -394,10 +442,21 @@ func (d *Dispatcher) meetsEquipReq(e *world.Entity, it world.Item) bool {
 // equipVisual derives the 16 visible equipment codes from the entity's equipped
 // items. The visual code is the item index (0 = empty slot), matching how the
 // BaseMob template's equipment is read for other previews.
+//
+// A live BM transform overrides slot 0 (the body/face mesh) with the beast
+// model — READ-time, unlike the legacy which mutates MOB.Equip[0].sIndex and
+// must reset it on every recompute (Basedef.cpp:4106/3908). Keeping e.Equip
+// untouched means the persisted body item can't be corrupted and the revert on
+// expiry is just this override no longer firing. The EF_SANC glow the legacy
+// stamps on the transformed mesh (Basedef.cpp:4166) is deferred: the visual
+// code here carries no glow bits for regular gear either.
 func equipVisual(e *world.Entity) [16]uint16 {
 	var v [16]uint16
 	for i := range e.Equip {
 		v[i] = uint16(e.Equip[i].Index)
+	}
+	if value, _, ok := activeTransform(e); ok {
+		v[0] = transMesh(value)
 	}
 	return v
 }
@@ -683,11 +742,16 @@ func effectiveMaxMP(e *world.Entity) int32 {
 }
 
 // effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage
-// plus the affect deltas (Buff Loop), boosted +20% by the Divine buff, plus the separate
-// WeaponDamage (which the Divine does NOT multiply — it is a separate field added after,
-// captura §C).
+// plus the affect deltas (Buff Loop), scaled by the DAMAGEMULTI percentage (BM transform;
+// applied where Basedef.cpp:4654 multiplies CurrentScore.Damage), boosted +20% by the
+// Divine buff, plus the separate WeaponDamage (which neither multiplier touches — it is a
+// separate field added after, captura §C). UNVERIFIED: the legacy folds the Divine into
+// DAMAGEMULTI additively; composing the two here diverges by a few points when both are up.
 func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
 	dmg := e.Damage + e.AffDamage
+	if e.AffDamageMultiPct != 100 && e.AffDamageMultiPct > 0 {
+		dmg = dmg * e.AffDamageMultiPct / 100
+	}
 	if e.HasAffect(world.AffectDivine) {
 		dmg += dmg * 20 / 100
 	}
@@ -830,10 +894,39 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+	d.shiftWeaponToRightHand(w, s, e)
 	// An equip/unequip changes the rendered gear: refresh the model everywhere.
 	if srcPlace == world.ItemPlaceEquip || dstPlace == world.ItemPlaceEquip {
 		d.refreshEquip(w, s, e)
 	}
+}
+
+// shiftWeaponToRightHand mirrors _MSG_TradingItem.cpp:394-414: after any
+// trading-item swap, if the primary weapon hand (slot 6) is left empty while
+// the off-hand (slot 7) holds a non-shield item, the server force-moves it
+// into slot 6 and echoes a synthetic swap so the client stays in sync. This
+// is what makes quick-equipping (double-click) a one-handed weapon land in
+// the primary hand instead of the shield slot, since the client itself
+// picks the destination slot and sometimes targets slot 7 directly.
+func (d *Dispatcher) shiftWeaponToRightHand(w *world.World, s *world.Session, e *world.Entity) {
+	if !e.Equip[weaponSlotR].Empty() {
+		return
+	}
+	off := &e.Equip[weaponSlotL]
+	if off.Empty() {
+		return
+	}
+	if pos, ok := d.itemPos[int(off.Index)]; ok && pos == nPosDef3 {
+		return // a real shield stays in the off-hand
+	}
+	e.Equip[weaponSlotR], *off = *off, world.Item{}
+	shiftBody := protocol.MsgTradingItemBody{
+		DestPlace: world.ItemPlaceEquip, DestSlot: weaponSlotR,
+		SrcPlace: world.ItemPlaceEquip, SrcSlot: weaponSlotL,
+	}
+	w.Send(s, protocol.MsgTradingItem, shiftBody.Encode())
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(world.ItemPlaceEquip, weaponSlotR, itemToSel(e.Equip[weaponSlotR])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(world.ItemPlaceEquip, weaponSlotL, itemToSel(e.Equip[weaponSlotL])))
 }
 
 // itemSlot returns a pointer to the live item slot for a place/slot pair, or nil
