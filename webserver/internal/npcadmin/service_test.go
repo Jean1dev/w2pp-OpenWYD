@@ -144,9 +144,14 @@ func TestSetShopValidation(t *testing.T) {
 		want  Result
 	}{
 		{"ok", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100}, {Slot: 1, ItemIndex: 1101}}, OK},
+		{"quantity ok", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100, Quantity: 120}}, OK},
 		{"slot too high", []domain.NPCShopItem{{Slot: 27, ItemIndex: 1100}}, Invalid},
 		{"negative slot", []domain.NPCShopItem{{Slot: -1, ItemIndex: 1100}}, Invalid},
 		{"zero item", []domain.NPCShopItem{{Slot: 0, ItemIndex: 0}}, Invalid},
+		{"quantity too low", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100, Quantity: -1}}, Invalid},
+		{"quantity too high", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100, Quantity: 256}}, Invalid},
+		{"raw amount rejected", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100, Eff1: 61, EffV1: 120}}, Invalid},
+		{"quantity needs empty effect slot", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100, Quantity: 2, Eff1: 1, Eff2: 2, Eff3: 3}}, Invalid},
 		{"duplicate slot", []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100}, {Slot: 0, ItemIndex: 1101}}, Invalid},
 		{"empty shop ok", nil, OK},
 	}
@@ -173,6 +178,21 @@ func TestSetShopNotFound(t *testing.T) {
 	}
 	if got != NotFound {
 		t.Errorf("SetShop result = %v, want NotFound", got)
+	}
+}
+
+func TestSetShopDefaultsQuantity(t *testing.T) {
+	fs := newFake()
+	s := New(fs)
+	got, err := s.SetShop(context.Background(), 1, 10, []domain.NPCShopItem{{Slot: 0, ItemIndex: 1100}})
+	if err != nil {
+		t.Fatalf("SetShop: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("SetShop result = %v, want OK", got)
+	}
+	if fs.lastShop[0].Quantity != 1 {
+		t.Errorf("stored quantity = %d, want default 1", fs.lastShop[0].Quantity)
 	}
 }
 

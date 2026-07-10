@@ -80,8 +80,9 @@ func (c *NpcConfig) Snapshot(ctx context.Context) (npccfg.Snapshot, error) {
 		}
 		for _, it := range d.GetShop() {
 			def.Shop = append(def.Shop, npccfg.ShopItem{
-				Slot:  int(it.GetSlot()),
-				Index: uint16(it.GetItemIndex()),
+				Slot:     int(it.GetSlot()),
+				Index:    uint16(it.GetItemIndex()),
+				Quantity: uint8(it.GetQuantity()),
 				Eff: [3][2]uint8{
 					{uint8(it.GetEff1()), uint8(it.GetEffv1())},
 					{uint8(it.GetEff2()), uint8(it.GetEffv2())},

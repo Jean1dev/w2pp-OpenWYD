@@ -49,7 +49,7 @@ func TestApplyNPCConfigSpawnsMerchant(t *testing.T) {
 			// Slots 0/2 are tab 1 (identity); slot 9 is tab 2 → Carry[27]; slot 18
 			// is tab 3 → Carry[54]. Proves the ShopSlot mapping is applied.
 			Shop: []npccfg.ShopItem{
-				{Slot: 0, Index: 1100}, {Slot: 2, Index: 1101},
+				{Slot: 0, Index: 1100, Quantity: 120}, {Slot: 2, Index: 1101},
 				{Slot: 9, Index: 1102}, {Slot: 18, Index: 1103},
 			},
 		}},
@@ -73,6 +73,9 @@ func TestApplyNPCConfigSpawnsMerchant(t *testing.T) {
 	}
 	if e.Carry[0].Index != 1100 || e.Carry[2].Index != 1101 {
 		t.Errorf("shop stock = [0]=%d [2]=%d, want 1100/1101", e.Carry[0].Index, e.Carry[2].Index)
+	}
+	if e.Carry[0].Effects[0].Effect != 61 || e.Carry[0].Effects[0].Value != 120 {
+		t.Errorf("stack effect = %+v, want EF_AMOUNT 120", e.Carry[0].Effects[0])
 	}
 	// Tabs 2/3 map through ShopSlot: slot 9 → Carry[27], slot 18 → Carry[54].
 	if e.Carry[27].Index != 1102 {

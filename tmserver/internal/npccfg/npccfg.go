@@ -11,9 +11,10 @@ import "context"
 // positional MSG_ShopList index (0..26). Prices are NOT here — they are global
 // (Snapshot.PriceOverrides).
 type ShopItem struct {
-	Slot  int
-	Index uint16
-	Eff   [3][2]uint8
+	Slot     int
+	Index    uint16
+	Quantity uint8
+	Eff      [3][2]uint8
 }
 
 // Definition is a fully resolved NPC ready to materialize: the raw 816-byte

@@ -208,6 +208,9 @@ message NpcShopItem {
   int32 eff1 = 3;  int32 effv1 = 4;
   int32 eff2 = 5;  int32 effv2 = 6;
   int32 eff3 = 7;  int32 effv3 = 8;
+  // quantity is the stack amount sold by this slot. The tmServer converts
+  // values >1 into EF_AMOUNT on the live STRUCT_ITEM.
+  int32 quantity = 9;
 }
 
 message NpcDefinition {

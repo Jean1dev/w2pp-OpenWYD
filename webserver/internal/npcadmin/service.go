@@ -46,7 +46,12 @@ const (
 
 // Shop slots mirror MSG_ShopList's 27 entries; a merchant NPC's stock lives in
 // slots 0..26. maxSlot bounds shop-item validation.
-const maxSlot = 26
+const (
+	maxSlot       = 26
+	maxQuantity   = 255
+	amountEffect  = 61
+	defaultAmount = 1
+)
 
 // Service implements the moderator NPC-editing operations.
 type Service struct {
@@ -159,8 +164,21 @@ func (s *Service) SetShop(ctx context.Context, moderatorID, npcID int64, items [
 		return r, err
 	}
 	seen := make(map[int16]bool, len(items))
-	for _, it := range items {
+	for i := range items {
+		it := &items[i]
+		if it.Quantity == 0 {
+			it.Quantity = defaultAmount
+		}
 		if it.Slot < 0 || it.Slot > maxSlot || it.ItemIndex <= 0 || seen[it.Slot] {
+			return Invalid, nil
+		}
+		if it.Quantity < defaultAmount || it.Quantity > maxQuantity {
+			return Invalid, nil
+		}
+		if it.Eff1 == amountEffect || it.Eff2 == amountEffect || it.Eff3 == amountEffect {
+			return Invalid, nil
+		}
+		if it.Quantity > defaultAmount && it.Eff1 != 0 && it.Eff2 != 0 && it.Eff3 != 0 {
 			return Invalid, nil
 		}
 		seen[it.Slot] = true

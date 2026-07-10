@@ -120,6 +120,7 @@ type NPCDefinition struct {
 type NPCShopItem struct {
 	Slot      int16
 	ItemIndex int32
+	Quantity  int16 // stack amount; 1 means a single item
 	Eff1      uint8
 	EffV1     uint8
 	Eff2      uint8
