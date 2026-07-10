@@ -124,23 +124,27 @@ func protoToByteArr(v []uint32, n int) []uint8 {
 	return out
 }
 
+func itemToProto(it domain.Item) *dbv1.Item {
+	return &dbv1.Item{
+		Slot:      int32(it.Slot),
+		Index:     int32(it.Index),
+		Eff1:      int32(it.Eff1),
+		Effv1:     int32(it.EffV1),
+		Eff2:      int32(it.Eff2),
+		Effv2:     int32(it.EffV2),
+		Eff3:      int32(it.Eff3),
+		Effv3:     int32(it.EffV3),
+		ExpiresAt: it.ExpiresAt,
+	}
+}
+
 func itemsToProto(items []domain.Item) []*dbv1.Item {
 	if len(items) == 0 {
 		return nil
 	}
 	out := make([]*dbv1.Item, 0, len(items))
 	for _, it := range items {
-		out = append(out, &dbv1.Item{
-			Slot:      int32(it.Slot),
-			Index:     int32(it.Index),
-			Eff1:      int32(it.Eff1),
-			Effv1:     int32(it.EffV1),
-			Eff2:      int32(it.Eff2),
-			Effv2:     int32(it.EffV2),
-			Eff3:      int32(it.Eff3),
-			Effv3:     int32(it.EffV3),
-			ExpiresAt: it.ExpiresAt,
-		})
+		out = append(out, itemToProto(it))
 	}
 	return out
 }

@@ -85,3 +85,20 @@ func (w *World) AddToCarry(e *Entity, item Item) int {
 	}
 	return -1
 }
+
+// AddToCargo puts item in the account warehouse's first empty slot, returning the
+// slot index, or -1 if the cargo is full. It is the delivery target for the
+// donate web shop (issue #34): a purchase lands in the next free cargo slot, and
+// a full cargo (-1) means the item is lost. Loop-only.
+func (w *World) AddToCargo(st *CargoState, item Item) int {
+	if st == nil {
+		return -1
+	}
+	for i := range st.Items {
+		if st.Items[i].Empty() {
+			st.Items[i] = item
+			return i
+		}
+	}
+	return -1
+}

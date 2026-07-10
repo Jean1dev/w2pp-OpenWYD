@@ -29,6 +29,11 @@ type fakeStore struct {
 		coin      int32
 		items     []domain.Item
 	}
+
+	pendingDeliveries      map[int64][]domain.Delivery // accountID -> mailbox rows
+	ackedDelivered         []int64                     // last SaveCargoWithDeliveries delivered ids
+	ackedLost              []int64                     // last SaveCargoWithDeliveries lost ids
+	saveCargoDeliveriesErr error                       // forces SaveCargoWithDeliveries to return this
 }
 
 func (f *fakeStore) AccountByName(_ context.Context, name string) (store.AccountAuth, error) {
@@ -99,6 +104,22 @@ func (f *fakeStore) SaveCargo(_ context.Context, accountID int64, coin int32, it
 	f.savedCargo.accountID = accountID
 	f.savedCargo.coin = coin
 	f.savedCargo.items = items
+	return nil
+}
+
+func (f *fakeStore) PendingItemDeliveries(_ context.Context, accountID int64) ([]domain.Delivery, error) {
+	return f.pendingDeliveries[accountID], nil
+}
+
+func (f *fakeStore) SaveCargoWithDeliveries(_ context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error {
+	if f.saveCargoDeliveriesErr != nil {
+		return f.saveCargoDeliveriesErr
+	}
+	f.savedCargo.accountID = accountID
+	f.savedCargo.coin = coin
+	f.savedCargo.items = items
+	f.ackedDelivered = deliveredIDs
+	f.ackedLost = lostIDs
 	return nil
 }
 
@@ -245,6 +266,58 @@ func TestSaveCharacterRoundTrip(t *testing.T) {
 	}
 	if len(got.Affects) != 1 || got.Affects[0].Time != 4 {
 		t.Fatalf("affects not mapped: %+v", got.Affects)
+	}
+}
+
+func TestListPendingDeliveriesMapping(t *testing.T) {
+	fs := &fakeStore{
+		pendingDeliveries: map[int64][]domain.Delivery{
+			1: {
+				{ID: 5, Item: domain.Item{Index: 1234, Eff1: 2, EffV1: 5, ExpiresAt: 999}},
+				{ID: 6, Item: domain.Item{Index: 42}},
+			},
+		},
+	}
+	resp, err := New(fs).ListPendingDeliveries(context.Background(),
+		&dbv1.ListPendingDeliveriesRequest{AccountId: 1})
+	if err != nil {
+		t.Fatalf("ListPendingDeliveries: %v", err)
+	}
+	got := resp.GetDeliveries()
+	if len(got) != 2 || got[0].GetId() != 5 || got[0].GetItem().GetIndex() != 1234 ||
+		got[0].GetItem().GetEffv1() != 5 || got[0].GetItem().GetExpiresAt() != 999 {
+		t.Fatalf("unexpected deliveries: %+v", got)
+	}
+}
+
+func TestSaveCargoWithDeliveries(t *testing.T) {
+	fs := &fakeStore{}
+	resp, err := New(fs).SaveCargoWithDeliveries(context.Background(),
+		&dbv1.SaveCargoWithDeliveriesRequest{
+			AccountId: 1, CargoCoin: 50,
+			Items:        []*dbv1.Item{{Slot: 0, Index: 1234}},
+			DeliveredIds: []int64{5}, LostIds: []int64{6},
+		})
+	if err != nil || !resp.GetOk() {
+		t.Fatalf("SaveCargoWithDeliveries: ok=%v err=%v", resp.GetOk(), err)
+	}
+	if fs.savedCargo.accountID != 1 || fs.savedCargo.coin != 50 || len(fs.savedCargo.items) != 1 {
+		t.Fatalf("cargo not mapped: %+v", fs.savedCargo)
+	}
+	if len(fs.ackedDelivered) != 1 || fs.ackedDelivered[0] != 5 || len(fs.ackedLost) != 1 || fs.ackedLost[0] != 6 {
+		t.Fatalf("acks not mapped: delivered=%v lost=%v", fs.ackedDelivered, fs.ackedLost)
+	}
+}
+
+func TestSaveCargoWithDeliveriesNotFound(t *testing.T) {
+	fs := &fakeStore{saveCargoDeliveriesErr: store.ErrNotFound}
+	resp, err := New(fs).SaveCargoWithDeliveries(context.Background(),
+		&dbv1.SaveCargoWithDeliveriesRequest{AccountId: 999})
+	if err != nil {
+		t.Fatalf("SaveCargoWithDeliveries: %v", err)
+	}
+	if resp.GetOk() {
+		t.Fatal("expected ok=false for a missing account")
 	}
 }
 

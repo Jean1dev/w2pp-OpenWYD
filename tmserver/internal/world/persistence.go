@@ -72,6 +72,14 @@ type CargoSave struct {
 	Items     []SavedItem
 }
 
+// Delivery is one pending grant the loop drains from the delivery_queue mailbox
+// into the account cargo (donate web shop, issue #34). ID is the queue row id,
+// acked once the item is applied (or lost when the cargo is full).
+type Delivery struct {
+	ID   int64
+	Item Item
+}
+
 // CharacterState is the minimum needed to inject a player into the world on
 // character login. The full STRUCT_MOB snapshot for the byte-exact
 // _MSG_CNFCharacterLogin is UNVERIFIED (its SELCHAR/snapshot layout is not fully
@@ -187,6 +195,13 @@ type Persistence interface {
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
 	LoadCargo(ctx context.Context, accountID int64) (CargoState, error)
 	SaveCargo(ctx context.Context, save CargoSave) error
+	// ListPendingDeliveries returns the account's pending item grants from the
+	// delivery_queue mailbox (issue #34). Called off the loop at login.
+	ListPendingDeliveries(ctx context.Context, accountID int64) ([]Delivery, error)
+	// SaveCargoWithDeliveries persists the cargo (replace-all) and marks the
+	// drained mailbox rows delivered/lost in one backend transaction — the anti-dup
+	// boundary for the drain.
+	SaveCargoWithDeliveries(ctx context.Context, save CargoSave, deliveredIDs, lostIDs []int64) error
 }
 
 // errNoPersistence is returned by NopPersistence for operations that need a DB.
@@ -232,3 +247,13 @@ func (NopPersistence) LoadCargo(context.Context, int64) (CargoState, error) {
 
 // SaveCargo drops the snapshot (no backend to persist to).
 func (NopPersistence) SaveCargo(context.Context, CargoSave) error { return nil }
+
+// ListPendingDeliveries returns no grants: without a backend there is no mailbox.
+func (NopPersistence) ListPendingDeliveries(context.Context, int64) ([]Delivery, error) {
+	return nil, nil
+}
+
+// SaveCargoWithDeliveries drops the snapshot (no backend to persist to).
+func (NopPersistence) SaveCargoWithDeliveries(context.Context, CargoSave, []int64, []int64) error {
+	return nil
+}

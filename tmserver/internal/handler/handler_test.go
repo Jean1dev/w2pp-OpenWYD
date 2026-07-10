@@ -34,9 +34,19 @@ type fakeDB struct {
 	loads      map[int64]world.CharacterState // per-account override (accountID → state)
 	loadErr    error
 
+	pending map[int64][]world.Delivery // accountID -> mailbox rows (donate drain)
+
 	mu          sync.Mutex
 	savedChars  []world.CharacterSave // captured SaveOnShutdown calls
 	savedCargos []world.CargoSave     // captured SaveCargo calls
+	drainSaves  []drainSave           // captured SaveCargoWithDeliveries calls
+}
+
+// drainSave captures one SaveCargoWithDeliveries call for assertions.
+type drainSave struct {
+	save      world.CargoSave
+	delivered []int64
+	lost      []int64
 }
 
 func (f *fakeDB) SaveOnShutdown(_ context.Context, save world.CharacterSave) error {
@@ -51,6 +61,36 @@ func (f *fakeDB) SaveCargo(_ context.Context, save world.CargoSave) error {
 	defer f.mu.Unlock()
 	f.savedCargos = append(f.savedCargos, save)
 	return nil
+}
+
+func (f *fakeDB) ListPendingDeliveries(_ context.Context, accountID int64) ([]world.Delivery, error) {
+	return f.pending[accountID], nil
+}
+
+func (f *fakeDB) SaveCargoWithDeliveries(_ context.Context, save world.CargoSave, deliveredIDs, lostIDs []int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.drainSaves = append(f.drainSaves, drainSave{save: save, delivered: deliveredIDs, lost: lostIDs})
+	return nil
+}
+
+// lastDrainSave returns the most recent SaveCargoWithDeliveries capture, waiting
+// briefly for the async drain (two off-loop round-trips) to land.
+func (f *fakeDB) lastDrainSave(t *testing.T) (drainSave, bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		n := len(f.drainSaves)
+		if n > 0 {
+			ds := f.drainSaves[n-1]
+			f.mu.Unlock()
+			return ds, true
+		}
+		f.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+	}
+	return drainSave{}, false
 }
 
 // lastSavedCargo returns the most recent SaveCargo snapshot (and how many landed).
