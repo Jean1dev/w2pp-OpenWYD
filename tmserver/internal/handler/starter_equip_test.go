@@ -119,7 +119,7 @@ func TestComputeScoreReadsLiveFields(t *testing.T) {
 	if sc.AttackRun != baseAttackRun {
 		t.Errorf("AttackRun = %#x, want base %#x", sc.AttackRun, baseAttackRun)
 	}
-	// Equipping a mount raises the move-speed (low) nibble.
+	// Equipping a mount raises the move-speed (low) nibble to the issue #64 tier.
 	e.Equip[mountEquipSlot] = world.Item{Index: 342} // any mount item, e.g. Shire
 	if sc := d.computeScore(e); sc.AttackRun != (baseAttackRun&0xF0)|mountedMoveSpeed {
 		t.Errorf("mounted AttackRun = %#x, want %#x", sc.AttackRun, (baseAttackRun&0xF0)|mountedMoveSpeed)
