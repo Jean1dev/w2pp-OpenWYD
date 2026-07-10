@@ -222,9 +222,17 @@ short_skill — **rebuild --no-cache nos dois lados!**). Blob do login patcha Le
 bonuses@788-793/SkillBar@796/Special@Score+40. `Entity.Resist[4]` agora vem do template (@806).
 **UNVERIFIED (perguntas prontas em `docs/migration/prompts/agent-prompt-skills.md`):** GetParryRate/
 BASE_GetDoubleCritical (ainda confiamos no cliente), init de ReqMp, origem de SaveMana/Magic/
-RegenMP de player, weather, pTransBonus (Type 16 transform), Soul (29), DoT exato, unidade 8s
-validar com buff curto no cliente real. Deferidos: types 1/5/6/7/12/16/22/27/29/36, skills
-especiais 6/22/30/31/41(multi-alvo)/44/47/97-mortar/98/99/102, sweep de affect em mobs.
+RegenMP de player, weather, Soul (29), DoT exato, unidade 8s
+validar com buff curto no cliente real. Deferidos: types 1/5/6/7/12/22/27/29/36, skills
+especiais 6/22/30/31/41(multi-alvo)/44/47/97-mortar/98/99/102, sweep de affect em mobs
+(exceto o lifespan Type 24 de summon, varrido pelo `summonTick`). **Issue #21 (jul/2026):
+Type 16 (transformação BM) FEITO** — `handler/transform.go` (pTransBonus, mesh 22-25/32 via
+override read-time em `equipVisual`, DAMAGEMULTI = `AffDamageMultiPct`), broadcast no cast/expiry/
+`/buffs` via `refreshEquip`; **evocações BM (InstanceType 11) FEITAS** — `handler/summon.go`
+(GenerateSummon: templates `content.LoadBaseSummons`, Clan 4, `Entity.Summoner`, pSummonBonus,
+affect 24 = lifespan, follow/assist em `summonTick`/`commandSummons`, mob-vs-mob em
+`validTarget`/`mobAttack`, kill do pet credita exp ao dono); e o **vazamento de affects entre
+personagens da mesma conexão** corrigido (`Entity.ResetAffects()` no char-login e logout).
 
 Atributos (CurrentScore) — **separação Base↔Current FEITA** (`handler/item.go`). Modelo: a `Entity`
 guarda `Base*` (score sem equipamento) e o live `Str/AC/Damage/MaxHP/MaxMP` (= base + equip). No login
@@ -331,8 +339,8 @@ Int (BattleProcessor). Lógica fiel ao `CMob.cpp` (StandingBy/BattleProcessor/Ge
   Gate: `roamRadius`=20 (>ViewRange 18 — player nunca vê patrulha congelada; mobs sem player a 20
   ficam dormentes, divergência de otimização). RouteType real: 5894×RT2, 66×RT3, 63×RT0, 42×RT6,
   38×RT1. WaitTicks ≈ segundos no nosso tick de 1s (legado `WaitSec -= 6`/ciclo, cadência
-  UNVERIFIED). RT5/summon deferido; RT3 no fim vira idle em casa (legado retorna 0x10000,
-  não modelado). Testes: `TestSetSegment`, `TestMobRoamPatrolAndWait`,
+  UNVERIFIED). RT5/summon FEITO na issue #21 (`handler/summon.go`, `summonTick`); RT3 no fim
+  vira idle em casa (legado retorna 0x10000, não modelado). Testes: `TestSetSegment`, `TestMobRoamPatrolAndWait`,
   `TestMobReturnsHomeAfterCombat`, `TestPatrolVisibleToPlayer` (e2e), parser em `npc_test.go`.
 - **Iteração 2 parte 4 FEITA (jul/2026) — respawn por gerador + grupos (M5, ÚLTIMO).**
   `world/generator.go`: `Generator` (recipe do bloco NPCGener + `CurrentNumMob` vivo) +
@@ -360,8 +368,8 @@ Int (BattleProcessor). Lógica fiel ao `CMob.cpp` (StandingBy/BattleProcessor/Ge
   SegWait[0] (paridade Server.cpp:3665). Testes: `generator_test.go` (grupo/clamp-quirk/
   contabilidade/fila), `TestSetGroupBattleDragsGroup`, `TestFollowerDoesNotSelfAggro` (e2e),
   `TestGroupFocusesAttacker` (e2e wiring PROD), `TestGenerateMobsTimer`.
-- **B3 ENCERRADO (iteração 2 completa).** Deferidos p/ frentes futuras: mob-vs-mob (guardas),
-  summons/RouteType 5, Formation (g_pFormation), FightAction/DieAction (chat de mob),
+- **B3 ENCERRADO (iteração 2 completa).** Deferidos p/ frentes futuras: mob-vs-mob de guardas
+  (summon-vs-mob FEITO na issue #21), Formation (g_pFormation), FightAction/DieAction (chat de mob),
   EnemyList[13]/SelectTargetFromEnemyList, KEFRA_BOSS, ~1400 templates de Leader sem arquivo,
   reveal de players ao cruzar visão andando (compartilha com B1).
 - **Level-up** (da frente anterior) **Falta:** tiers ARCH/CELESTIAL (curva `g_pNextLevel_2`, quest-gates)

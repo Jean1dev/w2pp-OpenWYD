@@ -398,10 +398,21 @@ func (d *Dispatcher) meetsEquipReq(e *world.Entity, it world.Item) bool {
 // equipVisual derives the 16 visible equipment codes from the entity's equipped
 // items. The visual code is the item index (0 = empty slot), matching how the
 // BaseMob template's equipment is read for other previews.
+//
+// A live BM transform overrides slot 0 (the body/face mesh) with the beast
+// model — READ-time, unlike the legacy which mutates MOB.Equip[0].sIndex and
+// must reset it on every recompute (Basedef.cpp:4106/3908). Keeping e.Equip
+// untouched means the persisted body item can't be corrupted and the revert on
+// expiry is just this override no longer firing. The EF_SANC glow the legacy
+// stamps on the transformed mesh (Basedef.cpp:4166) is deferred: the visual
+// code here carries no glow bits for regular gear either.
 func equipVisual(e *world.Entity) [16]uint16 {
 	var v [16]uint16
 	for i := range e.Equip {
 		v[i] = uint16(e.Equip[i].Index)
+	}
+	if value, _, ok := activeTransform(e); ok {
+		v[0] = transMesh(value)
 	}
 	return v
 }
@@ -687,11 +698,16 @@ func effectiveMaxMP(e *world.Entity) int32 {
 }
 
 // effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage
-// plus the affect deltas (Buff Loop), boosted +20% by the Divine buff, plus the separate
-// WeaponDamage (which the Divine does NOT multiply — it is a separate field added after,
-// captura §C).
+// plus the affect deltas (Buff Loop), scaled by the DAMAGEMULTI percentage (BM transform;
+// applied where Basedef.cpp:4654 multiplies CurrentScore.Damage), boosted +20% by the
+// Divine buff, plus the separate WeaponDamage (which neither multiplier touches — it is a
+// separate field added after, captura §C). UNVERIFIED: the legacy folds the Divine into
+// DAMAGEMULTI additively; composing the two here diverges by a few points when both are up.
 func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
 	dmg := e.Damage + e.AffDamage
+	if e.AffDamageMultiPct != 100 && e.AffDamageMultiPct > 0 {
+		dmg = dmg * e.AffDamageMultiPct / 100
+	}
 	if e.HasAffect(world.AffectDivine) {
 		dmg += dmg * 20 / 100
 	}

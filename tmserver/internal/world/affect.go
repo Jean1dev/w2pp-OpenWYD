@@ -41,10 +41,9 @@ func (e *Entity) EmptyAffect(t uint8) int {
 // (caches + Rsv + DivineEnd). The player Entity lives as long as the
 // CONNECTION, not the character (allocated once per TCP connection, reused
 // across character-select swaps), so both character-login (before rehydrating
-// the persisted slots) and the return to the selection screen must call this —
-// otherwise a buff cast on one character (e.g. the Baú de Experiência, issue
-// #47) survives the swap, applies to a different character and even gets
-// persisted onto it by the next characterLogout save.
+// the persisted slots) and the return to the selection screen must call this;
+// otherwise a buff cast on one character survives the swap, applies to a
+// different character and even gets persisted onto it by the next logout save.
 func (e *Entity) ResetAffects() {
 	e.Affect = [MaxAffect]Affect{}
 	e.DivineEnd = 0
@@ -52,6 +51,7 @@ func (e *Entity) ResetAffects() {
 	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffCon, e.AffExpBonus = 0, 0, 0, 0, 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
+	e.AffDamageMultiPct = 100
 }
 
 // HasAnyAffect reports whether any slot holds a buff/debuff (Type != 0).

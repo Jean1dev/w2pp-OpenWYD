@@ -231,7 +231,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Mode = world.MobUser
 		// The entity is per-connection: wipe any affect left by a previously
 		// played character before rehydrating this one's persisted slots (the
-		// rehydrate below only ADDS slots — issue #47's cross-character leak).
+		// rehydrate below only ADDS slots, which caused the issue #21/#47
+		// cross-character leaks).
 		e.ResetAffects()
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
@@ -263,10 +264,6 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.deriveSkillBonus(e)
 		e.Equip = st.Equip
 		e.Carry = st.Carry
-		// Visual gear codes from the character's REAL equipment, so others (and the
-		// own client, via UpdateEquip) see what is actually equipped — not the class
-		// starter set. Empty slots → 0 (no item).
-		e.EquipVisual = equipVisual(e)
 		// Capture the equipment-free BaseScore from the loaded CurrentScore, so later
 		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
 		// counting the gear already baked into the stored CurrentScore.
@@ -294,6 +291,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// the live Special (= BaseSpecial + gear) and the affect caches, which are
 		// not persisted.
 		d.refreshScore(e)
+		// Visual gear codes from the character's REAL equipment, so others (and the
+		// own client, via UpdateEquip) see what is actually equipped — not the class
+		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
+		// refreshScore, so a persisted transform (affect 16) renders its beast mesh.
+		e.EquipVisual = equipVisual(e)
 	}
 	s.Mode = world.UserPlay
 	// The persisted skill block rides the login snapshot (mask/points/bar/Special);
@@ -470,7 +472,7 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 				e.Mode = world.MobUserDock
 				// The save above already captured this character's buffs; drop
 				// them from the per-connection entity so they can't bleed into
-				// the next character selected on this session (issue #47).
+				// the next character selected on this session (issue #21/#47).
 				e.ResetAffects()
 			}
 			s.Mode = world.UserSelChar
