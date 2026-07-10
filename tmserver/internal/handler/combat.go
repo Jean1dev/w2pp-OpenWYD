@@ -150,15 +150,17 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// skillHit: this entry resolves through the skill pipeline; anything
 		// else (sentinel -2, 0, or an unknown claim) is melee.
 		skillHit := cast.isSkill && claim == damSkill
-		// Town safe zone: players in a city cannot be hit by melee or aggressive
-		// skills (the legacy gates on the attribute map's PK bit + PKMode; we use
-		// the city rectangles until the attribute map semantics are verified).
-		if world.IsPlayer(tid) && tid != s.Conn && world.Village(target.X, target.Y) >= 0 {
-			if !skillHit || cast.spell.Aggressive != 0 {
-				writeDamage(payload, i, 0)
-				continue
-			}
-		}
+		// No town safe-zone gate here (deliberately): the legacy rule
+		// (_MSG_Attack.cpp:405-419) only blocks a hit when the ATTACKER stands on
+		// a PK-attribute tile AND the target isn't already PKMode/Guilty-flagged,
+		// with an RvR/Castle/GTorre-war-state bypass on top. None of PKMode,
+		// Guilty, the real per-tile attribute-map bit, or war state exist yet, so
+		// a prior port of this check (keyed off the coarse city rectangles and
+		// the wrong entity's position) could never satisfy its own bypass and
+		// permanently zeroed PvP damage near every city/spawn point (issue #67).
+		// Per the B12 precedent (combat_regression_test.go), don't hard-block
+		// gameplay on an unimplemented/unverified system — tolerate until a
+		// follow-up implements attribute-map + PKMode + Guilty + war-state.
 
 		var dmg int
 		if skillHit {
