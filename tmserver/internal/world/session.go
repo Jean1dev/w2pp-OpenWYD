@@ -168,6 +168,11 @@ type Entity struct {
 	// derivation by subtraction holds (captura-wyd-affect-divina.md §E).
 	HpAddPct, MpAddPct int32
 
+	// RunSpeedBonus is the summed EF_RUNSPEED from equipped gear (boots), cached by
+	// refreshScore and applied at read time by handler.attackRunOf to the move-speed
+	// (low) nibble of AttackRun.
+	RunSpeedBonus int32
+
 	// Affect holds the active buffs/debuffs (STRUCT_AFFECT[32]). DivineEnd is the
 	// wall-clock (Unix seconds) deadline of the Divine buff — the source of truth for
 	// its expiry; the slot's Affect.Time is only the client icon timer.
