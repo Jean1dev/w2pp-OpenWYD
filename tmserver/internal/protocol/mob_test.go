@@ -54,7 +54,7 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 		BaseSpecial: [4]int16{1, 2, 3, 4},
 		SkillBar:    [4]uint8{9, 10, 11, 12},
 	}
-	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 1, 0, sk, skill)
+	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 0, 0, 1, 0, sk, skill)
 
 	if len(b) != cnfCharacterLoginSize-HeaderSize { // 1832 - 12 = 1820
 		t.Fatalf("CNFCharacterLogin body = %d, want %d", len(b), cnfCharacterLoginSize-HeaderSize)
@@ -63,13 +63,13 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	if got := cstr16(b[4:20]); got != "Hero" { // MobName patched @ body4
 		t.Errorf("name = %q, want Hero", got)
 	}
-	// Spawn position (the caller's, not the template's) is written to the message
-	// PosX/PosY and the embedded mob's position — else the client renders Armia.
+	// Login position is written to the packet PosX/PosY, while the embedded
+	// STRUCT_MOB keeps its save point (SPX/SPY) from the template.
 	if le.Uint16(b[0:]) != 2453 || le.Uint16(b[2:]) != 2000 {
 		t.Errorf("msg PosX/PosY = %d,%d want 2453,2000", le.Uint16(b[0:]), le.Uint16(b[2:]))
 	}
-	if le.Uint16(b[4+40:]) != 2453 || le.Uint16(b[4+42:]) != 2000 {
-		t.Errorf("mob SPX/SPY = %d,%d want 2453,2000", le.Uint16(b[4+40:]), le.Uint16(b[4+42:]))
+	if le.Uint16(b[4+40:]) != 2096 || le.Uint16(b[4+42:]) != 2096 {
+		t.Errorf("mob SPX/SPY = %d,%d want 2096,2096", le.Uint16(b[4+40:]), le.Uint16(b[4+42:]))
 	}
 	// Gold is written at both candidate offsets (24 = client display, 28 = Coin).
 	if le.Uint32(b[4+24:]) != 777777 || le.Uint32(b[4+28:]) != 777777 {
@@ -120,7 +120,7 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 func TestCNFCharacterLoginBodyLayout(t *testing.T) {
 	var short [16]uint8
 	short[15] = 77
-	b := EncodeCNFCharacterLoginBody(2, 33, 4, MobSnapshot{
+	b := EncodeCNFCharacterLoginBody(2, 33, 4, 2453, 2000, MobSnapshot{
 		Name:      "Fallback",
 		SPX:       2494,
 		SPY:       1707,
@@ -133,8 +133,8 @@ func TestCNFCharacterLoginBodyLayout(t *testing.T) {
 		t.Fatalf("CNFCharacterLogin body = %d, want %d", len(b), cnfCharacterLoginSize-HeaderSize)
 	}
 	le := binary.LittleEndian
-	if le.Uint16(b[0:]) != 2494 || le.Uint16(b[2:]) != 1707 {
-		t.Errorf("msg PosX/PosY = %d,%d want 2494,1707", le.Uint16(b[0:]), le.Uint16(b[2:]))
+	if le.Uint16(b[0:]) != 2453 || le.Uint16(b[2:]) != 2000 {
+		t.Errorf("msg PosX/PosY = %d,%d want 2453,2000", le.Uint16(b[0:]), le.Uint16(b[2:]))
 	}
 	if le.Uint16(b[4+40:]) != 2494 || le.Uint16(b[4+42:]) != 1707 {
 		t.Errorf("mob SPX/SPY = %d,%d want 2494,1707", le.Uint16(b[4+40:]), le.Uint16(b[4+42:]))

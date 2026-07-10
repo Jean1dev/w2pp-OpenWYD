@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -155,6 +156,28 @@ func startServerBilling(t *testing.T, persist world.Persistence, b world.Billing
 	d := New(Config{Log: log})
 	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
 	w.SetBilling(b)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
+func startServerBaseMobs(t *testing.T, persist world.Persistence, baseMobs map[int][]byte) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, BaseMobs: baseMobs})
+	w := world.New(world.Config{}, log, persist, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -482,7 +505,7 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 
 func TestCharacterLoginFallbackCNFUsesComputedCitySpawn(t *testing.T) {
 	db := newDB()
-	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", LastCity: 2, HP: 1200, MaxHP: 1200}
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", Level: 50, LastCity: 2, HP: 1200, MaxHP: 1200}
 	addr, stop := startServer(t, db)
 	defer stop()
 	c := loginAndSelect(t, addr)
@@ -501,11 +524,6 @@ func TestCharacterLoginFallbackCNFUsesComputedCitySpawn(t *testing.T) {
 
 	msgX := int16(binary.LittleEndian.Uint16(payload[0:]))
 	msgY := int16(binary.LittleEndian.Uint16(payload[2:]))
-	mobSPX := int16(binary.LittleEndian.Uint16(payload[4+40:]))
-	mobSPY := int16(binary.LittleEndian.Uint16(payload[4+42:]))
-	if msgX != mobSPX || msgY != mobSPY {
-		t.Fatalf("CNF PosX/Y = %d,%d but embedded SPX/SPY = %d,%d", msgX, msgY, mobSPX, mobSPY)
-	}
 	if city := world.Village(msgX, msgY); city != int(db.loadResult.LastCity) {
 		t.Fatalf("CNF spawn = %d,%d in city %d, want city %d", msgX, msgY, city, db.loadResult.LastCity)
 	}
@@ -516,6 +534,70 @@ func TestCharacterLoginFallbackCNFUsesComputedCitySpawn(t *testing.T) {
 			binary.LittleEndian.Uint16(payload[1028:]),
 			binary.LittleEndian.Uint16(payload[1030:]),
 			binary.LittleEndian.Uint16(payload[1032:]))
+	}
+}
+
+func TestCharacterLoginTemplateCNFSeparatesLoginPosFromSavePoint(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", Class: 1, Level: 50, LastCity: 2, HP: 1200, MaxHP: 1200}
+	tmpl := make([]byte, content.BaseMobSize)
+	copy(tmpl[0:16], "Template")
+	binary.LittleEndian.PutUint16(tmpl[40:], 2112)
+	binary.LittleEndian.PutUint16(tmpl[42:], 2112)
+	addr, stop := startServerBaseMobs(t, db, map[int][]byte{1: tmpl})
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x, want CNFCharacterLogin", ty)
+	}
+
+	msgX := int16(binary.LittleEndian.Uint16(payload[0:]))
+	msgY := int16(binary.LittleEndian.Uint16(payload[2:]))
+	if city := world.Village(msgX, msgY); city != int(db.loadResult.LastCity) {
+		t.Fatalf("CNF login pos = %d,%d in city %d, want city %d", msgX, msgY, city, db.loadResult.LastCity)
+	}
+	mobSPX := int16(binary.LittleEndian.Uint16(payload[4+40:]))
+	mobSPY := int16(binary.LittleEndian.Uint16(payload[4+42:]))
+	if mobSPX != 2112 || mobSPY != 2112 {
+		t.Fatalf("embedded SPX/SPY = %d,%d, want template save point 2112,2112", mobSPX, mobSPY)
+	}
+	if msgX == mobSPX && msgY == mobSPY {
+		t.Fatalf("CNF login pos unexpectedly equals save point: %d,%d", msgX, msgY)
+	}
+}
+
+func TestCharacterLoginLowLevelMortalUsesLastCitySpawn(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", Class: 1, Level: 1, LastCity: 2, HP: 1200, MaxHP: 1200}
+	tmpl := make([]byte, content.BaseMobSize)
+	copy(tmpl[0:16], "Template")
+	binary.LittleEndian.PutUint16(tmpl[40:], 2112)
+	binary.LittleEndian.PutUint16(tmpl[42:], 2112)
+	addr, stop := startServerBaseMobs(t, db, map[int][]byte{1: tmpl})
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x, want CNFCharacterLogin", ty)
+	}
+	msgX := int16(binary.LittleEndian.Uint16(payload[0:]))
+	msgY := int16(binary.LittleEndian.Uint16(payload[2:]))
+	if city := world.Village(msgX, msgY); city != int(db.loadResult.LastCity) {
+		t.Fatalf("low-level login pos = %d,%d in city %d, want last city %d", msgX, msgY, city, db.loadResult.LastCity)
+	}
+	if city := world.Village(msgX, msgY); city == 0 {
+		t.Fatalf("low-level login pos = %d,%d spawned in Armia, want last city %d", msgX, msgY, db.loadResult.LastCity)
 	}
 }
 

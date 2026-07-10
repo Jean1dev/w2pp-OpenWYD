@@ -33,6 +33,7 @@ type Session struct {
 	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
 	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
+	LoginTick         uint32
 	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
