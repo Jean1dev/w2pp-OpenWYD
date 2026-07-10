@@ -167,10 +167,12 @@ type SkillState struct {
 
 // EncodeCNFCharacterLoginRaw builds the snapshot from a RAW 816-byte STRUCT_MOB
 // (a per-class BaseMob template, which already carries valid stats, starter
-// equipment, skills AND a valid spawn position), patching only the name. The
-// position comes from the template itself (the stored relational position is not
-// yet carried over gRPC, and 0,0 would crash the client on an invalid map cell).
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, spawnX, spawnY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState) []byte {
+// equipment and skills), patching the character-specific state. loginX/loginY
+// are the actual world-entry position in MSG_CNFCharacterLogin.PosX/PosY; the
+// embedded mob.SPX/SPY remains the save point, matching ProcessDBMessage.cpp's
+// later tx/ty spawn rewrite. When saveX/saveY are zero, the template's SPX/SPY
+// are preserved.
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, loginX, loginY, saveX, saveY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
 	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
@@ -197,14 +199,16 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int6
 	// saved total at login (the template ships Exp=0). The client owns the level
 	// curve and renders the bar from this raw value.
 	le.PutUint64(b[4+32:], uint64(exp))
-	// Spawn position: write the caller's actual spawn (city rule) into both the
-	// message PosX/PosY (body0/2) AND the embedded mob's SPX/SPY (mob offset 40/42),
-	// otherwise the client renders the template's position (always Armia) regardless
-	// of where the server placed the entity.
-	le.PutUint16(b[0:], uint16(spawnX)) // PosX @ body0
-	le.PutUint16(b[2:], uint16(spawnY)) // PosY @ body2
-	le.PutUint16(b[4+40:], uint16(spawnX))
-	le.PutUint16(b[4+42:], uint16(spawnY))
+	// The legacy server keeps mob.SPX/SPY as the save point and later overwrites
+	// only MSG_CNFCharacterLogin.PosX/PosY with the actual tx/ty spawn. Keeping
+	// those roles separate prevents the client and server from starting on
+	// different tiles after login.
+	le.PutUint16(b[0:], uint16(loginX)) // PosX @ body0
+	le.PutUint16(b[2:], uint16(loginY)) // PosY @ body2
+	if saveX != 0 || saveY != 0 {
+		le.PutUint16(b[4+40:], uint16(saveX))
+		le.PutUint16(b[4+42:], uint16(saveY))
+	}
 	// Persisted skill state over the template's: learned mask + free points
 	// @780-793, skill bar @796, and the Special mastery in both scores @+40
 	// (BaseScore @44, CurrentScore @92). The template ships all-zero here.
@@ -243,12 +247,12 @@ func EncodeUpdateEquip(visual [16]uint16) []byte {
 }
 
 // EncodeCNFCharacterLoginBody builds the body of MSG_CNFCharacterLogin (0x0114):
-// the in-world snapshot. slot/clientID/weather/shortSkill fill the trailing
-// fields. Send with HEADER.ID = IDScene (30000).
-func EncodeCNFCharacterLoginBody(slot, clientID int, weather uint16, m MobSnapshot, shortSkill [16]uint8) []byte {
+// the in-world snapshot. loginX/loginY are the packet entry position; m.SPX/SPY
+// stays as the embedded save point. Send with HEADER.ID = IDScene (30000).
+func EncodeCNFCharacterLoginBody(slot, clientID int, weather uint16, loginX, loginY int16, m MobSnapshot, shortSkill [16]uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
-	le.PutUint16(b[0:], uint16(m.SPX))                  // PosX @ abs12 → body0
-	le.PutUint16(b[2:], uint16(m.SPY))                  // PosY @ abs14 → body2
+	le.PutUint16(b[0:], uint16(loginX))                 // PosX @ abs12 → body0
+	le.PutUint16(b[2:], uint16(loginY))                 // PosY @ abs14 → body2
 	writeStructMob(b[4:4+structMobSize], m)             // mob @ abs16 → body4
 	le.PutUint16(b[1028:], uint16(slot))                // Slot @ abs1040 → body1028
 	le.PutUint16(b[1030:], uint16(clientID))            // ClientID @ abs1042 → body1030

@@ -370,6 +370,12 @@ func (w *World) SetEntityPos(id int, x, y int16) {
 	w.grid.SetMob(int(x), int(y), uint16(id))
 }
 
+// EmptyCellNear returns an unoccupied grid cell at or near (x,y), using the same
+// ring scan as the legacy GetEmptyMobGrid stand-in used for mob spawns. Loop-only.
+func (w *World) EmptyCellNear(x, y int16) (int16, int16, bool) {
+	return w.emptyCellNear(x, y)
+}
+
 // GridDim returns the world's grid side length (valid coordinate bound).
 func (w *World) GridDim() int { return w.grid.dim }
 
