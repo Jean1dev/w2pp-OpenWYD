@@ -454,6 +454,14 @@ func expChestDB() *fakeDB {
 	return db
 }
 
+func silverBarDB(itemIdx int16, coin int32) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Coin: coin}
+	st.Carry[0] = world.Item{Index: itemIdx}
+	db.loadResult = st
+	return db
+}
+
 func startServerClockVol(t *testing.T, persist world.Persistence, vols map[int]int) (string, func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -517,5 +525,62 @@ func TestUseExpChest(t *testing.T) {
 	}
 	if !sawScore {
 		t.Error("missing MsgUpdateScore after using exp chest")
+	}
+}
+
+func TestUseSilverBar1Bi(t *testing.T) {
+	addr, stop := startServerClockVol(t, silverBarDB(4011, 0), map[int]int{4011: volSilverBar})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawEtc := false, false
+	for range 4 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[2:4]) != 0 || le16(payload[4:6]) != 0 {
+				t.Errorf("slot/item = %d/%d, want slot 0 empty", le16(payload[2:4]), le16(payload[4:6]))
+			}
+		case protocol.MsgUpdateEtc:
+			sawEtc = true
+			if got := int32(le(payload[28:32])); got != 1_000_000_000 {
+				t.Errorf("coin = %d, want 1000000000", got)
+			}
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using silver bar")
+	}
+	if !sawEtc {
+		t.Error("missing MsgUpdateEtc after using silver bar")
+	}
+}
+
+func TestUseSilverBarOver2G(t *testing.T) {
+	addr, stop := startServerClockVol(t, silverBarDB(4011, 1_500_000_000), map[int]int{4011: volSilverBar})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	if ty, p, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeCargoFull {
+		t.Fatalf("overflow notice = %#x/%v ok=%v, want NoticeCargoFull", ty, noticeCode(t, p), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[2:4]) != 0 || le16(item[4:6]) != 4011 {
+		t.Errorf("slot/item = %d/%d, want slot 0 item 4011 preserved", le16(item[2:4]), le16(item[4:6]))
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgUpdateEtc {
+		t.Error("overflow use sent MsgUpdateEtc; coin should be unchanged")
 	}
 }

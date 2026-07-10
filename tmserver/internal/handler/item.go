@@ -125,10 +125,11 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
-	volExpChest = 198
-	volDivine7  = 64
-	volDivine30 = 66
-	volVigor    = 58
+	volExpChest  = 198
+	volDivine7   = 64
+	volDivine30  = 66
+	volVigor     = 58
+	volSilverBar = 185
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -170,6 +171,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useDivine(w, s, e, src, vol)
 	case vol == volVigor:
 		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
+	case vol == volSilverBar:
+		d.useSilverBar(w, s, e, src)
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
 	}
@@ -295,6 +298,47 @@ func (d *Dispatcher) useVigor(w *world.World, s *world.Session, e *world.Entity,
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
+}
+
+// silverBarGold returns the gold credited by Vol 185 "Barra de Prata" items
+// (_MSG_UseItem.cpp, "Barra de Prata"). The 4011 path is issue #56's 1Bi bar.
+func silverBarGold(itemIdx int16) (int32, bool) {
+	switch itemIdx {
+	case 4026:
+		return 1_000_000, true
+	case 4027:
+		return 5_000_000, true
+	case 4028:
+		return 10_000_000, true
+	case 4029:
+		return 50_000_000, true
+	case 4010:
+		return 100_000_000, true
+	case 4011:
+		return 1_000_000_000, true
+	default:
+		return 0, false
+	}
+}
+
+// useSilverBar consumes a silver-bar item and credits its fixed gold value,
+// preserving the legacy 2G character-gold ceiling.
+func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Entity, src int) {
+	itemIdx := e.Carry[src].Index
+	gold, ok := silverBarGold(itemIdx)
+	if !ok {
+		return
+	}
+	if int64(e.Coin)+int64(gold) > maxCoin {
+		d.notify(w, s, NoticeCargoFull)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	e.Coin += gold
+	e.Carry[src] = world.Item{}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendEtc(w, s, e)
+	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
 }
 
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
