@@ -58,7 +58,7 @@ func (s *Store) ListNPCDefinitions(ctx context.Context) ([]domain.NPCDefinition,
 	}
 
 	shopRows, err := s.pool.Query(ctx, `
-		SELECT npc_id, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3
+		SELECT npc_id, slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3
 		FROM npc_shop_item ORDER BY npc_id, slot`)
 	if err != nil {
 		return nil, fmt.Errorf("store: list npc shop items: %w", err)
@@ -67,10 +67,11 @@ func (s *Store) ListNPCDefinitions(ctx context.Context) ([]domain.NPCDefinition,
 	for shopRows.Next() {
 		var npcID int64
 		var it domain.NPCShopItem
-		if err := shopRows.Scan(&npcID, &it.Slot, &it.ItemIndex,
+		if err := shopRows.Scan(&npcID, &it.Slot, &it.ItemIndex, &it.Quantity,
 			&it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
 			return nil, fmt.Errorf("store: scan npc shop item: %w", err)
 		}
+		normalizeShopQuantity(&it)
 		if idx, ok := byID[npcID]; ok {
 			out[idx].Shop = append(out[idx].Shop, it)
 		}
@@ -192,10 +193,12 @@ func (s *Store) SetNPCShop(ctx context.Context, npcID int64, items []domain.NPCS
 			return fmt.Errorf("store: clear npc shop %d: %w", npcID, err)
 		}
 		for _, it := range items {
+			normalizeShopQuantity(&it)
 			if _, err := tx.Exec(ctx, `
-				INSERT INTO npc_shop_item (npc_id, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-				npcID, it.Slot, it.ItemIndex, it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
+				INSERT INTO npc_shop_item (npc_id, slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+				npcID, it.Slot, it.ItemIndex, normalizedQuantity(it.Quantity),
+				it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
 			); err != nil {
 				return fmt.Errorf("store: insert npc shop item (npc %d slot %d): %w", npcID, it.Slot, err)
 			}
@@ -286,10 +289,12 @@ func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinit
 				return fmt.Errorf("store: seed npc definition %q: %w", d.Slug, err)
 			}
 			for _, it := range d.Shop {
+				normalizeShopQuantity(&it)
 				if _, err := tx.Exec(ctx, `
-					INSERT INTO npc_shop_item (npc_id, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-					id, it.Slot, it.ItemIndex, it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
+					INSERT INTO npc_shop_item (npc_id, slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3)
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+					id, it.Slot, it.ItemIndex, normalizedQuantity(it.Quantity),
+					it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
 				); err != nil {
 					return fmt.Errorf("store: seed shop item (%q slot %d): %w", d.Slug, it.Slot, err)
 				}
@@ -323,7 +328,7 @@ func (s *Store) inTx(ctx context.Context, fn func(pgx.Tx) error) error {
 
 func (s *Store) loadShopItems(ctx context.Context, q pgxQuerier, npcID int64) ([]domain.NPCShopItem, error) {
 	rows, err := q.Query(ctx, `
-		SELECT slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3
+		SELECT slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3
 		FROM npc_shop_item WHERE npc_id = $1 ORDER BY slot`, npcID)
 	if err != nil {
 		return nil, fmt.Errorf("store: load shop items %d: %w", npcID, err)
@@ -332,12 +337,46 @@ func (s *Store) loadShopItems(ctx context.Context, q pgxQuerier, npcID int64) ([
 	var out []domain.NPCShopItem
 	for rows.Next() {
 		var it domain.NPCShopItem
-		if err := rows.Scan(&it.Slot, &it.ItemIndex, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
+		if err := rows.Scan(&it.Slot, &it.ItemIndex, &it.Quantity, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3); err != nil {
 			return nil, fmt.Errorf("store: scan shop item: %w", err)
 		}
+		normalizeShopQuantity(&it)
 		out = append(out, it)
 	}
 	return out, rows.Err()
+}
+
+const efAmount = 61
+
+func normalizedQuantity(q int16) int16 {
+	if q <= 0 {
+		return 1
+	}
+	return q
+}
+
+func normalizeShopQuantity(it *domain.NPCShopItem) {
+	if it.Quantity <= 0 {
+		it.Quantity = 1
+	}
+	if it.Eff1 == efAmount {
+		if it.EffV1 > 0 {
+			it.Quantity = int16(it.EffV1)
+		}
+		it.Eff1, it.EffV1 = 0, 0
+	}
+	if it.Eff2 == efAmount {
+		if it.EffV2 > 0 {
+			it.Quantity = int16(it.EffV2)
+		}
+		it.Eff2, it.EffV2 = 0, 0
+	}
+	if it.Eff3 == efAmount {
+		if it.EffV3 > 0 {
+			it.Quantity = int16(it.EffV3)
+		}
+		it.Eff3, it.EffV3 = 0, 0
+	}
 }
 
 // pgxQuerier is the read surface shared by *pgxpool.Pool and pgx.Tx.

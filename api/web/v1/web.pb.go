@@ -864,15 +864,18 @@ func (x *AdminAck) GetResult() AdminResult {
 
 // AdminNpcShopItem mirrors the DB shop slot; price is global, not per-slot.
 type AdminNpcShopItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	ItemIndex     int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
-	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
-	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
-	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
-	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
-	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
-	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Slot      int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	ItemIndex int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Eff1      int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1     int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2      int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2     int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3      int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3     int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	// quantity is the stack amount sold by this slot. 0 is accepted as 1 for
+	// older callers; values >1 are materialized as EF_AMOUNT in the legacy item.
+	Quantity      int32 `protobuf:"varint,9,opt,name=quantity,proto3" json:"quantity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -959,6 +962,13 @@ func (x *AdminNpcShopItem) GetEff3() int32 {
 func (x *AdminNpcShopItem) GetEffv3() int32 {
 	if x != nil {
 		return x.Effv3
+	}
+	return 0
+}
+
+func (x *AdminNpcShopItem) GetQuantity() int32 {
+	if x != nil {
+		return x.Quantity
 	}
 	return 0
 }
@@ -2211,7 +2221,7 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"characters\x18\x01 \x03(\v2\x1b.web.v1.WebCharacterSummaryR\n" +
 	"characters\"7\n" +
 	"\bAdminAck\x12+\n" +
-	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\"\xc3\x01\n" +
+	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\"\xdf\x01\n" +
 	"\x10AdminNpcShopItem\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x1d\n" +
 	"\n" +
@@ -2221,7 +2231,8 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
 	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
 	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
-	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\xba\x02\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\x12\x1a\n" +
+	"\bquantity\x18\t \x01(\x05R\bquantity\"\xba\x02\n" +
 	"\bAdminNpc\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +

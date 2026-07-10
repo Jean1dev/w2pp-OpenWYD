@@ -188,12 +188,15 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 			if c.Index == 0 {
 				continue
 			}
+			effects := c.Effects
+			quantity := shopQuantity(&effects)
 			def.Shop = append(def.Shop, domain.NPCShopItem{
 				Slot:      int16(i),
 				ItemIndex: int32(c.Index),
-				Eff1:      c.Effects[0].Effect, EffV1: c.Effects[0].Value,
-				Eff2: c.Effects[1].Effect, EffV2: c.Effects[1].Value,
-				Eff3: c.Effects[2].Effect, EffV3: c.Effects[2].Value,
+				Quantity:  quantity,
+				Eff1:      effects[0].Effect, EffV1: effects[0].Value,
+				Eff2: effects[1].Effect, EffV2: effects[1].Value,
+				Eff3: effects[2].Effect, EffV3: effects[2].Value,
 			})
 		}
 		out = append(out, def)
@@ -205,6 +208,19 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 // it occupies (3 tabs of 9: Carry[0..8],[27..35],[54..62]). Mirrors
 // protocol.ShopSlot, which dbserver cannot import (tmserver internal package).
 func shopCarrySlot(i int) int { return (i % 9) + (i/9)*27 }
+
+func shopQuantity(effects *[3]savefmt.Effect) int16 {
+	quantity := int16(1)
+	for i := range effects {
+		if effects[i].Effect == 61 {
+			if effects[i].Value > 0 {
+				quantity = int16(effects[i].Value)
+			}
+			effects[i] = savefmt.Effect{}
+		}
+	}
+	return quantity
+}
 
 // npcGenerBlock is the subset of an NPCGener.txt spawn block the importer needs:
 // the leader template name, the Start waypoint (spawn point) and the route type.

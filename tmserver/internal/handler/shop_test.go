@@ -37,6 +37,8 @@ func startServerShop(t *testing.T, persist world.Persistence, prices map[int]int
 	binary.LittleEndian.PutUint32(tmpl[92+16:], 100) // MaxHp
 	binary.LittleEndian.PutUint32(tmpl[92+24:], 100) // Hp
 	binary.LittleEndian.PutUint16(tmpl[268:], 1100)  // Carry[0].sIndex
+	tmpl[268+2] = 61                                 // EF_AMOUNT
+	tmpl[268+3] = 120                                // stack amount
 	if id := w.SpawnMob(tmpl, 5, 5); id != shopNPCID {
 		t.Fatalf("shop NPC spawned as id %d, want %d", id, shopNPCID)
 	}
@@ -88,6 +90,30 @@ func TestBuyFreeShopItem(t *testing.T) {
 	}
 	if idx := le16(item[4:6]); idx != 1100 {
 		t.Errorf("item index = %d, want 1100", idx)
+	}
+}
+
+func TestBuyStackedShopItemChargesOnce(t *testing.T) {
+	addr, stop := startServerShop(t, shopDB(1234), map[int]int32{1100: 100})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	buyFrame(t, c, shopNPCID, 0, 3)
+	echo := expect(t, c, protocol.MsgBuy)
+	if got := int32(le(echo[8:12])); got != 1134 {
+		t.Errorf("echo coin = %d, want 1134 (charged once)", got)
+	}
+	etc := expect(t, c, protocol.MsgUpdateEtc)
+	if got := int32(le(etc[28:32])); got != 1134 {
+		t.Errorf("etc coin = %d, want 1134", got)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if idx := le16(item[4:6]); idx != 1100 {
+		t.Fatalf("item index = %d, want 1100", idx)
+	}
+	if item[6] != 61 || item[7] != 120 {
+		t.Errorf("item effect = (%d,%d), want EF_AMOUNT 120", item[6], item[7])
 	}
 }
 

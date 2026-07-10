@@ -50,7 +50,7 @@ func TestNPCConfigCRUD(t *testing.T) {
 	}
 
 	if err := s.SetNPCShop(ctx, id, []domain.NPCShopItem{
-		{Slot: 0, ItemIndex: 1100}, {Slot: 5, ItemIndex: 1101, Eff1: 1, EffV1: 9},
+		{Slot: 0, ItemIndex: 1100, Quantity: 120}, {Slot: 5, ItemIndex: 1101, Eff1: 1, EffV1: 9},
 	}, modID); err != nil {
 		t.Fatalf("set shop: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestNPCConfigCRUD(t *testing.T) {
 	if got.Slug != "shop-int-1" || got.Enabled || got.PosX != 100 || got.Merchant != 1 {
 		t.Errorf("definition mismatch: %+v", got)
 	}
-	if len(got.Shop) != 2 || got.Shop[1].ItemIndex != 1101 || got.Shop[1].EffV1 != 9 {
+	if len(got.Shop) != 2 || got.Shop[0].Quantity != 120 || got.Shop[1].ItemIndex != 1101 || got.Shop[1].EffV1 != 9 {
 		t.Errorf("shop mismatch: %+v", got.Shop)
 	}
 
@@ -117,7 +117,7 @@ func TestSeedNPCDefinitionsIdempotent(t *testing.T) {
 	s := New(pool)
 	defs := []domain.NPCDefinition{
 		{Slug: "seed-int-1", TemplateName: "A", Enabled: true, Merchant: 1,
-			Shop: []domain.NPCShopItem{{Slot: 0, ItemIndex: 10}}},
+			Shop: []domain.NPCShopItem{{Slot: 0, ItemIndex: 10, Quantity: 2}}},
 		{Slug: "seed-int-2", TemplateName: "B", Enabled: true, Merchant: 1},
 	}
 	n, err := s.SeedNPCDefinitions(ctx, defs)
