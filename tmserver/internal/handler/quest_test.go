@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -72,6 +74,9 @@ func questFrame(t *testing.T, c net.Conn, npcID int) {
 }
 
 func mestreGrifoTemplate() []byte {
+	if b, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Mestre_Grifo")); err == nil && len(b) == 816 {
+		return b
+	}
 	b := make([]byte, 816)
 	copy(b[0:16], "Mestre_Grifo")
 	const cs = 92
@@ -249,5 +254,113 @@ func TestMestreGrifoQuestFlagPreventsImmediateRecall(t *testing.T) {
 	}
 	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
 		t.Errorf("Mestre Grifo target was recalled immediately: %#x", ty)
+	}
+}
+
+func TestMestreGrifoRealTemplateTeleportsAndSurvivesGuard(t *testing.T) {
+	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Mestre_Grifo"))
+	if err != nil {
+		t.Fatalf("read real Mestre_Grifo template: %v", err)
+	}
+	if len(tmpl) != 816 {
+		t.Fatalf("real Mestre_Grifo template len = %d, want 816", len(tmpl))
+	}
+	if got := tmpl[92+12]; got != 23 {
+		t.Fatalf("real Mestre_Grifo merchant = %d, want 23", got)
+	}
+
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Level: 50, X: 2113, Y: 2079,
+		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	db := newDB()
+	db.loadResult = st
+	w := world.New(world.Config{GridDim: world.DefaultGridDim}, log, db, d.Handle)
+	w.SetTickHandler(10*time.Millisecond, d.Tick)
+	npcID := w.SpawnMob(tmpl, 2116, 2080)
+	if npcID < 0 {
+		t.Fatal("failed to spawn real Mestre_Grifo")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	defer func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}()
+
+	c := enterWorld(t, ln.Addr().String())
+	defer c.Close()
+	questFrame(t, c, npcID)
+	body := expectAction(t, c)
+	if !inRange(body.TargetX, 2398) || !inRange(body.TargetY, 2105) {
+		t.Fatalf("quest target = %d,%d, want Coveiro", body.TargetX, body.TargetY)
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
+		t.Errorf("real Mestre_Grifo target was recalled immediately: %#x", ty)
+	}
+}
+
+func TestMasterGriffOpcodeUsesWarpDestinations(t *testing.T) {
+	tests := []struct {
+		name   string
+		warpID int32
+		wantX  int16
+		wantY  int16
+	}{
+		{name: "defensor almas", warpID: 1, wantX: 2372, wantY: 2099},
+		{name: "jardim deuses", warpID: 2, wantX: 2220, wantY: 1714},
+		{name: "calabouco", warpID: 3, wantX: 2365, wantY: 2279},
+		{name: "submundo", warpID: 4, wantX: 1826, wantY: 1771},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := world.CharacterState{
+				Slot: 0, Name: "Hero", Level: 1, X: 2113, Y: 2079,
+				HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+			}
+			addr, stop, _ := startServerMestreGrifo(t, st, true)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			send(t, c, protocol.MsgMasterGriff, protocol.EncodeStandardParm2(tt.warpID, 0))
+			if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
+				t.Fatalf("MasterGriff teleported immediately with %#x; want delayed travel", ty)
+			}
+			time.Sleep(masterGriffTravelDelay + 100*time.Millisecond)
+			body := expectAction(t, c)
+			if body.TargetX != tt.wantX || body.TargetY != tt.wantY {
+				t.Fatalf("master griff target = %d,%d, want %d,%d", body.TargetX, body.TargetY, tt.wantX, tt.wantY)
+			}
+		})
+	}
+}
+
+func TestMasterGriffWarpIDZeroDefaultsToFirstDestination(t *testing.T) {
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Level: 200, X: 2113, Y: 2079,
+		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+	}
+	addr, stop, _ := startServerMestreGrifo(t, st, true)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgMasterGriff, protocol.EncodeStandardParm2(0, 0))
+	time.Sleep(masterGriffTravelDelay + 100*time.Millisecond)
+	body := expectAction(t, c)
+	if body.TargetX != 2372 || body.TargetY != 2099 {
+		t.Fatalf("master griff target = %d,%d, want first destination", body.TargetX, body.TargetY)
 	}
 }

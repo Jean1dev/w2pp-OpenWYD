@@ -133,6 +133,20 @@ var quest256Steps = []quest256Step{
 	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
 }
 
+const masterGriffTravelDelay = 9500 * time.Millisecond
+
+type masterGriffDestination struct {
+	name string
+	x, y int16
+}
+
+var masterGriffDestinations = []masterGriffDestination{
+	{name: "Defensor de Almas", x: 2372, y: 2099},
+	{name: "Jardim dos Deuses", x: 2220, y: 1714},
+	{name: "Calabouco", x: 2365, y: 2279},
+	{name: "Submundo", x: 1826, y: 1771},
+}
+
 // mestreGrifo handles the Mestre_Grifo NPC (Merchant 23) shipped in NPCGener.txt
 // at Armia. This server-content shortcut sends the player to the Quest 256 arena
 // matching their level and must set CMob.QuestFlag first; otherwise the legacy
@@ -143,9 +157,45 @@ func (d *Dispatcher) mestreGrifo(w *world.World, s *world.Session, e, npc *world
 		d.log.Debug("mestre grifo: level outside quest range", "conn", s.Conn, "npc", npc.ID, "level", e.Level)
 		return
 	}
+	d.teleportQuest256Step(w, s, e, step)
+	d.log.Info("mestre grifo teleport", "conn", s.Conn, "npc", npc.ID, "level", e.Level, "quest_flag", step.flag)
+}
+
+// masterGriff handles _MSG_MasterGriff (0x0AD9), the packet the 7662 client sends
+// for the Mestre_Grifo warp UI. Real client logs show this opcode instead of
+// _MSG_Quest. The client plays a travel animation after sending it, so the final
+// DoTeleport is delayed a little; doing it immediately cuts the animation short.
+func (d *Dispatcher) masterGriff(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+		return
+	}
+	warpID, ty, ok := protocol.StandardParm2(payload) // MSG_MasterGriff: int WarpID; int Ty
+	if !ok {
+		return
+	}
+	dest, ok := masterGriffDestinationForWarpID(warpID)
+	if !ok {
+		d.log.Debug("master griff: no destination", "conn", s.Conn, "level", e.Level, "warp_id", warpID, "ty", ty)
+		return
+	}
+	d.log.Info("master griff travel started", "conn", s.Conn, "level", e.Level, "warp_id", warpID, "ty", ty, "dest", dest.name, "x", dest.x, "y", dest.y)
+	w.Go(s, func() func(*world.World, *world.Session) {
+		time.Sleep(masterGriffTravelDelay)
+		return func(w *world.World, s *world.Session) {
+			e := w.Entity(s.Conn)
+			if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+				return
+			}
+			d.doTeleport(w, s, dest.x, dest.y)
+			d.log.Info("master griff teleport", "conn", s.Conn, "level", e.Level, "warp_id", warpID, "ty", ty, "dest", dest.name, "x", dest.x, "y", dest.y)
+		}
+	})
+}
+
+func (d *Dispatcher) teleportQuest256Step(w *world.World, s *world.Session, e *world.Entity, step quest256Step) {
 	e.QuestFlag = step.flag
 	d.doTeleport(w, s, step.x+int16(w.Rand().Intn(5)-3), step.y+int16(w.Rand().Intn(5)-3))
-	d.log.Info("mestre grifo teleport", "conn", s.Conn, "npc", npc.ID, "level", e.Level, "quest_flag", step.flag)
 }
 
 func quest256StepForLevel(level int32) (quest256Step, bool) {
@@ -155,6 +205,17 @@ func quest256StepForLevel(level int32) (quest256Step, bool) {
 		}
 	}
 	return quest256Step{}, false
+}
+
+func masterGriffDestinationForWarpID(warpID int32) (masterGriffDestination, bool) {
+	switch {
+	case warpID == 0:
+		return masterGriffDestinations[0], true
+	case warpID >= 1 && int(warpID) <= len(masterGriffDestinations):
+		return masterGriffDestinations[warpID-1], true
+	default:
+		return masterGriffDestination{}, false
+	}
 }
 
 // perzenExchange implements the Perzen NPCs (_MSG_Quest.cpp PERZEN): if the player
