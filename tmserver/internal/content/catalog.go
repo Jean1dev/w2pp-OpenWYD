@@ -68,7 +68,7 @@ var efName = map[string]uint8{
 	"EF_SPECIAL1": 11, "EF_SPECIAL2": 12, "EF_SPECIAL3": 13, "EF_SPECIAL4": 14,
 	"EF_POS": 17, "EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
 	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70,
-	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112,
+	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
 }
 
 // BaseEffects returns item index → its score-relevant static effects, parsed from

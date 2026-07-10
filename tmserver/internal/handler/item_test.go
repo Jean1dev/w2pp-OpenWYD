@@ -409,6 +409,34 @@ func TestWeaponDamageRefine(t *testing.T) {
 	}
 }
 
+// TestAttackRunOfBoots verifies EF_RUNSPEED (boots) raises the move-speed (low)
+// nibble of AttackRun (issue #64: base speed 2 stayed 2 with boots equipped).
+func TestAttackRunOfBoots(t *testing.T) {
+	d := New(Config{
+		ItemEffects: map[int][]content.BaseEffect{321: {{Eff: efRunSpeed, Val: 1}}}, // boots, +1 speed
+	})
+
+	bare := &world.Entity{}
+	d.refreshScore(bare)
+	if got := attackRunOf(bare); got != baseAttackRun {
+		t.Errorf("no boots: attackRunOf = %#x, want base %#x", got, baseAttackRun)
+	}
+
+	booted := &world.Entity{}
+	booted.Equip[5] = world.Item{Index: 321} // boots occupy equip slot 5 (nPos 32)
+	d.refreshScore(booted)
+	if got := attackRunOf(booted); got != baseAttackRun+1 {
+		t.Errorf("boots +1: attackRunOf = %#x, want %#x", got, baseAttackRun+1)
+	}
+
+	// Clamp parity with legacy BASE_GetSpeed: an oversized bonus still clamps
+	// the nibble to 6, never wrapping past it.
+	overboosted := &world.Entity{RunSpeedBonus: 99}
+	if got := attackRunOf(overboosted); got != (baseAttackRun&0xF0)|6 {
+		t.Errorf("clamped: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|6)
+	}
+}
+
 // TestRefreshScoreSpecial confirms refreshScore folds a divine special into the live
 // entity (and so into the score sent to the client), and that a clean
 // deriveBaseScore→refreshScore round-trip reproduces the loaded score (no double count).

@@ -444,6 +444,7 @@ const (
 	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
 	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
 	efMpAdd2    = 70
+	efRunSpeed  = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
 
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
 	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
@@ -537,6 +538,7 @@ type equipBonus struct {
 	ac, damage           int32
 	maxHP, maxMP         int32
 	hpAddPct, mpAddPct   int32
+	runSpeed             int32
 }
 
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
@@ -579,6 +581,8 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			b.hpAddPct += val
 		case efMpAdd, efMpAdd2:
 			b.mpAddPct += val
+		case efRunSpeed:
+			b.runSpeed += val
 		}
 	}
 	for slot := range e.Equip {
@@ -647,6 +651,7 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.MaxMP = e.BaseMaxMP + b.maxMP
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
+	e.RunSpeedBonus = b.runSpeed
 	applyAffectScore(e)
 
 	e.EquipExpBonus = d.equipExpBonus(e)
@@ -747,7 +752,16 @@ func attackRunOf(e *world.Entity) uint8 {
 	if !e.Equip[mountEquipSlot].Empty() {
 		return (baseAttackRun & 0xF0) | mountedMoveSpeed
 	}
-	return baseAttackRun
+	// Boots' EF_RUNSPEED adds to the base move-speed nibble, clamped [1,6] like
+	// the legacy BASE_GetSpeed (Basedef.cpp:1250-1262).
+	move := int32(baseAttackRun&0x0F) + e.RunSpeedBonus
+	if move < 1 {
+		move = 1
+	}
+	if move > 6 {
+		move = 6
+	}
+	return (baseAttackRun & 0xF0) | uint8(move)
 }
 
 // sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so
