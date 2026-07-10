@@ -493,10 +493,14 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 	s.CrackError = 0 // NumError = 0
 	d.sendScore(w, s, e)
 
-	// DoRecall: jump to the last-city default spawn (RemoveMob old view + reveal).
+	d.recall(w, s, e)
+	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)
+}
+
+func (d *Dispatcher) recall(w *world.World, s *world.Session, e *world.Entity) {
+	e.QuestFlag = 0
 	rx, ry := world.CitySpawn(int(e.LastCity))
 	d.doTeleport(w, s, rx, ry)
-	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)
 }
 
 // mountEquipSlot is the mount equip slot (Equip[14]). Mounts are acquired in-game

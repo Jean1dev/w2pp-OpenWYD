@@ -85,11 +85,13 @@ func (d *Dispatcher) accountSecure(w *world.World, s *world.Session, _ protocol.
 // MSG_STANDARDPARM2 (Parm1 = npcIndex, Parm2 = confirm). The NPC sub-type comes
 // from MOB.Merchant (+ EF_GRADE0 for Merchant==100), see _MSG_Quest-npcs.md.
 //
-// This batch implements the PERZEN item-exchange NPCs (Merchant 100, grade 7/8/9):
-// hand over the item the NPC wants for a mount. The remaining 37 quest NPC types
-// (level chains, tutorials, teleports) are UNVERIFIED and not yet routed.
+// This batch implements the PERZEN item-exchange NPCs (Merchant 100, grade 7/8/9)
+// and Mestre Grifo (Merchant 23), a server-content shortcut into the Quest 256
+// arenas. The remaining quest NPC types (level chains, tutorials, teleports) are
+// UNVERIFIED and not yet routed.
 func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
-	if e := w.Entity(s.Conn); e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		return
 	}
 	if s.Trade.Active {
@@ -108,7 +110,51 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.perzenExchange(w, s, npc)
 		return
 	}
+	if npc.Merchant == 23 {
+		d.mestreGrifo(w, s, e, npc)
+		return
+	}
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
+}
+
+type quest256Step struct {
+	flag     uint8
+	minLevel int32
+	maxLevel int32
+	x, y     int16
+	area     questArea
+}
+
+var quest256Steps = []quest256Step{
+	{flag: 1, minLevel: 39, maxLevel: 115, x: 2398, y: 2105, area: questArea{x1: 2379, y1: 2076, x2: 2426, y2: 2133}},
+	{flag: 2, minLevel: 115, maxLevel: 190, x: 2234, y: 1714, area: questArea{x1: 2228, y1: 1700, x2: 2257, y2: 1728}},
+	{flag: 3, minLevel: 190, maxLevel: 265, x: 464, y: 3902, area: questArea{x1: 459, y1: 3887, x2: 497, y2: 3916}},
+	{flag: 4, minLevel: 265, maxLevel: 320, x: 668, y: 3756, area: questArea{x1: 658, y1: 3728, x2: 703, y2: 3762}},
+	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
+}
+
+// mestreGrifo handles the Mestre_Grifo NPC (Merchant 23) shipped in NPCGener.txt
+// at Armia. This server-content shortcut sends the player to the Quest 256 arena
+// matching their level and must set CMob.QuestFlag first; otherwise the legacy
+// area guard recalls the player as an intruder.
+func (d *Dispatcher) mestreGrifo(w *world.World, s *world.Session, e, npc *world.Entity) {
+	step, ok := quest256StepForLevel(e.Level)
+	if !ok {
+		d.log.Debug("mestre grifo: level outside quest range", "conn", s.Conn, "npc", npc.ID, "level", e.Level)
+		return
+	}
+	e.QuestFlag = step.flag
+	d.doTeleport(w, s, step.x+int16(w.Rand().Intn(5)-3), step.y+int16(w.Rand().Intn(5)-3))
+	d.log.Info("mestre grifo teleport", "conn", s.Conn, "npc", npc.ID, "level", e.Level, "quest_flag", step.flag)
+}
+
+func quest256StepForLevel(level int32) (quest256Step, bool) {
+	for _, step := range quest256Steps {
+		if level >= step.minLevel && level < step.maxLevel {
+			return step, true
+		}
+	}
+	return quest256Step{}, false
 }
 
 // perzenExchange implements the Perzen NPCs (_MSG_Quest.cpp PERZEN): if the player
