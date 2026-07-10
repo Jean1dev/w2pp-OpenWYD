@@ -106,3 +106,44 @@ func TestMeleeAlwaysDamagesMob(t *testing.T) {
 		})
 	}
 }
+
+// TestMeleePvPDamageAppliesInCity is the issue #67 regression: a hardcoded,
+// unconditional "town safe zone" gate used to zero all melee/aggressive-skill
+// damage against a player standing inside one of the 5 city rectangles
+// (world.Village) — which includes every character's default spawn point
+// (world.CitySpawn). None of the legacy bypass conditions (PKMode, Guilty,
+// attribute-map bit, RvR/Castle/GTorre war state) are implemented, so that
+// gate could never correctly unblock itself and PvP damage silently never
+// landed wherever players actually gather to fight. Melee must land here
+// exactly like it does in the open field.
+func TestMeleePvPDamageAppliesInCity(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", X: 2086, Y: 2093, // inside Armia (city.go's cities[0])
+		HP: 1000, MaxHP: 1000, Damage: 200, AC: 40,
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+
+	attacker := enterWorld(t, addr) // conn 1 (attacker)
+	defer attacker.Close()
+	target := enterWorld(t, addr) // conn 2 (target), in view
+	defer target.Close()
+
+	attackFrame(t, attacker, serverTime, 2, 0)
+
+	ty, payload, ok := readMaybe(t, target)
+	if !ok || ty != protocol.MsgAttack {
+		t.Fatalf("target got %#x ok=%v, want MsgAttack broadcast", ty, ok)
+	}
+	var got protocol.MsgAttackBody
+	if err := got.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Dam) != 1 || got.Dam[0].TargetID != 2 {
+		t.Fatalf("Dam = %+v", got.Dam)
+	}
+	if got.Dam[0].Damage <= 0 {
+		t.Errorf("server damage in city = %d, want > 0 (PvP must not be blocked near spawn/city)", got.Dam[0].Damage)
+	}
+}
