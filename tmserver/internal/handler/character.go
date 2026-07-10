@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/binary"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -226,6 +227,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	if spawnX == 0 && spawnY == 0 {
 		spawnX, spawnY = world.CitySpawn(int(st.LastCity))
 	}
+	s.LoginSpawnX, s.LoginSpawnY = spawnX, spawnY
+	s.LoggedFirstAction = false
 	// Inject the player entity into the world (the slot was docked at connect).
 	if e := w.Entity(s.Conn); e != nil {
 		e.Mode = world.MobUser
@@ -325,8 +328,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			carry[i] = itemToSel(st.Carry[i])
 		}
 		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, spawnX, spawnY, s.Slot, s.Conn, 0, shortSkill, skill)
-		d.log.Info("char login: sending CNFCharacterLogin (template)",
-			"conn", s.Conn, "class", st.Class, "name", st.Name, "x", spawnX, "y", spawnY, "body", len(body))
+		d.logCNFCharacterLogin("template", s, st, spawnX, spawnY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
 		d.sendLoginAffects(w, s)
@@ -343,7 +345,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		Class: uint8(st.Class),
 		Coin:  st.Coin,
 		Exp:   st.Exp,
-		SPX:   st.X, SPY: st.Y,
+		SPX:   spawnX, SPY: spawnY,
 		Level: int32(st.Level), Ac: st.AC, Damage: st.Damage,
 		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
 		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
@@ -366,9 +368,35 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		}
 	}
 	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, 0, m, shortSkill)
+	d.logCNFCharacterLogin("fallback", s, st, spawnX, spawnY, body)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 	d.enterWorldView(w, s)
 	d.sendLoginAffects(w, s)
+}
+
+func (d *Dispatcher) logCNFCharacterLogin(path string, s *world.Session, st world.CharacterState, spawnX, spawnY int16, body []byte) {
+	var msgX, msgY, mobSPX, mobSPY uint16
+	if len(body) >= 4+44 {
+		msgX = binary.LittleEndian.Uint16(body[0:])
+		msgY = binary.LittleEndian.Uint16(body[2:])
+		mobSPX = binary.LittleEndian.Uint16(body[4+40:])
+		mobSPY = binary.LittleEndian.Uint16(body[4+42:])
+	}
+	d.log.Info("char login: sending CNFCharacterLogin",
+		"path", path,
+		"conn", s.Conn,
+		"slot", s.Slot,
+		"client_id", s.Conn,
+		"class", st.Class,
+		"name", st.Name,
+		"last_city", st.LastCity,
+		"spawn_x", spawnX,
+		"spawn_y", spawnY,
+		"cnf_pos_x", int16(msgX),
+		"cnf_pos_y", int16(msgY),
+		"mob_spx", int16(mobSPX),
+		"mob_spy", int16(mobSPY),
+		"body", len(body))
 }
 
 // sendLoginAffects pushes the rehydrated buff snapshot right after the world
