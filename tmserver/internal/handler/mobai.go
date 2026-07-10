@@ -79,11 +79,38 @@ func (d *Dispatcher) Tick(w *world.World) {
 			d.mobBattle(w, id, e)
 		}
 	})
+	d.guardQuest256Areas(w)
 	d.regenPlayers(w)
 	d.sweepAffects(w)
 	d.respawnMobs(w)
 	d.generateMobs(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
+}
+
+type questArea struct {
+	x1, y1 int16
+	x2, y2 int16
+}
+
+func (a questArea) contains(x, y int16) bool {
+	return x > a.x1 && y > a.y1 && x < a.x2 && y < a.y2
+}
+
+// guardQuest256Areas ports the ProcessSecMinTimer QuestFlag guard for the five
+// Quest 256 arenas. Entering without the matching volatile flag recalls the
+// player, which is the behavior Mestre Grifo must satisfy before teleporting.
+func (d *Dispatcher) guardQuest256Areas(w *world.World) {
+	w.ForEachPlayer(func(s *world.Session, e *world.Entity) {
+		if e.Level >= 1000 {
+			return
+		}
+		for _, step := range quest256Steps {
+			if step.area.contains(e.X, e.Y) && e.QuestFlag != step.flag {
+				d.recall(w, s, e)
+				return
+			}
+		}
+	})
 }
 
 // battleDragBox is the SetBattle engage box: a group member joins the fight only
