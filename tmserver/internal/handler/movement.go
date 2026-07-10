@@ -124,7 +124,7 @@ func (d *Dispatcher) dropBootAutoWalk(w *world.World, s *world.Session, e *world
 	if body.TargetX == e.X && body.TargetY == e.Y {
 		return false
 	}
-	if uint32(w.Now()-s.LoginTick) > 3000 {
+	if w.Now()-s.LoginTick > 3000 {
 		return false
 	}
 	d.log.Warn("movement: dropping boot auto-walk",
