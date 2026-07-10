@@ -442,9 +442,12 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Level:           e.Level,
 		Ac:              e.AC,
 		Damage:          e.Damage,
-		MaxHp:           e.MaxHP,
-		Hp:              e.HP,
-		Str:             e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
+		// HP/MP must match the authoritative score (effective max incl. HP/MP% gear):
+		// the self-CreateMob now drives the player's own bars, so a missing MaxMp/Mp
+		// zeroed the client's MP (regression from adding the login self-CreateMob).
+		MaxHp: effectiveMaxHP(e), Hp: e.HP,
+		MaxMp: effectiveMaxMP(e), Mp: e.MP,
+		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
 		Merchant:   e.Merchant,
 		AttackRun:  attackRunOf(e),
 		Equip:      e.EquipVisual,
