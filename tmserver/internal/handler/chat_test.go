@@ -44,6 +44,28 @@ func TestCommandTeleport(t *testing.T) {
 	}
 }
 
+// TestCommandNoatunTeleport verifies /noatun teleports to Noatun with the same
+// rand%3 spread used by the other free teleport commands.
+func TestCommandNoatunTeleport(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "noatun", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgAction {
+		t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+	}
+	var body protocol.MsgActionBody
+	if err := body.Decode(payload); err != nil {
+		t.Fatalf("decode MsgAction: %v", err)
+	}
+	if body.TargetX < 1052 || body.TargetX > 1054 || body.TargetY < 1726 || body.TargetY > 1728 {
+		t.Errorf("/noatun target = %d,%d, want within 1052..1054,1726..1728", body.TargetX, body.TargetY)
+	}
+}
+
 // TestCommandBuffs verifies /buffs clears affects and pushes a fresh score.
 func TestCommandBuffs(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())

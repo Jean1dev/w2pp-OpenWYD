@@ -21,13 +21,14 @@ type ShopItem struct {
 // Template is nil when the referenced file could not be loaded — such a
 // definition is skipped by the applier.
 type Definition struct {
-	Slug      string
-	Template  []byte
-	Enabled   bool
-	X, Y      int16
-	RouteType uint8
-	Merchant  uint8
-	Shop      []ShopItem // nil = use the template's own Carry[] as the shop
+	Slug        string
+	Template    []byte
+	DisplayName string
+	Enabled     bool
+	X, Y        int16
+	RouteType   uint8
+	Merchant    uint8
+	Shop        []ShopItem // nil = use the template's own Carry[] as the shop
 }
 
 // Snapshot is the full config at a given version: the definition set plus the

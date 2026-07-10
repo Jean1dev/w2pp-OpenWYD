@@ -10,6 +10,7 @@
 ✅ /azran: se teleportará para a cidade de Azran <br/>
 ✅ /gelo: se teleportará para a cidade de Gelo <br/>
 ✅ /kefra: se teleportará para a cidade de Kefra <br/>
+✅ /noatun: se teleportará para Noatun <br/>
 ✅ /red: se teleportará para o rei de Akelonia <br/>
 ✅ /blue: se teleportará para o rei de Hekalotia <br/>
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>

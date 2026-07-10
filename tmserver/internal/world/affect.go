@@ -38,12 +38,12 @@ func (e *Entity) EmptyAffect(t uint8) int {
 }
 
 // ResetAffects wipes every buff/debuff slot and the derived affect state
-// (caches + Rsv + DivineEnd). The player Entity lives as long as the CONNECTION,
-// not the character, so both character-login (before rehydrating the persisted
-// slots) and the return to the selection screen must call this — otherwise a
-// buff cast on one character (e.g. the BM transform, issue #21) survives the
-// swap, renders on a different class and even gets persisted onto it by the
-// next characterSave.
+// (caches + Rsv + DivineEnd). The player Entity lives as long as the
+// CONNECTION, not the character (allocated once per TCP connection, reused
+// across character-select swaps), so both character-login (before rehydrating
+// the persisted slots) and the return to the selection screen must call this;
+// otherwise a buff cast on one character survives the swap, applies to a
+// different character and even gets persisted onto it by the next logout save.
 func (e *Entity) ResetAffects() {
 	e.Affect = [MaxAffect]Affect{}
 	e.DivineEnd = 0

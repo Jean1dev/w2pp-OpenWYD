@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-func at(hour, min int) time.Time {
-	return time.Date(2026, 1, 1, hour, min, 0, 0, time.UTC)
+func at(hour, minute int) time.Time {
+	return time.Date(2026, 1, 1, hour, minute, 0, 0, time.UTC)
 }
 
 func TestTowerLifecycle(t *testing.T) {

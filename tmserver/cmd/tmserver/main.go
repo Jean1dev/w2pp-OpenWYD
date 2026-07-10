@@ -290,6 +290,10 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 		logger.Warn("NPC generators not loaded", "err", err)
 		return
 	}
+	// A real monster whose kill reward is zero or beyond the legacy award gate
+	// (10M, MobKilled.cpp:1284) means the content tree wasn't restamped with
+	// cmd/exptool — players would gain nothing from those kills (issue #43).
+	const maxSaneMobExp = 10_000_000
 	templates := make(map[string][]byte)
 	load := func(name string) []byte {
 		if name == "" {
@@ -299,6 +303,11 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 		if !seen {
 			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
 				tmpl = b
+				if mb := protocol.ParseMobBasics(b); mb.Merchant == 0 && mb.Level >= 1 &&
+					(mb.Exp <= 0 || mb.Exp > maxSaneMobExp) {
+					logger.Warn("monster template has unbalanced Exp (run cmd/exptool)",
+						"npc", name, "level", mb.Level, "exp", mb.Exp)
+				}
 			}
 			templates[name] = tmpl
 		}

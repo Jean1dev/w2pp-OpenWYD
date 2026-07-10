@@ -200,8 +200,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// "fresh character" marker, so the inventory is granted only once (not
 	// re-granted after a player uses up the potions).
 	if equipEmpty(st.Equip) {
-		st.Equip = d.starterEquip(int(st.Class))
-		d.grantStarterCarry(&st.Carry, int(st.Class))
+		st.Equip = d.starterEquip(st.Class)
+		d.grantStarterCarry(&st.Carry, st.Class)
 	}
 	// Heal characters whose equip slots were corrupted by an earlier bug that let
 	// non-gear (a potion, a mount in the wrong hand) be equipped — most visibly a
@@ -231,7 +231,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Mode = world.MobUser
 		// The entity is per-connection: wipe any affect left by a previously
 		// played character before rehydrating this one's persisted slots (the
-		// rehydrate below only ADDS slots — issue #21's cross-class transform).
+		// rehydrate below only ADDS slots, which caused the issue #21/#47
+		// cross-character leaks).
 		e.ResetAffects()
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
@@ -245,6 +246,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
+		// Every character is MORTAL (=2, Basedef.h:238) until the ARCH/CELESTIAL
+		// promotions are modeled; the dbServer contract doesn't carry ClassMaster
+		// yet (dbclient leaves it 0), and 0 would route the EXP formula onto the
+		// celestial divisors — the "no EXP" bug of issue #43. TODO: persist the
+		// tier once promotion exists.
+		if e.ClassMaster == 0 {
+			e.ClassMaster = classMasterMortal
+		}
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned
@@ -463,7 +472,7 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 				e.Mode = world.MobUserDock
 				// The save above already captured this character's buffs; drop
 				// them from the per-connection entity so they can't bleed into
-				// the next character selected on this session (issue #21).
+				// the next character selected on this session (issue #21/#47).
 				e.ResetAffects()
 			}
 			s.Mode = world.UserSelChar
@@ -534,7 +543,7 @@ func (d *Dispatcher) repairEquip(st *world.CharacterState) {
 		st.Equip[s] = world.Item{}
 	}
 	if st.Equip[0].Empty() {
-		st.Equip[0] = d.classBody(int(st.Class)) // restore the class look
+		st.Equip[0] = d.classBody(st.Class) // restore the class look
 	}
 }
 

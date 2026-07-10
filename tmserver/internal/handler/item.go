@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -125,10 +126,11 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
-	volExpChest = 198
-	volDivine7  = 64
-	volDivine30 = 66
-	volVigor    = 58
+	volExpChest  = 198
+	volFairyDust = 7
+	volDivine7   = 64
+	volDivine30  = 66
+	volVigor     = 58
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -164,6 +166,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.equipItem(w, s, e, body, payload)
 	case vol >= volSephiraLo && vol <= volSephiraHi:
 		d.useSkillBook(w, s, e, src, vol)
+	case vol == volFairyDust:
+		d.useFairyDust(w, s, e, src)
 	case vol == volExpChest:
 		d.useExpChest(w, s, e, src)
 	case vol >= volDivine7 && vol <= volDivine30:
@@ -172,6 +176,30 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
+	}
+}
+
+const efAmount = 61
+
+func itemAmount(it world.Item) int {
+	for _, ef := range it.Effects {
+		if ef.Effect == efAmount {
+			return int(ef.Value)
+		}
+	}
+	return 1
+}
+
+func consumeOneItem(it *world.Item) {
+	if itemAmount(*it) <= 1 {
+		*it = world.Item{}
+		return
+	}
+	for i := range it.Effects {
+		if it.Effects[i].Effect == efAmount {
+			it.Effects[i].Value--
+			return
+		}
 	}
 }
 
@@ -241,6 +269,26 @@ func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Enti
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
+}
+
+// useFairyDust consumes Poeira de Fada (EF_VOLATILE 7). The legacy handler sets
+// Exp directly to the next curve threshold, then calls CheckGetLevel; both sides
+// of its rand()%2 branch do the same in this fork.
+func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if e.Level < 0 {
+		return
+	}
+	if e.Level >= level.MaxLevel {
+		e.Exp = level.MaxExp
+	} else {
+		e.Exp = level.NextLevelExp(e.Level)
+	}
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	if !d.applyMortalLevelUps(w, s, e) {
+		d.sendEtc(w, s, e)
+	}
+	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
 }
 
 // useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31

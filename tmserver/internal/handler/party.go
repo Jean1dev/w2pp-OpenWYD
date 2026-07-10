@@ -104,7 +104,7 @@ func (d *Dispatcher) acceptParty(w *world.World, s *world.Session, _ protocol.He
 
 // removeParty handles _MSG_RemoveParty (0x037E): leave (member) or dissolve
 // (leader). Parm is the target; out of range or self means "me".
-func (d *Dispatcher) removeParty(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+func (d *Dispatcher) removeParty(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.Leader == 0 {
 		return

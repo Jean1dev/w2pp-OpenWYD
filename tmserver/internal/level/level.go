@@ -3,7 +3,7 @@
 // BASE_GetHpMp / BASE_GetBonusScorePoint in the original source). Like the combat
 // package it is isolated from I/O so it can be golden-tested exactly.
 //
-// Scope: the MORTAL (ClassMaster 0) solo path — the dominant case. ARCH/CELESTIAL
+// Scope: the MORTAL (ClassMaster 2, Basedef.h:238) solo path — the dominant case. ARCH/CELESTIAL
 // tiers (different curve g_pNextLevel_2, quest gates, half-exp) and party
 // distribution are NOT modeled here yet; the world tracks no tier state for them.
 package level
