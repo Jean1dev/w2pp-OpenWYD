@@ -189,6 +189,91 @@ func TestTradingItemUnequip(t *testing.T) {
 	}
 }
 
+// weaponAutoShiftDB seeds the tester character with a single item in carry
+// slot 0, for exercising the weapon-hand auto-shift on quick-equip.
+func weaponAutoShiftDB(item int16) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: item}
+	db.loadResult = st
+	return db
+}
+
+// startServerClockItemPos is startServerClock with an injected ItemPos catalog,
+// needed to exercise equip-slot gating (canEquipSlot / shiftWeaponToRightHand).
+func startServerClockItemPos(t *testing.T, persist world.Persistence, itemPos map[int]int) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, ItemPos: itemPos})
+	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
+// TestTradingItemWeaponAutoShift proves the issue #65 fix: quick-equipping a
+// one-handed weapon (nPos 192, fits either hand) into the off-hand slot (7)
+// while the primary hand (6) is empty gets auto-shifted into slot 6, mirroring
+// _MSG_TradingItem.cpp:394-414.
+func TestTradingItemWeaponAutoShift(t *testing.T) {
+	addr, stop := startServerClockItemPos(t, weaponAutoShiftDB(1100), map[int]int{1100: 192})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, 7, 0)
+	expect(t, c, protocol.MsgTradingItem) // primary swap echo
+	expect(t, c, protocol.MsgSendItem)    // carry slot 0, now empty
+	expect(t, c, protocol.MsgSendItem)    // equip slot 7, now holds 1100
+
+	expect(t, c, protocol.MsgTradingItem) // auto-shift echo: 7 -> 6
+	expect(t, c, protocol.MsgSendItem)    // equip slot 6, now holds 1100
+	expect(t, c, protocol.MsgSendItem)    // equip slot 7, now empty again
+
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[12:14]); got != 1100 { // Equip[6] visual code
+		t.Errorf("equip visual[6] = %d, want 1100 after auto-shift", got)
+	}
+	if got := le16(ue[14:16]); got != 0 { // Equip[7] visual code
+		t.Errorf("equip visual[7] = %d, want 0 after auto-shift", got)
+	}
+}
+
+// TestTradingItemShieldNotShifted proves a real shield (nPos 128, off-hand
+// only) is exempt from the auto-shift: it must stay in slot 7 even with slot 6
+// empty (_MSG_TradingItem.cpp:400 hab != 128 guard).
+func TestTradingItemShieldNotShifted(t *testing.T) {
+	addr, stop := startServerClockItemPos(t, weaponAutoShiftDB(2200), map[int]int{2200: 128})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, 7, 0)
+	expect(t, c, protocol.MsgTradingItem) // primary swap echo
+	expect(t, c, protocol.MsgSendItem)    // carry slot 0, now empty
+	expect(t, c, protocol.MsgSendItem)    // equip slot 7, now holds 2200
+
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[14:16]); got != 2200 { // Equip[7] visual code
+		t.Errorf("equip visual[7] = %d, want 2200 (shield stays put)", got)
+	}
+	if got := le16(ue[12:14]); got != 0 { // Equip[6] visual code
+		t.Errorf("equip visual[6] = %d, want 0 (nothing shifted)", got)
+	}
+}
+
 func TestUseItemEquip(t *testing.T) {
 	addr, stop, _ := startServerClock(t, itemDB(1100))
 	defer stop()
