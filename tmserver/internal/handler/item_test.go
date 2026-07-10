@@ -531,6 +531,29 @@ func TestUseExpChest(t *testing.T) {
 	}
 }
 
+func TestUseExpChestStack(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 4140, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	db.loadResult = st
+
+	addr, stop := startServerClockVol(t, db, map[int]int{4140: volExpChest})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	payload := expect(t, c, protocol.MsgSendItem)
+	if got := le16(payload[4:6]); got != 4140 {
+		t.Fatalf("carry slot 0 item = %d, want stacked chest", got)
+	}
+	if payload[6] != efAmount || payload[7] != 2 {
+		t.Errorf("effect0 = %d.%d, want %d.2", payload[6], payload[7], efAmount)
+	}
+}
+
 func TestUseFairyDust(t *testing.T) {
 	const dust = 5001
 	addr, stop := startServerClockVol(t, fairyDustDB(0, world.Item{Index: dust}), map[int]int{dust: volFairyDust})
