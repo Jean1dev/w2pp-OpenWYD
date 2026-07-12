@@ -557,13 +557,13 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		if skillnum == 27 {
 			heal = 2*cast.special + cast.spell.InstanceValue
 		}
-		cap := 1100
+		healCap := 1100
 		if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
 			heal *= 2
-			cap = 2200
+			healCap = 2200
 		}
-		if heal >= cap {
-			heal = cap
+		if heal >= healCap {
+			heal = healCap
 		}
 		if heal > 0 && heal < 6 {
 			heal = 6
@@ -1004,7 +1004,7 @@ func (d *Dispatcher) applyAirBladeProc(w *world.World, attacker, target *world.E
 		attacker.Class != 3 || attacker.LearnedSkill&(1<<21) == 0 || w.Rand().Intn(4) != 0 {
 		return dmg
 	}
-	skillDam := int(effectiveSpecial(attacker, 3)) + int(effectiveStr(attacker))
+	skillDam := effectiveSpecial(attacker, 3) + int(effectiveStr(attacker))
 	skillDam = combat.Damage(w.Rand(), skillDam, int(effectiveAC(target)), attacker.Master)
 	if skillDam > 0 {
 		skillDam /= 2

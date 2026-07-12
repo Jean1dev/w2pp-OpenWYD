@@ -9,9 +9,9 @@ func setReqHp(s *world.Session, e *world.Entity) {
 	if s.ReqHp < 0 {
 		s.ReqHp = 0
 	}
-	max := effectiveMaxHP(e)
-	if e.HP > max {
-		e.HP = max
+	maxHP := effectiveMaxHP(e)
+	if e.HP > maxHP {
+		e.HP = maxHP
 	}
 	if s.ReqHp < e.HP {
 		s.ReqHp = e.HP
@@ -22,9 +22,9 @@ func setReqMp(s *world.Session, e *world.Entity) {
 	if s.ReqMp < 0 {
 		s.ReqMp = 0
 	}
-	max := effectiveMaxMP(e)
-	if e.MP > max {
-		e.MP = max
+	maxMP := effectiveMaxMP(e)
+	if e.MP > maxMP {
+		e.MP = maxMP
 	}
 	if s.ReqMp < e.MP {
 		s.ReqMp = e.MP
