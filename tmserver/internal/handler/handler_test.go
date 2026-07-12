@@ -234,7 +234,7 @@ func read(t *testing.T, c net.Conn) (protocol.Type, []byte) {
 			t.Fatalf("decode: %v", err)
 		}
 		// Entity-visibility packets are background noise for gameplay assertions.
-		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob || h.Type == protocol.MsgPKInfo {
 			continue
 		}
 		return h.Type, payload
@@ -500,6 +500,54 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	send(t, c, protocol.MsgCharacterLogout, nil)
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogout {
 		t.Errorf("got %#x, want CNFCharacterLogout", ty)
+	}
+}
+
+// TestCharacterLoginColorsOwnNickWhite is the login-time regression guard for
+// issue #59: a freshly logged-in character must (a) get its OWN CreateMob (the
+// legacy self-CreateMob that colors the own nick) and (b) that CreateMob's
+// MobName[12] (PKPoint) must be 75 = neutral/white — NOT 0, which renders the
+// nick red/blinking. Both the login blob and the self-CreateMob carry PKPoint 75.
+func TestCharacterLoginColorsOwnNickWhite(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", X: 2100, Y: 2100, HP: 1200, MaxHP: 1200}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	// The login blob's own MobName[12] must be 75 (white). mob @ body4, MobName[0].
+	ty, payload, ok := readMaybeRaw(t, c)
+	if !ok || ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x ok=%v, want CNFCharacterLogin", ty, ok)
+	}
+	if payload[4+12] != 75 {
+		t.Errorf("login blob MobName[12] = %d, want 75 (neutral/white nick)", payload[4+12])
+	}
+	// The self-CreateMob (id = own conn) must also carry MobName[12] = 75. Scan the
+	// post-login frames for a CreateMob whose MobID is the player's conn.
+	found := false
+	for i := 0; i < 20 && !found; i++ {
+		ty, payload, ok = readMaybeRaw(t, c)
+		if !ok {
+			break
+		}
+		if ty != protocol.MsgCreateMob {
+			continue
+		}
+		_, _, mobID := createMobFields(t, payload)
+		if mobID == 1 { // first (only) player conn
+			found = true
+			if payload[6+12] != 75 { // MobName @ body6, [12] = PKPoint
+				t.Errorf("self-CreateMob MobName[12] = %d, want 75 (white)", payload[6+12])
+			}
+		}
+	}
+	if !found {
+		t.Error("no self-CreateMob received at login — own nick can't be colored/recolored")
 	}
 }
 

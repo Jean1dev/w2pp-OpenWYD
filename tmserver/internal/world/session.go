@@ -132,6 +132,15 @@ type Entity struct {
 	GuildLevel  uint8    // 0 = member … 9 = leader
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
+	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
+	// hits, but it does NOT by itself blink the nickname.
+	// GuiltyUntil is the wall-clock deadline (Unix seconds) of the "chaotic" state
+	// set when a PvP hit actually lands (refreshed on every hit); the nickname
+	// blinks red while now < GuiltyUntil and reverts once it decays with no further
+	// PvP (handler.pkGuiltyDuration). Neither is persisted (session-only).
+	PKMode      bool
+	GuiltyUntil int64
 
 	Str        int16 // CurrentScore attributes (base + equipment, kept live by refreshScore)
 	Int        int16

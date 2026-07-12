@@ -89,6 +89,7 @@ type MobSnapshot struct {
 	GuildLevel           uint8
 	RegenHP, RegenMP     uint16
 	Resist               [4]uint8
+	PKPoint              uint8 // MobName[12] chaos byte: 75 = neutral/white nick, 0 = red (players only)
 }
 
 // writeMobScore writes a 48-byte STRUCT_SCORE from a MobSnapshot.
@@ -114,19 +115,19 @@ func writeMobScore(b []byte, m MobSnapshot) {
 
 // writeStructMob writes a 816-byte STRUCT_MOB.
 func writeStructMob(b []byte, m MobSnapshot) {
-	copy(b[0:16], m.Name)                // MobName @0
-	b[16] = m.Clan                       // Clan @16
-	b[17] = m.Merchant                   // Merchant @17
-	le.PutUint16(b[18:], m.Guild)        // Guild @18
-	b[20] = m.Class                      // Class @20
-	b[24] = m.Quest                      // Quest @24
-	le.PutUint32(b[28:], uint32(m.Coin)) // Coin @28
-	le.PutUint64(b[32:], uint64(m.Exp))  // Exp @32
-	le.PutUint16(b[40:], uint16(m.SPX))  // SPX @40
-	le.PutUint16(b[42:], uint16(m.SPY))  // SPY @42
-	writeMobScore(b[44:], m)             // BaseScore @44
-	writeMobScore(b[92:], m)             // CurrentScore @92
-	for i := 0; i < 16; i++ {            // Equip[16] @140
+	PackMobName(b[0:16], m.Name, m.PKPoint, 0, 0) // MobName @0: name[0..11] + PK data[12..15]
+	b[16] = m.Clan                                // Clan @16
+	b[17] = m.Merchant                            // Merchant @17
+	le.PutUint16(b[18:], m.Guild)                 // Guild @18
+	b[20] = m.Class                               // Class @20
+	b[24] = m.Quest                               // Quest @24
+	le.PutUint32(b[28:], uint32(m.Coin))          // Coin @28
+	le.PutUint64(b[32:], uint64(m.Exp))           // Exp @32
+	le.PutUint16(b[40:], uint16(m.SPX))           // SPX @40
+	le.PutUint16(b[42:], uint16(m.SPY))           // SPY @42
+	writeMobScore(b[44:], m)                      // BaseScore @44
+	writeMobScore(b[92:], m)                      // CurrentScore @92
+	for i := 0; i < 16; i++ {                     // Equip[16] @140
 		writeSelItem(b[140+i*8:], m.Equip[i])
 	}
 	for i := 0; i < 64; i++ { // Carry[64] @268
@@ -171,14 +172,15 @@ type SkillState struct {
 // are the actual world-entry position in MSG_CNFCharacterLogin.PosX/PosY; the
 // embedded mob.SPX/SPY remains the save point, matching ProcessDBMessage.cpp's
 // later tx/ty spawn rewrite. When saveX/saveY are zero, the template's SPX/SPY
-// are preserved.
-func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, loginX, loginY, saveX, saveY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState) []byte {
+// are preserved. pkPoint is packed into MobName[12] for the own nickname color.
+func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int64, equip [16]SelItem, carry [64]SelItem, loginX, loginY, saveX, saveY int16, slot, clientID int, weather uint16, shortSkill [16]uint8, skill SkillState, pkPoint uint8) []byte {
 	b := make([]byte, cnfCharacterLoginSize-HeaderSize) // 1820
 	copy(b[4:4+structMobSize], mob816)                  // mob @ body4 (raw template)
-	for i := 4; i < 4+16; i++ {                         // clear MobName then set it
-		b[i] = 0
-	}
-	copy(b[4:4+16], name)
+	// MobName @ body4: name in [0..11] + PK data in [12..15]. The client colors the
+	// player's own nick from MobName[12] (PKPoint: 75 = neutral/white, 0 = red
+	// blinking). Packing it here avoids a red flash before the self-CreateMob
+	// arrives (GetFunc.cpp:1082-1101).
+	PackMobName(b[4:4+16], name, pkPoint, 0, 0)
 	// Overlay the persisted equipment onto the template's Equip@140, so the saved
 	// gear (not the class starter set) shows on the model and in the equip window.
 	for i := 0; i < 16; i++ {

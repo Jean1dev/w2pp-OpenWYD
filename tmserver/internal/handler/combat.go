@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/binary"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -150,17 +151,18 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// skillHit: this entry resolves through the skill pipeline; anything
 		// else (sentinel -2, 0, or an unknown claim) is melee.
 		skillHit := cast.isSkill && claim == damSkill
-		// No town safe-zone gate here (deliberately): the legacy rule
-		// (_MSG_Attack.cpp:405-419) only blocks a hit when the ATTACKER stands on
-		// a PK-attribute tile AND the target isn't already PKMode/Guilty-flagged,
-		// with an RvR/Castle/GTorre-war-state bypass on top. None of PKMode,
-		// Guilty, the real per-tile attribute-map bit, or war state exist yet, so
-		// a prior port of this check (keyed off the coarse city rectangles and
-		// the wrong entity's position) could never satisfy its own bypass and
-		// permanently zeroed PvP damage near every city/spawn point (issue #67).
-		// Per the B12 precedent (combat_regression_test.go), don't hard-block
-		// gameplay on an unimplemented/unverified system — tolerate until a
-		// follow-up implements attribute-map + PKMode + Guilty + war-state.
+		pvpHit := world.IsPlayer(tid) && tid != s.Conn
+		combatHit := !skillHit || cast.spell.Aggressive != 0
+		// PvP gate: combat damage (melee or an aggressive skill) requires the
+		// attacker to opt into PK mode (K key, _MSG_PKMode). Do not use
+		// world.Village as a town safe-zone approximation here: the legacy rule
+		// keys off an attribute-map PK bit on the ATTACKER tile plus war-state
+		// bypasses, and the coarse city rectangles caused issue #67 by zeroing
+		// PvP damage near every spawn point.
+		if pvpHit && combatHit && !e.PKMode {
+			writeDamage(payload, i, 0)
+			continue
+		}
 
 		var dmg int
 		if skillHit {
@@ -185,6 +187,17 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			target.HP -= int32(dmg)
 			if target.HP < 0 {
 				target.HP = 0
+			}
+			if pvpHit && combatHit {
+				// Landing a PvP hit starts (or refreshes) the chaotic red-blink
+				// timer, independent of whether it's already running. On the 0→1
+				// transition, re-broadcast the PK state so the attacker's nick turns
+				// red (MobName[12]=0) for itself and everyone in view.
+				wasGuilty := pkGuilty(e)
+				e.GuiltyUntil = time.Now().Add(pkGuiltyDuration).Unix()
+				if !wasGuilty {
+					d.broadcastPKState(w, s, e)
+				}
 			}
 		} else if dmg < 0 && cast.isSkill && cast.spell.InstanceType == 6 {
 			// Heal: a negative Dam is the healed amount; clamp to the target's max.

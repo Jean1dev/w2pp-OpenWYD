@@ -54,7 +54,7 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 		BaseSpecial: [4]int16{1, 2, 3, 4},
 		SkillBar:    [4]uint8{9, 10, 11, 12},
 	}
-	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 0, 0, 1, 0, sk, skill)
+	b := EncodeCNFCharacterLoginRaw(tmpl, "Hero", 777777, 123456789, equip, carry, 2453, 2000, 0, 0, 0, 1, 0, sk, skill, 75)
 
 	if len(b) != cnfCharacterLoginSize-HeaderSize { // 1832 - 12 = 1820
 		t.Fatalf("CNFCharacterLogin body = %d, want %d", len(b), cnfCharacterLoginSize-HeaderSize)
@@ -79,6 +79,11 @@ func TestCNFCharacterLoginRawLayout(t *testing.T) {
 	// saved total at login.
 	if got := le.Uint64(b[4+32:]); got != 123456789 {
 		t.Errorf("exp @mob32 = %d, want 123456789", got)
+	}
+	// MobName[12] (body 4+12) is the PKPoint that colors the own nick: 75 = white
+	// (neutral). Passing 75 must land there — 0 would render the nick red (issue #59).
+	if b[4+12] != 75 {
+		t.Errorf("MobName[12] (PKPoint) = %d, want 75 (neutral/white nick)", b[4+12])
 	}
 	// Persisted equip overlays the template's Equip@140 (mob) → body 4+140 + 1*8.
 	if got := le.Uint16(b[4+structMobEquip+1*8:]); got != 1100 {

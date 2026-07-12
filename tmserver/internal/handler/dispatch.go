@@ -187,6 +187,7 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgChangeCity] = d.changeCity
 	d.routes[protocol.MsgReqTeleport] = d.reqTeleport
 	d.routes[protocol.MsgNoViewMob] = d.noViewMob
+	d.routes[protocol.MsgPKMode] = d.pkMode
 	// Batch 3 — combat.
 	d.routes[protocol.MsgAttack] = d.attack
 	d.routes[protocol.MsgAttackOne] = d.attack
