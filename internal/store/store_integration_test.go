@@ -33,13 +33,29 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
+	_, _ = pool.Exec(ctx, `
+		DROP TABLE IF EXISTS
+			npc_audit,
+			npc_shop_item,
+			npc_definition,
+			item_price,
+			npc_config_meta,
+			affect,
+			item,
+			character,
+			account,
+			schema_migrations
+		CASCADE`)
+	_, _ = pool.Exec(ctx, `DROP TYPE IF EXISTS item_owner_kind`)
+}
+
 func TestMigrateAndSaveAccount(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)
 
 	// Clean slate.
-	_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS affect, item, character, account, schema_migrations CASCADE`)
-	_, _ = pool.Exec(ctx, `DROP TYPE IF EXISTS item_owner_kind`)
+	resetTestSchema(ctx, pool)
 
 	if err := Migrate(ctx, pool); err != nil {
 		t.Fatalf("Migrate: %v", err)

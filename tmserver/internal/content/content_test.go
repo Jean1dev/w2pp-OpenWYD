@@ -92,9 +92,10 @@ func TestBaseEffects(t *testing.T) {
 	for _, e := range eff {
 		got[e.Eff] = e.Val
 	}
-	// Score-relevant effects plus EF_ITEMLEVEL (used by combine matching).
-	if len(got) != 3 || got[3] != 96 || got[2] != 24 || got[87] != 5 {
-		t.Errorf("BaseEffects = %v, want AC(3):96, DAMAGE(2):24, ITEMLEVEL(87):5", got)
+	// Score-relevant effects plus EF_ITEMLEVEL (used by combine matching) and
+	// EF_RUNSPEED (issue #64: boots' move-speed bonus).
+	if len(got) != 4 || got[3] != 96 || got[2] != 24 || got[87] != 5 || got[29] != 2 {
+		t.Errorf("BaseEffects = %v, want AC(3):96, DAMAGE(2):24, ITEMLEVEL(87):5, RUNSPEED(29):2", got)
 	}
 }
 

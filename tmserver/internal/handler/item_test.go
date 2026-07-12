@@ -189,6 +189,91 @@ func TestTradingItemUnequip(t *testing.T) {
 	}
 }
 
+// weaponAutoShiftDB seeds the tester character with a single item in carry
+// slot 0, for exercising the weapon-hand auto-shift on quick-equip.
+func weaponAutoShiftDB(item int16) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: item}
+	db.loadResult = st
+	return db
+}
+
+// startServerClockItemPos is startServerClock with an injected ItemPos catalog,
+// needed to exercise equip-slot gating (canEquipSlot / shiftWeaponToRightHand).
+func startServerClockItemPos(t *testing.T, persist world.Persistence, itemPos map[int]int) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, ItemPos: itemPos})
+	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
+// TestTradingItemWeaponAutoShift proves the issue #65 fix: quick-equipping a
+// one-handed weapon (nPos 192, fits either hand) into the off-hand slot (7)
+// while the primary hand (6) is empty gets auto-shifted into slot 6, mirroring
+// _MSG_TradingItem.cpp:394-414.
+func TestTradingItemWeaponAutoShift(t *testing.T) {
+	addr, stop := startServerClockItemPos(t, weaponAutoShiftDB(1100), map[int]int{1100: 192})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, 7, 0)
+	expect(t, c, protocol.MsgTradingItem) // primary swap echo
+	expect(t, c, protocol.MsgSendItem)    // carry slot 0, now empty
+	expect(t, c, protocol.MsgSendItem)    // equip slot 7, now holds 1100
+
+	expect(t, c, protocol.MsgTradingItem) // auto-shift echo: 7 -> 6
+	expect(t, c, protocol.MsgSendItem)    // equip slot 6, now holds 1100
+	expect(t, c, protocol.MsgSendItem)    // equip slot 7, now empty again
+
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[12:14]); got != 1100 { // Equip[6] visual code
+		t.Errorf("equip visual[6] = %d, want 1100 after auto-shift", got)
+	}
+	if got := le16(ue[14:16]); got != 0 { // Equip[7] visual code
+		t.Errorf("equip visual[7] = %d, want 0 after auto-shift", got)
+	}
+}
+
+// TestTradingItemShieldNotShifted proves a real shield (nPos 128, off-hand
+// only) is exempt from the auto-shift: it must stay in slot 7 even with slot 6
+// empty (_MSG_TradingItem.cpp:400 hab != 128 guard).
+func TestTradingItemShieldNotShifted(t *testing.T) {
+	addr, stop := startServerClockItemPos(t, weaponAutoShiftDB(2200), map[int]int{2200: 128})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, 7, 0)
+	expect(t, c, protocol.MsgTradingItem) // primary swap echo
+	expect(t, c, protocol.MsgSendItem)    // carry slot 0, now empty
+	expect(t, c, protocol.MsgSendItem)    // equip slot 7, now holds 2200
+
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[14:16]); got != 2200 { // Equip[7] visual code
+		t.Errorf("equip visual[7] = %d, want 2200 (shield stays put)", got)
+	}
+	if got := le16(ue[12:14]); got != 0 { // Equip[6] visual code
+		t.Errorf("equip visual[6] = %d, want 0 (nothing shifted)", got)
+	}
+}
+
 func TestUseItemEquip(t *testing.T) {
 	addr, stop, _ := startServerClock(t, itemDB(1100))
 	defer stop()
@@ -409,6 +494,45 @@ func TestWeaponDamageRefine(t *testing.T) {
 	}
 }
 
+// TestAttackRunOfBoots verifies EF_RUNSPEED (boots) raises the move-speed (low)
+// nibble of AttackRun to the issue #64 tier: bare=2, boots=4, mount=6.
+func TestAttackRunOfBoots(t *testing.T) {
+	d := New(Config{
+		ItemEffects: map[int][]content.BaseEffect{
+			321: {{Eff: efRunSpeed, Val: 1}},  // boots
+			322: {{Eff: efRunSpeed, Val: 99}}, // overboosted boots still use the boots tier
+		},
+	})
+
+	bare := &world.Entity{}
+	d.refreshScore(bare)
+	if got := attackRunOf(bare); got != baseAttackRun {
+		t.Errorf("no boots: attackRunOf = %#x, want base %#x", got, baseAttackRun)
+	}
+
+	booted := &world.Entity{}
+	booted.Equip[5] = world.Item{Index: 321} // boots occupy equip slot 5 (nPos 32)
+	d.refreshScore(booted)
+	if got := attackRunOf(booted); got != (baseAttackRun&0xF0)|bootMoveSpeed {
+		t.Errorf("boots: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|bootMoveSpeed)
+	}
+
+	overboosted := &world.Entity{}
+	overboosted.Equip[5] = world.Item{Index: 322}
+	d.refreshScore(overboosted)
+	if got := attackRunOf(overboosted); got != (baseAttackRun&0xF0)|bootMoveSpeed {
+		t.Errorf("overboosted boots: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|bootMoveSpeed)
+	}
+
+	mounted := &world.Entity{}
+	mounted.Equip[5] = world.Item{Index: 321}
+	mounted.Equip[mountEquipSlot] = world.Item{Index: 342}
+	d.refreshScore(mounted)
+	if got := attackRunOf(mounted); got != (baseAttackRun&0xF0)|mountedMoveSpeed {
+		t.Errorf("mounted with boots: attackRunOf = %#x, want %#x", got, (baseAttackRun&0xF0)|mountedMoveSpeed)
+	}
+}
+
 // TestRefreshScoreSpecial confirms refreshScore folds a divine special into the live
 // entity (and so into the score sent to the client), and that a clean
 // deriveBaseScore→refreshScore round-trip reproduces the loaded score (no double count).
@@ -450,6 +574,14 @@ func expChestDB() *fakeDB {
 	db := newDB()
 	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
 	st.Carry[0] = world.Item{Index: 4140}
+	db.loadResult = st
+	return db
+}
+
+func silverBarDB(itemIdx int16, coin int32) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Coin: coin}
+	st.Carry[0] = world.Item{Index: itemIdx}
 	db.loadResult = st
 	return db
 }
@@ -528,6 +660,29 @@ func TestUseExpChest(t *testing.T) {
 	}
 	if !sawScore {
 		t.Error("missing MsgUpdateScore after using exp chest")
+	}
+}
+
+func TestUseExpChestStack(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 4140, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	db.loadResult = st
+
+	addr, stop := startServerClockVol(t, db, map[int]int{4140: volExpChest})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	payload := expect(t, c, protocol.MsgSendItem)
+	if got := le16(payload[4:6]); got != 4140 {
+		t.Fatalf("carry slot 0 item = %d, want stacked chest", got)
+	}
+	if payload[6] != efAmount || payload[7] != 2 {
+		t.Errorf("effect0 = %d.%d, want %d.2", payload[6], payload[7], efAmount)
 	}
 }
 
@@ -637,5 +792,62 @@ func TestUseFairyDustAtCap(t *testing.T) {
 	}
 	if !sawEtc {
 		t.Error("missing MsgUpdateEtc after using fairy dust at cap")
+	}
+}
+
+func TestUseSilverBar1Bi(t *testing.T) {
+	addr, stop := startServerClockVol(t, silverBarDB(4011, 0), map[int]int{4011: volSilverBar})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawEtc := false, false
+	for range 4 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[2:4]) != 0 || le16(payload[4:6]) != 0 {
+				t.Errorf("slot/item = %d/%d, want slot 0 empty", le16(payload[2:4]), le16(payload[4:6]))
+			}
+		case protocol.MsgUpdateEtc:
+			sawEtc = true
+			if got := int32(le(payload[28:32])); got != 1_000_000_000 {
+				t.Errorf("coin = %d, want 1000000000", got)
+			}
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using silver bar")
+	}
+	if !sawEtc {
+		t.Error("missing MsgUpdateEtc after using silver bar")
+	}
+}
+
+func TestUseSilverBarOver2G(t *testing.T) {
+	addr, stop := startServerClockVol(t, silverBarDB(4011, 1_500_000_000), map[int]int{4011: volSilverBar})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	if ty, p, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeCargoFull {
+		t.Fatalf("overflow notice = %#x/%v ok=%v, want NoticeCargoFull", ty, noticeCode(t, p), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[2:4]) != 0 || le16(item[4:6]) != 4011 {
+		t.Errorf("slot/item = %d/%d, want slot 0 item 4011 preserved", le16(item[2:4]), le16(item[4:6]))
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgUpdateEtc {
+		t.Error("overflow use sent MsgUpdateEtc; coin should be unchanged")
 	}
 }

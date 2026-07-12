@@ -178,7 +178,7 @@ func adminNpcToProto(d domain.NPCDefinition) *webv1.AdminNpc {
 	shop := make([]*webv1.AdminNpcShopItem, 0, len(d.Shop))
 	for _, it := range d.Shop {
 		shop = append(shop, &webv1.AdminNpcShopItem{
-			Slot: int32(it.Slot), ItemIndex: it.ItemIndex,
+			Slot: int32(it.Slot), ItemIndex: it.ItemIndex, Quantity: int32(it.Quantity),
 			Eff1: int32(it.Eff1), Effv1: int32(it.EffV1),
 			Eff2: int32(it.Eff2), Effv2: int32(it.EffV2),
 			Eff3: int32(it.Eff3), Effv3: int32(it.EffV3),
@@ -193,11 +193,18 @@ func adminNpcToProto(d domain.NPCDefinition) *webv1.AdminNpc {
 
 func protoToShopItem(it *webv1.AdminNpcShopItem) domain.NPCShopItem {
 	return domain.NPCShopItem{
-		Slot: int16(it.GetSlot()), ItemIndex: it.GetItemIndex(),
+		Slot: int16(it.GetSlot()), ItemIndex: it.GetItemIndex(), Quantity: protoQuantity(it.GetQuantity()),
 		Eff1: uint8(it.GetEff1()), EffV1: uint8(it.GetEffv1()),
 		Eff2: uint8(it.GetEff2()), EffV2: uint8(it.GetEffv2()),
 		Eff3: uint8(it.GetEff3()), EffV3: uint8(it.GetEffv3()),
 	}
+}
+
+func protoQuantity(q int32) int16 {
+	if q < 0 || q > 255 {
+		return -1
+	}
+	return int16(q)
 }
 
 func resultToProto(r npcadmin.Result) webv1.AdminResult {

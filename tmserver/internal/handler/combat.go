@@ -103,6 +103,17 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		}
 		e.MP -= int32(spent)
 		body.ReqMp -= int16(spent)
+
+		// BM evocation (InstanceType 11, _MSG_Attack.cpp:809-837): spawn the
+		// summons once per cast — the Dam entries carry no damage for it. A cast
+		// that spawns nothing refunds its mana (the legacy restores Mp/ReqMp).
+		if cast.spell.InstanceType == 11 {
+			count := summonCount(cast.spell.InstanceValue, effectiveSpecial(e, 2))
+			if !d.generateSummon(w, s, e, cast.spell.InstanceValue-1, count) {
+				e.MP += int32(spent)
+				body.ReqMp += int16(spent)
+			}
+		}
 	}
 
 	// Server-authoritative attack power = CurrentScore.Damage + the equipped weapon's
@@ -140,17 +151,15 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// skillHit: this entry resolves through the skill pipeline; anything
 		// else (sentinel -2, 0, or an unknown claim) is melee.
 		skillHit := cast.isSkill && claim == damSkill
-		// PvP gate: combat damage (melee or an aggressive skill) against another
-		// player requires BOTH that the target isn't standing in a city safe zone
-		// (the legacy gates on the attribute map's PK bit + PKMode; we use the
-		// city rectangles until the attribute map semantics are verified) AND that
-		// the attacker has opted into PK mode (K key, _MSG_PKMode) — outside a
-		// city, PKMode is the consent flag that lets a hit land at all. Landing
-		// one then starts the "chaotic" red-blink timer below, regardless of the
-		// gate (a non-aggressive skill, e.g. a buff, always passes through).
 		pvpHit := world.IsPlayer(tid) && tid != s.Conn
 		combatHit := !skillHit || cast.spell.Aggressive != 0
-		if pvpHit && combatHit && (world.Village(target.X, target.Y) >= 0 || !e.PKMode) {
+		// PvP gate: combat damage (melee or an aggressive skill) requires the
+		// attacker to opt into PK mode (K key, _MSG_PKMode). Do not use
+		// world.Village as a town safe-zone approximation here: the legacy rule
+		// keys off an attribute-map PK bit on the ATTACKER tile plus war-state
+		// bypasses, and the coarse city rectangles caused issue #67 by zeroing
+		// PvP damage near every spawn point.
+		if pvpHit && combatHit && !e.PKMode {
 			writeDamage(payload, i, 0)
 			continue
 		}
@@ -207,6 +216,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				d.mobKilled(w, e, target)
 			} else {
 				setGroupBattle(w, tid, target, e)
+				// The attacker's summons join their owner's fight (the legacy
+				// EnemyList propagation; summon.go).
+				d.commandSummons(w, s.Conn, target)
 			}
 		}
 		writeDamage(payload, i, int32(dmg))
@@ -351,6 +363,18 @@ func (d *Dispatcher) applyCastAffect(w *world.World, e, target *world.Entity, ti
 	}
 	if !applied {
 		return
+	}
+	// A landed transform (skills 64/66/68/70/71) also swaps the body mesh, which
+	// everyone in view must render — the legacy follows the SetAffect with
+	// GetCurrentScore + SendScore + SendEquip(conn,0) (_MSG_Attack.cpp:1242-1248).
+	// refreshEquip recomputes EquipVisual (where the beast override lives),
+	// broadcasts UpdateEquip self+in-view and re-sends the score.
+	if sp.AffectType == affectTransform {
+		if ts := w.Session(tid); ts != nil {
+			d.refreshEquip(w, ts, target)
+			d.sendAffect(w, ts, target)
+			return
+		}
 	}
 	d.refreshScore(target)
 	if ts := w.Session(tid); ts != nil {

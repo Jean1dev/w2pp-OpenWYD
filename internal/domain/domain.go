@@ -74,6 +74,19 @@ type Character struct {
 	Affects       []Affect
 }
 
+// RankingEntry is a web-facing character ranking projection. Rank is assigned
+// by the caller after pagination; the store returns entries in ranking order.
+type RankingEntry struct {
+	Rank        int32
+	Name        string
+	Class       uint8
+	Clan        uint8
+	GuildID     uint16
+	Level       int32
+	Exp         int64
+	ClassMaster uint8
+}
+
 // Item is a normalized inventory/equip/cargo entry. Slot preserves the array
 // index (positional meaning); empty slots are not represented.
 type Item struct {
@@ -120,6 +133,7 @@ type NPCDefinition struct {
 type NPCShopItem struct {
 	Slot      int16
 	ItemIndex int32
+	Quantity  int16 // stack amount; 1 means a single item
 	Eff1      uint8
 	EffV1     uint8
 	Eff2      uint8

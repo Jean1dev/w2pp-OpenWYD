@@ -14,17 +14,18 @@ import (
 // Implemented types: 2 (haste flag), 3 (resist debuff), 4 (scroll), 9/10
 // (damage buff/debuff), 11/21/24 (AC), 13 (critical armor: −10% MaxHP; its
 // DAMAGEMULTI part is deferred — damage multipliers aren't modeled), 14
-// (CON/HP), 15 (Special, cap 400 at read), 19/26/28 (Rsv flags), 25 (elemental
-// resists), 42 (HP↔MP swap). Deferred (need systems we don't model yet):
-// 1/5/6/7/12 (slowdown/dex — Run speed not modeled), 16 (transform,
-// pTransBonus UNVERIFIED), 17/20/22 (periodic — handled by the tick engine),
-// 27/36 (need the weapon EF_WTYPE check), 29 (Soul), 34/35 (Divine/Vigor —
-// already read-time via affectMul), 39 (Baú de XP → AffExpBonus).
+// (CON/HP), 15 (Special, cap 400 at read), 16 (BM transform → transform.go),
+// 19/26/28 (Rsv flags), 25 (elemental resists), 42 (HP↔MP swap). Deferred
+// (need systems we don't model yet): 1/5/6/7/12 (slowdown/dex — Run speed not
+// modeled), 17/20/22 (periodic — handled by the tick engine), 27/36 (need the
+// weapon EF_WTYPE check), 29 (Soul), 34/35 (Divine/Vigor — already read-time
+// via affectMul), 39 (Baú de XP → AffExpBonus).
 func applyAffectScore(e *world.Entity) {
 	e.Rsv = 0
 	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffCon, e.AffExpBonus = 0, 0, 0, 0, 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
+	e.AffDamageMultiPct = 100
 	if !e.HasAnyAffect() {
 		return
 	}
@@ -71,6 +72,8 @@ func applyAffectScore(e *world.Entity) {
 			for k := range e.AffSpecial {
 				e.AffSpecial[k] += v
 			}
+		case affectTransform: // BM beast transform (mesh handled by equipVisual)
+			applyTransformScore(e, af)
 		case 19:
 			e.Rsv |= world.RsvBlock
 		case 21: // curse: −AC, (+DAMAGEMULTI deferred)

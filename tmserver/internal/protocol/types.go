@@ -69,6 +69,7 @@ const (
 	MsgApplyBonus          Type = 0x0277 // 631  distribute attribute points
 	MsgSetShortSkill       Type = 0x0378 // 888  set the skill hotbar (Skill1[4]+Skill2[16])
 	MsgQuest               Type = 0x028B // 651  quest NPC (MSG_STANDARDPARM2)
+	MsgMasterGriff         Type = 0x0AD9 // 2777 Mestre Grifo warp request (MSG_MasterGriff)
 	MsgReqRanking          Type = 0x039F // 927  duel / PvP ranking (MSG_STANDARDPARM2)
 	MsgCapsuleInfo         Type = 0x02CD // 717  capsule/cash info (relay to DB)
 	MsgPutoutSeal          Type = 0x03CC // 972  seal

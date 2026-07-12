@@ -17,20 +17,24 @@ type outFrame struct {
 // domain-model.md §2.1). It is owned by the loop goroutine; the conn/out/closeCh
 // plumbing is shared with this session's reader and writer goroutines only.
 type Session struct {
-	Conn           int // index into pUser/pMob; also HEADER.ID on the wire
-	AccountName    string
-	AccountID      int64
-	Slot           int
-	Mode           Mode
-	IP             string
-	CrackError     int        // anti-cheat violation count (CUser.NumError)
-	Whisper        bool       // true blocks incoming whispers
-	GuildDisable   bool       // hide guild tag (guildon/guildoff)
-	TradeMode      int        // non-zero while in auto-trade (blocks attacks)
-	Trade          TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
-	LastAttackTick uint32     // ClientTick of the last accepted attack (cadence gate)
-	LastAttack     int        // SkillIndex of the last attack
-	ShortSkill     [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	Conn              int // index into pUser/pMob; also HEADER.ID on the wire
+	AccountName       string
+	AccountID         int64
+	Slot              int
+	Mode              Mode
+	IP                string
+	CrackError        int        // anti-cheat violation count (CUser.NumError)
+	Whisper           bool       // true blocks incoming whispers
+	GuildDisable      bool       // hide guild tag (guildon/guildoff)
+	TradeMode         int        // non-zero while in auto-trade (blocks attacks)
+	Trade             TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
+	LastAttackTick    uint32     // ClientTick of the last accepted attack (cadence gate)
+	LastAttack        int        // SkillIndex of the last attack
+	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
+	LoginSpawnY       int16
+	LoginTick         uint32
+	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
 
@@ -127,9 +131,10 @@ type Entity struct {
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
+	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
-	// legacy pUser[conn].PKMode) — it gates whether the player can land a hit on
-	// another player outside a safe city; it does NOT by itself blink the nickname.
+	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
+	// hits, but it does NOT by itself blink the nickname.
 	// GuiltyUntil is the wall-clock deadline (Unix seconds) of the "chaotic" state
 	// set when a PvP hit actually lands (refreshed on every hit); the nickname
 	// blinks red while now < GuiltyUntil and reverts once it decays with no further
@@ -173,6 +178,11 @@ type Entity struct {
 	// derivation by subtraction holds (captura-wyd-affect-divina.md §E).
 	HpAddPct, MpAddPct int32
 
+	// RunSpeedBonus is the summed EF_RUNSPEED from equipped gear (boots), cached by
+	// refreshScore and applied at read time by handler.attackRunOf to the move-speed
+	// (low) nibble of AttackRun.
+	RunSpeedBonus int32
+
 	// Affect holds the active buffs/debuffs (STRUCT_AFFECT[32]). DivineEnd is the
 	// wall-clock (Unix seconds) deadline of the Divine buff — the source of truth for
 	// its expiry; the slot's Affect.Time is only the client icon timer.
@@ -184,16 +194,22 @@ type Entity struct {
 	// are cached the same way and applied at READ time (effective getters), so
 	// the persisted flat score never bakes a buff in (no double-count on
 	// re-login — same policy as HpAddPct/Divine).
-	Rsv           uint8
-	AffDamage     int32
-	AffAC         int32
-	AffMaxHP      int32
-	AffMaxMP      int32
-	AffCon        int16
-	AffSpecial    [4]int16
-	AffResist     [4]int16
-	AffExpBonus   int32 // from affect type 39 (Baú de XP)
-	EquipExpBonus int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
+	Rsv         uint8
+	AffDamage   int32
+	AffAC       int32
+	AffMaxHP    int32
+	AffMaxMP    int32
+	AffCon      int16
+	AffSpecial  [4]int16
+	AffResist   [4]int16
+	AffExpBonus int32 // from affect type 39 (Baú de XP)
+	// AffDamageMultiPct is the legacy DAMAGEMULTI percentage (100 = neutral): a
+	// READ-time damage multiplier applied over Damage+AffDamage but before
+	// WeaponDamage, exactly where Basedef.cpp:4654 multiplies CurrentScore.Damage.
+	// Additive deltas can't express it — attributeDamageBonus lands on the flat
+	// Damage after the affect pass, and the multiplier must cover it too.
+	AffDamageMultiPct int32
+	EquipExpBonus     int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
 
@@ -201,7 +217,12 @@ type Entity struct {
 	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).
 	Leader       int
 	LastReqParty int
-	PartyList    [MaxParty]int
+
+	// Summoner is the conn of the player that evoked this mob (GenerateSummon's
+	// pMob.Summoner, Server.cpp:3244); 0 = not a summon. A summon's Leader is
+	// its owner's party leader (or the owner), matching the legacy binding.
+	Summoner  int
+	PartyList [MaxParty]int
 
 	Equip [MaxEquip]Item // equipped items
 	Carry [MaxCarry]Item // inventory; for mobs this is also the loot table (§2.2)

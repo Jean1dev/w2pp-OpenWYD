@@ -33,7 +33,7 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 16 | 81 | BarebackHorse, WildBoar, Sem_Sela | REQShopList? | ❌ **montarias** (captura/loja de mount) |
 | 19 | 5 | Foema_Ancian, Mestre_Archi | REQShopList | ✅ loja especial (shopType 3) |
 | 20 | 1 | BlackOracle | _MSG_Quest | ❌ |
-| 23 | 2 | Griphon_Master, Mestre_Grifo | _MSG_Quest | ❌ montaria grifo |
+| 23 | 2 | Griphon_Master, Mestre_Grifo | _MSG_MasterGriff / _MSG_Quest | ✅ Mestre Grifo → rotas de campo; restante montaria grifo pendente |
 | 24 | 1 | Alquimista_Odin | CombineItem (Odin) | ✅ combine |
 | 26 | 2 | (Kingdom) | _MSG_Quest (KINGDOM) | ❌ |
 | 30 | 2 | Leaky_Zakum | _MSG_Quest (ZAKUM info) | ❌ |
@@ -85,9 +85,12 @@ quests grade 11–16/24–30) **não**.
 - **Cargo/banco** (Merchant 2): `reqShopList` → `openCargo`, deposit/withdraw.
 - **Combine/refino**: família `combineItem` (Odin/Lindy/Shany/… via opcodes dedicados).
 - **Perzen** (Merchant 100 grade 7/8/9): troca esfera→montaria.
+- **Mestre Grifo** (`_MSG_MasterGriff` 0x0AD9): teleporta, após a animação de viagem do cliente, para
+  Defensor de Almas `(2372,2099)`, Jardim dos Deuses `(2220,1714)`, Calabouco `(2365,2279)` ou
+  Submundo `(1826,1771)`.
 
 ## Gaps prioritários (sugestão)
-1. **Montarias** (Merchant 16 captura, 58 Mount Master cura/ressuscita, 23 grifo, 101/110 unicórnio)
+1. **Montarias** (Merchant 16 captura, 58 Mount Master cura/ressuscita, restante do 23 grifo, 101/110 unicórnio)
    — alinha com o sistema de montaria (Shire/esfera) que estamos implementando.
 2. **Mestres de skill/classe** (Merchant 3, 31) — progressão.
 3. **Teleportes/guardas** (Merchant 36, 128) — locomoção.

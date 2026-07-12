@@ -172,6 +172,109 @@ func TestBuffCastAppliesAffect(t *testing.T) {
 	}
 }
 
+// TestSkillBuffDoesNotLeakAcrossCharacters is the issue #54 regression: a buff
+// applied through a REAL skill cast (not injected DB state, unlike
+// TestAffectsDoNotLeakAcrossCharacters in character_relogin_test.go) must not
+// bleed from the character that cast it into a different class's character
+// selected next on the same connection — mirroring the report's screenshot, a
+// fresh level-2 BeastMaster showing buffs it never cast.
+func TestSkillBuffDoesNotLeakAcrossCharacters(t *testing.T) {
+	db := &slotDB{
+		fakeDB: &fakeDB{accounts: map[string]*fakeAccount{
+			"tester": {id: 7, pass: "secret", chars: []world.CharSummary{
+				{Slot: 0, Name: "Knight", Class: 0, Level: 50},
+				{Slot: 1, Name: "Beast", Class: 2, Level: 2},
+			}},
+		}},
+		bySlot: map[int]world.CharacterState{
+			0: {
+				Slot: 0, Name: "Knight", Class: 0, X: 5, Y: 5,
+				HP: 1000, MaxHP: 1000, MP: 500, MaxMP: 500, Level: 50,
+				LearnedSkill: 1 << 3,
+			},
+			1: {
+				Slot: 1, Name: "Beast", Class: 2, X: 5, Y: 5,
+				HP: 105, MaxHP: 105, Level: 2,
+			},
+		},
+	}
+	addr, stop := startServerSkills(t, db)
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	// Select the Knight (slot 0, conn 1) and cast the self AC buff for real
+	// (spell 3, AffectType 11) — this is combat.go's SetAffect path, the same
+	// one every skill's affect flows through.
+	var login0 protocol.MsgCharacterLoginBody
+	login0.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, login0.Encode())
+	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("slot 0 login: got %#x, want CNFCharacterLogin", ty)
+	}
+	drainLoginScore(t, c)
+	skillAttackFrame(t, c, serverTime, 1, 3, -1)
+	sawAffect := false
+	for i := 0; i < 4; i++ {
+		ty, _, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		if ty == protocol.MsgSendAffect {
+			sawAffect = true
+		}
+	}
+	if !sawAffect {
+		t.Fatal("no SendAffect snapshot after the buff cast, want the buff applied before switching characters")
+	}
+
+	// Log out: the Knight's own save must legitimately carry the cast buff.
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	for {
+		ty, _ := read(t, c)
+		if ty == protocol.MsgCNFCharacterLogout {
+			break
+		}
+	}
+	knightSave, n := db.lastSavedChar()
+	if n != 1 || knightSave.Slot != 0 {
+		t.Fatalf("first logout: saves = %d (slot %d), want 1 save of slot 0", n, knightSave.Slot)
+	}
+	if !hasSavedAffect(knightSave.Affects, 11) {
+		t.Fatalf("Knight save affects = %+v, want the cast AC buff (Type 11)", knightSave.Affects)
+	}
+
+	// Select the Beast (slot 1, a different class) on the SAME connection: the
+	// cast buff must not leak in, either live (UpdateScore icon) or on its own
+	// next save.
+	var login1 protocol.MsgCharacterLoginBody
+	login1.Slot = 1
+	send(t, c, protocol.MsgCharacterLogin, login1.Encode())
+	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("slot 1 login: got %#x, want CNFCharacterLogin", ty)
+	}
+	if ty, p, ok := readMaybe(t, c); ok && ty == protocol.MsgUpdateScore {
+		if icon := lend.Uint16(p[50:]); icon>>8 == 11 {
+			t.Fatal("Beast's post-login UpdateScore carries the Knight's affect-11 icon, want none")
+		}
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	for {
+		ty, _ := read(t, c)
+		if ty == protocol.MsgCNFCharacterLogout {
+			break
+		}
+	}
+	beastSave, n := db.lastSavedChar()
+	if n != 2 || beastSave.Slot != 1 {
+		t.Fatalf("second logout: saves = %d (slot %d), want 2nd save of slot 1", n, beastSave.Slot)
+	}
+	if len(beastSave.Affects) != 0 {
+		t.Errorf("Beast save affects = %+v, want none (skill-cast buff leaked across characters)", beastSave.Affects)
+	}
+}
+
 // TestMeleeWithNegativeSkillIndex: the real client's melee (SkillIndex=-1,
 // Dam=-2) resolves through the melee formula and never touches mana.
 func TestMeleeWithNegativeSkillIndex(t *testing.T) {

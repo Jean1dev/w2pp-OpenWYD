@@ -85,7 +85,7 @@ Erros gRPC (ex.: `UNAVAILABLE`, `INTERNAL`) = falha de infraestrutura → 502/50
 | `GetNpc` | `npc_id` | `{ result, npc: AdminNpc }` | detalhe (com loja) |
 | `UpsertNpc` | `slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant` | `{ result, npc_id }` | criar/editar definição |
 | `SetNpcVisibility` | `npc_id, enabled` | `AdminAck{ result }` | atalho "aparece ou não" |
-| `SetNpcShop` | `npc_id, items: AdminNpcShopItem[]` | `AdminAck{ result }` | substituir a loja inteira |
+| `SetNpcShop` | `npc_id, items: AdminNpcShopItem[]` | `AdminAck{ result }` | substituir a loja inteira **e também remover item** (não há RPC separada de remoção — ver §5.2) |
 | `SetItemPrice` | `item_index, price` | `AdminAck{ result }` | preço **global** do item |
 | `DeleteNpc` | `npc_id` | `AdminAck{ result }` | remover definição |
 | `ListMerchantTemplates` | — | `{ result, templates: MerchantTemplate[] }` | combobox de `template_name` no formulário |
@@ -115,6 +115,7 @@ message AdminNpcShopItem {
   int32 eff1 = 3; int32 effv1 = 4;  // efeitos opcionais (0 = sem efeito)
   int32 eff2 = 5; int32 effv2 = 6;
   int32 eff3 = 7; int32 effv3 = 8;
+  int32 quantity = 9; // quantidade vendida no slot; 0 é tratado como 1
 }
 
 // Um template merchant encontrado em Release/TMsrv/run/npc/ (CurrentScore.Merchant
@@ -156,6 +157,8 @@ message ListMapZonesResponse {
 ```
 
 > `UpsertNpc` **não** edita a loja — use `SetNpcShop`. `SetItemPrice` é **global por item**, não por NPC.
+> Para vender packs (ex.: 120 entradas), envie `quantity: 120`; não envie `EF_AMOUNT`/efeito `61`
+> manualmente nos campos `eff*`, porque o servidor materializa esse efeito no item legado.
 
 ## 5. Semântica de domínio (o que a UI precisa saber)
 
@@ -186,8 +189,18 @@ o front trabalha só com `0..26`. Regras de validação (espelhe para UX):
 
 - `slot` único e em `[0, 26]`;
 - `item_index > 0`;
+- `quantity` ausente/`0` vira `1`; valores válidos explícitos ficam em `[1, 255]`;
+- não envie `EF_AMOUNT`/efeito `61` em `eff1..eff3`; ele é derivado de `quantity`;
 - `SetNpcShop` **substitui a loja inteira** — envie **todos** os itens que devem existir; slots omitidos
   ficam vazios (loja vazia = NPC não vende nada).
+
+**Removendo item(ns):** não existe RPC separada de remoção — é a **mesma** `SetNpcShop`:
+
+- **Remover um item específico:** monte `items` a partir do estado atual da loja (de `GetNpc`/`ListNpcs`,
+  campo `shop`) **excluindo** o slot que o moderador removeu, e chame `SetNpcShop` com esse array. Não
+  basta enviar só o item removido nem só os itens "novos" — o array precisa refletir o estado final
+  completo da loja.
+- **Remover todos os itens (esvaziar a loja):** chame `SetNpcShop` com `items: []`.
 
 ### 5.3 Preço é **global por item**
 
@@ -395,6 +408,9 @@ feature). Ferramentas usuais: `@grpc/grpc-js` + `grpc-tools`/`ts-proto`, ou `buf
 - [ ] Toda rota admin deriva `moderator_id` da sessão (nunca do corpo).
 - [ ] Mapear `AdminResult` → HTTP; tratar reject de gRPC como 502.
 - [ ] UI da loja em 3 abas de 9 (slots 0..8 / 9..17 / 18..26); `SetNpcShop` envia a loja inteira.
+- [ ] Cada item da loja tem um controle de remover (ex.: botão "x" por slot) que, ao salvar, tira aquele
+      slot do array de `items` antes de chamar `SetNpcShop` (§5.2) — sem isso não há como excluir um item
+      já adicionado.
 - [ ] Preço via `SetItemPrice` (global; `price < 0` limpa).
 - [ ] Avisar que a mudança aparece no jogo em ~alguns segundos (poll do tmServer).
 - [ ] Garantir que o operador setou `account.role` do moderador e rodou `import-npcs`.

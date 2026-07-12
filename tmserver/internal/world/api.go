@@ -231,8 +231,9 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// The 15s queue for MinuteGenerate<=0 blocks is our deliberate divergence
 	// (the original never regenerates those outside events). NPCs (shops/quest
 	// givers) don't die, so only schedule monsters (Merchant==0) killed in
-	// combat (removeType 1).
-	if removeType == 1 && e.Merchant == 0 && e.Template != nil &&
+	// combat (removeType 1). Summoned pets never respawn — they carry a
+	// Template too, but their lifecycle belongs to the summoner.
+	if removeType == 1 && e.Merchant == 0 && e.Template != nil && e.Summoner == 0 &&
 		(gen == nil || gen.MinuteGenerate <= 0) {
 		w.respawnQueue = append(w.respawnQueue, respawnEntry{
 			spawn: MobSpawn{
@@ -367,6 +368,12 @@ func (w *World) SetEntityPos(id int, x, y int16) {
 	}
 	e.X, e.Y = x, y
 	w.grid.SetMob(int(x), int(y), uint16(id))
+}
+
+// EmptyCellNear returns an unoccupied grid cell at or near (x,y), using the same
+// ring scan as the legacy GetEmptyMobGrid stand-in used for mob spawns. Loop-only.
+func (w *World) EmptyCellNear(x, y int16) (int16, int16, bool) {
+	return w.emptyCellNear(x, y)
 }
 
 // GridDim returns the world's grid side length (valid coordinate bound).

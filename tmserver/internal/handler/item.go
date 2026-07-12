@@ -131,6 +131,7 @@ const (
 	volDivine7   = 64
 	volDivine30  = 66
 	volVigor     = 58
+	volSilverBar = 185
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -174,6 +175,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useDivine(w, s, e, src, vol)
 	case vol == volVigor:
 		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
+	case vol == volSilverBar:
+		d.useSilverBar(w, s, e, src)
 	default:
 		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
 	}
@@ -264,7 +267,7 @@ func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Enti
 	if af.Time > affectTimeCap {
 		af.Time = affectTimeCap
 	}
-	e.Carry[src] = world.Item{}
+	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
@@ -345,6 +348,47 @@ func (d *Dispatcher) useVigor(w *world.World, s *world.Session, e *world.Entity,
 	d.sendAffect(w, s, e)
 }
 
+// silverBarGold returns the gold credited by Vol 185 "Barra de Prata" items
+// (_MSG_UseItem.cpp, "Barra de Prata"). The 4011 path is issue #56's 1Bi bar.
+func silverBarGold(itemIdx int16) (int32, bool) {
+	switch itemIdx {
+	case 4026:
+		return 1_000_000, true
+	case 4027:
+		return 5_000_000, true
+	case 4028:
+		return 10_000_000, true
+	case 4029:
+		return 50_000_000, true
+	case 4010:
+		return 100_000_000, true
+	case 4011:
+		return 1_000_000_000, true
+	default:
+		return 0, false
+	}
+}
+
+// useSilverBar consumes a silver-bar item and credits its fixed gold value,
+// preserving the legacy 2G character-gold ceiling.
+func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Entity, src int) {
+	itemIdx := e.Carry[src].Index
+	gold, ok := silverBarGold(itemIdx)
+	if !ok {
+		return
+	}
+	if int64(e.Coin)+int64(gold) > maxCoin {
+		d.notify(w, s, NoticeCargoFull)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	e.Coin += gold
+	e.Carry[src] = world.Item{}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendEtc(w, s, e)
+	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
+}
+
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
 // client renders the buff icons/timers. The Divine slot's displayed Time is the
 // remaining seconds until DivineEnd (SendFunc.cpp:1901, captura §D).
@@ -398,10 +442,21 @@ func (d *Dispatcher) meetsEquipReq(e *world.Entity, it world.Item) bool {
 // equipVisual derives the 16 visible equipment codes from the entity's equipped
 // items. The visual code is the item index (0 = empty slot), matching how the
 // BaseMob template's equipment is read for other previews.
+//
+// A live BM transform overrides slot 0 (the body/face mesh) with the beast
+// model — READ-time, unlike the legacy which mutates MOB.Equip[0].sIndex and
+// must reset it on every recompute (Basedef.cpp:4106/3908). Keeping e.Equip
+// untouched means the persisted body item can't be corrupted and the revert on
+// expiry is just this override no longer firing. The EF_SANC glow the legacy
+// stamps on the transformed mesh (Basedef.cpp:4166) is deferred: the visual
+// code here carries no glow bits for regular gear either.
 func equipVisual(e *world.Entity) [16]uint16 {
 	var v [16]uint16
 	for i := range e.Equip {
 		v[i] = uint16(e.Equip[i].Index)
+	}
+	if value, _, ok := activeTransform(e); ok {
+		v[0] = transMesh(value)
 	}
 	return v
 }
@@ -444,13 +499,14 @@ const (
 	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
 	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
 	efMpAdd2    = 70
+	efRunSpeed  = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
 
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
 	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
 	baseAttackRun = 82
-	// mountedMoveSpeed bumps the move-speed nibble when a mount is equipped.
-	// UNVERIFIED: the exact mounted speed is in BASE_GetCurrentScore (not in source).
-	mountedMoveSpeed = 5
+	// Issue #64 movement policy: bare player = 2, boots = 4, mount = 6.
+	bootMoveSpeed    = 4
+	mountedMoveSpeed = 6
 
 	// Weapon hands in STRUCT_MOB.Equip (right/left). GetCurrentScore (CMob.cpp:756)
 	// derives WeaponDamage from these two slots' EF_DAMAGE.
@@ -537,6 +593,7 @@ type equipBonus struct {
 	ac, damage           int32
 	maxHP, maxMP         int32
 	hpAddPct, mpAddPct   int32
+	runSpeed             int32
 }
 
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
@@ -579,6 +636,8 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			b.hpAddPct += val
 		case efMpAdd, efMpAdd2:
 			b.mpAddPct += val
+		case efRunSpeed:
+			b.runSpeed += val
 		}
 	}
 	for slot := range e.Equip {
@@ -647,6 +706,7 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.MaxMP = e.BaseMaxMP + b.maxMP
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
+	e.RunSpeedBonus = b.runSpeed
 	applyAffectScore(e)
 
 	e.EquipExpBonus = d.equipExpBonus(e)
@@ -687,11 +747,16 @@ func effectiveMaxMP(e *world.Entity) int32 {
 }
 
 // effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage
-// plus the affect deltas (Buff Loop), boosted +20% by the Divine buff, plus the separate
-// WeaponDamage (which the Divine does NOT multiply — it is a separate field added after,
-// captura §C).
+// plus the affect deltas (Buff Loop), scaled by the DAMAGEMULTI percentage (BM transform;
+// applied where Basedef.cpp:4654 multiplies CurrentScore.Damage), boosted +20% by the
+// Divine buff, plus the separate WeaponDamage (which neither multiplier touches — it is a
+// separate field added after, captura §C). UNVERIFIED: the legacy folds the Divine into
+// DAMAGEMULTI additively; composing the two here diverges by a few points when both are up.
 func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
 	dmg := e.Damage + e.AffDamage
+	if e.AffDamageMultiPct != 100 && e.AffDamageMultiPct > 0 {
+		dmg = dmg * e.AffDamageMultiPct / 100
+	}
 	if e.HasAffect(world.AffectDivine) {
 		dmg += dmg * 20 / 100
 	}
@@ -734,18 +799,21 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 }
 
 // attackRunOf is the entity's live speed byte (run<<4 | move). Players get the
-// class base plus the mount bump; mobs carry their template's CurrentScore
-// value (set at spawn). Every S→C score/snapshot (UpdateScore, CreateMob, the
-// login MOB blob) must carry it: the client animates walks — its own and remote
-// entities' — at this speed, and a 0 here renders a crawling, rubber-banding
-// avatar.
+// issue #64 move-speed tiers (bare=2, boots=4, mount=6); mobs carry their
+// template's CurrentScore value (set at spawn). Every S→C score/snapshot
+// (UpdateScore, CreateMob, the login MOB blob) must carry it: the client animates
+// walks — its own and remote entities' — at this speed, and a 0 here renders a
+// crawling, rubber-banding avatar.
 func attackRunOf(e *world.Entity) uint8 {
 	if !world.IsPlayer(e.ID) {
 		return e.AttackRun
 	}
-	// A mount in the mount slot raises the move-speed (low) nibble.
+	// A mount takes precedence over boots and uses the max client movement tier.
 	if !e.Equip[mountEquipSlot].Empty() {
 		return (baseAttackRun & 0xF0) | mountedMoveSpeed
+	}
+	if e.RunSpeedBonus > 0 {
+		return (baseAttackRun & 0xF0) | bootMoveSpeed
 	}
 	return baseAttackRun
 }
@@ -834,10 +902,39 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+	d.shiftWeaponToRightHand(w, s, e)
 	// An equip/unequip changes the rendered gear: refresh the model everywhere.
 	if srcPlace == world.ItemPlaceEquip || dstPlace == world.ItemPlaceEquip {
 		d.refreshEquip(w, s, e)
 	}
+}
+
+// shiftWeaponToRightHand mirrors _MSG_TradingItem.cpp:394-414: after any
+// trading-item swap, if the primary weapon hand (slot 6) is left empty while
+// the off-hand (slot 7) holds a non-shield item, the server force-moves it
+// into slot 6 and echoes a synthetic swap so the client stays in sync. This
+// is what makes quick-equipping (double-click) a one-handed weapon land in
+// the primary hand instead of the shield slot, since the client itself
+// picks the destination slot and sometimes targets slot 7 directly.
+func (d *Dispatcher) shiftWeaponToRightHand(w *world.World, s *world.Session, e *world.Entity) {
+	if !e.Equip[weaponSlotR].Empty() {
+		return
+	}
+	off := &e.Equip[weaponSlotL]
+	if off.Empty() {
+		return
+	}
+	if pos, ok := d.itemPos[int(off.Index)]; ok && pos == nPosDef3 {
+		return // a real shield stays in the off-hand
+	}
+	e.Equip[weaponSlotR], *off = *off, world.Item{}
+	shiftBody := protocol.MsgTradingItemBody{
+		DestPlace: world.ItemPlaceEquip, DestSlot: weaponSlotR,
+		SrcPlace: world.ItemPlaceEquip, SrcSlot: weaponSlotL,
+	}
+	w.Send(s, protocol.MsgTradingItem, shiftBody.Encode())
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(world.ItemPlaceEquip, weaponSlotR, itemToSel(e.Equip[weaponSlotR])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(world.ItemPlaceEquip, weaponSlotL, itemToSel(e.Equip[weaponSlotL])))
 }
 
 // itemSlot returns a pointer to the live item slot for a place/slot pair, or nil

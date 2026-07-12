@@ -177,6 +177,7 @@ func run(logger *slog.Logger) error {
 	// connect; serve it from the content tree when available.
 	var statusFile string
 	var baseMobs map[int][]byte
+	var summonMobs [][]byte
 	if *contentDir != "" {
 		statusFile = filepath.Join(*contentDir, "Common", "serv00.htm")
 		if bm, err := content.LoadBaseMobs(*contentDir); err != nil {
@@ -184,6 +185,15 @@ func run(logger *slog.Logger) error {
 		} else {
 			baseMobs = bm
 			logger.Info("base mob templates loaded", "classes", len(baseMobs))
+		}
+		if sm, missing, err := content.LoadBaseSummons(*contentDir); err != nil {
+			logger.Warn("base summon templates not loaded (BM evocations disabled)", "err", err)
+		} else {
+			summonMobs = sm
+			if len(missing) > 0 {
+				logger.Warn("optional summon templates missing", "names", missing)
+			}
+			logger.Info("base summon templates loaded", "count", len(summonMobs)-len(missing))
 		}
 	}
 
@@ -205,7 +215,7 @@ func run(logger *slog.Logger) error {
 	}
 
 	dispatch := handler.New(handler.Config{
-		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
+		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, Spells: spells, Heights: heights,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		CombineFamilies: combineFamilies,

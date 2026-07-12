@@ -149,7 +149,12 @@ func actionFrame(t *testing.T, c net.Conn, tick uint32, target int16) {
 	t.Helper()
 	body := protocol.MsgActionBody{PosX: 5, PosY: 5, Effect: 0, Speed: 30, TargetX: target, TargetY: target}
 	copy(body.Route[:], []byte{1, 2, 3})
-	wire, err := protocol.Encode(protocol.Header{Type: protocol.MsgAction, ClientTick: tick}, body.Encode(), 9)
+	actionFrameBody(t, c, tick, protocol.MsgAction, body)
+}
+
+func actionFrameBody(t *testing.T, c net.Conn, tick uint32, ty protocol.Type, body protocol.MsgActionBody) {
+	t.Helper()
+	wire, err := protocol.Encode(protocol.Header{Type: ty, ClientTick: tick}, body.Encode(), 9)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,6 +194,35 @@ func TestMoveBroadcastToInView(t *testing.T) {
 	// The mover does not receive its own movement.
 	if _, _, ok := readMaybe(t, mover); ok {
 		t.Errorf("mover should not receive its own action")
+	}
+}
+
+func TestBootAutoWalkDroppedAndCorrected(t *testing.T) {
+	addr, stop, _ := startServerClock(t, movementDB())
+	defer stop()
+
+	mover := enterWorld(t, addr)
+	defer mover.Close()
+	watcher := enterWorld(t, addr)
+	defer watcher.Close()
+
+	body := protocol.MsgActionBody{PosX: 5, PosY: 5, Effect: 0, Speed: 2, TargetX: 1, TargetY: 1}
+	copy(body.Route[:], []byte{49, 49, 49, 49})
+	actionFrameBody(t, mover, serverTime, protocol.MsgAction, body)
+
+	ty, payload, ok := readMaybe(t, mover)
+	if !ok || ty != protocol.MsgAction3 {
+		t.Fatalf("mover got %#x ok=%v, want correction MsgAction3", ty, ok)
+	}
+	var correction protocol.MsgActionBody
+	if err := correction.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if correction.PosX != 5 || correction.PosY != 5 || correction.TargetX != 5 || correction.TargetY != 5 || correction.Effect != 1 {
+		t.Fatalf("correction = %+v, want self teleport at 5,5", correction)
+	}
+	if ty, _, ok = readMaybe(t, watcher); ok {
+		t.Fatalf("watcher got %#x, want no broadcast for dropped boot auto-walk", ty)
 	}
 }
 

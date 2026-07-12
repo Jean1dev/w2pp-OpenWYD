@@ -50,6 +50,10 @@ func (d *Dispatcher) Tick(w *world.World) {
 		if e.Merchant != 0 || e.HP <= 0 {
 			return // shop/bank/quest NPCs don't fight; dead mobs do nothing
 		}
+		if e.Summoner != 0 {
+			d.summonTick(w, id, e) // summoned pets follow their own AI (summon.go)
+			return
+		}
 		if e.Target == 0 {
 			if !d.playerNear(e.X, e.Y, roamRadius) {
 				return // dormant: nobody close enough to see or be aggroed
@@ -75,12 +79,39 @@ func (d *Dispatcher) Tick(w *world.World) {
 			d.mobBattle(w, id, e)
 		}
 	})
+	d.guardQuest256Areas(w)
 	d.regenPlayers(w)
 	d.sweepAffects(w)
 	d.sweepGuilty(w)
 	d.respawnMobs(w)
 	d.generateMobs(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
+}
+
+type questArea struct {
+	x1, y1 int16
+	x2, y2 int16
+}
+
+func (a questArea) contains(x, y int16) bool {
+	return x > a.x1 && y > a.y1 && x < a.x2 && y < a.y2
+}
+
+// guardQuest256Areas ports the ProcessSecMinTimer QuestFlag guard for the five
+// Quest 256 arenas. Entering without the matching volatile flag recalls the
+// player, which is the behavior Mestre Grifo must satisfy before teleporting.
+func (d *Dispatcher) guardQuest256Areas(w *world.World) {
+	w.ForEachPlayer(func(s *world.Session, e *world.Entity) {
+		if e.Level >= 1000 {
+			return
+		}
+		for _, step := range quest256Steps {
+			if step.area.contains(e.X, e.Y) && e.QuestFlag != step.flag {
+				d.recall(w, s, e)
+				return
+			}
+		}
+	})
 }
 
 // battleDragBox is the SetBattle engage box: a group member joins the fight only
@@ -306,9 +337,27 @@ func battleCode(r *rng.MSVC, dis, reach, dex int) int {
 // living player within the mob's leash box — centred on its current waypoint
 // anchor (BattleProcessor leashes on SegmentX±HALFGRIDX, CMob.cpp:292; for a
 // routeless mob the anchor is its spawn point).
+//
+// Mob targets exist only in summon fights: a summon attacking a monster, or a
+// monster retaliating against a summon (the legacy's EnemyList held either).
+// The summon side skips the waypoint leash — its leash is the distance to its
+// OWNER, enforced by summonTick before mobBattle runs.
 func validTarget(w *world.World, e, target *world.Entity) bool {
-	if target == nil || !world.IsPlayer(target.ID) || target.HP <= 0 {
+	if target == nil || target.HP <= 0 {
 		return false
+	}
+	if !world.IsPlayer(target.ID) {
+		if target.Merchant != 0 || target.Mode == world.MobEmpty {
+			return false
+		}
+		if e.Summoner != 0 {
+			return target.Clan != summonClan // pets fight monsters, never other pets
+		}
+		return target.Summoner != 0 && // a monster only ever targets a pet, and
+			chebyshev(e.SegmentX, e.SegmentY, target.X, target.Y) <= leashRadius
+	}
+	if e.Summoner != 0 {
+		return false // pets never attack players (clan 4 is friendly, clan.go)
 	}
 	if m, ok := w.SessionMode(target.ID); !ok || m != world.UserPlay {
 		return false
@@ -334,7 +383,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	dmg := combat.ResolveHit(w.Rand(), combat.HitInput{
 		AttackerDamage: int(e.Damage) + int(d.weaponDamage(e)),
 		TargetAC:       int(target.AC),
-		TargetIsPlayer: true,
+		TargetIsPlayer: world.IsPlayer(target.ID),
 		Master:         e.Master,
 	})
 	if dmg > 0 {
@@ -363,6 +412,33 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
 	})
 
+	// Summon fights (mob targets): a pet's kill rewards its OWNER
+	// (MobKilled.cpp:181-190 credits the Summoner); a monster that downs a pet
+	// removes it for good (removeType 1; the Summoner guard in DespawnMob keeps
+	// it out of the respawn queue). A struck-but-alive monster retaliates
+	// against the pet.
+	if !world.IsPlayer(target.ID) {
+		if target.HP == 0 {
+			if e.Summoner != 0 {
+				if owner := w.Entity(e.Summoner); owner != nil {
+					d.mobKilled(w, owner, target)
+				} else {
+					w.DespawnMob(target.ID, 1)
+				}
+			} else {
+				w.DespawnMob(target.ID, 1)
+			}
+			e.Target = 0
+			e.Mode = world.MobIdle
+		} else if e.Summoner != 0 && target.Target == 0 {
+			setGroupBattle(w, target.ID, target, e)
+		}
+		return
+	}
+
+	// The victim's own pets defend it (summon.go).
+	d.commandSummons(w, target.ID, e)
+
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {
 		e.Target = 0
@@ -374,7 +450,8 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 // StandingByProcessor (CMob.cpp:156-229). A mob with a route walks its
 // waypoints (pausing SegWait at each, then SetSegment picks the next); a mob
 // without one walks back to its anchor if combat displaced it (the original's
-// MOB_RETURN, BattleProcessor code 16). RouteType 5 (summons) is deferred.
+// MOB_RETURN, BattleProcessor code 16). Summons (RouteType 5) never reach
+// here — the Tick routes them to summonTick (summon.go).
 func (d *Dispatcher) mobRoam(w *world.World, id int, e *world.Entity) {
 	if e.RouteType == 0 || e.RouteType == 5 || !hasWaypoints(e) {
 		if e.X != e.SegmentX || e.Y != e.SegmentY {

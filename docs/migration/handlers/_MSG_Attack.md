@@ -40,3 +40,13 @@
   validar por **distribuição** com golden cases (Fase 8). Resta tabelar coef. Dex/Str por classe×arma.
 - `SkillIndex == 99` como "ressurreição" é constante mágica — preservar.
 - A janela de tick depende de `CurrentTime` (clock do servidor) — reproduzir a unidade (ms).
+- **UNVERIFIED — gate de "safe zone"/PK ainda não portado.** O legado zera o dano quando o
+  ATACANTE está num tile com o bit de attribute-map (`GetAttribute(...) & 64`) **e** o alvo não
+  está `PKMode`/`Guilty` (`_MSG_Attack.cpp:405-419`), com bypass total durante
+  RvR/Castle/GTorre/newbie event. Nenhum desses campos (`PKMode`, `GetGuilty`, bit de attribute-map
+  por tile, estado de guerra) existe no servidor Go hoje. Uma tentativa anterior de aproximar isso
+  com os retângulos de `world.Village()` (issue #67) bloqueava dano PvP incondicionalmente perto de
+  toda cidade/spawn, já que nenhum bypass do legado era alcançável — foi removida (ver B12: não
+  travar gameplay em campo não-implementado/não-verificado). Até que attribute-map + PKMode + Guilty
+  + estado de guerra sejam implementados, dano PvP não tem proteção de safe-zone (funciona em
+  qualquer lugar).

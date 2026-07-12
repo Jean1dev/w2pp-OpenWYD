@@ -71,11 +71,18 @@ func (w *World) GenerateMob(idx int) []int {
 		qmob = 1 // "err,zero divide" guard (Server.cpp:3486)
 	}
 	n := g.MinGroup + w.rng.Intn(qmob)
-	if g.CurrentNumMob >= g.MaxNumMob {
+	maxNumMob := g.MaxNumMob
+	if maxNumMob < 0 {
+		// NPCGener uses -1 on at least Mestre_Grifo. The old bootstrap policy
+		// populates static merchant blocks up front, so keep one live instance
+		// instead of treating the negative cap as already saturated.
+		maxNumMob = 1
+	}
+	if g.CurrentNumMob >= maxNumMob {
 		return nil
 	}
-	if g.CurrentNumMob+n > g.MaxNumMob {
-		n = g.MaxNumMob - g.CurrentNumMob
+	if g.CurrentNumMob+n > maxNumMob {
+		n = maxNumMob - g.CurrentNumMob
 	}
 	if w.mobCount >= generateWorldCap {
 		return nil

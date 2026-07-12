@@ -48,6 +48,27 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	if err := body.Decode(payload); err != nil {
 		return
 	}
+	if !s.LoggedFirstAction {
+		s.LoggedFirstAction = true
+		d.log.Info("movement: first action after login",
+			"conn", s.Conn,
+			"type", h.Type,
+			"client_tick", h.ClientTick,
+			"server_x", e.X,
+			"server_y", e.Y,
+			"login_spawn_x", s.LoginSpawnX,
+			"login_spawn_y", s.LoginSpawnY,
+			"pos_x", body.PosX,
+			"pos_y", body.PosY,
+			"target_x", body.TargetX,
+			"target_y", body.TargetY,
+			"effect", body.Effect,
+			"speed", body.Speed,
+			"route", body.Route)
+		if d.dropBootAutoWalk(w, s, e, h, body) {
+			return
+		}
+	}
 
 	// Anti-speedhack: movetime must be within the window of server time.
 	// Crack codes per legacy: 102 for Action/Action2, 104 for Action3.
@@ -92,6 +113,30 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 }
 
 func outOfBounds(v, dim int16) bool { return v < 0 || v >= dim }
+
+func (d *Dispatcher) dropBootAutoWalk(w *world.World, s *world.Session, e *world.Entity, h protocol.Header, body protocol.MsgActionBody) bool {
+	if h.Type != protocol.MsgAction || body.Effect != 0 || body.Speed != int32(attackRunOf(e)&0x0F) {
+		return false
+	}
+	if body.PosX != s.LoginSpawnX || body.PosY != s.LoginSpawnY || e.X != s.LoginSpawnX || e.Y != s.LoginSpawnY {
+		return false
+	}
+	if body.TargetX == e.X && body.TargetY == e.Y {
+		return false
+	}
+	if w.Now()-s.LoginTick > 3000 {
+		return false
+	}
+	d.log.Warn("movement: dropping boot auto-walk",
+		"conn", s.Conn,
+		"from_x", body.PosX,
+		"from_y", body.PosY,
+		"target_x", body.TargetX,
+		"target_y", body.TargetY)
+	correction := protocol.MsgActionBody{PosX: e.X, PosY: e.Y, Effect: 1, Speed: 6, TargetX: e.X, TargetY: e.Y}
+	w.SendTo(s, protocol.Header{Type: protocol.MsgAction3, ID: uint16(s.Conn)}, correction.Encode())
+	return true
+}
 
 // motion handles _MSG_Motion (0x036A): emotes/animations, multicast to in-view.
 func (d *Dispatcher) motion(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
