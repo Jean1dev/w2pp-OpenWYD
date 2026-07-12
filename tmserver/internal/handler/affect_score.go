@@ -4,6 +4,8 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
+const maxLegacyDamage int32 = 1_000_000_000
+
 // applyAffectScore recomputes the affect contributions to the live score (the
 // "Buff Loop" of BASE_GetCurrentScore — Source/Buff Loop.txt). The results are
 // CACHED on the entity (Aff* fields + Rsv) and applied at READ time by the
@@ -11,18 +13,29 @@ import (
 // persisted score buff-free so the login base derivation (base = loaded −
 // equip) cannot double-count a buff.
 //
-// Implemented types: 2 (haste flag), 3 (resist debuff), 4 (scroll), 9/10
-// (damage buff/debuff), 11/21/24 (AC), 13 (critical armor: −10% MaxHP; its
-// DAMAGEMULTI part is deferred — damage multipliers aren't modeled), 14
+// Implemented types: 1 (slow/attack-speed/INT debuff), 2 (haste/run-speed),
+// 3 (resist debuff), 4 (scroll), 5/6 (DEX percent), 7 (frozen blade
+// attack-speed/INT debuff), 9/10 (damage buff/debuff), 11/12/21/24/31 (AC), 13
+// (critical armor: −10% MaxHP; its damage/DAMAGEMULTI parts included), 14
 // (CON/HP), 15 (Special, cap 400 at read), 16 (BM transform → transform.go),
-// 19/26/28 (Rsv flags), 25 (elemental resists), 42 (HP↔MP swap). Deferred
-// (need systems we don't model yet): 1/5/6/7/12 (slowdown/dex — Run speed not
-// modeled), 17/20/22 (periodic — handled by the tick engine), 27/36 (need the
-// weapon EF_WTYPE check), 29 (Soul), 34/35 (Divine/Vigor — already read-time
-// via affectMul), 39 (Baú de XP → AffExpBonus).
+// 19/26/28/36 (Rsv flags), 25 (elemental resists), 27 (weapon-gated Frost),
+// 29 (Soul attribute multiplier), 30/37 (ForceMobDamage/ForceDamage), 38/42
+// (HP↔MP swap), 39 (Baú de XP → AffExpBonus). Deferred (need systems we don't
+// model yet): 17/20/22 (periodic — handled by the tick engine), 34/35
+// (Divine/Vigor — already read-time via affectMul).
 func applyAffectScore(e *world.Entity) {
+	applyAffectScoreWithItemAbility(e, nil)
+}
+
+func (d *Dispatcher) applyAffectScore(e *world.Entity) {
+	applyAffectScoreWithItemAbility(e, d.itemAbility)
+}
+
+func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Item, uint8) int) {
 	e.Rsv = 0
-	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffCon, e.AffExpBonus = 0, 0, 0, 0, 0, 0
+	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffRunSpeed, e.AffAttackSpeed, e.AffExpBonus = 0, 0, 0, 0, 0, 0, 0
+	e.AffStr, e.AffInt, e.AffDex, e.AffCon, e.AffCritical = 0, 0, 0, 0, 0
+	e.AffForceDamage, e.AffForceMobDamage = 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
 	e.AffDamageMultiPct = 100
@@ -37,7 +50,14 @@ func applyAffectScore(e *world.Entity) {
 		value := int32(af.Value)
 		level := int32(af.Level)
 		switch af.Type {
-		case 2: // haste (the Run-speed part is not modeled)
+		case 1: // Toque Sagrado/Lentidão: Run -= Value; robe users also lose INT.
+			e.AffRunSpeed -= value
+			e.AffAttackSpeed -= 30
+			if e.Equip[0].Index > 50 {
+				e.AffInt -= 40
+			}
+		case 2: // Velocidade: Run += Value and RSV_HASTE.
+			e.AffRunSpeed += value
 			e.Rsv |= world.RsvHaste
 		case 3: // holy debuff: all four resists drop (halved without a robe)
 			tval := value
@@ -51,6 +71,17 @@ func applyAffectScore(e *world.Entity) {
 			}
 		case 4: // combat scroll: +30 damage (its ×4 multi and +5 magic deferred)
 			e.AffDamage += 30
+		case 5: // Fanatismo/Incapacitador: Dex *= (100-Value)%.
+			base := int32(e.Dex + e.AffDex)
+			e.AffDex += clampInt16(base*(100-value)/100 - base)
+		case 6: // Proteção Divina/Absoluta row: Dex *= (100+Value)%.
+			base := int32(e.Dex + e.AffDex)
+			e.AffDex += clampInt16(base*(100+value)/100 - base)
+		case 7: // Lâmina Congelada: Att -= Level/10+10; robe users lose INT.
+			e.AffAttackSpeed -= level/10 + 10
+			if e.Equip[0].Index > 50 {
+				e.AffInt -= int16(level/10 + 20)
+			}
 		case 9: // damage buff; a Foema with bit 19 learned triples it
 			add := (level*5/20 + value) * 3 / 2
 			if e.Class == 1 && e.LearnedSkill&0x80000 != 0 {
@@ -61,7 +92,17 @@ func applyAffectScore(e *world.Entity) {
 			e.AffDamage -= level/5 + value
 		case 11: // AC buff
 			e.AffAC += level/3 + value
-		case 13: // critical armor: −10% MaxHP (the +DAMAGEMULTI part deferred)
+		case 12: // AC percent debuff: AC *= (100-Value)%.
+			base := e.AC + e.AffAC
+			e.AffAC += base*(100-value)/100 - base
+		case 13: // Assalto: +15% damage, +DAMAGEMULTI, −10% MaxHP.
+			dmg := e.Damage + e.AffDamage
+			boosted := dmg + (dmg/100)*15
+			if boosted >= maxLegacyDamage {
+				boosted = maxLegacyDamage
+			}
+			e.AffDamage += boosted - dmg
+			e.AffDamageMultiPct += level/10 + value
 			e.AffMaxHP -= e.MaxHP / 10
 		case 14: // vigor/CON buff: +CON and +2×value MaxHP
 			v := level*3/4 + value
@@ -76,8 +117,9 @@ func applyAffectScore(e *world.Entity) {
 			applyTransformScore(e, af)
 		case 19:
 			e.Rsv |= world.RsvBlock
-		case 21: // curse: −AC, (+DAMAGEMULTI deferred)
+		case 21: // curse/Meditação: −AC and +DAMAGEMULTI.
 			e.AffAC -= level/3 + 10
+			e.AffDamageMultiPct += level/10 + value
 		case 24: // fortify: +AC/4 + value (over the flat AC)
 			e.AffAC += e.AC/4 + value
 		case 25: // elemental resists (fire/thunder/ice; not holy)
@@ -90,8 +132,28 @@ func applyAffectScore(e *world.Entity) {
 			}
 		case 26:
 			e.Rsv |= world.RsvParry
+		case 27:
+			if itemAbility != nil && itemAbility(e.Equip[weaponSlotR], efWType) == 101 {
+				e.Rsv |= world.RsvFrost
+			}
 		case 28:
 			e.Rsv |= world.RsvHide
+		case 29:
+			applySoulScore(e)
+		case 30:
+			e.AffForceMobDamage += level
+		case 31: // Escudo Dourado: AC + Level/2 + Value
+			e.AffAC += level/2 + value
+		case 36:
+			if itemAbility != nil && itemAbility(e.Equip[weaponSlotR], efWType) == 41 {
+				e.Rsv |= world.RsvDrain
+			}
+		case 37:
+			e.AffForceDamage += int32(e.Special[2])
+		case 38: // Troca de Espíritos: half max MP becomes max HP
+			mana := e.MaxMP / 2
+			e.AffMaxHP += mana
+			e.AffMaxMP -= mana
 		case world.AffectExpChest:
 			e.AffExpBonus += 100
 		case 42: // soul link: shift a fifth of the mana pool into HP
@@ -102,9 +164,126 @@ func applyAffectScore(e *world.Entity) {
 	}
 }
 
+const (
+	soulF  = 2
+	soulI  = 3
+	soulD  = 4
+	soulC  = 5
+	soulFI = 6
+	soulFD = 7
+	soulFC = 8
+	soulIF = 9
+	soulID = 10
+	soulIC = 11
+	soulDF = 12
+	soulDI = 13
+	soulDC = 14
+	soulCF = 15
+	soulCI = 16
+	soulCD = 17
+)
+
+func applySoulScore(e *world.Entity) {
+	if e.Soul == 0 {
+		return
+	}
+	single, primary, secondary := int32(180), int32(160), int32(120)
+	if e.ClassMaster != classMasterMortal {
+		single, primary, secondary = 220, 180, 140
+	}
+	addScaled := func(dst *int16, base int16, pct int32) {
+		v := int32(base) * pct / 100
+		*dst += clampInt16(v - int32(base))
+	}
+	switch e.Soul {
+	case soulF:
+		addScaled(&e.AffStr, e.Str+e.AffStr, single)
+	case soulI:
+		addScaled(&e.AffInt, e.Int+e.AffInt, single)
+	case soulD:
+		addScaled(&e.AffDex, e.Dex+e.AffDex, single)
+	case soulC:
+		addScaled(&e.AffCon, e.Con+e.AffCon, single)
+	case soulFI:
+		addScaled(&e.AffStr, e.Str+e.AffStr, primary)
+		addScaled(&e.AffInt, e.Int+e.AffInt, secondary)
+	case soulFD:
+		addScaled(&e.AffStr, e.Str+e.AffStr, primary)
+		addScaled(&e.AffDex, e.Dex+e.AffDex, secondary)
+	case soulFC:
+		addScaled(&e.AffStr, e.Str+e.AffStr, primary)
+		addScaled(&e.AffCon, e.Con+e.AffCon, secondary)
+	case soulIF:
+		addScaled(&e.AffInt, e.Int+e.AffInt, primary)
+		addScaled(&e.AffStr, e.Str+e.AffStr, secondary)
+	case soulID:
+		addScaled(&e.AffInt, e.Int+e.AffInt, primary)
+		addScaled(&e.AffDex, e.Dex+e.AffDex, secondary)
+	case soulIC:
+		addScaled(&e.AffInt, e.Int+e.AffInt, primary)
+		addScaled(&e.AffCon, e.Con+e.AffCon, secondary)
+	case soulDF:
+		addScaled(&e.AffDex, e.Dex+e.AffDex, primary)
+		addScaled(&e.AffStr, e.Str+e.AffStr, secondary)
+	case soulDI:
+		addScaled(&e.AffDex, e.Dex+e.AffDex, primary)
+		addScaled(&e.AffInt, e.Int+e.AffInt, secondary)
+	case soulDC:
+		addScaled(&e.AffDex, e.Dex+e.AffDex, primary)
+		addScaled(&e.AffCon, e.Con+e.AffCon, secondary)
+	case soulCF:
+		addScaled(&e.AffCon, e.Con+e.AffCon, primary)
+		addScaled(&e.AffStr, e.Str+e.AffStr, secondary)
+	case soulCI:
+		addScaled(&e.AffCon, e.Con+e.AffCon, primary)
+		addScaled(&e.AffInt, e.Int+e.AffInt, secondary)
+	case soulCD:
+		addScaled(&e.AffCon, e.Con+e.AffCon, primary)
+		addScaled(&e.AffDex, e.Dex+e.AffDex, secondary)
+	}
+}
+
+func clampInt16(v int32) int16 {
+	if v < -32768 {
+		return -32768
+	}
+	if v > 32767 {
+		return 32767
+	}
+	return int16(v)
+}
+
 // effectiveAC is the mitigation the defender actually presents: the flat
 // CurrentScore.Ac plus the affect contributions.
 func effectiveAC(e *world.Entity) int32 { return e.AC + e.AffAC }
+
+func effectiveStr(e *world.Entity) int16 { return e.Str + e.AffStr }
+
+func effectiveInt(e *world.Entity) int16 { return e.Int + e.AffInt }
+
+func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
+
+func effectiveCritical(e *world.Entity) uint8 {
+	v := int(e.Critical) + int(e.AffCritical) + int(huntressCriticalBonus(e))
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
+func huntressCriticalBonus(e *world.Entity) int16 {
+	if e.Class != 3 || e.LearnedSkill&(1<<18) == 0 {
+		return 0
+	}
+	add := (int(e.Special[3])+1)/10 + int(effectiveDex(e))/75
+	if add < 4 {
+		add = 4
+	}
+	return int16(add)
+}
 
 // effectiveSpecial is the live mastery of one tree: allocated + gear (flat
 // e.Special) + affects, capped at 400 like the buff loop does.

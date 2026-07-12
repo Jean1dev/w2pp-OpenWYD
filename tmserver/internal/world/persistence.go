@@ -92,11 +92,13 @@ type CharacterState struct {
 	Damage      int32 // CurrentScore.Damage
 	AC          int32 // CurrentScore.Ac
 	Master      int   // weapon mastery
+	Critical    uint8
 	Coin        int32
 	Clan        uint8
 	GuildID     uint16
 	GuildLevel  uint8
 	ClassMaster uint8
+	Soul        uint8
 	Str         int16
 	Int         int16
 	Dex         int16
@@ -107,12 +109,13 @@ type CharacterState struct {
 	// Skill state (skills front). SkillBonus is not loaded from the DB — the
 	// login path re-derives it from Level and LearnedSkill, as the legacy
 	// BASE_GetBonusSkillPoint does on character load.
-	SpecialBonus uint16
-	LearnedSkill int32
-	Magic        int16
-	BaseSpecial  [4]int16 // allocated mastery points (BaseScore.Special)
-	SkillBar     [4]uint8
-	ShortSkill   [16]uint8
+	SpecialBonus    uint16
+	LearnedSkill    int32
+	SecLearnedSkill int32
+	Magic           int16
+	BaseSpecial     [4]int16 // allocated mastery points (BaseScore.Special)
+	SkillBar        [4]uint8
+	ShortSkill      [16]uint8
 
 	// Affects are the persisted buff slots (minus Divine, which travels as
 	// DivineEnd — its Time is a wall-clock deadline, not ticks).
@@ -161,13 +164,15 @@ type CharacterSave struct {
 	MaxMP     int32
 	DivineEnd int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
 
-	ScoreBonus   uint16
-	SpecialBonus uint16
-	LearnedSkill int32
-	BaseSpecial  [4]int16
-	SkillBar     [4]uint8
-	ShortSkill   [16]uint8
-	Affects      []Affect // active buff slots (minus Divine — see DivineEnd)
+	ScoreBonus      uint16
+	SpecialBonus    uint16
+	LearnedSkill    int32
+	SecLearnedSkill int32
+	Soul            uint8
+	BaseSpecial     [4]int16
+	SkillBar        [4]uint8
+	ShortSkill      [16]uint8
+	Affects         []Affect // active buff slots (minus Divine — see DivineEnd)
 
 	Carry []SavedItem
 	Equip []SavedItem

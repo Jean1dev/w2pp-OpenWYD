@@ -1,6 +1,10 @@
 package protocol
 
-import "testing"
+import (
+	"encoding/binary"
+	"strings"
+	"testing"
+)
 
 func TestMessageBodySizes(t *testing.T) {
 	// Body size + HeaderSize must equal the documented total packet size
@@ -15,6 +19,7 @@ func TestMessageBodySizes(t *testing.T) {
 		{"DeleteCharacter", MsgDeleteCharacterBodySize, 44},
 		{"CharacterLogin", MsgCharacterLoginBodySize, 20},
 		{"Action", MsgActionBodySize, 52},
+		{"CNFAddParty", MsgCNFAddPartyBodySize, 40},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -92,6 +97,35 @@ func TestSimpleBodyRoundTrips(t *testing.T) {
 			t.Errorf("got %+v want %+v", out, in)
 		}
 	})
+}
+
+func TestEncodeCNFAddParty(t *testing.T) {
+	var in MsgCNFAddPartyBody
+	in.LeaderConn = 30000
+	in.Level = 50
+	in.MaxHP = 440
+	in.HP = 400
+	in.PartyID = 1001
+	copy(in.MobName[:], "Condor^")
+	in.Target = 52428
+
+	b := in.Encode()
+	if len(b) != MsgCNFAddPartyBodySize {
+		t.Fatalf("CNFAddParty body = %d, want %d", len(b), MsgCNFAddPartyBodySize)
+	}
+	le := binary.LittleEndian
+	if got := le.Uint16(b[0:2]); got != 30000 {
+		t.Fatalf("LeaderConn = %d, want 30000", got)
+	}
+	if got := le.Uint16(b[8:10]); got != 1001 {
+		t.Fatalf("PartyID = %d, want 1001", got)
+	}
+	if got := le.Uint16(b[26:28]); got != 52428 {
+		t.Fatalf("Target = %d, want 52428", got)
+	}
+	if got := strings.TrimRight(string(b[10:26]), "\x00"); got != "Condor^" {
+		t.Fatalf("MobName = %q, want Condor^", got)
+	}
 }
 
 func TestCTrimNUL(t *testing.T) {

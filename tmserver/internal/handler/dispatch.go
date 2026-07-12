@@ -42,6 +42,12 @@ type Config struct {
 	// (optional mount templates); when the slice is nil evocation casts fizzle.
 	SummonMobs [][]byte
 
+	// VineMob is the STRUCT_MOB template used by Sephira skill 98 (Muro de
+	// Espinhos). The legacy calls CreateMob("Vinha", x, y, "Boss", 3); the shipped
+	// Linux content tree may provide this as npc/Vine instead. When nil the cast
+	// consumes mana but cannot create the wall.
+	VineMob []byte
+
 	// ItemPrices maps item index → base Price (g_pItemList[].Price) for NPC buy/sell.
 	ItemPrices map[int]int32
 
@@ -99,6 +105,7 @@ type Dispatcher struct {
 	combineFamilies map[protocol.Type]CombineFamily
 	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
 	summonMobs      [][]byte                     // BM evocation templates (summon id → STRUCT_MOB)
+	vineMob         []byte                       // Sephira Muro de Espinhos template
 	itemPrices      map[int]int32                // item index → base price (NPC shop)
 	itemEffects     map[int][]content.BaseEffect // item index → static base effects (equip score)
 	itemReqs        map[int]content.ItemReq      // item index → equip requirement (level/attrs)
@@ -147,6 +154,7 @@ func New(cfg Config) *Dispatcher {
 		combineFamilies: cfg.CombineFamilies,
 		baseMobs:        cfg.BaseMobs,
 		summonMobs:      cfg.SummonMobs,
+		vineMob:         cfg.VineMob,
 		itemPrices:      cfg.ItemPrices,
 		itemEffects:     cfg.ItemEffects,
 		itemReqs:        cfg.ItemReqs,

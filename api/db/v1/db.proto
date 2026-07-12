@@ -114,6 +114,8 @@ message Character {
   repeated int32 special = 25;     // BaseScore.Special[4] (allocated mastery)
   repeated uint32 skill_bar = 26;  // MOB.SkillBar[4]
   repeated uint32 short_skill = 27; // CUser.ShortSkill[16] (client hotbar)
+  int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
+  int32 soul = 29;                 // MobExtra.Soul
 }
 
 message Item {

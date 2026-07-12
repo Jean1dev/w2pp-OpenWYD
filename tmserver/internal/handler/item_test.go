@@ -675,6 +675,34 @@ func TestUseExpChestStack(t *testing.T) {
 	}
 }
 
+func TestUseSephiraBookConsumesOneFromStack(t *testing.T) {
+	const book = 4200
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: book, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	db.loadResult = st
+
+	addr, stop := startServerClockVol(t, db, map[int]int{book: volSephiraLo})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[4:6]); got != book {
+		t.Fatalf("carry slot 0 item = %d, want stacked Sephira book", got)
+	}
+	if item[6] != efAmount || item[7] != 2 {
+		t.Fatalf("book amount effect = %d.%d, want %d.2", item[6], item[7], efAmount)
+	}
+	etc := expect(t, c, protocol.MsgUpdateEtc)
+	if learn := int64(lend.Uint64(etc[12:])); learn != 1<<24 {
+		t.Fatalf("UpdateEtc.Learn = %#x, want Sephira bit24", learn)
+	}
+}
+
 func TestUseFairyDust(t *testing.T) {
 	const dust = 5001
 	addr, stop := startServerClockVol(t, fairyDustDB(0, world.Item{Index: dust}), map[int]int{dust: volFairyDust})

@@ -280,7 +280,14 @@ penalidades). Composição (alinhamento natural x86, `time_t` = 8 bytes):
 
 | Bloco | Tipo | Tam | Off |
 |-------|------|----:|----:|
-| `ClassMaster`,`Citizen`,`SecLearnedSkill(long)`,`Fame`,`Soul`,`MortalFace` | mistos | 16 | 0 |
+| `ClassMaster` | `short` | 2 | 0 |
+| `Citizen` | `char` | 1 | 2 |
+| padding | - | 1 | 3 |
+| `SecLearnedSkill` | `long` | 4 | 4 |
+| `Fame` | `int` | 4 | 8 |
+| `Soul` | `char` | 1 | 12 |
+| padding | - | 1 | 13 |
+| `MortalFace` | `short` | 2 | 14 |
 | `QuestInfo` | struct aninhada (Mortal 35 + Arch 35 + Celestial 44 + Circle 1 + EMPTY[30]) | 146 | 16 |
 | `SaveCelestial[2]` | struct (136 cada, align 8 por `long long Exp`) | 272 | 168* |
 | `LastNT`,`NT`,`KefraTicket`,`DivineEnd`,`LastPenalty`,`CheckTimeKersef`,`Hold` | `time_t`/int mix | 40 | 440 |

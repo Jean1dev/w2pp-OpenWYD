@@ -125,3 +125,37 @@ func TestResolveHitDeterministic(t *testing.T) {
 		t.Errorf("non-deterministic: %d != %d", a, b)
 	}
 }
+
+func TestParryRate(t *testing.T) {
+	tests := []struct {
+		name                        string
+		targetDex, add, attackerDex int
+		attackerRsv, want           int
+	}{
+		{"floor", 10, -5, 500, 0, 1},
+		{"dex tiers", 3500, 10, 100, 0, 650},
+		{"rsv bonuses", 1000, 0, 500, 0x20 | 0x80, 150},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParryRate(tt.targetDex, tt.add, tt.attackerDex, tt.attackerRsv)
+			if got != tt.want {
+				t.Errorf("ParryRate = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDoubleCritical(t *testing.T) {
+	server, client := uint16(0), uint16(0)
+	flags, ok := DoubleCritical(rng.NewSeeded(1), 0xB2, 255, &server, &client)
+	if !ok {
+		t.Fatal("DoubleCritical returned !ok")
+	}
+	if flags != 0x3 {
+		t.Fatalf("flags = %#x, want total+partial crit", flags)
+	}
+	if server != 1 || client != 1 {
+		t.Fatalf("progress = server %d client %d, want 1/1", server, client)
+	}
+}

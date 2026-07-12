@@ -60,6 +60,19 @@ func (w *World) GroundItem(id int) *GroundItem {
 	return w.ground[id]
 }
 
+// GroundItemAt returns the floor item indexed at (x,y), or nil when the cell is
+// empty/out of bounds.
+func (w *World) GroundItemAt(x, y int16) *GroundItem {
+	if int(x) < 0 || int(y) < 0 || int(x) >= w.grid.dim || int(y) >= w.grid.dim {
+		return nil
+	}
+	id, ok := w.grid.ItemAt(int(x), int(y))
+	if !ok {
+		return nil
+	}
+	return w.GroundItem(int(id))
+}
+
 // RemoveGroundItem clears a floor item and its grid cell. This is the atomic
 // claim point: because it runs in the single loop goroutine, two GetItem events
 // for the same id are serialized and only the first succeeds (no dup). Loop-only.

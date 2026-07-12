@@ -30,6 +30,7 @@ func testSpells() *content.SkillData {
 		{Index: 5, SkillPoint: 3, Name: "S5"},
 		{Index: 6, SkillPoint: 3, Name: "S6"},
 		{Index: 7, SkillPoint: 3, Name: "S7-eighth"},
+		{Index: 9, SkillPoint: 3, Passive: 1, Name: "S9-passive"},
 		{Index: 24, SkillPoint: 3, Name: "Foema0"},
 	}
 	return content.NewSkillData(spells)
@@ -108,8 +109,26 @@ func TestSkillCastUnlearnedDropped(t *testing.T) {
 	}
 }
 
+// TestSkillCastPassiveDropped: a passive skill (spell 9, Passive=1) is never
+// castable even when learned — validateCast drops it before any broadcast
+// (_MSG_Attack.cpp Passive reject). Learned bit is set to prove the rejection
+// is the passive gate, not the learned-mask gate.
+func TestSkillCastPassiveDropped(t *testing.T) {
+	addr, stop := startServerSkills(t, skillCombatDB(1<<9))
+	defer stop()
+	attacker := enterWorld(t, addr)
+	defer attacker.Close()
+	target := enterWorld(t, addr)
+	defer target.Close()
+
+	skillAttackFrame(t, attacker, serverTime, 2, 9, -1)
+	if ty, _, ok := readMaybe(t, target); ok {
+		t.Fatalf("passive cast must be dropped, target got %#x", ty)
+	}
+}
+
 // TestSkillCastNoManaDropped: MP below the cost cancels the cast (the client
-// gets a score refresh, the target sees nothing).
+// gets MSG_SetHpMp with the authoritative bars, the target sees nothing).
 func TestSkillCastNoManaDropped(t *testing.T) {
 	db := newDB()
 	db.loadResult = world.CharacterState{
@@ -125,8 +144,8 @@ func TestSkillCastNoManaDropped(t *testing.T) {
 	defer target.Close()
 
 	skillAttackFrame(t, attacker, serverTime, 2, 2, -1)
-	if ty, _, ok := readMaybe(t, attacker); !ok || ty != protocol.MsgUpdateScore {
-		t.Errorf("attacker got %#x ok=%v, want UpdateScore (MP refresh)", ty, ok)
+	if ty, _, ok := readMaybe(t, attacker); !ok || ty != protocol.MsgSetHpMp {
+		t.Errorf("attacker got %#x ok=%v, want SetHpMp (MP refresh)", ty, ok)
 	}
 	if ty, _, ok := readMaybe(t, target); ok {
 		t.Fatalf("broke cast must not broadcast, target got %#x", ty)
@@ -345,6 +364,54 @@ func TestDeriveSkillBonus(t *testing.T) {
 				t.Errorf("SkillBonus = %d, want %d", e.SkillBonus, tt.want)
 			}
 		})
+	}
+}
+
+func TestLearnedSkillBitModulo24(t *testing.T) {
+	cases := []struct {
+		skill int
+		want  int32
+	}{
+		{0, 1 << 0},
+		{23, 1 << 23},
+		{96, 1 << 0},
+		{103, 1 << 7},
+		{200, 1 << 8},
+		{224, 1 << 8},
+		{247, 1 << 7},
+	}
+	for _, tt := range cases {
+		if got := learnedSkillBit(tt.skill); got != tt.want {
+			t.Fatalf("learnedSkillBit(%d) = %#x, want %#x", tt.skill, got, tt.want)
+		}
+	}
+}
+
+func TestValidateCastSharedSkillsUseModulo24LearnedMask(t *testing.T) {
+	d := New(Config{Spells: content.NewSkillData([]content.Spell{
+		{Index: 96, Name: "Poder Superior"},
+		{Index: 200, Name: "Protecao Divina"},
+	})})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	s := &world.Session{Conn: 1}
+	e := &world.Entity{ID: 1, Level: 80, LearnedSkill: (1 << 0) | (1 << 8)}
+	e.Special[1] = 30
+	e.Special[2] = 45
+
+	cast, ok := d.validateCast(w, s, e, 96, 1000)
+	if !ok || !cast.isSkill || cast.special != 30 {
+		t.Fatalf("validateCast skill 96 = ok %v cast %+v, want tree-1 special", ok, cast)
+	}
+	cast, ok = d.validateCast(w, s, e, 200, 1000)
+	if !ok || !cast.isSkill || cast.special != 45 {
+		t.Fatalf("validateCast skill 200 = ok %v cast %+v, want modulo learned tree-2 special", ok, cast)
+	}
+	e.LearnedSkill &^= 1 << 8
+	if _, ok := d.validateCast(w, s, e, 200, 1000); ok {
+		t.Fatal("validateCast accepted skill 200 without LearnedSkill bit 8")
+	}
+	if s.CrackError != 1 {
+		t.Fatalf("CrackError = %d, want 1", s.CrackError)
 	}
 }
 

@@ -88,3 +88,17 @@ func TestEncodeSetHpDam(t *testing.T) {
 		t.Errorf("Dam = %d, want -50", int32(le.Uint32(b[4:])))
 	}
 }
+
+func TestEncodeSetHpMp(t *testing.T) {
+	b := EncodeSetHpMp(900, 120, 950, 300)
+	if len(b) != setHpMpSize-HeaderSize { // 28 - 12 = 16
+		t.Fatalf("SetHpMp body = %d, want 16", len(b))
+	}
+	le := binary.LittleEndian
+	if le.Uint32(b[0:]) != 900 || le.Uint32(b[4:]) != 120 {
+		t.Errorf("Hp/Mp = %d/%d, want 900/120", le.Uint32(b[0:]), le.Uint32(b[4:]))
+	}
+	if le.Uint32(b[8:]) != 950 || le.Uint32(b[12:]) != 300 {
+		t.Errorf("ReqHp/ReqMp = %d/%d, want 950/300", le.Uint32(b[8:]), le.Uint32(b[12:]))
+	}
+}

@@ -102,6 +102,7 @@ func TestAccountLoginFailSkipsList(t *testing.T) {
 func TestLoadCharacterMapping(t *testing.T) {
 	api := &fakeAPI{loadResp: &dbv1.LoadCharacterResponse{Character: &dbv1.Character{
 		Slot: 1, Name: "mage", Level: 20, Coin: 500, Str: 5, Hp: 100, MaxHp: 200,
+		SecLearnedSkill: 0x01020304, Soul: 3,
 		Equip: []*dbv1.Item{{Slot: 1, Index: 1100, Eff1: 4, Effv1: 5}},
 		Carry: []*dbv1.Item{{Slot: 3, Index: 1234, Eff1: 9, Effv1: 1}},
 	}}}
@@ -115,6 +116,9 @@ func TestLoadCharacterMapping(t *testing.T) {
 	if st.Carry[3].Index != 1234 || st.Carry[3].Effects[0].Effect != 9 {
 		t.Fatalf("carry not mapped: %+v", st.Carry[3])
 	}
+	if st.SecLearnedSkill != 0x01020304 || st.Soul != 3 {
+		t.Fatalf("MobExtra fields not mapped: sec=%#x soul=%d", st.SecLearnedSkill, st.Soul)
+	}
 	// Equipment must be injected too (it was previously dropped at this boundary).
 	if st.Equip[1].Index != 1100 || st.Equip[1].Effects[0].Effect != 4 {
 		t.Fatalf("equip not mapped: %+v", st.Equip[1])
@@ -125,6 +129,7 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	api := &fakeAPI{}
 	save := world.CharacterSave{
 		AccountID: 1, Slot: 1, Level: 21, Coin: 600, HP: 150, MaxHP: 200,
+		SecLearnedSkill: 0x01020304, Soul: 3,
 		Carry: []world.SavedItem{{Slot: 3, Index: 1234, Eff1: 9, EffV1: 1}},
 	}
 	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {
@@ -136,6 +141,9 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	c := api.saved.GetCharacter()
 	if c.GetLevel() != 21 || c.GetCoin() != 600 || c.GetHp() != 150 {
 		t.Fatalf("save not mapped: %+v", c)
+	}
+	if c.GetSecLearnedSkill() != 0x01020304 || c.GetSoul() != 3 {
+		t.Fatalf("save MobExtra fields not mapped: %+v", c)
 	}
 	if len(c.GetCarry()) != 1 || c.GetCarry()[0].GetIndex() != 1234 {
 		t.Fatalf("save carry not mapped: %+v", c.GetCarry())

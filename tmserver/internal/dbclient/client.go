@@ -213,16 +213,18 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Coin:     c.GetCoin(),
 		Clan:     uint8(c.GetClan()),
 		GuildID:  uint16(c.GetGuildId()),
+		Soul:     uint8(c.GetSoul()),
 		Str:      int16(c.GetStr()),
 		Int:      int16(c.GetInt()),
 		Dex:      int16(c.GetDex()),
 		Con:      int16(c.GetCon()),
 		LastCity: int16(c.GetLastCity()),
 
-		ScoreBonus:   uint16(c.GetScoreBonus()),
-		SpecialBonus: uint16(c.GetSpecialBonus()),
-		LearnedSkill: c.GetLearnedSkill(),
-		Magic:        int16(c.GetMagic()),
+		ScoreBonus:      uint16(c.GetScoreBonus()),
+		SpecialBonus:    uint16(c.GetSpecialBonus()),
+		LearnedSkill:    c.GetLearnedSkill(),
+		SecLearnedSkill: c.GetSecLearnedSkill(),
+		Magic:           int16(c.GetMagic()),
 	}
 	for i, v := range c.GetSpecial() {
 		if i >= len(st.BaseSpecial) {
@@ -307,12 +309,14 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Carry:    savedItemsToProto(s.Carry),
 		Equip:    savedItemsToProto(s.Equip),
 
-		ScoreBonus:   int32(s.ScoreBonus),
-		SpecialBonus: int32(s.SpecialBonus),
-		LearnedSkill: s.LearnedSkill,
-		Special:      make([]int32, len(s.BaseSpecial)),
-		SkillBar:     make([]uint32, len(s.SkillBar)),
-		ShortSkill:   make([]uint32, len(s.ShortSkill)),
+		ScoreBonus:      int32(s.ScoreBonus),
+		SpecialBonus:    int32(s.SpecialBonus),
+		LearnedSkill:    s.LearnedSkill,
+		SecLearnedSkill: s.SecLearnedSkill,
+		Soul:            int32(s.Soul),
+		Special:         make([]int32, len(s.BaseSpecial)),
+		SkillBar:        make([]uint32, len(s.SkillBar)),
+		ShortSkill:      make([]uint32, len(s.ShortSkill)),
 	}
 	for i, v := range s.BaseSpecial {
 		c.Special[i] = int32(v)

@@ -523,15 +523,17 @@ type Character struct {
 	// Skill/bonus state (skills front). skill_bonus is NOT carried: the tmServer
 	// re-derives it at login from level and the learned mask, exactly as the
 	// legacy BASE_GetBonusSkillPoint does on character load.
-	ScoreBonus    int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`        // free attribute points
-	SpecialBonus  int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`  // free mastery points (incremental, +2/level)
-	LearnedSkill  int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`  // MOB.LearnedSkill bitmask
-	Magic         int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                    // CurrentScore.Magic
-	Special       []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                         // BaseScore.Special[4] (allocated mastery)
-	SkillBar      []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`       // MOB.SkillBar[4]
-	ShortSkill    []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"` // CUser.ShortSkill[16] (client hotbar)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ScoreBonus      int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`                  // free attribute points
+	SpecialBonus    int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`            // free mastery points (incremental, +2/level)
+	LearnedSkill    int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`            // MOB.LearnedSkill bitmask
+	Magic           int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                              // CurrentScore.Magic
+	Special         []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                                   // BaseScore.Special[4] (allocated mastery)
+	SkillBar        []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`                 // MOB.SkillBar[4]
+	ShortSkill      []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"`           // CUser.ShortSkill[16] (client hotbar)
+	SecLearnedSkill int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"` // MobExtra.SecLearnedSkill
+	Soul            int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                // MobExtra.Soul
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -751,6 +753,20 @@ func (x *Character) GetShortSkill() []uint32 {
 		return x.ShortSkill
 	}
 	return nil
+}
+
+func (x *Character) GetSecLearnedSkill() int32 {
+	if x != nil {
+		return x.SecLearnedSkill
+	}
+	return 0
+}
+
+func (x *Character) GetSoul() int32 {
+	if x != nil {
+		return x.Soul
+	}
+	return 0
 }
 
 type Item struct {
@@ -2002,7 +2018,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xaf\x05\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xef\x05\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2033,7 +2049,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\aspecial\x18\x19 \x03(\x05R\aspecial\x12\x1b\n" +
 	"\tskill_bar\x18\x1a \x03(\rR\bskillBar\x12\x1f\n" +
 	"\vshort_skill\x18\x1b \x03(\rR\n" +
-	"shortSkill\"\xcd\x01\n" +
+	"shortSkill\x12*\n" +
+	"\x11sec_learned_skill\x18\x1c \x01(\x05R\x0fsecLearnedSkill\x12\x12\n" +
+	"\x04soul\x18\x1d \x01(\x05R\x04soul\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

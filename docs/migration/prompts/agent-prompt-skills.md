@@ -1,5 +1,9 @@
 # Prompt p/ o agente do Windows — captura SKILLS/AFFECTS (cole lá e traga o .md)
 
+> Status 2026-07-10: a rodada granular `WIN-SKILL-001..006` ja foi respondida e consolidada em
+> `docs/migration/skills/windows-agent-findings.md`. Use este prompt apenas como historico ou para uma
+> nova captura ao vivo do cliente real, que ainda ficou `NAO_ENCONTRADO`.
+
 Contexto: estamos migrando o servidor do WYD (build cliente 12000, header CPSock = 12 bytes,
 `FLAG_GAME2CLIENT 0x0100` / `FLAG_CLIENT2GAME 0x0200`) para Go. A frente de **skills + buffs**
 já foi implementada a partir da nossa cópia parcial da fonte; ficaram pontos UNVERIFIED que só a

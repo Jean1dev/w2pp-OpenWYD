@@ -37,8 +37,8 @@ func attackFrame(t *testing.T, c net.Conn, tick uint32, targetID, skill int) {
 
 // TestAttackHitExact is the end-to-end exact golden case: with a clean LCG
 // (seed 1) and a known attacker/target, the server-authoritative damage is
-// deterministic (140 * (41%12 + 99) / 100 = 145), proving handler + combat + RNG
-// line up.
+// deterministic. BASE_GetDoubleCritical consumes the first rand() even when no
+// crit lands, so BASE_GetDamage sees the second rand(): 140 * 110 / 100 = 154.
 func TestAttackHitExact(t *testing.T) {
 	addr, stop, _ := startServerClock(t, combatDB())
 	defer stop()
@@ -61,8 +61,8 @@ func TestAttackHitExact(t *testing.T) {
 	if len(got.Dam) != 1 || got.Dam[0].TargetID != 2 {
 		t.Fatalf("Dam = %+v", got.Dam)
 	}
-	if got.Dam[0].Damage != 145 {
-		t.Errorf("server damage = %d, want 145 (exact LCG golden)", got.Dam[0].Damage)
+	if got.Dam[0].Damage != 154 {
+		t.Errorf("server damage = %d, want 154 (exact LCG golden)", got.Dam[0].Damage)
 	}
 }
 

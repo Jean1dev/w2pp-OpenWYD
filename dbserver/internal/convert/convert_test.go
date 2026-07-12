@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"encoding/binary"
 	"strings"
 	"testing"
 
@@ -26,7 +27,11 @@ func TestAccountConversion(t *testing.T) {
 	af.Char[1].Equip[0] = savefmt.Item{Index: 1100, Effects: [3]savefmt.Effect{{Effect: 1, Value: 6}, {}, {}}}
 	af.Char[1].Equip[2] = savefmt.Item{Index: 0} // empty → dropped
 	af.Char[1].Carry[10] = savefmt.Item{Index: 2200}
-	af.MobExtra[1] = savefmt.MobExtra{} // ClassMaster/Citizen = 0
+	af.MobExtra[1] = savefmt.MobExtra{}
+	af.MobExtra[1].Raw[0] = 2
+	af.MobExtra[1].Raw[2] = 1
+	binary.LittleEndian.PutUint32(af.MobExtra[1].Raw[4:8], 0x01020304)
+	af.MobExtra[1].Raw[12] = 3
 	af.Affect[1][0] = savefmt.Affect{Type: 5, Value: 1, Level: 2, Time: 60}
 	af.Cargo[3] = savefmt.Item{Index: 4444}
 
@@ -60,6 +65,10 @@ func TestAccountConversion(t *testing.T) {
 	ch := acc.Characters[0]
 	if ch.Slot != 1 || ch.Name != "Hero" || ch.Class != 3 || ch.Level != 100 || ch.Exp != 9_000_000_000 {
 		t.Errorf("character = %+v", ch)
+	}
+	if ch.ClassMaster != 2 || ch.Citizen != 1 || ch.SecLearnedSkill != 0x01020304 || ch.Soul != 3 {
+		t.Errorf("MobExtra fields = classMaster %d citizen %d sec %#x soul %d",
+			ch.ClassMaster, ch.Citizen, ch.SecLearnedSkill, ch.Soul)
 	}
 	if len(ch.Equip) != 1 || ch.Equip[0].Slot != 0 || ch.Equip[0].Index != 1100 || ch.Equip[0].Eff1 != 1 || ch.Equip[0].EffV1 != 6 {
 		t.Errorf("equip = %+v", ch.Equip)

@@ -181,6 +181,30 @@ func TestLoadSkillData(t *testing.T) {
 	}
 }
 
+// TestParseSkillDataDividesAffectTime pins the loader's AffectTime ÷4 rule on a
+// synthetic row (no dependency on the Release CSV): 13 ints, the 2 dotted Act
+// strings, 7 ints, then the name. Column 12 is the raw AffectTime.
+func TestParseSkillDataDividesAffectTime(t *testing.T) {
+	const row = "2,3,0,10,4,0,1,10,0,0,11,5,600,anim.a,anim.b,0,0,1,2,0,0,0,MySkill"
+	s, err := parseSkillData(strings.NewReader(row))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.Get(2)
+	if !ok {
+		t.Fatal("skill 2 missing after parse")
+	}
+	if got.AffectTime != 150 {
+		t.Errorf("AffectTime = %d, want 150 (600÷4)", got.AffectTime)
+	}
+	if got.AffectType != 11 || got.AffectValue != 5 {
+		t.Errorf("parsed = %+v, want AffectType 11 / AffectValue 5", got)
+	}
+	if got.Name != "MySkill" {
+		t.Errorf("Name = %q, want MySkill", got.Name)
+	}
+}
+
 func TestSkillKindAndClass(t *testing.T) {
 	tests := []struct{ index, kind, class int }{
 		{0, 1, 0},   // TK tree 1

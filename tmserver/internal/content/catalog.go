@@ -58,15 +58,16 @@ type BaseEffect struct {
 
 // efName maps the ItemList.csv EF_<name> tokens to their STRUCT_EFFECT.cEffect ids
 // (the same ids the instance refines use). Only effects the score model can represent
-// are mapped; the purely visual/requirement ones (EF_CLASS/EF_GRID/EF_RANGE/EF_WTYPE/
-// EF_ITEMLEVEL/EF_REGEN*/EF_CRITICAL/…) don't fold into CurrentScore here and are
-// ignored. The ids match ItemEffect.h. EF_SANC carries an item's refine level (the
-// joias), consumed as a multiplier by the handler rather than a flat stat.
+// are mapped. EF_WTYPE is included because some Huntress affects key off the
+// equipped weapon type, but it still does not fold into CurrentScore. The purely
+// visual/requirement ones (EF_CLASS/EF_GRID/EF_RANGE/EF_REGEN*/EF_CRITICAL/…)
+// are ignored. The ids match ItemEffect.h. EF_SANC carries an item's refine
+// level (the joias), consumed as a multiplier by the handler rather than a flat stat.
 var efName = map[string]uint8{
 	"EF_DAMAGE": 2, "EF_AC": 3, "EF_HP": 4, "EF_MP": 5,
 	"EF_STR": 7, "EF_INT": 8, "EF_DEX": 9, "EF_CON": 10,
 	"EF_SPECIAL1": 11, "EF_SPECIAL2": 12, "EF_SPECIAL3": 13, "EF_SPECIAL4": 14,
-	"EF_POS": 17, "EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
+	"EF_POS": 17, "EF_WTYPE": 21, "EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
 	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70,
 	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
 }
