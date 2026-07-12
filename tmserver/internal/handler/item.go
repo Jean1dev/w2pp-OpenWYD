@@ -507,9 +507,9 @@ const (
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
 	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
 	baseAttackRun = 82
-	// mountedMoveSpeed bumps the move-speed nibble when a mount is equipped.
-	// UNVERIFIED: the exact mounted speed is in BASE_GetCurrentScore (not in source).
-	mountedMoveSpeed = 5
+	// Issue #64 movement policy: bare player = 2, boots = 4, mount = 6.
+	bootMoveSpeed    = 4
+	mountedMoveSpeed = 6
 
 	// Weapon hands in STRUCT_MOB.Equip (right/left). GetCurrentScore (CMob.cpp:756)
 	// derives WeaponDamage from these two slots' EF_DAMAGE.
@@ -825,11 +825,11 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 }
 
 // attackRunOf is the entity's live speed byte (run<<4 | move). Players get the
-// class base plus the mount bump; mobs carry their template's CurrentScore
-// value (set at spawn). Every S→C score/snapshot (UpdateScore, CreateMob, the
-// login MOB blob) must carry it: the client animates walks — its own and remote
-// entities' — at this speed, and a 0 here renders a crawling, rubber-banding
-// avatar.
+// issue #64 move-speed tiers (bare=2, boots=4, mount=6); mobs carry their
+// template's CurrentScore value (set at spawn). Every S→C score/snapshot
+// (UpdateScore, CreateMob, the login MOB blob) must carry it: the client animates
+// walks — its own and remote entities' — at this speed, and a 0 here renders a
+// crawling, rubber-banding avatar.
 func attackRunOf(e *world.Entity) uint8 {
 	if !world.IsPlayer(e.ID) {
 		return e.AttackRun
@@ -842,13 +842,15 @@ func attackRunOf(e *world.Entity) uint8 {
 		attack = 150
 	}
 	attack /= 10
-	// A mount in the mount slot raises the move-speed (low) nibble.
+	// A mount takes precedence over boots and uses the max client movement tier.
 	if !e.Equip[mountEquipSlot].Empty() {
 		return uint8(attack<<4) | mountedMoveSpeed
 	}
-	// Boots' EF_RUNSPEED adds to the base move-speed nibble, clamped [1,6] like
-	// the legacy BASE_GetSpeed (Basedef.cpp:1250-1262).
-	move := int32(baseAttackRun&0x0F) + e.RunSpeedBonus + e.AffRunSpeed
+	move := int32(baseAttackRun & 0x0F)
+	if e.RunSpeedBonus > 0 {
+		move = bootMoveSpeed
+	}
+	move += e.AffRunSpeed
 	if move < 1 {
 		move = 1
 	}
