@@ -42,19 +42,19 @@ type itemPayload struct {
 	ExpiresAt int64 `json:"expires_at"`
 }
 
+// donateShopItemCols is the column list shared by every donate_shop_item read,
+// matched positionally by scanDonateShopItem.
+const donateShopItemCols = `id, item_index, eff1, effv1, eff2, effv2, eff3, effv3, price, title, description, enabled, expires_days`
+
 // ListDonateShopItems returns every shop offer (enabled or not), ordered by id —
 // the moderation table. ListEnabledDonateShopItems is the player-facing vitrine.
 func (s *Store) ListDonateShopItems(ctx context.Context) ([]domain.DonateShopItem, error) {
-	return s.queryDonateShopItems(ctx, `
-		SELECT id, item_index, eff1, effv1, eff2, effv2, eff3, effv3, price, title, description, enabled, expires_days
-		FROM donate_shop_item ORDER BY id`)
+	return s.queryDonateShopItems(ctx, `SELECT `+donateShopItemCols+` FROM donate_shop_item ORDER BY id`)
 }
 
 // ListEnabledDonateShopItems returns only the offers on sale (the web vitrine).
 func (s *Store) ListEnabledDonateShopItems(ctx context.Context) ([]domain.DonateShopItem, error) {
-	return s.queryDonateShopItems(ctx, `
-		SELECT id, item_index, eff1, effv1, eff2, effv2, eff3, effv3, price, title, description, enabled, expires_days
-		FROM donate_shop_item WHERE enabled = TRUE ORDER BY id`)
+	return s.queryDonateShopItems(ctx, `SELECT `+donateShopItemCols+` FROM donate_shop_item WHERE enabled = TRUE ORDER BY id`)
 }
 
 func (s *Store) queryDonateShopItems(ctx context.Context, sql string) ([]domain.DonateShopItem, error) {
@@ -76,9 +76,7 @@ func (s *Store) queryDonateShopItems(ctx context.Context, sql string) ([]domain.
 
 // GetDonateShopItem loads one offer by id. Returns ErrNotFound when absent.
 func (s *Store) GetDonateShopItem(ctx context.Context, id int64) (domain.DonateShopItem, error) {
-	row := s.pool.QueryRow(ctx, `
-		SELECT id, item_index, eff1, effv1, eff2, effv2, eff3, effv3, price, title, description, enabled, expires_days
-		FROM donate_shop_item WHERE id = $1`, id)
+	row := s.pool.QueryRow(ctx, `SELECT `+donateShopItemCols+` FROM donate_shop_item WHERE id = $1`, id)
 	d, err := scanDonateShopItem(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DonateShopItem{}, ErrNotFound
@@ -222,12 +220,8 @@ func (s *Store) CreditDonateBalance(ctx context.Context, accountID int64, amount
 func (s *Store) BuyDonateItem(ctx context.Context, accountID, shopItemID int64) (int32, error) {
 	var newBal int32
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		var it domain.DonateShopItem
-		err := tx.QueryRow(ctx, `
-			SELECT id, item_index, eff1, effv1, eff2, effv2, eff3, effv3, price, title, description, enabled, expires_days
-			FROM donate_shop_item WHERE id = $1`, shopItemID).
-			Scan(&it.ID, &it.ItemIndex, &it.Eff1, &it.EffV1, &it.Eff2, &it.EffV2, &it.Eff3, &it.EffV3,
-				&it.Price, &it.Title, &it.Description, &it.Enabled, &it.ExpiresDays)
+		it, err := scanDonateShopItem(tx.QueryRow(ctx,
+			`SELECT `+donateShopItemCols+` FROM donate_shop_item WHERE id = $1`, shopItemID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -303,9 +297,7 @@ func (s *Store) PendingItemDeliveries(ctx context.Context, accountID int64) ([]d
 			return nil, fmt.Errorf("store: decode delivery %d payload: %w", id, err)
 		}
 		out = append(out, domain.Delivery{
-			ID:        id,
-			AccountID: accountID,
-			Kind:      domain.DeliveryItem,
+			ID: id,
 			Item: domain.Item{
 				Index: int16(p.ItemIndex),
 				Eff1:  p.Eff1, EffV1: p.EffV1, Eff2: p.Eff2, EffV2: p.EffV2, Eff3: p.Eff3, EffV3: p.EffV3,

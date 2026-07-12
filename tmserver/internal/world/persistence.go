@@ -44,13 +44,15 @@ type CharSummary struct {
 }
 
 // LoginOutcome is the result of an account-login attempt. On success it also
-// carries the account-shared cargo, loaded in the same backend round-trip as the
-// character list (it is account-scoped, so it is fetched once per account login).
+// carries the account-shared cargo and the pending donate web-shop mailbox
+// (issue #34), both loaded in the same backend round-trip as the character list
+// (they are account-scoped, so they are fetched once per account login).
 type LoginOutcome struct {
-	Result     LoginResult
-	AccountID  int64
-	Characters []CharSummary
-	Cargo      CargoState
+	Result            LoginResult
+	AccountID         int64
+	Characters        []CharSummary
+	Cargo             CargoState
+	PendingDeliveries []Delivery
 }
 
 // CargoState is the account-shared warehouse (the legacy STRUCT_ACCOUNTFILE

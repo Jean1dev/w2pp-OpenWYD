@@ -169,22 +169,10 @@ type DonateShopItem struct {
 	ExpiresDays int32
 }
 
-// DeliveryKind enumerates the grant kinds carried by the delivery_queue mailbox.
-// Issue #34 uses only DeliveryItem; the others are reserved for later web
-// features (cash purchase, daily reward).
-type DeliveryKind string
-
-const (
-	// DeliveryItem grants an inventory item into the account cargo.
-	DeliveryItem DeliveryKind = "item"
-)
-
-// Delivery is one pending grant the tmServer drains from delivery_queue into the
-// account cargo (web-platform-plan.md §mailbox). For DeliveryItem the Item fields
-// describe what to deliver; ExpiresAt is absolute Unix-seconds (0 = permanent).
+// Delivery is one pending item grant the tmServer drains from delivery_queue
+// into the account cargo (web-platform-plan.md §mailbox). ExpiresAt on the Item
+// is absolute Unix-seconds (0 = permanent).
 type Delivery struct {
-	ID        int64
-	AccountID int64
-	Kind      DeliveryKind
-	Item      Item
+	ID   int64
+	Item Item
 }

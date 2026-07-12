@@ -355,41 +355,21 @@ func (w *World) SetCargo(accountID int64, st *CargoState) {
 	w.cargo[accountID] = st
 }
 
-// DrainDeliveries applies the account's pending delivery_queue grants (donate web
-// shop, issue #34) to its cargo. Called from the loop right after the cargo is
-// installed at login. It fetches the mailbox off the loop, then — back in the loop
-// — places each item in the next free cargo slot (lost when the cargo is full) and
-// persists the cargo + acks the queue rows in one backend transaction. The queue
-// ack rides inside the off-loop work (not the re-entry callback), so it commits
-// even if the player disconnects mid-drain: no re-delivery, no duplication.
-// Loop-only.
-func (w *World) DrainDeliveries(s *Session) {
-	if s == nil || s.AccountID == 0 {
+// ApplyDeliveries places the account's already-fetched pending delivery_queue
+// grants (donate web shop, issue #34) into its cargo. pending is loaded in the
+// same off-loop round-trip as the account login itself (dbclient.AccountLogin),
+// so draining the mailbox costs no extra backend round-trip. Called from the loop
+// right after the cargo is installed at login: places each item in the next free
+// cargo slot (lost when the cargo is full) and persists the cargo + acks the
+// queue rows in one backend transaction, off the loop. Loop-only.
+func (w *World) ApplyDeliveries(s *Session, pending []Delivery) {
+	if s == nil || s.AccountID == 0 || len(pending) == 0 {
 		return
 	}
 	accountID := s.AccountID
-	p := w.persist
-	w.Go(s, func() func(*World, *Session) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		pending, err := p.ListPendingDeliveries(ctx, accountID)
-		return func(w *World, s *Session) { w.applyDeliveries(s, accountID, pending, err) }
-	})
-}
-
-// applyDeliveries places the fetched grants into the account cargo and persists
-// the outcome. Runs in the loop (re-entered from DrainDeliveries). Loop-only.
-func (w *World) applyDeliveries(s *Session, accountID int64, pending []Delivery, err error) {
-	if err != nil {
-		w.log.Warn("list pending deliveries failed", "account", accountID, "err", err)
-		return
-	}
-	if len(pending) == 0 {
-		return
-	}
 	cargo := w.cargo[accountID]
 	if cargo == nil {
-		return // account session ended before the drain re-entered
+		return
 	}
 	var deliveredIDs, lostIDs []int64
 	for _, d := range pending {

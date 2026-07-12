@@ -75,7 +75,7 @@ func (f *fakeDB) SaveCargoWithDeliveries(_ context.Context, save world.CargoSave
 }
 
 // lastDrainSave returns the most recent SaveCargoWithDeliveries capture, waiting
-// briefly for the async drain (two off-loop round-trips) to land.
+// briefly for the async drain's off-loop save round-trip to land.
 func (f *fakeDB) lastDrainSave(t *testing.T) (drainSave, bool) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -127,7 +127,10 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 	default:
 		cargo := a.cargo
 		cargo.AccountID = a.id
-		return world.LoginOutcome{Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo}, nil
+		return world.LoginOutcome{
+			Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo,
+			PendingDeliveries: f.pending[a.id],
+		}, nil
 	}
 }
 

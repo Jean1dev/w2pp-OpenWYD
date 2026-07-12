@@ -84,9 +84,10 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		// It lives for the whole account session and is released on disconnect.
 		cargo := out.Cargo
 		w.SetCargo(out.AccountID, &cargo)
-		// Drain any pending donate web-shop grants into the freshly-loaded cargo
-		// (issue #34); items land in the next free slot, or are lost when full.
-		w.DrainDeliveries(s)
+		// Drain any pending donate web-shop grants (fetched in the same login
+		// round-trip) into the freshly-loaded cargo (issue #34); items land in the
+		// next free slot, or are lost when full.
+		w.ApplyDeliveries(s, out.PendingDeliveries)
 		s.Mode = world.UserSelChar
 		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, d.selCharsFrom(out.Characters))
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)

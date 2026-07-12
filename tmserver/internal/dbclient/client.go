@@ -57,6 +57,12 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 	if err != nil {
 		return world.LoginOutcome{}, err
 	}
+	// Fetch the donate web-shop mailbox (issue #34) in the same round-trip too,
+	// rather than a second loop re-entry after login completes. A fetch failure
+	// here is non-fatal to the login — the mailbox is simply retried next login.
+	if pending, err := c.ListPendingDeliveries(ctx, out.AccountID); err == nil {
+		out.PendingDeliveries = pending
+	}
 	return out, nil
 }
 
