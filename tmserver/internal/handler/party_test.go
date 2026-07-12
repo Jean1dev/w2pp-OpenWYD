@@ -87,6 +87,8 @@ func TestGuildInvite(t *testing.T) {
 	defer a.Close()
 	b := enterWorldAs(t, addr, "tradeb") // conn 2 (recruit, same clan, no guild)
 	defer b.Close()
+	drainRaw(t, a)
+	drainRaw(t, b)
 
 	send(t, a, protocol.MsgInviteGuild, protocol.EncodeStandardParm2(2, 0)) // target conn 2, type 0
 	// The recruit is welcomed; the leader sees the recruit's refreshed tag.

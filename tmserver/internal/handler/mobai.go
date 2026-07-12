@@ -82,6 +82,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.guardQuest256Areas(w)
 	d.regenPlayers(w)
 	d.sweepAffects(w)
+	d.sweepGuilty(w)
 	d.respawnMobs(w)
 	d.generateMobs(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)

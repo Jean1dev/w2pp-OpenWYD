@@ -19,9 +19,9 @@ import (
 //   - in either window → the raw frame, preserving the caller's Type
 //     (Action/Action2/Action3 travel verbatim in legacy).
 //
-// PKInfo is only sent about players (SendPKInfo bails on mob ids); Parm=0 is a
-// simplification — PK/war state is not modeled yet (legacy sends 1 only during
-// PK/guild-war/RvR, SendFunc.cpp:1884-1896).
+// PKInfo is only sent about players (SendPKInfo bails on mob ids); guild-war/RvR
+// state is not modeled yet, so the PK toggle (pkInfoParm, PKMode) is the only
+// input for now (legacy also ORs those in, SendFunc.cpp:1884-1896).
 //
 // For a player mover it also reconciles NPC/monster visibility: reveals mobs in
 // the new window and removes mobs from the old window now out of range (the
@@ -67,11 +67,11 @@ func (d *Dispatcher) moveMulticast(w *world.World, moverID int, oldX, oldY int16
 			w.MarkSeen(s, moverID)
 			w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, moverBody)
 			if moverSess != nil {
-				w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(moverID)}, protocol.EncodeStandardParm(0))
+				w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(moverID)}, protocol.EncodeStandardParm(pkInfoParm(mover)))
 				w.MarkSeen(moverSess, e.ID)
 				w.SendTo(moverSess, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
 					protocol.EncodeCreateMobBody(createMobFrom(e, 0)))
-				w.SendTo(moverSess, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(e.ID)}, protocol.EncodeStandardParm(0))
+				w.SendTo(moverSess, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(e.ID)}, protocol.EncodeStandardParm(pkInfoParm(e)))
 			}
 			if payload != nil {
 				w.SendTo(s, protocol.Header{Type: msgType, ID: uint16(moverID)}, payload)
