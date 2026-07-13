@@ -1817,3 +1817,285 @@ var DailyRewardService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/web/v1/web.proto",
 }
+
+const (
+	DonateTopupService_GetPayerProfile_FullMethodName   = "/web.v1.DonateTopupService/GetPayerProfile"
+	DonateTopupService_SavePayerProfile_FullMethodName  = "/web.v1.DonateTopupService/SavePayerProfile"
+	DonateTopupService_CreateTopupOrder_FullMethodName  = "/web.v1.DonateTopupService/CreateTopupOrder"
+	DonateTopupService_ConfirmTopupOrder_FullMethodName = "/web.v1.DonateTopupService/ConfirmTopupOrder"
+	DonateTopupService_GetTopupOrder_FullMethodName     = "/web.v1.DonateTopupService/GetTopupOrder"
+)
+
+// DonateTopupServiceClient is the client API for DonateTopupService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DonateTopupService is the payment-method-agnostic donate top-up surface the
+// Next.js BFF calls server-side (never the browser). The portal owns no
+// database: every durable order and the idempotency of the credit live here.
+// PIX is the only method wired today, but the method is a FIELD of the order
+// (payment_method), never part of an RPC or table name — credit card reuses the
+// same RPCs and table later. The top-up credit happens INSIDE ConfirmTopupOrder,
+// in the same transaction that flips the order to PAID and WITHOUT a moderator_id
+// (unlike DonateAdminService.CreditDonateBalance), so a replayed webhook credits
+// exactly once.
+type DonateTopupServiceClient interface {
+	// Payer profile (name + CPF), reused across a payer's top-ups.
+	GetPayerProfile(ctx context.Context, in *GetPayerProfileRequest, opts ...grpc.CallOption) (*GetPayerProfileResponse, error)
+	SavePayerProfile(ctx context.Context, in *SavePayerProfileRequest, opts ...grpc.CallOption) (*SavePayerProfileResponse, error)
+	// CreateTopupOrder persists a PENDING order before the portal calls the
+	// gateway (persist-before-provider). ConfirmTopupOrder credits the account
+	// exactly once (idempotent on external_reference). GetTopupOrder is the poll.
+	CreateTopupOrder(ctx context.Context, in *CreateTopupOrderRequest, opts ...grpc.CallOption) (*CreateTopupOrderResponse, error)
+	ConfirmTopupOrder(ctx context.Context, in *ConfirmTopupOrderRequest, opts ...grpc.CallOption) (*ConfirmTopupOrderResponse, error)
+	GetTopupOrder(ctx context.Context, in *GetTopupOrderRequest, opts ...grpc.CallOption) (*GetTopupOrderResponse, error)
+}
+
+type donateTopupServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDonateTopupServiceClient(cc grpc.ClientConnInterface) DonateTopupServiceClient {
+	return &donateTopupServiceClient{cc}
+}
+
+func (c *donateTopupServiceClient) GetPayerProfile(ctx context.Context, in *GetPayerProfileRequest, opts ...grpc.CallOption) (*GetPayerProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPayerProfileResponse)
+	err := c.cc.Invoke(ctx, DonateTopupService_GetPayerProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateTopupServiceClient) SavePayerProfile(ctx context.Context, in *SavePayerProfileRequest, opts ...grpc.CallOption) (*SavePayerProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavePayerProfileResponse)
+	err := c.cc.Invoke(ctx, DonateTopupService_SavePayerProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateTopupServiceClient) CreateTopupOrder(ctx context.Context, in *CreateTopupOrderRequest, opts ...grpc.CallOption) (*CreateTopupOrderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTopupOrderResponse)
+	err := c.cc.Invoke(ctx, DonateTopupService_CreateTopupOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateTopupServiceClient) ConfirmTopupOrder(ctx context.Context, in *ConfirmTopupOrderRequest, opts ...grpc.CallOption) (*ConfirmTopupOrderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmTopupOrderResponse)
+	err := c.cc.Invoke(ctx, DonateTopupService_ConfirmTopupOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateTopupServiceClient) GetTopupOrder(ctx context.Context, in *GetTopupOrderRequest, opts ...grpc.CallOption) (*GetTopupOrderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTopupOrderResponse)
+	err := c.cc.Invoke(ctx, DonateTopupService_GetTopupOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DonateTopupServiceServer is the server API for DonateTopupService service.
+// All implementations must embed UnimplementedDonateTopupServiceServer
+// for forward compatibility.
+//
+// DonateTopupService is the payment-method-agnostic donate top-up surface the
+// Next.js BFF calls server-side (never the browser). The portal owns no
+// database: every durable order and the idempotency of the credit live here.
+// PIX is the only method wired today, but the method is a FIELD of the order
+// (payment_method), never part of an RPC or table name — credit card reuses the
+// same RPCs and table later. The top-up credit happens INSIDE ConfirmTopupOrder,
+// in the same transaction that flips the order to PAID and WITHOUT a moderator_id
+// (unlike DonateAdminService.CreditDonateBalance), so a replayed webhook credits
+// exactly once.
+type DonateTopupServiceServer interface {
+	// Payer profile (name + CPF), reused across a payer's top-ups.
+	GetPayerProfile(context.Context, *GetPayerProfileRequest) (*GetPayerProfileResponse, error)
+	SavePayerProfile(context.Context, *SavePayerProfileRequest) (*SavePayerProfileResponse, error)
+	// CreateTopupOrder persists a PENDING order before the portal calls the
+	// gateway (persist-before-provider). ConfirmTopupOrder credits the account
+	// exactly once (idempotent on external_reference). GetTopupOrder is the poll.
+	CreateTopupOrder(context.Context, *CreateTopupOrderRequest) (*CreateTopupOrderResponse, error)
+	ConfirmTopupOrder(context.Context, *ConfirmTopupOrderRequest) (*ConfirmTopupOrderResponse, error)
+	GetTopupOrder(context.Context, *GetTopupOrderRequest) (*GetTopupOrderResponse, error)
+	mustEmbedUnimplementedDonateTopupServiceServer()
+}
+
+// UnimplementedDonateTopupServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDonateTopupServiceServer struct{}
+
+func (UnimplementedDonateTopupServiceServer) GetPayerProfile(context.Context, *GetPayerProfileRequest) (*GetPayerProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPayerProfile not implemented")
+}
+func (UnimplementedDonateTopupServiceServer) SavePayerProfile(context.Context, *SavePayerProfileRequest) (*SavePayerProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SavePayerProfile not implemented")
+}
+func (UnimplementedDonateTopupServiceServer) CreateTopupOrder(context.Context, *CreateTopupOrderRequest) (*CreateTopupOrderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTopupOrder not implemented")
+}
+func (UnimplementedDonateTopupServiceServer) ConfirmTopupOrder(context.Context, *ConfirmTopupOrderRequest) (*ConfirmTopupOrderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmTopupOrder not implemented")
+}
+func (UnimplementedDonateTopupServiceServer) GetTopupOrder(context.Context, *GetTopupOrderRequest) (*GetTopupOrderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTopupOrder not implemented")
+}
+func (UnimplementedDonateTopupServiceServer) mustEmbedUnimplementedDonateTopupServiceServer() {}
+func (UnimplementedDonateTopupServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeDonateTopupServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DonateTopupServiceServer will
+// result in compilation errors.
+type UnsafeDonateTopupServiceServer interface {
+	mustEmbedUnimplementedDonateTopupServiceServer()
+}
+
+func RegisterDonateTopupServiceServer(s grpc.ServiceRegistrar, srv DonateTopupServiceServer) {
+	// If the following call panics, it indicates UnimplementedDonateTopupServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DonateTopupService_ServiceDesc, srv)
+}
+
+func _DonateTopupService_GetPayerProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPayerProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateTopupServiceServer).GetPayerProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateTopupService_GetPayerProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateTopupServiceServer).GetPayerProfile(ctx, req.(*GetPayerProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateTopupService_SavePayerProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SavePayerProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateTopupServiceServer).SavePayerProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateTopupService_SavePayerProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateTopupServiceServer).SavePayerProfile(ctx, req.(*SavePayerProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateTopupService_CreateTopupOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTopupOrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateTopupServiceServer).CreateTopupOrder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateTopupService_CreateTopupOrder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateTopupServiceServer).CreateTopupOrder(ctx, req.(*CreateTopupOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateTopupService_ConfirmTopupOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmTopupOrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateTopupServiceServer).ConfirmTopupOrder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateTopupService_ConfirmTopupOrder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateTopupServiceServer).ConfirmTopupOrder(ctx, req.(*ConfirmTopupOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateTopupService_GetTopupOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTopupOrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateTopupServiceServer).GetTopupOrder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateTopupService_GetTopupOrder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateTopupServiceServer).GetTopupOrder(ctx, req.(*GetTopupOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DonateTopupService_ServiceDesc is the grpc.ServiceDesc for DonateTopupService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DonateTopupService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.DonateTopupService",
+	HandlerType: (*DonateTopupServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetPayerProfile",
+			Handler:    _DonateTopupService_GetPayerProfile_Handler,
+		},
+		{
+			MethodName: "SavePayerProfile",
+			Handler:    _DonateTopupService_SavePayerProfile_Handler,
+		},
+		{
+			MethodName: "CreateTopupOrder",
+			Handler:    _DonateTopupService_CreateTopupOrder_Handler,
+		},
+		{
+			MethodName: "ConfirmTopupOrder",
+			Handler:    _DonateTopupService_ConfirmTopupOrder_Handler,
+		},
+		{
+			MethodName: "GetTopupOrder",
+			Handler:    _DonateTopupService_GetTopupOrder_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
