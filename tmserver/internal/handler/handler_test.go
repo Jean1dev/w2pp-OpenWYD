@@ -346,6 +346,35 @@ func TestLoginOK(t *testing.T) {
 	}
 }
 
+func TestLoginSendsCargo(t *testing.T) {
+	db := newDB()
+	cargo := world.CargoState{Coin: 777}
+	cargo.Items[0] = world.Item{Index: 4140}
+	cargo.Items[33] = world.Item{Index: 5134}
+	db.accounts["tester"].cargo = cargo
+
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := dial(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgAccountLogin, loginBody("tester", "secret", protocol.AppVersion))
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFAccountLogin {
+		t.Fatalf("response = %#x, want CNFAccountLogin", ty)
+	}
+	const cargoOff, coinOff = 860, 1884
+	if got := binary.LittleEndian.Uint16(payload[cargoOff : cargoOff+2]); got != 4140 {
+		t.Errorf("cargo[0] = %d, want 4140", got)
+	}
+	if got := binary.LittleEndian.Uint16(payload[cargoOff+33*8 : cargoOff+33*8+2]); got != 5134 {
+		t.Errorf("cargo[33] = %d, want 5134", got)
+	}
+	if got := binary.LittleEndian.Uint32(payload[coinOff : coinOff+4]); got != 777 {
+		t.Errorf("cargo coin = %d, want 777", got)
+	}
+}
+
 func TestSelCharWireLevel(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -86,10 +86,12 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		w.SetCargo(out.AccountID, &cargo)
 		// Drain any pending donate web-shop grants (fetched in the same login
 		// round-trip) into the freshly-loaded cargo (issue #34); items land in the
-		// next free slot, or are lost when full.
+		// next free slot, or are lost when full. Encode AFTER the drain so the
+		// client vault cache includes freshly delivered items.
 		w.ApplyDeliveries(s, out.PendingDeliveries)
 		s.Mode = world.UserSelChar
-		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, d.selCharsFrom(out.Characters))
+		coin, cargoItems := d.cargoWire(w.Cargo(out.AccountID))
+		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, d.selCharsFrom(out.Characters), coin, cargoItems)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)
 	case world.LoginBadPassword:
 		d.fails[s.AccountName]++
@@ -105,6 +107,20 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	case world.LoginAlreadyPlaying:
 		w.Send(s, protocol.MsgAlreadyPlaying, nil)
 	}
+}
+
+func (d *Dispatcher) cargoWire(st *world.CargoState) (int32, [128]protocol.SelItem) {
+	var items [128]protocol.SelItem
+	if st == nil {
+		return 0, items
+	}
+	for i := range st.Items {
+		if i >= len(items) {
+			break
+		}
+		items[i] = itemToSel(st.Items[i])
+	}
+	return st.Coin, items
 }
 
 // selCharsFrom maps the dbServer character summaries to protocol.SelChar rows for
