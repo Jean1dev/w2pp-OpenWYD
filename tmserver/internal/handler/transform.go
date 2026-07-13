@@ -17,19 +17,20 @@ const affectTransform = 16
 
 // transBonus mirrors pTransBonus[5] (Basedef.cpp:759-767): per-beast min/max
 // percentages interpolated by the affect Level (the caster's Special at cast
-// time): multi = (max-min)*Level/200 + min. RunSpeed (Unk7)/AttackSpeed (Unk9)
-// are not modeled (movement/attack speed aren't server-enforced yet) and Unk17
-// only feeds the cosmetic EF_SANC glow — all deferred.
+// time): multi = (max-min)*Level/200 + min. Unk17 only feeds the cosmetic
+// EF_SANC glow, which is deliberately deferred until visual glow bits exist.
 var transBonus = [5]struct {
-	minDam, maxDam int32 // → DAMAGEMULTI (applied over the full damage)
-	minAC, maxAC   int32 // → AC multiplier
-	minHP, maxHP   int32 // → MaxHP multiplier
+	minDam, maxDam      int32 // → DAMAGEMULTI (applied over the full damage)
+	minAC, maxAC        int32 // → AC multiplier
+	minHP, maxHP        int32 // → MaxHP multiplier
+	runSpeed            int32 // → RunSpeedBonus
+	attackSpeed, glowAt int32 // → AttackSpeedBonus, EF_SANC threshold base
 }{
-	{110, 130, 95, 105, 95, 105},   // 0 Lobo (Wolf)
-	{80, 100, 100, 110, 110, 140},  // 1 Urso (Bear)
-	{100, 120, 105, 115, 100, 120}, // 2 Astaroth
-	{90, 110, 110, 125, 105, 110},  // 3 Titã
-	{105, 120, 110, 120, 105, 115}, // 4 Éden
+	{110, 130, 95, 105, 95, 105, 1, 20, 15},    // 0 Lobo (Wolf)
+	{80, 100, 100, 110, 110, 140, 0, 0, 60},    // 1 Urso (Bear)
+	{100, 120, 105, 115, 100, 120, 1, 20, 115}, // 2 Astaroth
+	{90, 110, 110, 125, 105, 110, 0, 20, 155},  // 3 Titã
+	{105, 120, 110, 120, 105, 115, 3, 20, 155}, // 4 Éden
 }
 
 // LearnedSkill bits gating the per-beast flat adds (Basedef.cpp:4112-4114).
@@ -80,32 +81,39 @@ func activeTransform(e *world.Entity) (value, level int, ok bool) {
 //   - Lobo's flat +10 Damage precedes the multiplier (Basedef.cpp:4176-4179)
 //     → AffDamage; its flat +5 AC follows it (Basedef.cpp:4190-4191) → plain add.
 //
-// The per-beast Critical adds are not modeled (crit is still client-supplied,
-// see combat.go DoubleCritical UNVERIFIED); RegAdd lands on the four resists —
-// that is what the legacy code does despite its "HP Regen" comments.
+// RegAdd lands on the four resists — that is what the legacy code does despite
+// its "HP Regen" comments.
 func applyTransformScore(e *world.Entity, af world.Affect) {
 	value := int(af.Value) - 1
 	if value < 0 || value >= len(transBonus) || e.Class != 2 {
 		return
 	}
-	var damAdd, hpAdd, acAdd, regAdd int32
+	var damAdd, hpAdd, acAdd, attAdd, regAdd int32
+	var criticalAdd int16
 	switch transMesh(value) {
 	case 22: // Lobo
 		if e.LearnedSkill&learnedWolf != 0 {
 			damAdd, hpAdd, acAdd = 10, 5, 3
+			criticalAdd = 5
 		}
 	case 23: // Urso
 		if e.LearnedSkill&learnedBear != 0 {
 			hpAdd, regAdd = 15, 40
+			attAdd = 40
 		}
 	case 24: // Astaroth
 		if e.LearnedSkill&learnedAstaroth != 0 {
 			damAdd, acAdd, hpAdd, regAdd = 10, 5, 5, 15
+			attAdd = 20
+			criticalAdd = 5
 		}
 	case 25: // Titã (no learned-skill gate)
 		hpAdd, acAdd = 5, 10
+		attAdd = 30
 	case 32: // Éden (no learned-skill gate)
 		damAdd, acAdd, hpAdd, regAdd = 10, 5, 10, 10
+		attAdd = 20
+		criticalAdd = 6
 	}
 	level := int32(af.Level)
 	b := transBonus[value]
@@ -128,4 +136,7 @@ func applyTransformScore(e *world.Entity, af world.Affect) {
 	for k := range e.AffResist {
 		e.AffResist[k] += int16(regAdd)
 	}
+	e.AffAttackSpeed += b.attackSpeed + attAdd
+	e.AffRunSpeed += b.runSpeed
+	e.AffCritical += criticalAdd
 }

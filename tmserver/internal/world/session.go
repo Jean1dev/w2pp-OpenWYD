@@ -30,6 +30,10 @@ type Session struct {
 	Trade             TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
 	LastAttackTick    uint32     // ClientTick of the last accepted attack (cadence gate)
 	LastAttack        int        // SkillIndex of the last attack
+	LastIllusionTick  uint32     // ClientTick of the last Huntress Ilusao movement
+	ReqHp             int32      // CUser.ReqHp: server-owned HP target for regen/potions
+	ReqMp             int32      // CUser.ReqMp: server-owned MP target for regen/potions
+	CriticalProgress  uint16     // CUser.cProgress used by BASE_GetDoubleCritical
 	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
 	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
@@ -72,21 +76,23 @@ type TradeState struct {
 // space. Phase 3 carries only the minimum; full STRUCT_MOB state arrives with
 // the handlers (Phase 4).
 type Entity struct {
-	ID     int
-	Mode   EntityMode
-	Name   string
-	X      int16
-	Y      int16
-	HP     int32
-	MaxHP  int32
-	MP     int32 // current mana (status display)
-	MaxMP  int32
-	Damage int32 // CurrentScore.Damage (attacker output, combat §4.3)
-	AC     int32 // CurrentScore.Ac (defender mitigation)
-	Master int   // weapon mastery (combat level)
-	Level  int32 // CurrentScore.Level (drop/exp curves)
-	Exp    int64 // STRUCT_MOB.Exp: players accumulate it; for a mob it's the kill reward
-	Coin   int32 // carried gold
+	ID       int
+	Mode     EntityMode
+	Name     string
+	X        int16
+	Y        int16
+	HP       int32
+	MaxHP    int32
+	MP       int32 // current mana (status display)
+	MaxMP    int32
+	Damage   int32 // CurrentScore.Damage (attacker output, combat §4.3)
+	AC       int32 // CurrentScore.Ac (defender mitigation)
+	Master   int   // weapon mastery (combat level)
+	Critical uint8 // MOB.Critical: rand()%255 threshold for partial critical
+	Parry    int   // CMob.Parry addend for GetParryRate
+	Level    int32 // CurrentScore.Level (drop/exp curves)
+	Exp      int64 // STRUCT_MOB.Exp: players accumulate it; for a mob it's the kill reward
+	Coin     int32 // carried gold
 
 	// Mob AI (mobai.go; only meaningful for monsters). Target is the current
 	// combat target's conn (0 = none); AtkTick is the mob's last-attack server
@@ -131,7 +137,17 @@ type Entity struct {
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
+	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
+	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
+	// hits, but it does NOT by itself blink the nickname.
+	// GuiltyUntil is the wall-clock deadline (Unix seconds) of the "chaotic" state
+	// set when a PvP hit actually lands (refreshed on every hit); the nickname
+	// blinks red while now < GuiltyUntil and reverts once it decays with no further
+	// PvP (handler.pkGuiltyDuration). Neither is persisted (session-only).
+	PKMode      bool
+	GuiltyUntil int64
 
 	Str        int16 // CurrentScore attributes (base + equipment, kept live by refreshScore)
 	Int        int16
@@ -145,14 +161,15 @@ type Entity struct {
 	// incremental (+2/level) and persisted. Magic scales caster skill damage;
 	// SaveMana discounts mana costs (source of both on players UNVERIFIED —
 	// zero until captured). Resist[4] feeds SkillResistScale (mobs: template).
-	LearnedSkill int32
-	SkillBonus   uint16
-	SpecialBonus uint16
-	BaseSpecial  [4]int16 // allocated mastery points (BaseScore.Special)
-	SkillBar     [4]uint8 // MOB.SkillBar (persisted with the character)
-	Magic        int16
-	SaveMana     int16
-	Resist       [4]int16
+	LearnedSkill    int32
+	SecLearnedSkill int32
+	SkillBonus      uint16
+	SpecialBonus    uint16
+	BaseSpecial     [4]int16 // allocated mastery points (BaseScore.Special)
+	SkillBar        [4]uint8 // MOB.SkillBar (persisted with the character)
+	Magic           int16
+	SaveMana        int16
+	Resist          [4]int16
 
 	// BaseScore: the equipment-free score (allocated attributes + level/class-derived
 	// AC/Damage/MaxHP/MaxMP). CurrentScore (the live fields above + AC/Damage/MaxHP/
@@ -185,15 +202,23 @@ type Entity struct {
 	// are cached the same way and applied at READ time (effective getters), so
 	// the persisted flat score never bakes a buff in (no double-count on
 	// re-login — same policy as HpAddPct/Divine).
-	Rsv         uint8
-	AffDamage   int32
-	AffAC       int32
-	AffMaxHP    int32
-	AffMaxMP    int32
-	AffCon      int16
-	AffSpecial  [4]int16
-	AffResist   [4]int16
-	AffExpBonus int32 // from affect type 39 (Baú de XP)
+	Rsv               uint8
+	AffDamage         int32
+	AffAC             int32
+	AffMaxHP          int32
+	AffMaxMP          int32
+	AffStr            int16
+	AffInt            int16
+	AffDex            int16
+	AffCon            int16
+	AffRunSpeed       int32
+	AffAttackSpeed    int32
+	AffCritical       int16
+	AffSpecial        [4]int16
+	AffResist         [4]int16
+	AffForceDamage    int32 // ForceDamage, e.g. Ligacao Espectral
+	AffForceMobDamage int32 // ForceMobDamage, e.g. Toxina da Serpente
+	AffExpBonus       int32 // from affect type 39 (Baú de XP)
 	// AffDamageMultiPct is the legacy DAMAGEMULTI percentage (100 = neutral): a
 	// READ-time damage multiplier applied over Damage+AffDamage but before
 	// WeaponDamage, exactly where Basedef.cpp:4654 multiplies CurrentScore.Damage.

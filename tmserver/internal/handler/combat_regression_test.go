@@ -111,11 +111,9 @@ func TestMeleeAlwaysDamagesMob(t *testing.T) {
 // unconditional "town safe zone" gate used to zero all melee/aggressive-skill
 // damage against a player standing inside one of the 5 city rectangles
 // (world.Village) — which includes every character's default spawn point
-// (world.CitySpawn). None of the legacy bypass conditions (PKMode, Guilty,
-// attribute-map bit, RvR/Castle/GTorre war state) are implemented, so that
-// gate could never correctly unblock itself and PvP damage silently never
-// landed wherever players actually gather to fight. Melee must land here
-// exactly like it does in the open field.
+// (world.CitySpawn). PKMode is modeled now, so the attacker still opts in; this
+// guard is specifically against reintroducing a coarse city-rectangle damage
+// block that prevents opted-in PvP near spawn.
 func TestMeleePvPDamageAppliesInCity(t *testing.T) {
 	db := newDB()
 	db.loadResult = world.CharacterState{
@@ -130,6 +128,7 @@ func TestMeleePvPDamageAppliesInCity(t *testing.T) {
 	target := enterWorld(t, addr) // conn 2 (target), in view
 	defer target.Close()
 
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
 	attackFrame(t, attacker, serverTime, 2, 0)
 
 	ty, payload, ok := readMaybe(t, target)

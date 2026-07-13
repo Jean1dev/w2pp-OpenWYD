@@ -99,3 +99,19 @@ func EncodeSetHpDam(hp, dam int32) []byte {
 	le.PutUint32(b[4:], uint32(dam))
 	return b
 }
+
+// setHpMpSize is MSG_SetHpMp (0x0181, G2C): HEADER + Hp + Mp + ReqHp + ReqMp =
+// 28 bytes (Basedef.h:2024). SendSetHpMp emits the player's current bars and
+// the server-owned request targets used by regen/potions.
+const setHpMpSize = 28
+
+// EncodeSetHpMp builds the MSG_SetHpMp body. Send with HEADER.ID = the player
+// conn.
+func EncodeSetHpMp(hp, mp, reqHp, reqMp int32) []byte {
+	b := make([]byte, setHpMpSize-HeaderSize)
+	le.PutUint32(b[0:], uint32(hp))
+	le.PutUint32(b[4:], uint32(mp))
+	le.PutUint32(b[8:], uint32(reqHp))
+	le.PutUint32(b[12:], uint32(reqMp))
+	return b
+}

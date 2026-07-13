@@ -57,6 +57,12 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 	if err != nil {
 		return world.LoginOutcome{}, err
 	}
+	// Fetch the donate web-shop mailbox (issue #34) in the same round-trip too,
+	// rather than a second loop re-entry after login completes. A fetch failure
+	// here is non-fatal to the login — the mailbox is simply retried next login.
+	if pending, err := c.ListPendingDeliveries(ctx, out.AccountID); err == nil {
+		out.PendingDeliveries = pending
+	}
 	return out, nil
 }
 
@@ -178,6 +184,36 @@ func (c *Client) SaveCargo(ctx context.Context, save world.CargoSave) error {
 	return nil
 }
 
+// ListPendingDeliveries fetches the account's pending item grants from the
+// delivery_queue mailbox (donate web shop, issue #34).
+func (c *Client) ListPendingDeliveries(ctx context.Context, accountID int64) ([]world.Delivery, error) {
+	resp, err := c.api.ListPendingDeliveries(ctx, &dbv1.ListPendingDeliveriesRequest{AccountId: accountID})
+	if err != nil {
+		return nil, fmt.Errorf("dbclient: list pending deliveries: %w", err)
+	}
+	out := make([]world.Delivery, 0, len(resp.GetDeliveries()))
+	for _, d := range resp.GetDeliveries() {
+		out = append(out, world.Delivery{ID: d.GetId(), Item: itemFromProto(d.GetItem())})
+	}
+	return out, nil
+}
+
+// SaveCargoWithDeliveries persists the cargo and acks the drained mailbox rows in
+// one dbServer transaction (the anti-dup boundary for the drain).
+func (c *Client) SaveCargoWithDeliveries(ctx context.Context, save world.CargoSave, deliveredIDs, lostIDs []int64) error {
+	_, err := c.api.SaveCargoWithDeliveries(ctx, &dbv1.SaveCargoWithDeliveriesRequest{
+		AccountId:    save.AccountID,
+		CargoCoin:    save.Coin,
+		Items:        savedItemsToProto(save.Items),
+		DeliveredIds: deliveredIDs,
+		LostIds:      lostIDs,
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: save cargo with deliveries: %w", err)
+	}
+	return nil
+}
+
 func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 	switch r {
 	case dbv1.LoginResult_LOGIN_RESULT_OK:
@@ -213,16 +249,18 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Coin:     c.GetCoin(),
 		Clan:     uint8(c.GetClan()),
 		GuildID:  uint16(c.GetGuildId()),
+		Soul:     uint8(c.GetSoul()),
 		Str:      int16(c.GetStr()),
 		Int:      int16(c.GetInt()),
 		Dex:      int16(c.GetDex()),
 		Con:      int16(c.GetCon()),
 		LastCity: int16(c.GetLastCity()),
 
-		ScoreBonus:   uint16(c.GetScoreBonus()),
-		SpecialBonus: uint16(c.GetSpecialBonus()),
-		LearnedSkill: c.GetLearnedSkill(),
-		Magic:        int16(c.GetMagic()),
+		ScoreBonus:      uint16(c.GetScoreBonus()),
+		SpecialBonus:    uint16(c.GetSpecialBonus()),
+		LearnedSkill:    c.GetLearnedSkill(),
+		SecLearnedSkill: c.GetSecLearnedSkill(),
+		Magic:           int16(c.GetMagic()),
 	}
 	for i, v := range c.GetSpecial() {
 		if i >= len(st.BaseSpecial) {
@@ -307,12 +345,14 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Carry:    savedItemsToProto(s.Carry),
 		Equip:    savedItemsToProto(s.Equip),
 
-		ScoreBonus:   int32(s.ScoreBonus),
-		SpecialBonus: int32(s.SpecialBonus),
-		LearnedSkill: s.LearnedSkill,
-		Special:      make([]int32, len(s.BaseSpecial)),
-		SkillBar:     make([]uint32, len(s.SkillBar)),
-		ShortSkill:   make([]uint32, len(s.ShortSkill)),
+		ScoreBonus:      int32(s.ScoreBonus),
+		SpecialBonus:    int32(s.SpecialBonus),
+		LearnedSkill:    s.LearnedSkill,
+		SecLearnedSkill: s.SecLearnedSkill,
+		Soul:            int32(s.Soul),
+		Special:         make([]int32, len(s.BaseSpecial)),
+		SkillBar:        make([]uint32, len(s.SkillBar)),
+		ShortSkill:      make([]uint32, len(s.ShortSkill)),
 	}
 	for i, v := range s.BaseSpecial {
 		c.Special[i] = int32(v)

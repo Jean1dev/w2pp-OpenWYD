@@ -44,13 +44,15 @@ type CharSummary struct {
 }
 
 // LoginOutcome is the result of an account-login attempt. On success it also
-// carries the account-shared cargo, loaded in the same backend round-trip as the
-// character list (it is account-scoped, so it is fetched once per account login).
+// carries the account-shared cargo and the pending donate web-shop mailbox
+// (issue #34), both loaded in the same backend round-trip as the character list
+// (they are account-scoped, so they are fetched once per account login).
 type LoginOutcome struct {
-	Result     LoginResult
-	AccountID  int64
-	Characters []CharSummary
-	Cargo      CargoState
+	Result            LoginResult
+	AccountID         int64
+	Characters        []CharSummary
+	Cargo             CargoState
+	PendingDeliveries []Delivery
 }
 
 // CargoState is the account-shared warehouse (the legacy STRUCT_ACCOUNTFILE
@@ -70,6 +72,14 @@ type CargoSave struct {
 	AccountID int64
 	Coin      int32
 	Items     []SavedItem
+}
+
+// Delivery is one pending grant the loop drains from the delivery_queue mailbox
+// into the account cargo (donate web shop, issue #34). ID is the queue row id,
+// acked once the item is applied (or lost when the cargo is full).
+type Delivery struct {
+	ID   int64
+	Item Item
 }
 
 // CharacterState is the minimum needed to inject a player into the world on
@@ -92,11 +102,13 @@ type CharacterState struct {
 	Damage      int32 // CurrentScore.Damage
 	AC          int32 // CurrentScore.Ac
 	Master      int   // weapon mastery
+	Critical    uint8
 	Coin        int32
 	Clan        uint8
 	GuildID     uint16
 	GuildLevel  uint8
 	ClassMaster uint8
+	Soul        uint8
 	Str         int16
 	Int         int16
 	Dex         int16
@@ -107,12 +119,13 @@ type CharacterState struct {
 	// Skill state (skills front). SkillBonus is not loaded from the DB — the
 	// login path re-derives it from Level and LearnedSkill, as the legacy
 	// BASE_GetBonusSkillPoint does on character load.
-	SpecialBonus uint16
-	LearnedSkill int32
-	Magic        int16
-	BaseSpecial  [4]int16 // allocated mastery points (BaseScore.Special)
-	SkillBar     [4]uint8
-	ShortSkill   [16]uint8
+	SpecialBonus    uint16
+	LearnedSkill    int32
+	SecLearnedSkill int32
+	Magic           int16
+	BaseSpecial     [4]int16 // allocated mastery points (BaseScore.Special)
+	SkillBar        [4]uint8
+	ShortSkill      [16]uint8
 
 	// Affects are the persisted buff slots (minus Divine, which travels as
 	// DivineEnd — its Time is a wall-clock deadline, not ticks).
@@ -161,13 +174,15 @@ type CharacterSave struct {
 	MaxMP     int32
 	DivineEnd int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
 
-	ScoreBonus   uint16
-	SpecialBonus uint16
-	LearnedSkill int32
-	BaseSpecial  [4]int16
-	SkillBar     [4]uint8
-	ShortSkill   [16]uint8
-	Affects      []Affect // active buff slots (minus Divine — see DivineEnd)
+	ScoreBonus      uint16
+	SpecialBonus    uint16
+	LearnedSkill    int32
+	SecLearnedSkill int32
+	Soul            uint8
+	BaseSpecial     [4]int16
+	SkillBar        [4]uint8
+	ShortSkill      [16]uint8
+	Affects         []Affect // active buff slots (minus Divine — see DivineEnd)
 
 	Carry []SavedItem
 	Equip []SavedItem
@@ -187,6 +202,13 @@ type Persistence interface {
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
 	LoadCargo(ctx context.Context, accountID int64) (CargoState, error)
 	SaveCargo(ctx context.Context, save CargoSave) error
+	// ListPendingDeliveries returns the account's pending item grants from the
+	// delivery_queue mailbox (issue #34). Called off the loop at login.
+	ListPendingDeliveries(ctx context.Context, accountID int64) ([]Delivery, error)
+	// SaveCargoWithDeliveries persists the cargo (replace-all) and marks the
+	// drained mailbox rows delivered/lost in one backend transaction — the anti-dup
+	// boundary for the drain.
+	SaveCargoWithDeliveries(ctx context.Context, save CargoSave, deliveredIDs, lostIDs []int64) error
 }
 
 // errNoPersistence is returned by NopPersistence for operations that need a DB.
@@ -232,3 +254,13 @@ func (NopPersistence) LoadCargo(context.Context, int64) (CargoState, error) {
 
 // SaveCargo drops the snapshot (no backend to persist to).
 func (NopPersistence) SaveCargo(context.Context, CargoSave) error { return nil }
+
+// ListPendingDeliveries returns no grants: without a backend there is no mailbox.
+func (NopPersistence) ListPendingDeliveries(context.Context, int64) ([]Delivery, error) {
+	return nil, nil
+}
+
+// SaveCargoWithDeliveries drops the snapshot (no backend to persist to).
+func (NopPersistence) SaveCargoWithDeliveries(context.Context, CargoSave, []int64, []int64) error {
+	return nil
+}

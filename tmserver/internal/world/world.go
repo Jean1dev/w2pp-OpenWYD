@@ -295,7 +295,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	if e == nil {
 		return cs
 	}
-	cs.Clan, cs.GuildID = e.Clan, e.Guild
+	cs.Clan, cs.GuildID, cs.Soul = e.Clan, e.Guild, e.Soul
 	cs.LastCity = e.LastCity
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
@@ -303,7 +303,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.MP, cs.MaxMP = e.MP, e.MaxMP
 	cs.DivineEnd = e.DivineEnd // 0 once the buff has expired (cleared by the tick sweep)
 	cs.ScoreBonus, cs.SpecialBonus = e.ScoreBonus, e.SpecialBonus
-	cs.LearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.BaseSpecial
+	cs.LearnedSkill, cs.SecLearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.SecLearnedSkill, e.BaseSpecial
 	cs.SkillBar, cs.ShortSkill = e.SkillBar, s.ShortSkill
 	for _, a := range e.Affect {
 		// Divine persists separately as the wall-clock DivineEnd; empty slots drop.
@@ -353,6 +353,47 @@ func (w *World) SetCargo(accountID int64, st *CargoState) {
 	}
 	st.AccountID = accountID
 	w.cargo[accountID] = st
+}
+
+// ApplyDeliveries places the account's already-fetched pending delivery_queue
+// grants (donate web shop, issue #34) into its cargo. pending is loaded in the
+// same off-loop round-trip as the account login itself (dbclient.AccountLogin),
+// so draining the mailbox costs no extra backend round-trip. Called from the loop
+// right after the cargo is installed at login: places each item in the next free
+// cargo slot (lost when the cargo is full) and persists the cargo + acks the
+// queue rows in one backend transaction, off the loop. Loop-only.
+func (w *World) ApplyDeliveries(s *Session, pending []Delivery) {
+	if s == nil || s.AccountID == 0 || len(pending) == 0 {
+		return
+	}
+	accountID := s.AccountID
+	cargo := w.cargo[accountID]
+	if cargo == nil {
+		return
+	}
+	var deliveredIDs, lostIDs []int64
+	for _, d := range pending {
+		if w.AddToCargo(cargo, d.Item) >= 0 {
+			deliveredIDs = append(deliveredIDs, d.ID)
+		} else {
+			lostIDs = append(lostIDs, d.ID)
+		}
+	}
+	if len(lostIDs) > 0 {
+		w.log.Warn("donate deliveries lost: cargo full", "account", accountID, "count", len(lostIDs))
+	}
+	w.log.Info("drained donate deliveries", "account", accountID, "delivered", len(deliveredIDs), "lost", len(lostIDs))
+
+	cs := w.cargoSave(accountID)
+	p := w.persist
+	w.Go(s, func() func(*World, *Session) {
+		e := p.SaveCargoWithDeliveries(context.Background(), cs, deliveredIDs, lostIDs)
+		return func(w *World, _ *Session) {
+			if e != nil {
+				w.log.Warn("save cargo with deliveries failed", "account", accountID, "err", e)
+			}
+		}
+	})
 }
 
 // cargoSave snapshots an account's warehouse into a CargoSave. Loop-only.

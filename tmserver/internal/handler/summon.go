@@ -38,11 +38,11 @@ const (
 	summonLeash     = 20
 )
 
-// summonBonus is pSummonBonus[0..7] (Basedef.cpp:745-756), the owner-scaling
-// percentages of the 8 BM evocations: each stat gains Int*int/100 + Evo*evo/100
-// on top of the BaseSummon template (Server.cpp:3073-3086; Evo = Evocação =
-// Special[2]).
-var summonBonus = [8]struct {
+// summonBonus is pSummonBonus[0..8] (Basedef.cpp:745-756), the owner-scaling
+// percentages of the 8 BM evocations plus the zeroed value-9 template used by
+// Invocação Final: each stat gains Int*int/100 + Evo*evo/100 on top of the
+// BaseSummon template (Server.cpp:3073-3086; Evo = Evocação = Special[2]).
+var summonBonus = [9]struct {
 	damInt, damEvo int32
 	acInt, acEvo   int32
 	hpInt, hpEvo   int32
@@ -55,6 +55,7 @@ var summonBonus = [8]struct {
 	{80, 450, 50, 250, 175, 400},  // 5 Gorila
 	{100, 500, 50, 250, 174, 400}, // 6 Dragão Negro
 	{130, 250, 60, 200, 180, 250}, // 7 Succubus
+	{0, 0, 0, 0, 0, 0},            // 8 Porco/Invocação Final: no owner scaling
 }
 
 // summonCount is the evocation head-count rule (_MSG_Attack.cpp:817-828):
@@ -68,41 +69,52 @@ func summonCount(instanceValue, evocacao int) int {
 		return evocacao / 40
 	case 6, 7:
 		return evocacao / 80
-	case 8:
+	case 8, 9:
 		return 1
 	}
 	return 0
 }
 
-// freeCellNear scans the rings around (x,y) for an unoccupied, walkable cell —
-// the GetEmptyMobGrid stand-in. The scan order is a deterministic fixed spiral
-// (UNVERIFIED vs the original's order; deliberately consumes no RNG so the
-// attack flow's rand-call parity is preserved). Returns ok=false when the three
-// rings are all blocked.
+// freeCellNear scans the rings around (x,y) for an unoccupied, walkable cell,
+// matching GetEmptyMobGrid's 1..4 square expansion order. It deliberately
+// consumes no RNG so the attack flow's rand-call parity is preserved.
 func (d *Dispatcher) freeCellNear(w *world.World, x, y int16) (int16, int16, bool) {
-	for ring := 1; ring <= 3; ring++ {
+	for ring := 1; ring <= 4; ring++ {
 		for dy := -ring; dy <= ring; dy++ {
 			for dx := -ring; dx <= ring; dx++ {
 				if abs16(int16(dx)) != ring && abs16(int16(dy)) != ring {
 					continue // interior cell: already scanned on a smaller ring
 				}
 				nx, ny := x+int16(dx), y+int16(dy)
-				if _, occupied := w.EntityAt(nx, ny); occupied {
-					continue
+				if d.cellAvailable(w, nx, ny) {
+					return nx, ny, true
 				}
-				// The baked grid marks impassable cells with route.Blocked (127);
-				// fine-grained slope checks stay with the walker (route.Next).
-				if d.heights != nil && d.heights.At(int(nx), int(ny)) == route.Blocked {
-					continue
-				}
-				return nx, ny, true
 			}
 		}
 	}
 	return 0, 0, false
 }
 
-// generateSummon ports GenerateSummon (Server.cpp:2956) for the BM evocations
+func (d *Dispatcher) freeCellAtOrNear(w *world.World, x, y int16) (int16, int16, bool) {
+	if d.cellAvailable(w, x, y) {
+		return x, y, true
+	}
+	return d.freeCellNear(w, x, y)
+}
+
+func (d *Dispatcher) cellAvailable(w *world.World, x, y int16) bool {
+	if x < 0 || y < 0 || int(x) >= w.GridDim() || int(y) >= w.GridDim() {
+		return false
+	}
+	if _, occupied := w.EntityAt(x, y); occupied {
+		return false
+	}
+	// The baked grid marks impassable cells with route.Blocked (127); fine-grained
+	// slope checks stay with the walker (route.Next).
+	return d.heights == nil || d.heights.At(int(x), int(y)) != route.Blocked
+}
+
+// generateSummon ports GenerateSummon (Server.cpp:2956) for the evocations
 // (no sItem/mount path): spawn count copies of template summonID around the
 // caster, bound to it. Returns false when NOTHING was spawned (the cast then
 // refunds its mana, _MSG_Attack.cpp:830-834). Partial success is true.
@@ -112,7 +124,7 @@ func (d *Dispatcher) freeCellNear(w *world.World, x, y int16) (int16, int16, boo
 // yet; the summon still occupies a leader PartyList slot, which is what the
 // group-combat drag and the cleanup need.
 func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.Entity, summonID, count int) bool {
-	if count <= 0 || summonID < 0 || summonID >= len(d.summonMobs) || d.summonMobs[summonID] == nil {
+	if count <= 0 || summonID < 0 || summonID >= len(d.summonMobs) || summonID >= len(summonBonus) || d.summonMobs[summonID] == nil {
 		return false
 	}
 	leaderID := e.Leader
@@ -123,9 +135,27 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 	if le == nil {
 		return false
 	}
+	face := summonTemplateFace(d.summonMobs[summonID])
+	existing := 0
+	for _, memberID := range le.PartyList {
+		if memberID < world.MaxUser {
+			continue
+		}
+		pet := w.Entity(memberID)
+		if pet == nil || pet.Clan != summonClan {
+			continue
+		}
+		if pet.EquipVisual[0] != face {
+			return false
+		}
+		existing++
+	}
+	if existing >= count {
+		return false
+	}
 	bonus := summonBonus[summonID]
 	spawned := 0
-	for i := 0; i < count; i++ {
+	for i := existing; i < count; i++ {
 		slot := -1
 		for j := range le.PartyList {
 			if le.PartyList[j] == 0 {
@@ -163,6 +193,10 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		mob.Summoner = s.Conn
 		mob.Affect[0] = world.Affect{Type: affectSummonLife, Time: summonLifeTicks}
 		le.PartyList[slot] = id
+		if spawned == 0 {
+			d.sendAddParty(w, leaderID, leaderID, 0)
+		}
+		d.sendSummonPartySlot(w, leaderID, id, slot+1)
 
 		// Reveal with CreateType|=3 (the summon-appear effect, Server.cpp:3210-3218).
 		body := protocol.EncodeCreateMobBody(createMobFrom(mob, 3))
@@ -174,6 +208,30 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		spawned++
 	}
 	return spawned > 0
+}
+
+func summonTemplateFace(template []byte) uint16 {
+	eq := protocol.MobEquip(template)
+	return eq[0].Index
+}
+
+func (d *Dispatcher) sendSummonPartySlot(w *world.World, leaderID, summonID, slot int) {
+	sent := map[int]bool{}
+	send := func(recipientID int) {
+		if sent[recipientID] {
+			return
+		}
+		sent[recipientID] = true
+		d.sendAddParty(w, recipientID, summonID, slot)
+	}
+	send(leaderID)
+	if leader := w.Entity(leaderID); leader != nil {
+		for _, memberID := range leader.PartyList {
+			if memberID > 0 && world.IsPlayer(memberID) {
+				send(memberID)
+			}
+		}
+	}
 }
 
 // summonTick replaces the regular mob AI for a summoned pet (the RouteType-5

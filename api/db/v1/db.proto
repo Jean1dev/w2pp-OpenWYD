@@ -30,6 +30,15 @@ service AccountService {
   rpc LoadCargo(LoadCargoRequest) returns (LoadCargoResponse);
   // SaveCargo persists the account-shared cargo gold + items (replace-all).
   rpc SaveCargo(SaveCargoRequest) returns (SaveCargoResponse);
+  // ListPendingDeliveries returns the account's pending item grants from the
+  // delivery_queue mailbox (donate web shop, issue #34). tmServer drains them
+  // into the account cargo inside its loop at login, then acks the outcome via
+  // SaveCargoWithDeliveries.
+  rpc ListPendingDeliveries(ListPendingDeliveriesRequest) returns (ListPendingDeliveriesResponse);
+  // SaveCargoWithDeliveries persists the cargo (replace-all, like SaveCargo) and
+  // marks the drained mailbox rows delivered/lost in the SAME transaction — the
+  // anti-dup boundary for the drain (web-platform-plan.md §mailbox).
+  rpc SaveCargoWithDeliveries(SaveCargoWithDeliveriesRequest) returns (SaveCargoResponse);
 }
 
 enum LoginResult {
@@ -114,6 +123,8 @@ message Character {
   repeated int32 special = 25;     // BaseScore.Special[4] (allocated mastery)
   repeated uint32 skill_bar = 26;  // MOB.SkillBar[4]
   repeated uint32 short_skill = 27; // CUser.ShortSkill[16] (client hotbar)
+  int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
+  int32 soul = 29;                 // MobExtra.Soul
 }
 
 message Item {
@@ -177,6 +188,24 @@ message SaveCargoRequest {
   repeated Item items = 3;
 }
 message SaveCargoResponse { bool ok = 1; }
+
+// Delivery is one pending grant from the delivery_queue mailbox (issue #34). For
+// an item grant, item.slot is unused — the drain assigns the next free cargo slot
+// (or loses the item when the cargo is full).
+message Delivery {
+  int64 id = 1;
+  Item item = 2;
+}
+message ListPendingDeliveriesRequest { int64 account_id = 1; }
+message ListPendingDeliveriesResponse { repeated Delivery deliveries = 1; }
+
+message SaveCargoWithDeliveriesRequest {
+  int64 account_id = 1;
+  int32 cargo_coin = 2;
+  repeated Item items = 3;
+  repeated int64 delivered_ids = 4; // rows applied to the cargo
+  repeated int64 lost_ids = 5;      // rows dropped (cargo was full)
+}
 
 // NpcConfigService serves the moderator-editable NPC configuration to tmServer
 // (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes

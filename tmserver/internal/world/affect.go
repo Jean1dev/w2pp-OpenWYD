@@ -48,7 +48,9 @@ func (e *Entity) ResetAffects() {
 	e.Affect = [MaxAffect]Affect{}
 	e.DivineEnd = 0
 	e.Rsv = 0
-	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffCon, e.AffExpBonus = 0, 0, 0, 0, 0, 0
+	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffRunSpeed, e.AffAttackSpeed, e.AffExpBonus = 0, 0, 0, 0, 0, 0, 0
+	e.AffStr, e.AffInt, e.AffDex, e.AffCon, e.AffCritical = 0, 0, 0, 0, 0
+	e.AffForceDamage, e.AffForceMobDamage = 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
 	e.AffDamageMultiPct = 100
@@ -81,6 +83,17 @@ func (e *Entity) ClearAffect(t uint8) {
 			e.Affect[i] = Affect{}
 		}
 	}
+}
+
+// ClearFirstAffect removes the first slot holding affect type t.
+func (e *Entity) ClearFirstAffect(t uint8) bool {
+	for i := range e.Affect {
+		if e.Affect[i].Type == t {
+			e.Affect[i] = Affect{}
+			return true
+		}
+	}
+	return false
 }
 
 // Rsv state flags (Basedef.h:244-251) — recomputed from the active affects by

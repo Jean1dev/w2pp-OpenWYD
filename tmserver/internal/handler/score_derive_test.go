@@ -105,6 +105,19 @@ func TestTKClassWeaponDamage(t *testing.T) {
 	}
 }
 
+func TestHuntressShadowProtectionUsesTreeThree(t *testing.T) {
+	e := &world.Entity{Class: 3, LearnedSkill: 1 << 23}
+	e.Special[2] = 300
+	e.Special[3] = 90
+
+	if got := skillDerivedACBonus(e, 100); got != 40 {
+		t.Fatalf("skillDerivedACBonus = %d, want Special[3]/3+10 = 40", got)
+	}
+	if got := invertSkillACBonus(e, 140); got != 100 {
+		t.Fatalf("invertSkillACBonus = %d, want 100", got)
+	}
+}
+
 func TestApplyBonusScoreIncreasesDamage(t *testing.T) {
 	db := newDB()
 	flat := int32(50)

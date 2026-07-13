@@ -181,3 +181,48 @@ func removeMember(leader *world.Entity, conn int) {
 		}
 	}
 }
+
+func (d *Dispatcher) sendAddParty(w *world.World, recipientID, entryID, partyPos int) {
+	if recipientID <= 0 || recipientID >= world.MaxUser {
+		return
+	}
+	rs := w.Session(recipientID)
+	entry := w.Entity(entryID)
+	if rs == nil || rs.Mode != world.UserPlay || entry == nil {
+		return
+	}
+	leaderConn := uint16(30000)
+	if partyPos == 0 {
+		leaderConn = uint16(entryID)
+	}
+	body := protocol.MsgCNFAddPartyBody{
+		LeaderConn: leaderConn,
+		Level:      uint16(clampPartyWire(entry.Level)),
+		MaxHP:      uint16(partyHPWire(effectiveMaxHP(entry))),
+		HP:         uint16(partyHPWire(entry.HP)),
+		PartyID:    uint16(entryID),
+		Target:     52428,
+	}
+	copy(body.MobName[:], entry.Name)
+	w.SendTo(rs, protocol.Header{Type: protocol.MsgCNFAddParty, ID: protocol.IDScene}, body.Encode())
+}
+
+func partyHPWire(v int32) int32 {
+	if v < 0 {
+		return 0
+	}
+	if v > 32000 {
+		v = (v + 1) / 100
+	}
+	return clampPartyWire(v)
+}
+
+func clampPartyWire(v int32) int32 {
+	if v < 0 {
+		return 0
+	}
+	if v > 0xFFFF {
+		return 0xFFFF
+	}
+	return v
+}

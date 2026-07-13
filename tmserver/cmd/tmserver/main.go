@@ -178,6 +178,7 @@ func run(logger *slog.Logger) error {
 	var statusFile string
 	var baseMobs map[int][]byte
 	var summonMobs [][]byte
+	var vineMob []byte
 	if *contentDir != "" {
 		statusFile = filepath.Join(*contentDir, "Common", "serv00.htm")
 		if bm, err := content.LoadBaseMobs(*contentDir); err != nil {
@@ -194,6 +195,14 @@ func run(logger *slog.Logger) error {
 				logger.Warn("optional summon templates missing", "names", missing)
 			}
 			logger.Info("base summon templates loaded", "count", len(summonMobs)-len(missing))
+		}
+		// Muro de Espinhos is CreateMob("Vinha", ..., "Boss", 3) in the C++,
+		// but the shipped Linux content tree carries the wall template as npc/Vine.
+		if vm, err := content.LoadNPCTemplate(*contentDir, "Vine"); err != nil {
+			logger.Warn("vine template not loaded (skill 98 cannot create Muro de Espinhos)", "err", err)
+		} else {
+			vineMob = vm
+			logger.Info("vine template loaded")
 		}
 	}
 
@@ -215,7 +224,7 @@ func run(logger *slog.Logger) error {
 	}
 
 	dispatch := handler.New(handler.Config{
-		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
+		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, Spells: spells, Heights: heights,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		CombineFamilies: combineFamilies,

@@ -252,9 +252,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.SetEntityPos(s.Conn, loginX, loginY)
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.MP, e.MaxMP = st.MP, st.MaxMP
-		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
+		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
-		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
+		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster, st.Soul
 		// Every character is MORTAL (=2, Basedef.h:238) until the ARCH/CELESTIAL
 		// promotions are modeled; the dbServer contract doesn't carry ClassMaster
 		// yet (dbclient leaves it 0), and 0 would route the EXP formula onto the
@@ -267,7 +267,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned
 		// costs (BASE_GetBonusSkillPoint on character load, ProcessDBMessage.cpp:816).
-		e.LearnedSkill, e.SpecialBonus = st.LearnedSkill, st.SpecialBonus
+		e.LearnedSkill, e.SecLearnedSkill, e.SpecialBonus = st.LearnedSkill, st.SecLearnedSkill, st.SpecialBonus
 		e.BaseSpecial, e.SkillBar, e.Magic = st.BaseSpecial, st.SkillBar, st.Magic
 		s.ShortSkill = st.ShortSkill
 		d.deriveSkillBonus(e)
@@ -300,6 +300,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// the live Special (= BaseSpecial + gear) and the affect caches, which are
 		// not persisted.
 		d.refreshScore(e)
+		s.ReqHp, s.ReqMp = e.HP, e.MP
+		s.CriticalProgress = 0
 		// Visual gear codes from the character's REAL equipment, so others (and the
 		// own client, via UpdateEquip) see what is actually equipped — not the class
 		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
@@ -311,12 +313,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// the live Special (base + equip) is on the Entity after refreshScore-on-login
 	// hasn't run yet, so send base+equip via the entity when available.
 	var skill protocol.SkillState
+	loginPKPoint := pkPointNeutral // MobName[12] for the own nick: 75 = white (fresh char is never guilty)
 	if e := w.Entity(s.Conn); e != nil {
 		skill = protocol.SkillState{
 			LearnedSkill: e.LearnedSkill,
 			ScoreBonus:   e.ScoreBonus, SpecialBonus: e.SpecialBonus, SkillBonus: e.SkillBonus,
 			Special: e.Special, BaseSpecial: e.BaseSpecial, SkillBar: e.SkillBar,
 		}
+		loginPKPoint = pkPoint(e)
 	}
 	shortSkill := s.ShortSkill
 	// Prefer the per-class BaseMob template (real STRUCT_MOB with starter equipment
@@ -333,7 +337,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, loginX, loginY, saveX, saveY, s.Slot, s.Conn, 0, shortSkill, skill)
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, loginX, loginY, saveX, saveY, s.Slot, s.Conn, 0, shortSkill, skill, loginPKPoint)
 		d.logCNFCharacterLogin("template", s, st, loginX, loginY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
@@ -359,6 +363,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
 		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
 		AttackRun:  baseAttackRun,
+		PKPoint:    loginPKPoint, // MobName[12]: 75 = white nick (issue #59)
 		ScoreBonus: st.ScoreBonus, GuildLevel: st.GuildLevel,
 		LearnedSkill: skill.LearnedSkill, SpecialBonus: skill.SpecialBonus,
 		SkillBonus: skill.SkillBonus, Special: skill.Special, SkillBar: skill.SkillBar,
@@ -434,14 +439,23 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
 	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
+	// Send the newcomer its OWN CreateMob (the legacy GridMulticast has skip=0, so
+	// the conn — already in the grid — receives its own, ProcessDBMessage.cpp:1029).
+	// This is what colors the player's OWN nick via MobName[12] (PKPoint): without
+	// it the own nick renders forever from the login blob and can't recolor. PKInfo
+	// (attackable flag) rides along for parity (SendPKInfo, SendFunc.cpp:1869).
+	w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, selfMob)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
 		// (A) other players see the newcomer
 		w.MarkSeen(vs, s.Conn)
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, selfMob)
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 		// (B) the newcomer sees each player already in view
 		w.MarkSeen(s, ve.ID)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
 			protocol.EncodeCreateMobBody(createMobFrom(ve, 0)))
+		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(pkInfoParm(ve)))
 	})
 	// (C) the newcomer sees the NPCs/monsters in view.
 	d.revealMobsInView(w, s)
@@ -473,14 +487,30 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Level:           e.Level,
 		Ac:              e.AC,
 		Damage:          e.Damage,
-		MaxHp:           e.MaxHP,
-		Hp:              e.HP,
-		Str:             e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
+		// HP/MP must match the authoritative score (effective max incl. HP/MP% gear):
+		// the self-CreateMob now drives the player's own bars, so a missing MaxMp/Mp
+		// zeroed the client's MP (regression from adding the login self-CreateMob).
+		MaxHp: effectiveMaxHP(e), Hp: e.HP,
+		MaxMp: effectiveMaxMP(e), Mp: e.MP,
+		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
 		Merchant:   e.Merchant,
 		AttackRun:  attackRunOf(e),
 		Equip:      e.EquipVisual,
 		CreateType: createType,
+		// Players pack PKPoint into MobName[12] to color the nick (75 neutral/white,
+		// 0 chaos/red); mobs send a raw name with no PK coloring.
+		IsPlayer: world.IsPlayer(e.ID),
+		PKPoint:  playerPKPoint(e),
 	}
+}
+
+// playerPKPoint is pkPoint(e) for a player, or 0 for a mob (mobs never carry PK
+// coloring and their MobName is sent raw, so the value is ignored anyway).
+func playerPKPoint(e *world.Entity) uint8 {
+	if !world.IsPlayer(e.ID) {
+		return 0
+	}
+	return pkPoint(e)
 }
 
 // characterLogout handles _MSG_CharacterLogout (0x0215): return to the selection
@@ -526,8 +556,8 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 // UNVERIFIED / deferred: the original's per-clan capital-region destinations
 // (clan 7/8 coordinate boxes) and the exact DoRecall save-point logic are not
 // reproduced — we recall to the last-city default spawn. The dedicated
-// _MSG_SetHpMp (0x0181, 129B) packet has an unconfirmed layout, so the HP/MP
-// refresh rides on _MSG_UpdateScore (which carries CurrHp/CurrMp) instead.
+// _MSG_SetHpMp (0x0181) carries the HP/MP request targets; send it after the
+// score refresh so the client bars snap to the post-restart state.
 func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	if s.Mode != world.UserPlay {
 		return
@@ -539,6 +569,9 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 	e.HP = 2         // revive (CurrentScore.Hp = 2)
 	s.CrackError = 0 // NumError = 0
 	d.sendScore(w, s, e)
+	s.ReqHp = e.HP
+	setReqMp(s, e)
+	d.sendSetHpMp(w, s, e)
 
 	d.recall(w, s, e)
 	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)

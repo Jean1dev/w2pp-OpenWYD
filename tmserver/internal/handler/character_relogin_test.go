@@ -103,6 +103,63 @@ func TestAffectsDoNotLeakAcrossCharacters(t *testing.T) {
 	}
 }
 
+// TestSkillStatePersistsRoundTrip: the skill-bar/hotbar and allocated mastery
+// survive save→reload, and — critically — an ACTIVE derived buff must not
+// contaminate the persisted base score. The character carries a live +CON buff
+// (Type 14) and a live +Special buff (Type 15); those raise the EFFECTIVE stats
+// at read time but the save must still carry the untouched base Con and
+// BaseSpecial (buffs are recomputed on login, never baked in — CLAUDE.md's
+// single-owner/effective-getter invariant).
+func TestSkillStatePersistsRoundTrip(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 50,
+		Con:         70,
+		BaseSpecial: [4]int16{10, 20, 30, 40},
+		SkillBar:    [4]uint8{1, 2, 3, 4},
+		ShortSkill:  [16]uint8{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11, 12, 13, 14, 15, 16},
+		Affects: []world.Affect{
+			{Type: 14, Value: 20, Level: 100, Time: 140}, // +CON derived
+			{Type: 15, Value: 5, Level: 100, Time: 140},  // +Special derived
+		},
+	}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	for {
+		if ty, _ := read(t, c); ty == protocol.MsgCNFCharacterLogout {
+			break
+		}
+	}
+
+	save, n := db.lastSavedChar()
+	if n != 1 {
+		t.Fatalf("saves = %d, want 1", n)
+	}
+	// Hotbar/skillbar round-trip exactly.
+	if save.SkillBar != [4]uint8{1, 2, 3, 4} {
+		t.Errorf("SkillBar = %v, want [1 2 3 4]", save.SkillBar)
+	}
+	if save.ShortSkill != [16]uint8{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11, 12, 13, 14, 15, 16} {
+		t.Errorf("ShortSkill = %v, want the loaded hotbar", save.ShortSkill)
+	}
+	// The live buffs really applied (otherwise the no-contamination check below is
+	// vacuous): both slots persist.
+	if !hasSavedAffect(save.Affects, 14) || !hasSavedAffect(save.Affects, 15) {
+		t.Fatalf("save affects = %+v, want the live +CON (14) and +Special (15) buffs", save.Affects)
+	}
+	// No double-count: the derived buffs did NOT bleed into the persisted base.
+	if save.BaseSpecial != [4]int16{10, 20, 30, 40} {
+		t.Errorf("BaseSpecial = %v, want [10 20 30 40] (Type-15 buff leaked into base)", save.BaseSpecial)
+	}
+	if save.Con != 70 {
+		t.Errorf("Con = %d, want 70 (Type-14 buff leaked into base Con)", save.Con)
+	}
+}
+
 func hasSavedAffect(affects []world.Affect, typ uint8) bool {
 	for _, a := range affects {
 		if a.Type == typ {

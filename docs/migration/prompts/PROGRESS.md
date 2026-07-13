@@ -106,7 +106,7 @@ Docker, alvo canônico). Layout por serviço: `tmserver/`, `dbserver/`, `binserv
   `ACCOUNTINFO` diferente, space-padded). `TestRealAntonioSample` faz Skip. Reverter por build de
   referência antes de migrar contas legadas.
 - **Largura de `time_t`**: premissa = 8 B (base de 552/56/7952). Confirmar no build de referência.
-- **Internos de `STRUCT_MOBEXTRA`** (Fame/Soul/SecLearnedSkill/donate/quests): preservados crus.
+- **Internos de `STRUCT_MOBEXTRA`**: `SecLearnedSkill` e `Soul` decodificados/persistidos; Fame, donate/NT e quests ainda preservados crus.
 
 ### Testes que dependem de infra
 - `internal/store/store_integration_test.go` (`//go:build integration`): requer PostgreSQL real;

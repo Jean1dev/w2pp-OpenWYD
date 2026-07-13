@@ -25,11 +25,9 @@ const (
 // uses) and runs the GridMulticast view reconciliation (moveMulticast), which
 // forwards the raw frame — preserving its Type — to old∪new view windows.
 //
-// UNVERIFIED / deferred (not reproduced here): Action3's Skill Ilusão gate
-// (Class==3 + LearnedSkill&2 + MP cost), the Speed clamp vs AttackRun&0xF
-// (AttackRun not modeled; legacy clamps and continues), the >VIEWGRID jump
-// correction (GetAction + crack(1,5)) and the occupied-target-cell reroute
-// (GetEmptyMobGrid/BASE_GetRoute).
+// UNVERIFIED / deferred (not reproduced here): Speed clamp vs AttackRun&0xF
+// (legacy clamps and continues), the >VIEWGRID jump correction (GetAction +
+// crack(1,5)) and the occupied-target-cell reroute (GetEmptyMobGrid/BASE_GetRoute).
 func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
 		return // SendHpMode in the original; no world effect
@@ -46,6 +44,9 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	}
 	var body protocol.MsgActionBody
 	if err := body.Decode(payload); err != nil {
+		return
+	}
+	if h.Type == protocol.MsgAction3 && !d.consumeIllusion(w, s, e, h.ClientTick) {
 		return
 	}
 	if !s.LoggedFirstAction {
@@ -113,6 +114,32 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 }
 
 func outOfBounds(v, dim int16) bool { return v < 0 || v >= dim }
+
+func (d *Dispatcher) consumeIllusion(w *world.World, s *world.Session, e *world.Entity, tick uint32) bool {
+	if e.Class != 3 || e.LearnedSkill&2 == 0 {
+		w.AddCrackError(s, 10, 28)
+		return false
+	}
+	mana := 45
+	if d.spells != nil {
+		if sp, ok := d.spells.Get(73); ok {
+			mana = sp.ManaSpent
+		}
+	}
+	if e.MP < int32(mana) {
+		d.sendSetHpMp(w, s, e)
+		return false
+	}
+	e.MP -= int32(mana)
+	s.ReqMp -= int32(mana)
+	setReqMp(s, e)
+	if tick != protocol.SkipCheckTick && s.LastIllusionTick != protocol.SkipCheckTick && tick < s.LastIllusionTick+900 {
+		w.AddCrackError(s, 1, 105)
+		return false
+	}
+	s.LastIllusionTick = tick
+	return true
+}
 
 func (d *Dispatcher) dropBootAutoWalk(w *world.World, s *world.Session, e *world.Entity, h protocol.Header, body protocol.MsgActionBody) bool {
 	if h.Type != protocol.MsgAction || body.Effect != 0 || body.Speed != int32(attackRunOf(e)&0x0F) {
@@ -246,9 +273,8 @@ func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Head
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
 			protocol.EncodeCreateMobBody(createMobFrom(target, 1)))
 		if id < world.MaxUser {
-			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869);
-			// Parm=0 — PK/war state not modeled yet.
-			w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(id)}, protocol.EncodeStandardParm(0))
+			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869).
+			w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(id)}, protocol.EncodeStandardParm(pkInfoParm(target)))
 		}
 	} else {
 		w.SendTo(s, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}, protocol.EncodeRemoveMobBody(0))

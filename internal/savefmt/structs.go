@@ -1,5 +1,7 @@
 package savefmt
 
+import "encoding/binary"
+
 // Effect is one of the three effect/value pairs in a STRUCT_ITEM
 // (data-formats.md §1.5, Basedef.h:500-522).
 type Effect struct {
@@ -121,21 +123,35 @@ type Quest struct {
 // (citizenship, fame, soul, quest progress, donate; data-formats.md §1.5,
 // Basedef.h:620-733).
 //
-// UNVERIFIED: the internal field layout is only loosely documented (§1.5 padding
-// arithmetic is self-inconsistent), so the whole 552-byte block is preserved
-// verbatim in Raw for byte-exact round-trip, and only the two leading bytes —
-// ClassMaster@0 and Citizen@1 — are exposed via accessors. The remaining fields
-// (SecLearnedSkill, Fame, Soul, donate/NT, quest progress) must be confirmed by
-// a reference build/capture before being decoded individually.
+// The leading scalar block is laid out by MSVC x86 natural alignment:
+// ClassMaster@0, Citizen@2, SecLearnedSkill@4, Fame@8, Soul@12 and
+// MortalFace@14. The rest of the 552-byte block remains raw until the quest and
+// donate/NT sub-structures are fully verified.
 type MobExtra struct {
 	Raw [MobExtraSize]byte
 }
 
-// ClassMaster returns the verified ClassMaster byte (offset 0).
+// ClassMaster returns the low byte of ClassMaster (offset 0).
 func (m MobExtra) ClassMaster() uint8 { return m.Raw[0] }
 
-// Citizen returns the verified Citizen byte (offset 1).
-func (m MobExtra) Citizen() uint8 { return m.Raw[1] }
+// Citizen returns the Citizen byte (offset 2).
+func (m MobExtra) Citizen() uint8 { return m.Raw[2] }
+
+// SecLearnedSkill returns the secondary learned-skill bitmask (offset 4).
+func (m MobExtra) SecLearnedSkill() int32 {
+	return int32(binary.LittleEndian.Uint32(m.Raw[4:8]))
+}
+
+// Fame returns the MobExtra Fame field (offset 8).
+func (m MobExtra) Fame() int32 { return int32(binary.LittleEndian.Uint32(m.Raw[8:12])) }
+
+// Soul returns the soul attribute byte (offset 12).
+func (m MobExtra) Soul() uint8 { return m.Raw[12] }
+
+// MortalFace returns the MortalFace field (offset 14).
+func (m MobExtra) MortalFace() int16 {
+	return int16(binary.LittleEndian.Uint16(m.Raw[14:16]))
+}
 
 // AccountFile is STRUCT_ACCOUNTFILE (7952 bytes) — the whole on-disk account
 // blob (data-formats.md §0.1/§1.2, Basedef.h:1085-1108). Models the CURRENT

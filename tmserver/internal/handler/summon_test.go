@@ -28,7 +28,8 @@ func TestSummonCount(t *testing.T) {
 		{6, 160, 2}, // Gorila: /80
 		{7, 79, 0},  // Dragão Negro: /80
 		{8, 0, 1},   // Succubus: always exactly one
-		{9, 400, 0}, // out of the evocation range
+		{9, 0, 1},   // Invocação Final value 9: one zero-bonus template
+		{10, 400, 0},
 	}
 	for _, tt := range tests {
 		if got := summonCount(tt.iv, tt.evo); got != tt.want {
@@ -75,6 +76,11 @@ func evokeSpell() *content.SkillData {
 // startServerSummon wires a summon-capable server: spells + summon templates +
 // the AI tick (10ms), optionally one extra monster spawned before the loop.
 func startServerSummon(t *testing.T, db world.Persistence, mob []byte, mobX, mobY int16) (string, func(), *atomic.Uint32) {
+	mobs := [][]byte{summonTemplate("Condor")}
+	return startServerSummonWith(t, db, evokeSpell(), mobs, mob, mobX, mobY)
+}
+
+func startServerSummonWith(t *testing.T, db world.Persistence, spells *content.SkillData, summonMobs [][]byte, mob []byte, mobX, mobY int16) (string, func(), *atomic.Uint32) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -83,7 +89,7 @@ func startServerSummon(t *testing.T, db world.Persistence, mob []byte, mobX, mob
 	clock := &atomic.Uint32{}
 	clock.Store(serverTime)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log, Spells: evokeSpell(), SummonMobs: [][]byte{summonTemplate("Condor")}})
+	d := New(Config{Log: log, Spells: spells, SummonMobs: summonMobs})
 	w := world.New(world.Config{GridDim: 16, Now: clock.Load}, log, db, d.Handle)
 	if mob != nil {
 		w.SpawnMobAt(world.MobSpawn{Template: mob, X: mobX, Y: mobY, GenIndex: -1})
@@ -165,6 +171,56 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 		if hp != 440 {
 			t.Errorf("pet maxHP = %d, want 440 (100 + 100·100%% + 60·400%%)", hp)
 		}
+	}
+}
+
+func TestEvocationSendsAddPartyForSummon(t *testing.T) {
+	addr, stop, _ := startServerSummon(t, summonDB(30), nil, 0, 0)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	skillAttackFrame(t, c, serverTime, 1, 56, damSkill)
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		ty, payload, ok := readMaybeRaw(t, c)
+		if !ok || ty != protocol.MsgCNFAddParty {
+			continue
+		}
+		if len(payload) != protocol.MsgCNFAddPartyBodySize {
+			t.Fatalf("CNFAddParty payload = %d, want %d", len(payload), protocol.MsgCNFAddPartyBodySize)
+		}
+		leaderConn := binary.LittleEndian.Uint16(payload[0:2])
+		partyID := binary.LittleEndian.Uint16(payload[8:10])
+		name := strings.TrimRight(string(payload[10:26]), "\x00")
+		if int(partyID) >= world.MaxUser {
+			if leaderConn != 30000 {
+				t.Fatalf("summon LeaderConn = %d, want 30000 for non-leader slot", leaderConn)
+			}
+			if name != "Condor^" {
+				t.Fatalf("summon party name = %q, want Condor^", name)
+			}
+			return
+		}
+	}
+	t.Fatal("no CNFAddParty frame for summoned pet")
+}
+
+func TestEvocationDoesNotDuplicateExistingSummon(t *testing.T) {
+	addr, stop, _ := startServerSummon(t, summonDB(30), nil, 0, 0)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	skillAttackFrame(t, c, serverTime, 1, 56, damSkill)
+	if pets := collectPets(t, c, 500*time.Millisecond); len(pets) != 1 {
+		t.Fatalf("first cast pets = %d, want 1", len(pets))
+	}
+
+	skillAttackFrame(t, c, serverTime+1000, 1, 56, damSkill)
+	if pets := collectPets(t, c, 500*time.Millisecond); len(pets) != 0 {
+		t.Fatalf("second cast spawned %d more pets, want 0 because existing summon counts", len(pets))
 	}
 }
 

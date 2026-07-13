@@ -35,9 +35,19 @@ type fakeDB struct {
 	loads      map[int64]world.CharacterState // per-account override (accountID → state)
 	loadErr    error
 
+	pending map[int64][]world.Delivery // accountID -> mailbox rows (donate drain)
+
 	mu          sync.Mutex
 	savedChars  []world.CharacterSave // captured SaveOnShutdown calls
 	savedCargos []world.CargoSave     // captured SaveCargo calls
+	drainSaves  []drainSave           // captured SaveCargoWithDeliveries calls
+}
+
+// drainSave captures one SaveCargoWithDeliveries call for assertions.
+type drainSave struct {
+	save      world.CargoSave
+	delivered []int64
+	lost      []int64
 }
 
 func (f *fakeDB) SaveOnShutdown(_ context.Context, save world.CharacterSave) error {
@@ -52,6 +62,36 @@ func (f *fakeDB) SaveCargo(_ context.Context, save world.CargoSave) error {
 	defer f.mu.Unlock()
 	f.savedCargos = append(f.savedCargos, save)
 	return nil
+}
+
+func (f *fakeDB) ListPendingDeliveries(_ context.Context, accountID int64) ([]world.Delivery, error) {
+	return f.pending[accountID], nil
+}
+
+func (f *fakeDB) SaveCargoWithDeliveries(_ context.Context, save world.CargoSave, deliveredIDs, lostIDs []int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.drainSaves = append(f.drainSaves, drainSave{save: save, delivered: deliveredIDs, lost: lostIDs})
+	return nil
+}
+
+// lastDrainSave returns the most recent SaveCargoWithDeliveries capture, waiting
+// briefly for the async drain's off-loop save round-trip to land.
+func (f *fakeDB) lastDrainSave(t *testing.T) (drainSave, bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		n := len(f.drainSaves)
+		if n > 0 {
+			ds := f.drainSaves[n-1]
+			f.mu.Unlock()
+			return ds, true
+		}
+		f.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+	}
+	return drainSave{}, false
 }
 
 // lastSavedCargo returns the most recent SaveCargo snapshot (and how many landed).
@@ -88,7 +128,10 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 	default:
 		cargo := a.cargo
 		cargo.AccountID = a.id
-		return world.LoginOutcome{Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo}, nil
+		return world.LoginOutcome{
+			Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo,
+			PendingDeliveries: f.pending[a.id],
+		}, nil
 	}
 }
 
@@ -234,7 +277,7 @@ func read(t *testing.T, c net.Conn) (protocol.Type, []byte) {
 			t.Fatalf("decode: %v", err)
 		}
 		// Entity-visibility packets are background noise for gameplay assertions.
-		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob {
+		if h.Type == protocol.MsgCreateMob || h.Type == protocol.MsgRemoveMob || h.Type == protocol.MsgPKInfo {
 			continue
 		}
 		return h.Type, payload
@@ -500,6 +543,54 @@ func TestCharacterLoginAndLogout(t *testing.T) {
 	send(t, c, protocol.MsgCharacterLogout, nil)
 	if ty, _ := read(t, c); ty != protocol.MsgCNFCharacterLogout {
 		t.Errorf("got %#x, want CNFCharacterLogout", ty)
+	}
+}
+
+// TestCharacterLoginColorsOwnNickWhite is the login-time regression guard for
+// issue #59: a freshly logged-in character must (a) get its OWN CreateMob (the
+// legacy self-CreateMob that colors the own nick) and (b) that CreateMob's
+// MobName[12] (PKPoint) must be 75 = neutral/white — NOT 0, which renders the
+// nick red/blinking. Both the login blob and the self-CreateMob carry PKPoint 75.
+func TestCharacterLoginColorsOwnNickWhite(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", X: 2100, Y: 2100, HP: 1200, MaxHP: 1200}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	// The login blob's own MobName[12] must be 75 (white). mob @ body4, MobName[0].
+	ty, payload, ok := readMaybeRaw(t, c)
+	if !ok || ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x ok=%v, want CNFCharacterLogin", ty, ok)
+	}
+	if payload[4+12] != 75 {
+		t.Errorf("login blob MobName[12] = %d, want 75 (neutral/white nick)", payload[4+12])
+	}
+	// The self-CreateMob (id = own conn) must also carry MobName[12] = 75. Scan the
+	// post-login frames for a CreateMob whose MobID is the player's conn.
+	found := false
+	for i := 0; i < 20 && !found; i++ {
+		ty, payload, ok = readMaybeRaw(t, c)
+		if !ok {
+			break
+		}
+		if ty != protocol.MsgCreateMob {
+			continue
+		}
+		_, _, mobID := createMobFields(t, payload)
+		if mobID == 1 { // first (only) player conn
+			found = true
+			if payload[6+12] != 75 { // MobName @ body6, [12] = PKPoint
+				t.Errorf("self-CreateMob MobName[12] = %d, want 75 (white)", payload[6+12])
+			}
+		}
+	}
+	if !found {
+		t.Error("no self-CreateMob received at login — own nick can't be colored/recolored")
 	}
 }
 

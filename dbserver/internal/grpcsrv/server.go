@@ -29,6 +29,8 @@ type Store interface {
 	SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error
 	LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error)
 	SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error
+	PendingItemDeliveries(ctx context.Context, accountID int64) ([]domain.Delivery, error)
+	SaveCargoWithDeliveries(ctx context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error
 }
 
 // Server implements dbv1.AccountServiceServer.
@@ -141,6 +143,35 @@ func (s *Server) SaveCargo(ctx context.Context, req *dbv1.SaveCargoRequest) (*db
 	}
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "save cargo: %v", err)
+	}
+	return &dbv1.SaveCargoResponse{Ok: true}, nil
+}
+
+// ListPendingDeliveries returns the account's pending item grants from the
+// delivery_queue mailbox (donate web shop, issue #34).
+func (s *Server) ListPendingDeliveries(ctx context.Context, req *dbv1.ListPendingDeliveriesRequest) (*dbv1.ListPendingDeliveriesResponse, error) {
+	deliveries, err := s.store.PendingItemDeliveries(ctx, req.GetAccountId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list pending deliveries: %v", err)
+	}
+	out := make([]*dbv1.Delivery, 0, len(deliveries))
+	for _, d := range deliveries {
+		out = append(out, &dbv1.Delivery{Id: d.ID, Item: itemToProto(d.Item)})
+	}
+	return &dbv1.ListPendingDeliveriesResponse{Deliveries: out}, nil
+}
+
+// SaveCargoWithDeliveries persists the cargo and marks the drained mailbox rows
+// delivered/lost in one transaction (the anti-dup boundary for the drain). A
+// missing account returns ok=false.
+func (s *Server) SaveCargoWithDeliveries(ctx context.Context, req *dbv1.SaveCargoWithDeliveriesRequest) (*dbv1.SaveCargoResponse, error) {
+	err := s.store.SaveCargoWithDeliveries(ctx, req.GetAccountId(), req.GetCargoCoin(),
+		protoToItems(req.GetItems()), req.GetDeliveredIds(), req.GetLostIds())
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.SaveCargoResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "save cargo with deliveries: %v", err)
 	}
 	return &dbv1.SaveCargoResponse{Ok: true}, nil
 }

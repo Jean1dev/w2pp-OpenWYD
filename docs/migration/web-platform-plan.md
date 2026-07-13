@@ -71,6 +71,14 @@ CREATE TABLE delivery_queue (
 Isso elimina o race por construção: a web nunca toca estado vivo; o tmServer é o único escritor do
 personagem.
 
+> **Status (issue #34, implementado):** a tabela `delivery_queue` (migração
+> `0008_donate_shop`), a **loja de donate** administrada por moderador (`donate_shop_item` +
+> `DonateAdminService`/`DonateShopService` em `api/web/v1`, lógica em `webserver/internal/donateshop`),
+> o crédito de saldo (`CreditDonateBalance`) e o **dreno no login** do tmServer (`World.DrainDeliveries`
+> → `AddToCargo` → `SaveCargoWithDeliveries`, RPCs novos em `api/db/v1`) já existem. Só o `kind='item'`
+> é usado; `cash`/`coin`/recompensa-diária continuam reservados. Entrega só no login (sem tick para
+> quem já está online); gateway de pagamento fica para depois (reusa `CreditDonateBalance`).
+
 ## ⚠️ Loja-web é a feature mais perigosa
 
 Anunciar um item significa **retirá-lo de um personagem que pode estar online**. Se a web remover do

@@ -144,6 +144,16 @@ func TestWeaponDamage(t *testing.T) {
 	if got := d.weaponDamage(e); got != 50 { // 40 + 20/2
 		t.Errorf("dual-wield weaponDamage = %d, want 50", got)
 	}
+	e.Class = 0
+	e.LearnedSkill = 1 << 9
+	if got := d.weaponDamage(e); got != 60 { // Mestre das Armas: 40 + 20
+		t.Errorf("TK Mestre das Armas weaponDamage = %d, want 60", got)
+	}
+	e.Class = 3
+	e.LearnedSkill = 1 << 10
+	if got := d.weaponDamage(e); got != 60 { // Pericia do Cacador: 40 + 20
+		t.Errorf("HT Pericia do Cacador weaponDamage = %d, want 60", got)
+	}
 }
 
 func TestDropExpired(t *testing.T) {

@@ -75,6 +75,10 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		return
 	}
+	if h.Type == protocol.MsgCombineItemAlquimia && e.Class != 3 {
+		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
+		return
+	}
 	fam, ok := d.combineFamilies[h.Type]
 	if !ok {
 		return
@@ -130,13 +134,92 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	w.Send(s, protocol.MsgCombineComplete, parmPayload(combineSuccess))
 }
 
-// combineExtracao handles _MSG_CombineItemExtracao (0x02D4): an extraction
-// (MSG_STANDARDPARM2), distinct from the additive combines.
-//
-// UNVERIFIED: the extraction recipe/semantics are not documented
-// (lote2-combine-variantes.md) — stub until captured.
-func (d *Dispatcher) combineExtracao(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
-	d.log.Debug("CombineItemExtracao not yet implemented (UNVERIFIED)", "conn", s.Conn)
+// combineExtracao handles _MSG_CombineItemExtracao (0x02D4): Huntress extraction
+// uses MSG_STANDARDPARM2.Parm2 as the carry slot and consumes one 1774 catalyst.
+func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+		return
+	}
+	_, p2, ok := protocol.StandardParm2(payload)
+	if !ok {
+		return
+	}
+	slot := int(p2)
+	if slot < 0 || slot >= world.MaxCarry {
+		return
+	}
+	it := e.Carry[slot]
+	if it.Empty() || int(it.Index) >= world.MaxItem {
+		return
+	}
+	itemLevel := d.itemAbility(it, efItemLevel)
+	if itemLevel >= 5 || itemSanc(it) < 9 || d.itemAbility(it, efMobType) != 0 {
+		return
+	}
+	switch d.itemPos[int(it.Index)] {
+	case 2, 4, 8, 16, 32:
+	default:
+		return
+	}
+	catalyst := -1
+	for i := range e.Carry {
+		if e.Carry[i].Index == 1774 {
+			catalyst = i
+			break
+		}
+	}
+	if catalyst < 0 {
+		return
+	}
+	e.Carry[catalyst] = world.Item{}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, catalyst, itemToSel(e.Carry[catalyst])))
+
+	roll := w.Rand().Intn(115)
+	if roll > 100 {
+		roll -= 15
+	}
+	rate := (effectiveSpecial(e, 2) + 1) / 6
+	if roll < rate {
+		if it.Effects[1].Effect == efDamage {
+			it.Effects[1].Value = addEffectByte(it.Effects[1].Value, d.itemBaseDamage(it))
+		}
+		if it.Effects[2].Effect == efDamage {
+			it.Effects[2].Value = addEffectByte(it.Effects[2].Value, d.itemBaseDamage(it))
+		}
+		it.Effects[0] = world.Effect{Effect: efItemLevel, Value: uint8(itemLevel)}
+		it.Index = extractionResultIndex(d.itemPos[int(it.Index)])
+		e.Carry[slot] = it
+	} else {
+		e.Carry[slot] = world.Item{}
+	}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
+}
+
+func addEffectByte(v uint8, add int32) uint8 {
+	sum := int32(v) + add
+	if sum > 255 {
+		return 255
+	}
+	if sum < 0 {
+		return 0
+	}
+	return uint8(sum)
+}
+
+func extractionResultIndex(pos int) int16 {
+	switch pos {
+	case 4:
+		return 3022
+	case 8:
+		return 3023
+	case 16:
+		return 3024
+	case 32:
+		return 3025
+	default:
+		return 3021
+	}
 }
 
 func parmPayload(parm int16) []byte {

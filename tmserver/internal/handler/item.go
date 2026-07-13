@@ -221,14 +221,14 @@ const (
 // refuses and re-syncs the slot. The legacy also sets a cosmetic Affect(44)
 // flash — deferred until the affect engine (M4) lands.
 func (d *Dispatcher) useSkillBook(w *world.World, s *world.Session, e *world.Entity, src, vol int) {
-	bit := int32(1) << (vol - 7)
+	bit := int32(1) << uint(vol-7)
 	if e.LearnedSkill&bit != 0 {
 		d.notify(w, s, NoticeAlreadyLearned)
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 		return
 	}
 	e.LearnedSkill |= bit
-	e.Carry[src] = world.Item{} // consume one unit (stacking not modeled yet)
+	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendEtc(w, s, e)
 	d.log.Info("sephira book learned", "conn", s.Conn, "bit", vol-7)
@@ -519,6 +519,7 @@ const (
 	efSpecial2  = 12
 	efSpecial3  = 13
 	efSpecial4  = 14
+	efWType     = 21 // EF_WTYPE: weapon animation/type, used by Huntress RSV gates
 	efSanc      = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
 	efHpAdd     = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
 	efMpAdd     = 46 // EF_MPADD: % bonus to MaxMp
@@ -526,6 +527,8 @@ const (
 	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
 	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
 	efMpAdd2    = 70
+	efItemLevel = 87
+	efMobType   = 112
 	efRunSpeed  = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
 
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
@@ -584,20 +587,42 @@ func (d *Dispatcher) itemBaseDamage(it world.Item) int32 {
 	return 0
 }
 
+func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
+	if it.Empty() {
+		return 0
+	}
+	var total int
+	for _, be := range d.itemEffects[int(it.Index)] {
+		if be.Eff == effect {
+			total += int(be.Val)
+		}
+	}
+	for _, ef := range it.Effects {
+		if ef.Effect == effect {
+			total += int(ef.Value)
+		}
+	}
+	return total
+}
+
 // weaponDamage is GetCurrentScore's WeaponDamage (CMob.cpp:756-789): the stronger
 // weapon hand at full damage plus the weaker at half (dual-wield), plus a +40 refine
 // threshold per weapon hand at sanc>=9 (captura §E). It is a SEPARATE field from
 // CurrentScore.Damage, added at hit/display time, so it is not in e.Damage.
-//
-// UNVERIFIED / deferred: per-class weapon-mastery (full instead of half for the
-// off-hand) and the skill +40 bonuses (CMob.cpp:763-817).
 func (d *Dispatcher) weaponDamage(e *world.Entity) int32 {
 	w1 := d.itemBaseDamage(e.Equip[weaponSlotR])
 	w2 := d.itemBaseDamage(e.Equip[weaponSlotL])
 	if w1 < w2 {
 		w1, w2 = w2, w1
 	}
-	dmg := w1 + w2/2
+	offhandDivisor := int32(2)
+	if e.Class == 0 && e.LearnedSkill&(1<<9) != 0 {
+		offhandDivisor = 1 // TK Mestre das Armas: off-hand contributes at full EF_DAMAGE.
+	}
+	if e.Class == 3 && e.LearnedSkill&(1<<10) != 0 {
+		offhandDivisor = 1 // HT Pericia do Cacador: off-hand contributes at full EF_DAMAGE.
+	}
+	dmg := w1 + w2/offhandDivisor
 	for _, slot := range [2]int{weaponSlotR, weaponSlotL} {
 		it := e.Equip[slot]
 		if !it.Empty() && itemSanc(it) >= refineThreshold {
@@ -734,7 +759,7 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	e.RunSpeedBonus = b.runSpeed
-	applyAffectScore(e)
+	d.applyAffectScore(e)
 
 	e.EquipExpBonus = d.equipExpBonus(e)
 	if isPlayerMob(e) {
@@ -801,9 +826,10 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 	sc := protocol.ScoreData{
 		Level: e.Level, Ac: effectiveAC(e), Damage: d.effectiveDamage(e),
 		MaxHp: effectiveMaxHP(e), Hp: e.HP, MaxMp: effectiveMaxMP(e), Mp: e.MP,
-		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con + e.AffCon,
+		Str: effectiveStr(e), Int: effectiveInt(e), Dex: effectiveDex(e), Con: e.Con + e.AffCon,
 		Special:    special,
 		AttackRun:  attackRunOf(e),
+		Critical:   effectiveCritical(e),
 		SaveMana:   uint8(e.SaveMana),
 		Guild:      e.Guild,
 		GuildLevel: uint16(e.GuildLevel),
@@ -835,14 +861,30 @@ func attackRunOf(e *world.Entity) uint8 {
 	if !world.IsPlayer(e.ID) {
 		return e.AttackRun
 	}
+	attack := int32(baseAttackRun>>4)*10 + e.AffAttackSpeed
+	if attack < 0 {
+		attack = 0
+	}
+	if attack > 150 {
+		attack = 150
+	}
+	attack /= 10
 	// A mount takes precedence over boots and uses the max client movement tier.
 	if !e.Equip[mountEquipSlot].Empty() {
-		return (baseAttackRun & 0xF0) | mountedMoveSpeed
+		return uint8(attack<<4) | mountedMoveSpeed
 	}
+	move := int32(baseAttackRun & 0x0F)
 	if e.RunSpeedBonus > 0 {
-		return (baseAttackRun & 0xF0) | bootMoveSpeed
+		move = bootMoveSpeed
 	}
-	return baseAttackRun
+	move += e.AffRunSpeed
+	if move < 1 {
+		move = 1
+	}
+	if move > 6 {
+		move = 6
+	}
+	return uint8(attack<<4) | uint8(move)
 }
 
 // sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so

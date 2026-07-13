@@ -559,6 +559,36 @@ func (m *MsgAcceptPartyBody) Encode() []byte {
 	return b
 }
 
+// MsgCNFAddPartyBody is MSG_CNFAddParty (S→C, 0x037D), emitted by SendAddParty
+// to synchronize one party UI slot. For PartyPos 0 the legacy writes LeaderConn
+// as the displayed entity id; for non-zero slots it writes 30000 and carries the
+// entity id in PartyID.
+type MsgCNFAddPartyBody struct {
+	LeaderConn uint16
+	Level      uint16
+	MaxHP      uint16
+	HP         uint16
+	PartyID    uint16
+	MobName    [16]byte
+	Target     uint16
+}
+
+// MsgCNFAddPartyBodySize is the body length after the common 12-byte header.
+const MsgCNFAddPartyBodySize = 28
+
+// Encode writes the MSG_CNFAddParty body into a new slice.
+func (m *MsgCNFAddPartyBody) Encode() []byte {
+	b := make([]byte, MsgCNFAddPartyBodySize)
+	le.PutUint16(b[0:2], m.LeaderConn)
+	le.PutUint16(b[2:4], m.Level)
+	le.PutUint16(b[4:6], m.MaxHP)
+	le.PutUint16(b[6:8], m.HP)
+	le.PutUint16(b[8:10], m.PartyID)
+	copy(b[10:26], m.MobName[:])
+	le.PutUint16(b[26:28], m.Target)
+	return b
+}
+
 // StandardParm reads the single leading int32 field (Parm) of a MSG_STANDARDPARM
 // body (used by Deposit/Withdraw: Parm = the gold amount).
 func StandardParm(b []byte) (parm int32, ok bool) {
@@ -664,6 +694,7 @@ type MsgAttackBody struct {
 	TargetX        uint16
 	TargetY        uint16
 	AttackerID     uint16
+	Progress       uint16
 	Motion         uint8
 	DoubleCritical uint8
 	CurrentMp      int32
@@ -684,6 +715,7 @@ func (m *MsgAttackBody) Decode(b []byte) error {
 	m.TargetX = le.Uint16(b[26:28])
 	m.TargetY = le.Uint16(b[28:30])
 	m.AttackerID = le.Uint16(b[30:32])
+	m.Progress = le.Uint16(b[32:34])
 	m.Motion = b[34]
 	m.DoubleCritical = b[36]
 	m.CurrentMp = int32(le.Uint32(b[40:44]))
@@ -716,6 +748,7 @@ func (m *MsgAttackBody) Encode() []byte {
 	le.PutUint16(b[26:28], m.TargetX)
 	le.PutUint16(b[28:30], m.TargetY)
 	le.PutUint16(b[30:32], m.AttackerID)
+	le.PutUint16(b[32:34], m.Progress)
 	b[34] = m.Motion
 	b[36] = m.DoubleCritical
 	le.PutUint32(b[40:44], uint32(m.CurrentMp))
