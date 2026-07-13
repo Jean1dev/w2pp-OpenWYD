@@ -199,3 +199,18 @@ type DailyRewardItem struct {
 	Enabled     bool
 	ExpiresDays int32
 }
+
+// TopupOrder is one payment-method-agnostic donate top-up order (web-api). The
+// portal owns no database, so the order and the idempotency of its credit live
+// in Postgres. ExternalReference (the portal's UUID) is the idempotency anchor;
+// PaymentMethod/Status are the wire enums' integer values (1=PIX/2=CREDIT_CARD;
+// 1=PENDING/2=PAID). AmountCents is money in integer cents — never a float.
+type TopupOrder struct {
+	ID                int64
+	ExternalReference string
+	AccountID         int64
+	Credits           int32
+	AmountCents       int64
+	PaymentMethod     int16
+	Status            int16
+}
