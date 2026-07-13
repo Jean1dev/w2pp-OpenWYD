@@ -126,12 +126,13 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
-	volExpChest  = 198
-	volFairyDust = 7
-	volDivine7   = 64
-	volDivine30  = 66
-	volVigor     = 58
-	volSilverBar = 185
+	volHpMpPotion = 1
+	volExpChest   = 198
+	volFairyDust  = 7
+	volDivine7    = 64
+	volDivine30   = 66
+	volVigor      = 58
+	volSilverBar  = 185
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -165,6 +166,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
 	case vol == 0:
 		d.equipItem(w, s, e, body, payload)
+	case vol == volHpMpPotion:
+		d.useHealPotion(w, s, e, src)
 	case vol >= volSephiraLo && vol <= volSephiraHi:
 		d.useSkillBook(w, s, e, src, vol)
 	case vol == volFairyDust:
@@ -178,7 +181,7 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
 	default:
-		// UNVERIFIED consumable (Vigor/HP-MP potions/scrolls/teleport) — not handled yet.
+		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
 	}
 }
 
@@ -292,6 +295,30 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 		d.sendEtc(w, s, e)
 	}
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
+}
+
+// useHealPotion consumes an HP/MP potion (EF_VOLATILE 1): restores HP/MP by the
+// item's catalog EF_HP/EF_MP value, clamped to the live effective max, then eats
+// one unit of the stack (docs/migration/handlers/_MSG_UseItem.md, catalog.go:102).
+func (d *Dispatcher) useHealPotion(w *world.World, s *world.Session, e *world.Entity, src int) {
+	idx := int(e.Carry[src].Index)
+	for _, be := range d.itemEffects[idx] {
+		switch be.Eff {
+		case efHp:
+			e.HP += int32(be.Val)
+		case efMp:
+			e.MP += int32(be.Val)
+		}
+	}
+	if m := effectiveMaxHP(e); e.HP > m {
+		e.HP = m
+	}
+	if m := effectiveMaxMP(e); e.MP > m {
+		e.MP = m
+	}
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e) // MsgUpdateScore carries Hp/Mp (item.go:776) — no separate SetHpMp packet needed
 }
 
 // useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31

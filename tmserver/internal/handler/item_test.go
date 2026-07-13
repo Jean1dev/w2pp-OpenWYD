@@ -599,12 +599,17 @@ func fairyDustDB(levelValue int, item world.Item) *fakeDB {
 
 func startServerClockVol(t *testing.T, persist world.Persistence, vols map[int]int) (string, func()) {
 	t.Helper()
+	return startServerClockItems(t, persist, vols, nil)
+}
+
+func startServerClockItems(t *testing.T, persist world.Persistence, vols map[int]int, effects map[int][]content.BaseEffect) (string, func()) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log, ItemVolatiles: vols, ExpEvents: level.ExpEvents{KefraLive: true}})
+	d := New(Config{Log: log, ItemVolatiles: vols, ItemEffects: effects, ExpEvents: level.ExpEvents{KefraLive: true}})
 	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -617,6 +622,14 @@ func startServerClockVol(t *testing.T, persist world.Persistence, vols map[int]i
 			t.Error("server did not stop")
 		}
 	}
+}
+
+func healPotionDB(item world.Item, hp, maxHP, mp, maxMP int32) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: hp, MaxHP: maxHP, MP: mp, MaxMP: maxMP}
+	st.Carry[0] = item
+	db.loadResult = st
+	return db
 }
 
 func TestUseExpChest(t *testing.T) {
@@ -683,6 +696,92 @@ func TestUseExpChestStack(t *testing.T) {
 	}
 	if payload[6] != efAmount || payload[7] != 2 {
 		t.Errorf("effect0 = %d.%d, want %d.2", payload[6], payload[7], efAmount)
+	}
+}
+
+func TestUseHealPotion(t *testing.T) {
+	const potion = 400
+	db := healPotionDB(world.Item{Index: potion}, 500, 1000, 0, 0)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 50}}}
+	addr, stop := startServerClockItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	itemPayload := expect(t, c, protocol.MsgSendItem)
+	if got := le16(itemPayload[4:6]); got != 0 {
+		t.Errorf("carry slot 0 item = %d, want empty after use", got)
+	}
+	scorePayload := expect(t, c, protocol.MsgUpdateScore)
+	if got := int32(binary.LittleEndian.Uint32(scorePayload[24:28])); got != 550 {
+		t.Errorf("Hp = %d, want 550 (500 + 50)", got)
+	}
+}
+
+func TestUseHealPotionClampsToMax(t *testing.T) {
+	const potion = 404
+	db := healPotionDB(world.Item{Index: potion}, 950, 1000, 0, 0)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 500}}}
+	addr, stop := startServerClockItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	expect(t, c, protocol.MsgSendItem)
+	scorePayload := expect(t, c, protocol.MsgUpdateScore)
+	if got := int32(binary.LittleEndian.Uint32(scorePayload[24:28])); got != 1000 {
+		t.Errorf("Hp = %d, want clamped to 1000", got)
+	}
+}
+
+func TestUseManaPotion(t *testing.T) {
+	const potion = 405
+	db := healPotionDB(world.Item{Index: potion}, 1000, 1000, 50, 200)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efMp, Val: 50}}}
+	addr, stop := startServerClockItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	expect(t, c, protocol.MsgSendItem)
+	scorePayload := expect(t, c, protocol.MsgUpdateScore)
+	if got := int32(binary.LittleEndian.Uint32(scorePayload[28:32])); got != 100 {
+		t.Errorf("Mp = %d, want 100 (50 + 50)", got)
+	}
+}
+
+func TestUseHealPotionStack(t *testing.T) {
+	const potion = 428
+	item := world.Item{Index: potion, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	db := healPotionDB(item, 500, 1000, 0, 0)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 200}}}
+	addr, stop := startServerClockItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	itemPayload := expect(t, c, protocol.MsgSendItem)
+	if got := le16(itemPayload[4:6]); got != potion {
+		t.Fatalf("carry slot 0 item = %d, want stacked potion to remain", got)
+	}
+	if itemPayload[6] != efAmount || itemPayload[7] != 4 {
+		t.Errorf("effect0 = %d.%d, want %d.4", itemPayload[6], itemPayload[7], efAmount)
+	}
+	scorePayload := expect(t, c, protocol.MsgUpdateScore)
+	if got := int32(binary.LittleEndian.Uint32(scorePayload[24:28])); got != 700 {
+		t.Errorf("Hp = %d, want 700 (500 + 200)", got)
 	}
 }
 
