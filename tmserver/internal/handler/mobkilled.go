@@ -119,7 +119,12 @@ func (d *Dispatcher) applyMortalLevelUps(w *world.World, s *world.Session, e *wo
 	if !leveled {
 		return false
 	}
-	e.ScoreBonus = uint16(level.ScoreBonus(e.Class, e.Level, e.Str, e.Int, e.Dex, e.Con))
+	// BASE_GetBonusScorePoint reads the equipment-free BaseScore attributes: it
+	// derives "points already spent" as (attr − class base). The live e.Str/e.Int/…
+	// are CurrentScore (base + equipment), so feeding them here over-counts the spend
+	// by whatever the gear adds and drives the grant to 0 — the "no points on level-up"
+	// bug for any character wearing attribute gear. Use the allocated BaseScore.
+	e.ScoreBonus = uint16(level.ScoreBonus(e.Class, e.Level, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon))
 	d.refreshScore(e)             // fold the base HP/MP gains into the live score
 	e.HP, e.MP = e.MaxHP, e.MaxMP // full heal on level-up
 
