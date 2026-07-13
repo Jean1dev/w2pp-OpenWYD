@@ -168,18 +168,39 @@ func assertZeroRange(t *testing.T, b []byte, start, end int) {
 
 func TestSelCharSizes(t *testing.T) {
 	chars := []SelChar{{Slot: 0, Name: "Hero", Level: 50}}
-	if got := len(EncodeCNFAccountLoginBody("acc", chars)); got != cnfAccountLoginSize-HeaderSize {
+	var empty [cnfCargoSlots]SelItem
+	if got := len(EncodeCNFAccountLoginBody("acc", chars, 0, empty)); got != cnfAccountLoginSize-HeaderSize {
 		t.Errorf("CNFAccountLogin body = %d, want %d", got, cnfAccountLoginSize-HeaderSize) // 1996
 	}
 	if got := len(EncodeCNFNewCharacterBody(chars)); got != cnfNewCharacterSize-HeaderSize {
 		t.Errorf("CNFNewCharacter body = %d, want %d", got, cnfNewCharacterSize-HeaderSize) // 844
 	}
 	// Slot-0 name at body 36 (sel@20 + Name[][]@16), level at body 100 (sel@20 + Score@80).
-	b := EncodeCNFAccountLoginBody("acc", chars)
+	b := EncodeCNFAccountLoginBody("acc", chars, 0, empty)
 	if cstr16(b[36:52]) != "Hero" {
 		t.Errorf("selchar name = %q, want Hero", cstr16(b[36:52]))
 	}
 	if binary.LittleEndian.Uint32(b[100:104]) != 50 {
 		t.Errorf("selchar level = %d, want 50", binary.LittleEndian.Uint32(b[100:104]))
+	}
+}
+
+func TestCNFAccountLoginCargo(t *testing.T) {
+	chars := []SelChar{{Slot: 0, Name: "Hero", Level: 1}}
+	var cargo [cnfCargoSlots]SelItem
+	cargo[0] = SelItem{Index: 4140}
+	cargo[28] = SelItem{Index: 4199}
+	b := EncodeCNFAccountLoginBody("acc", chars, 12345, cargo)
+	if got := binary.LittleEndian.Uint16(b[cnfCargoBodyOff : cnfCargoBodyOff+2]); got != 4140 {
+		t.Errorf("cargo[0] = %d, want 4140", got)
+	}
+	if got := binary.LittleEndian.Uint16(b[cnfCargoBodyOff+28*8 : cnfCargoBodyOff+28*8+2]); got != 4199 {
+		t.Errorf("cargo[28] = %d, want 4199", got)
+	}
+	if got := binary.LittleEndian.Uint32(b[cnfCoinBodyOff : cnfCoinBodyOff+4]); got != 12345 {
+		t.Errorf("cargo coin = %d, want 12345", got)
+	}
+	if cstr16(b[cnfNameBodyOff:cnfNameBodyOff+16]) != "acc" {
+		t.Errorf("account name = %q, want acc", cstr16(b[cnfNameBodyOff:cnfNameBodyOff+16]))
 	}
 }

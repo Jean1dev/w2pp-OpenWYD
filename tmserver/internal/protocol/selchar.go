@@ -104,13 +104,27 @@ func MobEquip(mob816 []byte) [16]SelItem {
 	return eq
 }
 
-// EncodeCNFAccountLoginBody builds the body of MSG_CNFAccountLogin (0x010A): the
-// character-selection screen. Send with HEADER.ID = IDSelChar (30002).
-func EncodeCNFAccountLoginBody(accountName string, chars []SelChar) []byte {
+const (
+	cnfCargoSlots   = 128
+	cnfCargoBodyOff = 860  // Cargo[128] @ abs872
+	cnfCoinBodyOff  = 1884 // Coin @ abs1896
+	cnfNameBodyOff  = 1888 // AccountName @ abs1900
+)
+
+// EncodeCNFAccountLoginBody builds the body of MSG_CNFAccountLogin (0x010A):
+// SELCHAR + account Cargo[128] + Coin + AccountName (Basedef.h MSG_DBCNFAccountLogin,
+// forwarded to the client as-is). The client caches this cargo for the vault UI;
+// omitting it leaves the warehouse empty even when the server has items. Send with
+// HEADER.ID = IDSelChar (30002).
+func EncodeCNFAccountLoginBody(accountName string, chars []SelChar, coin int32, cargo [cnfCargoSlots]SelItem) []byte {
 	b := make([]byte, cnfAccountLoginSize-HeaderSize) // 1996
 	le.PutUint32(b[16:], 1)                           // Unknow_28=1 (don't recreate starter potions)
 	writeSelChar(b[20:20+structSelCharSize], chars)   // sel @ abs32 → body20
-	copy(b[1888:1888+16], accountName)                // AccountName @ abs1900 → body1888
+	for i := 0; i < cnfCargoSlots; i++ {
+		writeSelItem(b[cnfCargoBodyOff+i*8:], cargo[i])
+	}
+	le.PutUint32(b[cnfCoinBodyOff:], uint32(coin))
+	copy(b[cnfNameBodyOff:cnfNameBodyOff+16], accountName)
 	return b
 }
 
