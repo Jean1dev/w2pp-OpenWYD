@@ -252,9 +252,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.SetEntityPos(s.Conn, loginX, loginY)
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.MP, e.MaxMP = st.MP, st.MaxMP
-		e.Damage, e.AC, e.Master = st.Damage, st.AC, st.Master
+		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
-		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster
+		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster, st.Soul
 		// Every character is MORTAL (=2, Basedef.h:238) until the ARCH/CELESTIAL
 		// promotions are modeled; the dbServer contract doesn't carry ClassMaster
 		// yet (dbclient leaves it 0), and 0 would route the EXP formula onto the
@@ -267,7 +267,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned
 		// costs (BASE_GetBonusSkillPoint on character load, ProcessDBMessage.cpp:816).
-		e.LearnedSkill, e.SpecialBonus = st.LearnedSkill, st.SpecialBonus
+		e.LearnedSkill, e.SecLearnedSkill, e.SpecialBonus = st.LearnedSkill, st.SecLearnedSkill, st.SpecialBonus
 		e.BaseSpecial, e.SkillBar, e.Magic = st.BaseSpecial, st.SkillBar, st.Magic
 		s.ShortSkill = st.ShortSkill
 		d.deriveSkillBonus(e)
@@ -300,6 +300,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// the live Special (= BaseSpecial + gear) and the affect caches, which are
 		// not persisted.
 		d.refreshScore(e)
+		s.ReqHp, s.ReqMp = e.HP, e.MP
+		s.CriticalProgress = 0
 		// Visual gear codes from the character's REAL equipment, so others (and the
 		// own client, via UpdateEquip) see what is actually equipped — not the class
 		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
@@ -554,8 +556,8 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 // UNVERIFIED / deferred: the original's per-clan capital-region destinations
 // (clan 7/8 coordinate boxes) and the exact DoRecall save-point logic are not
 // reproduced — we recall to the last-city default spawn. The dedicated
-// _MSG_SetHpMp (0x0181, 129B) packet has an unconfirmed layout, so the HP/MP
-// refresh rides on _MSG_UpdateScore (which carries CurrHp/CurrMp) instead.
+// _MSG_SetHpMp (0x0181) carries the HP/MP request targets; send it after the
+// score refresh so the client bars snap to the post-restart state.
 func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	if s.Mode != world.UserPlay {
 		return
@@ -567,6 +569,9 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 	e.HP = 2         // revive (CurrentScore.Hp = 2)
 	s.CrackError = 0 // NumError = 0
 	d.sendScore(w, s, e)
+	s.ReqHp = e.HP
+	setReqMp(s, e)
+	d.sendSetHpMp(w, s, e)
 
 	d.recall(w, s, e)
 	d.sendEtc(w, s, e) // SendEtc (gold + ScoreBonus)

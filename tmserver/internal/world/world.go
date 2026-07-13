@@ -295,7 +295,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	if e == nil {
 		return cs
 	}
-	cs.Clan, cs.GuildID = e.Clan, e.Guild
+	cs.Clan, cs.GuildID, cs.Soul = e.Clan, e.Guild, e.Soul
 	cs.LastCity = e.LastCity
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
@@ -303,7 +303,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.MP, cs.MaxMP = e.MP, e.MaxMP
 	cs.DivineEnd = e.DivineEnd // 0 once the buff has expired (cleared by the tick sweep)
 	cs.ScoreBonus, cs.SpecialBonus = e.ScoreBonus, e.SpecialBonus
-	cs.LearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.BaseSpecial
+	cs.LearnedSkill, cs.SecLearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.SecLearnedSkill, e.BaseSpecial
 	cs.SkillBar, cs.ShortSkill = e.SkillBar, s.ShortSkill
 	for _, a := range e.Affect {
 		// Divine persists separately as the wall-clock DivineEnd; empty slots drop.

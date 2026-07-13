@@ -56,4 +56,19 @@ func TestSetTick(t *testing.T) {
 	if p.Affect[0].Time != 2 {
 		t.Errorf("type-3 tick time = %d, want clamp 2", p.Affect[0].Time)
 	}
+	if !p.SetTick(10, 10, 150, 0, 120, 5) {
+		t.Fatal("SetTick refused type 10")
+	}
+	if p.Affect[1].Time != 2 {
+		t.Errorf("type-10 tick time = %d, want clamp 2", p.Affect[1].Time)
+	}
+	// A HoT (type 17) is NOT a 1/3/10 clamp type → it keeps the full
+	// (affectTime+1)*delay/100 timer (one tick = 8s of real time).
+	hoT := &Entity{ID: 4}
+	if !hoT.SetTick(17, 40, 150, 0, 120, 100) {
+		t.Fatal("SetTick refused a HoT")
+	}
+	if got := hoT.Affect[0]; got.Type != 17 || got.Time != 181 {
+		t.Errorf("HoT tick = %+v, want type 17 time 181 (unclamped)", got)
+	}
 }

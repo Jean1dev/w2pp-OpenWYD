@@ -32,46 +32,48 @@ type Account struct {
 
 // Character is one of an account's up to four characters.
 type Character struct {
-	Slot          int
-	Name          string
-	Class         uint8
-	Clan          uint8
-	GuildID       uint16
-	GuildLevel    uint8
-	Level         int32
-	Exp           int64
-	Coin          int32
-	Str           int16
-	Int           int16
-	Dex           int16
-	Con           int16
-	ScoreBonus    uint16
-	SpecialBonus  uint16
-	SkillBonus    uint16
-	Special       [4]int16 // BaseScore.Special[4]: allocated mastery points
-	MaxHp         int32
-	MaxMp         int32
-	Hp            int32
-	Mp            int32
-	Critical      uint8
-	RegenHP       uint16
-	RegenMP       uint16
-	ResistFire    int8
-	ResistIce     int8
-	ResistThunder int8
-	ResistMagic   int8
-	LearnedSkill  int32
-	Magic         uint32
-	SaveX         int16
-	SaveY         int16
-	LastCity      int16 // last city (0..3); login spawn = that city's default area
-	Citizen       uint8 // verified MobExtra fields (others UNVERIFIED — savefmt)
-	ClassMaster   uint8
-	SkillBar      [4]uint8
-	ShortSkill    [16]uint8
-	Equip         []Item // owner_kind = char_equip
-	Carry         []Item // owner_kind = char_carry
-	Affects       []Affect
+	Slot            int
+	Name            string
+	Class           uint8
+	Clan            uint8
+	GuildID         uint16
+	GuildLevel      uint8
+	Level           int32
+	Exp             int64
+	Coin            int32
+	Str             int16
+	Int             int16
+	Dex             int16
+	Con             int16
+	ScoreBonus      uint16
+	SpecialBonus    uint16
+	SkillBonus      uint16
+	Special         [4]int16 // BaseScore.Special[4]: allocated mastery points
+	MaxHp           int32
+	MaxMp           int32
+	Hp              int32
+	Mp              int32
+	Critical        uint8
+	RegenHP         uint16
+	RegenMP         uint16
+	ResistFire      int8
+	ResistIce       int8
+	ResistThunder   int8
+	ResistMagic     int8
+	LearnedSkill    int32
+	SecLearnedSkill int32
+	Magic           uint32
+	SaveX           int16
+	SaveY           int16
+	LastCity        int16 // last city (0..3); login spawn = that city's default area
+	Citizen         uint8 // MobExtra.Citizen
+	ClassMaster     uint8 // MobExtra.ClassMaster
+	Soul            uint8 // MobExtra.Soul
+	SkillBar        [4]uint8
+	ShortSkill      [16]uint8
+	Equip           []Item // owner_kind = char_equip
+	Carry           []Item // owner_kind = char_carry
+	Affects         []Affect
 }
 
 // RankingEntry is a web-facing character ranking projection. Rank is assigned

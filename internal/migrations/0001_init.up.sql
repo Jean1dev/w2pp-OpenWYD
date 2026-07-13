@@ -53,11 +53,13 @@ CREATE TABLE character (
     resist_thunder SMALLINT NOT NULL DEFAULT 0,
     resist_magic   SMALLINT NOT NULL DEFAULT 0,
     learned_skill  INTEGER NOT NULL DEFAULT 0,
+    sec_learned_skill INTEGER NOT NULL DEFAULT 0,
     magic          BIGINT NOT NULL DEFAULT 0,
     save_x         INTEGER NOT NULL DEFAULT 0,
     save_y         INTEGER NOT NULL DEFAULT 0,
     citizen        SMALLINT NOT NULL DEFAULT 0,
     class_master   SMALLINT NOT NULL DEFAULT 0,
+    soul           SMALLINT NOT NULL DEFAULT 0,
     skill_bar      SMALLINT[] NOT NULL DEFAULT '{}',  -- SkillBar[4]
     short_skill    SMALLINT[] NOT NULL DEFAULT '{}',  -- ShortSkill[16]
     UNIQUE (account_id, slot)

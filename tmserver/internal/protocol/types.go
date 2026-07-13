@@ -103,6 +103,7 @@ const (
 	MsgPKInfo             Type = 0x0166 // 358  S→C PK/war state of a player (MSG_STANDARDPARM, Basedef.h:1954)
 	MsgPKMode             Type = 0x0399 // 921  C→S PlayerKiller toggle (K key; MSG_STANDARDPARM, Basedef.h:2164)
 	MsgSendItem           Type = 0x0182 // 386  update one slot
+	MsgCNFAddParty        Type = 0x037D // 893  S→C party-list slot sync (MSG_CNFAddParty)
 	MsgUpdateEquip        Type = 0x006B // 107  S→C refresh visible equipment (_MSG_UpdateEquip)
 	MsgREQShopList        Type = 0x027B // 635  C→S open NPC shop (Target=NPC)
 	MsgShopList           Type = 0x017C // 380  S→C shop list (NPC Carry)

@@ -154,10 +154,12 @@ func attributeDamageBonus(e *world.Entity, withAffectSpecial bool) int32 {
 		return 0
 	}
 	sp := int32(e.Special[0])
+	str, dex := e.Str, e.Dex
 	if withAffectSpecial {
 		sp = int32(effectiveSpecial(e, 0))
+		str, dex = effectiveStr(e), effectiveDex(e)
 	}
-	return int32(e.Str)/2 + int32(e.Dex)/3 + sp + attributeDamageLevelTerm(e)
+	return int32(str)/2 + int32(dex)/3 + sp + attributeDamageLevelTerm(e)
 }
 
 func skillDerivedACBonus(e *world.Entity, flatAC int32) int32 {
@@ -166,7 +168,7 @@ func skillDerivedACBonus(e *world.Entity, flatAC int32) int32 {
 		bonus += flatAC / 10
 	}
 	if e.Class == 3 && e.LearnedSkill&(1<<23) != 0 {
-		bonus += int32(e.Special[2])/3 + 10
+		bonus += int32(e.Special[3])/3 + 10
 	}
 	return bonus
 }
@@ -176,7 +178,7 @@ func invertSkillACBonus(e *world.Entity, ac int32) int32 {
 		return ac * 10 / 11
 	}
 	if e.Class == 3 && e.LearnedSkill&(1<<23) != 0 {
-		return ac - (int32(e.Special[2])/3 + 10)
+		return ac - (int32(e.Special[3])/3 + 10)
 	}
 	return ac
 }

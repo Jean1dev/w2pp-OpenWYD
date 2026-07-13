@@ -12,4 +12,11 @@ Ordem de uso:
 3. **`validate.md`** — audita o trabalho de cada fase (paridade comportamental + aderência às
    guidelines + Definition of Done do `migration-plan §6`) e emite relatório de conformidade.
 
+Prompts auxiliares de frentes grandes:
+
+- **`agent-prompt-all-skills-fix.md`** — cria a documentação por classe, matriz de gaps, plano de
+  implementação e plano de validação para corrigir todas as skills de forma faseada. Deve esgotar as
+  fontes locais antes de gerar perguntas para o agente Windows. Status: executado; resultados em
+  `../skills/`, com respostas Windows consolidadas em `../skills/windows-agent-findings.md`.
+
 `PROGRESS.md` (criado pelo `implement.md`) registra o status de cada fase e os itens UNVERIFIED.

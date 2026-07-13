@@ -45,13 +45,15 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		Carry:    itemsToProto(ch.Carry),
 		Affects:  affectsToProto(ch.Affects),
 
-		ScoreBonus:   int32(ch.ScoreBonus),
-		SpecialBonus: int32(ch.SpecialBonus),
-		LearnedSkill: ch.LearnedSkill,
-		Magic:        int64(ch.Magic),
-		Special:      int16ArrToProto(ch.Special[:]),
-		SkillBar:     byteArrToProto(ch.SkillBar[:]),
-		ShortSkill:   byteArrToProto(ch.ShortSkill[:]),
+		ScoreBonus:      int32(ch.ScoreBonus),
+		SpecialBonus:    int32(ch.SpecialBonus),
+		LearnedSkill:    ch.LearnedSkill,
+		SecLearnedSkill: ch.SecLearnedSkill,
+		Magic:           int64(ch.Magic),
+		Special:         int16ArrToProto(ch.Special[:]),
+		SkillBar:        byteArrToProto(ch.SkillBar[:]),
+		ShortSkill:      byteArrToProto(ch.ShortSkill[:]),
+		Soul:            int32(ch.Soul),
 	}
 }
 
@@ -98,13 +100,15 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		Carry:    protoToItems(c.GetCarry()),
 		Affects:  protoToAffects(c.GetAffects()),
 
-		ScoreBonus:   uint16(c.GetScoreBonus()),
-		SpecialBonus: uint16(c.GetSpecialBonus()),
-		LearnedSkill: c.GetLearnedSkill(),
-		Magic:        uint32(c.GetMagic()),
-		Special:      protoToInt16Arr4(c.GetSpecial()),
-		SkillBar:     [4]uint8(protoToByteArr(c.GetSkillBar(), 4)),
-		ShortSkill:   [16]uint8(protoToByteArr(c.GetShortSkill(), 16)),
+		ScoreBonus:      uint16(c.GetScoreBonus()),
+		SpecialBonus:    uint16(c.GetSpecialBonus()),
+		LearnedSkill:    c.GetLearnedSkill(),
+		SecLearnedSkill: c.GetSecLearnedSkill(),
+		Magic:           uint32(c.GetMagic()),
+		Special:         protoToInt16Arr4(c.GetSpecial()),
+		SkillBar:        [4]uint8(protoToByteArr(c.GetSkillBar(), 4)),
+		ShortSkill:      [16]uint8(protoToByteArr(c.GetShortSkill(), 16)),
+		Soul:            uint8(c.GetSoul()),
 	}
 }
 

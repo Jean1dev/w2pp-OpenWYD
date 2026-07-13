@@ -34,27 +34,30 @@ func TestApplyTransformScore(t *testing.T) {
 		wantAC  int32
 		wantHP  int32
 		wantRes int16
+		wantRun int32
+		wantAtt int32
+		wantCri int16
 		wantVis uint16 // equipVisual slot 0
 	}{
 		// Lobo learned (bit 0x20000), Level 200: adds Dam10/Hp5/Ac3; dam 120..140
 		// →140; AC 98..108 →108 (+8 on 100) +5 flat; HP 100..110 →110 (+100).
-		{"lobo learned", 1, 200, learnedWolf, 140, 10, 13, 100, 0, 22},
+		{"lobo learned", 1, 200, learnedWolf, 140, 10, 13, 100, 0, 1, 20, 5, 22},
 		// Lobo unlearned: per-beast adds gated off, but the mesh-22 flat +10 dam /
 		// +5 AC are NOT gated (Basedef.cpp:4176/4190). dam 110..130 →130; AC
 		// 95..105 →105 (+5+5); HP 95..105 →105 (+50).
-		{"lobo unlearned", 1, 200, 0, 130, 10, 10, 50, 0, 22},
+		{"lobo unlearned", 1, 200, 0, 130, 10, 10, 50, 0, 1, 20, 0, 22},
 		// Urso learned (0x80000), Level 100: Hp15/Reg40; dam 80..100 →90; AC
 		// 100..110 →105 (+5); HP 125..155 →140 (+400).
-		{"urso learned", 2, 100, learnedBear, 90, 0, 5, 400, 40, 23},
+		{"urso learned", 2, 100, learnedBear, 90, 0, 5, 400, 40, 0, 40, 0, 23},
 		// Astaroth learned (0x200000), Level 0: Dam10/Ac5/Hp5/Reg15; min of every
 		// range: dam →110; AC →110 (+10); HP →105 (+50).
-		{"astaroth learned level0", 3, 0, learnedAstaroth, 110, 0, 10, 50, 15, 24},
+		{"astaroth learned level0", 3, 0, learnedAstaroth, 110, 0, 10, 50, 15, 1, 40, 5, 24},
 		// Titã (no learned gate), Level 200: Hp5/Ac10; dam 90..110 →110; AC
 		// 120..135 →135 (+35); HP 110..115 →115 (+150).
-		{"tita", 4, 200, 0, 110, 0, 35, 150, 0, 25},
+		{"tita", 4, 200, 0, 110, 0, 35, 150, 0, 0, 50, 0, 25},
 		// Éden (no learned gate), Level 100: Dam10/Ac5/Hp10/Reg10; dam 115..130
 		// →122; AC 115..125 →120 (+20); HP 115..125 →120 (+200).
-		{"eden", 5, 100, 0, 122, 0, 20, 200, 10, 32},
+		{"eden", 5, 100, 0, 122, 0, 20, 200, 10, 3, 40, 6, 32},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -77,6 +80,10 @@ func TestApplyTransformScore(t *testing.T) {
 				if r != tt.wantRes {
 					t.Errorf("AffResist[%d] = %d, want %d", k, r, tt.wantRes)
 				}
+			}
+			if e.AffRunSpeed != tt.wantRun || e.AffAttackSpeed != tt.wantAtt || e.AffCritical != tt.wantCri {
+				t.Errorf("AffRun/AffAttack/AffCritical = %d/%d/%d, want %d/%d/%d",
+					e.AffRunSpeed, e.AffAttackSpeed, e.AffCritical, tt.wantRun, tt.wantAtt, tt.wantCri)
 			}
 			if v := equipVisual(e); v[0] != tt.wantVis {
 				t.Errorf("equipVisual[0] = %d, want %d (beast mesh)", v[0], tt.wantVis)

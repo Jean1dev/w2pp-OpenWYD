@@ -1,6 +1,7 @@
 package savefmt
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -96,6 +97,35 @@ func TestMobFieldOffsets(t *testing.T) {
 	}
 	if getI16(b, 268) != m.Carry[0].Index {
 		t.Errorf("Carry not at offset 268")
+	}
+}
+
+func TestMobExtraLeadingFieldOffsets(t *testing.T) {
+	var ex MobExtra
+	ex.Raw[0] = 2
+	ex.Raw[2] = 1
+	binary.LittleEndian.PutUint32(ex.Raw[4:8], 0x11223344)
+	binary.LittleEndian.PutUint32(ex.Raw[8:12], 0x55667788)
+	ex.Raw[12] = 3
+	binary.LittleEndian.PutUint16(ex.Raw[14:16], 0x1234)
+
+	if ex.ClassMaster() != 2 {
+		t.Errorf("ClassMaster = %d, want 2", ex.ClassMaster())
+	}
+	if ex.Citizen() != 1 {
+		t.Errorf("Citizen = %d, want 1", ex.Citizen())
+	}
+	if ex.SecLearnedSkill() != 0x11223344 {
+		t.Errorf("SecLearnedSkill = %#x, want 0x11223344", ex.SecLearnedSkill())
+	}
+	if ex.Fame() != 0x55667788 {
+		t.Errorf("Fame = %#x, want 0x55667788", ex.Fame())
+	}
+	if ex.Soul() != 3 {
+		t.Errorf("Soul = %d, want 3", ex.Soul())
+	}
+	if ex.MortalFace() != 0x1234 {
+		t.Errorf("MortalFace = %#x, want 0x1234", ex.MortalFace())
 	}
 }
 

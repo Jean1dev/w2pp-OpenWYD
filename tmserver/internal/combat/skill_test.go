@@ -12,6 +12,7 @@ func TestManaSpent(t *testing.T) {
 		{"special raises", 15, 0, 100, 22},   // 15*150/100=22 (int)
 		{"savemana halves", 15, 50, 100, 11}, // 50*22/100=11
 		{"full savemana", 200, 100, 50, 0},
+		{"zero base mana costs nothing", 0, 0, 100, 0}, // 0*(150)/100=0 regardless of scaling
 		{"odd special truncates first", 53, 0, 75, 72}, // 53*(37+100)/100=72
 	}
 	for _, tt := range tests {
@@ -125,8 +126,12 @@ func TestSkillResistScale(t *testing.T) {
 		{"type1 player uses full Resist[0]", 100, 1, true, 130}, // (150-20)*100/100
 		{"type1 mob halves", 100, 1, false, 140},                // (150-10)
 		{"type2 reads Resist[0]", 100, 2, true, 130},
-		{"type5 reads Resist[3]", 100, 5, true, 70}, // (150-80)
-		{"type5 mob halves", 100, 5, false, 110},    // (150-40)
+		{"type3 reads Resist[1]", 100, 3, true, 110}, // (150-40)
+		{"type3 mob halves", 100, 3, false, 130},     // (150-20)
+		{"type4 reads Resist[2]", 100, 4, true, 90},  // (150-60)
+		{"type4 mob halves", 100, 4, false, 120},     // (150-30)
+		{"type5 reads Resist[3]", 100, 5, true, 70},  // (150-80)
+		{"type5 mob halves", 100, 5, false, 110},     // (150-40)
 		{"other types pass through", 100, 6, true, 100},
 	}
 	for _, tt := range tests {
@@ -138,4 +143,17 @@ func TestSkillResistScale(t *testing.T) {
 			}
 		})
 	}
+
+	// Affect-boosted resist: the handler feeds resolveSkillHit's summed array
+	// (target.Resist[k] + target.AffResist[k]) into this function, so a resist
+	// buff must raise mitigation. Build the array from base + affect components
+	// rather than a literal to lock that contract (combat.go resolveSkillHit).
+	t.Run("resist raised by affect mitigates more", func(t *testing.T) {
+		const base, affResist = int16(40), int16(30)
+		boosted := [4]int16{0, base + affResist, 0, 0} // type 3 → index 1
+		// (150-70)*100/100 = 80, vs 110 with base 40 alone.
+		if got := SkillResistScale(100, 3, boosted, true); got != 80 {
+			t.Errorf("boosted resist scale = %d, want 80", got)
+		}
+	})
 }

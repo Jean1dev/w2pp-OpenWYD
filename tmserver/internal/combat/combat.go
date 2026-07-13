@@ -125,16 +125,8 @@ func ResolveHit(r Rand, in HitInput) int {
 	}
 
 	// Parry/dodge: a roll in 1000 vs ParryRate. Always rolled (consumes a rand).
-	parry := in.ParryRate
-	if in.SkillIndex == 79 || in.SkillIndex == 22 {
-		parry = 30 * parry / 100
-	}
-	rd := r.Intn(1000) + 1
-	if rd < parry {
-		if in.TargetRsvBlock && rd < 100 {
-			return -4
-		}
-		return -3
+	if miss := ResolveParry(r, in.SkillIndex, in.ParryRate, in.TargetRsvBlock); miss != 0 {
+		return miss
 	}
 
 	// Reflect/absorb (PvP only), each step floored at 1.
