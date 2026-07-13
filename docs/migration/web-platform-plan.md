@@ -74,10 +74,18 @@ personagem.
 > **Status (issue #34, implementado):** a tabela `delivery_queue` (migração
 > `0008_donate_shop`), a **loja de donate** administrada por moderador (`donate_shop_item` +
 > `DonateAdminService`/`DonateShopService` em `api/web/v1`, lógica em `webserver/internal/donateshop`),
-> o crédito de saldo (`CreditDonateBalance`) e o **dreno no login** do tmServer (`World.DrainDeliveries`
-> → `AddToCargo` → `SaveCargoWithDeliveries`, RPCs novos em `api/db/v1`) já existem. Só o `kind='item'`
-> é usado; `cash`/`coin`/recompensa-diária continuam reservados. Entrega só no login (sem tick para
-> quem já está online); gateway de pagamento fica para depois (reusa `CreditDonateBalance`).
+> o crédito de saldo (`CreditDonateBalance`) e o **dreno no login** do tmServer (`World.ApplyDeliveries`
+> → `AddToCargo` → `SaveCargoWithDeliveries`, RPCs novos em `api/db/v1`) já existem. Entrega só no login
+> (sem tick para quem já está online); gateway de pagamento fica para depois (reusa
+> `CreditDonateBalance`).
+>
+> **Status (issue #35, implementado):** a **recompensa diária** reusa a mesma `delivery_queue` (só
+> `kind='item'`, `source='daily_reward:<id>'`) e o mesmo dreno acima — nenhuma mudança em tmServer/
+> dbServer. A tabela "resgatou hoje" é `daily_reward_claim` (migração `0009_daily_reward`,
+> `UNIQUE(account_id, claim_date)` em dia-calendário UTC), o catálogo é `daily_reward_item`, e os
+> serviços são `DailyRewardAdminService`/`DailyRewardService` em `api/web/v1`, lógica em
+> `webserver/internal/dailyreward`. Diferente do donate, é grátis (sem `price`/carteira) e limitado a
+> uma oferta por conta por dia. Guia de integração completo: [`daily-reward-frontend.md`](./daily-reward-frontend.md).
 
 ## ⚠️ Loja-web é a feature mais perigosa
 
@@ -112,7 +120,7 @@ reaproveitar o protocolo legado para a web.
 | Ranking | web-api → SELECT read-only no Postgres | dado de char online fica levemente atrasado — aceitável |
 | Ver perfil/personagem | idem, read-only | |
 | Comprar cash | gateway → webhook → web-api credita `donate_balance` + `delivery_queue` | `donate_balance` é coluna por-conta (`account`); ver gotcha abaixo |
-| Recompensa diária | web-api → `delivery_queue` + tabela "resgatou hoje" | |
+| Recompensa diária | web-api → `delivery_queue` + `daily_reward_claim` ("resgatou hoje") | implementado, issue #35 |
 | Loja-web | consignação in-game + entrega via `delivery_queue` | ver seção ⚠️ acima |
 
 ## binServer / billing — papel na nova arquitetura

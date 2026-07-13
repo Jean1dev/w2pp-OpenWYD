@@ -45,6 +45,12 @@ func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
 			item,
 			character,
 			account,
+			donate_shop_audit,
+			donate_shop_item,
+			daily_reward_audit,
+			daily_reward_claim,
+			daily_reward_item,
+			delivery_queue,
 			schema_migrations
 		CASCADE`)
 	_, _ = pool.Exec(ctx, `DROP TYPE IF EXISTS item_owner_kind`)

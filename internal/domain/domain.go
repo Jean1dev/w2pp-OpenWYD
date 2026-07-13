@@ -179,3 +179,23 @@ type Delivery struct {
 	ID   int64
 	Item Item
 }
+
+// DailyRewardItem is one moderator-managed offer in the daily reward catalog
+// (issue #35): an item (index + up to three effect/value pairs) claimable once
+// per account per UTC calendar day, free of charge. Cold config owned by
+// Postgres — the tmServer never reads it; only the web-api serves the vitrine
+// and processes claims. ExpiresDays > 0 makes the delivered item timed.
+type DailyRewardItem struct {
+	ID          int64
+	ItemIndex   int32
+	Eff1        uint8
+	EffV1       uint8
+	Eff2        uint8
+	EffV2       uint8
+	Eff3        uint8
+	EffV3       uint8
+	Title       string
+	Description string
+	Enabled     bool
+	ExpiresDays int32
+}
