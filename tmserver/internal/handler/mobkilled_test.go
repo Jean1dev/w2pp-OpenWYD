@@ -62,7 +62,10 @@ func mobKilledWorld(t *testing.T) (*Dispatcher, *world.World, *world.Entity) {
 		ID: 0, Mode: world.MobUser, Name: "Heroi",
 		Level: 1, ClassMaster: classMasterMortal,
 		BaseMaxHP: 80, BaseMaxMP: 45, HP: 40, MaxHP: 80, MP: 20, MaxMP: 45,
-		Str: 8, Int: 4, Dex: 7, Con: 6, // TK base attributes
+		// TK class-base attributes, no allocated points and no gear, so the live
+		// CurrentScore (Str/…) equals the equipment-free BaseScore (BaseStr/…).
+		Str: 8, Int: 4, Dex: 7, Con: 6,
+		BaseStr: 8, BaseInt: 4, BaseDex: 7, BaseCon: 6,
 	}
 	return d, w, killer
 }
@@ -103,11 +106,56 @@ func TestMobKilledLevelUp(t *testing.T) {
 	if killer.SkillBonus != 3 || killer.SpecialBonus != 2 {
 		t.Errorf("SkillBonus/SpecialBonus = %d/%d, want 3/2", killer.SkillBonus, killer.SpecialBonus)
 	}
+	// A TK at the class base with nothing allocated gets level*5 free attribute
+	// points (B10): 2 levels → 10. Zero here is the "no points on level-up" bug.
+	if killer.ScoreBonus != 10 {
+		t.Errorf("ScoreBonus = %d, want 10 (level 2 × 5, nothing spent)", killer.ScoreBonus)
+	}
 	if killer.BaseMaxHP != 83 { // TK IncHP = 3
 		t.Errorf("BaseMaxHP = %d, want 83", killer.BaseMaxHP)
 	}
 	if killer.HP != killer.MaxHP || killer.MP != killer.MaxMP || killer.MaxHP <= 0 {
 		t.Errorf("HP/MP = %d/%d of %d/%d, want full heal", killer.HP, killer.MP, killer.MaxHP, killer.MaxMP)
+	}
+}
+
+// TestMobKilledLevelUpPointsIgnoreEquipAttributes is the regression guard for the
+// "no attribute points on level-up while wearing gear" bug: BASE_GetBonusScorePoint
+// must read the equipment-free BaseScore. Here the live CurrentScore attributes are
+// inflated far above the class base by equipment (Str 8→108), while the allocated
+// BaseScore is untouched. The free-point grant must stay level*5 (nothing allocated);
+// the pre-fix code fed the inflated e.Str in, counted 100 points as "spent", and
+// handed the player ZERO.
+func TestMobKilledLevelUpPointsIgnoreEquipAttributes(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	// +100 Str from equipment: CurrentScore diverges from the allocated BaseScore.
+	killer.Str = killer.BaseStr + 100
+	killer.Exp = 1100 // crosses exactly one level (nextLevel[2]=1124)
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+	if killer.Level != 2 {
+		t.Fatalf("killer.Level = %d, want 2", killer.Level)
+	}
+	if killer.ScoreBonus != 10 {
+		t.Errorf("ScoreBonus = %d, want 10 — equipment attribute bonus must not consume free points", killer.ScoreBonus)
+	}
+}
+
+// TestMobKilledLevelUpPointsAfterAllocation: points already spent into the
+// BaseScore reduce the grant (the idempotent BASE_GetBonusScorePoint identity),
+// while equipment on top of them still does not. Level 2 grants 10; 4 allocated
+// into Str leaves 6 free even with gear inflating the live Str further.
+func TestMobKilledLevelUpPointsAfterAllocation(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	killer.BaseStr = 8 + 4           // 4 points allocated above the TK base
+	killer.Str = killer.BaseStr + 30 // plus equipment on top
+	killer.Exp = 1100
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+	if killer.ScoreBonus != 6 {
+		t.Errorf("ScoreBonus = %d, want 6 (level 2 × 5 − 4 allocated)", killer.ScoreBonus)
 	}
 }
 
