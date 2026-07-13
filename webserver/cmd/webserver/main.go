@@ -27,6 +27,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/characters"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/dailyreward"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donateshop"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
@@ -79,6 +80,7 @@ func run(logger *slog.Logger) error {
 	st := store.New(pool)
 	npcAdmin := npcadmin.New(st)
 	donate := donateshop.New(st)
+	dailyRwd := dailyreward.New(st)
 	if *contentDir != "" {
 		templates, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -102,6 +104,8 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
 	webv1.RegisterDonateAdminServiceServer(srv, grpcsrv.NewDonateAdmin(donate))
 	webv1.RegisterDonateShopServiceServer(srv, grpcsrv.NewDonateShop(donate))
+	webv1.RegisterDailyRewardAdminServiceServer(srv, grpcsrv.NewDailyRewardAdmin(dailyRwd))
+	webv1.RegisterDailyRewardServiceServer(srv, grpcsrv.NewDailyReward(dailyRwd))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

@@ -1380,3 +1380,440 @@ var DonateShopService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/web/v1/web.proto",
 }
+
+const (
+	DailyRewardAdminService_ListRewardItems_FullMethodName      = "/web.v1.DailyRewardAdminService/ListRewardItems"
+	DailyRewardAdminService_UpsertRewardItem_FullMethodName     = "/web.v1.DailyRewardAdminService/UpsertRewardItem"
+	DailyRewardAdminService_SetRewardItemEnabled_FullMethodName = "/web.v1.DailyRewardAdminService/SetRewardItemEnabled"
+	DailyRewardAdminService_DeleteRewardItem_FullMethodName     = "/web.v1.DailyRewardAdminService/DeleteRewardItem"
+)
+
+// DailyRewardAdminServiceClient is the client API for DailyRewardAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DailyRewardAdminService is the moderator-facing daily-reward catalog surface
+// (issue #35): CRUD over the daily_reward_item catalog. Like DonateAdminService
+// every request carries the moderator's account_id, re-authorized server-side
+// against account.role; all writes are cold config in Postgres, never live
+// state. Unlike DonateAdminService there is no balance-credit RPC — daily
+// rewards are free.
+type DailyRewardAdminServiceClient interface {
+	// ListRewardItems returns every offer (enabled or not) — the moderation table.
+	ListRewardItems(ctx context.Context, in *ListRewardItemsRequest, opts ...grpc.CallOption) (*ListRewardItemsResponse, error)
+	// UpsertRewardItem creates (id==0) or updates an offer.
+	UpsertRewardItem(ctx context.Context, in *UpsertRewardItemRequest, opts ...grpc.CallOption) (*UpsertRewardItemResponse, error)
+	// SetRewardItemEnabled toggles whether an offer is claimable.
+	SetRewardItemEnabled(ctx context.Context, in *SetRewardItemEnabledRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// DeleteRewardItem removes an offer.
+	DeleteRewardItem(ctx context.Context, in *DeleteRewardItemRequest, opts ...grpc.CallOption) (*AdminAck, error)
+}
+
+type dailyRewardAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDailyRewardAdminServiceClient(cc grpc.ClientConnInterface) DailyRewardAdminServiceClient {
+	return &dailyRewardAdminServiceClient{cc}
+}
+
+func (c *dailyRewardAdminServiceClient) ListRewardItems(ctx context.Context, in *ListRewardItemsRequest, opts ...grpc.CallOption) (*ListRewardItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRewardItemsResponse)
+	err := c.cc.Invoke(ctx, DailyRewardAdminService_ListRewardItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dailyRewardAdminServiceClient) UpsertRewardItem(ctx context.Context, in *UpsertRewardItemRequest, opts ...grpc.CallOption) (*UpsertRewardItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertRewardItemResponse)
+	err := c.cc.Invoke(ctx, DailyRewardAdminService_UpsertRewardItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dailyRewardAdminServiceClient) SetRewardItemEnabled(ctx context.Context, in *SetRewardItemEnabledRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, DailyRewardAdminService_SetRewardItemEnabled_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dailyRewardAdminServiceClient) DeleteRewardItem(ctx context.Context, in *DeleteRewardItemRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, DailyRewardAdminService_DeleteRewardItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DailyRewardAdminServiceServer is the server API for DailyRewardAdminService service.
+// All implementations must embed UnimplementedDailyRewardAdminServiceServer
+// for forward compatibility.
+//
+// DailyRewardAdminService is the moderator-facing daily-reward catalog surface
+// (issue #35): CRUD over the daily_reward_item catalog. Like DonateAdminService
+// every request carries the moderator's account_id, re-authorized server-side
+// against account.role; all writes are cold config in Postgres, never live
+// state. Unlike DonateAdminService there is no balance-credit RPC — daily
+// rewards are free.
+type DailyRewardAdminServiceServer interface {
+	// ListRewardItems returns every offer (enabled or not) — the moderation table.
+	ListRewardItems(context.Context, *ListRewardItemsRequest) (*ListRewardItemsResponse, error)
+	// UpsertRewardItem creates (id==0) or updates an offer.
+	UpsertRewardItem(context.Context, *UpsertRewardItemRequest) (*UpsertRewardItemResponse, error)
+	// SetRewardItemEnabled toggles whether an offer is claimable.
+	SetRewardItemEnabled(context.Context, *SetRewardItemEnabledRequest) (*AdminAck, error)
+	// DeleteRewardItem removes an offer.
+	DeleteRewardItem(context.Context, *DeleteRewardItemRequest) (*AdminAck, error)
+	mustEmbedUnimplementedDailyRewardAdminServiceServer()
+}
+
+// UnimplementedDailyRewardAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDailyRewardAdminServiceServer struct{}
+
+func (UnimplementedDailyRewardAdminServiceServer) ListRewardItems(context.Context, *ListRewardItemsRequest) (*ListRewardItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRewardItems not implemented")
+}
+func (UnimplementedDailyRewardAdminServiceServer) UpsertRewardItem(context.Context, *UpsertRewardItemRequest) (*UpsertRewardItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertRewardItem not implemented")
+}
+func (UnimplementedDailyRewardAdminServiceServer) SetRewardItemEnabled(context.Context, *SetRewardItemEnabledRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetRewardItemEnabled not implemented")
+}
+func (UnimplementedDailyRewardAdminServiceServer) DeleteRewardItem(context.Context, *DeleteRewardItemRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRewardItem not implemented")
+}
+func (UnimplementedDailyRewardAdminServiceServer) mustEmbedUnimplementedDailyRewardAdminServiceServer() {
+}
+func (UnimplementedDailyRewardAdminServiceServer) testEmbeddedByValue() {}
+
+// UnsafeDailyRewardAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DailyRewardAdminServiceServer will
+// result in compilation errors.
+type UnsafeDailyRewardAdminServiceServer interface {
+	mustEmbedUnimplementedDailyRewardAdminServiceServer()
+}
+
+func RegisterDailyRewardAdminServiceServer(s grpc.ServiceRegistrar, srv DailyRewardAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedDailyRewardAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DailyRewardAdminService_ServiceDesc, srv)
+}
+
+func _DailyRewardAdminService_ListRewardItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRewardItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardAdminServiceServer).ListRewardItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardAdminService_ListRewardItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardAdminServiceServer).ListRewardItems(ctx, req.(*ListRewardItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DailyRewardAdminService_UpsertRewardItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertRewardItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardAdminServiceServer).UpsertRewardItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardAdminService_UpsertRewardItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardAdminServiceServer).UpsertRewardItem(ctx, req.(*UpsertRewardItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DailyRewardAdminService_SetRewardItemEnabled_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRewardItemEnabledRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardAdminServiceServer).SetRewardItemEnabled(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardAdminService_SetRewardItemEnabled_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardAdminServiceServer).SetRewardItemEnabled(ctx, req.(*SetRewardItemEnabledRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DailyRewardAdminService_DeleteRewardItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRewardItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardAdminServiceServer).DeleteRewardItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardAdminService_DeleteRewardItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardAdminServiceServer).DeleteRewardItem(ctx, req.(*DeleteRewardItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DailyRewardAdminService_ServiceDesc is the grpc.ServiceDesc for DailyRewardAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DailyRewardAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.DailyRewardAdminService",
+	HandlerType: (*DailyRewardAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListRewardItems",
+			Handler:    _DailyRewardAdminService_ListRewardItems_Handler,
+		},
+		{
+			MethodName: "UpsertRewardItem",
+			Handler:    _DailyRewardAdminService_UpsertRewardItem_Handler,
+		},
+		{
+			MethodName: "SetRewardItemEnabled",
+			Handler:    _DailyRewardAdminService_SetRewardItemEnabled_Handler,
+		},
+		{
+			MethodName: "DeleteRewardItem",
+			Handler:    _DailyRewardAdminService_DeleteRewardItem_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
+	DailyRewardService_ListRewards_FullMethodName    = "/web.v1.DailyRewardService/ListRewards"
+	DailyRewardService_GetClaimStatus_FullMethodName = "/web.v1.DailyRewardService/GetClaimStatus"
+	DailyRewardService_Claim_FullMethodName          = "/web.v1.DailyRewardService/Claim"
+)
+
+// DailyRewardServiceClient is the client API for DailyRewardService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DailyRewardService is the player-facing daily reward surface the Next.js BFF
+// calls with the logged account_id from its httpOnly session (never
+// browser-supplied). A claim inserts a daily_reward_claim row for today's UTC
+// calendar day and enqueues the item into delivery_queue, which the tmServer
+// drains into the account cargo on the next login (web-platform-plan.md), the
+// same pipe DonateShopService purchases use.
+type DailyRewardServiceClient interface {
+	// ListRewards returns the enabled offers (the vitrine).
+	ListRewards(ctx context.Context, in *ListRewardsRequest, opts ...grpc.CallOption) (*ListRewardsResponse, error)
+	// GetClaimStatus reports whether the account already claimed today.
+	GetClaimStatus(ctx context.Context, in *GetClaimStatusRequest, opts ...grpc.CallOption) (*GetClaimStatusResponse, error)
+	// Claim redeems one reward offer for the account for today.
+	Claim(ctx context.Context, in *ClaimRequest, opts ...grpc.CallOption) (*ClaimResponse, error)
+}
+
+type dailyRewardServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDailyRewardServiceClient(cc grpc.ClientConnInterface) DailyRewardServiceClient {
+	return &dailyRewardServiceClient{cc}
+}
+
+func (c *dailyRewardServiceClient) ListRewards(ctx context.Context, in *ListRewardsRequest, opts ...grpc.CallOption) (*ListRewardsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRewardsResponse)
+	err := c.cc.Invoke(ctx, DailyRewardService_ListRewards_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dailyRewardServiceClient) GetClaimStatus(ctx context.Context, in *GetClaimStatusRequest, opts ...grpc.CallOption) (*GetClaimStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetClaimStatusResponse)
+	err := c.cc.Invoke(ctx, DailyRewardService_GetClaimStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dailyRewardServiceClient) Claim(ctx context.Context, in *ClaimRequest, opts ...grpc.CallOption) (*ClaimResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClaimResponse)
+	err := c.cc.Invoke(ctx, DailyRewardService_Claim_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DailyRewardServiceServer is the server API for DailyRewardService service.
+// All implementations must embed UnimplementedDailyRewardServiceServer
+// for forward compatibility.
+//
+// DailyRewardService is the player-facing daily reward surface the Next.js BFF
+// calls with the logged account_id from its httpOnly session (never
+// browser-supplied). A claim inserts a daily_reward_claim row for today's UTC
+// calendar day and enqueues the item into delivery_queue, which the tmServer
+// drains into the account cargo on the next login (web-platform-plan.md), the
+// same pipe DonateShopService purchases use.
+type DailyRewardServiceServer interface {
+	// ListRewards returns the enabled offers (the vitrine).
+	ListRewards(context.Context, *ListRewardsRequest) (*ListRewardsResponse, error)
+	// GetClaimStatus reports whether the account already claimed today.
+	GetClaimStatus(context.Context, *GetClaimStatusRequest) (*GetClaimStatusResponse, error)
+	// Claim redeems one reward offer for the account for today.
+	Claim(context.Context, *ClaimRequest) (*ClaimResponse, error)
+	mustEmbedUnimplementedDailyRewardServiceServer()
+}
+
+// UnimplementedDailyRewardServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDailyRewardServiceServer struct{}
+
+func (UnimplementedDailyRewardServiceServer) ListRewards(context.Context, *ListRewardsRequest) (*ListRewardsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRewards not implemented")
+}
+func (UnimplementedDailyRewardServiceServer) GetClaimStatus(context.Context, *GetClaimStatusRequest) (*GetClaimStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetClaimStatus not implemented")
+}
+func (UnimplementedDailyRewardServiceServer) Claim(context.Context, *ClaimRequest) (*ClaimResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Claim not implemented")
+}
+func (UnimplementedDailyRewardServiceServer) mustEmbedUnimplementedDailyRewardServiceServer() {}
+func (UnimplementedDailyRewardServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeDailyRewardServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DailyRewardServiceServer will
+// result in compilation errors.
+type UnsafeDailyRewardServiceServer interface {
+	mustEmbedUnimplementedDailyRewardServiceServer()
+}
+
+func RegisterDailyRewardServiceServer(s grpc.ServiceRegistrar, srv DailyRewardServiceServer) {
+	// If the following call panics, it indicates UnimplementedDailyRewardServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DailyRewardService_ServiceDesc, srv)
+}
+
+func _DailyRewardService_ListRewards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRewardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardServiceServer).ListRewards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardService_ListRewards_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardServiceServer).ListRewards(ctx, req.(*ListRewardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DailyRewardService_GetClaimStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetClaimStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardServiceServer).GetClaimStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardService_GetClaimStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardServiceServer).GetClaimStatus(ctx, req.(*GetClaimStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DailyRewardService_Claim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClaimRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DailyRewardServiceServer).Claim(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DailyRewardService_Claim_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DailyRewardServiceServer).Claim(ctx, req.(*ClaimRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DailyRewardService_ServiceDesc is the grpc.ServiceDesc for DailyRewardService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DailyRewardService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.DailyRewardService",
+	HandlerType: (*DailyRewardServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListRewards",
+			Handler:    _DailyRewardService_ListRewards_Handler,
+		},
+		{
+			MethodName: "GetClaimStatus",
+			Handler:    _DailyRewardService_GetClaimStatus_Handler,
+		},
+		{
+			MethodName: "Claim",
+			Handler:    _DailyRewardService_Claim_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}

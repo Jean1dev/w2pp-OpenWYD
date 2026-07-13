@@ -417,3 +417,109 @@ message BuyResponse {
   BuyResult result = 1;
   int32 new_balance = 2; // set only when result is OK
 }
+
+// DailyRewardAdminService is the moderator-facing daily-reward catalog surface
+// (issue #35): CRUD over the daily_reward_item catalog. Like DonateAdminService
+// every request carries the moderator's account_id, re-authorized server-side
+// against account.role; all writes are cold config in Postgres, never live
+// state. Unlike DonateAdminService there is no balance-credit RPC — daily
+// rewards are free.
+service DailyRewardAdminService {
+  // ListRewardItems returns every offer (enabled or not) — the moderation table.
+  rpc ListRewardItems(ListRewardItemsRequest) returns (ListRewardItemsResponse);
+  // UpsertRewardItem creates (id==0) or updates an offer.
+  rpc UpsertRewardItem(UpsertRewardItemRequest) returns (UpsertRewardItemResponse);
+  // SetRewardItemEnabled toggles whether an offer is claimable.
+  rpc SetRewardItemEnabled(SetRewardItemEnabledRequest) returns (AdminAck);
+  // DeleteRewardItem removes an offer.
+  rpc DeleteRewardItem(DeleteRewardItemRequest) returns (AdminAck);
+}
+
+// DailyRewardItem is one claimable offer: an item (index + up to three
+// effect/value pairs), free, gated only by the once-per-account-per-UTC-day
+// limit. expires_days > 0 makes the delivered item timed.
+message DailyRewardItem {
+  int64 id = 1;
+  int32 item_index = 2;
+  int32 eff1 = 3;  int32 effv1 = 4;
+  int32 eff2 = 5;  int32 effv2 = 6;
+  int32 eff3 = 7;  int32 effv3 = 8;
+  string title = 9;
+  string description = 10;
+  bool enabled = 11;
+  int32 expires_days = 12;
+}
+
+message ListRewardItemsRequest { int64 moderator_id = 1; }
+message ListRewardItemsResponse {
+  AdminResult result = 1;
+  repeated DailyRewardItem items = 2;
+}
+
+message UpsertRewardItemRequest {
+  int64 moderator_id = 1;
+  // id == 0 creates a new offer; otherwise the offer with that id is updated.
+  DailyRewardItem item = 2;
+}
+message UpsertRewardItemResponse {
+  AdminResult result = 1;
+  int64 item_id = 2;
+}
+
+message SetRewardItemEnabledRequest {
+  int64 moderator_id = 1;
+  int64 item_id = 2;
+  bool enabled = 3;
+}
+
+message DeleteRewardItemRequest {
+  int64 moderator_id = 1;
+  int64 item_id = 2;
+}
+
+// DailyRewardService is the player-facing daily reward surface the Next.js BFF
+// calls with the logged account_id from its httpOnly session (never
+// browser-supplied). A claim inserts a daily_reward_claim row for today's UTC
+// calendar day and enqueues the item into delivery_queue, which the tmServer
+// drains into the account cargo on the next login (web-platform-plan.md), the
+// same pipe DonateShopService purchases use.
+service DailyRewardService {
+  // ListRewards returns the enabled offers (the vitrine).
+  rpc ListRewards(ListRewardsRequest) returns (ListRewardsResponse);
+  // GetClaimStatus reports whether the account already claimed today.
+  rpc GetClaimStatus(GetClaimStatusRequest) returns (GetClaimStatusResponse);
+  // Claim redeems one reward offer for the account for today.
+  rpc Claim(ClaimRequest) returns (ClaimResponse);
+}
+
+// ClaimResult carries the claim outcome in the body; only infra failures
+// become gRPC errors.
+enum ClaimResult {
+  CLAIM_RESULT_UNSPECIFIED = 0;
+  CLAIM_RESULT_OK = 1;               // claim recorded + item queued for delivery
+  CLAIM_RESULT_ALREADY_CLAIMED = 2;  // account already claimed today (UTC)
+  CLAIM_RESULT_NOT_FOUND = 3;        // unknown offer or account
+  CLAIM_RESULT_DISABLED = 4;         // offer exists but is not claimable
+}
+
+message ListRewardsRequest {}
+message ListRewardsResponse {
+  repeated DailyRewardItem items = 1;
+}
+
+message GetClaimStatusRequest {
+  int64 account_id = 1; // from the BFF session, never from browser input
+}
+message GetClaimStatusResponse {
+  bool claimed_today = 1;
+  int64 claimed_item_id = 2;     // set only when claimed_today
+  string claimed_item_title = 3; // set only when claimed_today (empty if the offer was since deleted)
+}
+
+message ClaimRequest {
+  int64 account_id = 1;    // from the BFF session, never from browser input
+  int64 reward_item_id = 2;
+}
+message ClaimResponse {
+  ClaimResult result = 1;
+}
