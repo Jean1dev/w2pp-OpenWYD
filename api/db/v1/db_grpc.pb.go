@@ -27,14 +27,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AccountService_AccountLogin_FullMethodName    = "/db.v1.AccountService/AccountLogin"
-	AccountService_ListCharacters_FullMethodName  = "/db.v1.AccountService/ListCharacters"
-	AccountService_LoadCharacter_FullMethodName   = "/db.v1.AccountService/LoadCharacter"
-	AccountService_SaveCharacter_FullMethodName   = "/db.v1.AccountService/SaveCharacter"
-	AccountService_CreateCharacter_FullMethodName = "/db.v1.AccountService/CreateCharacter"
-	AccountService_DeleteCharacter_FullMethodName = "/db.v1.AccountService/DeleteCharacter"
-	AccountService_LoadCargo_FullMethodName       = "/db.v1.AccountService/LoadCargo"
-	AccountService_SaveCargo_FullMethodName       = "/db.v1.AccountService/SaveCargo"
+	AccountService_AccountLogin_FullMethodName            = "/db.v1.AccountService/AccountLogin"
+	AccountService_ListCharacters_FullMethodName          = "/db.v1.AccountService/ListCharacters"
+	AccountService_LoadCharacter_FullMethodName           = "/db.v1.AccountService/LoadCharacter"
+	AccountService_SaveCharacter_FullMethodName           = "/db.v1.AccountService/SaveCharacter"
+	AccountService_CreateCharacter_FullMethodName         = "/db.v1.AccountService/CreateCharacter"
+	AccountService_DeleteCharacter_FullMethodName         = "/db.v1.AccountService/DeleteCharacter"
+	AccountService_LoadCargo_FullMethodName               = "/db.v1.AccountService/LoadCargo"
+	AccountService_SaveCargo_FullMethodName               = "/db.v1.AccountService/SaveCargo"
+	AccountService_ListPendingDeliveries_FullMethodName   = "/db.v1.AccountService/ListPendingDeliveries"
+	AccountService_SaveCargoWithDeliveries_FullMethodName = "/db.v1.AccountService/SaveCargoWithDeliveries"
 )
 
 // AccountServiceClient is the client API for AccountService service.
@@ -60,6 +62,15 @@ type AccountServiceClient interface {
 	LoadCargo(ctx context.Context, in *LoadCargoRequest, opts ...grpc.CallOption) (*LoadCargoResponse, error)
 	// SaveCargo persists the account-shared cargo gold + items (replace-all).
 	SaveCargo(ctx context.Context, in *SaveCargoRequest, opts ...grpc.CallOption) (*SaveCargoResponse, error)
+	// ListPendingDeliveries returns the account's pending item grants from the
+	// delivery_queue mailbox (donate web shop, issue #34). tmServer drains them
+	// into the account cargo inside its loop at login, then acks the outcome via
+	// SaveCargoWithDeliveries.
+	ListPendingDeliveries(ctx context.Context, in *ListPendingDeliveriesRequest, opts ...grpc.CallOption) (*ListPendingDeliveriesResponse, error)
+	// SaveCargoWithDeliveries persists the cargo (replace-all, like SaveCargo) and
+	// marks the drained mailbox rows delivered/lost in the SAME transaction — the
+	// anti-dup boundary for the drain (web-platform-plan.md §mailbox).
+	SaveCargoWithDeliveries(ctx context.Context, in *SaveCargoWithDeliveriesRequest, opts ...grpc.CallOption) (*SaveCargoResponse, error)
 }
 
 type accountServiceClient struct {
@@ -150,6 +161,26 @@ func (c *accountServiceClient) SaveCargo(ctx context.Context, in *SaveCargoReque
 	return out, nil
 }
 
+func (c *accountServiceClient) ListPendingDeliveries(ctx context.Context, in *ListPendingDeliveriesRequest, opts ...grpc.CallOption) (*ListPendingDeliveriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPendingDeliveriesResponse)
+	err := c.cc.Invoke(ctx, AccountService_ListPendingDeliveries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SaveCargoWithDeliveries(ctx context.Context, in *SaveCargoWithDeliveriesRequest, opts ...grpc.CallOption) (*SaveCargoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveCargoResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveCargoWithDeliveries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility.
@@ -173,6 +204,15 @@ type AccountServiceServer interface {
 	LoadCargo(context.Context, *LoadCargoRequest) (*LoadCargoResponse, error)
 	// SaveCargo persists the account-shared cargo gold + items (replace-all).
 	SaveCargo(context.Context, *SaveCargoRequest) (*SaveCargoResponse, error)
+	// ListPendingDeliveries returns the account's pending item grants from the
+	// delivery_queue mailbox (donate web shop, issue #34). tmServer drains them
+	// into the account cargo inside its loop at login, then acks the outcome via
+	// SaveCargoWithDeliveries.
+	ListPendingDeliveries(context.Context, *ListPendingDeliveriesRequest) (*ListPendingDeliveriesResponse, error)
+	// SaveCargoWithDeliveries persists the cargo (replace-all, like SaveCargo) and
+	// marks the drained mailbox rows delivered/lost in the SAME transaction — the
+	// anti-dup boundary for the drain (web-platform-plan.md §mailbox).
+	SaveCargoWithDeliveries(context.Context, *SaveCargoWithDeliveriesRequest) (*SaveCargoResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -206,6 +246,12 @@ func (UnimplementedAccountServiceServer) LoadCargo(context.Context, *LoadCargoRe
 }
 func (UnimplementedAccountServiceServer) SaveCargo(context.Context, *SaveCargoRequest) (*SaveCargoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveCargo not implemented")
+}
+func (UnimplementedAccountServiceServer) ListPendingDeliveries(context.Context, *ListPendingDeliveriesRequest) (*ListPendingDeliveriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPendingDeliveries not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveCargoWithDeliveries(context.Context, *SaveCargoWithDeliveriesRequest) (*SaveCargoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveCargoWithDeliveries not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 func (UnimplementedAccountServiceServer) testEmbeddedByValue()                        {}
@@ -372,6 +418,42 @@ func _AccountService_SaveCargo_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_ListPendingDeliveries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPendingDeliveriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).ListPendingDeliveries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_ListPendingDeliveries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).ListPendingDeliveries(ctx, req.(*ListPendingDeliveriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SaveCargoWithDeliveries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveCargoWithDeliveriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveCargoWithDeliveries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveCargoWithDeliveries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveCargoWithDeliveries(ctx, req.(*SaveCargoWithDeliveriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -410,6 +492,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveCargo",
 			Handler:    _AccountService_SaveCargo_Handler,
+		},
+		{
+			MethodName: "ListPendingDeliveries",
+			Handler:    _AccountService_ListPendingDeliveries_Handler,
+		},
+		{
+			MethodName: "SaveCargoWithDeliveries",
+			Handler:    _AccountService_SaveCargoWithDeliveries_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

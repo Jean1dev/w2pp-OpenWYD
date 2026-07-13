@@ -57,6 +57,12 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 	if err != nil {
 		return world.LoginOutcome{}, err
 	}
+	// Fetch the donate web-shop mailbox (issue #34) in the same round-trip too,
+	// rather than a second loop re-entry after login completes. A fetch failure
+	// here is non-fatal to the login — the mailbox is simply retried next login.
+	if pending, err := c.ListPendingDeliveries(ctx, out.AccountID); err == nil {
+		out.PendingDeliveries = pending
+	}
 	return out, nil
 }
 
@@ -174,6 +180,36 @@ func (c *Client) SaveCargo(ctx context.Context, save world.CargoSave) error {
 	})
 	if err != nil {
 		return fmt.Errorf("dbclient: save cargo: %w", err)
+	}
+	return nil
+}
+
+// ListPendingDeliveries fetches the account's pending item grants from the
+// delivery_queue mailbox (donate web shop, issue #34).
+func (c *Client) ListPendingDeliveries(ctx context.Context, accountID int64) ([]world.Delivery, error) {
+	resp, err := c.api.ListPendingDeliveries(ctx, &dbv1.ListPendingDeliveriesRequest{AccountId: accountID})
+	if err != nil {
+		return nil, fmt.Errorf("dbclient: list pending deliveries: %w", err)
+	}
+	out := make([]world.Delivery, 0, len(resp.GetDeliveries()))
+	for _, d := range resp.GetDeliveries() {
+		out = append(out, world.Delivery{ID: d.GetId(), Item: itemFromProto(d.GetItem())})
+	}
+	return out, nil
+}
+
+// SaveCargoWithDeliveries persists the cargo and acks the drained mailbox rows in
+// one dbServer transaction (the anti-dup boundary for the drain).
+func (c *Client) SaveCargoWithDeliveries(ctx context.Context, save world.CargoSave, deliveredIDs, lostIDs []int64) error {
+	_, err := c.api.SaveCargoWithDeliveries(ctx, &dbv1.SaveCargoWithDeliveriesRequest{
+		AccountId:    save.AccountID,
+		CargoCoin:    save.Coin,
+		Items:        savedItemsToProto(save.Items),
+		DeliveredIds: deliveredIDs,
+		LostIds:      lostIDs,
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: save cargo with deliveries: %w", err)
 	}
 	return nil
 }

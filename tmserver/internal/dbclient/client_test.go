@@ -22,6 +22,9 @@ type fakeAPI struct {
 	saved      *dbv1.SaveCharacterRequest
 	cargoResp  *dbv1.LoadCargoResponse
 	savedCargo *dbv1.SaveCargoRequest
+
+	deliveriesResp       *dbv1.ListPendingDeliveriesResponse
+	savedCargoDeliveries *dbv1.SaveCargoWithDeliveriesRequest
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {
@@ -51,6 +54,16 @@ func (f *fakeAPI) LoadCargo(_ context.Context, _ *dbv1.LoadCargoRequest, _ ...gr
 }
 func (f *fakeAPI) SaveCargo(_ context.Context, req *dbv1.SaveCargoRequest, _ ...grpc.CallOption) (*dbv1.SaveCargoResponse, error) {
 	f.savedCargo = req
+	return &dbv1.SaveCargoResponse{Ok: true}, nil
+}
+func (f *fakeAPI) ListPendingDeliveries(_ context.Context, _ *dbv1.ListPendingDeliveriesRequest, _ ...grpc.CallOption) (*dbv1.ListPendingDeliveriesResponse, error) {
+	if f.deliveriesResp != nil {
+		return f.deliveriesResp, nil
+	}
+	return &dbv1.ListPendingDeliveriesResponse{}, nil
+}
+func (f *fakeAPI) SaveCargoWithDeliveries(_ context.Context, req *dbv1.SaveCargoWithDeliveriesRequest, _ ...grpc.CallOption) (*dbv1.SaveCargoResponse, error) {
+	f.savedCargoDeliveries = req
 	return &dbv1.SaveCargoResponse{Ok: true}, nil
 }
 

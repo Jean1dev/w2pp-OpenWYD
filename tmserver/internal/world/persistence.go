@@ -44,13 +44,15 @@ type CharSummary struct {
 }
 
 // LoginOutcome is the result of an account-login attempt. On success it also
-// carries the account-shared cargo, loaded in the same backend round-trip as the
-// character list (it is account-scoped, so it is fetched once per account login).
+// carries the account-shared cargo and the pending donate web-shop mailbox
+// (issue #34), both loaded in the same backend round-trip as the character list
+// (they are account-scoped, so they are fetched once per account login).
 type LoginOutcome struct {
-	Result     LoginResult
-	AccountID  int64
-	Characters []CharSummary
-	Cargo      CargoState
+	Result            LoginResult
+	AccountID         int64
+	Characters        []CharSummary
+	Cargo             CargoState
+	PendingDeliveries []Delivery
 }
 
 // CargoState is the account-shared warehouse (the legacy STRUCT_ACCOUNTFILE
@@ -70,6 +72,14 @@ type CargoSave struct {
 	AccountID int64
 	Coin      int32
 	Items     []SavedItem
+}
+
+// Delivery is one pending grant the loop drains from the delivery_queue mailbox
+// into the account cargo (donate web shop, issue #34). ID is the queue row id,
+// acked once the item is applied (or lost when the cargo is full).
+type Delivery struct {
+	ID   int64
+	Item Item
 }
 
 // CharacterState is the minimum needed to inject a player into the world on
@@ -187,6 +197,13 @@ type Persistence interface {
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
 	LoadCargo(ctx context.Context, accountID int64) (CargoState, error)
 	SaveCargo(ctx context.Context, save CargoSave) error
+	// ListPendingDeliveries returns the account's pending item grants from the
+	// delivery_queue mailbox (issue #34). Called off the loop at login.
+	ListPendingDeliveries(ctx context.Context, accountID int64) ([]Delivery, error)
+	// SaveCargoWithDeliveries persists the cargo (replace-all) and marks the
+	// drained mailbox rows delivered/lost in one backend transaction — the anti-dup
+	// boundary for the drain.
+	SaveCargoWithDeliveries(ctx context.Context, save CargoSave, deliveredIDs, lostIDs []int64) error
 }
 
 // errNoPersistence is returned by NopPersistence for operations that need a DB.
@@ -232,3 +249,13 @@ func (NopPersistence) LoadCargo(context.Context, int64) (CargoState, error) {
 
 // SaveCargo drops the snapshot (no backend to persist to).
 func (NopPersistence) SaveCargo(context.Context, CargoSave) error { return nil }
+
+// ListPendingDeliveries returns no grants: without a backend there is no mailbox.
+func (NopPersistence) ListPendingDeliveries(context.Context, int64) ([]Delivery, error) {
+	return nil, nil
+}
+
+// SaveCargoWithDeliveries drops the snapshot (no backend to persist to).
+func (NopPersistence) SaveCargoWithDeliveries(context.Context, CargoSave, []int64, []int64) error {
+	return nil
+}

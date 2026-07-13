@@ -904,3 +904,479 @@ var NpcAdminService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/web/v1/web.proto",
 }
+
+const (
+	DonateAdminService_ListShopItems_FullMethodName       = "/web.v1.DonateAdminService/ListShopItems"
+	DonateAdminService_UpsertShopItem_FullMethodName      = "/web.v1.DonateAdminService/UpsertShopItem"
+	DonateAdminService_SetShopItemEnabled_FullMethodName  = "/web.v1.DonateAdminService/SetShopItemEnabled"
+	DonateAdminService_DeleteShopItem_FullMethodName      = "/web.v1.DonateAdminService/DeleteShopItem"
+	DonateAdminService_CreditDonateBalance_FullMethodName = "/web.v1.DonateAdminService/CreditDonateBalance"
+)
+
+// DonateAdminServiceClient is the client API for DonateAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DonateAdminService is the moderator-facing donate web-shop surface (issue #34):
+// CRUD over the donate_shop_item catalog plus the manual "credit donate to an
+// account" path (the seam the future payment webhook reuses). Like NpcAdminService
+// every request carries the moderator's account_id, re-authorized server-side
+// against account.role; all writes are cold config in Postgres, never live state.
+type DonateAdminServiceClient interface {
+	// ListShopItems returns every offer (enabled or not) — the moderation table.
+	ListShopItems(ctx context.Context, in *ListShopItemsRequest, opts ...grpc.CallOption) (*ListShopItemsResponse, error)
+	// UpsertShopItem creates (id==0) or updates an offer.
+	UpsertShopItem(ctx context.Context, in *UpsertShopItemRequest, opts ...grpc.CallOption) (*UpsertShopItemResponse, error)
+	// SetShopItemEnabled toggles whether an offer is on sale.
+	SetShopItemEnabled(ctx context.Context, in *SetShopItemEnabledRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// DeleteShopItem removes an offer.
+	DeleteShopItem(ctx context.Context, in *DeleteShopItemRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// CreditDonateBalance adds donate currency to an account's wallet. This is the
+	// "adicionar donate na conta" function; the payment webhook will later call the
+	// same underlying store method after settling a real-money donation.
+	CreditDonateBalance(ctx context.Context, in *CreditDonateBalanceRequest, opts ...grpc.CallOption) (*CreditDonateBalanceResponse, error)
+}
+
+type donateAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDonateAdminServiceClient(cc grpc.ClientConnInterface) DonateAdminServiceClient {
+	return &donateAdminServiceClient{cc}
+}
+
+func (c *donateAdminServiceClient) ListShopItems(ctx context.Context, in *ListShopItemsRequest, opts ...grpc.CallOption) (*ListShopItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListShopItemsResponse)
+	err := c.cc.Invoke(ctx, DonateAdminService_ListShopItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateAdminServiceClient) UpsertShopItem(ctx context.Context, in *UpsertShopItemRequest, opts ...grpc.CallOption) (*UpsertShopItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertShopItemResponse)
+	err := c.cc.Invoke(ctx, DonateAdminService_UpsertShopItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateAdminServiceClient) SetShopItemEnabled(ctx context.Context, in *SetShopItemEnabledRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, DonateAdminService_SetShopItemEnabled_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateAdminServiceClient) DeleteShopItem(ctx context.Context, in *DeleteShopItemRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, DonateAdminService_DeleteShopItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateAdminServiceClient) CreditDonateBalance(ctx context.Context, in *CreditDonateBalanceRequest, opts ...grpc.CallOption) (*CreditDonateBalanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreditDonateBalanceResponse)
+	err := c.cc.Invoke(ctx, DonateAdminService_CreditDonateBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DonateAdminServiceServer is the server API for DonateAdminService service.
+// All implementations must embed UnimplementedDonateAdminServiceServer
+// for forward compatibility.
+//
+// DonateAdminService is the moderator-facing donate web-shop surface (issue #34):
+// CRUD over the donate_shop_item catalog plus the manual "credit donate to an
+// account" path (the seam the future payment webhook reuses). Like NpcAdminService
+// every request carries the moderator's account_id, re-authorized server-side
+// against account.role; all writes are cold config in Postgres, never live state.
+type DonateAdminServiceServer interface {
+	// ListShopItems returns every offer (enabled or not) — the moderation table.
+	ListShopItems(context.Context, *ListShopItemsRequest) (*ListShopItemsResponse, error)
+	// UpsertShopItem creates (id==0) or updates an offer.
+	UpsertShopItem(context.Context, *UpsertShopItemRequest) (*UpsertShopItemResponse, error)
+	// SetShopItemEnabled toggles whether an offer is on sale.
+	SetShopItemEnabled(context.Context, *SetShopItemEnabledRequest) (*AdminAck, error)
+	// DeleteShopItem removes an offer.
+	DeleteShopItem(context.Context, *DeleteShopItemRequest) (*AdminAck, error)
+	// CreditDonateBalance adds donate currency to an account's wallet. This is the
+	// "adicionar donate na conta" function; the payment webhook will later call the
+	// same underlying store method after settling a real-money donation.
+	CreditDonateBalance(context.Context, *CreditDonateBalanceRequest) (*CreditDonateBalanceResponse, error)
+	mustEmbedUnimplementedDonateAdminServiceServer()
+}
+
+// UnimplementedDonateAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDonateAdminServiceServer struct{}
+
+func (UnimplementedDonateAdminServiceServer) ListShopItems(context.Context, *ListShopItemsRequest) (*ListShopItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShopItems not implemented")
+}
+func (UnimplementedDonateAdminServiceServer) UpsertShopItem(context.Context, *UpsertShopItemRequest) (*UpsertShopItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertShopItem not implemented")
+}
+func (UnimplementedDonateAdminServiceServer) SetShopItemEnabled(context.Context, *SetShopItemEnabledRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetShopItemEnabled not implemented")
+}
+func (UnimplementedDonateAdminServiceServer) DeleteShopItem(context.Context, *DeleteShopItemRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteShopItem not implemented")
+}
+func (UnimplementedDonateAdminServiceServer) CreditDonateBalance(context.Context, *CreditDonateBalanceRequest) (*CreditDonateBalanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreditDonateBalance not implemented")
+}
+func (UnimplementedDonateAdminServiceServer) mustEmbedUnimplementedDonateAdminServiceServer() {}
+func (UnimplementedDonateAdminServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeDonateAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DonateAdminServiceServer will
+// result in compilation errors.
+type UnsafeDonateAdminServiceServer interface {
+	mustEmbedUnimplementedDonateAdminServiceServer()
+}
+
+func RegisterDonateAdminServiceServer(s grpc.ServiceRegistrar, srv DonateAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedDonateAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DonateAdminService_ServiceDesc, srv)
+}
+
+func _DonateAdminService_ListShopItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShopItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateAdminServiceServer).ListShopItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateAdminService_ListShopItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateAdminServiceServer).ListShopItems(ctx, req.(*ListShopItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateAdminService_UpsertShopItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertShopItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateAdminServiceServer).UpsertShopItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateAdminService_UpsertShopItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateAdminServiceServer).UpsertShopItem(ctx, req.(*UpsertShopItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateAdminService_SetShopItemEnabled_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetShopItemEnabledRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateAdminServiceServer).SetShopItemEnabled(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateAdminService_SetShopItemEnabled_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateAdminServiceServer).SetShopItemEnabled(ctx, req.(*SetShopItemEnabledRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateAdminService_DeleteShopItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteShopItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateAdminServiceServer).DeleteShopItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateAdminService_DeleteShopItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateAdminServiceServer).DeleteShopItem(ctx, req.(*DeleteShopItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateAdminService_CreditDonateBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreditDonateBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateAdminServiceServer).CreditDonateBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateAdminService_CreditDonateBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateAdminServiceServer).CreditDonateBalance(ctx, req.(*CreditDonateBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DonateAdminService_ServiceDesc is the grpc.ServiceDesc for DonateAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DonateAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.DonateAdminService",
+	HandlerType: (*DonateAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListShopItems",
+			Handler:    _DonateAdminService_ListShopItems_Handler,
+		},
+		{
+			MethodName: "UpsertShopItem",
+			Handler:    _DonateAdminService_UpsertShopItem_Handler,
+		},
+		{
+			MethodName: "SetShopItemEnabled",
+			Handler:    _DonateAdminService_SetShopItemEnabled_Handler,
+		},
+		{
+			MethodName: "DeleteShopItem",
+			Handler:    _DonateAdminService_DeleteShopItem_Handler,
+		},
+		{
+			MethodName: "CreditDonateBalance",
+			Handler:    _DonateAdminService_CreditDonateBalance_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
+	DonateShopService_ListShopItems_FullMethodName = "/web.v1.DonateShopService/ListShopItems"
+	DonateShopService_GetBalance_FullMethodName    = "/web.v1.DonateShopService/GetBalance"
+	DonateShopService_Buy_FullMethodName           = "/web.v1.DonateShopService/Buy"
+)
+
+// DonateShopServiceClient is the client API for DonateShopService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DonateShopService is the player-facing donate shop the Next.js BFF calls with
+// the logged account_id from its httpOnly session (never browser-supplied). It
+// reads the enabled catalog and processes purchases: a purchase debits the
+// account's donate balance and enqueues the item into delivery_queue, which the
+// tmServer drains into the account cargo on the next login (web-platform-plan.md).
+type DonateShopServiceClient interface {
+	// ListShopItems returns the enabled offers (the vitrine).
+	ListShopItems(ctx context.Context, in *ListStoreItemsRequest, opts ...grpc.CallOption) (*ListStoreItemsResponse, error)
+	// GetBalance returns the account's current donate balance.
+	GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*GetBalanceResponse, error)
+	// Buy purchases an offer for the account.
+	Buy(ctx context.Context, in *BuyRequest, opts ...grpc.CallOption) (*BuyResponse, error)
+}
+
+type donateShopServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDonateShopServiceClient(cc grpc.ClientConnInterface) DonateShopServiceClient {
+	return &donateShopServiceClient{cc}
+}
+
+func (c *donateShopServiceClient) ListShopItems(ctx context.Context, in *ListStoreItemsRequest, opts ...grpc.CallOption) (*ListStoreItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListStoreItemsResponse)
+	err := c.cc.Invoke(ctx, DonateShopService_ListShopItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateShopServiceClient) GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*GetBalanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBalanceResponse)
+	err := c.cc.Invoke(ctx, DonateShopService_GetBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateShopServiceClient) Buy(ctx context.Context, in *BuyRequest, opts ...grpc.CallOption) (*BuyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BuyResponse)
+	err := c.cc.Invoke(ctx, DonateShopService_Buy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DonateShopServiceServer is the server API for DonateShopService service.
+// All implementations must embed UnimplementedDonateShopServiceServer
+// for forward compatibility.
+//
+// DonateShopService is the player-facing donate shop the Next.js BFF calls with
+// the logged account_id from its httpOnly session (never browser-supplied). It
+// reads the enabled catalog and processes purchases: a purchase debits the
+// account's donate balance and enqueues the item into delivery_queue, which the
+// tmServer drains into the account cargo on the next login (web-platform-plan.md).
+type DonateShopServiceServer interface {
+	// ListShopItems returns the enabled offers (the vitrine).
+	ListShopItems(context.Context, *ListStoreItemsRequest) (*ListStoreItemsResponse, error)
+	// GetBalance returns the account's current donate balance.
+	GetBalance(context.Context, *GetBalanceRequest) (*GetBalanceResponse, error)
+	// Buy purchases an offer for the account.
+	Buy(context.Context, *BuyRequest) (*BuyResponse, error)
+	mustEmbedUnimplementedDonateShopServiceServer()
+}
+
+// UnimplementedDonateShopServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDonateShopServiceServer struct{}
+
+func (UnimplementedDonateShopServiceServer) ListShopItems(context.Context, *ListStoreItemsRequest) (*ListStoreItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShopItems not implemented")
+}
+func (UnimplementedDonateShopServiceServer) GetBalance(context.Context, *GetBalanceRequest) (*GetBalanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBalance not implemented")
+}
+func (UnimplementedDonateShopServiceServer) Buy(context.Context, *BuyRequest) (*BuyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Buy not implemented")
+}
+func (UnimplementedDonateShopServiceServer) mustEmbedUnimplementedDonateShopServiceServer() {}
+func (UnimplementedDonateShopServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeDonateShopServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DonateShopServiceServer will
+// result in compilation errors.
+type UnsafeDonateShopServiceServer interface {
+	mustEmbedUnimplementedDonateShopServiceServer()
+}
+
+func RegisterDonateShopServiceServer(s grpc.ServiceRegistrar, srv DonateShopServiceServer) {
+	// If the following call panics, it indicates UnimplementedDonateShopServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DonateShopService_ServiceDesc, srv)
+}
+
+func _DonateShopService_ListShopItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStoreItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateShopServiceServer).ListShopItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateShopService_ListShopItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateShopServiceServer).ListShopItems(ctx, req.(*ListStoreItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateShopService_GetBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateShopServiceServer).GetBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateShopService_GetBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateShopServiceServer).GetBalance(ctx, req.(*GetBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateShopService_Buy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BuyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateShopServiceServer).Buy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateShopService_Buy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateShopServiceServer).Buy(ctx, req.(*BuyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DonateShopService_ServiceDesc is the grpc.ServiceDesc for DonateShopService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DonateShopService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.DonateShopService",
+	HandlerType: (*DonateShopServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListShopItems",
+			Handler:    _DonateShopService_ListShopItems_Handler,
+		},
+		{
+			MethodName: "GetBalance",
+			Handler:    _DonateShopService_GetBalance_Handler,
+		},
+		{
+			MethodName: "Buy",
+			Handler:    _DonateShopService_Buy_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}

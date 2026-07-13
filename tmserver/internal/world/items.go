@@ -77,9 +77,26 @@ func (w *World) RemoveGroundItem(id int) {
 // AddToCarry puts item in the entity's first empty inventory slot, returning the
 // slot index, or -1 if the inventory is full. Loop-only.
 func (w *World) AddToCarry(e *Entity, item Item) int {
-	for i := range e.Carry {
-		if e.Carry[i].Empty() {
-			e.Carry[i] = item
+	return addFirstEmpty(e.Carry[:], item)
+}
+
+// AddToCargo puts item in the account warehouse's first empty slot, returning the
+// slot index, or -1 if the cargo is full. It is the delivery target for the
+// donate web shop (issue #34): a purchase lands in the next free cargo slot, and
+// a full cargo (-1) means the item is lost. Loop-only.
+func (w *World) AddToCargo(st *CargoState, item Item) int {
+	if st == nil {
+		return -1
+	}
+	return addFirstEmpty(st.Items[:], item)
+}
+
+// addFirstEmpty places item in the first empty slot of items, returning its
+// index, or -1 if every slot is occupied.
+func addFirstEmpty(items []Item, item Item) int {
+	for i := range items {
+		if items[i].Empty() {
+			items[i] = item
 			return i
 		}
 	}

@@ -298,3 +298,122 @@ message ListMapZonesResponse {
   AdminResult result = 1;
   repeated MapZone zones = 2;
 }
+
+// DonateAdminService is the moderator-facing donate web-shop surface (issue #34):
+// CRUD over the donate_shop_item catalog plus the manual "credit donate to an
+// account" path (the seam the future payment webhook reuses). Like NpcAdminService
+// every request carries the moderator's account_id, re-authorized server-side
+// against account.role; all writes are cold config in Postgres, never live state.
+service DonateAdminService {
+  // ListShopItems returns every offer (enabled or not) — the moderation table.
+  rpc ListShopItems(ListShopItemsRequest) returns (ListShopItemsResponse);
+  // UpsertShopItem creates (id==0) or updates an offer.
+  rpc UpsertShopItem(UpsertShopItemRequest) returns (UpsertShopItemResponse);
+  // SetShopItemEnabled toggles whether an offer is on sale.
+  rpc SetShopItemEnabled(SetShopItemEnabledRequest) returns (AdminAck);
+  // DeleteShopItem removes an offer.
+  rpc DeleteShopItem(DeleteShopItemRequest) returns (AdminAck);
+  // CreditDonateBalance adds donate currency to an account's wallet. This is the
+  // "adicionar donate na conta" function; the payment webhook will later call the
+  // same underlying store method after settling a real-money donation.
+  rpc CreditDonateBalance(CreditDonateBalanceRequest) returns (CreditDonateBalanceResponse);
+}
+
+// DonateShopItem is one purchasable offer: an item (index + up to three
+// effect/value pairs) sold for `price` units of donate currency. expires_days > 0
+// makes the delivered item timed.
+message DonateShopItem {
+  int64 id = 1;
+  int32 item_index = 2;
+  int32 eff1 = 3;  int32 effv1 = 4;
+  int32 eff2 = 5;  int32 effv2 = 6;
+  int32 eff3 = 7;  int32 effv3 = 8;
+  int32 price = 9;
+  string title = 10;
+  string description = 11;
+  bool enabled = 12;
+  int32 expires_days = 13;
+}
+
+message ListShopItemsRequest { int64 moderator_id = 1; }
+message ListShopItemsResponse {
+  AdminResult result = 1;
+  repeated DonateShopItem items = 2;
+}
+
+message UpsertShopItemRequest {
+  int64 moderator_id = 1;
+  // id == 0 creates a new offer; otherwise the offer with that id is updated.
+  DonateShopItem item = 2;
+}
+message UpsertShopItemResponse {
+  AdminResult result = 1;
+  int64 item_id = 2;
+}
+
+message SetShopItemEnabledRequest {
+  int64 moderator_id = 1;
+  int64 item_id = 2;
+  bool enabled = 3;
+}
+
+message DeleteShopItemRequest {
+  int64 moderator_id = 1;
+  int64 item_id = 2;
+}
+
+message CreditDonateBalanceRequest {
+  int64 moderator_id = 1;
+  int64 account_id = 2; // the account being credited
+  int32 amount = 3;     // donate units to add (> 0)
+  string reason = 4;    // free-text note recorded in the audit trail
+}
+message CreditDonateBalanceResponse {
+  AdminResult result = 1;
+  int32 new_balance = 2; // set only when result is OK
+}
+
+// DonateShopService is the player-facing donate shop the Next.js BFF calls with
+// the logged account_id from its httpOnly session (never browser-supplied). It
+// reads the enabled catalog and processes purchases: a purchase debits the
+// account's donate balance and enqueues the item into delivery_queue, which the
+// tmServer drains into the account cargo on the next login (web-platform-plan.md).
+service DonateShopService {
+  // ListShopItems returns the enabled offers (the vitrine).
+  rpc ListShopItems(ListStoreItemsRequest) returns (ListStoreItemsResponse);
+  // GetBalance returns the account's current donate balance.
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  // Buy purchases an offer for the account.
+  rpc Buy(BuyRequest) returns (BuyResponse);
+}
+
+// BuyResult carries the purchase outcome in the body; only infra failures become
+// gRPC errors.
+enum BuyResult {
+  BUY_RESULT_UNSPECIFIED = 0;
+  BUY_RESULT_OK = 1;                 // debited + queued for delivery
+  BUY_RESULT_INSUFFICIENT_FUNDS = 2; // balance < price
+  BUY_RESULT_NOT_FOUND = 3;          // unknown offer or account
+  BUY_RESULT_DISABLED = 4;           // offer exists but is not on sale
+}
+
+message ListStoreItemsRequest {}
+message ListStoreItemsResponse {
+  repeated DonateShopItem items = 1;
+}
+
+message GetBalanceRequest {
+  int64 account_id = 1; // from the BFF session, never from browser input
+}
+message GetBalanceResponse {
+  int32 balance = 1;
+}
+
+message BuyRequest {
+  int64 account_id = 1;   // from the BFF session, never from browser input
+  int64 shop_item_id = 2;
+}
+message BuyResponse {
+  BuyResult result = 1;
+  int32 new_balance = 2; // set only when result is OK
+}

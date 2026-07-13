@@ -148,3 +148,32 @@ type ItemPriceOverride struct {
 	ItemIndex int32
 	Price     int64
 }
+
+// DonateShopItem is one moderator-managed offer in the donate web shop (issue
+// #34): an item (index + up to three effect/value pairs) sold for Price units of
+// the account's donate balance. It is cold config owned by Postgres — the
+// tmServer never reads it; only the web-api serves the vitrine and processes
+// purchases. ExpiresDays > 0 makes the delivered item timed.
+type DonateShopItem struct {
+	ID          int64
+	ItemIndex   int32
+	Eff1        uint8
+	EffV1       uint8
+	Eff2        uint8
+	EffV2       uint8
+	Eff3        uint8
+	EffV3       uint8
+	Price       int32
+	Title       string
+	Description string
+	Enabled     bool
+	ExpiresDays int32
+}
+
+// Delivery is one pending item grant the tmServer drains from delivery_queue
+// into the account cargo (web-platform-plan.md §mailbox). ExpiresAt on the Item
+// is absolute Unix-seconds (0 = permanent).
+type Delivery struct {
+	ID   int64
+	Item Item
+}
