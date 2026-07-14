@@ -728,6 +728,10 @@ type equipBonus struct {
 	maxHP, maxMP         int32
 	hpAddPct, mpAddPct   int32
 	runSpeed             int32
+	// Mount (Equip[14]) contributions, from the g_pMountBonus tables rather than item
+	// effects. magicRaw is the pre-scaling EF_MAGIC sum (see mountMagicScore); resist
+	// applies to all four resistances. damage already folds into the field above.
+	magicRaw, parry, resist int32
 }
 
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
@@ -779,6 +783,18 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		if it.Empty() {
 			continue
 		}
+		// The mount slot draws its stats from the g_pMountBonus tables, not from
+		// generic item effects (a mount's Effects hold HP/level/feed, not stats) —
+		// mirror BASE_GetItemAbility's early mount return and skip the effect loop.
+		if slot == mountEquipSlot {
+			if mb, ok := mountBonusFor(it); ok {
+				b.damage += mb.damage
+				b.magicRaw += mb.magicRaw
+				b.parry += mb.parry
+				b.resist += mb.resist
+			}
+			continue
+		}
 		weaponSlot := slot == weaponSlotR || slot == weaponSlotL
 		nUnique := d.itemUnique[int(it.Index)]
 		dmgJewel := nUnique >= 41 && nUnique <= 50
@@ -816,6 +832,14 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
+	// Mount bonuses (Magic/Parry/Resist): same subtraction as the fields above so the
+	// loaded CurrentScore round-trips. Players persist no Parry/Resist (loaded 0), so
+	// their base is 0 until a mount is equipped.
+	e.BaseMagic = e.Magic - int16(mountMagicScore(b.magicRaw))
+	e.BaseParry = e.Parry - int(b.parry)
+	for i := range e.BaseResist {
+		e.BaseResist[i] = e.Resist[i] - int16(b.resist)
+	}
 }
 
 // refreshScore recomputes the live CurrentScore = BaseScore + FLAT equipment, after any
@@ -841,6 +865,18 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	e.RunSpeedBonus = b.runSpeed
+	// Mount bonuses: Magic gets the (sum+1)/4 scaling, Parry (evasion) and each Resist
+	// are flat, with Resist capped at the legacy ceiling (CMob.cpp:640-643,692). Mounts
+	// live only in a player's Equip[14]; mobs carry their Magic/Parry/Resist straight
+	// from their template (world.SpawnMob) and never derive a BaseScore, so recomputing
+	// them here would zero those template values — guard to players.
+	if world.IsPlayer(e.ID) {
+		e.Magic = e.BaseMagic + int16(mountMagicScore(b.magicRaw))
+		e.Parry = e.BaseParry + int(b.parry)
+		for i := range e.Resist {
+			e.Resist[i] = clampResist(e.BaseResist[i] + int16(b.resist))
+		}
+	}
 	d.applyAffectScore(e)
 
 	e.EquipExpBonus = d.equipExpBonus(e)
