@@ -29,6 +29,7 @@ type Session struct {
 	TradeMode         int        // non-zero while in auto-trade (blocks attacks)
 	Trade             TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
 	LastAttackTick    uint32     // ClientTick of the last accepted attack (cadence gate)
+	PotionTick        uint32     // CUser.PotionTime: server clock of the last accepted potion
 	LastAttack        int        // SkillIndex of the last attack
 	LastIllusionTick  uint32     // ClientTick of the last Huntress Ilusao movement
 	ReqHp             int32      // CUser.ReqHp: server-owned HP target for regen/potions

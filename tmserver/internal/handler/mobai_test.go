@@ -777,24 +777,120 @@ func TestGenerateMobsTimer(t *testing.T) {
 	}
 }
 
-func TestRegenStep(t *testing.T) {
+// TestApplyHp covers the ApplyHp port (Server.cpp:9530): the live bar closes on the
+// ReqHp target in steps of at most applyCasting, ReqHp is a target (never spent),
+// and an over-max request is clamped to the live effective max.
+func TestApplyHp(t *testing.T) {
 	tests := []struct {
-		name     string
-		cur, max int32
-		want     int32
+		name           string
+		hp, maxHP, req int32
+		wantHP, wantRq int32
+		wantMoved      bool
 	}{
-		{"recovers ~5%+floor", 100, 1000, 152}, // 100 + (1000/20 + 2)
-		{"caps at max", 990, 1000, 1000},       // 990 + 52 > max → clamped
-		{"already full", 1000, 1000, 1000},
-		{"no max (mp unset)", 0, 0, 0},
-		{"revived 2hp climbs", 2, 1000, 54},
+		{"no debt", 1000, 1000, 1000, 1000, 1000, false},
+		{"req below hp is a no-op", 800, 1000, 500, 800, 500, false},
+		{"closes a small gap in one call", 900, 5000, 1000, 1000, 1000, true},
+		{"caps at applyCasting per call", 0, 10000, 5000, 2000, 5000, true},
+		{"req clamped to effective max", 900, 1000, 9999, 1000, 1000, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := regenStep(tt.cur, tt.max); got != tt.want {
-				t.Errorf("regenStep(%d,%d) = %d, want %d", tt.cur, tt.max, got, tt.want)
+			e := &world.Entity{HP: tt.hp, MaxHP: tt.maxHP}
+			s := &world.Session{Conn: 1, ReqHp: tt.req}
+			if got := applyHp(s, e); got != tt.wantMoved {
+				t.Errorf("applyHp moved = %v, want %v", got, tt.wantMoved)
+			}
+			if e.HP != tt.wantHP {
+				t.Errorf("HP = %d, want %d", e.HP, tt.wantHP)
+			}
+			if s.ReqHp != tt.wantRq {
+				t.Errorf("ReqHp = %d, want %d (a target, not a pool)", s.ReqHp, tt.wantRq)
 			}
 		})
+	}
+}
+
+// TestApplyHpRampsOverTicks: a 5000 HP debt lands over successive calls rather than
+// at once — this is what makes a potion visibly ramp instead of snapping.
+func TestApplyHpRampsOverTicks(t *testing.T) {
+	e := &world.Entity{HP: 0, MaxHP: 10000}
+	s := &world.Session{Conn: 1, ReqHp: 5000}
+	for i, want := range []int32{2000, 4000, 5000} {
+		if !applyHp(s, e) {
+			t.Fatalf("call %d: applyHp reported no movement", i+1)
+		}
+		if e.HP != want {
+			t.Fatalf("call %d: HP = %d, want %d", i+1, e.HP, want)
+		}
+	}
+	if applyHp(s, e) {
+		t.Error("applyHp moved after reaching the target, want no movement")
+	}
+}
+
+// TestDamageReqHp: a landed hit must lower the heal target, or the next applyHp
+// would undo the damage and make the victim near-immune. A potion still in flight
+// keeps whatever debt survives the hit (_MSG_Attack.cpp:1638-1642).
+func TestDamageReqHp(t *testing.T) {
+	tests := []struct {
+		name           string
+		hp, maxHP, req int32
+		dmg            int32
+		wantReq        int32
+	}{
+		{"no pending heal: target tracks hp", 800, 1000, 1000, 200, 800},
+		{"pending potion survives, minus the hit", 500, 5000, 1500, 200, 1300},
+		{"damage beyond the target floors at hp", 300, 1000, 400, 9999, 300},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// HP is already decremented by the caller before damageReqHp runs.
+			e := &world.Entity{HP: tt.hp, MaxHP: tt.maxHP}
+			s := &world.Session{Conn: 1, ReqHp: tt.req}
+			damageReqHp(s, e, tt.dmg)
+			if s.ReqHp != tt.wantReq {
+				t.Errorf("ReqHp = %d, want %d", s.ReqHp, tt.wantReq)
+			}
+			// The invariant that matters: the tick must not resurrect the damage.
+			if s.ReqHp < e.HP {
+				t.Errorf("ReqHp %d fell below HP %d — setReqHp must floor it", s.ReqHp, e.HP)
+			}
+		})
+	}
+}
+
+// TestDamageThenTickDoesNotHealBack is the invariant in one place: after a hit, the
+// regen tick must not restore the lost HP.
+func TestDamageThenTickDoesNotHealBack(t *testing.T) {
+	e := &world.Entity{HP: 1000, MaxHP: 1000}
+	s := &world.Session{Conn: 1, ReqHp: 1000}
+	e.HP -= 300 // a hit lands
+	damageReqHp(s, e, 300)
+	if applyHp(s, e) {
+		t.Error("applyHp healed right after a hit — the victim would be near-immune")
+	}
+	if e.HP != 700 {
+		t.Errorf("HP = %d, want the damage to stick at 700", e.HP)
+	}
+}
+
+// TestApplyMpCapsAndClamps mirrors TestApplyHp for the mana bar (Server.cpp:9564).
+func TestApplyMpCapsAndClamps(t *testing.T) {
+	e := &world.Entity{MP: 0, MaxMP: 10000}
+	s := &world.Session{Conn: 1, ReqMp: 9999}
+	if !applyMp(s, e) {
+		t.Fatal("applyMp reported no movement on a full-bar debt")
+	}
+	if e.MP != applyCasting {
+		t.Errorf("MP = %d, want %d (applyCasting cap)", e.MP, applyCasting)
+	}
+	e = &world.Entity{MP: 90, MaxMP: 100}
+	s = &world.Session{Conn: 1, ReqMp: 500}
+	if !applyMp(s, e) {
+		t.Fatal("applyMp reported no movement")
+	}
+	if e.MP != 100 || s.ReqMp != 100 {
+		t.Errorf("MP/ReqMp = %d/%d, want 100/100 (clamped to effective max)", e.MP, s.ReqMp)
 	}
 }
 

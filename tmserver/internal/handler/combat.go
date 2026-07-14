@@ -225,6 +225,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			if target.HP < 0 {
 				target.HP = 0
 			}
+			// Drop the victim's heal target by the damage, or the regen tick heals
+			// it straight back (_MSG_Attack.cpp:1638-1642).
+			damageReqHp(w.Session(tid), target, int32(dmg))
 			d.applyOnHitAffects(w, e, target, tid)
 			d.applyHpAbs(w, s, e, dmg)
 			if pvpHit && combatHit {

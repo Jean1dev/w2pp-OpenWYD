@@ -143,6 +143,11 @@ const (
 	divineAffectTime = 2000000000
 )
 
+// potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
+// The original defaults to 100 and exposes it to the runtime config (Server.cpp:647,
+// :1463); we take the default — a config knob can follow if it's ever tuned.
+const potionDelay = 100
+
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
 // classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
 // 0 = equip (CARRY → EQUIP); 64-66 = Poção Divina; other consumables are UNVERIFIED and
@@ -301,28 +306,48 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
 }
 
-// useHealPotion consumes an HP/MP potion (EF_VOLATILE 1): restores HP/MP by the
-// item's catalog EF_HP/EF_MP value, clamped to the live effective max, then eats
-// one unit of the stack (docs/migration/handlers/_MSG_UseItem.md, catalog.go:102).
+// useHealPotion consumes an HP/MP potion (EF_VOLATILE 1), porting
+// _MSG_UseItem.cpp:101-148 (docs/migration/handlers/_MSG_UseItem.md, catalog.go:102).
+//
+// The potion does NOT heal: it raises the ReqHp/ReqMp request targets by the item's
+// catalog EF_HP/EF_MP (clamped to the live effective max) and the 1s tick's
+// applyHp/applyMp closes the bars on them (regenPlayers, mobai.go). That ramp is the
+// original's behavior — a potion is out-damageable, not an instant top-off.
+//
+// The reply is SetHpMp and is deliberately self-only (SendSetHpMp, SendFunc.cpp:1722):
+// it carries ReqHp/ReqMp so the drinker's own client can animate the fill. Nearby
+// players are informed by the tick's multicast sendScore once HP actually moves —
+// that path, not this one, is what fixes the stale HP bar in issue #99.
 func (d *Dispatcher) useHealPotion(w *world.World, s *world.Session, e *world.Entity, src int) {
-	idx := int(e.Carry[src].Index)
-	for _, be := range d.itemEffects[idx] {
+	// PotionDelay anti-spam (_MSG_UseItem.cpp:105-115): a use inside the window is
+	// dropped and the slot re-synced, so the stack is not consumed. Gate on the
+	// SERVER clock — the original reads GetTickCount(), and a client-supplied tick
+	// would be spoofable. int64 math avoids uint32 underflow at tick 0.
+	now := w.Now()
+	if s.PotionTick != 0 && int64(now)-int64(s.PotionTick) < potionDelay {
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	s.PotionTick = now
+
+	maxHP, maxMP := effectiveMaxHP(e), effectiveMaxMP(e)
+	for _, be := range d.itemEffects[int(e.Carry[src].Index)] {
 		switch be.Eff {
 		case efHp:
-			e.HP += int32(be.Val)
+			s.ReqHp += int32(be.Val)
+			if s.ReqHp > maxHP {
+				s.ReqHp = maxHP
+			}
 		case efMp:
-			e.MP += int32(be.Val)
+			s.ReqMp += int32(be.Val)
+			if s.ReqMp > maxMP {
+				s.ReqMp = maxMP
+			}
 		}
-	}
-	if m := effectiveMaxHP(e); e.HP > m {
-		e.HP = m
-	}
-	if m := effectiveMaxMP(e); e.MP > m {
-		e.MP = m
 	}
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
-	d.sendScore(w, s, e) // MsgUpdateScore carries Hp/Mp (item.go:776) — no separate SetHpMp packet needed
+	d.sendSetHpMp(w, s, e)
 }
 
 // useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31
@@ -969,9 +994,31 @@ func attackRunOf(e *world.Entity) uint8 {
 	return uint8(attack<<4) | uint8(move)
 }
 
-// sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so
-// the status window reflects equipment.
+// sendScore publishes the recomputed CurrentScore (_MSG_UpdateScore) to the player
+// AND to everyone in view, mirroring the legacy SendScore — whose single exit is
+// GridMulticast(TargetX, TargetY, ..., skip=0), i.e. self plus the whole view
+// window (SendFunc.cpp:1298; all 113 SendScore call sites funnel through it).
+//
+// The multicast is what resynchronizes an out-of-band HP change (potion, regen,
+// heal, revive) on OTHER clients: MSG_Attack carries only STRUCT_DAM deltas that
+// the client SUBTRACTS from its own copy of the target's HP, so without an
+// explicit push an attacker renders a stale HP bar for a drinker (issue #99).
+//
+// HEADER.ID is the SUBJECT's conn for every recipient — that is how a client knows
+// which entity the score describes. Nothing here is private: gold/exp/free points
+// live in MSG_UpdateEtc (sendEtc), which stays unicast like the legacy SendEtc.
 func (d *Dispatcher) sendScore(w *world.World, s *world.Session, e *world.Entity) {
+	body := protocol.EncodeUpdateScore(d.computeScore(e))
+	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, body)
+	w.BroadcastInView(s.Conn, protocol.MsgUpdateScore, body) // excludes the source
+}
+
+// sendScoreSelf is the unicast score push, for the one path where the subject is not
+// yet visible to the players around it — enterWorldView pushes the score BEFORE
+// broadcasting the newcomer's CreateMob, and the legacy has no SendScore there at
+// all (ProcessDBMessage.cpp:1017-1037 unicasts the login blob, then GridMulticasts
+// CreateMob, which already carries Hp/MaxHp to observers).
+func (d *Dispatcher) sendScoreSelf(w *world.World, s *world.Session, e *world.Entity) {
 	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, protocol.EncodeUpdateScore(d.computeScore(e)))
 }
 
