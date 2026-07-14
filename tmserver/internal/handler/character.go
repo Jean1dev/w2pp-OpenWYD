@@ -255,11 +255,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster, st.Soul
-		// Every character is MORTAL (=2, Basedef.h:238) until the ARCH/CELESTIAL
-		// promotions are modeled; the dbServer contract doesn't carry ClassMaster
-		// yet (dbclient leaves it 0), and 0 would route the EXP formula onto the
-		// celestial divisors — the "no EXP" bug of issue #43. TODO: persist the
-		// tier once promotion exists.
+		// Older rows created before ClassMaster was persisted may still carry 0.
+		// Treat that as MORTAL (=2, Basedef.h:238) so EXP does not route through
+		// the celestial divisor path (issue #43).
 		if e.ClassMaster == 0 {
 			e.ClassMaster = classMasterMortal
 		}

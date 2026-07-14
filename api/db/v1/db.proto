@@ -23,6 +23,9 @@ service AccountService {
   rpc SaveCharacter(SaveCharacterRequest) returns (SaveCharacterResponse);
   // CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
   rpc CreateCharacter(CreateCharacterRequest) returns (CreateCharacterResponse);
+  // CreateArchCharacter creates the ARCH twin in the first free account slot
+  // (_MSG_DBCreateArchCharacter).
+  rpc CreateArchCharacter(CreateArchCharacterRequest) returns (CreateArchCharacterResponse);
   // DeleteCharacter deletes a character after password confirmation.
   rpc DeleteCharacter(DeleteCharacterRequest) returns (DeleteCharacterResponse);
   // LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
@@ -125,6 +128,7 @@ message Character {
   repeated uint32 short_skill = 27; // CUser.ShortSkill[16] (client hotbar)
   int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
   int32 soul = 29;                 // MobExtra.Soul
+  int32 class_master = 30;         // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
 }
 
 message Item {
@@ -165,6 +169,19 @@ message CreateCharacterRequest {
 message CreateCharacterResponse {
   bool ok = 1;
   int64 character_id = 2;
+}
+
+message CreateArchCharacterRequest {
+  int64 account_id = 1;
+  string name = 2;
+  int32 class = 3;
+  int32 mortal_face = 4;
+  int32 mortal_slot = 5;
+}
+message CreateArchCharacterResponse {
+  bool ok = 1;
+  int64 character_id = 2;
+  int32 slot = 3;
 }
 
 message DeleteCharacterRequest {

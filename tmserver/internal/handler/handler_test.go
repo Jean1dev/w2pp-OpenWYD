@@ -28,8 +28,17 @@ type fakeAccount struct {
 
 type fakeDB struct {
 	world.NopPersistence
-	accounts   map[string]*fakeAccount
-	created    int
+	accounts    map[string]*fakeAccount
+	created     int
+	archCreated int
+	archSlot    int
+	archOK      bool
+	archErr     error
+	archReq     struct {
+		accountID               int64
+		name                    string
+		class, face, mortalSlot int
+	}
 	deleted    int
 	loadResult world.CharacterState
 	loads      map[int64]world.CharacterState // per-account override (accountID → state)
@@ -114,6 +123,12 @@ func (f *fakeDB) lastSavedChar() (world.CharacterSave, int) {
 	return f.savedChars[len(f.savedChars)-1], len(f.savedChars)
 }
 
+func (f *fakeDB) archRequest() (int, int64, string, int, int, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.archCreated, f.archReq.accountID, f.archReq.name, f.archReq.class, f.archReq.face, f.archReq.mortalSlot
+}
+
 func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.LoginOutcome, error) {
 	a, ok := f.accounts[name]
 	switch {
@@ -138,6 +153,36 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 func (f *fakeDB) CreateCharacter(context.Context, int64, int, string, int) (bool, error) {
 	f.created++
 	return true, nil
+}
+
+func (f *fakeDB) CreateArchCharacter(_ context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.archCreated++
+	f.archReq.accountID = accountID
+	f.archReq.name = name
+	f.archReq.class = class
+	f.archReq.face = mortalFace
+	f.archReq.mortalSlot = mortalSlot
+	if f.archErr != nil {
+		return 0, false, f.archErr
+	}
+	ok := f.archOK
+	if !ok && f.archSlot == 0 {
+		return 0, false, nil
+	}
+	slot := f.archSlot
+	if slot == 0 {
+		slot = 1
+	}
+	for _, a := range f.accounts {
+		if a.id != accountID {
+			continue
+		}
+		a.chars = append(a.chars, world.CharSummary{Slot: slot, Name: name, Class: class, Level: 1})
+		break
+	}
+	return slot, ok, nil
 }
 
 func (f *fakeDB) DeleteCharacter(_ context.Context, accountID int64, slot int, _, _ string) (bool, error) {

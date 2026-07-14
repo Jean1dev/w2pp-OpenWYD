@@ -38,6 +38,7 @@ const (
 	NoticeAlreadyLearned                    // _NN_Already_Learned_It
 	NoticeNotEnoughCoin                     // _DN_D_Cost (8th skill costs 50M gold)
 	NoticeMaxPoint                          // _NN_Maximum_Point_Now / _200_Now (mastery cap)
+	NoticeNoEmptySlot                       // _NN_NoEmptySlot
 )
 
 // notify sends a client notification.

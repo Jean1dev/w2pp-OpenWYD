@@ -109,6 +109,21 @@ func (c *Client) CreateCharacter(ctx context.Context, accountID int64, slot int,
 	return resp.GetOk(), nil
 }
 
+// CreateArchCharacter creates an ARCH twin in the first free account slot.
+func (c *Client) CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error) {
+	resp, err := c.api.CreateArchCharacter(ctx, &dbv1.CreateArchCharacterRequest{
+		AccountId:  accountID,
+		Name:       name,
+		Class:      int32(class),
+		MortalFace: int32(mortalFace),
+		MortalSlot: int32(mortalSlot),
+	})
+	if err != nil {
+		return 0, false, fmt.Errorf("dbclient: create arch character: %w", err)
+	}
+	return int(resp.GetSlot()), resp.GetOk(), nil
+}
+
 // DeleteCharacter deletes a character after password confirmation.
 func (c *Client) DeleteCharacter(ctx context.Context, accountID int64, slot int, _, password string) (bool, error) {
 	resp, err := c.api.DeleteCharacter(ctx, &dbv1.DeleteCharacterRequest{
@@ -232,29 +247,30 @@ func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 // characterStateFromProto maps the loaded character to the world injection shape.
 //
 // UNVERIFIED: the contract (api/db/v1 Character) does not carry position (X/Y),
-// the derived combat scores (Damage/AC/Master), GuildLevel or ClassMaster, so
-// those stay zero until the full STRUCT_MOB snapshot is captured (PROGRESS
-// Fase 4). Position especially must be resolved before live play.
+// the derived combat scores (Damage/AC/Master) or GuildLevel, so those stay zero
+// until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4). Position
+// especially must be resolved before live play.
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
-		Slot:     int(c.GetSlot()),
-		Name:     c.GetName(),
-		Class:    int(c.GetClass()),
-		Level:    int(c.GetLevel()),
-		Exp:      c.GetExp(),
-		HP:       c.GetHp(),
-		MaxHP:    c.GetMaxHp(),
-		MP:       c.GetMp(),
-		MaxMP:    c.GetMaxMp(),
-		Coin:     c.GetCoin(),
-		Clan:     uint8(c.GetClan()),
-		GuildID:  uint16(c.GetGuildId()),
-		Soul:     uint8(c.GetSoul()),
-		Str:      int16(c.GetStr()),
-		Int:      int16(c.GetInt()),
-		Dex:      int16(c.GetDex()),
-		Con:      int16(c.GetCon()),
-		LastCity: int16(c.GetLastCity()),
+		Slot:        int(c.GetSlot()),
+		Name:        c.GetName(),
+		Class:       int(c.GetClass()),
+		Level:       int(c.GetLevel()),
+		Exp:         c.GetExp(),
+		HP:          c.GetHp(),
+		MaxHP:       c.GetMaxHp(),
+		MP:          c.GetMp(),
+		MaxMP:       c.GetMaxMp(),
+		Coin:        c.GetCoin(),
+		Clan:        uint8(c.GetClan()),
+		GuildID:     uint16(c.GetGuildId()),
+		ClassMaster: uint8(c.GetClassMaster()),
+		Soul:        uint8(c.GetSoul()),
+		Str:         int16(c.GetStr()),
+		Int:         int16(c.GetInt()),
+		Dex:         int16(c.GetDex()),
+		Con:         int16(c.GetCon()),
+		LastCity:    int16(c.GetLastCity()),
 
 		ScoreBonus:      uint16(c.GetScoreBonus()),
 		SpecialBonus:    uint16(c.GetSpecialBonus()),

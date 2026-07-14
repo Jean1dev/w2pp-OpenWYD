@@ -14,6 +14,9 @@ import (
 // ErrNotFound is returned when a queried account or character does not exist.
 var ErrNotFound = errors.New("store: not found")
 
+// ErrNoFreeSlot is returned when an account already has all character slots in use.
+var ErrNoFreeSlot = errors.New("store: no free character slot")
+
 // AccountAuth is the minimum account data needed to authenticate a login: the
 // id, the stored argon2id password hash and the blocked flag. The caller
 // verifies the password (store never sees plaintext beyond the hash).
@@ -184,6 +187,79 @@ func (s *Store) CreateCharacter(ctx context.Context, accountID int64, ch domain.
 		return 0, fmt.Errorf("store: commit create character: %w", err)
 	}
 	return id, nil
+}
+
+// CreateArchCharacter inserts an ARCH character in the first free account slot.
+// The legacy _MSG_DBCreateArchCharacter is not client-slot driven: DBSrv scans
+// MOB_PER_ACCOUNT and chooses the first empty slot while preserving the Mortal's
+// name for the new Arch twin.
+func (s *Store) CreateArchCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, int, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: begin create arch character: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var lockedID int64
+	err = tx.QueryRow(ctx, `SELECT id FROM account WHERE id = $1 FOR UPDATE`, accountID).Scan(&lockedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: lock account %d for arch create: %w", accountID, err)
+	}
+
+	rows, err := tx.Query(ctx, `SELECT slot FROM character WHERE account_id = $1 ORDER BY slot`, accountID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: list slots for arch create: %w", err)
+	}
+	used := [4]bool{}
+	for rows.Next() {
+		var slot int
+		if err := rows.Scan(&slot); err != nil {
+			rows.Close()
+			return 0, 0, fmt.Errorf("store: scan slot for arch create: %w", err)
+		}
+		if slot >= 0 && slot < len(used) {
+			used[slot] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, 0, fmt.Errorf("store: list slots for arch create: %w", err)
+	}
+	rows.Close()
+
+	slot := -1
+	for i, ok := range used {
+		if !ok {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		return 0, 0, ErrNoFreeSlot
+	}
+
+	ch.Slot = slot
+	id, err := insertCharacter(ctx, tx, accountID, ch)
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, it := range ch.Equip {
+		if err := insertItem(ctx, tx, "char_equip", nil, &id, it); err != nil {
+			return 0, 0, err
+		}
+	}
+	for _, it := range ch.Carry {
+		if err := insertItem(ctx, tx, "char_carry", nil, &id, it); err != nil {
+			return 0, 0, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, fmt.Errorf("store: commit create arch character: %w", err)
+	}
+	return id, slot, nil
 }
 
 // DeleteCharacter removes a character (and its items/affects via ON DELETE

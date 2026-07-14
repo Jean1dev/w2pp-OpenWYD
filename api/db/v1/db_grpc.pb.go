@@ -32,6 +32,7 @@ const (
 	AccountService_LoadCharacter_FullMethodName           = "/db.v1.AccountService/LoadCharacter"
 	AccountService_SaveCharacter_FullMethodName           = "/db.v1.AccountService/SaveCharacter"
 	AccountService_CreateCharacter_FullMethodName         = "/db.v1.AccountService/CreateCharacter"
+	AccountService_CreateArchCharacter_FullMethodName     = "/db.v1.AccountService/CreateArchCharacter"
 	AccountService_DeleteCharacter_FullMethodName         = "/db.v1.AccountService/DeleteCharacter"
 	AccountService_LoadCargo_FullMethodName               = "/db.v1.AccountService/LoadCargo"
 	AccountService_SaveCargo_FullMethodName               = "/db.v1.AccountService/SaveCargo"
@@ -55,6 +56,9 @@ type AccountServiceClient interface {
 	SaveCharacter(ctx context.Context, in *SaveCharacterRequest, opts ...grpc.CallOption) (*SaveCharacterResponse, error)
 	// CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
 	CreateCharacter(ctx context.Context, in *CreateCharacterRequest, opts ...grpc.CallOption) (*CreateCharacterResponse, error)
+	// CreateArchCharacter creates the ARCH twin in the first free account slot
+	// (_MSG_DBCreateArchCharacter).
+	CreateArchCharacter(ctx context.Context, in *CreateArchCharacterRequest, opts ...grpc.CallOption) (*CreateArchCharacterResponse, error)
 	// DeleteCharacter deletes a character after password confirmation.
 	DeleteCharacter(ctx context.Context, in *DeleteCharacterRequest, opts ...grpc.CallOption) (*DeleteCharacterResponse, error)
 	// LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
@@ -131,6 +135,16 @@ func (c *accountServiceClient) CreateCharacter(ctx context.Context, in *CreateCh
 	return out, nil
 }
 
+func (c *accountServiceClient) CreateArchCharacter(ctx context.Context, in *CreateArchCharacterRequest, opts ...grpc.CallOption) (*CreateArchCharacterResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateArchCharacterResponse)
+	err := c.cc.Invoke(ctx, AccountService_CreateArchCharacter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountServiceClient) DeleteCharacter(ctx context.Context, in *DeleteCharacterRequest, opts ...grpc.CallOption) (*DeleteCharacterResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteCharacterResponse)
@@ -197,6 +211,9 @@ type AccountServiceServer interface {
 	SaveCharacter(context.Context, *SaveCharacterRequest) (*SaveCharacterResponse, error)
 	// CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
 	CreateCharacter(context.Context, *CreateCharacterRequest) (*CreateCharacterResponse, error)
+	// CreateArchCharacter creates the ARCH twin in the first free account slot
+	// (_MSG_DBCreateArchCharacter).
+	CreateArchCharacter(context.Context, *CreateArchCharacterRequest) (*CreateArchCharacterResponse, error)
 	// DeleteCharacter deletes a character after password confirmation.
 	DeleteCharacter(context.Context, *DeleteCharacterRequest) (*DeleteCharacterResponse, error)
 	// LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
@@ -237,6 +254,9 @@ func (UnimplementedAccountServiceServer) SaveCharacter(context.Context, *SaveCha
 }
 func (UnimplementedAccountServiceServer) CreateCharacter(context.Context, *CreateCharacterRequest) (*CreateCharacterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateCharacter not implemented")
+}
+func (UnimplementedAccountServiceServer) CreateArchCharacter(context.Context, *CreateArchCharacterRequest) (*CreateArchCharacterResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateArchCharacter not implemented")
 }
 func (UnimplementedAccountServiceServer) DeleteCharacter(context.Context, *DeleteCharacterRequest) (*DeleteCharacterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteCharacter not implemented")
@@ -364,6 +384,24 @@ func _AccountService_CreateCharacter_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_CreateArchCharacter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateArchCharacterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).CreateArchCharacter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_CreateArchCharacter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).CreateArchCharacter(ctx, req.(*CreateArchCharacterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountService_DeleteCharacter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteCharacterRequest)
 	if err := dec(in); err != nil {
@@ -480,6 +518,10 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateCharacter",
 			Handler:    _AccountService_CreateCharacter_Handler,
+		},
+		{
+			MethodName: "CreateArchCharacter",
+			Handler:    _AccountService_CreateArchCharacter_Handler,
 		},
 		{
 			MethodName: "DeleteCharacter",
