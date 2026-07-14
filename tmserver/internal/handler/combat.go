@@ -226,6 +226,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				target.HP = 0
 			}
 			d.applyOnHitAffects(w, e, target, tid)
+			d.applyHpAbs(w, s, e, dmg)
 			if pvpHit && combatHit {
 				// Landing a PvP hit starts (or refreshes) the chaotic red-blink
 				// timer, independent of whether it's already running. On the 0→1
@@ -530,7 +531,7 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		Str:     int(effectiveStr(e)),
 		Int:     int(effectiveInt(e)),
 		Damage:  int(d.effectiveDamage(e)),
-		Magic:   int(e.Magic),
+		Magic:   int(effectiveMagic(e)),
 		Special: cast.special,
 	}
 	// UNVERIFIED: CurrentWeather is not modeled (weather 0 = neutral).
@@ -854,6 +855,38 @@ func (d *Dispatcher) applyManaControl(w *world.World, caster, target *world.Enti
 	setReqMp(ts, target)
 	d.sendSetHpMp(w, ts, target)
 	return reduced
+}
+
+// applyHpAbs is the Jóia da Absorção lifesteal (_MSG_Attack.cpp:1651): on a
+// landed hit, a 50% roll heals the attacker AffHpAbs% of the damage dealt, capped
+// at 350/hit. The original has a bug in its else branch (ReqHp = RecHP overwrites
+// instead of adding); we add-then-clamp so the heal is coherent. No-op unless the
+// attacker carries the buff.
+func (d *Dispatcher) applyHpAbs(w *world.World, s *world.Session, e *world.Entity, dmg int) {
+	if e.AffHpAbs == 0 || dmg < 1 || w.Rand().Intn(2) != 0 {
+		return
+	}
+	rec := hpAbsHeal(dmg, e.AffHpAbs)
+	if rec <= 0 {
+		return
+	}
+	e.HP += rec
+	s.ReqHp = e.HP
+	setReqHp(s, e) // clamps HP/ReqHp to effectiveMaxHP
+	d.sendSetHpMp(w, s, e)
+}
+
+// hpAbsHeal is the Jóia da Absorção heal amount: AffHpAbs% of the damage dealt,
+// capped at 350 (_MSG_Attack.cpp:1653).
+func hpAbsHeal(dmg int, absPct int32) int32 {
+	rec := (int32(dmg)*absPct + 1) / 100
+	if rec > 350 {
+		rec = 350
+	}
+	if rec < 0 {
+		rec = 0
+	}
+	return rec
 }
 
 func manaControlDamage(target *world.Entity, dmg int, enhanced bool) (int, int32, bool) {

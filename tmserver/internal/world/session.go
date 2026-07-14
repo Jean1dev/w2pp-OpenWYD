@@ -219,6 +219,12 @@ type Entity struct {
 	AffForceDamage    int32 // ForceDamage, e.g. Ligacao Espectral
 	AffForceMobDamage int32 // ForceMobDamage, e.g. Toxina da Serpente
 	AffExpBonus       int32 // from affect type 39 (Baú de XP)
+	// AffHpAbs is the on-hit lifesteal percent from the Jóia da Absorção (affect
+	// type 8, bit 3): the attacker recovers AffHpAbs% of the damage dealt, 50%
+	// proc, capped 350/hit (_MSG_Attack.cpp:1651). AffMagic is the +20% Magic
+	// buff from the Jóia do Poder (affect 8, bit 5), read into effective Magic.
+	AffHpAbs int32
+	AffMagic int32
 	// AffDamageMultiPct is the legacy DAMAGEMULTI percentage (100 = neutral): a
 	// READ-time damage multiplier applied over Damage+AffDamage but before
 	// WeaponDamage, exactly where Basedef.cpp:4654 multiplies CurrentScore.Damage.

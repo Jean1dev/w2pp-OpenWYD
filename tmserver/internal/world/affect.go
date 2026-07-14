@@ -51,6 +51,7 @@ func (e *Entity) ResetAffects() {
 	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffRunSpeed, e.AffAttackSpeed, e.AffExpBonus = 0, 0, 0, 0, 0, 0, 0
 	e.AffStr, e.AffInt, e.AffDex, e.AffCon, e.AffCritical = 0, 0, 0, 0, 0
 	e.AffForceDamage, e.AffForceMobDamage = 0, 0
+	e.AffHpAbs, e.AffMagic = 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
 	e.AffDamageMultiPct = 100
