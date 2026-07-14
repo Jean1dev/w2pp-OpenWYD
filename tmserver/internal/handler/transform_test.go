@@ -85,7 +85,7 @@ func TestApplyTransformScore(t *testing.T) {
 				t.Errorf("AffRun/AffAttack/AffCritical = %d/%d/%d, want %d/%d/%d",
 					e.AffRunSpeed, e.AffAttackSpeed, e.AffCritical, tt.wantRun, tt.wantAtt, tt.wantCri)
 			}
-			if v := equipVisual(e); v[0] != tt.wantVis {
+			if v, _ := equipVisual(e); v[0] != tt.wantVis {
 				t.Errorf("equipVisual[0] = %d, want %d (beast mesh)", v[0], tt.wantVis)
 			}
 		})
@@ -104,7 +104,7 @@ func TestTransformClassGuard(t *testing.T) {
 		t.Errorf("non-BM transform changed the score: pct=%d dam=%d ac=%d hp=%d",
 			e.AffDamageMultiPct, e.AffDamage, e.AffAC, e.AffMaxHP)
 	}
-	if v := equipVisual(e); v[0] != 21 {
+	if v, _ := equipVisual(e); v[0] != 21 {
 		t.Errorf("equipVisual[0] = %d, want the real body item 21 (no beast mesh on a TK)", v[0])
 	}
 }
@@ -119,7 +119,7 @@ func TestTransformOutOfRangeValueInert(t *testing.T) {
 		if e.AffDamageMultiPct != 100 || e.AffAC != 0 || e.AffMaxHP != 0 {
 			t.Errorf("value %d: transform applied, want inert", v)
 		}
-		if vis := equipVisual(e); vis[0] != 21 {
+		if vis, _ := equipVisual(e); vis[0] != 21 {
 			t.Errorf("value %d: equipVisual[0] = %d, want 21", v, vis[0])
 		}
 	}

@@ -153,6 +153,14 @@ func equipDB(carry0, equip1 int16) *fakeDB {
 	return db
 }
 
+func equipItemDB(carry0 world.Item) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = carry0
+	db.loadResult = st
+	return db
+}
+
 // TestTradingItemEquip drags an inventory item onto an equip slot (0x0376) and
 // asserts the rendered gear is refreshed via _MSG_UpdateEquip with the item code.
 func TestTradingItemEquip(t *testing.T) {
@@ -168,6 +176,26 @@ func TestTradingItemEquip(t *testing.T) {
 	ue := expect(t, c, protocol.MsgUpdateEquip)
 	if got := le16(ue[2:4]); got != 1100 { // Equip[1] visual code @body2
 		t.Errorf("equip visual[1] = %d, want 1100", got)
+	}
+}
+
+func TestTradingItemEquipSendsRefineGlow(t *testing.T) {
+	item := world.Item{Index: 1100, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	addr, stop, _ := startServerClock(t, equipItemDB(item))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if want, got := uint16(1100|9*0x1000), le16(ue[2:4]); got != want {
+		t.Errorf("equip visual[1] = %d, want %d (+9 overlay)", got, want)
+	}
+	if got := ue[33]; got != efSanc { // AnctCode[1] @body32+1
+		t.Errorf("equip anct[1] = %#x, want EF_SANC", got)
 	}
 }
 

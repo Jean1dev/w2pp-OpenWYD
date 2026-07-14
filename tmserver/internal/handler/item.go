@@ -548,26 +548,28 @@ func (d *Dispatcher) meetsEquipReq(e *world.Entity, it world.Item) bool {
 		e.Str >= r.Str && e.Int >= r.Int && e.Dex >= r.Dex && e.Con >= r.Con
 }
 
-// equipVisual derives the 16 visible equipment codes from the entity's equipped
-// items. The visual code is the item index (0 = empty slot), matching how the
-// BaseMob template's equipment is read for other previews.
+// equipVisual derives the 16 visible equipment codes and refine/ancient overlay
+// bytes from the entity's equipped items, matching BASE_VisualItemCode and
+// BASE_VisualAnctCode.
 //
 // A live BM transform overrides slot 0 (the body/face mesh) with the beast
 // model — READ-time, unlike the legacy which mutates MOB.Equip[0].sIndex and
 // must reset it on every recompute (Basedef.cpp:4106/3908). Keeping e.Equip
 // untouched means the persisted body item can't be corrupted and the revert on
-// expiry is just this override no longer firing. The EF_SANC glow the legacy
-// stamps on the transformed mesh (Basedef.cpp:4166) is deferred: the visual
-// code here carries no glow bits for regular gear either.
-func equipVisual(e *world.Entity) [16]uint16 {
+// expiry is just this override no longer firing. Regular item glow is carried
+// by EquipAnct; the transform-specific synthetic EF_SANC from Basedef.cpp:4166
+// is deliberately left out until that separate cosmetic rule is captured.
+func equipVisual(e *world.Entity) ([16]uint16, [16]uint8) {
 	var v [16]uint16
+	var a [16]uint8
 	for i := range e.Equip {
-		v[i] = uint16(e.Equip[i].Index)
+		v[i], a[i] = protocol.VisualEquip(itemToSel(e.Equip[i]), i)
 	}
 	if value, _, ok := activeTransform(e); ok {
 		v[0] = transMesh(value)
+		a[0] = 0
 	}
-	return v
+	return v, a
 }
 
 // refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
@@ -576,8 +578,8 @@ func equipVisual(e *world.Entity) [16]uint16 {
 // is the entity id so the client applies it to the right mob. It also re-sends the
 // score, since equipment changes the character's attributes.
 func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
-	e.EquipVisual = equipVisual(e)
-	body := protocol.EncodeUpdateEquip(e.EquipVisual)
+	e.EquipVisual, e.EquipAnct = equipVisual(e)
+	body := protocol.EncodeUpdateEquip(e.EquipVisual, e.EquipAnct)
 	h := protocol.Header{Type: protocol.MsgUpdateEquip, ID: uint16(s.Conn)}
 	w.SendTo(s, h, body)
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
