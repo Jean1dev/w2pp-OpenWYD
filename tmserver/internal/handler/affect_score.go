@@ -15,7 +15,9 @@ const maxLegacyDamage int32 = 1_000_000_000
 //
 // Implemented types: 1 (slow/attack-speed/INT debuff), 2 (haste/run-speed),
 // 3 (resist debuff), 4 (scroll), 5/6 (DEX percent), 7 (frozen blade
-// attack-speed/INT debuff), 9/10 (damage buff/debuff), 11/12/21/24/31 (AC), 13
+// attack-speed/INT debuff), 8 (Jóias PvP — resist/cast/lifesteal/%HP/%AC/
+// %Damage/%Magic/MP↔HP, one per Level bit), 9/10 (damage buff/debuff),
+// 11/12/21/24/31 (AC), 13
 // (critical armor: −10% MaxHP; its damage/DAMAGEMULTI parts included), 14
 // (CON/HP), 15 (Special, cap 400 at read), 16 (BM transform → transform.go),
 // 19/26/28/36 (Rsv flags), 25 (elemental resists), 27 (weapon-gated Frost),
@@ -36,6 +38,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffRunSpeed, e.AffAttackSpeed, e.AffExpBonus = 0, 0, 0, 0, 0, 0, 0
 	e.AffStr, e.AffInt, e.AffDex, e.AffCon, e.AffCritical = 0, 0, 0, 0, 0
 	e.AffForceDamage, e.AffForceMobDamage = 0, 0
+	e.AffHpAbs, e.AffMagic = 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
 	e.AffDamageMultiPct = 100
@@ -81,6 +84,39 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			e.AffAttackSpeed -= level/10 + 10
 			if e.Equip[0].Index > 50 {
 				e.AffInt -= int16(level/10 + 20)
+			}
+		case 8: // Jóias PvP (Vol 242): each bit of Level is one jewel's bonus,
+			// ported from BASE_GetCurrentScore (Basedef.cpp:4478-4548). Bits 0 and
+			// 6 have no score effect (bit 0 is unread in the original; bit 6's
+			// Accuracy += 50 lands in CMob.Accuracy, a field the legacy combat
+			// never reads — parity is the buff icon only). The percent bonuses use
+			// the legacy's quantized (x/100)*pct form and read the flat base, so
+			// stacked jewels add instead of compounding — a few points off when two
+			// percent jewels are up together, within buff tolerance.
+			if level&(1<<1) != 0 { // Resistência: +25 to all four resists
+				for k := range e.AffResist {
+					e.AffResist[k] += 25
+				}
+			}
+			if level&(1<<2) != 0 { // Revelação: cast-while-hit
+				e.Rsv |= world.RsvCast
+			}
+			if level&(1<<3) != 0 { // Absorção: on-hit lifesteal (consumed in combat)
+				e.AffHpAbs += 20
+			}
+			if level&(1<<4) != 0 { // Proteção: +10% MaxHp, +10% AC
+				e.AffMaxHP += (e.MaxHP / 100) * 10
+				e.AffAC += (e.AC / 100) * 10
+			}
+			if level&(1<<5) != 0 { // Poder: +10% MaxHp, +10% Damage, +20% Magic
+				e.AffMaxHP += (e.MaxHP / 100) * 10
+				e.AffDamage += (e.Damage / 100) * 10
+				e.AffMagic += (int32(e.Magic) / 100) * 20
+			}
+			if level&(1<<7) != 0 { // Magia: half the max MP pool becomes max HP
+				mana := (e.MaxMP + 1) / 2
+				e.AffMaxHP += mana
+				e.AffMaxMP -= mana
 			}
 		case 9: // damage buff; a Foema with bit 19 learned triples it
 			add := (level*5/20 + value) * 3 / 2
@@ -262,6 +298,10 @@ func effectiveStr(e *world.Entity) int16 { return e.Str + e.AffStr }
 func effectiveInt(e *world.Entity) int16 { return e.Int + e.AffInt }
 
 func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
+
+// effectiveMagic is the caster power the client/skill damage see: the flat Magic
+// plus the +20% Jóia do Poder buff (affect 8 bit 5, cached in AffMagic).
+func effectiveMagic(e *world.Entity) int32 { return int32(e.Magic) + e.AffMagic }
 
 func effectiveCritical(e *world.Entity) uint8 {
 	v := int(e.Critical) + int(e.AffCritical) + int(huntressCriticalBonus(e))

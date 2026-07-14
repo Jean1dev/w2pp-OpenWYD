@@ -180,6 +180,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
+	case vol == volJoiaPvP:
+		d.useJoiaPvP(w, s, e, src)
+	case vol == volJoiaRecovery:
+		d.useJoiaRecovery(w, s, e, src)
 	default:
 		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
 	}
@@ -414,6 +418,84 @@ func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Ent
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendEtc(w, s, e)
 	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
+}
+
+// Jóia (cash jewel) volatiles. Vol 242 is the PvP buff set (grants affect type
+// 8, one Level bit per jewel); Vol 243 is the recovery/storage pair.
+const (
+	volJoiaPvP      = 242
+	volJoiaRecovery = 243
+	affectPvP       = 8
+)
+
+// joiaPvPBit maps each Vol-242 jewel's sIndex to its affect-8 Level bit
+// (_MSG_UseItem.cpp:4287-4313). The bit selects which bonus BASE_GetCurrentScore
+// applies (see applyAffectScore case 8). Note 3203/3207 are Vol 243, not here.
+var joiaPvPBit = map[int16]uint{
+	3200: 0, // Sagacidade (bit 0 has no score effect — a legacy quirk)
+	3201: 1, // Resistência
+	3202: 2, // Revelação
+	3204: 3, // Absorção
+	3205: 4, // Proteção
+	3206: 5, // Poder
+	3208: 6, // Precisão (Accuracy is a dead field in the legacy — icon only)
+	3209: 7, // Magia
+}
+
+// joiaRecoveryCleanse are the skill-buff affect types the Jóia da Recuperação
+// (3203) strips (_MSG_UseItem.cpp:4356).
+var joiaRecoveryCleanse = map[uint8]bool{1: true, 3: true, 5: true, 7: true, 10: true, 12: true, 20: true, 32: true}
+
+// useJoiaPvP consumes a Vol-242 PvP jewel: it sets (or OR-refreshes) the shared
+// affect-8 slot with the jewel's Level bit for one hour, then recomputes and
+// pushes the score/affect snapshot. Stacking jewels accumulate their bits in the
+// same slot (GetEmptyAffect returns the existing type-8 slot). Mirrors the
+// "Jóias PvP" region of _MSG_UseItem.cpp.
+func (d *Dispatcher) useJoiaPvP(w *world.World, s *world.Session, e *world.Entity, src int) {
+	bit, ok := joiaPvPBit[e.Carry[src].Index]
+	if !ok {
+		return
+	}
+	slot := e.EmptyAffect(affectPvP)
+	if slot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	if e.Affect[slot].Type != affectPvP {
+		e.Affect[slot] = world.Affect{Type: affectPvP, Level: uint16(1) << bit, Value: 0}
+	} else {
+		e.Affect[slot].Level |= uint16(1) << bit
+	}
+	e.Affect[slot].Time = affect1H
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// useJoiaRecovery consumes a Vol-243 jewel. The Jóia da Recuperação (3203)
+// strips the player's skill buffs/debuffs (joiaRecoveryCleanse) before consuming;
+// the Jóia da Armazenagem (3207) has no server-side stat, so it is consumed only.
+// Mirrors the "Armazenagem - Recuperação" region of _MSG_UseItem.cpp.
+func (d *Dispatcher) useJoiaRecovery(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if e.Carry[src].Index == 3203 {
+		cleared := false
+		for i := range e.Affect {
+			if joiaRecoveryCleanse[e.Affect[i].Type] {
+				e.Affect[i] = world.Affect{}
+				cleared = true
+			}
+		}
+		if cleared {
+			d.refreshScore(e)
+			d.sendScore(w, s, e)
+			d.sendAffect(w, s, e)
+		}
+	}
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 }
 
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
@@ -833,7 +915,7 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 		SaveMana:   uint8(e.SaveMana),
 		Guild:      e.Guild,
 		GuildLevel: uint16(e.GuildLevel),
-		Magic:      int32(e.Magic),
+		Magic:      effectiveMagic(e),
 	}
 	// Buff icon array (SendScore → GetAffect): the client renders/refreshes the
 	// buff bar from this, so every score push keeps the icons in sync.
