@@ -150,7 +150,7 @@ func TestLoadSkillData(t *testing.T) {
 	if err != nil {
 		t.Skipf("SkillData.csv unavailable: %v", err)
 	}
-	// Golden rows straight from the CSV (sscanf order, AffectTime already ÷4).
+	// Golden rows straight from the CSV (sscanf order, AffectTime already ÷8).
 	tests := []struct {
 		index int
 		want  Spell
@@ -159,7 +159,7 @@ func TestLoadSkillData(t *testing.T) {
 			Range: 5, InstanceType: 4, InstanceValue: 5, InstanceAttribute: 4,
 			Aggressive: 1, MaxTarget: 13, AffectResist: 3, Name: "Giro_da_F\xfaria"}},
 		{5, Spell{Index: 5, SkillPoint: 81, ManaSpent: 53, TickType: 17, TickValue: 75,
-			AffectTime: 150, MaxTarget: 1, Name: "Aura_da_Vida"}},
+			AffectTime: 75, MaxTarget: 1, Name: "Aura_da_Vida"}},
 	}
 	for _, tt := range tests {
 		got, ok := s.Get(tt.index)
@@ -181,7 +181,7 @@ func TestLoadSkillData(t *testing.T) {
 	}
 }
 
-// TestParseSkillDataDividesAffectTime pins the loader's AffectTime ÷4 rule on a
+// TestParseSkillDataDividesAffectTime pins the loader's AffectTime ÷8 rule on a
 // synthetic row (no dependency on the Release CSV): 13 ints, the 2 dotted Act
 // strings, 7 ints, then the name. Column 12 is the raw AffectTime.
 func TestParseSkillDataDividesAffectTime(t *testing.T) {
@@ -194,8 +194,8 @@ func TestParseSkillDataDividesAffectTime(t *testing.T) {
 	if !ok {
 		t.Fatal("skill 2 missing after parse")
 	}
-	if got.AffectTime != 150 {
-		t.Errorf("AffectTime = %d, want 150 (600÷4)", got.AffectTime)
+	if got.AffectTime != 75 {
+		t.Errorf("AffectTime = %d, want 75 (600÷8)", got.AffectTime)
 	}
 	if got.AffectType != 11 || got.AffectValue != 5 {
 		t.Errorf("parsed = %+v, want AffectType 11 / AffectValue 5", got)
