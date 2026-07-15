@@ -129,7 +129,7 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 	_, _, wasTransformed := activeTransform(e)
 	e.ResetAffects()
 	if wasTransformed {
-		d.refreshEquip(w, s, e) // recomputes EquipVisual + score, broadcasts both
+		d.refreshEquip(w, s, e) // recomputes visual gear/glow + score, broadcasts both
 	} else {
 		d.refreshScore(e)
 		d.sendScore(w, s, e)

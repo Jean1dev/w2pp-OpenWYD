@@ -179,6 +179,12 @@ type Entity struct {
 	BaseStr, BaseInt, BaseDex, BaseCon int16
 	BaseAC, BaseDamage                 int32
 	BaseMaxHP, BaseMaxMP               int32
+	// BaseMagic/BaseParry/BaseResist: the equipment-free Magic/Parry(evasion)/Resist,
+	// the mount-bonus counterparts of the Base* fields above. Same policy — derived on
+	// login (current − equipment) and re-added by refreshScore, never persisted.
+	BaseMagic  int16
+	BaseParry  int
+	BaseResist [4]int16
 
 	// HpAddPct/MpAddPct: EF_HPADD/EF_MPADD percent bonus from equipment (e.g. +10 =
 	// +10%). Cached by refreshScore and applied at READ time (effective max HP/MP),
@@ -233,7 +239,8 @@ type Entity struct {
 	AffDamageMultiPct int32
 	EquipExpBonus     int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
 
-	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
+	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob/UpdateEquip
+	EquipAnct   [16]uint8  // refine/ancient glow overlay bytes paired with EquipVisual
 
 	// Party state (lote2-party-guilda-guerra.md). Leader is the leader's conn
 	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).

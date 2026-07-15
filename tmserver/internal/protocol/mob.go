@@ -236,15 +236,15 @@ const updateEquipSize = 60
 
 // EncodeUpdateEquip builds _MSG_UpdateEquip (0x006B): the 16 visible equipment
 // codes that drive the character's rendered gear (SendFunc.cpp:SendEquip). visual
-// holds the per-slot visual item code (0 = empty slot). The ancient/refine codes
-// (AnctCode[16]) are left zero this pass. Send with HEADER.ID = the entity id so
-// it applies to the right mob (self or an in-view player).
-func EncodeUpdateEquip(visual [16]uint16) []byte {
+// holds the per-slot visual item code (0 = empty slot); anct holds the matching
+// ancient/refine glow overlay bytes. Send with HEADER.ID = the entity id so it
+// applies to the right mob (self or an in-view player).
+func EncodeUpdateEquip(visual [16]uint16, anct [16]uint8) []byte {
 	b := make([]byte, updateEquipSize-HeaderSize) // 48
 	for i := 0; i < 16; i++ {
 		le.PutUint16(b[i*2:], visual[i]) // Equip[16] @body0
 	}
-	// AnctCode[16] @body32 stays zero (no refine/ancient overlay yet).
+	copy(b[32:48], anct[:]) // AnctCode[16] @body32
 	return b
 }
 

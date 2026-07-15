@@ -255,11 +255,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster, st.Soul
-		// Every character is MORTAL (=2, Basedef.h:238) until the ARCH/CELESTIAL
-		// promotions are modeled; the dbServer contract doesn't carry ClassMaster
-		// yet (dbclient leaves it 0), and 0 would route the EXP formula onto the
-		// celestial divisors — the "no EXP" bug of issue #43. TODO: persist the
-		// tier once promotion exists.
+		// Older rows created before ClassMaster was persisted may still carry 0.
+		// Treat that as MORTAL (=2, Basedef.h:238) so EXP does not route through
+		// the celestial divisor path (issue #43).
 		if e.ClassMaster == 0 {
 			e.ClassMaster = classMasterMortal
 		}
@@ -306,7 +304,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// own client, via UpdateEquip) see what is actually equipped — not the class
 		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
 		// refreshScore, so a persisted transform (affect 16) renders its beast mesh.
-		e.EquipVisual = equipVisual(e)
+		e.EquipVisual, e.EquipAnct = equipVisual(e)
 	}
 	s.Mode = world.UserPlay
 	// The persisted skill block rides the login snapshot (mask/points/bar/Special);
@@ -473,9 +471,10 @@ func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
 	})
 }
 
-// createMobFrom builds MSG_CreateMob data from a world entity (player or NPC). The
-// visual Equip codes come from the entity's EquipVisual (set at login/spawn from
-// the relevant STRUCT_MOB template). createType: 0 normal, 2 "just entered".
+// createMobFrom builds MSG_CreateMob data from a world entity (player or NPC).
+// The visual equipment codes and glow overlays come from the entity's
+// EquipVisual/EquipAnct, set at login/spawn from the relevant STRUCT_MOB data.
+// createType: 0 normal, 2 "just entered".
 func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 	return protocol.CreateMobData{
 		MobID:           e.ID,
@@ -496,6 +495,7 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Merchant:   e.Merchant,
 		AttackRun:  attackRunOf(e),
 		Equip:      e.EquipVisual,
+		AnctCode:   e.EquipAnct,
 		CreateType: createType,
 		// Players pack PKPoint into MobName[12] to color the nick (75 neutral/white,
 		// 0 chaos/red); mobs send a raw name with no PK coloring.

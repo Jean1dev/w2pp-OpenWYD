@@ -46,6 +46,8 @@ const (
 	NoticeRefineSuccess  // _NN_Refine_Success (176)
 	NoticeIncubated      // _NN_INCUBATED (253): the egg hatched into its mount
 	NoticeIncuWaitMore   // _NN_Incu_Wait_More (261): the egg's incubation timer
+
+	NoticeNoEmptySlot // _NN_NoEmptySlot
 )
 
 // notify sends a client notification.

@@ -33,9 +33,10 @@ func TestLiveQueries(t *testing.T) {
 		Characters: []domain.Character{{
 			Slot: 0, Name: "Warrior", Class: 1, Level: 40, Exp: 5000, Coin: 1000,
 			Str: 50, Int: 10, Dex: 20, Con: 30, Hp: 800, MaxHp: 800, Mp: 200, MaxMp: 200,
-			Equip:   []domain.Item{{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9}},
-			Carry:   []domain.Item{{Slot: 5, Index: 2200, ExpiresAt: 1893456000}}, // a timed mount
-			Affects: []domain.Affect{{Type: 3, Value: 1, Level: 2, Time: 99}},
+			ClassMaster: 2,
+			Equip:       []domain.Item{{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9}},
+			Carry:       []domain.Item{{Slot: 5, Index: 2200, ExpiresAt: 1893456000}}, // a timed mount
+			Affects:     []domain.Affect{{Type: 3, Value: 1, Level: 2, Time: 99}},
 		}},
 	})
 	if err != nil {
@@ -98,6 +99,29 @@ func TestLiveQueries(t *testing.T) {
 	}
 	if len(reloaded.Carry) != 1 || reloaded.Carry[0].Index != 3300 {
 		t.Fatalf("carry not replaced: %+v", reloaded.Carry)
+	}
+
+	// CreateArchCharacter chooses the first free slot and allows the legacy
+	// Mortal/Arch same-name pair because uniqueness is per ClassMaster.
+	archID, archSlot, err := s.CreateArchCharacter(ctx, accID, domain.Character{
+		Name: "Warrior", Class: 1, ClassMaster: 1,
+		Equip: []domain.Item{{Slot: 0, Index: 27}},
+	})
+	if err != nil {
+		t.Fatalf("CreateArchCharacter: %v", err)
+	}
+	if archID == 0 || archSlot != 1 {
+		t.Fatalf("CreateArchCharacter id=%d slot=%d, want id>0 slot=1", archID, archSlot)
+	}
+	arch, err := s.LoadCharacter(ctx, accID, 1)
+	if err != nil {
+		t.Fatalf("LoadCharacter(arch): %v", err)
+	}
+	if arch.Name != "Warrior" || arch.ClassMaster != 1 || len(arch.Equip) != 1 || arch.Equip[0].Index != 27 {
+		t.Fatalf("arch not persisted correctly: %+v", arch)
+	}
+	if err := s.DeleteCharacter(ctx, accID, 1); err != nil {
+		t.Fatalf("DeleteCharacter(arch): %v", err)
 	}
 
 	// CreateCharacter + DeleteCharacter
