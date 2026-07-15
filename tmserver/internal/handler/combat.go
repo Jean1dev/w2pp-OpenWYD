@@ -134,6 +134,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	doubleCritical := uint8(0)
 	doubleCriticalReady := false
 	var healExp int64
+	var hpSyncTargets []int
 	for i := range body.Dam {
 		tid := int(body.Dam[i].TargetID)
 		target := w.Entity(tid)
@@ -221,9 +222,24 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		if dmg > 0 {
 			dmg = applyHuntressForceDamage(e, target, tid, dmg)
 			dmg = d.applyManaControl(w, e, target, tid, dmg)
+			hpBefore := target.HP
 			target.HP -= int32(dmg)
 			if target.HP < 0 {
 				target.HP = 0
+			}
+			if ts := w.Session(tid); ts != nil && target.HP != hpBefore {
+				ts.ReqHp = target.HP
+				setReqHp(ts, target)
+				seen := false
+				for _, syncID := range hpSyncTargets {
+					if syncID == tid {
+						seen = true
+						break
+					}
+				}
+				if !seen {
+					hpSyncTargets = append(hpSyncTargets, tid)
+				}
 			}
 			d.applyOnHitAffects(w, e, target, tid)
 			d.applyHpAbs(w, s, e, dmg)
@@ -299,6 +315,13 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, hdr, payload)
 	})
+	for _, tid := range hpSyncTargets {
+		ts := w.Session(tid)
+		target := w.Entity(tid)
+		if ts != nil && target != nil {
+			d.sendSetHpMp(w, ts, target)
+		}
+	}
 }
 
 // castInfo is the resolved skill context for one attack packet.
