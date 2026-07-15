@@ -67,6 +67,62 @@ func TestAttackHitExact(t *testing.T) {
 	}
 }
 
+func TestAttackSyncsVictimHpMp(t *testing.T) {
+	addr, stop, _ := startServerClock(t, combatDB())
+	defer stop()
+
+	attacker := enterWorld(t, addr) // conn 1 (attacker)
+	defer attacker.Close()
+	target := enterWorld(t, addr) // conn 2 (target), in view
+	defer target.Close()
+
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1)) // PvP requires PK mode
+	attackFrame(t, attacker, serverTime, 2, 0)
+
+	var damage, hp, reqHp int32
+	sawAttack, sawHpSync := false, false
+	for i := 0; i < 6 && (!sawAttack || !sawHpSync); i++ {
+		ty, payload, ok := readMaybe(t, target)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgAttack:
+			var got protocol.MsgAttackBody
+			if err := got.Decode(payload); err != nil {
+				t.Fatal(err)
+			}
+			if len(got.Dam) != 1 || got.Dam[0].TargetID != 2 {
+				t.Fatalf("Dam = %+v", got.Dam)
+			}
+			damage = got.Dam[0].Damage
+			sawAttack = true
+		case protocol.MsgSetHpMp:
+			if len(payload) < 16 {
+				t.Fatalf("SetHpMp body = %d bytes, want at least 16", len(payload))
+			}
+			hp = int32(binary.LittleEndian.Uint32(payload[0:4]))
+			reqHp = int32(binary.LittleEndian.Uint32(payload[8:12]))
+			sawHpSync = true
+		default:
+			t.Fatalf("target got %#x, want MsgAttack/MsgSetHpMp", ty)
+		}
+	}
+	if !sawAttack {
+		t.Fatal("target did not receive MsgAttack")
+	}
+	if !sawHpSync {
+		t.Fatal("target did not receive MsgSetHpMp after taking PvP damage")
+	}
+	if damage <= 0 {
+		t.Fatalf("damage = %d, want > 0", damage)
+	}
+	wantHP := int32(1000) - damage
+	if hp != wantHP || reqHp != wantHP {
+		t.Errorf("SetHpMp Hp/ReqHp = %d/%d, want %d/%d", hp, reqHp, wantHP, wantHP)
+	}
+}
+
 // TestAttackPlayerWithoutPKModeBlocked: PvP damage never lands without the
 // attacker having opted into PK mode first (K key, _MSG_PKMode) — issue #59
 // follow-up (pressing K alone must not blink the nickname; only a landed PvP

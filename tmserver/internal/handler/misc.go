@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -87,8 +88,8 @@ func (d *Dispatcher) accountSecure(w *world.World, s *world.Session, _ protocol.
 //
 // This batch implements the PERZEN item-exchange NPCs (Merchant 100, grade 7/8/9)
 // and Mestre Grifo (Merchant 23), a server-content shortcut into the Quest 256
-// arenas. The remaining quest NPC types (level chains, tutorials, teleports) are
-// UNVERIFIED and not yet routed.
+// arenas, plus the King Arch creation path. The remaining quest NPC types (level
+// chains, tutorials, teleports) are UNVERIFIED and not yet routed.
 func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -97,7 +98,7 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	if s.Trade.Active {
 		d.removeTrade(w, s) // interacting with a quest NPC cancels a trade
 	}
-	npcIndex, _, ok := protocol.StandardParm2(payload)
+	npcIndex, confirm, ok := protocol.StandardParm2(payload)
 	if !ok || npcIndex < world.MaxUser || int(npcIndex) >= world.MaxMob {
 		return
 	}
@@ -114,7 +115,122 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.mestreGrifo(w, s, e, npc)
 		return
 	}
+	if isKingQuestNPC(npc) {
+		d.kingArch(w, s, e, int(confirm))
+		return
+	}
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
+}
+
+const (
+	kingQuestMerchant = 111
+	kingQuestGrade    = 4
+
+	idealStoneEquipSlot = 10
+	sephirotEquipSlot   = 11
+	archSephirotMin     = 1760
+	archSephirotMax     = 1763
+)
+
+func isKingQuestNPC(npc *world.Entity) bool {
+	if npc == nil {
+		return false
+	}
+	// The Go loader stores CurrentScore.Merchant (111) plus EF_GRADE0 (4), while
+	// the legacy switch routes KING from MOB.Merchant 14/15. Accept both shapes so
+	// tests and future loaders can use either representation.
+	return npc.Merchant == kingQuestMerchant && npc.Grade == kingQuestGrade ||
+		npc.Merchant == 14 || npc.Merchant == 15
+}
+
+func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e *world.Entity, confirm int) {
+	if confirm == 0 {
+		return
+	}
+	if e.ClassMaster != classMasterMortal || e.Level < 299 {
+		return
+	}
+	sephirot := int(e.Equip[sephirotEquipSlot].Index)
+	if sephirot < archSephirotMin || sephirot > archSephirotMax {
+		return
+	}
+	class := sephirot - archSephirotMin
+	mortalFace := int(e.Equip[0].Index)
+	if mortalFace <= 0 {
+		if body := d.classBody(int(e.Class)); !body.Empty() {
+			mortalFace = int(body.Index)
+		}
+	}
+	if mortalFace <= 0 {
+		d.log.Warn("king arch: missing mortal face", "conn", s.Conn, "name", e.Name, "class", e.Class)
+		return
+	}
+
+	accID := s.AccountID
+	name := e.Name
+	mortalSlot := s.Slot
+	s.Mode = world.UserWaitDB
+	p := w.Persistence()
+	w.Go(s, func() func(*world.World, *world.Session) {
+		slot, ok, err := p.CreateArchCharacter(context.Background(), accID, name, class, mortalFace, mortalSlot)
+		var chars []world.CharSummary
+		var listErr error
+		if err == nil && ok {
+			chars, listErr = p.ListCharacters(context.Background(), accID)
+		}
+		return func(w *world.World, s *world.Session) {
+			d.completeKingArch(w, s, slot, ok, err, chars, listErr)
+		}
+	})
+}
+
+func (d *Dispatcher) completeKingArch(w *world.World, s *world.Session, archSlot int, ok bool, err error, chars []world.CharSummary, listErr error) {
+	if err != nil {
+		s.Mode = world.UserPlay
+		d.log.Warn("king arch: db create failed", "conn", s.Conn, "account", s.AccountID, "err", err)
+		d.notify(w, s, NoticeDBError)
+		return
+	}
+	if !ok {
+		s.Mode = world.UserPlay
+		d.notify(w, s, NoticeNoEmptySlot)
+		return
+	}
+	if listErr != nil {
+		d.log.Warn("king arch: list after create failed", "conn", s.Conn, "account", s.AccountID, "err", listErr)
+	}
+
+	s.Mode = world.UserPlay
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	e.Equip[idealStoneEquipSlot] = world.Item{}
+	e.Equip[sephirotEquipSlot] = world.Item{}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, idealStoneEquipSlot, itemToSel(e.Equip[idealStoneEquipSlot])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, sephirotEquipSlot, itemToSel(e.Equip[sephirotEquipSlot])))
+
+	body := protocol.EncodeRemoveMobBody(2)
+	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
+	})
+
+	w.SaveCharacterThen(s, func(w *world.World, s *world.Session) {
+		w.SaveCargoThen(s, func(w *world.World, s *world.Session) {
+			if e := w.Entity(s.Conn); e != nil {
+				e.Mode = world.MobUserDock
+				e.ResetAffects()
+			}
+			s.Mode = world.UserSelChar
+			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+			if listErr == nil {
+				w.SendTo(s, protocol.Header{Type: protocol.MsgCNFNewCharacter, ID: protocol.IDNewCharacter},
+					protocol.EncodeCNFNewCharacterBody(d.selCharsFrom(chars)))
+			}
+			w.SendTo(s, protocol.Header{Type: protocol.MsgSendArchEffect, ID: protocol.IDScene},
+				protocol.EncodeStandardParm(int32(archSlot)))
+		})
+	})
 }
 
 type quest256Step struct {

@@ -73,6 +73,45 @@ func questFrame(t *testing.T, c net.Conn, npcID int) {
 	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 0))
 }
 
+func kingTemplate() []byte {
+	b := make([]byte, 816)
+	copy(b[0:16], "Rei_Harabard")
+	const cs = 92
+	b[cs+12] = 111                                // CurrentScore.Merchant for King templates
+	binary.LittleEndian.PutUint32(b[cs+24:], 100) // Hp (alive)
+	binary.LittleEndian.PutUint16(b[40:], 5)      // SPX
+	binary.LittleEndian.PutUint16(b[42:], 5)      // SPY
+	binary.LittleEndian.PutUint16(b[140:], 11)    // Equip[0].index
+	b[140+2], b[140+3] = 100, 4                   // EF_GRADE0 = KING
+	return b
+}
+
+func startServerKing(t *testing.T, db *fakeDB) (string, func(), int) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 16}, log, db, d.Handle)
+	npcID := w.SpawnMob(kingTemplate(), 5, 5)
+	if npcID < 0 {
+		t.Fatal("failed to spawn King")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}, npcID
+}
+
 func mestreGrifoTemplate() []byte {
 	if b, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Mestre_Grifo")); err == nil && len(b) == 816 {
 		return b
@@ -163,6 +202,65 @@ func TestPerzenMissingItem(t *testing.T) {
 	questFrame(t, c, npcID)
 	if ty, _, ok := readMaybe(t, c); ok {
 		t.Errorf("exchange without the item produced %#x; should be a no-op", ty)
+	}
+}
+
+func TestKingCreatesArchCharacter(t *testing.T) {
+	db := newDB()
+	db.archOK = true
+	db.archSlot = 2
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Class: 0, Level: 299, X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, ClassMaster: classMasterMortal,
+	}
+	st.Equip[0] = world.Item{Index: 21}
+	st.Equip[10] = world.Item{Index: 1742}
+	st.Equip[11] = world.Item{Index: 1762}
+	db.loadResult = st
+
+	addr, stop, npcID := startServerKing(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	itemA := expect(t, c, protocol.MsgSendItem)
+	itemB := expect(t, c, protocol.MsgSendItem)
+	cleared := map[uint16]uint16{
+		le16(itemA[2:4]): le16(itemA[4:6]),
+		le16(itemB[2:4]): le16(itemB[4:6]),
+	}
+	if idx, ok := cleared[10]; !ok || idx != 0 {
+		t.Fatalf("slot 10 clear = idx %d ok=%v; all cleared slots=%+v", idx, ok, cleared)
+	}
+	if idx, ok := cleared[11]; !ok || idx != 0 {
+		t.Fatalf("slot 11 clear = idx %d ok=%v; all cleared slots=%+v", idx, ok, cleared)
+	}
+	if len(cleared) != 2 {
+		t.Fatalf("cleared equip slots = %+v, want slots 10 and 11 empty", cleared)
+	}
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	if body := expect(t, c, protocol.MsgCNFNewCharacter); len(body) != 844 {
+		t.Fatalf("CNFNewCharacter body = %d, want 844", len(body))
+	}
+	effect := expect(t, c, protocol.MsgSendArchEffect)
+	if parm, ok := protocol.StandardParm(effect); !ok || parm != 2 {
+		t.Fatalf("SendArchEffect parm=%d ok=%v, want slot 2", parm, ok)
+	}
+
+	created, accountID, name, class, face, mortalSlot := db.archRequest()
+	if created != 1 || accountID != 7 || name != "Hero" || class != 2 || face != 21 || mortalSlot != 0 {
+		t.Fatalf("arch request created=%d account=%d name=%q class=%d face=%d mortalSlot=%d",
+			created, accountID, name, class, face, mortalSlot)
+	}
+	save, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("Mortal was not saved after Arch creation")
+	}
+	for _, it := range save.Equip {
+		if it.Slot == 10 || it.Slot == 11 {
+			t.Fatalf("saved Mortal still has Arch creation equip slot: %+v", save.Equip)
+		}
 	}
 }
 

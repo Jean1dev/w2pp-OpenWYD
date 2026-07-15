@@ -120,4 +120,5 @@ const (
 	MsgUpdateScore        Type = 0x0336 // 822  attributes/score update
 	MsgSetHpDam           Type = 0x018A // 394  S→C HP + floated heal/damage (affect ticks)
 	MsgSetHpMp            Type = 0x0181 // 385
+	MsgSendArchEffect     Type = 0x03B4 // 948  S↔C arch-created effect (MSG_STANDARDPARM)
 )

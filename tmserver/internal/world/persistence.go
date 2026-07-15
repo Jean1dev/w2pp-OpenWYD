@@ -198,6 +198,7 @@ type Persistence interface {
 	AccountLogin(ctx context.Context, name, password string) (LoginOutcome, error)
 	ListCharacters(ctx context.Context, accountID int64) ([]CharSummary, error)
 	CreateCharacter(ctx context.Context, accountID int64, slot int, name string, class int) (bool, error)
+	CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int, name, password string) (bool, error)
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
 	LoadCargo(ctx context.Context, accountID int64) (CargoState, error)
@@ -234,6 +235,11 @@ func (NopPersistence) ListCharacters(context.Context, int64) ([]CharSummary, err
 // CreateCharacter is unsupported without a backend.
 func (NopPersistence) CreateCharacter(context.Context, int64, int, string, int) (bool, error) {
 	return false, errNoPersistence
+}
+
+// CreateArchCharacter is unsupported without a backend.
+func (NopPersistence) CreateArchCharacter(context.Context, int64, string, int, int, int) (int, bool, error) {
+	return 0, false, errNoPersistence
 }
 
 // DeleteCharacter is unsupported without a backend.
