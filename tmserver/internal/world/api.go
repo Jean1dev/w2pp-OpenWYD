@@ -123,7 +123,7 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 	}
 	eq := protocol.MobEquip(template)
 	for i := range eq {
-		e.EquipVisual[i] = eq[i].Index
+		e.EquipVisual[i], e.EquipAnct[i] = protocol.VisualEquip(eq[i], i)
 	}
 	// Attack reach = BASE_GetMobAbility(EF_RANGE) (Basedef.cpp:2415): the MAX over
 	// the equips of each item's EF_RANGE — catalog base effect plus the instance

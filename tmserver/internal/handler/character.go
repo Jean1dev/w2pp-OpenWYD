@@ -304,7 +304,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// own client, via UpdateEquip) see what is actually equipped — not the class
 		// starter set. Empty slots → 0 (no item). AFTER the affect rehydrate +
 		// refreshScore, so a persisted transform (affect 16) renders its beast mesh.
-		e.EquipVisual = equipVisual(e)
+		e.EquipVisual, e.EquipAnct = equipVisual(e)
 	}
 	s.Mode = world.UserPlay
 	// The persisted skill block rides the login snapshot (mask/points/bar/Special);
@@ -471,9 +471,10 @@ func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
 	})
 }
 
-// createMobFrom builds MSG_CreateMob data from a world entity (player or NPC). The
-// visual Equip codes come from the entity's EquipVisual (set at login/spawn from
-// the relevant STRUCT_MOB template). createType: 0 normal, 2 "just entered".
+// createMobFrom builds MSG_CreateMob data from a world entity (player or NPC).
+// The visual equipment codes and glow overlays come from the entity's
+// EquipVisual/EquipAnct, set at login/spawn from the relevant STRUCT_MOB data.
+// createType: 0 normal, 2 "just entered".
 func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 	return protocol.CreateMobData{
 		MobID:           e.ID,
@@ -494,6 +495,7 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Merchant:   e.Merchant,
 		AttackRun:  attackRunOf(e),
 		Equip:      e.EquipVisual,
+		AnctCode:   e.EquipAnct,
 		CreateType: createType,
 		// Players pack PKPoint into MobName[12] to color the nick (75 neutral/white,
 		// 0 chaos/red); mobs send a raw name with no PK coloring.

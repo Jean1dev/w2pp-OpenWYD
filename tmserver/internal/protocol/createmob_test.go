@@ -16,6 +16,7 @@ func TestCreateMobBodyLayout(t *testing.T) {
 		Merchant: 1, AttackRun: 82, CreateType: 2,
 	}
 	d.Equip[0] = 831
+	d.AnctCode[0] = 43
 	b := EncodeCreateMobBody(d)
 
 	if len(b) != createMobSize-HeaderSize { // 232 - 12 = 220
@@ -42,6 +43,27 @@ func TestCreateMobBodyLayout(t *testing.T) {
 	}
 	if got := le.Uint16(b[172:]); got != 2 { // CreateType @abs184 → body172
 		t.Errorf("CreateType = %d, want 2", got)
+	}
+	if got := b[174]; got != 43 { // AnctCode[0] @abs186 → body174
+		t.Errorf("AnctCode[0] = %d, want 43", got)
+	}
+}
+
+func TestUpdateEquipBodyLayout(t *testing.T) {
+	var visual [16]uint16
+	var anct [16]uint8
+	visual[1] = 1100 | 9*0x1000
+	anct[1] = 43
+	b := EncodeUpdateEquip(visual, anct)
+
+	if len(b) != updateEquipSize-HeaderSize { // 60 - 12 = 48
+		t.Fatalf("UpdateEquip body = %d, want %d", len(b), updateEquipSize-HeaderSize)
+	}
+	if got := binary.LittleEndian.Uint16(b[2:]); got != visual[1] { // Equip[1] @body2
+		t.Errorf("Equip[1] = %d, want %d", got, visual[1])
+	}
+	if got := b[33]; got != 43 { // AnctCode[1] @body32+1
+		t.Errorf("AnctCode[1] = %d, want 43", got)
 	}
 }
 

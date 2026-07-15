@@ -239,7 +239,8 @@ type Entity struct {
 	AffDamageMultiPct int32
 	EquipExpBonus     int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
 
-	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob (gear shown to others)
+	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob/UpdateEquip
+	EquipAnct   [16]uint8  // refine/ancient glow overlay bytes paired with EquipVisual
 
 	// Party state (lote2-party-guilda-guerra.md). Leader is the leader's conn
 	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).

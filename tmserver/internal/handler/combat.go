@@ -521,7 +521,7 @@ func (d *Dispatcher) applyCastAffect(w *world.World, e, target *world.Entity, ti
 	// A landed transform (skills 64/66/68/70/71) also swaps the body mesh, which
 	// everyone in view must render — the legacy follows the SetAffect with
 	// GetCurrentScore + SendScore + SendEquip(conn,0) (_MSG_Attack.cpp:1242-1248).
-	// refreshEquip recomputes EquipVisual (where the beast override lives),
+	// refreshEquip recomputes visual gear/glow (where the beast override lives),
 	// broadcasts UpdateEquip self+in-view and re-sends the score.
 	if sp.AffectType == affectTransform {
 		if ts := w.Session(tid); ts != nil {
