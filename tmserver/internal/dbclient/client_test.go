@@ -18,6 +18,9 @@ type fakeAPI struct {
 	listResp   *dbv1.ListCharactersResponse
 	loadResp   *dbv1.LoadCharacterResponse
 	createOK   bool
+	archReq    *dbv1.CreateArchCharacterRequest
+	archOK     bool
+	archSlot   int32
 	deleteOK   bool
 	saved      *dbv1.SaveCharacterRequest
 	cargoResp  *dbv1.LoadCargoResponse
@@ -42,6 +45,10 @@ func (f *fakeAPI) SaveCharacter(_ context.Context, req *dbv1.SaveCharacterReques
 }
 func (f *fakeAPI) CreateCharacter(_ context.Context, _ *dbv1.CreateCharacterRequest, _ ...grpc.CallOption) (*dbv1.CreateCharacterResponse, error) {
 	return &dbv1.CreateCharacterResponse{Ok: f.createOK, CharacterId: 7}, nil
+}
+func (f *fakeAPI) CreateArchCharacter(_ context.Context, req *dbv1.CreateArchCharacterRequest, _ ...grpc.CallOption) (*dbv1.CreateArchCharacterResponse, error) {
+	f.archReq = req
+	return &dbv1.CreateArchCharacterResponse{Ok: f.archOK, CharacterId: 8, Slot: f.archSlot}, nil
 }
 func (f *fakeAPI) DeleteCharacter(_ context.Context, _ *dbv1.DeleteCharacterRequest, _ ...grpc.CallOption) (*dbv1.DeleteCharacterResponse, error) {
 	return &dbv1.DeleteCharacterResponse{Ok: f.deleteOK}, nil
@@ -115,7 +122,7 @@ func TestAccountLoginFailSkipsList(t *testing.T) {
 func TestLoadCharacterMapping(t *testing.T) {
 	api := &fakeAPI{loadResp: &dbv1.LoadCharacterResponse{Character: &dbv1.Character{
 		Slot: 1, Name: "mage", Level: 20, Coin: 500, Str: 5, Hp: 100, MaxHp: 200,
-		SecLearnedSkill: 0x01020304, Soul: 3,
+		SecLearnedSkill: 0x01020304, Soul: 3, ClassMaster: 1,
 		Equip: []*dbv1.Item{{Slot: 1, Index: 1100, Eff1: 4, Effv1: 5}},
 		Carry: []*dbv1.Item{{Slot: 3, Index: 1234, Eff1: 9, Effv1: 1}},
 	}}}
@@ -132,9 +139,28 @@ func TestLoadCharacterMapping(t *testing.T) {
 	if st.SecLearnedSkill != 0x01020304 || st.Soul != 3 {
 		t.Fatalf("MobExtra fields not mapped: sec=%#x soul=%d", st.SecLearnedSkill, st.Soul)
 	}
+	if st.ClassMaster != 1 {
+		t.Fatalf("ClassMaster = %d, want 1", st.ClassMaster)
+	}
 	// Equipment must be injected too (it was previously dropped at this boundary).
 	if st.Equip[1].Index != 1100 || st.Equip[1].Effects[0].Effect != 4 {
 		t.Fatalf("equip not mapped: %+v", st.Equip[1])
+	}
+}
+
+func TestCreateArchCharacterMapping(t *testing.T) {
+	api := &fakeAPI{archOK: true, archSlot: 2}
+	slot, ok, err := newClient(api).CreateArchCharacter(context.Background(), 7, "Hero", 3, 21, 0)
+	if err != nil {
+		t.Fatalf("CreateArchCharacter: %v", err)
+	}
+	if !ok || slot != 2 {
+		t.Fatalf("got ok=%v slot=%d, want ok=true slot=2", ok, slot)
+	}
+	req := api.archReq
+	if req.GetAccountId() != 7 || req.GetName() != "Hero" || req.GetClass() != 3 ||
+		req.GetMortalFace() != 21 || req.GetMortalSlot() != 0 {
+		t.Fatalf("arch request not mapped: %+v", req)
 	}
 }
 

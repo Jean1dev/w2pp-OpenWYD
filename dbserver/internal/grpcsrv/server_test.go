@@ -18,6 +18,9 @@ type fakeStore struct {
 	byID       map[int64]store.AccountAuth
 	chars      map[int64][]domain.Character // accountID -> characters
 	createErr  error
+	archErr    error
+	archSlot   int
+	archChar   domain.Character
 	saveResult error
 	saveErr    error
 	savedChar  domain.Character
@@ -70,6 +73,17 @@ func (f *fakeStore) CreateCharacter(_ context.Context, _ int64, _ domain.Charact
 		return 0, f.createErr
 	}
 	return 42, nil
+}
+
+func (f *fakeStore) CreateArchCharacter(_ context.Context, _ int64, ch domain.Character) (int64, int, error) {
+	if f.archErr != nil {
+		return 0, 0, f.archErr
+	}
+	f.archChar = ch
+	if f.archSlot == 0 {
+		return 43, 1, nil
+	}
+	return 43, f.archSlot, nil
 }
 
 func (f *fakeStore) DeleteCharacter(_ context.Context, accountID int64, slot int) error {
@@ -191,6 +205,39 @@ func TestCreateCharacterOK(t *testing.T) {
 	}
 	if !resp.GetOk() || resp.GetCharacterId() != 42 {
 		t.Fatalf("got ok=%v id=%d, want ok=true id=42", resp.GetOk(), resp.GetCharacterId())
+	}
+}
+
+func TestCreateArchCharacterOK(t *testing.T) {
+	fs := &fakeStore{archSlot: 2}
+	s := New(fs)
+	resp, err := s.CreateArchCharacter(context.Background(),
+		&dbv1.CreateArchCharacterRequest{AccountId: 1, Name: "hero", Class: 1, MortalFace: 21, MortalSlot: 0})
+	if err != nil {
+		t.Fatalf("CreateArchCharacter: %v", err)
+	}
+	if !resp.GetOk() || resp.GetCharacterId() != 43 || resp.GetSlot() != 2 {
+		t.Fatalf("got ok=%v id=%d slot=%d, want ok=true id=43 slot=2",
+			resp.GetOk(), resp.GetCharacterId(), resp.GetSlot())
+	}
+	ch := fs.archChar
+	if ch.Name != "hero" || ch.Class != 1 || ch.ClassMaster != classMasterArch {
+		t.Fatalf("arch character identity not mapped: %+v", ch)
+	}
+	if len(ch.Equip) != 1 || ch.Equip[0].Slot != 0 || ch.Equip[0].Index != 27 {
+		t.Fatalf("arch body item = %+v, want slot 0 index 27", ch.Equip)
+	}
+}
+
+func TestCreateArchCharacterNoFreeSlot(t *testing.T) {
+	s := New(&fakeStore{archErr: store.ErrNoFreeSlot})
+	resp, err := s.CreateArchCharacter(context.Background(),
+		&dbv1.CreateArchCharacterRequest{AccountId: 1, Name: "hero", Class: 1, MortalFace: 21, MortalSlot: 0})
+	if err != nil {
+		t.Fatalf("CreateArchCharacter: %v", err)
+	}
+	if resp.GetOk() {
+		t.Fatal("expected ok=false on no free slot")
 	}
 }
 

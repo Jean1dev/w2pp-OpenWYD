@@ -25,6 +25,7 @@ type Store interface {
 	ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error)
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (domain.Character, error)
 	CreateCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, error)
+	CreateArchCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, int, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int) error
 	SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error
 	LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error)
@@ -38,6 +39,12 @@ type Server struct {
 	dbv1.UnimplementedAccountServiceServer
 	store Store
 }
+
+const (
+	classMasterArch   = 1
+	classMasterMortal = 2
+	maxClass          = 4
+)
 
 // New builds an AccountService over the given store.
 func New(s Store) *Server { return &Server{store: s} }
@@ -185,11 +192,12 @@ func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterR
 	// character can enter the world. (UNVERIFIED: exact per-class base attributes
 	// and starter equipment / spawn coords — placeholder values.)
 	ch := domain.Character{
-		Slot:  int(req.GetSlot()),
-		Name:  req.GetName(),
-		Class: uint8(req.GetClass()),
-		Level: 1,
-		Str:   12, Int: 12, Dex: 12, Con: 12,
+		Slot:        int(req.GetSlot()),
+		Name:        req.GetName(),
+		Class:       uint8(req.GetClass()),
+		ClassMaster: classMasterMortal,
+		Level:       1,
+		Str:         12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
 		Coin:  1000000,           // starting gold (so the shop is usable)
 		SaveX: 2096, SaveY: 2096, // matches the BaseMob template spawn
@@ -202,6 +210,38 @@ func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterR
 		return nil, status.Errorf(codes.Internal, "create character: %v", err)
 	}
 	return &dbv1.CreateCharacterResponse{Ok: true, CharacterId: id}, nil
+}
+
+// CreateArchCharacter creates the ARCH twin in the first free account slot. The
+// new character keeps the Mortal name and receives the Arch body item derived
+// from MortalFace, matching DBSrv::_MSG_DBCreateArchCharacter.
+func (s *Server) CreateArchCharacter(ctx context.Context, req *dbv1.CreateArchCharacterRequest) (*dbv1.CreateArchCharacterResponse, error) {
+	class := int(req.GetClass())
+	if class < 0 || class >= maxClass {
+		return &dbv1.CreateArchCharacterResponse{Ok: false}, nil
+	}
+	ch := domain.Character{
+		Name:        req.GetName(),
+		Class:       uint8(class),
+		ClassMaster: classMasterArch,
+		Level:       1,
+		Str:         12, Int: 12, Dex: 12, Con: 12,
+		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
+		Coin:  1000000,
+		SaveX: 2096, SaveY: 2096,
+		Equip: []domain.Item{{
+			Slot:  0,
+			Index: int16(req.GetMortalFace() + 5 + int32(class)),
+		}},
+	}
+	id, slot, err := s.store.CreateArchCharacter(ctx, req.GetAccountId(), ch)
+	if errors.Is(err, store.ErrNoFreeSlot) || errors.Is(err, store.ErrNotFound) || isUniqueViolation(err) {
+		return &dbv1.CreateArchCharacterResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "create arch character: %v", err)
+	}
+	return &dbv1.CreateArchCharacterResponse{Ok: true, CharacterId: id, Slot: int32(slot)}, nil
 }
 
 // DeleteCharacter removes a character after confirming the account password.

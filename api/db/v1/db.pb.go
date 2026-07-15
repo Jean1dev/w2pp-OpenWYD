@@ -532,6 +532,7 @@ type Character struct {
 	ShortSkill      []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"`           // CUser.ShortSkill[16] (client hotbar)
 	SecLearnedSkill int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"` // MobExtra.SecLearnedSkill
 	Soul            int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                // MobExtra.Soul
+	ClassMaster     int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`               // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -765,6 +766,13 @@ func (x *Character) GetSecLearnedSkill() int32 {
 func (x *Character) GetSoul() int32 {
 	if x != nil {
 		return x.Soul
+	}
+	return 0
+}
+
+func (x *Character) GetClassMaster() int32 {
+	if x != nil {
+		return x.ClassMaster
 	}
 	return 0
 }
@@ -1207,6 +1215,142 @@ func (x *CreateCharacterResponse) GetCharacterId() int64 {
 	return 0
 }
 
+type CreateArchCharacterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Class         int32                  `protobuf:"varint,3,opt,name=class,proto3" json:"class,omitempty"`
+	MortalFace    int32                  `protobuf:"varint,4,opt,name=mortal_face,json=mortalFace,proto3" json:"mortal_face,omitempty"`
+	MortalSlot    int32                  `protobuf:"varint,5,opt,name=mortal_slot,json=mortalSlot,proto3" json:"mortal_slot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateArchCharacterRequest) Reset() {
+	*x = CreateArchCharacterRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateArchCharacterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateArchCharacterRequest) ProtoMessage() {}
+
+func (x *CreateArchCharacterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateArchCharacterRequest.ProtoReflect.Descriptor instead.
+func (*CreateArchCharacterRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CreateArchCharacterRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *CreateArchCharacterRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateArchCharacterRequest) GetClass() int32 {
+	if x != nil {
+		return x.Class
+	}
+	return 0
+}
+
+func (x *CreateArchCharacterRequest) GetMortalFace() int32 {
+	if x != nil {
+		return x.MortalFace
+	}
+	return 0
+}
+
+func (x *CreateArchCharacterRequest) GetMortalSlot() int32 {
+	if x != nil {
+		return x.MortalSlot
+	}
+	return 0
+}
+
+type CreateArchCharacterResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	CharacterId   int64                  `protobuf:"varint,2,opt,name=character_id,json=characterId,proto3" json:"character_id,omitempty"`
+	Slot          int32                  `protobuf:"varint,3,opt,name=slot,proto3" json:"slot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateArchCharacterResponse) Reset() {
+	*x = CreateArchCharacterResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateArchCharacterResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateArchCharacterResponse) ProtoMessage() {}
+
+func (x *CreateArchCharacterResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateArchCharacterResponse.ProtoReflect.Descriptor instead.
+func (*CreateArchCharacterResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CreateArchCharacterResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *CreateArchCharacterResponse) GetCharacterId() int64 {
+	if x != nil {
+		return x.CharacterId
+	}
+	return 0
+}
+
+func (x *CreateArchCharacterResponse) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
 type DeleteCharacterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
@@ -1218,7 +1362,7 @@ type DeleteCharacterRequest struct {
 
 func (x *DeleteCharacterRequest) Reset() {
 	*x = DeleteCharacterRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[14]
+	mi := &file_api_db_v1_db_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1230,7 +1374,7 @@ func (x *DeleteCharacterRequest) String() string {
 func (*DeleteCharacterRequest) ProtoMessage() {}
 
 func (x *DeleteCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[14]
+	mi := &file_api_db_v1_db_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1387,7 @@ func (x *DeleteCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCharacterRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{14}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DeleteCharacterRequest) GetAccountId() int64 {
@@ -1276,7 +1420,7 @@ type DeleteCharacterResponse struct {
 
 func (x *DeleteCharacterResponse) Reset() {
 	*x = DeleteCharacterResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[15]
+	mi := &file_api_db_v1_db_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1288,7 +1432,7 @@ func (x *DeleteCharacterResponse) String() string {
 func (*DeleteCharacterResponse) ProtoMessage() {}
 
 func (x *DeleteCharacterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[15]
+	mi := &file_api_db_v1_db_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1301,7 +1445,7 @@ func (x *DeleteCharacterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCharacterResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCharacterResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{15}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DeleteCharacterResponse) GetOk() bool {
@@ -1323,7 +1467,7 @@ type LoadCargoRequest struct {
 
 func (x *LoadCargoRequest) Reset() {
 	*x = LoadCargoRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[16]
+	mi := &file_api_db_v1_db_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1335,7 +1479,7 @@ func (x *LoadCargoRequest) String() string {
 func (*LoadCargoRequest) ProtoMessage() {}
 
 func (x *LoadCargoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[16]
+	mi := &file_api_db_v1_db_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1348,7 +1492,7 @@ func (x *LoadCargoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadCargoRequest.ProtoReflect.Descriptor instead.
 func (*LoadCargoRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{16}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *LoadCargoRequest) GetAccountId() int64 {
@@ -1368,7 +1512,7 @@ type LoadCargoResponse struct {
 
 func (x *LoadCargoResponse) Reset() {
 	*x = LoadCargoResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[17]
+	mi := &file_api_db_v1_db_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1380,7 +1524,7 @@ func (x *LoadCargoResponse) String() string {
 func (*LoadCargoResponse) ProtoMessage() {}
 
 func (x *LoadCargoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[17]
+	mi := &file_api_db_v1_db_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1393,7 +1537,7 @@ func (x *LoadCargoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadCargoResponse.ProtoReflect.Descriptor instead.
 func (*LoadCargoResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{17}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *LoadCargoResponse) GetCargoCoin() int32 {
@@ -1421,7 +1565,7 @@ type SaveCargoRequest struct {
 
 func (x *SaveCargoRequest) Reset() {
 	*x = SaveCargoRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[18]
+	mi := &file_api_db_v1_db_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1433,7 +1577,7 @@ func (x *SaveCargoRequest) String() string {
 func (*SaveCargoRequest) ProtoMessage() {}
 
 func (x *SaveCargoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[18]
+	mi := &file_api_db_v1_db_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1446,7 +1590,7 @@ func (x *SaveCargoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveCargoRequest.ProtoReflect.Descriptor instead.
 func (*SaveCargoRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{18}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SaveCargoRequest) GetAccountId() int64 {
@@ -1479,7 +1623,7 @@ type SaveCargoResponse struct {
 
 func (x *SaveCargoResponse) Reset() {
 	*x = SaveCargoResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[19]
+	mi := &file_api_db_v1_db_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1491,7 +1635,7 @@ func (x *SaveCargoResponse) String() string {
 func (*SaveCargoResponse) ProtoMessage() {}
 
 func (x *SaveCargoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[19]
+	mi := &file_api_db_v1_db_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1504,7 +1648,7 @@ func (x *SaveCargoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveCargoResponse.ProtoReflect.Descriptor instead.
 func (*SaveCargoResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{19}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SaveCargoResponse) GetOk() bool {
@@ -1527,7 +1671,7 @@ type Delivery struct {
 
 func (x *Delivery) Reset() {
 	*x = Delivery{}
-	mi := &file_api_db_v1_db_proto_msgTypes[20]
+	mi := &file_api_db_v1_db_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1539,7 +1683,7 @@ func (x *Delivery) String() string {
 func (*Delivery) ProtoMessage() {}
 
 func (x *Delivery) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[20]
+	mi := &file_api_db_v1_db_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1552,7 +1696,7 @@ func (x *Delivery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Delivery.ProtoReflect.Descriptor instead.
 func (*Delivery) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{20}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Delivery) GetId() int64 {
@@ -1578,7 +1722,7 @@ type ListPendingDeliveriesRequest struct {
 
 func (x *ListPendingDeliveriesRequest) Reset() {
 	*x = ListPendingDeliveriesRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[21]
+	mi := &file_api_db_v1_db_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1590,7 +1734,7 @@ func (x *ListPendingDeliveriesRequest) String() string {
 func (*ListPendingDeliveriesRequest) ProtoMessage() {}
 
 func (x *ListPendingDeliveriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[21]
+	mi := &file_api_db_v1_db_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1603,7 +1747,7 @@ func (x *ListPendingDeliveriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPendingDeliveriesRequest.ProtoReflect.Descriptor instead.
 func (*ListPendingDeliveriesRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{21}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListPendingDeliveriesRequest) GetAccountId() int64 {
@@ -1622,7 +1766,7 @@ type ListPendingDeliveriesResponse struct {
 
 func (x *ListPendingDeliveriesResponse) Reset() {
 	*x = ListPendingDeliveriesResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[22]
+	mi := &file_api_db_v1_db_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1634,7 +1778,7 @@ func (x *ListPendingDeliveriesResponse) String() string {
 func (*ListPendingDeliveriesResponse) ProtoMessage() {}
 
 func (x *ListPendingDeliveriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[22]
+	mi := &file_api_db_v1_db_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1647,7 +1791,7 @@ func (x *ListPendingDeliveriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPendingDeliveriesResponse.ProtoReflect.Descriptor instead.
 func (*ListPendingDeliveriesResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{22}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListPendingDeliveriesResponse) GetDeliveries() []*Delivery {
@@ -1670,7 +1814,7 @@ type SaveCargoWithDeliveriesRequest struct {
 
 func (x *SaveCargoWithDeliveriesRequest) Reset() {
 	*x = SaveCargoWithDeliveriesRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[23]
+	mi := &file_api_db_v1_db_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1682,7 +1826,7 @@ func (x *SaveCargoWithDeliveriesRequest) String() string {
 func (*SaveCargoWithDeliveriesRequest) ProtoMessage() {}
 
 func (x *SaveCargoWithDeliveriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[23]
+	mi := &file_api_db_v1_db_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1695,7 +1839,7 @@ func (x *SaveCargoWithDeliveriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveCargoWithDeliveriesRequest.ProtoReflect.Descriptor instead.
 func (*SaveCargoWithDeliveriesRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{23}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SaveCargoWithDeliveriesRequest) GetAccountId() int64 {
@@ -1741,7 +1885,7 @@ type NpcConfigVersionRequest struct {
 
 func (x *NpcConfigVersionRequest) Reset() {
 	*x = NpcConfigVersionRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[24]
+	mi := &file_api_db_v1_db_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1753,7 +1897,7 @@ func (x *NpcConfigVersionRequest) String() string {
 func (*NpcConfigVersionRequest) ProtoMessage() {}
 
 func (x *NpcConfigVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[24]
+	mi := &file_api_db_v1_db_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1766,7 +1910,7 @@ func (x *NpcConfigVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcConfigVersionRequest.ProtoReflect.Descriptor instead.
 func (*NpcConfigVersionRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{24}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{26}
 }
 
 type NpcConfigVersionResponse struct {
@@ -1778,7 +1922,7 @@ type NpcConfigVersionResponse struct {
 
 func (x *NpcConfigVersionResponse) Reset() {
 	*x = NpcConfigVersionResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[25]
+	mi := &file_api_db_v1_db_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1790,7 +1934,7 @@ func (x *NpcConfigVersionResponse) String() string {
 func (*NpcConfigVersionResponse) ProtoMessage() {}
 
 func (x *NpcConfigVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[25]
+	mi := &file_api_db_v1_db_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1803,7 +1947,7 @@ func (x *NpcConfigVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcConfigVersionResponse.ProtoReflect.Descriptor instead.
 func (*NpcConfigVersionResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{25}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *NpcConfigVersionResponse) GetVersion() int64 {
@@ -1821,7 +1965,7 @@ type ListNpcDefinitionsRequest struct {
 
 func (x *ListNpcDefinitionsRequest) Reset() {
 	*x = ListNpcDefinitionsRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[26]
+	mi := &file_api_db_v1_db_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1833,7 +1977,7 @@ func (x *ListNpcDefinitionsRequest) String() string {
 func (*ListNpcDefinitionsRequest) ProtoMessage() {}
 
 func (x *ListNpcDefinitionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[26]
+	mi := &file_api_db_v1_db_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1846,7 +1990,7 @@ func (x *ListNpcDefinitionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNpcDefinitionsRequest.ProtoReflect.Descriptor instead.
 func (*ListNpcDefinitionsRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{26}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{28}
 }
 
 type ListNpcDefinitionsResponse struct {
@@ -1860,7 +2004,7 @@ type ListNpcDefinitionsResponse struct {
 
 func (x *ListNpcDefinitionsResponse) Reset() {
 	*x = ListNpcDefinitionsResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[27]
+	mi := &file_api_db_v1_db_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1872,7 +2016,7 @@ func (x *ListNpcDefinitionsResponse) String() string {
 func (*ListNpcDefinitionsResponse) ProtoMessage() {}
 
 func (x *ListNpcDefinitionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[27]
+	mi := &file_api_db_v1_db_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1885,7 +2029,7 @@ func (x *ListNpcDefinitionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNpcDefinitionsResponse.ProtoReflect.Descriptor instead.
 func (*ListNpcDefinitionsResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{27}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListNpcDefinitionsResponse) GetVersion() int64 {
@@ -1930,7 +2074,7 @@ type NpcShopItem struct {
 
 func (x *NpcShopItem) Reset() {
 	*x = NpcShopItem{}
-	mi := &file_api_db_v1_db_proto_msgTypes[28]
+	mi := &file_api_db_v1_db_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1942,7 +2086,7 @@ func (x *NpcShopItem) String() string {
 func (*NpcShopItem) ProtoMessage() {}
 
 func (x *NpcShopItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[28]
+	mi := &file_api_db_v1_db_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1955,7 +2099,7 @@ func (x *NpcShopItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcShopItem.ProtoReflect.Descriptor instead.
 func (*NpcShopItem) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{28}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *NpcShopItem) GetSlot() int32 {
@@ -2040,7 +2184,7 @@ type NpcDefinition struct {
 
 func (x *NpcDefinition) Reset() {
 	*x = NpcDefinition{}
-	mi := &file_api_db_v1_db_proto_msgTypes[29]
+	mi := &file_api_db_v1_db_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2052,7 +2196,7 @@ func (x *NpcDefinition) String() string {
 func (*NpcDefinition) ProtoMessage() {}
 
 func (x *NpcDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[29]
+	mi := &file_api_db_v1_db_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2065,7 +2209,7 @@ func (x *NpcDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcDefinition.ProtoReflect.Descriptor instead.
 func (*NpcDefinition) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{29}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *NpcDefinition) GetId() int64 {
@@ -2155,7 +2299,7 @@ type ItemPrice struct {
 
 func (x *ItemPrice) Reset() {
 	*x = ItemPrice{}
-	mi := &file_api_db_v1_db_proto_msgTypes[30]
+	mi := &file_api_db_v1_db_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2167,7 +2311,7 @@ func (x *ItemPrice) String() string {
 func (*ItemPrice) ProtoMessage() {}
 
 func (x *ItemPrice) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[30]
+	mi := &file_api_db_v1_db_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2180,7 +2324,7 @@ func (x *ItemPrice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemPrice.ProtoReflect.Descriptor instead.
 func (*ItemPrice) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{30}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ItemPrice) GetItemIndex() int32 {
@@ -2237,7 +2381,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xef\x05\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x92\x06\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2270,7 +2414,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\vshort_skill\x18\x1b \x03(\rR\n" +
 	"shortSkill\x12*\n" +
 	"\x11sec_learned_skill\x18\x1c \x01(\x05R\x0fsecLearnedSkill\x12\x12\n" +
-	"\x04soul\x18\x1d \x01(\x05R\x04soul\"\xcd\x01\n" +
+	"\x04soul\x18\x1d \x01(\x05R\x04soul\x12!\n" +
+	"\fclass_master\x18\x1e \x01(\x05R\vclassMaster\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
@@ -2303,7 +2448,20 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x05class\x18\x04 \x01(\x05R\x05class\"L\n" +
 	"\x17CreateCharacterResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12!\n" +
-	"\fcharacter_id\x18\x02 \x01(\x03R\vcharacterId\"g\n" +
+	"\fcharacter_id\x18\x02 \x01(\x03R\vcharacterId\"\xa7\x01\n" +
+	"\x1aCreateArchCharacterRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05class\x18\x03 \x01(\x05R\x05class\x12\x1f\n" +
+	"\vmortal_face\x18\x04 \x01(\x05R\n" +
+	"mortalFace\x12\x1f\n" +
+	"\vmortal_slot\x18\x05 \x01(\x05R\n" +
+	"mortalSlot\"d\n" +
+	"\x1bCreateArchCharacterResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12!\n" +
+	"\fcharacter_id\x18\x02 \x01(\x03R\vcharacterId\x12\x12\n" +
+	"\x04slot\x18\x03 \x01(\x05R\x04slot\"g\n" +
 	"\x16DeleteCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
@@ -2387,13 +2545,14 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x17LOGIN_RESULT_NO_ACCOUNT\x10\x02\x12\x1d\n" +
 	"\x19LOGIN_RESULT_BAD_PASSWORD\x10\x03\x12\x18\n" +
 	"\x14LOGIN_RESULT_BLOCKED\x10\x04\x12 \n" +
-	"\x1cLOGIN_RESULT_ALREADY_PLAYING\x10\x052\xa4\x06\n" +
+	"\x1cLOGIN_RESULT_ALREADY_PLAYING\x10\x052\x82\a\n" +
 	"\x0eAccountService\x12G\n" +
 	"\fAccountLogin\x12\x1a.db.v1.AccountLoginRequest\x1a\x1b.db.v1.AccountLoginResponse\x12M\n" +
 	"\x0eListCharacters\x12\x1c.db.v1.ListCharactersRequest\x1a\x1d.db.v1.ListCharactersResponse\x12J\n" +
 	"\rLoadCharacter\x12\x1b.db.v1.LoadCharacterRequest\x1a\x1c.db.v1.LoadCharacterResponse\x12J\n" +
 	"\rSaveCharacter\x12\x1b.db.v1.SaveCharacterRequest\x1a\x1c.db.v1.SaveCharacterResponse\x12P\n" +
-	"\x0fCreateCharacter\x12\x1d.db.v1.CreateCharacterRequest\x1a\x1e.db.v1.CreateCharacterResponse\x12P\n" +
+	"\x0fCreateCharacter\x12\x1d.db.v1.CreateCharacterRequest\x1a\x1e.db.v1.CreateCharacterResponse\x12\\\n" +
+	"\x13CreateArchCharacter\x12!.db.v1.CreateArchCharacterRequest\x1a\".db.v1.CreateArchCharacterResponse\x12P\n" +
 	"\x0fDeleteCharacter\x12\x1d.db.v1.DeleteCharacterRequest\x1a\x1e.db.v1.DeleteCharacterResponse\x12>\n" +
 	"\tLoadCargo\x12\x17.db.v1.LoadCargoRequest\x1a\x18.db.v1.LoadCargoResponse\x12>\n" +
 	"\tSaveCargo\x12\x17.db.v1.SaveCargoRequest\x1a\x18.db.v1.SaveCargoResponse\x12b\n" +
@@ -2416,7 +2575,7 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 }
 
 var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_api_db_v1_db_proto_goTypes = []any{
 	(LoginResult)(0),                       // 0: db.v1.LoginResult
 	(*AccountLoginRequest)(nil),            // 1: db.v1.AccountLoginRequest
@@ -2433,23 +2592,25 @@ var file_api_db_v1_db_proto_goTypes = []any{
 	(*SaveCharacterResponse)(nil),          // 12: db.v1.SaveCharacterResponse
 	(*CreateCharacterRequest)(nil),         // 13: db.v1.CreateCharacterRequest
 	(*CreateCharacterResponse)(nil),        // 14: db.v1.CreateCharacterResponse
-	(*DeleteCharacterRequest)(nil),         // 15: db.v1.DeleteCharacterRequest
-	(*DeleteCharacterResponse)(nil),        // 16: db.v1.DeleteCharacterResponse
-	(*LoadCargoRequest)(nil),               // 17: db.v1.LoadCargoRequest
-	(*LoadCargoResponse)(nil),              // 18: db.v1.LoadCargoResponse
-	(*SaveCargoRequest)(nil),               // 19: db.v1.SaveCargoRequest
-	(*SaveCargoResponse)(nil),              // 20: db.v1.SaveCargoResponse
-	(*Delivery)(nil),                       // 21: db.v1.Delivery
-	(*ListPendingDeliveriesRequest)(nil),   // 22: db.v1.ListPendingDeliveriesRequest
-	(*ListPendingDeliveriesResponse)(nil),  // 23: db.v1.ListPendingDeliveriesResponse
-	(*SaveCargoWithDeliveriesRequest)(nil), // 24: db.v1.SaveCargoWithDeliveriesRequest
-	(*NpcConfigVersionRequest)(nil),        // 25: db.v1.NpcConfigVersionRequest
-	(*NpcConfigVersionResponse)(nil),       // 26: db.v1.NpcConfigVersionResponse
-	(*ListNpcDefinitionsRequest)(nil),      // 27: db.v1.ListNpcDefinitionsRequest
-	(*ListNpcDefinitionsResponse)(nil),     // 28: db.v1.ListNpcDefinitionsResponse
-	(*NpcShopItem)(nil),                    // 29: db.v1.NpcShopItem
-	(*NpcDefinition)(nil),                  // 30: db.v1.NpcDefinition
-	(*ItemPrice)(nil),                      // 31: db.v1.ItemPrice
+	(*CreateArchCharacterRequest)(nil),     // 15: db.v1.CreateArchCharacterRequest
+	(*CreateArchCharacterResponse)(nil),    // 16: db.v1.CreateArchCharacterResponse
+	(*DeleteCharacterRequest)(nil),         // 17: db.v1.DeleteCharacterRequest
+	(*DeleteCharacterResponse)(nil),        // 18: db.v1.DeleteCharacterResponse
+	(*LoadCargoRequest)(nil),               // 19: db.v1.LoadCargoRequest
+	(*LoadCargoResponse)(nil),              // 20: db.v1.LoadCargoResponse
+	(*SaveCargoRequest)(nil),               // 21: db.v1.SaveCargoRequest
+	(*SaveCargoResponse)(nil),              // 22: db.v1.SaveCargoResponse
+	(*Delivery)(nil),                       // 23: db.v1.Delivery
+	(*ListPendingDeliveriesRequest)(nil),   // 24: db.v1.ListPendingDeliveriesRequest
+	(*ListPendingDeliveriesResponse)(nil),  // 25: db.v1.ListPendingDeliveriesResponse
+	(*SaveCargoWithDeliveriesRequest)(nil), // 26: db.v1.SaveCargoWithDeliveriesRequest
+	(*NpcConfigVersionRequest)(nil),        // 27: db.v1.NpcConfigVersionRequest
+	(*NpcConfigVersionResponse)(nil),       // 28: db.v1.NpcConfigVersionResponse
+	(*ListNpcDefinitionsRequest)(nil),      // 29: db.v1.ListNpcDefinitionsRequest
+	(*ListNpcDefinitionsResponse)(nil),     // 30: db.v1.ListNpcDefinitionsResponse
+	(*NpcShopItem)(nil),                    // 31: db.v1.NpcShopItem
+	(*NpcDefinition)(nil),                  // 32: db.v1.NpcDefinition
+	(*ItemPrice)(nil),                      // 33: db.v1.ItemPrice
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
@@ -2462,37 +2623,39 @@ var file_api_db_v1_db_proto_depIdxs = []int32{
 	8,  // 7: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
 	8,  // 8: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
 	8,  // 9: db.v1.Delivery.item:type_name -> db.v1.Item
-	21, // 10: db.v1.ListPendingDeliveriesResponse.deliveries:type_name -> db.v1.Delivery
+	23, // 10: db.v1.ListPendingDeliveriesResponse.deliveries:type_name -> db.v1.Delivery
 	8,  // 11: db.v1.SaveCargoWithDeliveriesRequest.items:type_name -> db.v1.Item
-	30, // 12: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
-	31, // 13: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
-	29, // 14: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
+	32, // 12: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
+	33, // 13: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
+	31, // 14: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
 	1,  // 15: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
 	3,  // 16: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
 	6,  // 17: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
 	11, // 18: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
 	13, // 19: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	15, // 20: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	17, // 21: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
-	19, // 22: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
-	22, // 23: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
-	24, // 24: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
-	25, // 25: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
-	27, // 26: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
-	2,  // 27: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	5,  // 28: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	10, // 29: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	12, // 30: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	14, // 31: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	16, // 32: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	18, // 33: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
-	20, // 34: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
-	23, // 35: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
-	20, // 36: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
-	26, // 37: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
-	28, // 38: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
-	27, // [27:39] is the sub-list for method output_type
-	15, // [15:27] is the sub-list for method input_type
+	15, // 20: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
+	17, // 21: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	19, // 22: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	21, // 23: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	24, // 24: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
+	26, // 25: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
+	27, // 26: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
+	29, // 27: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
+	2,  // 28: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	5,  // 29: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	10, // 30: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	12, // 31: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	14, // 32: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	16, // 33: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
+	18, // 34: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	20, // 35: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	22, // 36: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	25, // 37: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
+	22, // 38: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
+	28, // 39: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
+	30, // 40: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
+	28, // [28:41] is the sub-list for method output_type
+	15, // [15:28] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -2509,7 +2672,7 @@ func file_api_db_v1_db_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   31,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
