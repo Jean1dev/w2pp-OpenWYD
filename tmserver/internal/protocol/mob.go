@@ -230,7 +230,7 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int6
 	return b
 }
 
-// updateEquipSize is MSG_UpdateEquip (0x006B): HEADER + ushort Equip[16] +
+// updateEquipSize is MSG_UpdateEquip (0x036B): HEADER + ushort Equip[16] +
 // uchar AnctCode[16] = 12 + 32 + 16 = 60 bytes.
 const updateEquipSize = 60
 
