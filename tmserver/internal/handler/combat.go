@@ -227,9 +227,11 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			if target.HP < 0 {
 				target.HP = 0
 			}
-			if ts := w.Session(tid); ts != nil && target.HP != hpBefore {
-				ts.ReqHp = target.HP
-				setReqHp(ts, target)
+			ts := w.Session(tid)
+			// Drop the victim's heal target by the damage, or the regen tick heals
+			// it straight back (_MSG_Attack.cpp:1638-1642).
+			damageReqHp(ts, target, int32(dmg))
+			if ts != nil && target.HP != hpBefore {
 				seen := false
 				for _, syncID := range hpSyncTargets {
 					if syncID == tid {

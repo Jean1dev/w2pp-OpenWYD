@@ -37,6 +37,11 @@ const (
 // death/resurrection flow (a player dropped to 0 HP just stops being a valid
 // target).
 func (d *Dispatcher) Tick(w *world.World) {
+	// One bump per tick, up front: both regenPlayers (natural-regen phase) and
+	// sweepAffects (per-player stagger) read this counter, and regenPlayers runs
+	// first, so it cannot live inside either sweep.
+	d.tickCount++
+
 	// Dormancy gate: snapshot the (few) in-play player positions once, so the
 	// ~10k idle mobs far from any player skip the 81-cell aggro scan. The scratch
 	// slices live on the Dispatcher (loop-only) to avoid a per-tick allocation.
@@ -228,13 +233,25 @@ func inSafeCity(w *world.World, conn int) bool {
 	return e != nil && world.Village(e.X, e.Y) >= 0
 }
 
-// regenPlayers restores a slice of HP/MP to every living player each tick, so a
-// character recovers over time (notably after respawning at 2 HP in a safe city).
+// naturalRegenTicks is the passive-regen cadence: the legacy trickle runs on
+// SecCounter%20 of a 500ms timer (ProcessSecMinTimer.cpp:780) = every 10s. Our
+// tick is 1s, so every 10th tick.
+const naturalRegenTicks = 10
+
+// regenPlayers is the HP/MP upkeep pass (ProcessSecMinTimer.cpp:760-799). It runs
+// on the 1s world tick, which matches the legacy drain cadence (SecCounter%2 of a
+// 500ms timer) exactly.
+//
+// The model is request-based, and it is the SAME model potions use: nothing writes
+// the live bar directly. Callers raise the ReqHp/ReqMp target; applyHp/applyMp
+// close the gap by at most applyCasting per tick. A player with no healing debt
+// (ReqHp <= HP) costs nothing — applyHp reports no movement and we send no packet.
+//
 // The dead (HP==0) don't regen — they must _MSG_Restart first.
 //
-// UNVERIFIED: the original RegenMob rate (Server.cpp, tied to RegenHP/RateRegen)
-// is not in the available source; regenStep is a sane stand-in (~5% of max + a
-// small floor). Combat-reduced regen and town-vs-field rates are deferred.
+// Deferred: the Celestial branch (ProcessSecMinTimer.cpp:676-680) adds MOB.RegenHP
+// /RegenMP on top of the trickle for ClassMaster >= CELESTIAL; those fields are not
+// modeled on world.Entity yet (cf. combat.go:475).
 func (d *Dispatcher) regenPlayers(w *world.World) {
 	now := time.Now().Unix()
 	w.ForEachPlayer(func(s *world.Session, e *world.Entity) {
@@ -251,13 +268,23 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 			d.sendAffect(w, s, e)
 		}
 		d.tickIncubation(w, s, e)
-		hp := regenStep(e.HP, effectiveMaxHP(e))
-		mp := regenStep(e.MP, effectiveMaxMP(e))
-		if hp == e.HP && mp == e.MP {
-			return // already full — nothing to push
+		if d.tickCount%naturalRegenTicks == 0 {
+			s.ReqHp += e.Level + 30
+			s.ReqMp += e.Level + 30
 		}
-		e.HP, e.MP = hp, mp
-		d.sendScore(w, s, e)
+		// Both bars always drain; only the SEND is either/or. Keep these as separate
+		// statements — folding them into `if applyHp(...) else if applyMp(...)` would
+		// short-circuit and stop MP regenerating whenever HP is.
+		movedHP := applyHp(s, e)
+		movedMP := applyMp(s, e)
+		// SendScore (multicast) when HP moved, else SendSetHpMp (self-only) for a
+		// mana-only change — the original's exact else-if, so an MP tick never costs
+		// a 152B broadcast. UpdateScore already carries Mp, so the HP branch covers both.
+		if movedHP {
+			d.sendScore(w, s, e)
+		} else if movedMP {
+			d.sendSetHpMp(w, s, e)
+		}
 	})
 }
 
@@ -279,18 +306,6 @@ func (d *Dispatcher) tickIncubation(w *world.World, s *world.Session, e *world.E
 	d.sendSlot(w, s, world.ItemPlaceEquip, mountEquipSlot, *egg)
 	// SendClientMessage(_NN_Incu_Proceed) — no notice code for it yet; the item
 	// push is what the client renders.
-}
-
-// regenStep moves cur toward full by ~5% of full (min 2 per tick), capped at full.
-func regenStep(cur, full int32) int32 {
-	if cur >= full || full <= 0 {
-		return cur
-	}
-	inc := full/20 + 2
-	if cur+inc > full {
-		return full
-	}
-	return cur + inc
 }
 
 // Battle decision codes — the BattleProcessor return values (CMob.cpp:233-328),
@@ -412,6 +427,9 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		if target.HP < 0 {
 			target.HP = 0
 		}
+		// Drop the victim's heal target by the damage, or regenPlayers heals it
+		// straight back next tick (ProcessSecMinTimer.cpp:2389-2397).
+		damageReqHp(w.Session(target.ID), target, int32(dmg))
 	}
 
 	body := protocol.MsgAttackBody{

@@ -60,15 +60,21 @@ type BaseEffect struct {
 // (the same ids the instance refines use). Only effects the score model can represent
 // are mapped. EF_WTYPE is included because some Huntress affects key off the
 // equipped weapon type, but it still does not fold into CurrentScore. The purely
-// visual/requirement ones (EF_CLASS/EF_GRID/EF_RANGE/EF_REGEN*/EF_CRITICAL/…)
-// are ignored. The ids match ItemEffect.h. EF_SANC carries an item's refine
-// level (the joias), consumed as a multiplier by the handler rather than a flat stat.
+// visual/requirement ones (EF_CLASS/EF_GRID/EF_RANGE/EF_REGEN*/…) are ignored. The ids
+// match ItemEffect.h. EF_SANC carries an item's refine level (the joias), consumed as a
+// multiplier by the handler rather than a flat stat.
+//
+// EF_CRITICAL/EF_CRITICAL2 ARE score stats (Basedef.cpp:3209 derives MOB.Critical from
+// them) — they were misfiled as visual here, which is why crit gear granted nothing
+// (issue #102). Most crit lives in the catalog: the class body items and the armor sets
+// carry EF_CRITICAL directly.
 var efName = map[string]uint8{
 	"EF_DAMAGE": 2, "EF_AC": 3, "EF_HP": 4, "EF_MP": 5,
 	"EF_STR": 7, "EF_INT": 8, "EF_DEX": 9, "EF_CON": 10,
 	"EF_SPECIAL1": 11, "EF_SPECIAL2": 12, "EF_SPECIAL3": 13, "EF_SPECIAL4": 14,
-	"EF_POS": 17, "EF_WTYPE": 21, "EF_SANC": 43, "EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
-	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70,
+	"EF_POS": 17, "EF_WTYPE": 21, "EF_CRITICAL": 42, "EF_SANC": 43,
+	"EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
+	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70, "EF_CRITICAL2": 71,
 	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
 	// Refine gates (_MSG_UseItem.cpp dust path): EF_NOSANC marks an item that can
 	// never be refined; the two incubation effects drive the mount-egg branch.

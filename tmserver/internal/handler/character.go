@@ -252,6 +252,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.SetEntityPos(s.Conn, loginX, loginY)
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.MP, e.MaxMP = st.MP, st.MaxMP
+		// Critical is a save-side cache only: refreshScore below re-derives it from the
+		// equipment (Basedef.cpp:3209), so the stored value never survives login.
 		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.ClassMaster, st.Soul
@@ -431,8 +433,13 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	if self == nil {
 		return
 	}
-	w.ClearSeen(s)          // fresh view set on (re)entering the world
-	d.sendScore(w, s, self) // CurrentScore (attributes after equipment + active buffs)
+	w.ClearSeen(s) // fresh view set on (re)entering the world
+	// Unicast, NOT the usual multicast sendScore: this runs before the newcomer's
+	// CreateMob is broadcast below, so in-view clients would get an UpdateScore for
+	// an entity they have not created yet (the B1 confusion). The legacy has no
+	// SendScore in this path at all (ProcessDBMessage.cpp:1017-1037) — observers
+	// learn the newcomer's HP from CreateMob.
+	d.sendScoreSelf(w, s, self) // CurrentScore (attributes after equipment + active buffs)
 	if self.HasAnyAffect() {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}

@@ -144,6 +144,11 @@ const (
 	divineAffectTime = 2000000000
 )
 
+// potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
+// The original defaults to 100 and exposes it to the runtime config (Server.cpp:647,
+// :1463); we take the default — a config knob can follow if it's ever tuned.
+const potionDelay = 100
+
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
 // classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
 // 0 = equip (CARRY → EQUIP); 64-66 = Poção Divina; other consumables are UNVERIFIED and
@@ -304,28 +309,48 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
 }
 
-// useHealPotion consumes an HP/MP potion (EF_VOLATILE 1): restores HP/MP by the
-// item's catalog EF_HP/EF_MP value, clamped to the live effective max, then eats
-// one unit of the stack (docs/migration/handlers/_MSG_UseItem.md, catalog.go:102).
+// useHealPotion consumes an HP/MP potion (EF_VOLATILE 1), porting
+// _MSG_UseItem.cpp:101-148 (docs/migration/handlers/_MSG_UseItem.md, catalog.go:102).
+//
+// The potion does NOT heal: it raises the ReqHp/ReqMp request targets by the item's
+// catalog EF_HP/EF_MP (clamped to the live effective max) and the 1s tick's
+// applyHp/applyMp closes the bars on them (regenPlayers, mobai.go). That ramp is the
+// original's behavior — a potion is out-damageable, not an instant top-off.
+//
+// The reply is SetHpMp and is deliberately self-only (SendSetHpMp, SendFunc.cpp:1722):
+// it carries ReqHp/ReqMp so the drinker's own client can animate the fill. Nearby
+// players are informed by the tick's multicast sendScore once HP actually moves —
+// that path, not this one, is what fixes the stale HP bar in issue #99.
 func (d *Dispatcher) useHealPotion(w *world.World, s *world.Session, e *world.Entity, src int) {
-	idx := int(e.Carry[src].Index)
-	for _, be := range d.itemEffects[idx] {
+	// PotionDelay anti-spam (_MSG_UseItem.cpp:105-115): a use inside the window is
+	// dropped and the slot re-synced, so the stack is not consumed. Gate on the
+	// SERVER clock — the original reads GetTickCount(), and a client-supplied tick
+	// would be spoofable. int64 math avoids uint32 underflow at tick 0.
+	now := w.Now()
+	if s.PotionTick != 0 && int64(now)-int64(s.PotionTick) < potionDelay {
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	s.PotionTick = now
+
+	maxHP, maxMP := effectiveMaxHP(e), effectiveMaxMP(e)
+	for _, be := range d.itemEffects[int(e.Carry[src].Index)] {
 		switch be.Eff {
 		case efHp:
-			e.HP += int32(be.Val)
+			s.ReqHp += int32(be.Val)
+			if s.ReqHp > maxHP {
+				s.ReqHp = maxHP
+			}
 		case efMp:
-			e.MP += int32(be.Val)
+			s.ReqMp += int32(be.Val)
+			if s.ReqMp > maxMP {
+				s.ReqMp = maxMP
+			}
 		}
-	}
-	if m := effectiveMaxHP(e); e.HP > m {
-		e.HP = m
-	}
-	if m := effectiveMaxMP(e); e.MP > m {
-		e.MP = m
 	}
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
-	d.sendScore(w, s, e) // MsgUpdateScore carries Hp/Mp (item.go:776) — no separate SetHpMp packet needed
+	d.sendSetHpMp(w, s, e)
 }
 
 // useDivine consumes a Poção Divina: it sets the Divine buff (Affect 34) for 8/16/31
@@ -607,6 +632,7 @@ const (
 	efSpecial3  = 13
 	efSpecial4  = 14
 	efWType     = 21 // EF_WTYPE: weapon animation/type, used by Huntress RSV gates
+	efCritical  = 42 // EF_CRITICAL: crit source; summed over equip then /4 (Basedef.cpp:3209)
 	efSanc      = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
 	efHpAdd     = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
 	efMpAdd     = 46 // EF_MPADD: % bonus to MaxMp
@@ -614,6 +640,7 @@ const (
 	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
 	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
 	efMpAdd2    = 70
+	efCritical2 = 71 // EF_CRITICAL2: enchanted crit — SUPERSEDES EF_CRITICAL on the same item
 	efItemLevel = 87
 	efMobType   = 112
 	efRunSpeed  = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
@@ -681,6 +708,46 @@ func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
 	return total
 }
 
+// accessoryPosMask marks the four accessory slots (Equip[8..11]) in an item's catalog
+// nPos bitmask — the slots Pedra_Amunra equips into, which is why a player wears four.
+// BASE_GetItemAbility keys the +9 refine promotion off it (Basedef.cpp:1850).
+const accessoryPosMask = 0xF00
+
+// itemCritical is BASE_GetItemAbility(item, EF_CRITICAL) (Basedef.cpp:1687-1856) for the
+// one effect the score needs: EF_CRITICAL, with two legacy rules the generic itemAbility
+// cannot express because they are properties of the whole item rather than of one effect.
+//
+// First, the EF_CRITICAL2 substitution (Basedef.cpp:1705-1709): 42 is the query id and 71
+// the storage id for enchanted crit, so an item carrying EF_CRITICAL2 in stEffect[1] or
+// [2] reports that value INSTEAD of its EF_CRITICAL — either/or, never summed. Only slots
+// 1 and 2 arm it; slot 0 does not.
+//
+// Second, the refine multiplier (Basedef.cpp:1848-1856): EF_CRITICAL is absent from the
+// exemption list, so crit scales by (sanc+10)/10, and accessories reaching +9 are promoted
+// to sanc 10 for a clean x2.
+//
+// TODO(parity): the legacy applies that multiplier to EVERY non-exempt effect; this port
+// does it for EF_CRITICAL only. AC/damage still use the flat +25/+40 threshold model
+// (equipBonus/weaponDamage), so refined gear diverges there — a deliberate scope call,
+// since converting them is a balance change across every refined item.
+func (d *Dispatcher) itemCritical(it world.Item) int32 {
+	want := uint8(efCritical)
+	if it.Effects[1].Effect == efCritical2 || it.Effects[2].Effect == efCritical2 {
+		want = efCritical2
+	}
+	v := int32(d.itemAbility(it, want))
+	if v == 0 {
+		return 0
+	}
+	// Inherits itemSanc's decoding of the EF_SANC byte (issue #103 is correcting that
+	// decode); crit scales with whatever level it reports, so it improves in step.
+	sanc := itemSanc(it)
+	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
+		sanc = 10
+	}
+	return v * int32(sanc+10) / 10
+}
+
 // weaponDamage is GetCurrentScore's WeaponDamage (CMob.cpp:756-789): the stronger
 // weapon hand at full damage plus the weaker at half (dual-wield), plus a +40 refine
 // threshold per weapon hand at sanc>=9 (captura §E). It is a SEPARATE field from
@@ -722,6 +789,9 @@ type equipBonus struct {
 	maxHP, maxMP         int32
 	hpAddPct, mpAddPct   int32
 	runSpeed             int32
+	// criticalRaw is the pre-/4 EF_CRITICAL sum over the equipment
+	// (BASE_GetMobAbility(EF_CRITICAL), Basedef.cpp:3209) — see itemCritical.
+	criticalRaw int32
 	// Mount (Equip[14]) contributions, from the g_pMountBonus tables rather than item
 	// effects. magicRaw is the pre-scaling EF_MAGIC sum (see mountMagicScore); resist
 	// applies to all four resistances. damage already folds into the field above.
@@ -789,6 +859,10 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			}
 			continue
 		}
+		// Critical is read per item, not per effect (the EF_CRITICAL2 substitution and
+		// the refine multiplier are item-wide) — after the mount slot's early return,
+		// which matches BASE_GetItemAbility returning no crit for mounts.
+		b.criticalRaw += d.itemCritical(it)
 		weaponSlot := slot == weaponSlotR || slot == weaponSlotL
 		nUnique := d.itemUnique[int(it.Index)]
 		dmgJewel := nUnique >= 41 && nUnique <= 50
@@ -859,6 +933,15 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	e.RunSpeedBonus = b.runSpeed
+	// Critical is derived ENTIRELY from equipment on every refresh — there is no
+	// BaseCritical to add, and no subtraction in deriveBaseScore, because the legacy has
+	// no base term either (Basedef.cpp:3209). The /4 divides the SUM, not each item. Mobs
+	// derive it from their gear too (BASE_GetCurrentScore runs for them, CMob.cpp:709) and
+	// carry no template Critical, so unlike the mount block below this needs no IsPlayer
+	// guard. The clamp is re-applied in effectiveCritical after the skill/affect terms.
+	// (The low clamp is belt-and-braces: no catalog row carries negative crit, but a
+	// bare uint8 conversion would wrap one into a near-guaranteed crit.)
+	e.Critical = uint8(min(max(b.criticalRaw/4, 0), 255))
 	// Mount bonuses: Magic gets the (sum+1)/4 scaling, Parry (evasion) and each Resist
 	// are flat, with Resist capped at the legacy ceiling (CMob.cpp:640-643,692). Mounts
 	// live only in a player's Equip[14]; mobs carry their Magic/Parry/Resist straight
@@ -999,9 +1082,31 @@ func attackRunOf(e *world.Entity) uint8 {
 	return uint8(attack<<4) | uint8(move)
 }
 
-// sendScore pushes the recomputed CurrentScore to the player (_MSG_UpdateScore), so
-// the status window reflects equipment.
+// sendScore publishes the recomputed CurrentScore (_MSG_UpdateScore) to the player
+// AND to everyone in view, mirroring the legacy SendScore — whose single exit is
+// GridMulticast(TargetX, TargetY, ..., skip=0), i.e. self plus the whole view
+// window (SendFunc.cpp:1298; all 113 SendScore call sites funnel through it).
+//
+// The multicast is what resynchronizes an out-of-band HP change (potion, regen,
+// heal, revive) on OTHER clients: MSG_Attack carries only STRUCT_DAM deltas that
+// the client SUBTRACTS from its own copy of the target's HP, so without an
+// explicit push an attacker renders a stale HP bar for a drinker (issue #99).
+//
+// HEADER.ID is the SUBJECT's conn for every recipient — that is how a client knows
+// which entity the score describes. Nothing here is private: gold/exp/free points
+// live in MSG_UpdateEtc (sendEtc), which stays unicast like the legacy SendEtc.
 func (d *Dispatcher) sendScore(w *world.World, s *world.Session, e *world.Entity) {
+	body := protocol.EncodeUpdateScore(d.computeScore(e))
+	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, body)
+	w.BroadcastInView(s.Conn, protocol.MsgUpdateScore, body) // excludes the source
+}
+
+// sendScoreSelf is the unicast score push, for the one path where the subject is not
+// yet visible to the players around it — enterWorldView pushes the score BEFORE
+// broadcasting the newcomer's CreateMob, and the legacy has no SendScore there at
+// all (ProcessDBMessage.cpp:1017-1037 unicasts the login blob, then GridMulticasts
+// CreateMob, which already carries Hp/MaxHp to observers).
+func (d *Dispatcher) sendScoreSelf(w *world.World, s *world.Session, e *world.Entity) {
 	w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateScore, ID: uint16(s.Conn)}, protocol.EncodeUpdateScore(d.computeScore(e)))
 }
 

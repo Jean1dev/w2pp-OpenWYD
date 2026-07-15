@@ -304,7 +304,7 @@ func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
 func effectiveMagic(e *world.Entity) int32 { return int32(e.Magic) + e.AffMagic }
 
 func effectiveCritical(e *world.Entity) uint8 {
-	v := int(e.Critical) + int(e.AffCritical) + int(huntressCriticalBonus(e))
+	v := int(e.Critical) + int(e.AffCritical) + int(skillCriticalBonus(e))
 	if v < 0 {
 		return 0
 	}
@@ -314,8 +314,14 @@ func effectiveCritical(e *world.Entity) uint8 {
 	return uint8(v)
 }
 
-func huntressCriticalBonus(e *world.Entity) int16 {
-	if e.Class != 3 || e.LearnedSkill&(1<<18) == 0 {
+// skillCriticalBonus is the class-skill crit bonus. The legacy grants the SAME formula to
+// two classes from two different skill bits — TK "Confiança" (Basedef.cpp:3252, bonus at
+// :3366-3371) and Huntress "Visão do Caçador" (:3856, bonus at :3858-3863) — so the gate
+// is the only thing that differs between them.
+func skillCriticalBonus(e *world.Entity) int16 {
+	tk := e.Class == 0 && e.LearnedSkill&(1<<7) != 0
+	ht := e.Class == 3 && e.LearnedSkill&(1<<18) != 0
+	if !tk && !ht {
 		return 0
 	}
 	add := (int(e.Special[3])+1)/10 + int(effectiveDex(e))/75
