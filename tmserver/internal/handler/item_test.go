@@ -652,6 +652,33 @@ func startServerClockItems(t *testing.T, persist world.Persistence, vols map[int
 	}
 }
 
+// startServerTickItems is startServerClockItems with the simulation tick running, so
+// regenPlayers/applyHp actually close the bars on their ReqHp target. Tests that
+// assert an exact mid-flight HP should NOT use this: the passive trickle
+// (naturalRegenTicks) also runs and drifts HP upward on its own.
+func startServerTickItems(t *testing.T, persist world.Persistence, vols map[int]int, effects map[int][]content.BaseEffect) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, ItemVolatiles: vols, ItemEffects: effects, ExpEvents: level.ExpEvents{KefraLive: true}})
+	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	w.SetTickHandler(10*time.Millisecond, d.Tick)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
 func healPotionDB(item world.Item, hp, maxHP, mp, maxMP int32) *fakeDB {
 	db := newDB()
 	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: hp, MaxHP: maxHP, MP: mp, MaxMP: maxMP}
@@ -727,6 +754,23 @@ func TestUseExpChestStack(t *testing.T) {
 	}
 }
 
+// setHpMpFields decodes MSG_SetHpMp (protocol/score.go:110): Hp, Mp, ReqHp, ReqMp.
+func setHpMpFields(t *testing.T, p []byte) (hp, mp, reqHp, reqMp int32) {
+	t.Helper()
+	if len(p) < 16 {
+		t.Fatalf("SetHpMp payload too short: %d", len(p))
+	}
+	return int32(binary.LittleEndian.Uint32(p[0:])), int32(binary.LittleEndian.Uint32(p[4:])),
+		int32(binary.LittleEndian.Uint32(p[8:])), int32(binary.LittleEndian.Uint32(p[12:]))
+}
+
+// The potion tests below run WITHOUT a tick handler on purpose: the potion only
+// raises the ReqHp/ReqMp request target, which is fully deterministic, while the
+// live bar is closed on it later by the tick (applyHp). The ramp itself is covered
+// by TestUseHealPotionRampsOverTicks, where a tick runs.
+
+// TestUseHealPotion: the potion stages the heal as a ReqHp target and leaves HP
+// untouched — the original never writes CurrentScore.Hp (_MSG_UseItem.cpp:117-126).
 func TestUseHealPotion(t *testing.T) {
 	const potion = 400
 	db := healPotionDB(world.Item{Index: potion}, 500, 1000, 0, 0)
@@ -743,9 +787,12 @@ func TestUseHealPotion(t *testing.T) {
 	if got := le16(itemPayload[4:6]); got != 0 {
 		t.Errorf("carry slot 0 item = %d, want empty after use", got)
 	}
-	scorePayload := expect(t, c, protocol.MsgUpdateScore)
-	if got := int32(binary.LittleEndian.Uint32(scorePayload[24:28])); got != 550 {
-		t.Errorf("Hp = %d, want 550 (500 + 50)", got)
+	hp, _, reqHp, _ := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp))
+	if reqHp != 550 {
+		t.Errorf("ReqHp = %d, want 550 (500 + 50)", reqHp)
+	}
+	if hp != 500 {
+		t.Errorf("Hp = %d, want 500 — the potion stages a target, the tick heals", hp)
 	}
 }
 
@@ -762,9 +809,67 @@ func TestUseHealPotionClampsToMax(t *testing.T) {
 	send(t, c, protocol.MsgUseItem, body.Encode())
 
 	expect(t, c, protocol.MsgSendItem)
-	scorePayload := expect(t, c, protocol.MsgUpdateScore)
-	if got := int32(binary.LittleEndian.Uint32(scorePayload[24:28])); got != 1000 {
-		t.Errorf("Hp = %d, want clamped to 1000", got)
+	if _, _, reqHp, _ := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp)); reqHp != 1000 {
+		t.Errorf("ReqHp = %d, want clamped to 1000", reqHp)
+	}
+}
+
+// TestUseHealPotionRampsOverTicks is the gradual-heal behavior end to end: the bar
+// closes on the potion's target across ticks (applyHp, <=2000/call) rather than
+// snapping at use time.
+func TestUseHealPotionRampsOverTicks(t *testing.T) {
+	const potion = 406
+	db := healPotionDB(world.Item{Index: potion}, 500, 100000, 0, 0)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 1000}}}
+	addr, stop := startServerTickItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	expect(t, c, protocol.MsgSendItem)
+
+	// The tick's sendScore reports the healed bar. MaxHP is huge so the passive
+	// trickle (Level+30 per 10 ticks) can't reach 1500 within the window on its own.
+	p := expect(t, c, protocol.MsgUpdateScore)
+	if got := int32(binary.LittleEndian.Uint32(p[24:28])); got < 1500 {
+		t.Errorf("Hp = %d, want >= 1500 (500 + the 1000 potion) once the tick applies it", got)
+	}
+}
+
+// TestUseHealPotionCooldown pins the PotionDelay anti-spam gate
+// (_MSG_UseItem.cpp:105-115): a second use inside the window is refused, the slot is
+// re-synced, and — crucially — the stack is NOT consumed twice.
+func TestUseHealPotionCooldown(t *testing.T) {
+	const potion = 407
+	item := world.Item{Index: potion, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	db := healPotionDB(item, 500, 100000, 0, 0)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 50}}}
+	addr, stop := startServerClockItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	if p := expect(t, c, protocol.MsgSendItem); p[7] != 4 {
+		t.Fatalf("first use: stack = %d, want 4 (one consumed)", p[7])
+	}
+	_, _, reqHp, _ := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp))
+
+	// Immediately again — the injected clock does not advance, so this is inside the
+	// 100ms window and must be refused.
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	p := expect(t, c, protocol.MsgSendItem)
+	if p[7] != 4 {
+		t.Errorf("second use: stack = %d, want 4 — a refused potion must not be consumed", p[7])
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgSetHpMp {
+		t.Error("refused potion still sent SetHpMp, want the use dropped")
+	}
+	if reqHp != 550 {
+		t.Errorf("ReqHp = %d, want 550 — only the first potion should count", reqHp)
 	}
 }
 
@@ -781,9 +886,8 @@ func TestUseManaPotion(t *testing.T) {
 	send(t, c, protocol.MsgUseItem, body.Encode())
 
 	expect(t, c, protocol.MsgSendItem)
-	scorePayload := expect(t, c, protocol.MsgUpdateScore)
-	if got := int32(binary.LittleEndian.Uint32(scorePayload[28:32])); got != 100 {
-		t.Errorf("Mp = %d, want 100 (50 + 50)", got)
+	if _, _, _, reqMp := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp)); reqMp != 100 {
+		t.Errorf("ReqMp = %d, want 100 (50 + 50)", reqMp)
 	}
 }
 
@@ -807,9 +911,110 @@ func TestUseHealPotionStack(t *testing.T) {
 	if itemPayload[6] != efAmount || itemPayload[7] != 4 {
 		t.Errorf("effect0 = %d.%d, want %d.4", itemPayload[6], itemPayload[7], efAmount)
 	}
-	scorePayload := expect(t, c, protocol.MsgUpdateScore)
-	if got := int32(binary.LittleEndian.Uint32(scorePayload[24:28])); got != 700 {
-		t.Errorf("Hp = %d, want 700 (500 + 200)", got)
+	if _, _, reqHp, _ := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp)); reqHp != 700 {
+		t.Errorf("ReqHp = %d, want 700 (500 + 200)", reqHp)
+	}
+}
+
+// TestUseHealPotionBroadcastsToViewers is the issue-#99 regression: when a player
+// pots, everyone in view must learn the new HP. The client tracks another entity's
+// HP by SUBTRACTING the STRUCT_DAM deltas in MSG_Attack from its own local copy, so
+// an out-of-band heal is invisible to an attacker unless the server pushes an
+// explicit score — which the legacy does by GridMulticasting SendScore
+// (SendFunc.cpp:1298). The bug was that our sendScore only replied to the drinker.
+func TestUseHealPotionBroadcastsToViewers(t *testing.T) {
+	const potion = 408
+	// loadResult is the fallback for ANY account (handler_test.go:172), so both
+	// clients spawn at (5,5) — Chebyshev 0, well inside ViewRange 16.
+	db := healPotionDB(world.Item{Index: potion}, 500, 100000, 0, 0)
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 1000}}}
+	addr, stop := startServerTickItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+
+	drinker := enterWorld(t, addr) // conn 1
+	defer drinker.Close()
+	observer := enterWorldAs(t, addr, "tradeb") // conn 2, in view of conn 1
+	defer observer.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, drinker, protocol.MsgUseItem, body.Encode())
+
+	// The observer must receive the DRINKER's score: HEADER.ID identifies the subject,
+	// so it must be conn 1, not the observer's own conn.
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		h, p := readFrameHeader(t, observer)
+		if h.Type != protocol.MsgUpdateScore || h.ID != 1 {
+			continue
+		}
+		hp := int32(binary.LittleEndian.Uint32(p[24:28]))
+		if hp < 1500 {
+			continue // the passive trickle can emit a score before the potion lands
+		}
+		if curr := int32(binary.LittleEndian.Uint32(p[124:128])); curr != hp {
+			t.Errorf("CurrHp = %d, want %d (must agree with Score.Hp)", curr, hp)
+		}
+		return
+	}
+	t.Fatal("observer never saw the drinker's healed score — the pot heal is invisible to the attacker (#99)")
+}
+
+// TestUseHealPotionNoBroadcastOutOfView pins BroadcastInView's distance filter: a
+// player beyond ViewRange must not receive the drinker's score.
+func TestUseHealPotionNoBroadcastOutOfView(t *testing.T) {
+	const potion = 409
+	db := healPotionDB(world.Item{Index: potion}, 500, 100000, 0, 0)
+	// Account 11 spawns far away; account 7 keeps the (5,5) loadResult.
+	far := db.loadResult
+	far.X, far.Y = 500, 500
+	db.loads = map[int64]world.CharacterState{11: far}
+	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 1000}}}
+	addr, stop := startServerTickItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
+	defer stop()
+
+	drinker := enterWorld(t, addr)
+	defer drinker.Close()
+	observer := enterWorldAs(t, addr, "tradeb")
+	defer observer.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, drinker, protocol.MsgUseItem, body.Encode())
+
+	for i := 0; i < 8; i++ {
+		h, _, ok := readMaybeHeader(t, observer)
+		if !ok {
+			return // stream went quiet — nothing leaked
+		}
+		if h.Type == protocol.MsgUpdateScore && h.ID == 1 {
+			t.Fatal("out-of-view player received the drinker's score, want it filtered by ViewRange")
+		}
+	}
+}
+
+// TestEnterWorldViewScoreStaysUnicast locks the sendScoreSelf carve-out: a newcomer's
+// score must NOT be multicast, because enterWorldView pushes it BEFORE broadcasting
+// the newcomer's CreateMob — in-view clients would get a score for an entity they
+// have not created yet. The legacy has no SendScore in this path at all
+// (ProcessDBMessage.cpp:1017-1037); observers learn the newcomer's HP from CreateMob.
+func TestEnterWorldViewScoreStaysUnicast(t *testing.T) {
+	db := healPotionDB(world.Item{}, 500, 1000, 0, 0)
+	addr, stop := startServerClockItems(t, db, nil, nil)
+	defer stop()
+
+	first := enterWorld(t, addr) // conn 1, already in world
+	defer first.Close()
+	second := enterWorldAs(t, addr, "tradeb") // conn 2 logs in at the same cell
+	defer second.Close()
+
+	// conn 1 may see conn 2's CreateMob/PKInfo, but never conn 2's UpdateScore.
+	for i := 0; i < 8; i++ {
+		h, _, ok := readMaybeHeader(t, first)
+		if !ok {
+			return
+		}
+		if h.Type == protocol.MsgUpdateScore && h.ID == 2 {
+			t.Fatal("newcomer's score was multicast before its CreateMob — unknown-entity packet (B1)")
+		}
 	}
 }
 

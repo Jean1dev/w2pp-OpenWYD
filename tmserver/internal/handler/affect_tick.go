@@ -29,8 +29,7 @@ const affectInfiniteTime = 32400000
 // pass). The Type-16 expiry reverts the transform mesh via refreshEquip (the
 // legacy FaceChange).
 func (d *Dispatcher) sweepAffects(w *world.World) {
-	d.tickCount++
-	phase := d.tickCount % affectTickPeriod
+	phase := d.tickCount % affectTickPeriod // incremented once per tick by Tick
 	w.ForEachPlayer(func(s *world.Session, e *world.Entity) {
 		if s.Conn%affectTickPeriod != phase {
 			return

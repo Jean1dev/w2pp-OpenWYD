@@ -431,8 +431,13 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	if self == nil {
 		return
 	}
-	w.ClearSeen(s)          // fresh view set on (re)entering the world
-	d.sendScore(w, s, self) // CurrentScore (attributes after equipment + active buffs)
+	w.ClearSeen(s) // fresh view set on (re)entering the world
+	// Unicast, NOT the usual multicast sendScore: this runs before the newcomer's
+	// CreateMob is broadcast below, so in-view clients would get an UpdateScore for
+	// an entity they have not created yet (the B1 confusion). The legacy has no
+	// SendScore in this path at all (ProcessDBMessage.cpp:1017-1037) — observers
+	// learn the newcomer's HP from CreateMob.
+	d.sendScoreSelf(w, s, self) // CurrentScore (attributes after equipment + active buffs)
 	if self.HasAnyAffect() {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
