@@ -99,6 +99,61 @@ func TestBaseEffects(t *testing.T) {
 	}
 }
 
+// TestBaseEffectsCritical: EF_CRITICAL/EF_CRITICAL2 are score stats (Basedef.cpp:3209
+// derives MOB.Critical from them), not the visual effects they were once filed as —
+// dropping them here is what left crit gear worth nothing (issue #102). Most crit in the
+// catalog rides on set pieces and the class body items.
+func TestBaseEffectsCritical(t *testing.T) {
+	// Real rows: an armor set piece (ItemList.csv:225) and a class body item (:1).
+	const rows = "165,Armadura_de_Guarda(Az),17.0,0.0.0.0.0,0,0,4,0,0," +
+		"EF_CLASS,1,EF_GRID,0,EF_AC,138,EF_CRITICAL,50,EF_HPADD,9,EF_ITEMLEVEL,5\n" +
+		"1,TransKnight,0.0,0.0.0.0.0,0,0,1,0,0," +
+		"EF_CLASS,1,EF_RANGE,1,EF_REGENHP,2,EF_REGENMP,2,EF_CRITICAL,10\n"
+	l, err := parseItemList(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eff := l.BaseEffects()
+	for _, tc := range []struct {
+		idx  int
+		want int16
+	}{{165, 50}, {1, 10}} {
+		var got int16
+		for _, e := range eff[tc.idx] {
+			if e.Eff == 42 { // EF_CRITICAL
+				got = e.Val
+			}
+		}
+		if got != tc.want {
+			t.Errorf("BaseEffects()[%d] EF_CRITICAL = %d, want %d", tc.idx, got, tc.want)
+		}
+	}
+
+	// The real catalog must actually carry crit — the parser silently dropping it is
+	// what issue #102 was. Guards against the effect disappearing from efName again.
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	var withCrit int
+	for _, effs := range full.BaseEffects() {
+		for _, e := range effs {
+			if e.Eff == 42 || e.Eff == 71 {
+				withCrit++
+				break
+			}
+		}
+	}
+	if withCrit < 100 {
+		t.Errorf("real catalog items carrying EF_CRITICAL = %d, want >= 100", withCrit)
+	}
+	// Pedra_Amunra (the issue's amulet) equips into the four accessory slots: its nPos
+	// 0xF00 is what triggers the +9 x2 refine promotion in handler.itemCritical.
+	if pos := full.Positions()[3464]; pos&0xF00 == 0 {
+		t.Errorf("Pedra_Amunra nPos = %d, want the accessory mask 0xF00 set", pos)
+	}
+}
+
 func TestRanges(t *testing.T) {
 	// Mob-model rows (real format): the archer's body item carries EF_RANGE,4 —
 	// the source of a mob's ranged reach (BASE_GetMobAbility). A row without

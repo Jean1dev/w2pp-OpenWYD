@@ -163,12 +163,37 @@ func TestAffect36SetsDrainFlag(t *testing.T) {
 	}
 }
 
-func TestHuntressVisionCriticalBonus(t *testing.T) {
-	e := &world.Entity{Class: 3, LearnedSkill: 1 << 18, Critical: 10, Dex: 150}
-	e.Special[3] = 99
+// TestSkillCriticalBonus covers the class-skill crit bonus, which the legacy grants with
+// the SAME formula to two classes from two different bits: TK "Confiança" (Class 0, bit 7,
+// Basedef.cpp:3252/3366-3371) and Huntress "Visão do Caçador" (Class 3, bit 18,
+// :3856/3858-3863). Special[3]=99, Dex=150 → (99+1)/10 + 150/75 = 12, on top of
+// Critical 10 → 22.
+func TestSkillCriticalBonus(t *testing.T) {
+	tests := []struct {
+		name         string
+		class        uint8
+		learnedSkill int32
+		want         uint8
+	}{
+		{name: "TK with Confiança", class: 0, learnedSkill: 1 << 7, want: 22},
+		{name: "Huntress with Visão do Caçador", class: 3, learnedSkill: 1 << 18, want: 22},
+		{name: "TK without Confiança", class: 0, learnedSkill: 0, want: 10},
+		{name: "Huntress without Visão do Caçador", class: 3, learnedSkill: 0, want: 10},
+		// The bits are class-scoped: the other class's bit must not grant it.
+		{name: "TK with the Huntress bit", class: 0, learnedSkill: 1 << 18, want: 10},
+		{name: "Huntress with the TK bit", class: 3, learnedSkill: 1 << 7, want: 10},
+		{name: "Foema has no crit skill", class: 1, learnedSkill: 1<<7 | 1<<18, want: 10},
+	}
 
-	if got := effectiveCritical(e); got != 22 {
-		t.Fatalf("effectiveCritical = %d, want 22", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &world.Entity{Class: tt.class, LearnedSkill: tt.learnedSkill, Critical: 10, Dex: 150}
+			e.Special[3] = 99
+
+			if got := effectiveCritical(e); got != tt.want {
+				t.Fatalf("effectiveCritical = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 
