@@ -17,6 +17,13 @@ const (
 	MaxSkillIndex = 248
 )
 
+// affectTimeDivisor scales the raw column-12 AffectTime at load. The legacy
+// loader divides by 4 (Basedef.cpp:6708); this port uses 8 — a deliberate
+// server-tuning divergence from issue #92, where the ÷4 buff durations (up to
+// ~100 min at max mastery) were reported as far too long. ÷8 halves every
+// cast-skill affect duration uniformly.
+const affectTimeDivisor = 8
+
 // Spell is one STRUCT_SPELL row of SkillData.csv (Basedef.h, loaded by
 // BASE_InitializeSkill, Basedef.cpp:6657). Field names match the struct; the
 // Act[] animation bytes are dropped (client-side only). Name is the trailing
@@ -34,7 +41,7 @@ type Spell struct {
 	TickValue         int
 	AffectType        int // affect type applied by SetAffect
 	AffectValue       int
-	AffectTime        int // stored ÷4, as the legacy loader does post-parse
+	AffectTime        int // stored ÷affectTimeDivisor (÷8, issue #92; legacy ÷4)
 	InstanceAttribute int
 	TickAttribute     int
 	Aggressive        int // 1 = hostile (resist roll applies)
@@ -126,7 +133,7 @@ func parseSkillData(r io.Reader) (*SkillData, error) {
 			Index: v[0], SkillPoint: v[1], TargetType: v[2], ManaSpent: v[3],
 			Delay: v[4], Range: v[5], InstanceType: v[6], InstanceValue: v[7],
 			TickType: v[8], TickValue: v[9], AffectType: v[10], AffectValue: v[11],
-			AffectTime:        v[12] / 4,
+			AffectTime:        v[12] / affectTimeDivisor,
 			InstanceAttribute: v[13], TickAttribute: v[14], Aggressive: v[15],
 			MaxTarget: v[16], BParty: v[17], AffectResist: v[18], Passive: v[19],
 			Name: strings.TrimSpace(fields[len(fields)-1]),
