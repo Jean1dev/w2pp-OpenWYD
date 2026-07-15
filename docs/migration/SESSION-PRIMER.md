@@ -164,7 +164,7 @@ Já feito: login, chars, NPCs (nomes/aparência), lojas (buy/sell + SendItem), t
 (itens/gold/cidade), **Banco/Cargo** (armazém compartilhado da conta: LoadCargo/SaveCargo no
 dbServer + store; carregado no login, salvo no logout/shutdown; depósito 0x0388 / saque 0x0387 de
 gold; NPC Guarda_Carga Merchant=2 abre o cofre), **mover itens** (drag-drop via 0x0376),
-**equipar/desequipar** (0x0376 Carry↔Equip + _MSG_UpdateEquip 0x006B; equip carregado do DB no
+**equipar/desequipar** (0x0376 Carry↔Equip + _MSG_UpdateEquip 0x036B; equip carregado do DB no
 login), **equip inicial** (semeado no login se o char está sem equip: equip da classe do template
 — slot 0 = item de corpo que dá a aparência da classe — + montaria Shire item 342 no slot 14;
 inventário inicial = poções/Esfera da Sorte/Baú de Exp do template), **NPC Perzen** (troca via
