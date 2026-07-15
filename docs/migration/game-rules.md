@@ -270,15 +270,55 @@ Carregadas por `CReadFiles::ReadCompRate()` (`CReadFiles.h:32`). Formato `Famíl
 
 ### 3.3. Tabela de refino por anvil/sanctificação (`Settings/SancRate.txt`)
 
-Carregada por `ReadSancRate()` (`CReadFiles.h:30`). Taxa de sucesso por **nível de refino** (0..N):
+Carregada por `ReadSancRate()` (`CReadFiles.cpp:77`). **PO = Poeira de Ori (412, `EF_VOLATILE 4`)**,
+**PL = Poeira de Lac (413, `EF_VOLATILE 5`)** — o índice da linha é o `OriLacto = Vol-4`.
+
+O arquivo **só sobrescreve os índices que lista**; o resto mantém o default compilado em
+`Basedef.cpp:68`. As linhas do arquivo:
 
 ```text
-PO (pedra ?)   ref 0..2 = 100%, 3=85, 4=70, 5=40
-PL (pedra ?)   ref 0..5 = 100%, 6=80, 7..8=70, 9=10
-Âmago          ref 0=100,1=80,2=60,3=40,4=20,5..7=10,8..11=5
+PO      0..2 = 100%, 3=85, 4=70, 5=40
+PL      0..5 = 100%, 6=80, 7..8=70, 9=10
+Âmago   0=100,1=80,2=60,3=40,4=20,5..7=10,8..11=5
 ```
 
-> Reproduzir as tabelas **exatamente**; são o coração da economia de refino.
+> ⚠️ **`BASE_GetSuccessRate` indexa a tabela em `sanc+1`**, não em `sanc` (`Basedef.cpp:2261`): o
+> slot 0 de cada linha é morto e um refino **a partir de +N** lê o slot **N+1**. Então "PO 3 = 85"
+> é a chance do **+2→+3**, não do +3→+4.
+
+#### Bug do Âmago no legado — divergência intencional (issue #103)
+
+`CReadFiles.cpp:157` grava as linhas `ÂMAGO` em `g_pSancRate[0]` — **a mesma linha do `PO`**
+(`:123`), um copy-paste. Como o Âmago vem por último no arquivo, ele **sobrescrevia todas as taxas
+do Ori**, e as linhas `PO` do arquivo eram letra morta. A taxa efetiva do Ori no servidor legado era
+a do Âmago: `{100,80,60,40,20,10,...}`.
+
+> **Decisão (issue #103): corrigido.** O Âmago vai para a linha 2 e as linhas `PO` do arquivo passam
+> a valer — o `SancRate.txt` vira genuinamente autoritativo. Consequência: o arquivo não lista `PO 6`,
+> então o índice 6 fica com o default do `Basedef.cpp` (**100**) e o **+5→+6 com Ori é garantido**.
+> Para fechar isso basta acrescentar uma linha `PO 6 <taxa>` ao arquivo. A outra leitora da linha do
+> Âmago é `BASE_GetGrowthRate` (`Basedef.cpp:2275`, crescimento de montaria), ainda não portada.
+
+O arquivo é **cp1252**, não UTF-8 (`Âmago` = bytes `C2 6D 61 67 6F`). O legado também não decodifica:
+`_strupr` só mexe em `a-z` no locale C, então o `0xC2` sobrevive e o `strcmp` casa byte a byte — o
+port faz o mesmo (`content/rates.go`).
+
+#### Pity ("success") e a codificação empacotada do sanc
+
+O `cValue` do par `EF_SANC` **não guarda o nível puro** — ele empacota nível + um contador de
+tentativas falhas (`BASE_SetItemSanc`, `Basedef.cpp:2282`):
+
+```text
+níveis 0..9    cValue = nível + 10*pity     (pity 0..20)
+níveis 10..15  cValue = base + gem          (base 230/234/238/242/246/250, gem 0..3)
+```
+
+Cada ponto de pity soma `g_pSuccessRate[nível+1]` = `{5,5,5,5,4,4,3,3,2,1,0}` à taxa da próxima
+tentativa. Uma falha acumula pity com chance 3/4 (`rand()%4 <= 2`): Lac sempre, Ori só até +5. Um
+sucesso zera o pity.
+
+> ⚠️ Ler o `cValue` cru reporta um nível errado para qualquer item que já falhou um refino — um +5
+> com pity 2 guarda `25`. Ver o pacote `tmserver/internal/refine`, que é a única implementação.
 
 ### 3.4. Cooldown anti-spam de refino — **DESATIVADO no código**
 
@@ -292,6 +332,39 @@ refino hoje.
 ### 3.5. Limites de refino
 - Itens "tipo 5" (selados) não refinam além de `sanc >= 9` (`_MSG_UseItem.cpp:227`); outros não
   passam de `sanc >= 6 && Vol == 4` (`:203`). Mensagem `_NN_Cant_Refine_More`.
+
+### 3.6. Refino com poeiras — onde ele realmente mora (issue #103)
+
+**O refino com poeiras NÃO fica no handler de combine.** Ele vive dentro de `_MSG_UseItem` (0x0373):
+o cliente arrasta a poeira sobre o item e o servidor classifica a ação pelo `EF_VOLATILE` da
+poeira-origem, como qualquer outro uso de item. O `MsgUseItem` já carrega `DestType`/`DestPos`.
+
+São **cinco** caminhos distintos no mesmo handler. Só o primeiro está portado:
+
+| caminho | fonte | roll | falha |
+|---|---|---|---|
+| **equipamento padrão** ✅ | `:802-976` | `rand()%100` | só gasta a poeira; item intacto, pity sobe |
+| selados no inventário ⏳ | `:224` | `rand()%115` + fold `-15` | **item destruído** |
+| celestial/HC (+10~+15) ⏳ | `:385` | `rand()%115` + fold | sanc → 0 |
+| pedras arcanas (1752-1759) ⏳ | `:514` | `rand()%115` + fold | sanc → 0 |
+| brincos +10~+14 (Lac, slot 8) ⏳ | `:716` | `rand()%100` | **item destruído** |
+
+> ⚠️ O roll do caminho principal é `rand()%100` puro — **não** é o `rand()%115` com o fold `>= 100 →
+> -15` do combine (§3.1). As duas distribuições são diferentes e não são intercambiáveis.
+
+Itens relevantes: `Lactolerium_100` (**4141**) tem `EF_VOLATILE 5` como uma Lac comum mas força a
+linha do Âmago → 100% garantido. `EF_NOSANC` (126) bloqueia o refino de vez. Ori trava o item em +6,
+Lac em +9; +10 vai a +11 preservando o gem e para.
+
+**Ovo de montaria (2300-2329):** o bloco de incubação está inline no sucesso (`:890`). O gate de
+choco lê `BASE_GetBonusItemAbility(dest, EF_INCUBATE)`, que é **instance-only** (`Basedef.cpp:2048`)
+— e o `EF_INCUBATE` do ovo está no **catálogo**. Ou seja: lê 0 e **o ovo choca no primeiro refino
+bem-sucedido**, independente do tier do catálogo. É o comportamento do legado, não um atalho do port.
+Uma falha carimba `EF_INCUDELAY` (0..3), que só é decrementado pelo `RegenMob` **com o ovo
+equipado** (`Server.cpp:4884`) — é o cooldown entre tentativas.
+
+`MountProcess(conn, 0)` (`:914`) é **no-op**: com `Mount == NULL` o `IsEqual` fica 1 e a função
+retorna de cara (`Server.cpp:4639-4643`). Não há nada para portar ali.
 
 ---
 

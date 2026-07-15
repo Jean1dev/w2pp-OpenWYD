@@ -132,18 +132,21 @@ func run(logger *slog.Logger) error {
 	var combineFamilies map[protocol.Type]handler.CombineFamily
 	var spells *content.SkillData
 	var heights *content.Grid
+	var sancRate *content.SancRate
 	if *contentDir != "" {
-		items, comp, skills, hm, err := loadContent(*contentDir, logger)
+		c, err := loadContent(*contentDir, logger)
 		if err != nil {
 			return err
 		}
+		items := c.items
 		itemPrices, itemEffects, itemReqs = items.Prices(), items.BaseEffects(), items.Requirements()
 		itemVolatiles, itemPos, itemUnique = items.Volatiles(), items.Positions(), items.Uniques()
 		itemGrades = items.Grades()
 		itemRanges = items.Ranges()
-		combineFamilies = handler.DefaultCombineFamilies(handler.NewCombineCatalog(items, comp))
-		spells = skills
-		heights = hm
+		combineFamilies = handler.DefaultCombineFamilies(handler.NewCombineCatalog(items, c.comp))
+		spells = c.skills
+		heights = c.heights
+		sancRate = c.sanc
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -226,6 +229,7 @@ func run(logger *slog.Logger) error {
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, Spells: spells, Heights: heights,
+		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		CombineFamilies: combineFamilies,
 		NpcConfig:       npcConfig,
@@ -395,25 +399,29 @@ func serveStatusHTTP(ctx context.Context, addr, statusFile string, logger *slog.
 // The rates and catalogs are required (a broken mount is a hard error); the maps
 // are large and optional (a warning when absent). It logs what was loaded so the
 // operator can confirm the mount is correct.
-func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.CompRate, *content.SkillData, *content.Grid, error) {
+func loadContent(dir string, logger *slog.Logger) (*loadedContent, error) {
 	comp, err := content.LoadCompRate(filepath.Join(dir, "Common", "Settings", "CompRate.txt"))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	sanc, err := content.LoadSancRate(filepath.Join(dir, "Common", "Settings", "SancRate.txt"))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	skills, err := content.LoadSkillData(filepath.Join(dir, "Common", "SkillData.csv"))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
+	// The Ori/Lac rates are worth logging outright: SancRate.txt only overrides the
+	// indices it lists, so a broken mount silently leaves the compiled defaults and
+	// the operator would otherwise not notice.
 	logger.Info("content loaded",
-		"comprate_families", comp.Families(), "sancrate_anvils", sanc.Anvils(),
+		"comprate_families", comp.Families(),
+		"sancrate_ori", sancRow(sanc, 0), "sancrate_lac", sancRow(sanc, 1),
 		"items", items.Len(), "skills", skills.Len())
 
 	// Maps are optional: 17 MiB HeightMap + 1 MiB AttributeMap aren't required to
@@ -436,5 +444,24 @@ func loadContent(dir string, logger *slog.Logger) (*content.ItemList, *content.C
 	} else if hm != nil || attr != nil {
 		logger.Warn("mob pathfinding disabled: need BOTH HeightMap.dat and AttributeMap.dat")
 	}
-	return items, comp, skills, heights, nil
+	return &loadedContent{items: items, comp: comp, sanc: sanc, skills: skills, heights: heights}, nil
+}
+
+// loadedContent is what a mounted Release/ tree yields. It is a struct rather
+// than a return list only because the list had grown past readability.
+type loadedContent struct {
+	items   *content.ItemList
+	comp    *content.CompRate
+	sanc    *content.SancRate
+	skills  *content.SkillData
+	heights *content.Grid
+}
+
+// sancRow renders one anvil's rate row for the boot log.
+func sancRow(s *content.SancRate, anvil int) []int {
+	row := make([]int, 0, 12)
+	for i := 0; i < 12; i++ {
+		row = append(row, s.Rate(anvil, i))
+	}
+	return row
 }

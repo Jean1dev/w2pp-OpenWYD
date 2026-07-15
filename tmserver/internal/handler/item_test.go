@@ -494,6 +494,49 @@ func TestWeaponDamageRefine(t *testing.T) {
 	}
 }
 
+// TestItemSancUnpacksPity is the issue #103 regression: the EF_SANC cValue packs
+// the refine level together with the pity counter (level + 10*pity), so reading
+// it raw reports a wildly wrong level. A +5 item that had failed two refines
+// stores 25; the old raw read clamped that to 15 and handed the item the +9
+// threshold bonus it never earned. Any item touched by the legacy server or
+// restored from a DB dump can carry a packed value.
+func TestItemSancUnpacksPity(t *testing.T) {
+	cases := []struct {
+		name string
+		cVal uint8
+		want int
+	}{
+		{"+5 no pity", 5, 5},
+		{"+5 with pity 2", 25, 5},
+		{"+0 with pity 1", 10, 0},
+		{"+9 with max pity", 209, 9},
+		{"+9 clean still reads +9", 9, 9},
+		{"+11 packs as 234", 234, 11},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			it := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: tt.cVal}}}
+			if got := itemSanc(it); got != tt.want {
+				t.Errorf("itemSanc(cValue %d) = %d, want %d", tt.cVal, got, tt.want)
+			}
+		})
+	}
+}
+
+// The threshold bonus must key off the real level, not the packed byte: a +5
+// item with pity must NOT be granted the +9 AC bonus.
+func TestEquipBonusRefineIgnoresPity(t *testing.T) {
+	d := New(Config{
+		ItemEffects: map[int][]content.BaseEffect{555: {{Eff: efAc, Val: 100}}},
+		ItemPos:     map[int]int{555: 4},
+	})
+	e := &world.Entity{}
+	e.Equip[0] = world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: 25}}} // +5, pity 2
+	if ac := d.equipBonus(e).ac; ac != 100 {
+		t.Errorf("+5 (pity 2) AC = %d, want 100 — pity must not unlock the +9 threshold", ac)
+	}
+}
+
 // TestAttackRunOfBoots verifies EF_RUNSPEED (boots) raises the move-speed (low)
 // nibble of AttackRun to the issue #64 tier: bare=2, boots=4, mount=6.
 func TestAttackRunOfBoots(t *testing.T) {

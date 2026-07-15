@@ -250,6 +250,7 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 			d.sendScore(w, s, e)
 			d.sendAffect(w, s, e)
 		}
+		d.tickIncubation(w, s, e)
 		hp := regenStep(e.HP, effectiveMaxHP(e))
 		mp := regenStep(e.MP, effectiveMaxMP(e))
 		if hp == e.HP && mp == e.MP {
@@ -258,6 +259,26 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 		e.HP, e.MP = hp, mp
 		d.sendScore(w, s, e)
 	})
+}
+
+// tickIncubation counts an equipped egg's incubation cooldown down by one
+// (RegenMob, Server.cpp:4884-4894). Only an EQUIPPED egg ticks — that is the
+// mechanic: a failed refine stamps the cooldown and the player has to wear the
+// egg and wait it out before trying again. Without this the refine path's
+// _NN_Incu_Wait_More gate would brick an egg permanently.
+func (d *Dispatcher) tickIncubation(w *world.World, s *world.Session, e *world.Entity) {
+	egg := &e.Equip[mountEquipSlot]
+	if !isEgg(*egg) {
+		return
+	}
+	delay := itemInstanceAbility(*egg, efIncuDelay)
+	if delay <= 0 {
+		return
+	}
+	egg.Effects[2].Value = uint8(delay - 1)
+	d.sendSlot(w, s, world.ItemPlaceEquip, mountEquipSlot, *egg)
+	// SendClientMessage(_NN_Incu_Proceed) — no notice code for it yet; the item
+	// push is what the client renders.
 }
 
 // regenStep moves cur toward full by ~5% of full (min 2 per tick), capped at full.

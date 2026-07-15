@@ -2,17 +2,21 @@ package combine
 
 import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
 const (
 	efPos       = 17
-	efSanc      = 43
 	efItemLevel = 87
 	efMobType   = 112
 
 	jewelBaseIndex = 2441
 	blockedItem747 = 747
+
+	// anctResultSanc is the refine level BASE_SetItemSanc stamps on an Anct
+	// success (_MSG_CombineItem.cpp:100).
+	anctResultSanc = 7
 )
 
 // Catalog holds the item metadata GetMatchCombine reads from g_pItemList.
@@ -65,7 +69,7 @@ func MatchAnct(cat Catalog, items []world.Item) int {
 		if il1 > il2 {
 			return 0
 		}
-		switch itemSanc(it) {
+		switch refine.Level(it) {
 		case 7:
 			rate += cat.AnctChance[0]
 		case 8:
@@ -94,16 +98,13 @@ func itemAbility(cat Catalog, it world.Item, eff uint8) int32 {
 	return sum
 }
 
-func itemSanc(it world.Item) int {
-	for _, ef := range it.Effects {
-		if ef.Effect == efSanc {
-			return int(ef.Value)
-		}
-	}
-	return 0
-}
-
 // AnctResult builds the Anct success item (game-rules.md §3.1): joia + Extra, sanc 7.
+//
+// The result inherits item[0]'s effects wholesale — the legacy memcpy's the whole
+// STRUCT_ITEM before overwriting sIndex (_MSG_CombineItem.cpp:97) — and then
+// BASE_SetItemSanc writes 7 into whichever slot already carries a sanc pair. When
+// item[0] has none that call returns FALSE and the result keeps no sanc at all,
+// which refine.Set reproduces.
 func AnctResult(cat Catalog, items []world.Item) world.Item {
 	result := items[0]
 	if len(items) < 2 {
@@ -114,6 +115,6 @@ func AnctResult(cat Catalog, items []world.Item) world.Item {
 	if joia >= 0 && joia <= 3 && extra > 0 {
 		result.Index = int16(joia + extra)
 	}
-	result.Effects[2] = world.Effect{Effect: efSanc, Value: 7}
+	refine.Set(&result, anctResultSanc, 0)
 	return result
 }

@@ -909,6 +909,25 @@ func manaControlDamage(target *world.Entity, dmg int, enhanced bool) (int, int32
 	return int(reduced), spent, true
 }
 
+// itemRawSanc returns an item's PACKED sanc cValue, not its refine level.
+//
+// The fairy heal-reduction divisor below is the one place that wants the raw
+// number: the legacy reads Equip[13].stEffect[0].cValue straight off the struct
+// (Server.cpp:10068, :10077) rather than going through BASE_GetItemSanc, so the
+// pity counter deliberately feeds into the divisor. Use refine.Level anywhere a
+// real refine level is meant.
+func itemRawSanc(it world.Item) int {
+	for _, ef := range it.Effects {
+		if ef.Effect >= 116 && ef.Effect <= 125 {
+			return int(ef.Value)
+		}
+		if ef.Effect == efSanc {
+			return int(ef.Value)
+		}
+	}
+	return 0
+}
+
 func (d *Dispatcher) foemaHealAmount(target *world.Entity, heal int32) int32 {
 	switch target.Equip[fairyEquipSlot].Index {
 	case 786:

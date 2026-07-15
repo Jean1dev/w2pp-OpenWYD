@@ -5,6 +5,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -45,6 +46,12 @@ func defaultCombineFamily(name string) CombineFamily {
 }
 
 // anctApply is the base Anct result fallback when no content catalog is mounted.
+//
+// Like combine.AnctResult, the sanc only lands if the base item already carries a
+// sanc pair — BASE_SetItemSanc allocates nothing and returns FALSE otherwise
+// (Basedef.cpp:2312). This resolves the old "which slot does sanc live in?"
+// UNVERIFIED: it is whichever slot already holds EF_SANC or a [116,125] effect,
+// scanning 0→1→2, never a fixed Effects[2].
 func anctApply(items []world.Item) world.Item {
 	result := items[0]
 	if len(items) >= 2 {
@@ -52,18 +59,8 @@ func anctApply(items []world.Item) world.Item {
 			result.Index = int16(joia)
 		}
 	}
-	setSanc(&result, resultSanc)
+	refine.Set(&result, resultSanc, 0)
 	return result
-}
-
-// setSanc records the refine ("anc") level on an item as a real EF_SANC effect pair,
-// so equipBonus/itemSanc can read it back and scale the item's stats (the joias). It
-// is written to the last instance slot (Effects[2]) to leave the first two for divines.
-//
-// UNVERIFIED: the exact STRUCT_ITEM slot the legacy uses for sanc is unconfirmed; the
-// EF_SANC id (43) is from ItemEffect.h.
-func setSanc(it *world.Item, level uint8) {
-	it.Effects[2] = world.Effect{Effect: efSanc, Value: level}
 }
 
 // combineItem is the shared engine handler for the Item[]-based variants. It
