@@ -169,6 +169,16 @@ func movementDB() *fakeDB {
 	return db
 }
 
+func illusionDB() *fakeDB {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", Class: 3, X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, MP: 100, MaxMP: 100,
+		LearnedSkill: 2,
+	}
+	return db
+}
+
 func TestMoveBroadcastToInView(t *testing.T) {
 	addr, stop, _ := startServerClock(t, movementDB())
 	defer stop()
@@ -253,6 +263,86 @@ func TestMoveOutOfBoundsDropped(t *testing.T) {
 	actionFrame(t, mover, serverTime, 99)
 	if ty, _, ok := readMaybe(t, watcher); ok {
 		t.Errorf("watcher received %#x; out-of-bounds action should be dropped", ty)
+	}
+}
+
+func TestIllusionActionEchoesAndSyncsMP(t *testing.T) {
+	addr, stop, _ := startServerClock(t, illusionDB())
+	defer stop()
+
+	mover := enterWorld(t, addr)
+	defer mover.Close()
+	watcher := enterWorld(t, addr)
+	defer watcher.Close()
+
+	body := protocol.MsgActionBody{PosX: 5, PosY: 5, Effect: 0, Speed: 6, TargetX: 6, TargetY: 6}
+	actionFrameBody(t, mover, serverTime, protocol.MsgAction3, body)
+
+	ty, payload, ok := readMaybe(t, watcher)
+	if !ok || ty != protocol.MsgAction3 {
+		t.Fatalf("watcher got %#x ok=%v, want broadcast MsgAction3", ty, ok)
+	}
+	var seen protocol.MsgActionBody
+	if err := seen.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if seen.TargetX != 6 || seen.TargetY != 6 {
+		t.Fatalf("watcher action = %+v, want target 6,6", seen)
+	}
+
+	ty, payload, ok = readMaybe(t, mover)
+	if !ok || ty != protocol.MsgAction3 {
+		t.Fatalf("mover got %#x ok=%v, want self MsgAction3 echo", ty, ok)
+	}
+	var echoed protocol.MsgActionBody
+	if err := echoed.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if echoed.TargetX != 6 || echoed.TargetY != 6 {
+		t.Fatalf("echo action = %+v, want target 6,6", echoed)
+	}
+
+	ty, payload, ok = readMaybe(t, mover)
+	if !ok || ty != protocol.MsgSetHpMp {
+		t.Fatalf("mover got %#x ok=%v, want SetHpMp after illusion", ty, ok)
+	}
+	_, mp, _, reqMP := setHpMpFields(t, payload)
+	if mp != 55 || reqMP != 55 {
+		t.Fatalf("MP/ReqMP after illusion = %d/%d, want 55/55", mp, reqMP)
+	}
+}
+
+func TestIllusionBlocksImmediateNormalAction(t *testing.T) {
+	addr, stop, _ := startServerClock(t, illusionDB())
+	defer stop()
+
+	mover := enterWorld(t, addr)
+	defer mover.Close()
+	watcher := enterWorld(t, addr)
+	defer watcher.Close()
+
+	illusion := protocol.MsgActionBody{PosX: 5, PosY: 5, Effect: 0, Speed: 6, TargetX: 6, TargetY: 6}
+	actionFrameBody(t, mover, serverTime, protocol.MsgAction3, illusion)
+	if ty, _, ok := readMaybe(t, watcher); !ok || ty != protocol.MsgAction3 {
+		t.Fatalf("watcher got %#x ok=%v, want initial MsgAction3", ty, ok)
+	}
+	if ty, _, ok := readMaybe(t, mover); !ok || ty != protocol.MsgAction3 {
+		t.Fatalf("mover got %#x ok=%v, want self MsgAction3 echo", ty, ok)
+	}
+	if ty, _, ok := readMaybe(t, mover); !ok || ty != protocol.MsgSetHpMp {
+		t.Fatalf("mover got %#x ok=%v, want SetHpMp after illusion", ty, ok)
+	}
+
+	tooSoon := protocol.MsgActionBody{PosX: 6, PosY: 6, Effect: 0, Speed: 6, TargetX: 7, TargetY: 7}
+	actionFrameBody(t, mover, serverTime+100, protocol.MsgAction, tooSoon)
+	if ty, _, ok := readMaybe(t, watcher); ok {
+		t.Fatalf("watcher got %#x, want no broadcast before 900ms illusion cadence", ty)
+	}
+
+	allowed := protocol.MsgActionBody{PosX: 6, PosY: 6, Effect: 0, Speed: 6, TargetX: 7, TargetY: 7}
+	actionFrameBody(t, mover, serverTime+900, protocol.MsgAction, allowed)
+	if ty, _, ok := readMaybe(t, watcher); !ok || ty != protocol.MsgAction {
+		t.Fatalf("watcher got %#x ok=%v, want normal MsgAction after 900ms", ty, ok)
 	}
 }
 
