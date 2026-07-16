@@ -49,6 +49,9 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	if h.Type == protocol.MsgAction3 && !d.consumeIllusion(w, s, e, h.ClientTick) {
 		return
 	}
+	if h.Type == protocol.MsgAction && !d.consumeActionAfterIllusion(w, s, h.ClientTick) {
+		return
+	}
 	if !s.LoggedFirstAction {
 		s.LoggedFirstAction = true
 		d.log.Info("movement: first action after login",
@@ -111,6 +114,10 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	// GridMulticast: view create/remove deltas + raw frame (original Type) to
 	// everyone in the old or new view window.
 	d.moveMulticast(w, s.Conn, oldX, oldY, h.Type, payload)
+	if h.Type == protocol.MsgAction3 {
+		w.SendTo(s, protocol.Header{Type: protocol.MsgAction3, ID: uint16(s.Conn)}, payload)
+		d.sendSetHpMp(w, s, e)
+	}
 }
 
 func outOfBounds(v, dim int16) bool { return v < 0 || v >= dim }
@@ -138,6 +145,14 @@ func (d *Dispatcher) consumeIllusion(w *world.World, s *world.Session, e *world.
 		return false
 	}
 	s.LastIllusionTick = tick
+	return true
+}
+
+func (d *Dispatcher) consumeActionAfterIllusion(w *world.World, s *world.Session, tick uint32) bool {
+	if tick != protocol.SkipCheckTick && s.LastIllusionTick != 0 && s.LastIllusionTick != protocol.SkipCheckTick && tick < s.LastIllusionTick+900 {
+		w.AddCrackError(s, 1, 103)
+		return false
+	}
 	return true
 }
 
