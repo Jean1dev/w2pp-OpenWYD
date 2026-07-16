@@ -852,6 +852,84 @@ func TestEnemyListTieSelectsLaterSlot(t *testing.T) {
 	}
 }
 
+func kefraBossMob(dex uint16) []byte {
+	b := aggressiveMob()
+	copy(b[0:16], "Kefra")
+	b[16] = 7 // hostile to clan 5 mobs, player-friendly like guards
+	binary.LittleEndian.PutUint16(b[92+36:], dex)
+	return b
+}
+
+func TestKefraBossEnemySelectionUsesHalfGrid(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64}, log, nil, d.Handle)
+	kefraID := w.SpawnMobAt(world.MobSpawn{Template: kefraBossMob(99), X: 10, Y: 10, GenIndex: world.KefraBossGenIndex})
+	nearID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 25, Y: 10, GenIndex: -1}) // distance 15
+	farID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 27, Y: 10, GenIndex: -1})  // distance 17
+	kefra := w.Entity(kefraID)
+
+	addEnemyList(kefra, w.Entity(nearID))
+	selectTargetFromEnemyList(w, kefra)
+	if kefra.Target != nearID {
+		t.Fatalf("Kefra selected %d, want target inside HALFGRIDX %d", kefra.Target, nearID)
+	}
+
+	addEnemyList(kefra, w.Entity(farID))
+	w.Entity(nearID).HP = 0
+	selectTargetFromEnemyList(w, kefra)
+	if kefra.Target != 0 {
+		t.Fatalf("Kefra selected out-of-halfgrid target %d, want none", kefra.Target)
+	}
+	if enemyListContains(kefra, farID) {
+		t.Fatalf("out-of-halfgrid target %d still in EnemyList %v", farID, kefra.EnemyList)
+	}
+}
+
+func TestKefraBossAttacksAtFixedRange(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	w := world.New(world.Config{GridDim: 64, Now: clock.Load}, log, nil, d.Handle)
+	kefraID := w.SpawnMobAt(world.MobSpawn{Template: kefraBossMob(99), X: 10, Y: 10, GenIndex: world.KefraBossGenIndex})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 25, Y: 10, GenIndex: -1})
+	kefra, target := w.Entity(kefraID), w.Entity(targetID)
+	beforeHP := target.HP
+	addEnemyList(kefra, target)
+
+	d.mobBattle(w, kefraID, kefra)
+
+	if target.HP >= beforeHP {
+		t.Fatalf("Kefra target HP = %d, want damage at fixed range 25 from %d", target.HP, beforeHP)
+	}
+	if kefra.X != 10 || kefra.Y != 10 {
+		t.Fatalf("Kefra moved to (%d,%d), want fixed position (10,10)", kefra.X, kefra.Y)
+	}
+}
+
+func TestKefraBossDoesNotRetreat(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	w := world.New(world.Config{GridDim: 64, Now: clock.Load}, log, nil, d.Handle)
+	kefraID := w.SpawnMobAt(world.MobSpawn{Template: kefraBossMob(0), X: 10, Y: 10, GenIndex: world.KefraBossGenIndex})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 11, Y: 10, GenIndex: -1})
+	kefra, target := w.Entity(kefraID), w.Entity(targetID)
+	beforeHP := target.HP
+	addEnemyList(kefra, target)
+
+	d.mobBattle(w, kefraID, kefra)
+
+	if kefra.X != 10 || kefra.Y != 10 {
+		t.Fatalf("Kefra retreated to (%d,%d), want fixed position (10,10)", kefra.X, kefra.Y)
+	}
+	if target.HP != beforeHP {
+		t.Fatalf("Kefra attacked while retreat roll should only hold position: HP %d, want %d", target.HP, beforeHP)
+	}
+}
+
 func enemyListContains(e *world.Entity, target int) bool {
 	for _, id := range e.EnemyList {
 		if id == target {

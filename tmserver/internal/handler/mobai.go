@@ -16,6 +16,7 @@ import (
 const (
 	leashRadius      = 16   // HALFGRIDX: target outside the mob's home box drops aggro
 	meleeRange       = 1    // reach floor when the template has no EF_RANGE gear
+	kefraBossRange   = 25   // CMob.cpp BattleProcessor: KEFRA_BOSS ignores EF_RANGE
 	mobAttackCadence = 1000 // ms between a mob's attacks (≈ the player 800ms guard)
 	// wakeRadius gates the per-tick aggro scan: an idle mob with no player within
 	// this Chebyshev distance skips FindEnemyFromView entirely. It must cover the
@@ -313,6 +314,9 @@ func enemySelectRange(e *world.Entity) int {
 	if int(e.X)/128 < 12 && int(e.Y)/128 > 25 {
 		dis = 8
 	}
+	if isKefraBoss(e) {
+		dis = leashRadius
+	}
 	return dis
 }
 
@@ -490,19 +494,37 @@ func (d *Dispatcher) mobBattle(w *world.World, id int, e *world.Entity) {
 		return
 	}
 
-	reach := int(e.Range)
-	if reach < meleeRange {
-		reach = meleeRange // no EF_RANGE on the template's gear → melee adjacency
-	}
+	reach := mobReach(e)
 	dis := mobDistance(e.X, e.Y, target.X, target.Y)
 	switch battleCode(w.Rand(), dis, reach, int(e.Dex)) {
 	case battleAttack:
 		d.mobAttack(w, id, e, target)
 	case battleRetreat:
+		if isKefraBoss(e) {
+			return
+		}
 		d.mobRetreat(w, id, e, target)
 	default:
+		if isKefraBoss(e) {
+			return
+		}
 		d.mobStep(w, id, e, target)
 	}
+}
+
+func mobReach(e *world.Entity) int {
+	if isKefraBoss(e) {
+		return kefraBossRange
+	}
+	reach := int(e.Range)
+	if reach < meleeRange {
+		return meleeRange // no EF_RANGE on the template's gear → melee adjacency
+	}
+	return reach
+}
+
+func isKefraBoss(e *world.Entity) bool {
+	return e != nil && int(e.GenIndex) == world.KefraBossGenIndex
 }
 
 // battleCode ports the BattleProcessor reach decision (CMob.cpp:308-327): within
@@ -650,6 +672,9 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 // MOB_RETURN, BattleProcessor code 16). Summons (RouteType 5) never reach
 // here — the Tick routes them to summonTick (summon.go).
 func (d *Dispatcher) mobRoam(w *world.World, id int, e *world.Entity) {
+	if isKefraBoss(e) {
+		return
+	}
 	if e.RouteType == 0 || e.RouteType == 5 || !hasWaypoints(e) {
 		if e.X != e.SegmentX || e.Y != e.SegmentY {
 			d.stepToward(w, id, e, e.SegmentX, e.SegmentY) // return home
