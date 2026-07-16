@@ -682,6 +682,14 @@ func (d *Dispatcher) mobRoam(w *world.World, id int, e *world.Entity) {
 		return
 	}
 	if e.X == e.SegmentX && e.Y == e.SegmentY { // arrived at the current waypoint
+		if e.RouteType == 3 && e.SegProgress == 4 {
+			if e.WaitTicks > 0 {
+				e.WaitTicks--
+				return
+			}
+			w.DespawnMob(id, 3) // StandingByProcessor 0x10000 → DeleteMob(index, 3)
+			return
+		}
 		if e.RouteType == 6 {
 			return // fixed guard post: SetSegment always resets to 0 (CMob.cpp:167)
 		}
@@ -725,7 +733,8 @@ func hasWaypoints(e *world.Entity) bool {
 //
 // Per-RouteType end behaviour (both ends: past-4 while forward, past-0 while
 // backward): 1 = restart at 0; 2 = ping-pong (also restarts forward at the home
-// end); 3 = ping-pong once, then stop; 4 = circular loop; 6 = always reset to 0.
+// end); 3 would ping-pong here, but StandingByProcessor deletes it at waypoint 4
+// before calling SetSegment again; 4 = circular loop; 6 = always reset to 0.
 // RouteType 0 walks the list once and then becomes a fixed NPC — the original
 // also flips Mode=4 and bit-packs the facing direction into MOB.Merchant
 // (CMob.cpp:558-579); we only stop the walk (our Merchant carries the spawn-city

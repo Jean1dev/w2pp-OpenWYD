@@ -683,6 +683,38 @@ func TestMobRoamPatrolAndWait(t *testing.T) {
 	}
 }
 
+// TestRouteType3DespawnsAtFinalWaypoint pins the StandingByProcessor RT3 branch:
+// when a route-3 mob reaches waypoint 4, it returns 0x10000 and the timer calls
+// DeleteMob(index, 3). It does not ping-pong back home and become idle.
+func TestRouteType3DespawnsAtFinalWaypoint(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 32}, log, nil, d.Handle)
+
+	id := w.SpawnMobAt(world.MobSpawn{
+		Template: aggressiveMob(),
+		X:        5, Y: 5,
+		RouteType: 3,
+		SegX:      [5]int16{5, 0, 0, 0, 7},
+		SegY:      [5]int16{5, 0, 0, 0, 5},
+		GenIndex:  -1,
+	})
+	if id < 0 {
+		t.Fatal("SpawnMobAt failed")
+	}
+
+	for i := 0; i < 4; i++ {
+		e := w.Entity(id)
+		if e == nil {
+			break
+		}
+		d.mobRoam(w, id, e)
+	}
+	if e := w.Entity(id); e != nil {
+		t.Fatalf("RT3 mob still alive at (%d,%d), want despawn at waypoint 4", e.X, e.Y)
+	}
+}
+
 // TestMobReturnsHomeAfterCombat: a routeless mob displaced from its anchor (e.g.
 // its target died elsewhere) walks back — the emergent MOB_RETURN (the original
 // BattleProcessor code 16 → GetNextPos(1)).
