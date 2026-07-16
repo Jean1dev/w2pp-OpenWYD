@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
@@ -125,17 +126,15 @@ const battleDragBox = 23
 // setGroupBattle puts a mob in combat with target and drags its group into the
 // same fight — SetBattle (Server.cpp:8013-8047) plus the PartyList propagation
 // of the AI tick (ProcessSecMinTimer.cpp:1882-1929): resolve the mob's leader
-// (or itself), then every living, unengaged member within the drag box focuses
-// the target. The leader itself is dragged too (the original block only walks
-// PartyList — leaders join via their own paths; folding it here is a small,
-// coherent divergence). Already-engaged members keep their target (we model a
-// single Target, not the EnemyList[13]).
+// (or itself), then every living member within the drag box records the target
+// in its EnemyList. The leader itself is dragged too (the original block only
+// walks PartyList — leaders join via their own paths; folding it here is a
+// small, coherent divergence).
 func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 	if target == nil {
 		return
 	}
-	e.Target = target.ID
-	e.Mode = world.MobCombat
+	setBattle(w, id, e, target)
 	lid := e.Leader
 	if lid == 0 {
 		lid = id
@@ -145,12 +144,11 @@ func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 		return
 	}
 	drag := func(mid int, me *world.Entity) {
-		if mid == id || me == nil || me.HP <= 0 || me.Merchant != 0 || me.Target != 0 {
+		if mid == id || me == nil || me.HP <= 0 || me.Merchant != 0 {
 			return
 		}
 		if abs16(me.X-target.X) <= battleDragBox && abs16(me.Y-target.Y) <= battleDragBox {
-			me.Target = target.ID
-			me.Mode = world.MobCombat
+			setBattle(w, mid, me, target)
 		}
 	}
 	if lid != id {
@@ -162,6 +160,137 @@ func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 		}
 		drag(m, w.Entity(m))
 	}
+}
+
+func setBattle(w *world.World, id int, e, target *world.Entity) {
+	if e == nil || target == nil || id <= 0 || target.ID <= 0 || id >= world.MaxMob || target.ID >= world.MaxMob || id == target.ID {
+		return
+	}
+	targetInWorld := w.Entity(target.ID) != nil
+	if e.Mode == world.MobEmpty || (targetInWorld && target.Mode == world.MobEmpty) {
+		return
+	}
+	if targetInWorld && world.IsPlayer(target.ID) {
+		if m, ok := w.SessionMode(target.ID); !ok || m != world.UserPlay {
+			return
+		}
+	}
+	if abs16(e.X-target.X) > battleDragBox || abs16(e.Y-target.Y) > battleDragBox {
+		return
+	}
+	e.Mode = world.MobCombat
+	addEnemyList(e, target)
+	if targetInWorld {
+		selectTargetFromEnemyList(w, e)
+	} else if e.Target == 0 {
+		// Several low-level tests pass a synthetic attacker entity rather than a
+		// world-owned player. Production targets are always in World and use the
+		// EnemyList selection above.
+		e.Target = target.ID
+	}
+}
+
+func addEnemyList(e, target *world.Entity) {
+	if e == nil || target == nil || target.ID <= 0 || target.ID >= world.MaxMob {
+		return
+	}
+	if world.IsPlayer(target.ID) {
+		if target.Rsv&world.RsvHide != 0 || target.Merchant&1 != 0 {
+			return
+		}
+	}
+	for _, id := range e.EnemyList {
+		if id == target.ID {
+			return
+		}
+	}
+	for i, id := range e.EnemyList {
+		if id == 0 {
+			e.EnemyList[i] = target.ID
+			return
+		}
+	}
+}
+
+func removeEnemyList(e *world.Entity, targetID int) {
+	if e == nil || targetID <= 0 {
+		return
+	}
+	for i, id := range e.EnemyList {
+		if id == targetID {
+			e.EnemyList[i] = 0
+			return
+		}
+	}
+}
+
+func clearEnemyList(e *world.Entity) {
+	if e != nil {
+		e.EnemyList = [protocol.MaxTarget]int{}
+	}
+}
+
+func selectTargetFromEnemyList(w *world.World, e *world.Entity) {
+	if e == nil {
+		return
+	}
+	e.Target = 0
+	enemyDist := [protocol.MaxTarget]int{}
+	for i := range enemyDist {
+		enemyDist[i] = world.MaxUser
+	}
+	dis := enemySelectRange(e)
+	for i, enemyID := range e.EnemyList {
+		if enemyID <= 0 || enemyID >= world.MaxMob {
+			continue
+		}
+		enemy := w.Entity(enemyID)
+		if enemy == nil || enemy.Mode == world.MobEmpty || enemy.HP <= 0 {
+			e.EnemyList[i] = 0
+			continue
+		}
+		if world.IsPlayer(enemyID) {
+			if enemy.Rsv&world.RsvHide != 0 {
+				e.EnemyList[i] = 0
+				continue
+			}
+			if enemy.Level > level.MaxLevel && enemy.Merchant&1 == 0 {
+				e.EnemyList[i] = 0
+				continue
+			}
+		}
+		if enemy.X < e.X-int16(dis) || enemy.X > e.X+int16(dis) ||
+			enemy.Y < e.Y-int16(dis) || enemy.Y > e.Y+int16(dis) {
+			e.EnemyList[i] = 0
+			continue
+		}
+		enemyDist[i] = mobDistance(e.X, e.Y, enemy.X, enemy.Y)
+		if enemyID > world.MaxUser {
+			enemyDist[i] += 2 // CMob.cpp uses > MAX_USER, so id==MAX_USER is unpenalized.
+		}
+	}
+	bestDist := world.MaxUser
+	best := 0
+	for i, enemyID := range e.EnemyList {
+		if enemyID != 0 && bestDist >= enemyDist[i] {
+			best = enemyID
+			bestDist = enemyDist[i]
+		}
+	}
+	if bestDist != world.MaxUser {
+		e.Target = best
+	}
+}
+
+func enemySelectRange(e *world.Entity) int {
+	dis := 6
+	if e.Clan == summonClan || e.Clan == 7 || e.Clan == 8 {
+		dis = 12
+	}
+	if int(e.X)/128 < 12 && int(e.Y)/128 > 25 {
+		dis = 8
+	}
+	return dis
 }
 
 // generateMobs is the per-generator regeneration timer (the GenerateMobs block
@@ -320,8 +449,10 @@ const (
 // mobBattle advances one engaged monster: validate the target, roll the Int
 // hesitation, then attack / back away / chase per the BattleProcessor decision.
 func (d *Dispatcher) mobBattle(w *world.World, id int, e *world.Entity) {
+	selectTargetFromEnemyList(w, e)
 	target := w.Entity(e.Target)
 	if !validTarget(w, e, target) {
+		removeEnemyList(e, e.Target)
 		e.Target = 0
 		e.Mode = world.MobIdle
 		return
@@ -454,11 +585,10 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
 	})
 
-	// Summon fights (mob targets): a pet's kill rewards its OWNER
-	// (MobKilled.cpp:181-190 credits the Summoner); a monster that downs a pet
-	// removes it for good (removeType 1; the Summoner guard in DespawnMob keeps
-	// it out of the respawn queue). A struck-but-alive monster retaliates
-	// against the pet.
+	// Mob targets: a pet's kill rewards its OWNER (MobKilled.cpp:181-190 credits
+	// the Summoner); a monster that downs a pet removes it for good (removeType
+	// 1; the Summoner guard in DespawnMob keeps it out of the respawn queue). Any
+	// struck-but-alive monster records the attacker in its EnemyList.
 	if !world.IsPlayer(target.ID) {
 		if target.HP == 0 {
 			if e.Summoner != 0 {
@@ -470,9 +600,10 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 			} else {
 				w.DespawnMob(target.ID, 1)
 			}
+			removeEnemyList(e, target.ID)
 			e.Target = 0
 			e.Mode = world.MobIdle
-		} else if e.Summoner != 0 && target.Target == 0 {
+		} else {
 			setGroupBattle(w, target.ID, target, e)
 		}
 		return
@@ -483,6 +614,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {
+		removeEnemyList(e, target.ID)
 		e.Target = 0
 		e.Mode = world.MobIdle
 	}

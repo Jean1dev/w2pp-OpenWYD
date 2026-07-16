@@ -95,13 +95,15 @@ type Entity struct {
 	Exp      int64 // STRUCT_MOB.Exp: players accumulate it; for a mob it's the kill reward
 	Coin     int32 // carried gold
 
-	// Mob AI (mobai.go; only meaningful for monsters). Target is the current
-	// combat target's conn (0 = none); AtkTick is the mob's last-attack server
-	// time (cadence); SpawnX/SpawnY is the position the mob (re)spawned at.
-	// Range is the mob's attack reach — the max EF_RANGE over its template's
-	// equips (BASE_GetMobAbility, Basedef.cpp:2415), cached at spawn; 0 means
-	// no ranged gear (the AI falls back to melee adjacency).
+	// Mob AI (mobai.go; only meaningful for monsters). EnemyList is the legacy
+	// CMob.EnemyList[MAX_ENEMY=13]; Target is the currently selected entry
+	// (0 = none). AtkTick is the mob's last-attack server time (cadence);
+	// SpawnX/SpawnY is the position the mob (re)spawned at. Range is the mob's
+	// attack reach — the max EF_RANGE over its template's equips
+	// (BASE_GetMobAbility, Basedef.cpp:2415), cached at spawn; 0 means no ranged
+	// gear (the AI falls back to melee adjacency).
 	Target         int
+	EnemyList      [protocol.MaxTarget]int
 	AtkTick        uint32
 	SpawnX, SpawnY int16
 	Range          int16

@@ -673,7 +673,7 @@ func groupWorld(t *testing.T) (*Dispatcher, *world.World, []int) {
 // TestSetGroupBattleDragsGroup: striking one follower puts the whole spawn
 // group on the attacker — SetBattle (Server.cpp:8013) plus the PartyList
 // propagation (ProcessSecMinTimer.cpp:1882-1929). A member already fighting
-// someone else keeps its target.
+// someone else keeps its selected target but records the new enemy.
 func TestSetGroupBattleDragsGroup(t *testing.T) {
 	_, w, ids := groupWorld(t)
 	leader, f1, f2 := w.Entity(ids[0]), w.Entity(ids[1]), w.Entity(ids[2])
@@ -691,6 +691,9 @@ func TestSetGroupBattleDragsGroup(t *testing.T) {
 	if f2.Target != 7 {
 		t.Fatalf("engaged follower Target = %d, want 7 (kept)", f2.Target)
 	}
+	if !enemyListContains(f2, 3) {
+		t.Fatalf("engaged follower EnemyList = %v, want attacker 3 recorded", f2.EnemyList)
+	}
 
 	// Out of the ±23 drag box nobody joins.
 	leader.Target = 0
@@ -699,6 +702,65 @@ func TestSetGroupBattleDragsGroup(t *testing.T) {
 	if leader.Target != 0 {
 		t.Fatalf("leader dragged from %d tiles away, want no drag", 40)
 	}
+}
+
+func TestEnemyListSelectsNearestAndDropsInvalid(t *testing.T) {
+	_, w, _ := groupWorld(t)
+	seekerID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 10, Y: 10, GenIndex: -1})
+	farID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 14, Y: 10, GenIndex: -1})
+	nearID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 11, Y: 10, GenIndex: -1})
+	seeker := w.Entity(seekerID)
+	far := w.Entity(farID)
+	near := w.Entity(nearID)
+
+	addEnemyList(seeker, far)
+	addEnemyList(seeker, near)
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != nearID {
+		t.Fatalf("selected target = %d, want nearer mob %d", seeker.Target, nearID)
+	}
+
+	near.HP = 0
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != farID {
+		t.Fatalf("selected after death = %d, want remaining mob %d", seeker.Target, farID)
+	}
+	if enemyListContains(seeker, nearID) {
+		t.Fatalf("dead target %d still in EnemyList %v", nearID, seeker.EnemyList)
+	}
+
+	w.SetEntityPos(farID, 40, 40)
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != 0 {
+		t.Fatalf("selected out-of-range target = %d, want 0", seeker.Target)
+	}
+	if enemyListContains(seeker, farID) {
+		t.Fatalf("out-of-range target %d still in EnemyList %v", farID, seeker.EnemyList)
+	}
+}
+
+func TestEnemyListTieSelectsLaterSlot(t *testing.T) {
+	_, w, _ := groupWorld(t)
+	seekerID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 10, Y: 10, GenIndex: -1})
+	firstID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 12, Y: 10, GenIndex: -1})
+	secondID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 10, Y: 12, GenIndex: -1})
+	seeker := w.Entity(seekerID)
+
+	addEnemyList(seeker, w.Entity(firstID))
+	addEnemyList(seeker, w.Entity(secondID))
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != secondID {
+		t.Fatalf("tie selected target = %d, want later slot %d", seeker.Target, secondID)
+	}
+}
+
+func enemyListContains(e *world.Entity, target int) bool {
+	for _, id := range e.EnemyList {
+		if id == target {
+			return true
+		}
+	}
+	return false
 }
 
 // TestFollowerDoesNotSelfAggro (e2e): a hostile FOLLOWER adjacent to the player
