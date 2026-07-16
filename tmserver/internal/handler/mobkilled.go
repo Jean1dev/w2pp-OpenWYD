@@ -63,10 +63,24 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		}
 	}
 
+	sendDieAction(w, mob)
+
 	// Despawn: tell in-view clients the mob died (RemoveMob, type 1 = death) and
 	// free its grid cell + entity slot, so the corpse disappears and it can't be
 	// retargeted. Without this the client keeps rendering the dead mob.
 	w.DespawnMob(mob.ID, 1)
+}
+
+func sendDieAction(w *world.World, mob *world.Entity) {
+	if mob == nil {
+		return
+	}
+	say := w.Rand().Intn(4) // MobKilled.cpp draws DieSay after rewards, before DeleteMob.
+	gen := w.GeneratorAt(int(mob.GenIndex))
+	if gen == nil || mob.Leader != 0 || gen.DieAction[say] == "" {
+		return
+	}
+	sendMobChat(w, mob.ID, gen.DieAction[say])
 }
 
 // grantExp awards solo PvE experience to the killer and applies any resulting

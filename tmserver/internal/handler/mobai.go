@@ -180,6 +180,7 @@ func setBattle(w *world.World, id int, e, target *world.Entity) {
 	}
 	e.Mode = world.MobCombat
 	addEnemyList(e, target)
+	sendFightAction(w, id, e)
 	if targetInWorld {
 		selectTargetFromEnemyList(w, e)
 	} else if e.Target == 0 {
@@ -188,6 +189,28 @@ func setBattle(w *world.World, id int, e, target *world.Entity) {
 		// EnemyList selection above.
 		e.Target = target.ID
 	}
+}
+
+func sendFightAction(w *world.World, id int, e *world.Entity) {
+	if e == nil {
+		return
+	}
+	say := w.Rand().Intn(4) // Server.cpp SetBattle consumes rand()%4 on engage.
+	gen := w.GeneratorAt(int(e.GenIndex))
+	if gen == nil || e.Leader != 0 || gen.FightAction[say] == "" {
+		return
+	}
+	sendMobChat(w, id, gen.FightAction[say])
+}
+
+func sendMobChat(w *world.World, id int, text string) {
+	if text == "" {
+		return
+	}
+	payload := protocol.EncodeMessageChatBody(text)
+	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(id)}, payload)
+	})
 }
 
 func addEnemyList(e, target *world.Entity) {

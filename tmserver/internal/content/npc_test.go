@@ -21,6 +21,10 @@ func TestLoadNPCGenerators(t *testing.T) {
 	Follower:	Arq_Ciclope
 	RouteType:	2
 	Formation:	0
+	FightAction:	Lute
+	FightAction:	Venha
+	FightAction4:	Ultima
+	DieAction2:	Morri
 	StartX:		2635
 	StartY:		1726
 	StartRange:	5
@@ -58,6 +62,12 @@ func TestLoadNPCGenerators(t *testing.T) {
 	}
 	if g.Follower != "Arq_Ciclope" || g.MinuteGenerate != -1 || g.MaxGroup != 7 || g.RouteType != 2 {
 		t.Errorf("gen[0] extras = %+v", g)
+	}
+	if g.FightAction != [4]string{"Lute", "Venha", "", "Ultima"} {
+		t.Errorf("gen[0] FightAction = %#v", g.FightAction)
+	}
+	if g.DieAction != [4]string{"", "Morri", "", ""} {
+		t.Errorf("gen[0] DieAction = %#v", g.DieAction)
 	}
 	if g.SegX[4] != 2625 || g.SegY[4] != 1726 || g.SegRange[4] != 10 || g.SegWait[4] != 10 || g.SegWait[0] != 10 {
 		t.Errorf("gen[0] Dest→Seg[4] mapping = %+v", g)

@@ -352,6 +352,8 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 			SegY:           g.SegY,
 			LeaderTmpl:     leader,
 			FollowerTmpl:   load(g.Follower),
+			FightAction:    g.FightAction,
+			DieAction:      g.DieAction,
 		}
 		for s := 0; s < 5; s++ {
 			wg.SegRange[s] = int16(g.SegRange[s])

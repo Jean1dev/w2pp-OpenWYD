@@ -105,6 +105,104 @@ func startServerMobAISpawns(t *testing.T, persist world.Persistence, gridDim int
 	}
 }
 
+func startServerMobAIGenerator(t *testing.T, persist world.Persistence, gridDim int, gen *world.Generator) (string, func(), []int) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: gridDim, Now: clock.Load}, log, persist, d.Handle)
+	w.RegisterGenerators([]*world.Generator{gen})
+	ids := w.GenerateMob(0)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}, ids
+}
+
+func waitMobChat(t *testing.T, c net.Conn, mobID int, want string) {
+	t.Helper()
+	for i := 0; i < 12; i++ {
+		h, payload, ok := readMaybeHeader(t, c)
+		if !ok {
+			continue
+		}
+		if h.Type != protocol.MsgMessageChat {
+			continue
+		}
+		if int(h.ID) != mobID {
+			t.Fatalf("chat HEADER.ID = %d, want mob %d", h.ID, mobID)
+		}
+		if len(payload) != protocol.MessageLength {
+			t.Fatalf("chat payload length = %d, want %d", len(payload), protocol.MessageLength)
+		}
+		if got := cstr(payload); got != want {
+			t.Fatalf("chat text = %q, want %q", got, want)
+		}
+		return
+	}
+	t.Fatalf("did not receive mob chat %q from %d", want, mobID)
+}
+
+func TestMobFightActionChat(t *testing.T) {
+	tmpl := aggressiveMob()
+	tmpl[16] = 2                                     // friendly: no ambient aggro
+	binary.LittleEndian.PutUint32(tmpl[92+16:], 800) // survive the first player hit
+	binary.LittleEndian.PutUint32(tmpl[92+24:], 800)
+	gen := &world.Generator{
+		MinuteGenerate: -1, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1,
+		SegX: [5]int16{6}, SegY: [5]int16{5},
+		LeaderTmpl:  tmpl,
+		FightAction: [4]string{"Lute!", "Lute!", "Lute!", "Lute!"},
+	}
+	addr, stop, ids := startServerMobAIGenerator(t, combatDB(), 16, gen)
+	defer stop()
+	if len(ids) != 1 {
+		t.Fatalf("generated %d mobs, want 1", len(ids))
+	}
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	attackFrame(t, c, serverTime, ids[0], 0)
+
+	waitMobChat(t, c, ids[0], "Lute!")
+}
+
+func TestMobDieActionChat(t *testing.T) {
+	tmpl := aggressiveMob()
+	tmpl[16] = 2                                   // friendly: no ambient aggro
+	binary.LittleEndian.PutUint32(tmpl[92+16:], 1) // first player hit kills
+	binary.LittleEndian.PutUint32(tmpl[92+24:], 1)
+	gen := &world.Generator{
+		MinuteGenerate: -1, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1,
+		SegX: [5]int16{6}, SegY: [5]int16{5},
+		LeaderTmpl: tmpl,
+		DieAction:  [4]string{"Adeus!", "Adeus!", "Adeus!", "Adeus!"},
+	}
+	addr, stop, ids := startServerMobAIGenerator(t, combatDB(), 16, gen)
+	defer stop()
+	if len(ids) != 1 {
+		t.Fatalf("generated %d mobs, want 1", len(ids))
+	}
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	attackFrame(t, c, serverTime, ids[0], 0)
+
+	waitMobChat(t, c, ids[0], "Adeus!")
+}
+
 // actionFrameAt pins the player at (x,y): _MSG_Action sets the entity position
 // to the body's DESTINATION (TargetX/TargetY, legacy pMob.TargetX semantics).
 func actionFrameAt(t *testing.T, c net.Conn, tick uint32, x, y int16) {
