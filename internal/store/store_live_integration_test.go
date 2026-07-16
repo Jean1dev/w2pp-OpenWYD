@@ -245,3 +245,28 @@ func TestExpRankingOrder(t *testing.T) {
 		t.Fatalf("empty page len=%d total=%d, want len=0 total=5", len(page), total)
 	}
 }
+
+func TestSetBlockedByName(t *testing.T) {
+	s, ctx := freshStore(t)
+	if _, err := s.SaveAccount(ctx, domain.Account{Name: "victim", PassHash: "h"}); err != nil {
+		t.Fatalf("SaveAccount: %v", err)
+	}
+
+	if err := s.SetBlockedByName(ctx, "victim", true); err != nil {
+		t.Fatalf("SetBlockedByName(true): %v", err)
+	}
+	if auth, err := s.AccountByName(ctx, "victim"); err != nil || !auth.IsBlocked {
+		t.Fatalf("after ban: blocked=%v err=%v, want blocked=true", auth.IsBlocked, err)
+	}
+
+	if err := s.SetBlockedByName(ctx, "victim", false); err != nil {
+		t.Fatalf("SetBlockedByName(false): %v", err)
+	}
+	if auth, err := s.AccountByName(ctx, "victim"); err != nil || auth.IsBlocked {
+		t.Fatalf("after unban: blocked=%v err=%v, want blocked=false", auth.IsBlocked, err)
+	}
+
+	if err := s.SetBlockedByName(ctx, "ghost", true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("SetBlockedByName(ghost) = %v, want ErrNotFound", err)
+	}
+}

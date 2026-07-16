@@ -38,6 +38,7 @@ const (
 	AccountService_SaveCargo_FullMethodName               = "/db.v1.AccountService/SaveCargo"
 	AccountService_ListPendingDeliveries_FullMethodName   = "/db.v1.AccountService/ListPendingDeliveries"
 	AccountService_SaveCargoWithDeliveries_FullMethodName = "/db.v1.AccountService/SaveCargoWithDeliveries"
+	AccountService_SetAccountBlocked_FullMethodName       = "/db.v1.AccountService/SetAccountBlocked"
 )
 
 // AccountServiceClient is the client API for AccountService service.
@@ -75,6 +76,12 @@ type AccountServiceClient interface {
 	// marks the drained mailbox rows delivered/lost in the SAME transaction — the
 	// anti-dup boundary for the drain (web-platform-plan.md §mailbox).
 	SaveCargoWithDeliveries(ctx context.Context, in *SaveCargoWithDeliveriesRequest, opts ...grpc.CallOption) (*SaveCargoResponse, error)
+	// SetAccountBlocked flips account.is_blocked by account name — the write side of
+	// the in-game GM ban/unban command (issue #122). Login already rejects blocked
+	// accounts (LOGIN_RESULT_BLOCKED), so a ban denies re-login immediately and an
+	// unban restores it. Administrative-ban ownership may later move to binServer
+	// entitlement (web-platform-plan.md §binServer); until then this is the gate.
+	SetAccountBlocked(ctx context.Context, in *SetAccountBlockedRequest, opts ...grpc.CallOption) (*SetAccountBlockedResponse, error)
 }
 
 type accountServiceClient struct {
@@ -195,6 +202,16 @@ func (c *accountServiceClient) SaveCargoWithDeliveries(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *accountServiceClient) SetAccountBlocked(ctx context.Context, in *SetAccountBlockedRequest, opts ...grpc.CallOption) (*SetAccountBlockedResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAccountBlockedResponse)
+	err := c.cc.Invoke(ctx, AccountService_SetAccountBlocked_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility.
@@ -230,6 +247,12 @@ type AccountServiceServer interface {
 	// marks the drained mailbox rows delivered/lost in the SAME transaction — the
 	// anti-dup boundary for the drain (web-platform-plan.md §mailbox).
 	SaveCargoWithDeliveries(context.Context, *SaveCargoWithDeliveriesRequest) (*SaveCargoResponse, error)
+	// SetAccountBlocked flips account.is_blocked by account name — the write side of
+	// the in-game GM ban/unban command (issue #122). Login already rejects blocked
+	// accounts (LOGIN_RESULT_BLOCKED), so a ban denies re-login immediately and an
+	// unban restores it. Administrative-ban ownership may later move to binServer
+	// entitlement (web-platform-plan.md §binServer); until then this is the gate.
+	SetAccountBlocked(context.Context, *SetAccountBlockedRequest) (*SetAccountBlockedResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -272,6 +295,9 @@ func (UnimplementedAccountServiceServer) ListPendingDeliveries(context.Context, 
 }
 func (UnimplementedAccountServiceServer) SaveCargoWithDeliveries(context.Context, *SaveCargoWithDeliveriesRequest) (*SaveCargoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveCargoWithDeliveries not implemented")
+}
+func (UnimplementedAccountServiceServer) SetAccountBlocked(context.Context, *SetAccountBlockedRequest) (*SetAccountBlockedResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetAccountBlocked not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 func (UnimplementedAccountServiceServer) testEmbeddedByValue()                        {}
@@ -492,6 +518,24 @@ func _AccountService_SaveCargoWithDeliveries_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_SetAccountBlocked_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAccountBlockedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SetAccountBlocked(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SetAccountBlocked_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SetAccountBlocked(ctx, req.(*SetAccountBlockedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -542,6 +586,10 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveCargoWithDeliveries",
 			Handler:    _AccountService_SaveCargoWithDeliveries_Handler,
+		},
+		{
+			MethodName: "SetAccountBlocked",
+			Handler:    _AccountService_SetAccountBlocked_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

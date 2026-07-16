@@ -26,6 +26,30 @@
 > Bônus já implementados (existem na fonte legada, fora da lista acima): `/selados`,
 > `/amagos`, `/agua` (teleportes).
 
+# Comandos de GM / moderação
+
+> Digitados como `/gm <subcomando> <args>` — o cliente envia como sussurro ao alvo
+> `gm` com o resto da linha no corpo (o mesmo truque do `_MSG_MessageWhisper`).
+> Autoridade vem da coluna `account.role` (`moderator`/`admin`), carregada no login
+> — **não** do frágil "Level ≥ 1000" do legado. Comando negado é silencioso. Toda
+> execução é auditada (slog: conta, alvo, args). Implementação: `handler/gm.go`.
+
+✅ /gm kick \<jogador\>: desconecta um jogador online (não derruba GM de nível igual/superior) <br/>
+✅ /gm notice \<texto\> (ou /gm aviso): anúncio global a todos os jogadores <br/>
+✅ /gm goto \<jogador\> (ou /gm ir): teleporta você até o jogador <br/>
+✅ /gm summon \<jogador\> (ou /gm puxar): puxa o jogador até você <br/>
+✅ /gm spawn \<id\>: cria uma criatura de teste (índice do roster de summons) na sua posição <br/>
+✅ /gm item \<id\>: coloca um item (por índice) no seu inventário <br/>
+✅ /gm setlevel \<n\>: sobe o seu nível para n (apenas sobe — não rebaixa) <br/>
+✅ /gm setgold \<n\>: define o seu ouro carregado <br/>
+✅ /gm ban \<jogador|conta\>: bloqueia a conta (via `account.is_blocked`) e derruba se online <br/>
+✅ /gm unban \<jogador|conta\>: remove o bloqueio da conta <br/>
+
+> `notice` sai como linha de chat prefixada `[GM]` (o pacote de aviso dedicado é
+> UNVERIFIED até uma captura). `ban`/`unban` gravam em `account.is_blocked` — o login
+> já rejeita contas bloqueadas; a migração do ban administrativo para o binServer
+> (entitlement) fica para uma issue futura (`web-platform-plan.md §binServer`).
+
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
 

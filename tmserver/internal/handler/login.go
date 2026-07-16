@@ -79,7 +79,8 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	case world.LoginOK:
 		delete(d.fails, s.AccountName)
 		s.AccountID = out.AccountID
-		d.log.Info("account login: OK", "conn", s.Conn, "account", s.AccountName, "id", out.AccountID, "chars", len(out.Characters))
+		s.AccessLevel = world.ParseAccess(out.Role) // GM/moderation privilege (issue #122)
+		d.log.Info("account login: OK", "conn", s.Conn, "account", s.AccountName, "id", out.AccountID, "role", s.AccessLevel, "chars", len(out.Characters))
 		// Install the account-shared cargo, loaded in the same backend round-trip.
 		// It lives for the whole account session and is released on disconnect.
 		cargo := out.Cargo
