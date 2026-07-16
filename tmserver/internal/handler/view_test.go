@@ -213,6 +213,57 @@ func TestMoveViewDelta(t *testing.T) {
 	}
 }
 
+func TestPlayersCrossingViewOnMovement(t *testing.T) {
+	addr, stop := startServerView(t, viewDeltaDB(), 64)
+	defer stop()
+
+	a := enterWorld(t, addr) // conn 1 at (5,5)
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb") // conn 2 at (5,45)
+	defer b.Close()
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	// A walks to the edge of B's view. Both clients must learn the other player
+	// before any movement frame is animated.
+	actionFrameXY(t, a, protocol.MsgAction, serverTime, 5, 5, 5, 29)
+
+	ty, payload, ok := readMaybeRaw(t, b)
+	if !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("B frame 1 = %#x ok=%v, want CreateMob(A)", ty, ok)
+	}
+	if x, y, id := createMobFields(t, payload); id != 1 || x != 5 || y != 29 {
+		t.Fatalf("B sees A = id %d at (%d,%d), want id 1 at (5,29)", id, x, y)
+	}
+	if ty, _, ok = readMaybeRaw(t, b); !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("B frame 2 = %#x ok=%v, want PKInfo(A)", ty, ok)
+	}
+	if ty, _, ok = readMaybeRaw(t, b); !ok || ty != protocol.MsgAction {
+		t.Fatalf("B frame 3 = %#x ok=%v, want A movement", ty, ok)
+	}
+
+	ty, payload, ok = readMaybeRaw(t, a)
+	if !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("A frame 1 = %#x ok=%v, want CreateMob(B)", ty, ok)
+	}
+	if x, y, id := createMobFields(t, payload); id != 2 || x != 5 || y != 45 {
+		t.Fatalf("A sees B = id %d at (%d,%d), want id 2 at (5,45)", id, x, y)
+	}
+	if ty, _, ok = readMaybeRaw(t, a); !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("A frame 2 = %#x ok=%v, want PKInfo(B)", ty, ok)
+	}
+
+	// B then moves through the already-established view. A should get only the
+	// movement frame, not a duplicate CreateMob.
+	actionFrameXY(t, b, protocol.MsgAction, serverTime+1000, 5, 45, 5, 21)
+	if ty, _, ok = readMaybeRaw(t, a); !ok || ty != protocol.MsgAction {
+		t.Fatalf("A crossing frame = %#x ok=%v, want B movement only", ty, ok)
+	}
+	if ty, _, ok = readMaybeRaw(t, a); ok {
+		t.Fatalf("A got extra frame %#x after in-view crossing, want no duplicate", ty)
+	}
+}
+
 // readMaybeHeaderRaw is readMaybeRaw with the full header, for RemoveMob asserts
 // (HEADER.ID is the removed entity).
 func readMaybeHeaderRaw(t *testing.T, c net.Conn) (protocol.Header, []byte, bool) {
