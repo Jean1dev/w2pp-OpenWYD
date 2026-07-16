@@ -218,6 +218,9 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgDropItem] = d.dropItem
 	d.routes[protocol.MsgGetItem] = d.getItem
 	d.routes[protocol.MsgUseItem] = d.useItem
+	d.routes[protocol.MsgDeleteItem] = d.deleteItem
+	d.routes[protocol.MsgSplitItem] = d.splitItem
+	d.routes[protocol.MsgUpdateItem] = d.updateItem
 	// NPC shop.
 	d.routes[protocol.MsgREQShopList] = d.reqShopList
 	d.routes[protocol.MsgBuy] = d.buy

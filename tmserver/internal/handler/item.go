@@ -105,7 +105,7 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 	}
 
 	gi := w.GroundItem(id)
-	if gi == nil || gi.Mode == 0 {
+	if gi == nil || gi.Mode == 0 || gi.Static {
 		w.Send(s, protocol.MsgDecayItem, uint32Payload(uint32(body.ItemID)))
 		return
 	}
@@ -122,6 +122,115 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 	}
 	w.RemoveGroundItem(id) // atomic claim point
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
+}
+
+// deleteItem handles _MSG_DeleteItem (0x02E4, Basedef.h:2371): destroy a carry
+// item. Like _MSG_DropItem, moving an item mid-trade cancels the trade instead of
+// deleting (the anti-dup path). The legacy clears the slot unconditionally after
+// the slot/mode guards and sends no S→C confirm; we additionally push a clearing
+// MsgSendItem so the client and server never disagree on the slot. The removal
+// persists on the next periodic/logout save (parity: no immediate write). NPC shop
+// is a stateless request/response, so there is no "shop open" state to guard.
+func (d *Dispatcher) deleteItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+		w.AddCrackError(s, 1, 15)
+		return
+	}
+	if s.Trade.Active {
+		d.removeTrade(w, s) // deleting mid-trade cancels it (anti-dup)
+		return
+	}
+	var body protocol.MsgDeleteItemBody
+	if err := body.Decode(payload); err != nil {
+		return
+	}
+	slot := int(body.Slot)
+	if slot < 0 || slot >= world.MaxCarry-4 { // last 4 carry cells reserved
+		return
+	}
+	if e.Carry[slot].Empty() {
+		return
+	}
+	idx := e.Carry[slot].Index
+	e.Carry[slot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+	d.log.Info("item deleted", "conn", s.Conn, "slot", slot, "index", idx)
+}
+
+// isSplittable reports whether an item may be divided by _MSG_SplitItem
+// (_MSG_SplitItem.cpp:45-52): a fixed set of currency/stackable specials plus the
+// 2390..2419 range (dusts Vol 4/5 — the hot case, feeds refino, issue #103).
+func isSplittable(index int16) bool {
+	switch index {
+	case 412, 413, 414, 416, 419, 420:
+		return true
+	}
+	return index >= 2390 && index <= 2419
+}
+
+// setItemAmount writes n into the item's EF_AMOUNT effect slot (mirrors
+// BASE_SetItemAmount): reuse an existing EF_AMOUNT effect, else claim the first
+// empty effect slot. It is the inverse of itemAmount/consumeOneItem.
+func setItemAmount(it *world.Item, n int) {
+	for i := range it.Effects {
+		if it.Effects[i].Effect == efAmount {
+			it.Effects[i].Value = uint8(n)
+			return
+		}
+	}
+	for i := range it.Effects {
+		if it.Effects[i].Effect == 0 {
+			it.Effects[i].Effect = efAmount
+			it.Effects[i].Value = uint8(n)
+			return
+		}
+	}
+}
+
+// splitItem handles _MSG_SplitItem (0x02E5, Basedef.h:2381): peel Num units off the
+// stack in carry Slot into a fresh stack. Only whitelisted stackables split; the
+// source must hold more than Num (never split a single item or the whole stack) and
+// there must be a free carry cell for the new stack. Deferred persistence (parity).
+func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+		w.AddCrackError(s, 1, 17)
+		return
+	}
+	if s.Trade.Active {
+		d.removeTrade(w, s) // splitting mid-trade cancels it (anti-dup)
+		return
+	}
+	var body protocol.MsgSplitItemBody
+	if err := body.Decode(payload); err != nil {
+		return
+	}
+	slot := int(body.Slot)
+	num := int(body.Num)
+	if slot < 0 || slot >= world.MaxCarry-4 {
+		return
+	}
+	if num <= 0 || num >= 120 {
+		return
+	}
+	src := &e.Carry[slot]
+	if src.Empty() || !isSplittable(src.Index) {
+		return
+	}
+	amount := itemAmount(*src)
+	if amount <= 1 || amount <= num { // can't split a single item or peel the whole stack
+		return
+	}
+	nItem := *src
+	setItemAmount(&nItem, num)
+	dst := w.AddToCarry(e, nItem)
+	if dst < 0 {
+		return // no free cell — leave the stack whole
+	}
+	setItemAmount(src, amount-num)
+	d.sendSlot(w, s, world.ItemPlaceCarry, dst, e.Carry[dst])
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, *src)
 }
 
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
@@ -198,6 +307,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 }
 
 const efAmount = 61
+
+// efKeyID is EF_KEYID (ItemEffect.h:96): a gate and its matching key both carry it;
+// a locked gate opens only when a carried item's EF_KEYID equals the gate's (gate.go).
+const efKeyID = 39
 
 func itemAmount(it world.Item) int {
 	for _, ef := range it.Effects {

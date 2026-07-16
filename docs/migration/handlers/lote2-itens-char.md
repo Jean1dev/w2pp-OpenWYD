@@ -25,6 +25,9 @@
 - **Efeitos:** loga o item (`BASE_GetItemCode` + `ItemLog`) e **zera** `Carry[Slot]`.
 - **Risco:** não confere `sIndex` contra o item realmente no slot antes de apagar — confiar só no
   `Slot`. Na migração, validar que `Carry[Slot].sIndex == m->sIndex` antes de destruir.
+- **Status Go (issue #120): ✅** `handler.deleteItem` (`item.go`), rota em `dispatch.go`. Guarda de
+  trade abre mão do delete (cancela o trade, anti-dup); envia um `MsgSendItem` limpando o slot
+  (o legado não envia nada) e persiste no save periódico. Loja NPC é stateless (sem guarda).
 
 ## `_MSG_SplitItem` (0x02E5) — dividir stack
 - **Gatilho/struct:** `MSG_SplitItem` (`Slot`, `Num`).
@@ -35,6 +38,9 @@
   unidades (`PutItem`); `SendItem` do slot. Loga.
 - **Risco:** quantidade num campo de efeito do item (`BASE_GetItemAmount`); preservar a whitelist e os
   limites (anti-dup de stack).
+- **Status Go (issue #120): ✅** `handler.splitItem` + `setItemAmount`/`isSplittable` (`item.go`).
+  Whitelist {412,413,414,416,419,420, 2390–2419}; `EF_AMOUNT` (61) guarda a quantidade; coloca o novo
+  stack via `AddToCarry` e envia dois `MsgSendItem`. Sem slot livre → mantém o stack inteiro.
 
 ## `_MSG_UpdateItem` (0x0374) — abrir portões/baús/estado de item no mundo
 - **Gatilho/struct:** `MSG_UpdateItem` (`ItemID`, `State`).
@@ -45,6 +51,16 @@
   `UpdateItem(gateid, STATE_OPEN)` + `GridMulticast`. Loga "opengate".
 - **Risco:** lógica de chave/quest acoplada a `EF_KEYID`/`EF_QUEST`; portões de castelo dependem de
   estado de evento (Fase 6). Item-índice especial `773` (sem msg de "no key").
+- **Status Go (issue #120): ✅ parcial.** `handler.updateItem` (`gate.go`), rota em `dispatch.go`.
+  Portões vêm de `TMsrv/run/InitItem.csv` (`content.LoadInitItems` → `World.SeedWorldItem`, id em
+  ordem de arquivo = ordem legada de `CreateItem`); são `GroundItem` com `State`/`Static` (não
+  pegáveis). Fluxo: chave por `EF_KEYID` (39), consome + `MsgSendItem`, `State=STATE_OPEN`, eco
+  `MsgUpdateItem` para quem está na view (`ForEachInViewAt`). Como no legado, um portão semeado nasce
+  aberto e sem chave — o caminho de chave só é alcançável quando um sistema o tranca.
+  **Adiado (documentado, não implementado):** portões de castelo (`CCastleZakum::OpenCastleGate`,
+  precisa de estado de castelo/RvR) e o re-lock periódico (`ProcessSecMinTimer`) / comandos GM de
+  travar (`imple.cpp`). A correspondência wire↔cliente do id de portão é **UNVERIFIED** (precisa de
+  captura); ids seguem a ordem de `InitItem.csv` para casar com a sequência de `CreateItem`.
 
 ## `_MSG_PutoutSeal` (0x03CC) — retirar selo / "out capsule"
 - **Gatilho/struct:** `MSG_PutoutSeal` (`SourType/SourPos`, `DestType/DestPos`, `GridX/Y`, `WarpID`,

@@ -28,6 +28,12 @@ service AccountService {
   rpc CreateArchCharacter(CreateArchCharacterRequest) returns (CreateArchCharacterResponse);
   // DeleteCharacter deletes a character after password confirmation.
   rpc DeleteCharacter(DeleteCharacterRequest) returns (DeleteCharacterResponse);
+  // SetPin sets (or changes) the account's numeric PIN, stored as an argon2id
+  // hash — never plaintext (legacy _MSG_AccountSecure change path).
+  rpc SetPin(SetPinRequest) returns (SetPinResponse);
+  // VerifyPin checks a numeric PIN against the stored hash (legacy
+  // _MSG_AccountSecure verify path); NOT_SET means the account has no PIN yet.
+  rpc VerifyPin(VerifyPinRequest) returns (VerifyPinResponse);
   // LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
   // is owned by the account, not a single character (all 4 chars share it).
   rpc LoadCargo(LoadCargoRequest) returns (LoadCargoResponse);
@@ -190,6 +196,27 @@ message DeleteCharacterRequest {
   string password = 3;
 }
 message DeleteCharacterResponse { bool ok = 1; }
+
+// PinResult mirrors LoginResult for the numeric-PIN (AccountSecure) check.
+enum PinResult {
+  PIN_RESULT_UNSPECIFIED = 0;
+  PIN_RESULT_OK = 1;         // PIN matches the stored hash
+  PIN_RESULT_NO_ACCOUNT = 2; // no such account
+  PIN_RESULT_NOT_SET = 3;    // account has no PIN yet (first-time set)
+  PIN_RESULT_BAD_PIN = 4;    // PIN does not match
+}
+
+message SetPinRequest {
+  int64 account_id = 1;
+  string pin = 2; // hashed with argon2id server-side; never stored in plaintext
+}
+message SetPinResponse { bool ok = 1; }
+
+message VerifyPinRequest {
+  int64 account_id = 1;
+  string pin = 2;
+}
+message VerifyPinResponse { PinResult result = 1; }
 
 // Cargo is the account-shared warehouse (domain.Account.CargoCoin + Cargo). It is
 // keyed by account_id (NOT character) because all of an account's characters

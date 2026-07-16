@@ -34,6 +34,8 @@ const (
 	AccountService_CreateCharacter_FullMethodName         = "/db.v1.AccountService/CreateCharacter"
 	AccountService_CreateArchCharacter_FullMethodName     = "/db.v1.AccountService/CreateArchCharacter"
 	AccountService_DeleteCharacter_FullMethodName         = "/db.v1.AccountService/DeleteCharacter"
+	AccountService_SetPin_FullMethodName                  = "/db.v1.AccountService/SetPin"
+	AccountService_VerifyPin_FullMethodName               = "/db.v1.AccountService/VerifyPin"
 	AccountService_LoadCargo_FullMethodName               = "/db.v1.AccountService/LoadCargo"
 	AccountService_SaveCargo_FullMethodName               = "/db.v1.AccountService/SaveCargo"
 	AccountService_ListPendingDeliveries_FullMethodName   = "/db.v1.AccountService/ListPendingDeliveries"
@@ -61,6 +63,12 @@ type AccountServiceClient interface {
 	CreateArchCharacter(ctx context.Context, in *CreateArchCharacterRequest, opts ...grpc.CallOption) (*CreateArchCharacterResponse, error)
 	// DeleteCharacter deletes a character after password confirmation.
 	DeleteCharacter(ctx context.Context, in *DeleteCharacterRequest, opts ...grpc.CallOption) (*DeleteCharacterResponse, error)
+	// SetPin sets (or changes) the account's numeric PIN, stored as an argon2id
+	// hash — never plaintext (legacy _MSG_AccountSecure change path).
+	SetPin(ctx context.Context, in *SetPinRequest, opts ...grpc.CallOption) (*SetPinResponse, error)
+	// VerifyPin checks a numeric PIN against the stored hash (legacy
+	// _MSG_AccountSecure verify path); NOT_SET means the account has no PIN yet.
+	VerifyPin(ctx context.Context, in *VerifyPinRequest, opts ...grpc.CallOption) (*VerifyPinResponse, error)
 	// LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
 	// is owned by the account, not a single character (all 4 chars share it).
 	LoadCargo(ctx context.Context, in *LoadCargoRequest, opts ...grpc.CallOption) (*LoadCargoResponse, error)
@@ -155,6 +163,26 @@ func (c *accountServiceClient) DeleteCharacter(ctx context.Context, in *DeleteCh
 	return out, nil
 }
 
+func (c *accountServiceClient) SetPin(ctx context.Context, in *SetPinRequest, opts ...grpc.CallOption) (*SetPinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetPinResponse)
+	err := c.cc.Invoke(ctx, AccountService_SetPin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) VerifyPin(ctx context.Context, in *VerifyPinRequest, opts ...grpc.CallOption) (*VerifyPinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyPinResponse)
+	err := c.cc.Invoke(ctx, AccountService_VerifyPin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountServiceClient) LoadCargo(ctx context.Context, in *LoadCargoRequest, opts ...grpc.CallOption) (*LoadCargoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LoadCargoResponse)
@@ -216,6 +244,12 @@ type AccountServiceServer interface {
 	CreateArchCharacter(context.Context, *CreateArchCharacterRequest) (*CreateArchCharacterResponse, error)
 	// DeleteCharacter deletes a character after password confirmation.
 	DeleteCharacter(context.Context, *DeleteCharacterRequest) (*DeleteCharacterResponse, error)
+	// SetPin sets (or changes) the account's numeric PIN, stored as an argon2id
+	// hash — never plaintext (legacy _MSG_AccountSecure change path).
+	SetPin(context.Context, *SetPinRequest) (*SetPinResponse, error)
+	// VerifyPin checks a numeric PIN against the stored hash (legacy
+	// _MSG_AccountSecure verify path); NOT_SET means the account has no PIN yet.
+	VerifyPin(context.Context, *VerifyPinRequest) (*VerifyPinResponse, error)
 	// LoadCargo loads the account-shared cargo (warehouse) gold + items. The cargo
 	// is owned by the account, not a single character (all 4 chars share it).
 	LoadCargo(context.Context, *LoadCargoRequest) (*LoadCargoResponse, error)
@@ -260,6 +294,12 @@ func (UnimplementedAccountServiceServer) CreateArchCharacter(context.Context, *C
 }
 func (UnimplementedAccountServiceServer) DeleteCharacter(context.Context, *DeleteCharacterRequest) (*DeleteCharacterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteCharacter not implemented")
+}
+func (UnimplementedAccountServiceServer) SetPin(context.Context, *SetPinRequest) (*SetPinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetPin not implemented")
+}
+func (UnimplementedAccountServiceServer) VerifyPin(context.Context, *VerifyPinRequest) (*VerifyPinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyPin not implemented")
 }
 func (UnimplementedAccountServiceServer) LoadCargo(context.Context, *LoadCargoRequest) (*LoadCargoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method LoadCargo not implemented")
@@ -420,6 +460,42 @@ func _AccountService_DeleteCharacter_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_SetPin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SetPin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SetPin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SetPin(ctx, req.(*SetPinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_VerifyPin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyPinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).VerifyPin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_VerifyPin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).VerifyPin(ctx, req.(*VerifyPinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountService_LoadCargo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LoadCargoRequest)
 	if err := dec(in); err != nil {
@@ -526,6 +602,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteCharacter",
 			Handler:    _AccountService_DeleteCharacter_Handler,
+		},
+		{
+			MethodName: "SetPin",
+			Handler:    _AccountService_SetPin_Handler,
+		},
+		{
+			MethodName: "VerifyPin",
+			Handler:    _AccountService_VerifyPin_Handler,
 		},
 		{
 			MethodName: "LoadCargo",

@@ -28,14 +28,29 @@ const (
 	ItemPlaceCargo = 2
 )
 
+// Gate states for a Static world object (GroundItem.State), Basedef.h:2209/2211. A
+// seeded gate starts StateOpen (parity with CreateItem, Server.cpp:8075). Untyped so
+// they assign to both the int16 GroundItem.State and the int32 wire State field.
+const (
+	StateOpen   = 1
+	StateLocked = 3
+)
+
 // GroundItem is an item lying on the floor (CItem / pItem[], domain-model.md
 // §2.3): contents, position and a presence flag. Mode==0 means a free slot.
+//
+// The same id space also holds static world objects (gates/doors from
+// InitItem.csv): State carries their gate state (see gate.go) and Static marks
+// them so the pickup/decay paths leave them alone. For a dropped item State is 0
+// and Static is false.
 type GroundItem struct {
-	ID   int
-	Item Item
-	X    int16
-	Y    int16
-	Mode int
+	ID     int
+	Item   Item
+	X      int16
+	Y      int16
+	Mode   int
+	State  int16 // gate state for Static world objects (STATE_OPEN/STATE_LOCKED); 0 for dropped items
+	Static bool  // true for boot-seeded gates/doors: never picked up or decayed
 }
 
 // CreateGroundItem places item on the floor at (x,y) and indexes it in the
@@ -46,6 +61,22 @@ func (w *World) CreateGroundItem(item Item, x, y int16) int {
 		if w.ground[id] == nil {
 			w.ground[id] = &GroundItem{ID: id, Item: item, X: x, Y: y, Mode: 1}
 			w.grid.SetItem(int(x), int(y), uint16(id))
+			return id
+		}
+	}
+	return -1
+}
+
+// SeedWorldItem places a static world object (a gate/door from InitItem.csv) into
+// the ground id space at (x,y) with an initial gate state, returning its id or -1
+// when the table is full. Unlike CreateGroundItem it does not index the spatial
+// grid — gates are looked up by id, not position, and must not shadow a droppable
+// cell. It must run at boot (before Serve, single-threaded) so ids are assigned in
+// file order and line up with the legacy CreateItem sequence the client expects.
+func (w *World) SeedWorldItem(item Item, x, y, state int16) int {
+	for id := 1; id < MaxItem; id++ {
+		if w.ground[id] == nil {
+			w.ground[id] = &GroundItem{ID: id, Item: item, X: x, Y: y, Mode: 1, State: state, Static: true}
 			return id
 		}
 	}

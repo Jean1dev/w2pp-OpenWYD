@@ -59,6 +59,34 @@ func (s *Store) AccountAuthByID(ctx context.Context, id int64) (AccountAuth, err
 	return a, nil
 }
 
+// PinHashByID returns the account's stored argon2id PIN hash. An empty string
+// means no PIN has been set yet (the column default). Returns ErrNotFound when the
+// account does not exist.
+func (s *Store) PinHashByID(ctx context.Context, id int64) (string, error) {
+	var hash string
+	err := s.pool.QueryRow(ctx, `SELECT pin_hash FROM account WHERE id = $1`, id).Scan(&hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("store: pin hash by id %d: %w", id, err)
+	}
+	return hash, nil
+}
+
+// SetPinHash stores the account's argon2id PIN hash (the numeric PIN is hashed by
+// the caller; store never sees plaintext). Returns ErrNotFound if no such account.
+func (s *Store) SetPinHash(ctx context.Context, id int64, hash string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE account SET pin_hash = $2 WHERE id = $1`, id, hash)
+	if err != nil {
+		return fmt.Errorf("store: set pin hash for id %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ListCharacters returns the character-selection projection (slot, name, class,
 // level, exp, guild) for an account, ordered by slot.
 func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error) {

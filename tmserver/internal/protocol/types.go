@@ -52,6 +52,9 @@ const (
 	MsgDropItem            Type = 0x0272 // 626
 	MsgGetItem             Type = 0x0270 // 624
 	MsgUseItem             Type = 0x0373 // 883
+	MsgDeleteItem          Type = 0x02E4 // 228  destroy a carry item (_MSG_DeleteItem)
+	MsgSplitItem           Type = 0x02E5 // 229  split a stack (_MSG_SplitItem)
+	MsgUpdateItem          Type = 0x0374 // 116  C↔S gate/door open (_MSG_UpdateItem)
 	MsgSendAffect          Type = 0x03B9 // 953  buff/debuff snapshot (STRUCT_AFFECT[32])
 	MsgTradingItem         Type = 0x0376 // 886
 	MsgTrade               Type = 0x0383 // 899
@@ -103,6 +106,7 @@ const (
 	MsgPKInfo             Type = 0x0166 // 358  S→C PK/war state of a player (MSG_STANDARDPARM, Basedef.h:1954)
 	MsgPKMode             Type = 0x0399 // 921  C→S PlayerKiller toggle (K key; MSG_STANDARDPARM, Basedef.h:2164)
 	MsgSendItem           Type = 0x0182 // 386  update one slot
+	MsgAccountSecureFail  Type = 0x0FDF // 4063 S→C PIN rejected (_MSG_AccountSecureFail)
 	MsgCNFAddParty        Type = 0x037D // 893  S→C party-list slot sync (MSG_CNFAddParty)
 	MsgUpdateEquip        Type = 0x036B // 875  S→C refresh visible equipment (_MSG_UpdateEquip, Basedef.h:2094)
 	MsgREQShopList        Type = 0x027B // 635  C→S open NPC shop (Target=NPC)

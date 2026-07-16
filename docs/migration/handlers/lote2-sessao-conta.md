@@ -14,6 +14,15 @@
 - **Saídas:** nenhuma direta ao cliente; resposta vem do DBSrv.
 - **Riscos (migração):** PIN trafega/compara em **texto plano** (Fase 2 §1.3) → hash/HMAC na stack
   nova. É um simples relay; no novo `dbServer` vira uma chamada gRPC tipada.
+- **Status Go (issue #120): ✅** RPC `SetPin`/`VerifyPin` no `dbServer` (`api/db/v1`), hash
+  **argon2id** reusando `internal/secret` na coluna `account.pin_hash` (já existia). `handler.accountSecure`
+  (`misc.go`) decodifica `MSG_AccountSecure`, valida fora do loop via `World.Go` com `s.AccountID`:
+  `ChangeNumeric==1` → set/troca; verify → `PinNotSet` faz o set de primeira vez (paridade
+  `NumericToken[0]==-1`), `PinOK` libera, `PinBadPin` recusa. Sucesso ⇒ `MsgAccountSecure`
+  (ID=ESCENE_FIELD); falha ⇒ `MsgAccountSecureFail`. Sem `dbServer` degrada para allow-all (como o
+  billing) e **nunca** loga o PIN. O gate real é o próprio fluxo do cliente (tela do PIN antes do
+  select); não amarramos o estado verificado em criar/logar/deletar char (isso seria paridade total,
+  fora do escopo desta issue).
 
 ## `_MSG_DeleteCharacter` (0x0211) — deletar personagem
 - **Gatilho/struct:** `MSG_DeleteCharacter` (`Slot`, `MobName[16]`, `Password[12]`).

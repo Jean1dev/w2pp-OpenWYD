@@ -137,6 +137,37 @@ func (c *Client) DeleteCharacter(ctx context.Context, accountID int64, slot int,
 	return resp.GetOk(), nil
 }
 
+// SetPin sets/changes the account's numeric PIN (hashed argon2id on the dbServer).
+func (c *Client) SetPin(ctx context.Context, accountID int64, pin string) (bool, error) {
+	resp, err := c.api.SetPin(ctx, &dbv1.SetPinRequest{AccountId: accountID, Pin: pin})
+	if err != nil {
+		return false, fmt.Errorf("dbclient: set pin: %w", err)
+	}
+	return resp.GetOk(), nil
+}
+
+// VerifyPin checks a numeric PIN against the account's stored hash.
+func (c *Client) VerifyPin(ctx context.Context, accountID int64, pin string) (world.PinResult, error) {
+	resp, err := c.api.VerifyPin(ctx, &dbv1.VerifyPinRequest{AccountId: accountID, Pin: pin})
+	if err != nil {
+		return world.PinNoAccount, fmt.Errorf("dbclient: verify pin: %w", err)
+	}
+	return pinResultFromProto(resp.GetResult()), nil
+}
+
+func pinResultFromProto(r dbv1.PinResult) world.PinResult {
+	switch r {
+	case dbv1.PinResult_PIN_RESULT_OK:
+		return world.PinOK
+	case dbv1.PinResult_PIN_RESULT_NOT_SET:
+		return world.PinNotSet
+	case dbv1.PinResult_PIN_RESULT_BAD_PIN:
+		return world.PinBadPin
+	default:
+		return world.PinNoAccount
+	}
+}
+
 // LoadCharacter loads a character's state for world injection.
 func (c *Client) LoadCharacter(ctx context.Context, accountID int64, slot int) (world.CharacterState, error) {
 	resp, err := c.api.LoadCharacter(ctx, &dbv1.LoadCharacterRequest{

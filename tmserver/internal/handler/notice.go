@@ -48,6 +48,8 @@ const (
 	NoticeIncuWaitMore   // _NN_Incu_Wait_More (261): the egg's incubation timer
 
 	NoticeNoEmptySlot // _NN_NoEmptySlot
+
+	NoticeNoKey // _NN_No_Key: a locked gate needs a key the player doesn't hold
 )
 
 // notify sends a client notification.
