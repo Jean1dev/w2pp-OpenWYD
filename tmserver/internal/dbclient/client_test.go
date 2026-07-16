@@ -28,6 +28,7 @@ type fakeAPI struct {
 
 	deliveriesResp       *dbv1.ListPendingDeliveriesResponse
 	savedCargoDeliveries *dbv1.SaveCargoWithDeliveriesRequest
+	blockedReq           *dbv1.SetAccountBlockedRequest
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {
@@ -73,6 +74,10 @@ func (f *fakeAPI) SaveCargoWithDeliveries(_ context.Context, req *dbv1.SaveCargo
 	f.savedCargoDeliveries = req
 	return &dbv1.SaveCargoResponse{Ok: true}, nil
 }
+func (f *fakeAPI) SetAccountBlocked(_ context.Context, req *dbv1.SetAccountBlockedRequest, _ ...grpc.CallOption) (*dbv1.SetAccountBlockedResponse, error) {
+	f.blockedReq = req
+	return &dbv1.SetAccountBlockedResponse{Ok: true}, nil
+}
 
 func newClient(api dbv1.AccountServiceClient) *Client { return &Client{api: api} }
 
@@ -103,6 +108,30 @@ func TestAccountLoginMapping(t *testing.T) {
 	// Cargo is fetched in the same login round-trip and mapped positionally.
 	if out.Cargo.AccountID != 1 || out.Cargo.Coin != 4200 || out.Cargo.Items[2].Index != 999 {
 		t.Fatalf("cargo not loaded on login: %+v", out.Cargo)
+	}
+}
+
+func TestAccountLoginRoleMapped(t *testing.T) {
+	api := &fakeAPI{
+		loginResp: &dbv1.AccountLoginResponse{Result: dbv1.LoginResult_LOGIN_RESULT_OK, AccountId: 1, Role: "moderator"},
+		listResp:  &dbv1.ListCharactersResponse{},
+	}
+	out, err := newClient(api).AccountLogin(context.Background(), "mod", "pw")
+	if err != nil {
+		t.Fatalf("AccountLogin: %v", err)
+	}
+	if out.Role != "moderator" {
+		t.Fatalf("role = %q, want moderator", out.Role)
+	}
+}
+
+func TestSetAccountBlocked(t *testing.T) {
+	api := &fakeAPI{}
+	if err := newClient(api).SetAccountBlocked(context.Background(), "victim", true); err != nil {
+		t.Fatalf("SetAccountBlocked: %v", err)
+	}
+	if api.blockedReq == nil || api.blockedReq.GetAccountName() != "victim" || !api.blockedReq.GetBlocked() {
+		t.Fatalf("request not forwarded: %+v", api.blockedReq)
 	}
 }
 

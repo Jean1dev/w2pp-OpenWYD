@@ -47,7 +47,7 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 		return
 	}
 	name := cstr(body.MobName[:])
-	if d.runCommand(w, s, name) {
+	if d.runCommand(w, s, name, body.String) {
 		return // a slash command (the client sends "/x" as a whisper to "x")
 	}
 	target, _ := w.SessionByName(name)
@@ -81,7 +81,7 @@ var teleportCmds = map[string][2]int16{
 // UNVERIFIED / deferred: the unlock/quest/guild commands (destravar40/90, arcana,
 // create/sair/guild, crias) depend on the Arch/Celestial, quest and guild systems that
 // are not modeled yet, so they are not handled here.
-func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string) bool {
+func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, args []byte) bool {
 	cmd := strings.TrimPrefix(name, "/")
 	if dest, ok := teleportCmds[cmd]; ok {
 		if e := w.Entity(s.Conn); e != nil {
@@ -95,6 +95,12 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string) b
 	}
 	if cmd == "sair" || cmd == "abandonar" {
 		d.leaveGuild(w, s)
+		return true
+	}
+	if cmd == "gm" {
+		// GM/moderation command bus (issue #122). args is the whisper's String — the
+		// rest of the typed line (e.g. "/gm kick foo" → args = "kick foo").
+		d.runGMCommand(w, s, args)
 		return true
 	}
 	return false
