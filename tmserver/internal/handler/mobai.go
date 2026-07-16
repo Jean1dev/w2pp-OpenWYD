@@ -19,10 +19,10 @@ const (
 	kefraBossRange   = 25   // CMob.cpp BattleProcessor: KEFRA_BOSS ignores EF_RANGE
 	mobAttackCadence = 1000 // ms between a mob's attacks (≈ the player 800ms guard)
 	// wakeRadius gates the per-tick aggro scan: an idle mob with no player within
-	// this Chebyshev distance skips FindEnemyFromView entirely. It must cover the
-	// widest aggro window (clan 7/8 scan [x-6, x+10) → offset 9); 12 leaves margin.
-	// Pure optimization — the original processed every mob each cycle.
-	wakeRadius = 12
+	// this Chebyshev distance skips FindEnemyFromView entirely. It is ViewRange
+	// rather than the player-aggro window so visible guard-vs-mob encounters still
+	// start when the watcher is near the edge of the scene.
+	wakeRadius = world.ViewRange
 	// roamRadius gates roaming the same way, but must exceed ViewRange (16) so a
 	// player never watches a frozen patrol: mobs start walking just beyond what
 	// the client can see. Same divergence class as wakeRadius.
@@ -60,6 +60,11 @@ func (d *Dispatcher) Tick(w *world.World) {
 			d.summonTick(w, id, e) // summoned pets follow their own AI (summon.go)
 			return
 		}
+		if e.Target == 0 && hasEnemyList(e) {
+			e.Mode = world.MobCombat
+			d.mobBattle(w, id, e)
+			return
+		}
 		if e.Target == 0 {
 			if !d.playerNear(e.X, e.Y, roamRadius) {
 				return // dormant: nobody close enough to see or be aggroed
@@ -72,7 +77,8 @@ func (d *Dispatcher) Tick(w *world.World) {
 			// the group drag (setGroupBattle).
 			if e.Leader == 0 && d.playerNear(e.X, e.Y, wakeRadius) &&
 				chebyshev(e.X, e.Y, e.SegmentX, e.SegmentY) <= leashRadius {
-				if p := w.FindEnemyFromView(e.X, e.Y, e.Clan); p != 0 && !inSafeCity(w, p) {
+				if p := w.FindEnemyFromView(e.X, e.Y, e.Clan); p != 0 &&
+					(!world.IsPlayer(p) || !inSafeCity(w, p)) {
 					setGroupBattle(w, id, e, w.Entity(p))
 				}
 			}
@@ -252,6 +258,18 @@ func clearEnemyList(e *world.Entity) {
 	if e != nil {
 		e.EnemyList = [protocol.MaxTarget]int{}
 	}
+}
+
+func hasEnemyList(e *world.Entity) bool {
+	if e == nil {
+		return false
+	}
+	for _, id := range e.EnemyList {
+		if id != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func selectTargetFromEnemyList(w *world.World, e *world.Entity) {
@@ -640,14 +658,14 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 				if owner := w.Entity(e.Summoner); owner != nil {
 					d.mobKilled(w, owner, target)
 				} else {
+					sendDieAction(w, target)
 					w.DespawnMob(target.ID, 1)
 				}
 			} else {
+				sendDieAction(w, target)
 				w.DespawnMob(target.ID, 1)
 			}
-			removeEnemyList(e, target.ID)
-			e.Target = 0
-			e.Mode = world.MobIdle
+			dropCurrentTarget(e, target.ID)
 		} else {
 			setGroupBattle(w, target.ID, target, e)
 		}
@@ -659,8 +677,16 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {
-		removeEnemyList(e, target.ID)
-		e.Target = 0
+		dropCurrentTarget(e, target.ID)
+	}
+}
+
+func dropCurrentTarget(e *world.Entity, targetID int) {
+	removeEnemyList(e, targetID)
+	e.Target = 0
+	if hasEnemyList(e) {
+		e.Mode = world.MobCombat
+	} else {
 		e.Mode = world.MobIdle
 	}
 }

@@ -203,6 +203,61 @@ func TestMobDieActionChat(t *testing.T) {
 	waitMobChat(t, c, ids[0], "Adeus!")
 }
 
+func TestMobKillSendsDieActionChat(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64, Now: clock.Load}, log, combatDB(), d.Handle)
+
+	target := aggressiveMob()
+	copy(target[0:16], "Target")
+	target[16] = 5
+	binary.LittleEndian.PutUint32(target[92+8:], 1)
+	binary.LittleEndian.PutUint32(target[92+16:], 30)
+	binary.LittleEndian.PutUint32(target[92+24:], 30)
+	gen := &world.Generator{
+		MinuteGenerate: -1, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1,
+		SegX: [5]int16{10}, SegY: [5]int16{10},
+		LeaderTmpl: target,
+		DieAction:  [4]string{"MobDown", "MobDown", "MobDown", "MobDown"},
+	}
+	w.RegisterGenerators([]*world.Generator{gen})
+	ids := w.GenerateMob(0)
+	if len(ids) != 1 {
+		t.Fatalf("generated %d mobs, want 1", len(ids))
+	}
+	targetID := ids[0]
+
+	guard := aggressiveMob()
+	copy(guard[0:16], "Guard")
+	guard[16] = 7
+	binary.LittleEndian.PutUint32(guard[92+8:], 5000)
+	guardID := w.SpawnMobAt(world.MobSpawn{Template: guard, X: 9, Y: 10, GenIndex: -1})
+	if guardID < 0 {
+		t.Fatal("SpawnMobAt guard failed")
+	}
+
+	w.SetTickHandler(10*time.Millisecond, d.Tick)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	c := enterWorld(t, ln.Addr().String())
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 8, 10)
+
+	waitMobChat(t, c, targetID, "MobDown")
+}
+
 // actionFrameAt pins the player at (x,y): _MSG_Action sets the entity position
 // to the body's DESTINATION (TargetX/TargetY, legacy pMob.TargetX semantics).
 func actionFrameAt(t *testing.T, c net.Conn, tick uint32, x, y int16) {
@@ -360,6 +415,49 @@ func TestGuardAttacksHostileMob(t *testing.T) {
 		t.Fatal("guard never attacked the hostile mob")
 	}
 	t.Fatal("hostile mob was attacked but not removed")
+}
+
+func TestGuardAggrosHostileMobInCityAtViewEdge(t *testing.T) {
+	guard := aggressiveMob()
+	copy(guard[0:16], "Guard")
+	guard[16] = 7 // player-friendly guard, hostile to clan 5
+	const cs = 92
+	binary.LittleEndian.PutUint32(guard[cs+8:], 5000)
+
+	hostile := aggressiveMob()
+	copy(hostile[0:16], "Intruder")
+	hostile[16] = 5
+	binary.LittleEndian.PutUint32(hostile[cs+8:], 1)
+	binary.LittleEndian.PutUint32(hostile[cs+16:], 30)
+	binary.LittleEndian.PutUint32(hostile[cs+24:], 30)
+
+	spawns := []world.MobSpawn{
+		{Template: guard, X: 2090, Y: 2095, GenIndex: -1},
+		{Template: hostile, X: 2091, Y: 2095, GenIndex: -1},
+	}
+	addr, stop := startServerMobAISpawns(t, combatDB(), 2200, spawns, nil)
+	defer stop()
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 2075, 2095) // inside Armia, 15 tiles from guard
+
+	guardID := world.MaxUser
+	hostileID := world.MaxUser + 1
+	for i := 0; i < 30; i++ {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok || h.Type != protocol.MsgAttack {
+			continue
+		}
+		var body protocol.MsgAttackBody
+		if err := body.Decode(payload); err != nil {
+			t.Fatal(err)
+		}
+		if int(body.AttackerID) == guardID && len(body.Dam) > 0 && int(body.Dam[0].TargetID) == hostileID {
+			return
+		}
+	}
+	t.Fatal("guard did not acquire the hostile mob inside the visible city area")
 }
 
 // TestMobDistance pins BASE_GetDistance (Basedef.cpp:6484): the rounded-Euclidean
@@ -881,6 +979,32 @@ func TestEnemyListTieSelectsLaterSlot(t *testing.T) {
 	selectTargetFromEnemyList(w, seeker)
 	if seeker.Target != secondID {
 		t.Fatalf("tie selected target = %d, want later slot %d", seeker.Target, secondID)
+	}
+}
+
+func TestTickPromotesEnemyListWithoutCurrentTarget(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64}, log, nil, d.Handle)
+
+	guard := aggressiveMob()
+	guard[16] = 7
+	guardID := w.SpawnMobAt(world.MobSpawn{Template: guard, X: 10, Y: 10, GenIndex: -1})
+	target := aggressiveMob()
+	target[16] = 5
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: target, X: 11, Y: 10, GenIndex: -1})
+	guardEntity := w.Entity(guardID)
+	addEnemyList(guardEntity, w.Entity(targetID))
+	guardEntity.Target = 0
+	guardEntity.Mode = world.MobIdle
+
+	d.Tick(w)
+
+	if guardEntity.Target != targetID {
+		t.Fatalf("promoted target = %d, want %d from EnemyList %v", guardEntity.Target, targetID, guardEntity.EnemyList)
+	}
+	if guardEntity.Mode != world.MobCombat {
+		t.Fatalf("guard mode = %v, want MobCombat", guardEntity.Mode)
 	}
 }
 
