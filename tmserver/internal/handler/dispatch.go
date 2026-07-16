@@ -18,6 +18,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -71,6 +72,12 @@ type Config struct {
 	ItemUnique map[int]int
 	ItemGrades map[int]int
 
+	// SancRate is the dust-refine success table (Common/Settings/SancRate.txt over
+	// the Basedef.cpp defaults; *content.SancRate satisfies it). When nil the
+	// compiled defaults are used, so refine still works without a mounted content
+	// tree.
+	SancRate refine.RateTable
+
 	// ExpEvents toggles global EXP modifiers (MobKilled.cpp:537-549, Server.cpp defaults).
 	ExpEvents level.ExpEvents
 
@@ -113,6 +120,7 @@ type Dispatcher struct {
 	itemPos         map[int]int                  // item index → nPos (refine threshold)
 	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
 	itemGrades      map[int]int                  // item index → Grade (ExpBonus)
+	sancRate        refine.RateTable             // dust-refine success table (g_pSancRate)
 	expEvents       level.ExpEvents              // global EXP event flags
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
@@ -162,6 +170,7 @@ func New(cfg Config) *Dispatcher {
 		itemPos:         cfg.ItemPos,
 		itemUnique:      cfg.ItemUnique,
 		itemGrades:      cfg.ItemGrades,
+		sancRate:        cfg.SancRate,
 		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
@@ -173,6 +182,11 @@ func New(cfg Config) *Dispatcher {
 	// cleared. When there is no catalog both stay nil (buy/sell simply find no price).
 	d.baseItemPrices = cfg.ItemPrices
 	d.itemPrices = cloneInt32Map(cfg.ItemPrices)
+	if d.sancRate == nil {
+		// No content tree: fall back to the compiled g_pSancRate, like the original
+		// server before it reads SancRate.txt over it.
+		d.sancRate = content.DefaultSancRate()
+	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)
 	}

@@ -76,6 +76,9 @@ var efName = map[string]uint8{
 	"EF_HPADD": 45, "EF_MPADD": 46, "EF_ACADD": 53,
 	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70, "EF_CRITICAL2": 71,
 	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
+	// Refine gates (_MSG_UseItem.cpp dust path): EF_NOSANC marks an item that can
+	// never be refined; the two incubation effects drive the mount-egg branch.
+	"EF_NOSANC": 126, "EF_INCUBATE": 78, "EF_INCUDELAY": 84,
 }
 
 // BaseEffects returns item index → its score-relevant static effects, parsed from

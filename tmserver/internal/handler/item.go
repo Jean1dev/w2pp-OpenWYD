@@ -6,6 +6,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -171,6 +172,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
 	case vol == 0:
 		d.equipItem(w, s, e, body, payload)
+	case vol == volDustOri || vol == volDustLac:
+		d.refineItem(w, s, e, body, src, vol)
 	case vol == volHpMpPotion:
 		d.useHealPotion(w, s, e, src)
 	case vol >= volSephiraLo && vol <= volSephiraHi:
@@ -655,23 +658,12 @@ const (
 	weaponSlotL = 7
 )
 
-// itemSanc reads an item's refine ("anc") level from its instance effects (the
-// EF_SANC pair written by combine/refine), clamped to [0,15]. 0 = unrefined.
-func itemSanc(it world.Item) int {
-	for _, ef := range it.Effects {
-		if ef.Effect == efSanc {
-			lvl := int(ef.Value)
-			if lvl < 0 {
-				return 0
-			}
-			if lvl > 15 {
-				return 15
-			}
-			return lvl
-		}
-	}
-	return 0
-}
+// itemSanc reads an item's refine ("anc") level from its instance effects, 0..15
+// (BASE_GetItemSanc). 0 = unrefined.
+//
+// The cValue is NOT the level: it packs the level together with the pity counter,
+// so it has to be unpacked. See the refine package doc.
+func itemSanc(it world.Item) int { return refine.Level(it) }
 
 // nPos equip-slot classes that get refine (+9) threshold bonuses (captura §E).
 const (

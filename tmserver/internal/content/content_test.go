@@ -49,19 +49,73 @@ func TestLoadSancRate(t *testing.T) {
 		t.Skipf("SancRate.txt unavailable: %v", err)
 	}
 	cases := []struct {
-		anvil       string
-		level, want int
+		name      string
+		anvil     int
+		idx, want int
 	}{
-		{"PO", 0, 100},
-		{"PO", 3, 85},
-		{"PO", 5, 40},
-		{"PL", 6, 80},
-		{"PL", 9, 10},
+		{"PO 0 from file", sancAnvilOri, 0, 100},
+		{"PO 3 from file", sancAnvilOri, 3, 85},
+		{"PO 5 from file", sancAnvilOri, 5, 40},
+		{"PL 6 from file", sancAnvilLac, 6, 80},
+		{"PL 9 from file", sancAnvilLac, 9, 10},
+
+		// The file lists only PO 0..5, so the tail keeps the Basedef.cpp defaults.
+		// Index 6 = 100 makes the +5→+6 Ori refine free; an operator who wants it
+		// gated adds a "PO 6 <rate>" line (issue #103).
+		{"PO 6 falls back to the compiled default", sancAnvilOri, 6, 100},
+		{"PO 7 falls back to the compiled default", sancAnvilOri, 7, 0},
+		{"PL 10 falls back to the compiled default", sancAnvilLac, 10, 0},
+
+		// The Âmago lines land on row 2. In the legacy they aliased onto row 0 and
+		// clobbered every PO rate above (CReadFiles.cpp:157); issue #103 fixed that,
+		// so PO 1 must still be the file's 100 and NOT Âmago's 80.
+		{"Amago 1 on its own row", sancAnvilAma, 1, 80},
+		{"Amago 11 on its own row", sancAnvilAma, 11, 5},
+		{"PO 1 not clobbered by Amago", sancAnvilOri, 1, 100},
+		{"PO 4 not clobbered by Amago", sancAnvilOri, 4, 70},
 	}
 	for _, tt := range cases {
-		got, ok := s.Rate(tt.anvil, tt.level)
-		if !ok || got != tt.want {
-			t.Errorf("Rate(%s,%d) = %d,%v, want %d", tt.anvil, tt.level, got, ok, tt.want)
+		t.Run(tt.name, func(t *testing.T) {
+			if got := s.Rate(tt.anvil, tt.idx); got != tt.want {
+				t.Errorf("Rate(%d,%d) = %d, want %d", tt.anvil, tt.idx, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSancRateOutOfRange(t *testing.T) {
+	s := DefaultSancRate()
+	for _, tt := range []struct{ anvil, idx int }{{-1, 0}, {3, 0}, {0, -1}, {0, 12}} {
+		if got := s.Rate(tt.anvil, tt.idx); got != 0 {
+			t.Errorf("Rate(%d,%d) = %d, want 0", tt.anvil, tt.idx, got)
+		}
+	}
+	var nilTable *SancRate
+	if got := nilTable.Rate(0, 1); got != 0 {
+		t.Errorf("nil Rate = %d, want 0", got)
+	}
+}
+
+// The anvil token is matched on raw cp1252 bytes, the way _strupr+strcmp does.
+func TestSancAnvilRow(t *testing.T) {
+	cases := []struct {
+		token string
+		want  int
+		ok    bool
+	}{
+		{"PO", sancAnvilOri, true},
+		{"po", sancAnvilOri, true},
+		{"PL", sancAnvilLac, true},
+		{"\xC2mago", sancAnvilAma, true}, // cp1252, as the real file spells it
+		{"\xC2MAGO", sancAnvilAma, true},
+		{"\xC3\x82mago", sancAnvilAma, true}, // UTF-8, if the file is ever re-saved
+		{"Ori", 0, false},
+		{"", 0, false},
+	}
+	for _, tt := range cases {
+		got, ok := sancAnvilRow(tt.token)
+		if ok != tt.ok || (ok && got != tt.want) {
+			t.Errorf("sancAnvilRow(%q) = %d,%v, want %d,%v", tt.token, got, ok, tt.want, tt.ok)
 		}
 	}
 }

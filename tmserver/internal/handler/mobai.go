@@ -267,6 +267,7 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 			d.sendScore(w, s, e)
 			d.sendAffect(w, s, e)
 		}
+		d.tickIncubation(w, s, e)
 		if d.tickCount%naturalRegenTicks == 0 {
 			s.ReqHp += e.Level + 30
 			s.ReqMp += e.Level + 30
@@ -285,6 +286,26 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 			d.sendSetHpMp(w, s, e)
 		}
 	})
+}
+
+// tickIncubation counts an equipped egg's incubation cooldown down by one
+// (RegenMob, Server.cpp:4884-4894). Only an EQUIPPED egg ticks — that is the
+// mechanic: a failed refine stamps the cooldown and the player has to wear the
+// egg and wait it out before trying again. Without this the refine path's
+// _NN_Incu_Wait_More gate would brick an egg permanently.
+func (d *Dispatcher) tickIncubation(w *world.World, s *world.Session, e *world.Entity) {
+	egg := &e.Equip[mountEquipSlot]
+	if !isEgg(*egg) {
+		return
+	}
+	delay := itemInstanceAbility(*egg, efIncuDelay)
+	if delay <= 0 {
+		return
+	}
+	egg.Effects[2].Value = uint8(delay - 1)
+	d.sendSlot(w, s, world.ItemPlaceEquip, mountEquipSlot, *egg)
+	// SendClientMessage(_NN_Incu_Proceed) — no notice code for it yet; the item
+	// push is what the client renders.
 }
 
 // Battle decision codes — the BattleProcessor return values (CMob.cpp:233-328),

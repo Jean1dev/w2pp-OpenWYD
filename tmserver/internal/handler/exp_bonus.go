@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -43,25 +44,5 @@ func fairyExpBonus(idx int16) int32 {
 	}
 }
 
-func itemRawSanc(it world.Item) int {
-	for _, ef := range it.Effects {
-		if ef.Effect >= 116 && ef.Effect <= 125 {
-			return int(ef.Value)
-		}
-		if ef.Effect == efSanc {
-			return int(ef.Value)
-		}
-	}
-	return 0
-}
-
-func itemGem(it world.Item) int {
-	if it.Index >= 2330 && it.Index < 2390 {
-		return -1
-	}
-	sanc := itemRawSanc(it)
-	if sanc < 230 {
-		return -1
-	}
-	return (sanc - 230) % 4
-}
+// itemGem is BASE_GetItemGem: the gem index of a +10..+15 item, -1 below +10.
+func itemGem(it world.Item) int { return refine.Gem(it) }
