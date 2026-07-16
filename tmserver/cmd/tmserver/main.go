@@ -347,6 +347,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 			MaxGroup:       g.MaxGroup,
 			MaxNumMob:      g.MaxNumMob,
 			RouteType:      uint8(g.RouteType),
+			Formation:      g.Formation,
 			SegX:           g.SegX,
 			SegY:           g.SegY,
 			LeaderTmpl:     leader,

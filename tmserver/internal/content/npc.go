@@ -25,7 +25,7 @@ type NPCGenerator struct {
 	MaxGroup       int
 	MaxNumMob      int
 	RouteType      int
-	Formation      int // parsed, not modeled yet (group formation offsets)
+	Formation      int
 	SegX, SegY     [5]int16
 	SegRange       [5]int
 	SegWait        [5]int
