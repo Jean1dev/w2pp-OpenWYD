@@ -70,8 +70,8 @@ func (w *World) ForEachPlayer(fn func(s *Session, e *Entity)) {
 	}
 }
 
-// FindEnemyFromView returns the id of the first in-play, living player around
-// (x,y) that clan treats as hostile (g_pClanTable), or 0 if none. It ports
+// FindEnemyFromView returns the id of the first living entity around (x,y) that
+// clan treats as hostile (g_pClanTable), or 0 if none. It ports
 // GetEnemyFromView (CMob.cpp:1308-1358) exactly:
 //   - window [x-4, x+5) × [y-4, y+5) (StartX = TargetX-4, Size 9);
 //   - clans 7/8 scan [x-6, x+10) — start −6 with HALFGRIDX=16 width, an
@@ -81,8 +81,10 @@ func (w *World) ForEachPlayer(fn func(s *Session, e *Entity)) {
 //     invisible to aggro (CMob.cpp:1342);
 //   - an out-of-range clan aborts the whole scan (CMob.cpp:1345-1350).
 //
-// Divergence: the original also returns hostile MOBS (mob-vs-mob combat, e.g.
-// town guards); we only acquire players for now — deferred. Loop-only.
+// Summons stay out of spontaneous acquisition so the owner-assist/retaliation
+// flow remains the only pet-vs-mob entry point.
+//
+// Loop-only.
 func (w *World) FindEnemyFromView(x, y int16, clan uint8) int {
 	startX, startY, sizeX, sizeY := int(x)-4, int(y)-4, 9, 9
 	if clan == 7 || clan == 8 {
@@ -94,14 +96,23 @@ func (w *World) FindEnemyFromView(x, y int16, clan uint8) int {
 				continue
 			}
 			id, ok := w.grid.MobAt(gx, gy)
-			if !ok || int(id) >= MaxUser {
-				continue // empty/out-of-bounds cell, or a mob (mob-vs-mob deferred)
+			if !ok {
+				continue // empty/out-of-bounds cell
 			}
 			e := w.entities[id]
-			if e == nil || e.Mode != MobUser || e.HP <= 0 {
+			if e == nil || e.Mode == MobEmpty || e.HP <= 0 {
 				continue
 			}
-			if e.Rsv&RsvHide != 0 {
+			if int(id) < MaxUser && e.Mode != MobUser {
+				continue
+			}
+			if int(id) >= MaxUser && e.Merchant != 0 {
+				continue // shop/bank/quest NPCs are not combat targets
+			}
+			if int(id) >= MaxUser && e.Summoner != 0 {
+				continue // summons use the owner-assist path, not ambient aggro
+			}
+			if int(id) < MaxUser && e.Rsv&RsvHide != 0 {
 				continue // hidden players don't draw aggro (CMob.cpp:1342 Rsv & 0x10)
 			}
 			if clan >= 9 || e.Clan >= 9 {
@@ -112,7 +123,7 @@ func (w *World) FindEnemyFromView(x, y int16, clan uint8) int {
 				w.log.Debug("clan out of range in aggro scan", "clan", clan, "target_clan", e.Clan)
 				return 0
 			}
-			if clanTable[clan][e.Clan] == 0 {
+			if ClanHostile(clan, e.Clan) {
 				return int(id)
 			}
 		}

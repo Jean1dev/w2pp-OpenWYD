@@ -74,6 +74,11 @@ func startServerMobAIRouted(t *testing.T, persist world.Persistence, gridDim int
 // MobSpawn (route/waypoints included) exactly as PROD's spawnNPCs builds it.
 func startServerMobAISpawn(t *testing.T, persist world.Persistence, gridDim int, sp world.MobSpawn, heights *content.Grid) (string, func()) {
 	t.Helper()
+	return startServerMobAISpawns(t, persist, gridDim, []world.MobSpawn{sp}, heights)
+}
+
+func startServerMobAISpawns(t *testing.T, persist world.Persistence, gridDim int, spawns []world.MobSpawn, heights *content.Grid) (string, func()) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +88,9 @@ func startServerMobAISpawn(t *testing.T, persist world.Persistence, gridDim int,
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log, Heights: heights})
 	w := world.New(world.Config{GridDim: gridDim, Now: clock.Load}, log, persist, d.Handle)
-	w.SpawnMobAt(sp) // init-time spawn (loop-safe)
+	for _, sp := range spawns {
+		w.SpawnMobAt(sp) // init-time spawn (loop-safe)
+	}
 	w.SetTickHandler(10*time.Millisecond, d.Tick)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -194,6 +201,67 @@ func TestFriendlyClanMobDoesNotAttack(t *testing.T) {
 			t.Fatal("friendly-clan mob attacked a player")
 		}
 	}
+}
+
+func TestGuardAttacksHostileMob(t *testing.T) {
+	guard := aggressiveMob()
+	copy(guard[0:16], "Guard")
+	guard[16] = 7 // clanTable[7][5]==0, but clanTable[7][0]==1 (player-friendly)
+	const cs = 92
+	binary.LittleEndian.PutUint32(guard[cs+8:], 5000) // one clean hit kills the weak mob
+
+	hostile := aggressiveMob()
+	copy(hostile[0:16], "Intruder")
+	hostile[16] = 5
+	binary.LittleEndian.PutUint32(hostile[cs+8:], 1)   // harmless if it ever ticks
+	binary.LittleEndian.PutUint32(hostile[cs+16:], 30) // MaxHp
+	binary.LittleEndian.PutUint32(hostile[cs+24:], 30) // Hp
+
+	spawns := []world.MobSpawn{
+		{Template: guard, X: 6, Y: 5, GenIndex: -1},
+		{Template: hostile, X: 7, Y: 5, GenIndex: -1},
+	}
+	addr, stop := startServerMobAISpawns(t, combatDB(), 16, spawns, nil)
+	defer stop()
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 5, 5) // observer keeps both mobs awake and in view
+
+	guardID := world.MaxUser
+	hostileID := world.MaxUser + 1
+	sawAttack := false
+	for i := 0; i < 30; i++ {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		switch h.Type {
+		case protocol.MsgAttack:
+			var body protocol.MsgAttackBody
+			if err := body.Decode(payload); err != nil {
+				t.Fatal(err)
+			}
+			if int(body.AttackerID) != guardID {
+				continue
+			}
+			if len(body.Dam) == 0 || int(body.Dam[0].TargetID) != hostileID {
+				t.Fatalf("guard attack Dam = %+v, want target mob %d", body.Dam, hostileID)
+			}
+			if body.Dam[0].Damage <= 0 {
+				t.Fatalf("guard attack damage = %d, want > 0", body.Dam[0].Damage)
+			}
+			sawAttack = true
+		case protocol.MsgRemoveMob:
+			if int(h.ID) == hostileID && sawAttack {
+				return
+			}
+		}
+	}
+	if !sawAttack {
+		t.Fatal("guard never attacked the hostile mob")
+	}
+	t.Fatal("hostile mob was attacked but not removed")
 }
 
 // TestMobDistance pins BASE_GetDistance (Basedef.cpp:6484): the rounded-Euclidean

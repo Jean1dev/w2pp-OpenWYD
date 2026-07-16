@@ -29,13 +29,12 @@ const (
 
 // Tick is the world's per-tick mob-AI hook (registered via World.SetTickHandler).
 // It runs inside the loop goroutine, so it mutates entities directly. Each live
-// monster (Merchant==0) acquires a nearby player as a target, then chases and
-// melees it. NPCs (shops/quest givers) and dead mobs are skipped.
+// monster (Merchant==0) acquires a nearby hostile player or mob as a target, then
+// chases and melees it. NPCs (shops/quest givers) and dead mobs are skipped.
 //
 // UNVERIFIED / deferred (captura): real pathfinding (we step one Chebyshev
-// tile), roaming/segments/summons, mob-vs-mob combat (guards), and the player
-// death/resurrection flow (a player dropped to 0 HP just stops being a valid
-// target).
+// tile), roaming/segments/summons, and the player death/resurrection flow (a
+// player dropped to 0 HP just stops being a valid target).
 func (d *Dispatcher) Tick(w *world.World) {
 	// One bump per tick, up front: both regenPlayers (natural-regen phase) and
 	// sweepAffects (per-player stagger) read this counter, and regenPlayers runs
@@ -369,15 +368,15 @@ func battleCode(r *rng.MSVC, dis, reach, dex int) int {
 	return battleChase
 }
 
-// validTarget reports whether a mob's target is still attackable: an in-play,
-// living player within the mob's leash box — centred on its current waypoint
-// anchor (BattleProcessor leashes on SegmentX±HALFGRIDX, CMob.cpp:292; for a
-// routeless mob the anchor is its spawn point).
+// validTarget reports whether a mob's target is still attackable: an in-play
+// player or a hostile mob within the mob's leash box — centred on its current
+// waypoint anchor (BattleProcessor leashes on SegmentX±HALFGRIDX, CMob.cpp:292;
+// for a routeless mob the anchor is its spawn point).
 //
-// Mob targets exist only in summon fights: a summon attacking a monster, or a
-// monster retaliating against a summon (the legacy's EnemyList held either).
-// The summon side skips the waypoint leash — its leash is the distance to its
-// OWNER, enforced by summonTick before mobBattle runs.
+// Summons keep their separate rules: pets attack monsters but never players or
+// other pets, while regular mobs can still retaliate against pets. The summon
+// side skips the waypoint leash — its leash is the distance to its OWNER,
+// enforced by summonTick before mobBattle runs.
 func validTarget(w *world.World, e, target *world.Entity) bool {
 	if target == nil || target.HP <= 0 {
 		return false
@@ -389,8 +388,13 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 		if e.Summoner != 0 {
 			return target.Clan != summonClan // pets fight monsters, never other pets
 		}
-		return target.Summoner != 0 && // a monster only ever targets a pet, and
-			chebyshev(e.SegmentX, e.SegmentY, target.X, target.Y) <= leashRadius
+		if chebyshev(e.SegmentX, e.SegmentY, target.X, target.Y) > leashRadius {
+			return false
+		}
+		if target.Summoner != 0 {
+			return true // regular mobs can retaliate against pets
+		}
+		return world.ClanHostile(e.Clan, target.Clan)
 	}
 	if e.Summoner != 0 {
 		return false // pets never attack players (clan 4 is friendly, clan.go)
@@ -405,10 +409,9 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 }
 
 // mobAttack resolves a strike (melee or in-reach ranged — the original uses the
-// same attack message for both, no projectile) against the target player and
-// broadcasts it so the victim (and onlookers) see the damage. Damage is
-// server-authoritative via the shared combat formula. The player's HP bar
-// updates from the Dam entry.
+// same attack message for both, no projectile) against the target entity and
+// broadcasts it so nearby players see the damage. Damage is server-authoritative
+// via the shared combat formula. Player HP bars update from the Dam entry.
 func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) {
 	now := w.Now()
 	if now < e.AtkTick+mobAttackCadence {
