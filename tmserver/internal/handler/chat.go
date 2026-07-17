@@ -74,6 +74,19 @@ var teleportCmds = map[string][2]int16{
 	"noatun": {1052, 1726},
 }
 
+// reinoCapeSlot is the cape equip slot (Equip[15]), confirmed by _MSG_Quest.cpp:702
+// (STRUCT_ITEM *Capa = &pMob[conn].MOB.Equip[15]) and every cape's nPos=-32768
+// (bit 15) in Release/Common/ItemList.csv.
+const reinoCapeSlot = 15
+
+// capaBrancaDoMonstroIndex is ItemList.csv #550 "Capa_Branca_do_Monstro" — the neutral
+// cape the /reino command (issue #127) treats as equivalent to no cape at all.
+const capaBrancaDoMonstroIndex = 550
+
+// reinoDest is the /reino destination (issue #127): the kingdom-city neighborhood,
+// the same area as the existing /arch teleport ({1706,1723}).
+var reinoDest = [2]int16{1702, 1728}
+
 // runCommand executes a chat slash command delivered as a whisper whose target name is
 // the command. Returns true when name was a command (handled); false to fall through to
 // the normal whisper delivery. Mirrors the dispatch in _MSG_MessageWhisper.cpp.
@@ -87,6 +100,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		if e := w.Entity(s.Conn); e != nil {
 			d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
 		}
+		return true
+	}
+	if cmd == "reino" {
+		d.teleportReino(w, s)
 		return true
 	}
 	if cmd == "buffs" {
@@ -104,6 +121,24 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		return true
 	}
 	return false
+}
+
+// teleportReino handles the /reino command (issue #127): teleports players with no
+// cape equipped, or the neutral Capa Branca do Monstro (#550), to the kingdom city.
+// Not among the 55 legacy command regions enumerated from _MSG_MessageWhisper.cpp
+// (docs/migration/handlers) — a new addition, not a ported one. Players wearing any
+// other (kingdom-aligned) cape are notified instead of being teleported.
+func (d *Dispatcher) teleportReino(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	cape := e.Equip[reinoCapeSlot]
+	if !cape.Empty() && cape.Index != capaBrancaDoMonstroIndex {
+		d.notify(w, s, NoticeReinoCapeRequired)
+		return
+	}
+	d.doTeleport(w, s, reinoDest[0]+int16(w.Rand().Intn(3)), reinoDest[1]+int16(w.Rand().Intn(3)))
 }
 
 // leaveGuild handles the /sair (and /abandonar) command: the player leaves its guild.

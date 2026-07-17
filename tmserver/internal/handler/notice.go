@@ -50,6 +50,8 @@ const (
 	NoticeNoEmptySlot // _NN_NoEmptySlot
 
 	NoticeNoKey // _NN_No_Key: a locked gate needs a key the player doesn't hold
+
+	NoticeReinoCapeRequired // /reino (issue #127): cape must be empty or Capa Branca do Monstro (#550)
 )
 
 // notify sends a client notification.
