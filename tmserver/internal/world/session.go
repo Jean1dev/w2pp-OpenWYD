@@ -245,6 +245,12 @@ type Entity struct {
 	Affect    [MaxAffect]Affect
 	DivineEnd int64
 
+	// Fame is extra.Fame (Selo do Guerreiro, _MSG_UseItem.cpp:3325-3364): a
+	// write-only counter with no other reader in the legacy client/server today.
+	// Deferred persistence (same policy as splitItem) — in-memory only until a
+	// consumer needs it saved.
+	Fame int64
+
 	// Rsv is the MOB.Rsv state-flag byte (RSV_HASTE/BLOCK/…), recomputed from
 	// the active affects by refreshScore. The affect score contributions (Aff*)
 	// are cached the same way and applied at READ time (effective getters), so

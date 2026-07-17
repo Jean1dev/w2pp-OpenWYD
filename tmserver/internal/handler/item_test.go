@@ -844,6 +844,264 @@ func TestUseFrangoAssado(t *testing.T) {
 	}
 }
 
+// TestUseCoracaoDoce is the issue #135 regression for the Vol-205 consumable:
+// it grants Velocidade (Affect 2) + Defesa (Affect 11) and actually decrements
+// the stack (previously a no-op, since Vol 205 had no useItem case).
+func TestUseCoracaoDoce(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 4145, Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{4145: volCoracaoDoce})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[4:6]) != 4145 {
+		t.Fatalf("carry slot 0 item = %d, want 4145 (stack not emptied)", le16(item[4:6]))
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	affect := expect(t, c, protocol.MsgSendAffect)
+	if affect[0] != 2 || affect[1] != 2 {
+		t.Errorf("slot 0 affect = type %d value %d, want type 2 value 2 (Velocidade)", affect[0], affect[1])
+	}
+	if got := binary.LittleEndian.Uint32(affect[4:8]); got != affect1H/5 {
+		t.Errorf("slot 0 affect time = %d, want %d", got, affect1H/5)
+	}
+	if affect[8] != 11 {
+		t.Errorf("slot 1 affect type = %d, want 11 (Defesa)", affect[8])
+	}
+	if got := binary.LittleEndian.Uint32(affect[12:16]); got != affect1H/5 {
+		t.Errorf("slot 1 affect time = %d, want %d", got, affect1H/5)
+	}
+}
+
+// TestUseChocolateDoAmor is the issue #135 regression for the Vol-204 consumable:
+// Dano (Affect 9) + Skill (Affect 15, Value 55).
+func TestUseChocolateDoAmor(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 1739, Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{1739: volChocolate})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgUpdateScore)
+	affect := expect(t, c, protocol.MsgSendAffect)
+	if affect[0] != 9 {
+		t.Errorf("slot 0 affect type = %d, want 9 (Dano)", affect[0])
+	}
+	if affect[8] != 15 || affect[9] != 55 {
+		t.Errorf("slot 1 affect = type %d value %d, want type 15 value 55 (Skill)", affect[8], affect[9])
+	}
+}
+
+// TestUseThenMoveKeepsReducedAmount is the end-to-end issue #135 regression: using
+// a partial stack must leave the reduced Amount live in the server's own slot data,
+// so a later _MSG_TradingItem move (which just resyncs the true slot state) does not
+// appear to "revert" the consumption — the bug this whole fix addresses.
+func TestUseThenMoveKeepsReducedAmount(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 4145, Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{4145: volCoracaoDoce})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	afterUse := expect(t, c, protocol.MsgSendItem)
+	if le16(afterUse[4:6]) != 4145 || afterUse[6] != efAmount || afterUse[7] != 9 {
+		t.Fatalf("after use: item %d amount-effect (%d,%d), want 4145 (61,9)", le16(afterUse[4:6]), afterUse[6], afterUse[7])
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	expect(t, c, protocol.MsgSendAffect)
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem) // move echo
+	expect(t, c, protocol.MsgSendItem)    // source slot 0, now empty
+	moved := expect(t, c, protocol.MsgSendItem)
+	if le16(moved[2:4]) != 1 || le16(moved[4:6]) != 4145 {
+		t.Fatalf("dest slot = %d item %d, want slot 1 item 4145", le16(moved[2:4]), le16(moved[4:6]))
+	}
+	if moved[6] != efAmount || moved[7] != 9 {
+		t.Errorf("moved item amount-effect = (%d,%d), want (61,9) — quantity reverted on move (issue #135)", moved[6], moved[7])
+	}
+}
+
+// startServerAdamantita starts a server whose Dispatcher carries the catalog
+// maps useAdamantita needs (ItemUnique/ItemGrades/ItemExtra), which the plain
+// startServerClockVol harness doesn't expose.
+func startServerAdamantita(t *testing.T, persist world.Persistence, vols, unique, grades, extra map[int]int) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{
+		Log: log, ItemVolatiles: vols, ItemUnique: unique, ItemGrades: grades, ItemExtra: extra,
+		ExpEvents: level.ExpEvents{KefraLive: true},
+	})
+	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
+// TestUseAdamantitaWrongTier rejects an Adamantita family item combined onto a
+// target whose nUnique doesn't match the source's tier: no consumption, the
+// dust-refine-style reject re-syncs the SOURCE slot (refineReject), and the
+// target is left untouched (no resync at all, matching the legacy's SendItem-only-
+// on-the-source behavior for this guard).
+func TestUseAdamantitaWrongTier(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 578} // Adamantita, Type = 578-575 = 3
+	st.Carry[1] = world.Item{Index: 900} // target: nUnique buckets to Type 0, not 3
+	db.loadResult = st
+	addr, stop := startServerAdamantita(t, db,
+		map[int]int{578: volAdamantita},
+		map[int]int{900: 5}, // bucket 0
+		map[int]int{900: 2},
+		nil,
+	)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0, DestType: world.ItemPlaceCarry, DestPos: 1}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	notice := expect(t, c, protocol.MsgMessageBoxOk)
+	if noticeCode(t, notice) != NoticeCantRefineMore {
+		t.Errorf("notice = %d, want NoticeCantRefineMore", noticeCode(t, notice))
+	}
+	src := expect(t, c, protocol.MsgSendItem)
+	if le16(src[2:4]) != 0 || le16(src[4:6]) != 578 {
+		t.Errorf("source resync = slot %d item %d, want slot 0 item 578 (unconsumed)", le16(src[2:4]), le16(src[4:6]))
+	}
+}
+
+// TestUseAdamantitaMatchingTierConsumes rolls an Adamantita combine on a matching,
+// gradeable target: regardless of the roll outcome, the target slot is resynced
+// and the source Adamantita is spent (issue #135 — this path used to be a
+// complete no-op since Vol 9 had no useItem case at all).
+func TestUseAdamantitaMatchingTierConsumes(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 578} // Adamantita, Type = 3
+	st.Carry[1] = world.Item{Index: 900} // target: nUnique bucket 3, grade 2
+	db.loadResult = st
+	addr, stop := startServerAdamantita(t, db,
+		map[int]int{578: volAdamantita},
+		map[int]int{900: 8}, // bucket 3
+		map[int]int{900: 2},
+		map[int]int{900: 950}, // Extra result index on success
+	)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0, DestType: world.ItemPlaceCarry, DestPos: 1}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	notice := expect(t, c, protocol.MsgMessageBoxOk)
+	if code := noticeCode(t, notice); code != NoticeRefineSuccess && code != NoticeFailToRefine {
+		t.Errorf("notice = %d, want NoticeRefineSuccess or NoticeFailToRefine", code)
+	}
+	dst := expect(t, c, protocol.MsgSendItem)
+	if le16(dst[2:4]) != 1 {
+		t.Fatalf("resynced slot = %d, want 1 (the target)", le16(dst[2:4]))
+	}
+	if got := le16(dst[4:6]); got != 900 && got != 950 {
+		t.Errorf("target item = %d, want 900 (fail, unchanged) or 950 (success, Extra)", got)
+	}
+	// No further MsgSendItem for the source slot (client already predicted the
+	// drag removal — matches refineSucceed/refineFail's convention).
+	if ty, p, ok := readMaybe(t, c); ok && ty == protocol.MsgSendItem {
+		t.Errorf("unexpected second MsgSendItem for source slot: %v", p)
+	}
+}
+
+// TestUseSeloDoGuerreiro is the issue #135 regression for sIndex 4146 (no
+// EF_VOLATILE, so it must not fall into the vol==0 equip path): grants an
+// entry Clan-7 amulet to a level-354+ mortal with no amulet equipped, and
+// actually consumes the seal.
+func TestUseSeloDoGuerreiro(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+		Level: 354, ClassMaster: classMasterMortal, Clan: 7,
+	}
+	st.Carry[0] = world.Item{Index: itemSeloDoGuerreiro}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, nil)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	amulet := expect(t, c, protocol.MsgSendItem)
+	if le16(amulet[2:4]) != amuletSlot || le16(amulet[4:6]) != 3191 {
+		t.Fatalf("equip slot %d item %d, want slot %d item 3191 (Elite de Hekalotia)", le16(amulet[2:4]), le16(amulet[4:6]), amuletSlot)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	src := expect(t, c, protocol.MsgSendItem)
+	if le16(src[4:6]) != 0 {
+		t.Errorf("carry slot 0 item = %d, want empty after use", le16(src[4:6]))
+	}
+}
+
+// TestUseWaterScrollRejected is the issue #135 "safe fallback" for the 3 blocked
+// items: the real behavior needs data absent from Source/, so it must reject
+// cleanly (NoticeCantUseHere + resync) instead of no-op'ing — a no-op would
+// recreate the exact "phantom consumption reverts on move" bug this fix closes.
+func TestUseWaterScrollRejected(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 3182, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}} // Água (A) LV1
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{3182: 161})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	notice := expect(t, c, protocol.MsgMessageBoxOk)
+	if noticeCode(t, notice) != NoticeCantUseHere {
+		t.Errorf("notice = %d, want NoticeCantUseHere", noticeCode(t, notice))
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[4:6]) != 3182 || item[7] != 5 {
+		t.Errorf("resynced item = index %d amount %d, want 3182 amount 5 (unconsumed)", le16(item[4:6]), item[7])
+	}
+}
+
 // setHpMpFields decodes MSG_SetHpMp (protocol/score.go:110): Hp, Mp, ReqHp, ReqMp.
 func setHpMpFields(t *testing.T, p []byte) (hp, mp, reqHp, reqMp int32) {
 	t.Helper()
