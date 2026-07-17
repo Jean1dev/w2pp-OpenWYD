@@ -55,6 +55,9 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		ShortSkill:      byteArrToProto(ch.ShortSkill[:]),
 		Soul:            int32(ch.Soul),
 		ClassMaster:     int32(ch.ClassMaster),
+		CelestialLv40:   int32(ch.CelLv40),
+		CelestialLv90:   int32(ch.CelLv90),
+		CelestialCircle: int32(ch.CelCircle),
 	}
 }
 
@@ -111,6 +114,9 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		ShortSkill:      [16]uint8(protoToByteArr(c.GetShortSkill(), 16)),
 		Soul:            uint8(c.GetSoul()),
 		ClassMaster:     uint8(c.GetClassMaster()),
+		CelLv40:         uint8(c.GetCelestialLv40()),
+		CelLv90:         uint8(c.GetCelestialLv90()),
+		CelCircle:       uint8(c.GetCelestialCircle()),
 	}
 }
 

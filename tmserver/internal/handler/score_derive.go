@@ -6,8 +6,11 @@ import (
 )
 
 const (
-	classMasterArch   = 1
-	classMasterMortal = 2
+	classMasterArch        = 1
+	classMasterMortal      = 2
+	classMasterCelestial   = 3
+	classMasterCelestialCS = 4
+	classMasterSCelestial  = 5
 )
 
 type weaponCoef struct {

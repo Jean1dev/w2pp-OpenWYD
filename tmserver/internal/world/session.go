@@ -179,8 +179,12 @@ type Entity struct {
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
-	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
-	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// Celestial quest gate flags (MobExtra.QuestInfo.Celestial, Basedef.h:659-678).
+	// CelLv40/CelLv90 unlock the Celestial level 40/90 caps (CheckGetLevel gate,
+	// CMob.cpp:1107); CelCircle marks the Cythera Arcana quest done (/arcana). Persisted.
+	CelLv40, CelLv90, CelCircle uint8
+	Soul                        uint8 // MobExtra.Soul; 0 means no modeled soul
+	QuestFlag                   uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
 	// hits, but it does NOT by itself blink the nickname.

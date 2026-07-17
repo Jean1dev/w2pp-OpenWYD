@@ -601,6 +601,9 @@ type Character struct {
 	SecLearnedSkill int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"` // MobExtra.SecLearnedSkill
 	Soul            int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                // MobExtra.Soul
 	ClassMaster     int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`               // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
+	CelestialLv40   int32    `protobuf:"varint,31,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`         // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelestialLv90   int32    `protobuf:"varint,32,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`         // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelestialCircle int32    `protobuf:"varint,33,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`   // QuestInfo.Circle (Cythera Arcana quest done)
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -841,6 +844,27 @@ func (x *Character) GetSoul() int32 {
 func (x *Character) GetClassMaster() int32 {
 	if x != nil {
 		return x.ClassMaster
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialLv40() int32 {
+	if x != nil {
+		return x.CelestialLv40
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialLv90() int32 {
+	if x != nil {
+		return x.CelestialLv90
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialCircle() int32 {
+	if x != nil {
+		return x.CelestialCircle
 	}
 	return 0
 }
@@ -2739,7 +2763,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x92\x06\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x8b\a\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2773,7 +2797,10 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"shortSkill\x12*\n" +
 	"\x11sec_learned_skill\x18\x1c \x01(\x05R\x0fsecLearnedSkill\x12\x12\n" +
 	"\x04soul\x18\x1d \x01(\x05R\x04soul\x12!\n" +
-	"\fclass_master\x18\x1e \x01(\x05R\vclassMaster\"\xcd\x01\n" +
+	"\fclass_master\x18\x1e \x01(\x05R\vclassMaster\x12%\n" +
+	"\x0ecelestial_lv40\x18\x1f \x01(\x05R\rcelestialLv40\x12%\n" +
+	"\x0ecelestial_lv90\x18  \x01(\x05R\rcelestialLv90\x12)\n" +
+	"\x10celestial_circle\x18! \x01(\x05R\x0fcelestialCircle\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

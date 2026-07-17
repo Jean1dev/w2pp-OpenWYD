@@ -427,7 +427,7 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 	}
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
-	if !d.applyMortalLevelUps(w, s, e) {
+	if !d.applyLevelUps(w, s, e) {
 		d.sendEtc(w, s, e)
 	}
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)

@@ -1,7 +1,24 @@
 # Plano: Sistema de Evolução Celestial (Mortal→Arch→Celestial→Sub) + /destravar40/90 + /arcana
 
-> Status: PLANO (não implementado). Origem: pedido para fazer `/destravar40`, `/destravar90`,
-> `/arcana` funcionarem — eles são peças do sistema de evolução, que ainda não existe no Go.
+> Status (jul/2026, issue #117 fase 1): **Fases 1–3 IMPLEMENTADAS.** Persistência de
+> `class_master` + `QuestInfo.Celestial.{Lv40,Lv90,Circle}` (migração `0012`, todo o caminho
+> save/load), level-up Celestial por tier com os gates 39→40 / 89→90 (`handler.applyLevelUps`
+> genérico, curva `nextLevel2`), e os comandos `/destravar40` `/destravar90` `/arcana`
+> (`handler/chat.go`). **Pendências:** (a) a curva `g_pNextLevel_2` roda contra um **placeholder
+> sintético** — capturar os valores reais (`docs/migration/prompts/agent-prompt-celestial-curve.md`);
+> (b) **Fase 4 (transformação Mortal→Celestial via NPC Evoluções)** continua aberta — sem ela não
+> há caminho in-game para virar Celestial, então o teste end-to-end de `/destravar` no cliente real
+> depende dela.
+>
+> Correção ao plano original abaixo: a **lógica** (`CheckGetLevel`, `QuestInfo`, os comandos) ESTÁ
+> na fonte local (`Source/Code/`), só os **valores** de `g_pNextLevel_2` faltam — a Fase 0 encolheu
+> para capturar um único array.
+>
+> ---
+>
+> Status original: PLANO (não implementado). Origem: pedido para fazer `/destravar40`,
+> `/destravar90`, `/arcana` funcionarem — eles são peças do sistema de evolução, que ainda não
+> existe no Go.
 
 ## Contexto
 

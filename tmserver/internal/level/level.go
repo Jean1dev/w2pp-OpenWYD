@@ -8,8 +8,13 @@
 // distribution are NOT modeled here yet; the world tracks no tier state for them.
 package level
 
-// MaxLevel is MAX_LEVEL (Basedef.h:177): a MORTAL never levels past it.
+// MaxLevel is MAX_LEVEL (Basedef.h:177): a MORTAL (or ARCH) never levels past it.
 const MaxLevel int32 = 399
+
+// MaxCLevel is MAX_CLEVEL (Basedef.h:178): the level cap on the CELESTIAL curve
+// (CELESTIAL/CELESTIALCS/SCELESTIAL). CheckGetLevel picks MaxCLevel over MaxLevel
+// for those tiers (CMob.cpp:1085-1086).
+const MaxCLevel int32 = 199
 
 // MaxHPCap / MaxMPCap are MAX_HP / MAX_MP (Basedef.h:263-264).
 const (
@@ -59,6 +64,30 @@ func NextLevelExp(curLevel int32) int64 {
 		return MaxExp
 	}
 	return nextLevel[next]
+}
+
+// MaxLevelForTier is the level cap for a tier: MaxCLevel for the celestial tiers
+// (which ride g_pNextLevel_2), MaxLevel otherwise (CMob.cpp:1082-1086).
+func MaxLevelForTier(classMaster uint8) int32 {
+	if isCelestialTier(classMaster) {
+		return MaxCLevel
+	}
+	return MaxLevel
+}
+
+// NextLevelExpTier returns the total experience needed to reach curLevel+1 on the
+// curve for the given tier: g_pNextLevel_2 for celestial tiers, g_pNextLevel
+// (the Mortal/Arch curve) otherwise (CMob.cpp:1092-1093). At or above the tier's
+// cap it returns the curve ceiling so no further level-up triggers.
+func NextLevelExpTier(curLevel int32, classMaster uint8) int64 {
+	if !isCelestialTier(classMaster) {
+		return NextLevelExp(curLevel)
+	}
+	next := max(curLevel+1, 1)
+	if next >= MaxCLevel+1 || int(next) >= len(nextLevel2) {
+		return nextLevel2[len(nextLevel2)-1]
+	}
+	return nextLevel2[next]
 }
 
 // ExpApply is GetExpApply for the MORTAL path (GetFunc.cpp:1028): it scales the

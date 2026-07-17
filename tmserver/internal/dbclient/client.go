@@ -308,6 +308,9 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Clan:        uint8(c.GetClan()),
 		GuildID:     uint16(c.GetGuildId()),
 		ClassMaster: uint8(c.GetClassMaster()),
+		CelLv40:     uint8(c.GetCelestialLv40()),
+		CelLv90:     uint8(c.GetCelestialLv90()),
+		CelCircle:   uint8(c.GetCelestialCircle()),
 		Soul:        uint8(c.GetSoul()),
 		Str:         int16(c.GetStr()),
 		Int:         int16(c.GetInt()),
@@ -409,6 +412,13 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		LearnedSkill:    s.LearnedSkill,
 		SecLearnedSkill: s.SecLearnedSkill,
 		Soul:            int32(s.Soul),
+		// Tier state: class_master (transformations) + the celestial quest gates.
+		// The load side never trusted class_master=0 (defaults to MORTAL); saving it
+		// here is what makes a tier change survive relog.
+		ClassMaster:     int32(s.ClassMaster),
+		CelestialLv40:   int32(s.CelLv40),
+		CelestialLv90:   int32(s.CelLv90),
+		CelestialCircle: int32(s.CelCircle),
 		Special:         make([]int32, len(s.BaseSpecial)),
 		SkillBar:        make([]uint32, len(s.SkillBar)),
 		ShortSkill:      make([]uint32, len(s.ShortSkill)),

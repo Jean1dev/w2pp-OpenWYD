@@ -188,9 +188,9 @@ func (d *Dispatcher) gmItem(w *world.World, s *world.Session, rest string) {
 }
 
 // gmSetLevel raises the caller to the given level for testing. It reuses the
-// MORTAL level-up path (applyMortalLevelUps), so it only levels UP — setting a
-// level at or below the current one is a no-op (documented; a downlevel would
-// need to unwind the derived score and is out of scope).
+// level-up path (applyLevelUps), so it only levels UP — setting a level at or below
+// the current one is a no-op (documented; a downlevel would need to unwind the
+// derived score and is out of scope).
 func (d *Dispatcher) gmSetLevel(w *world.World, s *world.Session, rest string) {
 	n, err := strconv.Atoi(firstToken(rest))
 	if err != nil {
@@ -209,7 +209,7 @@ func (d *Dispatcher) gmSetLevel(w *world.World, s *world.Session, rest string) {
 	if e.Exp < level.NextLevelExp(int32(n)-1) {
 		e.Exp = level.NextLevelExp(int32(n) - 1)
 	}
-	d.applyMortalLevelUps(w, s, e)
+	d.applyLevelUps(w, s, e)
 	d.log.Info("gm setlevel", "account", s.AccountName, "target", n, "level", e.Level)
 }
 
