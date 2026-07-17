@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -126,6 +127,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.runGMCommand(w, s, args)
 		return true
 	}
+	if cmd == "nick" {
+		d.showNick(w, s, cstr(args))
+		return true
+	}
 	return false
 }
 
@@ -147,6 +152,36 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 		d.sendScore(w, s, e)
 	}
 	d.sendAffect(w, s, e)
+}
+
+// showNick handles the /nick <jogador> command (issue #131): replies to the
+// caller only, with the target's Nick, Guild (name + fame, if registered —
+// world/guild.go), Citizenship and character Fame. Mirrors the legacy
+// _MSG_MessageWhisper.cpp:1618-1636 info line (Language.txt _NN_Check_User_Info
+// "Cidadania: %d / Fama: %d"), extended with guild fame per issue #131, and
+// sent back as a self-addressed chat line (like gmNotice's free-text path)
+// since there's no dedicated system-message wire format captured yet.
+func (d *Dispatcher) showNick(w *world.World, s *world.Session, rest string) {
+	name := firstToken(strings.TrimSpace(rest))
+	if name == "" {
+		return
+	}
+	_, te := w.SessionByName(name)
+	if te == nil {
+		d.notify(w, s, NoticeNotConnected)
+		return
+	}
+	guildPart := "Sem guilda"
+	if te.Guild != 0 {
+		if gi, ok := w.GuildInfo(te.Guild); ok {
+			guildPart = fmt.Sprintf("%s (Fama guilda: %d)", gi.Name, gi.Fame)
+		} else {
+			guildPart = fmt.Sprintf("Guild #%d (nao registrada)", te.Guild)
+		}
+	}
+	msg := fmt.Sprintf("%s [%s] Cidadania: %d / Fama: %d", te.Name, guildPart, te.Citizen, te.Fame)
+	payload := append([]byte(msg), 0) // NUL-terminated, like gmNotice
+	w.Send(s, protocol.MsgMessageChat, payload)
 }
 
 // firstToken returns the first whitespace-separated token of s.

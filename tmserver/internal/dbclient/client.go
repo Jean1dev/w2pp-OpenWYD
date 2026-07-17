@@ -601,6 +601,7 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Citizen:     uint8(c.GetCitizen()),
 		ClassMaster: uint8(c.GetClassMaster()),
 		Soul:        uint8(c.GetSoul()),
+		Fame:        c.GetFame(),
 		Str:         int16(c.GetStr()),
 		Int:         int16(c.GetInt()),
 		Dex:         int16(c.GetDex()),

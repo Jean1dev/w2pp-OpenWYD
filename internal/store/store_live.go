@@ -145,7 +145,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       str, int, dex, con, score_bonus, special_bonus, skill_bonus,
 		       max_hp, max_mp, hp, mp, critical, regen_hp, regen_mp,
 		       resist_fire, resist_ice, resist_thunder, resist_magic,
-		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul,
+		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
 		       skill_bar, short_skill, special
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
@@ -153,7 +153,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ScoreBonus, &ch.SpecialBonus, &ch.SkillBonus, &ch.MaxHp, &ch.MaxMp, &ch.Hp, &ch.Mp,
 			&ch.Critical, &ch.RegenHP, &ch.RegenMP, &ch.ResistFire, &ch.ResistIce, &ch.ResistThunder,
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
-			&ch.ClassMaster, &ch.Soul, &skillBar, &shortSkill, &special)
+			&ch.ClassMaster, &ch.Soul, &ch.Fame, &skillBar, &shortSkill, &special)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}

@@ -164,8 +164,9 @@ message Character {
   int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
   int32 soul = 29;                 // MobExtra.Soul
   int32 class_master = 30;         // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
-  int32 guild_level = 31;          // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
-  int32 citizen = 32;              // MobExtra.Citizen, needed for guild creation metadata
+  int32 citizen = 31;              // MobExtra.Citizen (city allegiance; 0 = none)
+  int32 fame = 32;                 // MobExtra.Fame
+  int32 guild_level = 33;          // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
 }
 
 message Item {

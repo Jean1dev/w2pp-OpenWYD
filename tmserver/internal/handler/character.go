@@ -257,6 +257,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.Citizen, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.Citizen, st.ClassMaster, st.Soul
+		e.Fame = st.Fame
 		// Older rows created before ClassMaster was persisted may still carry 0.
 		// Treat that as MORTAL (=2, Basedef.h:238) so EXP does not route through
 		// the celestial divisor path (issue #43).

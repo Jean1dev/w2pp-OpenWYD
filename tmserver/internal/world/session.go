@@ -178,9 +178,10 @@ type Entity struct {
 	Clan        uint8    // clan/race
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
-	Citizen     uint8    // MobExtra.Citizen; guild creation metadata
+	Citizen     uint8    // MobExtra.Citizen; city allegiance and guild creation metadata
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
+	Fame        int32    // MobExtra.Fame; loaded from DB and adjusted live by Selo do Guerreiro
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat

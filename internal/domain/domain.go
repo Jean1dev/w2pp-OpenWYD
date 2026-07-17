@@ -69,6 +69,7 @@ type Character struct {
 	Citizen         uint8 // MobExtra.Citizen
 	ClassMaster     uint8 // MobExtra.ClassMaster
 	Soul            uint8 // MobExtra.Soul
+	Fame            int32 // MobExtra.Fame
 	SkillBar        [4]uint8
 	ShortSkill      [16]uint8
 	Equip           []Item // owner_kind = char_equip

@@ -121,9 +121,10 @@ type CharacterState struct {
 	Clan        uint8
 	GuildID     uint16
 	GuildLevel  uint8
-	Citizen     uint8
+	Citizen     uint8 // MobExtra.Citizen; city allegiance and guild creation metadata
 	ClassMaster uint8
 	Soul        uint8
+	Fame        int32 // MobExtra.Fame
 	Str         int16
 	Int         int16
 	Dex         int16
