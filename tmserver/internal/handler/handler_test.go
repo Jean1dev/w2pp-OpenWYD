@@ -47,11 +47,33 @@ type fakeDB struct {
 
 	pending map[int64][]world.Delivery // accountID -> mailbox rows (donate drain)
 
+	pinVerify    world.PinResult // VerifyPin result (default PinOK)
+	pinVerifyErr error           // forces VerifyPin to error
+	pinSetOK     bool            // SetPin ok flag
+	pinSets      []string        // captured SetPin plaintext (test-only; prod never stores plaintext)
+
 	mu           sync.Mutex
 	savedChars   []world.CharacterSave // captured SaveOnShutdown calls
 	savedCargos  []world.CargoSave     // captured SaveCargo calls
 	drainSaves   []drainSave           // captured SaveCargoWithDeliveries calls
 	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
+}
+
+func (f *fakeDB) VerifyPin(_ context.Context, _ int64, _ string) (world.PinResult, error) {
+	return f.pinVerify, f.pinVerifyErr
+}
+
+func (f *fakeDB) SetPin(_ context.Context, _ int64, pin string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pinSets = append(f.pinSets, pin)
+	return f.pinSetOK, nil
+}
+
+func (f *fakeDB) setPinCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.pinSets)
 }
 
 // drainSave captures one SaveCargoWithDeliveries call for assertions.

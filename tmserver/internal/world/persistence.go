@@ -22,6 +22,19 @@ const (
 	LoginAlreadyPlaying
 )
 
+// PinResult is the outcome of a numeric-PIN (AccountSecure) verify, mirroring the
+// dbServer PinResult enum. NoAccount/NotSet/BadPin let the handler distinguish a
+// first-time PIN setup from a rejection.
+type PinResult int
+
+// PIN verify outcomes.
+const (
+	PinOK PinResult = iota
+	PinNoAccount
+	PinNotSet
+	PinBadPin
+)
+
 // CharSummary is the character-selection projection (STRUCT_SELCHAR subset): the
 // per-slot data the selection screen previews, including the score (level, gold,
 // HP/MP, attributes) so the slot shows the real character, not placeholders.
@@ -207,6 +220,10 @@ type Persistence interface {
 	CreateCharacter(ctx context.Context, accountID int64, slot int, name string, class int) (bool, error)
 	CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int, name, password string) (bool, error)
+	// SetPin sets/changes the account's numeric PIN (hashed argon2id on the
+	// dbServer). VerifyPin checks a PIN. Both run off the loop via World.Go.
+	SetPin(ctx context.Context, accountID int64, pin string) (bool, error)
+	VerifyPin(ctx context.Context, accountID int64, pin string) (PinResult, error)
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (CharacterState, error)
 	LoadCargo(ctx context.Context, accountID int64) (CargoState, error)
 	SaveCargo(ctx context.Context, save CargoSave) error
@@ -255,6 +272,16 @@ func (NopPersistence) CreateArchCharacter(context.Context, int64, string, int, i
 // DeleteCharacter is unsupported without a backend.
 func (NopPersistence) DeleteCharacter(context.Context, int64, int, string, string) (bool, error) {
 	return false, errNoPersistence
+}
+
+// SetPin is unsupported without a backend.
+func (NopPersistence) SetPin(context.Context, int64, string) (bool, error) {
+	return false, errNoPersistence
+}
+
+// VerifyPin reports no account without a backend.
+func (NopPersistence) VerifyPin(context.Context, int64, string) (PinResult, error) {
+	return PinNoAccount, errNoPersistence
 }
 
 // LoadCharacter is unsupported without a backend.

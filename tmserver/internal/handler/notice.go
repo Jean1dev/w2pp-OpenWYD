@@ -52,6 +52,7 @@ const (
 	// Gema Estelar / Portal Scroll (_MSG_UseItem.cpp Vol 12/13, issue #140).
 	NoticeSetWarp     // _NN_Set_Warp (186): warp save-point recorded
 	NoticeCantUseHere // _NN_Cant_Use_That_Here (96): zone-gated item use refused
+	NoticeNoKey       // _NN_No_Key: a locked gate needs a key the player doesn't hold
 )
 
 // notify sends a client notification.

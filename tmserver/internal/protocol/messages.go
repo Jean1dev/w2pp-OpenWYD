@@ -772,6 +772,136 @@ func (m *MsgAttackBody) Encode() []byte {
 // Phase 6. See the skipped test in messages_test.go.
 const AuthGameSize = 196
 
+// MsgDeleteItemBody — MSG_DeleteItem (C→S, 0x02E4), Basedef.h:2371-2378: destroy a
+// carry item. Slot is the carry index; SIndex is the item template id (client sends
+// it for validation, but the legacy handler clears the slot unconditionally).
+type MsgDeleteItemBody struct {
+	Slot   int32
+	SIndex int32
+}
+
+// MsgDeleteItemBodySize is the body length.
+const MsgDeleteItemBodySize = 8
+
+// Decode parses an MSG_DeleteItem body.
+func (m *MsgDeleteItemBody) Decode(b []byte) error {
+	if len(b) < MsgDeleteItemBodySize {
+		return fmt.Errorf("protocol: MsgDeleteItemBody.Decode: have %d, need %d", len(b), MsgDeleteItemBodySize)
+	}
+	m.Slot = int32(le.Uint32(b[0:4]))
+	m.SIndex = int32(le.Uint32(b[4:8]))
+	return nil
+}
+
+// Encode writes the MSG_DeleteItem body into a new slice.
+func (m *MsgDeleteItemBody) Encode() []byte {
+	b := make([]byte, MsgDeleteItemBodySize)
+	le.PutUint32(b[0:4], uint32(m.Slot))
+	le.PutUint32(b[4:8], uint32(m.SIndex))
+	return b
+}
+
+// MsgSplitItemBody — MSG_SplitItem (C→S, 0x02E5), Basedef.h:2381-2390: peel Num
+// units off the stack in carry Slot into a new stack. SIndex is the item template
+// id (validated against a splittable whitelist in the handler).
+type MsgSplitItemBody struct {
+	Slot   int32
+	SIndex int32
+	Num    int32
+}
+
+// MsgSplitItemBodySize is the body length.
+const MsgSplitItemBodySize = 12
+
+// Decode parses an MSG_SplitItem body.
+func (m *MsgSplitItemBody) Decode(b []byte) error {
+	if len(b) < MsgSplitItemBodySize {
+		return fmt.Errorf("protocol: MsgSplitItemBody.Decode: have %d, need %d", len(b), MsgSplitItemBodySize)
+	}
+	m.Slot = int32(le.Uint32(b[0:4]))
+	m.SIndex = int32(le.Uint32(b[4:8]))
+	m.Num = int32(le.Uint32(b[8:12]))
+	return nil
+}
+
+// Encode writes the MSG_SplitItem body into a new slice.
+func (m *MsgSplitItemBody) Encode() []byte {
+	b := make([]byte, MsgSplitItemBodySize)
+	le.PutUint32(b[0:4], uint32(m.Slot))
+	le.PutUint32(b[4:8], uint32(m.SIndex))
+	le.PutUint32(b[8:12], uint32(m.Num))
+	return b
+}
+
+// MsgUpdateItemBody — MSG_UpdateItem (C↔S, 0x0374), Basedef.h:2214-2221: gate/door
+// interaction. ItemID is the world-item id (ground id + GroundItemIDOffset); State
+// is the requested gate state. Inbound it is an open request; the server echoes the
+// same body to nearby clients to reflect the new gate state (GridMulticast).
+type MsgUpdateItemBody struct {
+	ItemID int32
+	State  int32
+}
+
+// MsgUpdateItemBodySize is the body length.
+const MsgUpdateItemBodySize = 8
+
+// Decode parses an MSG_UpdateItem body.
+func (m *MsgUpdateItemBody) Decode(b []byte) error {
+	if len(b) < MsgUpdateItemBodySize {
+		return fmt.Errorf("protocol: MsgUpdateItemBody.Decode: have %d, need %d", len(b), MsgUpdateItemBodySize)
+	}
+	m.ItemID = int32(le.Uint32(b[0:4]))
+	m.State = int32(le.Uint32(b[4:8]))
+	return nil
+}
+
+// Encode writes the MSG_UpdateItem body into a new slice.
+func (m *MsgUpdateItemBody) Encode() []byte {
+	b := make([]byte, MsgUpdateItemBodySize)
+	le.PutUint32(b[0:4], uint32(m.ItemID))
+	le.PutUint32(b[4:8], uint32(m.State))
+	return b
+}
+
+// MsgAccountSecureBody — MSG_AccountSecure (C↔S, 0x0FDE), Basedef.h:1588-1595: the
+// numeric PIN. NumericToken is the (legacy-plaintext) 6-char PIN; ChangeNumeric is
+// 0 to verify, 1 to set/change. The PIN is never persisted in plaintext — the
+// dbServer hashes it with argon2id (issue #120).
+type MsgAccountSecureBody struct {
+	NumericToken  [6]byte
+	Unknown       [10]byte
+	ChangeNumeric int32
+}
+
+// MsgAccountSecureBodySize is the body length.
+const MsgAccountSecureBodySize = 20
+
+// Decode parses an MSG_AccountSecure body.
+func (m *MsgAccountSecureBody) Decode(b []byte) error {
+	if len(b) < MsgAccountSecureBodySize {
+		return fmt.Errorf("protocol: MsgAccountSecureBody.Decode: have %d, need %d", len(b), MsgAccountSecureBodySize)
+	}
+	copy(m.NumericToken[:], b[0:6])
+	copy(m.Unknown[:], b[6:16])
+	m.ChangeNumeric = int32(le.Uint32(b[16:20]))
+	return nil
+}
+
+// Encode writes the MSG_AccountSecure body into a new slice.
+func (m *MsgAccountSecureBody) Encode() []byte {
+	b := make([]byte, MsgAccountSecureBodySize)
+	copy(b[0:6], m.NumericToken[:])
+	copy(b[6:16], m.Unknown[:])
+	le.PutUint32(b[16:20], uint32(m.ChangeNumeric))
+	return b
+}
+
+// PIN returns the numeric token as a string, trimmed at the first NUL. The PIN is
+// verify/set input for the dbServer; it is never logged or persisted in plaintext.
+func (m *MsgAccountSecureBody) PIN() string {
+	return cTrimNUL(m.NumericToken[:])
+}
+
 // cTrimNUL returns the prefix of b up to the first NUL — a helper for turning
 // fixed-size, NUL-padded char arrays (names, passwords) into Go strings at the
 // handler boundary (Phase 4).

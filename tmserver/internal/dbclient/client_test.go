@@ -28,7 +28,10 @@ type fakeAPI struct {
 
 	deliveriesResp       *dbv1.ListPendingDeliveriesResponse
 	savedCargoDeliveries *dbv1.SaveCargoWithDeliveriesRequest
-	blockedReq           *dbv1.SetAccountBlockedRequest
+
+	pinSetOK   bool
+	pinResult  dbv1.PinResult
+	blockedReq *dbv1.SetAccountBlockedRequest
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {
@@ -53,6 +56,12 @@ func (f *fakeAPI) CreateArchCharacter(_ context.Context, req *dbv1.CreateArchCha
 }
 func (f *fakeAPI) DeleteCharacter(_ context.Context, _ *dbv1.DeleteCharacterRequest, _ ...grpc.CallOption) (*dbv1.DeleteCharacterResponse, error) {
 	return &dbv1.DeleteCharacterResponse{Ok: f.deleteOK}, nil
+}
+func (f *fakeAPI) SetPin(_ context.Context, _ *dbv1.SetPinRequest, _ ...grpc.CallOption) (*dbv1.SetPinResponse, error) {
+	return &dbv1.SetPinResponse{Ok: f.pinSetOK}, nil
+}
+func (f *fakeAPI) VerifyPin(_ context.Context, _ *dbv1.VerifyPinRequest, _ ...grpc.CallOption) (*dbv1.VerifyPinResponse, error) {
+	return &dbv1.VerifyPinResponse{Result: f.pinResult}, nil
 }
 func (f *fakeAPI) LoadCargo(_ context.Context, _ *dbv1.LoadCargoRequest, _ ...grpc.CallOption) (*dbv1.LoadCargoResponse, error) {
 	if f.cargoResp != nil {
@@ -308,5 +317,34 @@ func TestCreateDeleteMapping(t *testing.T) {
 	}
 	if ok, err := c.DeleteCharacter(context.Background(), 1, 0, "n", "pw"); err != nil || !ok {
 		t.Fatalf("delete: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestClientPin(t *testing.T) {
+	api := &fakeAPI{pinSetOK: true, pinResult: dbv1.PinResult_PIN_RESULT_OK}
+	c := newClient(api)
+
+	if ok, err := c.SetPin(context.Background(), 1, "1234"); err != nil || !ok {
+		t.Fatalf("SetPin ok=%v err=%v, want true nil", ok, err)
+	}
+
+	cases := []struct {
+		in   dbv1.PinResult
+		want world.PinResult
+	}{
+		{dbv1.PinResult_PIN_RESULT_OK, world.PinOK},
+		{dbv1.PinResult_PIN_RESULT_NOT_SET, world.PinNotSet},
+		{dbv1.PinResult_PIN_RESULT_BAD_PIN, world.PinBadPin},
+		{dbv1.PinResult_PIN_RESULT_NO_ACCOUNT, world.PinNoAccount},
+	}
+	for _, tc := range cases {
+		api.pinResult = tc.in
+		got, err := c.VerifyPin(context.Background(), 1, "1234")
+		if err != nil {
+			t.Fatalf("VerifyPin: %v", err)
+		}
+		if got != tc.want {
+			t.Errorf("VerifyPin(%v) = %v, want %v", tc.in, got, tc.want)
+		}
 	}
 }

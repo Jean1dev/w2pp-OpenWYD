@@ -271,6 +271,7 @@ func run(logger *slog.Logger) error {
 	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
 		spawnNPCs(w, *contentDir, npcConfig != nil, logger)
+		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
 		dispatch.ApplyNPCConfigBoot(w)
@@ -393,6 +394,27 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 	}
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
 		"merchant_blocks_skipped", skipped)
+}
+
+// seedWorldItems spawns the static world objects (gates/doors) from
+// TMsrv/run/InitItem.csv before Serve starts the loop, so id assignment is
+// single-threaded and follows file order (matching the legacy CreateItem sequence
+// the client expects). Missing/unreadable is a warning, not fatal — like the maps.
+func seedWorldItems(w *world.World, dir string, logger *slog.Logger) {
+	items, err := content.LoadInitItems(filepath.Join(dir, "TMsrv", "run", "InitItem.csv"))
+	if err != nil {
+		logger.Warn("world items not loaded", "err", err)
+		return
+	}
+	seeded := 0
+	for _, it := range items {
+		// Gates seed open (parity with CreateItem); locking arrives with the deferred
+		// event/timer systems. SeedWorldItem returns -1 only when the id table is full.
+		if id := w.SeedWorldItem(world.Item{Index: it.Index}, it.PosX, it.PosY, world.StateOpen); id >= 0 {
+			seeded++
+		}
+	}
+	logger.Info("world items seeded", "count", seeded)
 }
 
 func sampleNames(names map[string]struct{}, limit int) []string {
