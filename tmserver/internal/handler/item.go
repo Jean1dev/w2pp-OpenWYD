@@ -244,6 +244,10 @@ const (
 	volVigor      = 58
 	volSilverBar  = 185
 	volFrango     = 63
+	volGemDiamond = 180
+	volGemEmerald = 181
+	volGemCoral   = 182
+	volGemGarnet  = 183
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -336,10 +340,14 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useFrangoAssado(w, s, e, src)
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
+	case vol >= volGemDiamond && vol <= volGemGarnet:
+		d.useBaseGem(w, s, e, body, src, vol)
 	case vol == volJoiaPvP:
 		d.useJoiaPvP(w, s, e, src)
 	case vol == volJoiaRecovery:
 		d.useJoiaRecovery(w, s, e, src)
+	case vol == volMagicBean:
+		d.useMagicBean(w, s, e, body, src)
 	case vol == volAdamantita:
 		d.useAdamantita(w, s, e, body, src)
 	case vol == volChocolate:
@@ -644,6 +652,68 @@ func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Ent
 	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
 }
 
+// baseGemVariant maps the four base-change gems to the +10..+15 packed gem
+// index used by BASE_SetItemSanc (_MSG_UseItem.cpp:3890-4201).
+func baseGemVariant(vol int) (int, bool) {
+	switch vol {
+	case volGemDiamond:
+		return 0, true
+	case volGemEmerald:
+		return 1, true
+	case volGemCoral:
+		return 2, true
+	case volGemGarnet:
+		return 3, true
+	default:
+		return 0, false
+	}
+}
+
+// useBaseGem handles Gema de Diamante/Esmeralda/Coral/Garnet (Vol 180..183).
+// They change an equipped ANCT grade-5..8 item to the selected base variant and,
+// on +10..+15 targets, rewrite the packed sanc gem index. The legacy accepts only
+// equipped gear except body slot 0 and accessory slots 8..15.
+func (d *Dispatcher) useBaseGem(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src, vol int) {
+	gem, ok := baseGemVariant(vol)
+	if !ok {
+		return
+	}
+
+	dstSlot := int(body.DestPos)
+	if int(body.DestType) != world.ItemPlaceEquip || dstSlot == 0 || (dstSlot >= 8 && dstSlot < world.MaxEquip) {
+		d.baseGemReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
+	if dst == nil {
+		return
+	}
+
+	level := refine.Level(*dst)
+	grade := d.itemGrades[int(dst.Index)]
+	if level < gemSancLvl && grade < 5 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	if grade >= 5 && grade <= 8 {
+		dst.Index += int16(gem - (grade - 5))
+	}
+	if level >= gemSancLvl {
+		refine.Set(dst, level, gem)
+	}
+
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceEquip, dstSlot, *dst)
+}
+
+func (d *Dispatcher) baseGemReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
+	d.notify(w, s, n)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
 // Jóia (cash jewel) volatiles. Vol 242 is the PvP buff set (grants affect type
 // 8, one Level bit per jewel); Vol 243 is the recovery/storage pair.
 const (
@@ -878,6 +948,83 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 
 	consumeOneItem(&e.Carry[src])
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+const (
+	volMagicBean       = 186
+	magicBeanBase      = 3407
+	magicBeanRemover   = 10
+	magicBeanPaintLo   = 116
+	magicBeanPaintHi   = 125
+	magicBeanFirstSlot = 1
+	magicBeanLastSlot  = 7
+)
+
+// useMagicBean consumes a Feijao Magico / Removedor de tintura (EF_VOLATILE 186)
+// by stamping only the destination effect id byte, preserving the cValue exactly
+// as _MSG_UseItem.cpp:3767-3861 does. Paint effects reuse the sanc effect slots:
+// 116..125 are colors, while EF_SANC (43) is the remover/neutral marker.
+func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
+	dstSlot := int(body.DestPos)
+	if int(body.DestType) != world.ItemPlaceEquip || dstSlot < magicBeanFirstSlot || dstSlot > magicBeanLastSlot {
+		d.magicBeanReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
+	if dst == nil {
+		return
+	}
+	if dst.Empty() {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	if refine.Level(*dst) < 1 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	color := int(e.Carry[src].Index) - magicBeanBase
+	effect := uint8(magicBeanPaintLo + color)
+	if color == magicBeanRemover {
+		effect = efSanc
+	}
+
+	i := magicBeanEffectSlot(*dst, color == magicBeanRemover)
+	if i < 0 {
+		d.magicBeanReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+	dst.Effects[i].Effect = effect
+
+	d.notify(w, s, NoticeRefineSuccess)
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, int(body.DestType), dstSlot, *dst)
+}
+
+func (d *Dispatcher) magicBeanReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
+	d.notify(w, s, n)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+func magicBeanEffectSlot(it world.Item, remover bool) int {
+	for i, ef := range it.Effects {
+		if magicBeanSlotWritable(ef, remover) {
+			return i
+		}
+	}
+	return -1
+}
+
+func magicBeanSlotWritable(ef world.Effect, remover bool) bool {
+	if ef.Effect == 0 || ef.Effect >= magicBeanPaintLo && ef.Effect <= magicBeanPaintHi {
+		return true
+	}
+	if !remover && ef.Effect == efSanc {
+		return true
+	}
+	return false
 }
 
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the

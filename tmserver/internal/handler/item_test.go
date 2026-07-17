@@ -318,6 +318,219 @@ func TestUseItemEquip(t *testing.T) {
 	}
 }
 
+const (
+	itemMagicBeanBlue    = 3407
+	itemMagicBeanLight   = 3416
+	itemMagicBeanRemover = 3417
+)
+
+func magicBeanDB(bean, equip world.Item) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = bean
+	st.Equip[1] = equip
+	db.loadResult = st
+	return db
+}
+
+func useMagicBeanFrame(t *testing.T, c net.Conn, dstSlot int) {
+	t.Helper()
+	body := protocol.MsgUseItemBody{
+		SourType: world.ItemPlaceCarry, SourPos: 0,
+		DestType: world.ItemPlaceEquip, DestPos: int32(dstSlot),
+	}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+}
+
+func magicBeanVols(bean int16) map[int]int {
+	return map[int]int{int(bean): volMagicBean}
+}
+
+func TestUseMagicBeanPaintsEquippedSet(t *testing.T) {
+	armor := world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	addr, stop := startServerClockVol(t, magicBeanDB(world.Item{Index: itemMagicBeanBlue}, armor), magicBeanVols(itemMagicBeanBlue))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useMagicBeanFrame(t, c, 1)
+
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeRefineSuccess {
+		t.Fatalf("notice = %d, want RefineSuccess", code)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[0:2]); got != world.ItemPlaceEquip {
+		t.Fatalf("send item place = %d, want equip", got)
+	}
+	if got := le16(item[2:4]); got != 1 {
+		t.Fatalf("send item slot = %d, want 1", got)
+	}
+	if got := le16(item[4:6]); got != itemArmor {
+		t.Fatalf("painted item index = %d, want armor", got)
+	}
+	if item[6] != magicBeanPaintLo || item[7] != 9 {
+		t.Fatalf("effect0 = %d.%d, want paint %d preserving sanc value 9", item[6], item[7], magicBeanPaintLo)
+	}
+}
+
+func TestUseMagicBeanHighestColorAndRemover(t *testing.T) {
+	tests := []struct {
+		name string
+		bean int16
+		dst  world.Item
+		want uint8
+	}{
+		{
+			name: "light blue writes 125",
+			bean: itemMagicBeanLight,
+			dst:  world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: efSanc, Value: 8}}},
+			want: magicBeanPaintHi,
+		},
+		{
+			name: "remover writes EF_SANC",
+			bean: itemMagicBeanRemover,
+			dst:  world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: magicBeanPaintLo + 4, Value: 8}}},
+			want: efSanc,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, stop := startServerClockVol(t, magicBeanDB(world.Item{Index: tt.bean}, tt.dst), magicBeanVols(tt.bean))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			useMagicBeanFrame(t, c, 1)
+
+			expect(t, c, protocol.MsgMessageBoxOk)
+			expect(t, c, protocol.MsgUpdateScore)
+			item := expect(t, c, protocol.MsgSendItem)
+			if item[6] != tt.want || item[7] != 8 {
+				t.Fatalf("effect0 = %d.%d, want %d.8", item[6], item[7], tt.want)
+			}
+		})
+	}
+}
+
+func TestUseMagicBeanRejectsMissingSanc(t *testing.T) {
+	tests := []struct {
+		name  string
+		equip world.Item
+	}{
+		{name: "empty equip slot"},
+		{name: "unrefined item", equip: world.Item{Index: itemArmor}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, stop := startServerClockVol(t, magicBeanDB(world.Item{Index: itemMagicBeanBlue}, tt.equip), magicBeanVols(itemMagicBeanBlue))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			useMagicBeanFrame(t, c, 1)
+
+			item := expect(t, c, protocol.MsgSendItem)
+			if got := le16(item[0:2]); got != world.ItemPlaceCarry {
+				t.Fatalf("reject send item place = %d, want carry", got)
+			}
+			if got := le16(item[4:6]); got != itemMagicBeanBlue {
+				t.Fatalf("reject source item = %d, want magic bean", got)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Fatalf("missing-sanc magic bean use produced extra frame %#x", ty)
+			}
+		})
+	}
+}
+
+func TestUseMagicBeanRejectsNonSetSlot(t *testing.T) {
+	armor := world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	addr, stop := startServerClockVol(t, magicBeanDB(world.Item{Index: itemMagicBeanBlue}, armor), magicBeanVols(itemMagicBeanBlue))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useMagicBeanFrame(t, c, 0)
+
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeOnlyToEquips {
+		t.Fatalf("notice = %d, want OnlyToEquips", code)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[0:2]); got != world.ItemPlaceCarry {
+		t.Fatalf("reject send item place = %d, want carry", got)
+	}
+	if got := le16(item[4:6]); got != itemMagicBeanBlue {
+		t.Fatalf("reject source item = %d, want magic bean", got)
+	}
+}
+
+func TestUseMagicBeanStackPersistsOneConsumed(t *testing.T) {
+	armor := world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	bean := world.Item{Index: itemMagicBeanBlue, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	db := magicBeanDB(bean, armor)
+	addr, stop := startServerClockVol(t, db, magicBeanVols(itemMagicBeanBlue))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useMagicBeanFrame(t, c, 1)
+	expect(t, c, protocol.MsgSendItem)
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+
+	save, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was not saved on logout")
+	}
+	carry0, ok := savedItemAt(save.Carry, 0)
+	if !ok {
+		t.Fatal("saved carry slot 0 is empty; want stacked magic bean")
+	}
+	if carry0.Index != itemMagicBeanBlue || carry0.Eff1 != efAmount || carry0.EffV1 != 2 {
+		t.Fatalf("saved carry0 = %+v, want magic bean amount 2", carry0)
+	}
+	equip1, ok := savedItemAt(save.Equip, 1)
+	if !ok {
+		t.Fatal("saved equip slot 1 is empty; want painted armor")
+	}
+	if equip1.Eff1 != magicBeanPaintLo || equip1.EffV1 != 9 {
+		t.Fatalf("saved equip1 effects = %+v, want paint %d value 9", equip1, magicBeanPaintLo)
+	}
+}
+
+func TestMagicBeanEffectSlotScan(t *testing.T) {
+	it := world.Item{Effects: [3]world.Effect{
+		{Effect: efDamage, Value: 1},
+		{Effect: efAc, Value: 2},
+		{Effect: efHp, Value: 3},
+	}}
+	if got := magicBeanEffectSlot(it, false); got != -1 {
+		t.Fatalf("paint slot = %d, want -1 for three real effects", got)
+	}
+	it.Effects[1] = world.Effect{Effect: efSanc, Value: 9}
+	if got := magicBeanEffectSlot(it, false); got != 1 {
+		t.Fatalf("paint slot = %d, want EF_SANC slot 1", got)
+	}
+	if got := magicBeanEffectSlot(it, true); got != -1 {
+		t.Fatalf("remover slot = %d, want -1 when only EF_SANC is available", got)
+	}
+	it.Effects[2] = world.Effect{Effect: magicBeanPaintLo + 2, Value: 9}
+	if got := magicBeanEffectSlot(it, true); got != 2 {
+		t.Fatalf("remover slot = %d, want paint slot 2", got)
+	}
+}
+
+func savedItemAt(items []world.SavedItem, slot int) (world.SavedItem, bool) {
+	for _, it := range items {
+		if it.Slot == slot {
+			return it, true
+		}
+	}
+	return world.SavedItem{}, false
+}
+
 // TestTradingItemCarryMove is the most basic case the user hit: drag an item from
 // one inventory slot to an empty one via _MSG_TradingItem (0x0376). The item moves
 // and both slots are refreshed (the empty source, the now-filled destination).
