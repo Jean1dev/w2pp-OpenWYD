@@ -243,8 +243,13 @@ const (
 	volDivine30   = 66
 	volVigor      = 58
 	volSilverBar  = 185
-	volPaint      = 186
+	volMagicBean  = 186
+	volPaint      = volMagicBean
 	volFrango     = 63
+	volGemDiamond = 180
+	volGemEmerald = 181
+	volGemCoral   = 182
+	volGemGarnet  = 183
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -253,6 +258,30 @@ const (
 	// divineAffectTime is the original's "infinite" Affect.Time for the Divine slot —
 	// the actual expiry is DivineEnd (wall-clock), not this field (captura §B).
 	divineAffectTime = 2000000000
+)
+
+// issue #135: EF_VOLATILE classes that previously fell through to useItem's
+// default no-op — the client showed a phantom consumption that any later slot
+// resync (e.g. a _MSG_TradingItem move) would revert, since nothing was ever
+// decremented server-side.
+const (
+	volAdamantita  = 9   // Adamantita/Beril/Tectita/Spinner legendary-upgrade combine (_MSG_UseItem.cpp:1097-1213)
+	volChocolate   = 204 // Chocolate do Amor (_MSG_UseItem.cpp:6082-6131)
+	volCoracaoDoce = 205 // Coração Doce (_MSG_UseItem.cpp:6030-6079)
+
+	// Blocked: real behavior needs data that doesn't exist anywhere in the
+	// available Source/ tree (repo-wide grep, not just this file) — see the
+	// reject cases below for what's missing per item.
+	volWaterMLo, volWaterMHi = 21, 30   // Pergaminho da Água (M), _MSG_UseItem.cpp:1726
+	volWaterNLo, volWaterNHi = 131, 140 // Pergaminho da Água (N), _MSG_UseItem.cpp:1920
+	volWaterALo, volWaterAHi = 161, 170 // Pergaminho da Água (A), _MSG_UseItem.cpp:2025
+	volClasses               = 190      // Classes A-E, _MSG_UseItem.cpp:4959
+
+	// itemSeloDoGuerreiro and itemPedraMisteriosa carry no EF_VOLATILE in the
+	// catalog (BASE_GetItemAbility falls back to 0), so the legacy — and this
+	// dispatcher — identify them by sIndex instead (_MSG_UseItem.cpp:3184,3325).
+	itemSeloDoGuerreiro = 4146
+	itemPedraMisteriosa = 4148
 )
 
 // potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
@@ -280,6 +309,18 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	if src < 0 || src >= world.MaxCarry || e.Carry[src].Empty() {
 		return
 	}
+	// Selo do Guerreiro and Pedra Misteriosa have no EF_VOLATILE, so d.itemVolatiles
+	// defaults to 0 for them — check sIndex first so they don't fall into the vol==0
+	// equip path (canEquipSlot would just silently reject them, the same "phantom
+	// consumption" bug this whole block fixes for issue #135).
+	switch e.Carry[src].Index {
+	case itemSeloDoGuerreiro:
+		d.useSeloDoGuerreiro(w, s, e, src)
+		return
+	case itemPedraMisteriosa:
+		d.rejectUnimplementedConsumable(w, s, e, src)
+		return
+	}
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
 	case vol == 0:
 		d.equipItem(w, s, e, body, payload)
@@ -301,15 +342,43 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useFrangoAssado(w, s, e, src)
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
-	case vol == volPaint:
-		d.usePaintBean(w, s, e, body, src)
+	case vol >= volGemDiamond && vol <= volGemGarnet:
+		d.useBaseGem(w, s, e, body, src, vol)
 	case vol == volJoiaPvP:
 		d.useJoiaPvP(w, s, e, src)
 	case vol == volJoiaRecovery:
 		d.useJoiaRecovery(w, s, e, src)
+	case vol == volMagicBean:
+		d.useMagicBean(w, s, e, body, src)
+	case vol == volAdamantita:
+		d.useAdamantita(w, s, e, body, src)
+	case vol == volChocolate:
+		d.useChocolateDoAmor(w, s, e, src)
+	case vol == volCoracaoDoce:
+		d.useCoracaoDoce(w, s, e, src)
+	case vol >= volWaterMLo && vol <= volWaterMHi,
+		vol >= volWaterNLo && vol <= volWaterNHi,
+		vol >= volWaterALo && vol <= volWaterAHi,
+		vol == volClasses:
+		// issue #135: real behavior needs data absent from Source/ (see the const
+		// block above) — reject honestly instead of no-op'ing, so the client never
+		// shows a consumption the next slot resync would revert.
+		d.rejectUnimplementedConsumable(w, s, e, src)
 	default:
 		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
 	}
+}
+
+// rejectUnimplementedConsumable answers _MSG_UseItem for a consumable whose real
+// effect this fork can't implement with parity (issue #135: the water-scroll
+// dungeon coordinates, the Celestial-class swap, and the item-bonus reroll all
+// depend on data/algorithms that don't exist anywhere in the available Source/
+// tree). Unlike a silent no-op, this tells the client plainly that nothing
+// happened and re-syncs the slot, so it never shows a phantom consumption that a
+// later move/trade would "revert".
+func (d *Dispatcher) rejectUnimplementedConsumable(w *world.World, s *world.Session, e *world.Entity, src int) {
+	d.notify(w, s, NoticeCantUseHere)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }
 
 const efAmount = 61
@@ -585,84 +654,66 @@ func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Ent
 	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
 }
 
-// Magic-bean paint items (3407..3416) and the paint remover (3417) are all
-// EF_VOLATILE 186 in ItemList.csv. The source index selects the visual carrier:
-// 3407 -> effect 116, ..., 3416 -> 125, and 3417 restores EF_SANC.
-const (
-	paintItemBase = 3407
-	paintRemove   = 10
-	paintEffectLo = 116
-	paintEffectHi = 125
-)
+// baseGemVariant maps the four base-change gems to the +10..+15 packed gem
+// index used by BASE_SetItemSanc (_MSG_UseItem.cpp:3890-4201).
+func baseGemVariant(vol int) (int, bool) {
+	switch vol {
+	case volGemDiamond:
+		return 0, true
+	case volGemEmerald:
+		return 1, true
+	case volGemCoral:
+		return 2, true
+	case volGemGarnet:
+		return 3, true
+	default:
+		return 0, false
+	}
+}
 
-// usePaintBean ports the "Feijões mágicos - Removedor" branch of
-// _MSG_UseItem.cpp:3767. It does not change the refine value; it only swaps the
-// effect id that carries that value, which is what the 7662 client renders as an
-// equipment color/glow.
-func (d *Dispatcher) usePaintBean(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
-	dstPlace, dstSlot := int(body.DestType), int(body.DestPos)
-	dst := d.itemSlot(w, s, e, dstPlace, dstSlot)
-	if dst == nil {
-		return // GetItemPointer returned NULL in the legacy; only logs there.
-	}
-	if dstPlace != world.ItemPlaceEquip || (dstSlot >= 8 && dstSlot < 16) || dstSlot == 0 {
-		d.notify(w, s, NoticeOnlyToEquips)
-		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
-		return
-	}
-	if refine.Level(*dst) < 1 {
-		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
-		return
-	}
-
-	color := int(e.Carry[src].Index) - paintItemBase
-	if color < 0 || color > paintRemove {
-		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
-		return
-	}
-	var ok bool
-	if color == paintRemove {
-		ok = removePaint(dst)
-	} else {
-		ok = applyPaint(dst, color)
-	}
+// useBaseGem handles Gema de Diamante/Esmeralda/Coral/Garnet (Vol 180..183).
+// They change an equipped ANCT grade-5..8 item to the selected base variant and,
+// on +10..+15 targets, rewrite the packed sanc gem index. The legacy accepts only
+// equipped gear except body slot 0 and accessory slots 8..15.
+func (d *Dispatcher) useBaseGem(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src, vol int) {
+	gem, ok := baseGemVariant(vol)
 	if !ok {
-		d.notify(w, s, NoticeCantRefineMore)
+		return
+	}
+
+	dstSlot := int(body.DestPos)
+	if int(body.DestType) != world.ItemPlaceEquip || dstSlot == 0 || (dstSlot >= 8 && dstSlot < world.MaxEquip) {
+		d.baseGemReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
+	if dst == nil {
+		return
+	}
+
+	level := refine.Level(*dst)
+	grade := d.itemGrades[int(dst.Index)]
+	if level < gemSancLvl && grade < 5 {
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
 
-	d.notify(w, s, NoticeRefineSuccess)
+	if grade >= 5 && grade <= 8 {
+		dst.Index += int16(gem - (grade - 5))
+	}
+	if level >= gemSancLvl {
+		refine.Set(dst, level, gem)
+	}
+
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
 	consumeOneItem(&e.Carry[src])
-	d.refreshEquip(w, s, e)
-	d.sendSlot(w, s, dstPlace, dstSlot, *dst)
+	d.sendSlot(w, s, world.ItemPlaceEquip, dstSlot, *dst)
 }
 
-func applyPaint(it *world.Item, color int) bool {
-	effect := uint8(paintEffectLo + color)
-	for i := range it.Effects {
-		cur := it.Effects[i].Effect
-		if cur == 0 || cur == efSanc || isPaintEffect(cur) {
-			it.Effects[i].Effect = effect
-			return true
-		}
-	}
-	return false
-}
-
-func removePaint(it *world.Item) bool {
-	for i := range it.Effects {
-		cur := it.Effects[i].Effect
-		if cur == 0 || isPaintEffect(cur) {
-			it.Effects[i].Effect = efSanc
-			return true
-		}
-	}
-	return false
-}
-
-func isPaintEffect(effect uint8) bool {
-	return effect >= paintEffectLo && effect <= paintEffectHi
+func (d *Dispatcher) baseGemReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
+	d.notify(w, s, n)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }
 
 // Jóia (cash jewel) volatiles. Vol 242 is the PvP buff set (grants affect type
@@ -743,6 +794,245 @@ func (d *Dispatcher) useJoiaRecovery(w *world.World, s *world.Session, e *world.
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 }
 
+// useCoracaoDoce consumes Coração Doce (EF_VOLATILE 205): a short Velocidade
+// (Affect 2) + Defesa (Affect 11) buff, 1h/5 = 12min (_MSG_UseItem.cpp:6030-6079).
+func (d *Dispatcher) useCoracaoDoce(w *world.World, s *world.Session, e *world.Entity, src int) {
+	speedSlot := e.EmptyAffect(2) // Velocidade
+	if speedSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[speedSlot] = world.Affect{Type: 2, Value: 2, Time: affect1H / 5}
+
+	defSlot := e.EmptyAffect(11) // Defesa
+	if defSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[defSlot] = world.Affect{Type: 11, Time: affect1H / 5}
+
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// useChocolateDoAmor consumes Chocolate do Amor (EF_VOLATILE 204): a short Dano
+// (Affect 9) + Skill (Affect 15) buff, 1h/5 = 12min (_MSG_UseItem.cpp:6082-6131).
+func (d *Dispatcher) useChocolateDoAmor(w *world.World, s *world.Session, e *world.Entity, src int) {
+	dmgSlot := e.EmptyAffect(9) // Dano
+	if dmgSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[dmgSlot] = world.Affect{Type: 9, Time: affect1H / 5}
+
+	skillSlot := e.EmptyAffect(15) // Skill
+	if skillSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[skillSlot] = world.Affect{Type: 15, Value: 55, Time: affect1H / 5}
+
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// adamantitaUniqueType maps a target item's nUnique to the Adamantita tier it
+// belongs to (0-3), or -1 if it isn't legendary-upgradeable — the literal bucket
+// table from _MSG_UseItem.cpp:1113-1126, including its 10/20/30/40→3 duplicate
+// mapping (a legacy quirk, preserved rather than "fixed").
+func adamantitaUniqueType(nUnique int) int {
+	switch nUnique {
+	case 5, 14, 24, 34:
+		return 0
+	case 6, 15, 25, 35:
+		return 1
+	case 7, 16, 26, 36:
+		return 2
+	case 8, 17, 27, 37, 10, 20, 30, 40:
+		return 3
+	default:
+		return -1
+	}
+}
+
+// useAdamantita applies the Vol 9 legendary-upgrade combine (Spinner/Beril/
+// Tectita/Adamantita, item indices 575-578) onto the body.DestType/DestPos target,
+// matching _MSG_UseItem.cpp:1097-1213. The source item's index picks a tier
+// (Type = index-575); the target's catalog nUnique must bucket into the same
+// tier and its Grade must be 1-3. A 51% roll (rand()%100<=50) swaps the target's
+// index for the catalog's Extra result; either way the source is spent.
+func (d *Dispatcher) useAdamantita(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
+	dst := d.itemSlot(w, s, e, int(body.DestType), int(body.DestPos))
+	if dst == nil || dst.Empty() {
+		return // no such target — the legacy just logs and drops the message
+	}
+	adamType := int(e.Carry[src].Index) - 575
+	if adamType < 0 || adamType >= 4 {
+		return
+	}
+
+	uniqueType := adamantitaUniqueType(d.itemUnique[int(dst.Index)])
+	if uniqueType == -1 || uniqueType != adamType {
+		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+	grade := d.itemGrades[int(dst.Index)]
+	if grade <= 0 || grade >= 4 {
+		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+
+	// The dragged Adamantita is already gone from the client's own inventory view
+	// by the time this reply arrives (the drag itself is optimistic) — only the
+	// target slot needs a resync, matching refineSucceed/refineFail's dust
+	// convention (refine.go:232,262), not the source.
+	if w.Rand().Intn(100) <= 50 {
+		if extra := d.itemExtra[int(dst.Index)]; extra > 0 {
+			dst.Index = int16(extra)
+		}
+		d.refreshScore(e)
+		d.sendScore(w, s, e)
+		d.notify(w, s, NoticeRefineSuccess)
+	} else {
+		d.notify(w, s, NoticeFailToRefine)
+	}
+	d.sendSlot(w, s, int(body.DestType), int(body.DestPos), *dst)
+	consumeOneItem(&e.Carry[src])
+}
+
+// amuletSlot is the Equip index Selo do Guerreiro's kingdom amulet lands in
+// (_MSG_UseItem.cpp:3325-3364, Equip[15]).
+const amuletSlot = 15
+
+// useSeloDoGuerreiro consumes Selo do Guerreiro (sIndex 4146, no EF_VOLATILE):
+// grants Fame and, once at a high mortal level without any kingdom amulet
+// already equipped, an entry-tier one (_MSG_UseItem.cpp:3325-3364).
+// SendEmotion(conn,14,3) is cosmetic and not ported, matching the existing
+// precedent in refine.go:233,263 (no emotion opcode exists in this fork yet).
+func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *world.Entity, src int) {
+	const maxFame = 2_000_000_000
+	e.Fame += 10
+	if e.Fame > maxFame {
+		e.Fame = maxFame
+	}
+
+	hasAmulet := false
+	switch e.Equip[amuletSlot].Index {
+	case 3191, 3192, 3193, 3194, 3195, 3196:
+		hasAmulet = true
+	}
+	if e.ClassMaster == classMasterMortal && e.Level >= 354 && !hasAmulet {
+		amulet := int16(3193) // Elite dos Aventureiros — default/other kingdoms
+		switch e.Clan {
+		case 7:
+			amulet = 3191 // Elite de Hekalotia
+		case 8:
+			amulet = 3192 // Elite de Akelonia
+		}
+		e.Equip[amuletSlot] = world.Item{Index: amulet}
+		// The legacy doesn't refresh score here, but the amulet carries real
+		// EF_AC/EF_HP bonuses (ItemList.csv) — recompute so they take effect
+		// immediately instead of waiting for the next unrelated score refresh.
+		d.refreshScore(e)
+		d.sendSlot(w, s, world.ItemPlaceEquip, amuletSlot, e.Equip[amuletSlot])
+		d.sendScore(w, s, e)
+	}
+
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+const (
+	magicBeanBase      = 3407
+	magicBeanRemover   = 10
+	magicBeanPaintLo   = 116
+	magicBeanPaintHi   = 125
+	magicBeanFirstSlot = 1
+	magicBeanLastSlot  = 7
+)
+
+// useMagicBean consumes a Feijao Magico / Removedor de tintura (EF_VOLATILE 186)
+// by stamping only the destination effect id byte, preserving the cValue exactly
+// as _MSG_UseItem.cpp:3767-3861 does. Paint effects reuse the sanc effect slots:
+// 116..125 are colors, while EF_SANC (43) is the remover/neutral marker.
+func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
+	dstSlot := int(body.DestPos)
+	if int(body.DestType) != world.ItemPlaceEquip || dstSlot < magicBeanFirstSlot || dstSlot > magicBeanLastSlot {
+		d.magicBeanReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
+	if dst == nil {
+		return
+	}
+	if dst.Empty() {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	if refine.Level(*dst) < 1 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	color := int(e.Carry[src].Index) - magicBeanBase
+	if color < 0 || color > magicBeanRemover {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	effect := uint8(magicBeanPaintLo + color)
+	if color == magicBeanRemover {
+		effect = efSanc
+	}
+
+	i := magicBeanEffectSlot(*dst, color == magicBeanRemover)
+	if i < 0 {
+		d.magicBeanReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+	dst.Effects[i].Effect = effect
+
+	d.notify(w, s, NoticeRefineSuccess)
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, int(body.DestType), dstSlot, *dst)
+	d.sendEquipVisual(w, s, e)
+}
+
+func (d *Dispatcher) magicBeanReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
+	d.notify(w, s, n)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+func magicBeanEffectSlot(it world.Item, remover bool) int {
+	for i, ef := range it.Effects {
+		if magicBeanSlotWritable(ef, remover) {
+			return i
+		}
+	}
+	return -1
+}
+
+func magicBeanSlotWritable(ef world.Effect, remover bool) bool {
+	if ef.Effect == 0 || ef.Effect >= magicBeanPaintLo && ef.Effect <= magicBeanPaintHi {
+		return true
+	}
+	if !remover && ef.Effect == efSanc {
+		return true
+	}
+	return false
+}
+
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
 // client renders the buff icons/timers. The Divine slot's displayed Time is the
 // remaining seconds until DivineEnd (SendFunc.cpp:1901, captura §D).
@@ -817,12 +1107,7 @@ func equipVisual(e *world.Entity) ([16]uint16, [16]uint8) {
 	return v, a
 }
 
-// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
-// the player's own client AND every in-view player, so an equip/unequip is
-// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
-// is the entity id so the client applies it to the right mob. It also re-sends the
-// score, since equipment changes the character's attributes.
-func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+func (d *Dispatcher) sendEquipVisual(w *world.World, s *world.Session, e *world.Entity) {
 	e.EquipVisual, e.EquipAnct = equipVisual(e)
 	body := protocol.EncodeUpdateEquip(e.EquipVisual, e.EquipAnct)
 	h := protocol.Header{Type: protocol.MsgUpdateEquip, ID: uint16(s.Conn)}
@@ -830,6 +1115,15 @@ func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Ent
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, h, body)
 	})
+}
+
+// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
+// the player's own client AND every in-view player, so an equip/unequip is
+// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
+// is the entity id so the client applies it to the right mob. It also re-sends the
+// score, since equipment changes the character's attributes.
+func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+	d.sendEquipVisual(w, s, e)
 	d.refreshScore(e) // fold the new gear's AC/attributes/HP/MP into CurrentScore
 	d.sendScore(w, s, e)
 }

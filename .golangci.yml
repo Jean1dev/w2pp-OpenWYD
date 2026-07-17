@@ -15,6 +15,9 @@ linters:
         # The legacy protocol really spells it this way (_MSG_Challange.cpp);
         # handlers/comments mirror that name for parity.
         - challange
+        # The legacy GM tool file is genuinely named "Comandos GM.txt" (Portuguese
+        # for "commands"), cited verbatim as an evidence source.
+        - comandos
   exclusions:
     generated: lax
     presets:
