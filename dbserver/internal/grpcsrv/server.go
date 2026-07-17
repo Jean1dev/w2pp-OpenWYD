@@ -27,6 +27,8 @@ type Store interface {
 	CreateCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, error)
 	CreateArchCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, int, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int) error
+	PinHashByID(ctx context.Context, id int64) (string, error)
+	SetPinHash(ctx context.Context, id int64, hash string) error
 	SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error
 	LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error)
 	SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error
@@ -282,4 +284,44 @@ func (s *Server) DeleteCharacter(ctx context.Context, req *dbv1.DeleteCharacterR
 		return nil, status.Errorf(codes.Internal, "delete character: %v", err)
 	}
 	return &dbv1.DeleteCharacterResponse{Ok: true}, nil
+}
+
+// SetPin sets (or changes) the account's numeric PIN, stored only as an argon2id
+// hash (legacy _MSG_AccountSecure change path, but hashed instead of plaintext).
+func (s *Server) SetPin(ctx context.Context, req *dbv1.SetPinRequest) (*dbv1.SetPinResponse, error) {
+	hash, err := secret.HashSecret(req.GetPin())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "hash pin: %v", err)
+	}
+	if err := s.store.SetPinHash(ctx, req.GetAccountId(), hash); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return &dbv1.SetPinResponse{Ok: false}, nil
+		}
+		return nil, status.Errorf(codes.Internal, "set pin: %v", err)
+	}
+	return &dbv1.SetPinResponse{Ok: true}, nil
+}
+
+// VerifyPin checks a numeric PIN against the stored hash (legacy _MSG_AccountSecure
+// verify path). An account with no PIN yet reports NOT_SET so the caller can offer
+// first-time setup rather than treating it as a bad PIN.
+func (s *Server) VerifyPin(ctx context.Context, req *dbv1.VerifyPinRequest) (*dbv1.VerifyPinResponse, error) {
+	hash, err := s.store.PinHashByID(ctx, req.GetAccountId())
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.VerifyPinResponse{Result: dbv1.PinResult_PIN_RESULT_NO_ACCOUNT}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "pin lookup: %v", err)
+	}
+	if hash == "" {
+		return &dbv1.VerifyPinResponse{Result: dbv1.PinResult_PIN_RESULT_NOT_SET}, nil
+	}
+	ok, err := secret.VerifySecret(req.GetPin(), hash)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "verify pin: %v", err)
+	}
+	if !ok {
+		return &dbv1.VerifyPinResponse{Result: dbv1.PinResult_PIN_RESULT_BAD_PIN}, nil
+	}
+	return &dbv1.VerifyPinResponse{Result: dbv1.PinResult_PIN_RESULT_OK}, nil
 }

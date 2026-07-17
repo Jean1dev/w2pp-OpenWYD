@@ -246,6 +246,38 @@ func TestExpRankingOrder(t *testing.T) {
 	}
 }
 
+// TestPinHashRoundTrip covers the numeric-PIN storage (issue #120): a fresh account
+// reports an empty PIN hash; SetPinHash persists it; PinHashByID reads it back; and
+// both report ErrNotFound for a missing account.
+func TestPinHashRoundTrip(t *testing.T) {
+	s, ctx := freshStore(t)
+
+	accID, err := s.SaveAccount(ctx, domain.Account{Name: "pinuser", PassHash: "$argon2id$hash"})
+	if err != nil {
+		t.Fatalf("SaveAccount: %v", err)
+	}
+
+	// A fresh account has no PIN yet (column default '').
+	if h, err := s.PinHashByID(ctx, accID); err != nil || h != "" {
+		t.Fatalf("initial PinHashByID = %q, %v; want empty, nil", h, err)
+	}
+
+	const hash = "$argon2id$v=19$m=65536,t=1,p=4$c2FsdA$aGFzaA"
+	if err := s.SetPinHash(ctx, accID, hash); err != nil {
+		t.Fatalf("SetPinHash: %v", err)
+	}
+	if h, err := s.PinHashByID(ctx, accID); err != nil || h != hash {
+		t.Fatalf("PinHashByID after set = %q, %v; want the stored hash", h, err)
+	}
+
+	if _, err := s.PinHashByID(ctx, 999999); !errors.Is(err, ErrNotFound) {
+		t.Errorf("PinHashByID(missing) err = %v, want ErrNotFound", err)
+	}
+	if err := s.SetPinHash(ctx, 999999, hash); !errors.Is(err, ErrNotFound) {
+		t.Errorf("SetPinHash(missing) err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestSetBlockedByName(t *testing.T) {
 	s, ctx := freshStore(t)
 	if _, err := s.SaveAccount(ctx, domain.Account{Name: "victim", PassHash: "h"}); err != nil {

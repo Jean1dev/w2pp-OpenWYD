@@ -37,6 +37,26 @@ type fakeStore struct {
 	ackedDelivered         []int64                     // last SaveCargoWithDeliveries delivered ids
 	ackedLost              []int64                     // last SaveCargoWithDeliveries lost ids
 	saveCargoDeliveriesErr error                       // forces SaveCargoWithDeliveries to return this
+
+	pinHashes map[int64]string // accountID -> stored argon2id PIN hash ("" = unset)
+}
+
+func (f *fakeStore) PinHashByID(_ context.Context, id int64) (string, error) {
+	if _, known := f.byID[id]; !known {
+		return "", store.ErrNotFound
+	}
+	return f.pinHashes[id], nil
+}
+
+func (f *fakeStore) SetPinHash(_ context.Context, id int64, hash string) error {
+	if _, known := f.byID[id]; !known {
+		return store.ErrNotFound
+	}
+	if f.pinHashes == nil {
+		f.pinHashes = map[int64]string{}
+	}
+	f.pinHashes[id] = hash
+	return nil
 }
 
 func (f *fakeStore) AccountByName(_ context.Context, name string) (store.AccountAuth, error) {
@@ -458,5 +478,62 @@ func TestLoadCharacterMapping(t *testing.T) {
 	}
 	if len(c.GetAffects()) != 1 || c.GetAffects()[0].GetTime() != 4 {
 		t.Errorf("affects not mapped: %+v", c.GetAffects())
+	}
+}
+
+func TestSetAndVerifyPin(t *testing.T) {
+	fs := &fakeStore{
+		byID:      map[int64]store.AccountAuth{1: {ID: 1}},
+		pinHashes: map[int64]string{},
+	}
+	s := New(fs)
+	ctx := context.Background()
+
+	// No PIN set yet ⇒ NOT_SET (lets the caller offer first-time setup).
+	if resp, err := s.VerifyPin(ctx, &dbv1.VerifyPinRequest{AccountId: 1, Pin: "1234"}); err != nil {
+		t.Fatalf("VerifyPin: %v", err)
+	} else if resp.GetResult() != dbv1.PinResult_PIN_RESULT_NOT_SET {
+		t.Errorf("result = %v, want NOT_SET", resp.GetResult())
+	}
+
+	// Set a PIN; it must be stored hashed (never plaintext).
+	if resp, err := s.SetPin(ctx, &dbv1.SetPinRequest{AccountId: 1, Pin: "1234"}); err != nil || !resp.GetOk() {
+		t.Fatalf("SetPin ok=%v err=%v", resp.GetOk(), err)
+	}
+	if h := fs.pinHashes[1]; h == "" || h == "1234" {
+		t.Fatalf("stored pin hash = %q, want a non-plaintext argon2id hash", h)
+	}
+
+	cases := []struct {
+		name string
+		acct int64
+		pin  string
+		want dbv1.PinResult
+	}{
+		{"correct", 1, "1234", dbv1.PinResult_PIN_RESULT_OK},
+		{"wrong", 1, "0000", dbv1.PinResult_PIN_RESULT_BAD_PIN},
+		{"no account", 99, "1234", dbv1.PinResult_PIN_RESULT_NO_ACCOUNT},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := s.VerifyPin(ctx, &dbv1.VerifyPinRequest{AccountId: tc.acct, Pin: tc.pin})
+			if err != nil {
+				t.Fatalf("VerifyPin: %v", err)
+			}
+			if resp.GetResult() != tc.want {
+				t.Errorf("result = %v, want %v", resp.GetResult(), tc.want)
+			}
+		})
+	}
+}
+
+func TestSetPinNoAccount(t *testing.T) {
+	s := New(&fakeStore{byID: map[int64]store.AccountAuth{}})
+	resp, err := s.SetPin(context.Background(), &dbv1.SetPinRequest{AccountId: 7, Pin: "1234"})
+	if err != nil {
+		t.Fatalf("SetPin: %v", err)
+	}
+	if resp.GetOk() {
+		t.Error("SetPin ok=true for a missing account, want false")
 	}
 }

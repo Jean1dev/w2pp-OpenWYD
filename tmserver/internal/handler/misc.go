@@ -69,17 +69,64 @@ func (d *Dispatcher) applyScoreBonus(w *world.World, s *world.Session, e *world.
 	d.sendScore(w, s, e)
 }
 
-// accountSecure handles _MSG_AccountSecure (0x0FDE): the numeric PIN, relayed to
-// the dbServer (lote2-sessao-conta.md). Deferred relay — the PIN check/change is
-// a dbServer RPC.
+// accountSecure handles _MSG_AccountSecure (0x0FDE): the numeric PIN
+// (lote2-sessao-conta.md). ChangeNumeric selects verify (0) vs set/change (1). The
+// PIN is validated against an argon2id hash on the dbServer (issue #120) — never
+// plaintext, never logged. On success the client gets a header-only _MSG_AccountSecure
+// (ID=ESCENE_FIELD) so it advances past the secure-password screen; on a bad PIN it
+// gets _MSG_AccountSecureFail and stays put.
 //
-// UNVERIFIED: the dbServer PIN RPC is not implemented; this acknowledges the
-// request. The PIN must be hashed/HMACed on the dbServer (never plaintext).
-func (d *Dispatcher) accountSecure(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
-	// Acknowledge the numeric-PIN step so the client advances (the original relays
-	// to DBSrv and echoes a header-only _MSG_AccountSecure signal, ID=ESCENE_FIELD).
-	// Without this ack the client stalls/resets on the secure-password screen.
-	w.SendTo(s, protocol.Header{Type: protocol.MsgAccountSecure, ID: protocol.IDScene}, nil)
+// First-time set: a verify against an account with no PIN yet takes the supplied
+// token as the new PIN (legacy NumericToken[0]==-1 behavior). Without a dbServer the
+// step is acknowledged so bring-up still works (allow-all, like billing).
+func (d *Dispatcher) accountSecure(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
+	var body protocol.MsgAccountSecureBody
+	if err := body.Decode(payload); err != nil {
+		return
+	}
+	if s.AccountID == 0 {
+		return // no account bound yet — ignore
+	}
+	pin := body.PIN()
+	change := body.ChangeNumeric == 1
+	accountID := s.AccountID
+	p := w.Persistence()
+
+	w.Go(s, func() func(*world.World, *world.Session) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var ok bool
+		var err error
+		switch {
+		case change:
+			ok, err = p.SetPin(ctx, accountID, pin)
+		default:
+			var res world.PinResult
+			res, err = p.VerifyPin(ctx, accountID, pin)
+			if res == world.PinNotSet && err == nil {
+				ok, err = p.SetPin(ctx, accountID, pin) // first-time set: the typed PIN becomes the PIN
+			} else {
+				ok = res == world.PinOK
+			}
+		}
+		return func(w *world.World, s *world.Session) { d.completeAccountSecure(w, s, ok, err) }
+	})
+}
+
+// completeAccountSecure runs back in the loop with the PIN result. A missing
+// backend (errNoPersistence) degrades to allow-all so early bring-up isn't blocked
+// on the secure-password screen.
+func (d *Dispatcher) completeAccountSecure(w *world.World, s *world.Session, ok bool, err error) {
+	if err != nil {
+		d.log.Warn("account secure check failed", "conn", s.Conn, "err", err)
+		ok = true // degrade to allow (no dbServer, or transient error) — never leak the PIN
+	}
+	if ok {
+		w.SendTo(s, protocol.Header{Type: protocol.MsgAccountSecure, ID: protocol.IDScene}, nil)
+		return
+	}
+	w.SendTo(s, protocol.Header{Type: protocol.MsgAccountSecureFail, ID: protocol.IDScene}, nil)
 }
 
 // quest handles _MSG_Quest (0x028B): NPC quest interaction. Body is
