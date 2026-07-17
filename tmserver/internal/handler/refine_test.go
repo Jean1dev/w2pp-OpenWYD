@@ -19,6 +19,9 @@ const (
 	itemPoeiraOri = 412
 	itemPoeiraLac = 413
 	itemArmor     = 555 // a plain refinable armor
+	// itemSephirotTransKnight is a quest/trophy stone (issue #133): equippable,
+	// no EF_VOLATILE, now tagged EF_NOSANC in ItemList.csv.
+	itemSephirotTransKnight = 1760
 )
 
 // rateTable is an injectable SancRate. Index it at level+1, like the real one.
@@ -188,6 +191,16 @@ func TestRefineGates(t *testing.T) {
 			dust:    itemPoeiraLac,
 			target:  world.Item{Index: itemArmor},
 			effects: map[int][]content.BaseEffect{itemArmor: {{Eff: efNoSanc, Val: 1}}},
+			want:    NoticeCantRefineMore,
+		},
+		{
+			// issue #133: Sephirot(TransKnight) is a quest/trophy stone with no
+			// EF_VOLATILE, so nothing gated it before ItemList.csv started tagging
+			// it EF_NOSANC.
+			name:    "Sephirot(TransKnight) never refines (issue #133)",
+			dust:    itemPoeiraLac,
+			target:  world.Item{Index: itemSephirotTransKnight},
+			effects: map[int][]content.BaseEffect{itemSephirotTransKnight: {{Eff: efNoSanc, Val: 1}}},
 			want:    NoticeCantRefineMore,
 		},
 		{
