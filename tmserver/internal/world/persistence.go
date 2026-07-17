@@ -110,6 +110,8 @@ type CharacterState struct {
 	GuildLevel  uint8
 	ClassMaster uint8
 	Soul        uint8
+	Citizen     uint8 // MobExtra.Citizen (city allegiance; 0 = none)
+	Fame        int32 // MobExtra.Fame
 	Str         int16
 	Int         int16
 	Dex         int16
