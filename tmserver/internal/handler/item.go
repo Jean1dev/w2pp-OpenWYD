@@ -304,6 +304,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useJoiaPvP(w, s, e, src)
 	case vol == volJoiaRecovery:
 		d.useJoiaRecovery(w, s, e, src)
+	case vol == volMagicBean:
+		d.useMagicBean(w, s, e, body, src)
 	default:
 		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
 	}
@@ -658,6 +660,83 @@ func (d *Dispatcher) useJoiaRecovery(w *world.World, s *world.Session, e *world.
 	}
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+}
+
+const (
+	volMagicBean       = 186
+	magicBeanBase      = 3407
+	magicBeanRemover   = 10
+	magicBeanPaintLo   = 116
+	magicBeanPaintHi   = 125
+	magicBeanFirstSlot = 1
+	magicBeanLastSlot  = 7
+)
+
+// useMagicBean consumes a Feijao Magico / Removedor de tintura (EF_VOLATILE 186)
+// by stamping only the destination effect id byte, preserving the cValue exactly
+// as _MSG_UseItem.cpp:3767-3861 does. Paint effects reuse the sanc effect slots:
+// 116..125 are colors, while EF_SANC (43) is the remover/neutral marker.
+func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
+	dstSlot := int(body.DestPos)
+	if int(body.DestType) != world.ItemPlaceEquip || dstSlot < magicBeanFirstSlot || dstSlot > magicBeanLastSlot {
+		d.magicBeanReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
+	if dst == nil {
+		return
+	}
+	if dst.Empty() {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	if refine.Level(*dst) < 1 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	color := int(e.Carry[src].Index) - magicBeanBase
+	effect := uint8(magicBeanPaintLo + color)
+	if color == magicBeanRemover {
+		effect = efSanc
+	}
+
+	i := magicBeanEffectSlot(*dst, color == magicBeanRemover)
+	if i < 0 {
+		d.magicBeanReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+	dst.Effects[i].Effect = effect
+
+	d.notify(w, s, NoticeRefineSuccess)
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, int(body.DestType), dstSlot, *dst)
+}
+
+func (d *Dispatcher) magicBeanReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
+	d.notify(w, s, n)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+func magicBeanEffectSlot(it world.Item, remover bool) int {
+	for i, ef := range it.Effects {
+		if magicBeanSlotWritable(ef, remover) {
+			return i
+		}
+	}
+	return -1
+}
+
+func magicBeanSlotWritable(ef world.Effect, remover bool) bool {
+	if ef.Effect == 0 || ef.Effect >= magicBeanPaintLo && ef.Effect <= magicBeanPaintHi {
+		return true
+	}
+	if !remover && ef.Effect == efSanc {
+		return true
+	}
+	return false
 }
 
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
