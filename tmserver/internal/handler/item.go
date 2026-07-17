@@ -244,6 +244,10 @@ const (
 	volVigor      = 58
 	volSilverBar  = 185
 	volFrango     = 63
+	volGemDiamond = 180
+	volGemEmerald = 181
+	volGemCoral   = 182
+	volGemGarnet  = 183
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -300,6 +304,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useFrangoAssado(w, s, e, src)
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
+	case vol >= volGemDiamond && vol <= volGemGarnet:
+		d.useBaseGem(w, s, e, body, src, vol)
 	case vol == volJoiaPvP:
 		d.useJoiaPvP(w, s, e, src)
 	case vol == volJoiaRecovery:
@@ -580,6 +586,68 @@ func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Ent
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendEtc(w, s, e)
 	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
+}
+
+// baseGemVariant maps the four base-change gems to the +10..+15 packed gem
+// index used by BASE_SetItemSanc (_MSG_UseItem.cpp:3890-4201).
+func baseGemVariant(vol int) (int, bool) {
+	switch vol {
+	case volGemDiamond:
+		return 0, true
+	case volGemEmerald:
+		return 1, true
+	case volGemCoral:
+		return 2, true
+	case volGemGarnet:
+		return 3, true
+	default:
+		return 0, false
+	}
+}
+
+// useBaseGem handles Gema de Diamante/Esmeralda/Coral/Garnet (Vol 180..183).
+// They change an equipped ANCT grade-5..8 item to the selected base variant and,
+// on +10..+15 targets, rewrite the packed sanc gem index. The legacy accepts only
+// equipped gear except body slot 0 and accessory slots 8..15.
+func (d *Dispatcher) useBaseGem(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src, vol int) {
+	gem, ok := baseGemVariant(vol)
+	if !ok {
+		return
+	}
+
+	dstSlot := int(body.DestPos)
+	if int(body.DestType) != world.ItemPlaceEquip || dstSlot == 0 || (dstSlot >= 8 && dstSlot < world.MaxEquip) {
+		d.baseGemReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
+	if dst == nil {
+		return
+	}
+
+	level := refine.Level(*dst)
+	grade := d.itemGrades[int(dst.Index)]
+	if level < gemSancLvl && grade < 5 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	if grade >= 5 && grade <= 8 {
+		dst.Index += int16(gem - (grade - 5))
+	}
+	if level >= gemSancLvl {
+		refine.Set(dst, level, gem)
+	}
+
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceEquip, dstSlot, *dst)
+}
+
+func (d *Dispatcher) baseGemReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
+	d.notify(w, s, n)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }
 
 // Jóia (cash jewel) volatiles. Vol 242 is the PvP buff set (grants affect type
