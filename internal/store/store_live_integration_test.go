@@ -85,6 +85,7 @@ func TestLiveQueries(t *testing.T) {
 	ch.MaxHp = 803
 	ch.Mp = 260
 	ch.MaxMp = 260
+	ch.Fame = 42
 	ch.Carry = []domain.Item{{Slot: 6, Index: 3300}}
 	if err := s.SaveCharacter(ctx, accID, ch); err != nil {
 		t.Fatalf("SaveCharacter: %v", err)
@@ -94,7 +95,7 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("reload: %v", err)
 	}
 	if reloaded.Level != 41 || reloaded.Exp != 12345 || reloaded.Coin != 1500 ||
-		reloaded.Hp != 750 || reloaded.MaxHp != 803 || reloaded.MaxMp != 260 {
+		reloaded.Hp != 750 || reloaded.MaxHp != 803 || reloaded.MaxMp != 260 || reloaded.Fame != 42 {
 		t.Fatalf("save not persisted: %+v", reloaded)
 	}
 	if len(reloaded.Carry) != 1 || reloaded.Carry[0].Index != 3300 {

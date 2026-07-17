@@ -123,6 +123,8 @@ type CharacterState struct {
 	GuildLevel  uint8
 	ClassMaster uint8
 	Soul        uint8
+	Citizen     uint8 // MobExtra.Citizen (city allegiance; 0 = none)
+	Fame        int32 // MobExtra.Fame
 	Str         int16
 	Int         int16
 	Dex         int16
@@ -193,6 +195,7 @@ type CharacterSave struct {
 	LearnedSkill    int32
 	SecLearnedSkill int32
 	Soul            uint8
+	Fame            int32
 	BaseSpecial     [4]int16
 	SkillBar        [4]uint8
 	ShortSkill      [16]uint8

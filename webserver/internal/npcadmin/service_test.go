@@ -22,6 +22,7 @@ type fakeStore struct {
 	lastPrice  *int64
 	deletedID  int64
 	visibility *bool
+	itemPrices []domain.ItemPriceOverride
 }
 
 func (f *fakeStore) AccountRole(_ context.Context, id int64) (string, error) {
@@ -68,6 +69,9 @@ func (f *fakeStore) SetNPCVisibility(_ context.Context, id int64, enabled bool, 
 func (f *fakeStore) SetItemPrice(_ context.Context, _ int32, price int64, _ int64) error {
 	f.lastPrice = &price
 	return nil
+}
+func (f *fakeStore) ItemPriceOverrides(context.Context) ([]domain.ItemPriceOverride, error) {
+	return f.itemPrices, nil
 }
 func (f *fakeStore) DeleteNPCDefinition(_ context.Context, id int64, _ int64) error {
 	if _, ok := f.defs[id]; !ok {
@@ -284,6 +288,34 @@ func TestListItemCatalogEmptyWhenUnset(t *testing.T) {
 	}
 	if len(items) != 0 {
 		t.Errorf("items = %+v, want empty", items)
+	}
+}
+
+// TestListItemPrices checks the authorization gate and that it returns
+// whatever the store's ItemPriceOverrides yields.
+func TestListItemPrices(t *testing.T) {
+	want := []domain.ItemPriceOverride{
+		{ItemIndex: 1100, Price: 500},
+		{ItemIndex: 1101, Price: 1200},
+	}
+
+	f := newFake()
+	f.itemPrices = want
+	s := New(f)
+
+	got, prices, err := s.ListItemPrices(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("ListItemPrices: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("result = %v, want OK", got)
+	}
+	if !reflect.DeepEqual(prices, want) {
+		t.Errorf("prices = %+v, want %+v", prices, want)
+	}
+
+	if got, _, err := s.ListItemPrices(context.Background(), 3); err != nil || got != Forbidden {
+		t.Errorf("player ListItemPrices result = %v, err %v, want Forbidden, nil", got, err)
 	}
 }
 
