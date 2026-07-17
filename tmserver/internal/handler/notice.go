@@ -50,6 +50,14 @@ const (
 	NoticeNoEmptySlot // _NN_NoEmptySlot
 
 	NoticeNoKey // _NN_No_Key: a locked gate needs a key the player doesn't hold
+
+	// NoticeCantUseHere (_NN_Cant_Use_That_Here) is sent for consumables whose
+	// real _MSG_UseItem.cpp behavior depends on data absent from this repo
+	// (issue #135: water-scroll dungeon coordinates, the Celestial swap, the
+	// item-bonus reroll) — the item is rejected honestly instead of no-op'd, so
+	// the client never shows a phantom consumption that a later slot resync
+	// would revert.
+	NoticeCantUseHere
 )
 
 // notify sends a client notification.
