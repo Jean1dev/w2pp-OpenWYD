@@ -242,12 +242,13 @@ func classifyWrite(err error, op string) (Result, error) {
 	}
 }
 
-// validMerchant accepts the merchant sub-types the game knows: 0 (none/monster),
-// 1 (shop), 2 (cargo guard), 19 (shop type 3), 100 (quest NPC). Others are
-// rejected until confirmed by capture (npc-editing-plan.md §9.4).
+// validMerchant accepts the merchant sub-types the admin panel can materialize:
+// 0 (none/monster), 1 (shop), 2 (cargo guard), 19 (shop type 3), 100 (supported
+// quest NPC), and 111 (canonical King templates). Others are rejected until
+// confirmed by capture (npc-editing-plan.md §9.4).
 func validMerchant(m int16) bool {
 	switch m {
-	case 0, 1, 2, 19, 100:
+	case 0, 1, 2, 19, 100, 111:
 		return true
 	default:
 		return false

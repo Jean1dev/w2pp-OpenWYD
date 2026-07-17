@@ -145,11 +145,10 @@ service NpcAdminService {
   rpc SetItemPrice(SetItemPriceRequest) returns (AdminAck);
   // DeleteNpc removes a definition.
   rpc DeleteNpc(DeleteNpcRequest) returns (AdminAck);
-  // ListMerchantTemplates returns the merchant NPC templates found in the
-  // content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
-  // moderator UI can offer a searchable picker instead of a free-text
-  // template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
-  // empty when that flag is unset.
+  // ListMerchantTemplates returns the supported NPC templates found in the
+  // content tree (Release/TMsrv/run/npc/), so the moderator UI can offer a
+  // searchable picker instead of a free-text template_name field. Scanned once
+  // at web-api boot from -content/W2PP_CONTENT; empty when that flag is unset.
   rpc ListMerchantTemplates(ListMerchantTemplatesRequest) returns (ListMerchantTemplatesResponse);
   // ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
   // item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can
@@ -257,7 +256,7 @@ message DeleteNpcRequest {
   int64 npc_id = 2;
 }
 
-// MerchantTemplate is one merchant-type STRUCT_MOB template found under
+// MerchantTemplate is one supported STRUCT_MOB template found under
 // Release/TMsrv/run/npc/.
 message MerchantTemplate {
   string template_name = 1; // exact value for UpsertNpc.template_name (no .txt)

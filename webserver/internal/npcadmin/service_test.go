@@ -119,9 +119,11 @@ func TestUpsertValidation(t *testing.T) {
 		want Result
 	}{
 		{"ok", domain.NPCDefinition{Slug: "s", TemplateName: "t", Merchant: 1}, OK},
+		{"king ok", domain.NPCDefinition{Slug: "king", TemplateName: "Rei_Harabard", Merchant: 111}, OK},
 		{"empty slug", domain.NPCDefinition{TemplateName: "t"}, Invalid},
 		{"empty template", domain.NPCDefinition{Slug: "s"}, Invalid},
 		{"bad merchant", domain.NPCDefinition{Slug: "s", TemplateName: "t", Merchant: 7}, Invalid},
+		{"unsupported king variant merchant", domain.NPCDefinition{Slug: "s", TemplateName: "t", Merchant: 96}, Invalid},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -171,7 +171,6 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 
 const (
 	kingQuestMerchant = 111
-	kingQuestGrade    = 4
 
 	idealStoneEquipSlot = 10
 	sephirotEquipSlot   = 11
@@ -183,11 +182,10 @@ func isKingQuestNPC(npc *world.Entity) bool {
 	if npc == nil {
 		return false
 	}
-	// The Go loader stores CurrentScore.Merchant (111) plus EF_GRADE0 (4), while
-	// the legacy switch routes KING from MOB.Merchant 14/15. Accept both shapes so
-	// tests and future loaders can use either representation.
-	return npc.Merchant == kingQuestMerchant && npc.Grade == kingQuestGrade ||
-		npc.Merchant == 14 || npc.Merchant == 15
+	// The Go loader stores real King templates by CurrentScore.Merchant (111),
+	// while the legacy switch routes KING from top-level MOB.Merchant 14/15.
+	// Accept both shapes so content and future loaders can use either source.
+	return npc.Merchant == kingQuestMerchant || npc.Merchant == 14 || npc.Merchant == 15
 }
 
 func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e *world.Entity, confirm int) {
