@@ -298,11 +298,12 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 //
 // This is a PARTIAL update on purpose: it touches only the columns the in-world
 // Entity authoritatively tracks (world.CharacterSave) — clan, guild_id, level,
-// exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, and the skill
-// state the world now simulates (score_bonus, special_bonus, learned_skill,
-// sec_learned_skill, soul, special, skill_bar, short_skill). Everything else
-// (class, guild_level, regen/resist, magic, save_x/y, citizen, class_master) is left UNTOUCHED so an
-// in-game save never wipes imported data the world does not simulate.
+// exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, the Gema Estelar
+// warp save-point (save_x/y), and the skill state the world now simulates
+// (score_bonus, special_bonus, learned_skill, sec_learned_skill, soul, special,
+// skill_bar, short_skill). Everything else (class, guild_level, regen/resist,
+// magic, citizen, class_master) is left UNTOUCHED so an in-game save never
+// wipes imported data the world does not simulate.
 // skill_bonus is also untouched: the tmServer re-derives it at login
 // (BASE_GetBonusSkillPoint) instead of trusting the stored value.
 func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error {
@@ -319,7 +320,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13, exp=$14,
 			mp=$15, max_mp=$16,
 			score_bonus=$17, special_bonus=$18, learned_skill=$19, sec_learned_skill=$20, soul=$21,
-			special=$22, skill_bar=$23, short_skill=$24
+			special=$22, skill_bar=$23, short_skill=$24, save_x=$25, save_y=$26
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.Level, ch.Coin,
@@ -327,6 +328,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.Mp, ch.MaxMp,
 		ch.ScoreBonus, ch.SpecialBonus, ch.LearnedSkill, ch.SecLearnedSkill, ch.Soul,
 		ch.Special[:], byteArrToInt16Arr(ch.SkillBar[:]), byteArrToInt16Arr(ch.ShortSkill[:]),
+		ch.SaveX, ch.SaveY,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

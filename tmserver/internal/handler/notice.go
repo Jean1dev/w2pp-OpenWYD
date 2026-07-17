@@ -48,6 +48,10 @@ const (
 	NoticeIncuWaitMore   // _NN_Incu_Wait_More (261): the egg's incubation timer
 
 	NoticeNoEmptySlot // _NN_NoEmptySlot
+
+	// Gema Estelar / Portal Scroll (_MSG_UseItem.cpp Vol 12/13, issue #140).
+	NoticeSetWarp     // _NN_Set_Warp (186): warp save-point recorded
+	NoticeCantUseHere // _NN_Cant_Use_That_Here (96): zone-gated item use refused
 )
 
 // notify sends a client notification.

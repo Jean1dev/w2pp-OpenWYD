@@ -116,11 +116,16 @@ type TradeState struct {
 // space. Phase 3 carries only the minimum; full STRUCT_MOB state arrives with
 // the handlers (Phase 4).
 type Entity struct {
-	ID       int
-	Mode     EntityMode
-	Name     string
-	X        int16
-	Y        int16
+	ID   int
+	Mode EntityMode
+	Name string
+	X    int16
+	Y    int16
+	// SaveX/SaveY are the Gema Estelar warp save-point (STRUCT_MOB.SPX/SPY,
+	// _MSG_UseItem.cpp Vol 12/13) — distinct from X/Y, the player's live position.
+	// 0/0 means no point has ever been saved.
+	SaveX    int16
+	SaveY    int16
 	HP       int32
 	MaxHP    int32
 	MP       int32 // current mana (status display)

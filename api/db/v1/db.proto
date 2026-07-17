@@ -140,6 +140,8 @@ message Character {
   int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
   int32 soul = 29;                 // MobExtra.Soul
   int32 class_master = 30;         // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
+  int32 save_x = 31;               // STRUCT_MOB.SPX: Gema Estelar warp save-point
+  int32 save_y = 32;               // STRUCT_MOB.SPY: Gema Estelar warp save-point
 }
 
 message Item {

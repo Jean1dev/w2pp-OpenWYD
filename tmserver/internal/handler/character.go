@@ -220,12 +220,13 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			st.HP = 1 // guard a broken/zero MaxHP so the player can still act
 		}
 	}
-	// Login position follows the legacy split: STRUCT_MOB.SPX/SPY is the saved
-	// point, while MSG_CNFCharacterLogin.PosX/PosY is the actual world-entry tile.
-	// An explicit loaded position (tests/captures) is honored when present; live
-	// DB loads currently fall back to the last-city spawn rule.
-	saveX, saveY := st.X, st.Y
-	loginX, loginY := saveX, saveY
+	// Login position follows the legacy split: STRUCT_MOB.SPX/SPY is the Gema
+	// Estelar warp save-point (st.SaveX/SaveY, rehydrated onto the entity below),
+	// while MSG_CNFCharacterLogin.PosX/PosY is the actual world-entry tile
+	// (st.X/Y). An explicit loaded position (tests/captures) is honored when
+	// present; live DB loads currently fall back to the last-city spawn rule.
+	saveX, saveY := st.SaveX, st.SaveY
+	loginX, loginY := st.X, st.Y
 	if loginX == 0 && loginY == 0 {
 		loginX, loginY = world.CitySpawn(int(st.LastCity))
 		if x, y, ok := w.EmptyCellNear(loginX, loginY); ok {
@@ -246,6 +247,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Name = st.Name
 		e.Class = uint8(st.Class)
 		e.LastCity = st.LastCity
+		e.SaveX, e.SaveY = st.SaveX, st.SaveY
 		// Register the player in the spatial grid, not just the entity fields —
 		// mob aggro (FindEnemyFromView) and the view reconciliation scan the
 		// grid, so a player standing still since login must be there.

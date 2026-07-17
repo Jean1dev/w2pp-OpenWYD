@@ -33,10 +33,10 @@ func TestLiveQueries(t *testing.T) {
 		Characters: []domain.Character{{
 			Slot: 0, Name: "Warrior", Class: 1, Level: 40, Exp: 5000, Coin: 1000,
 			Str: 50, Int: 10, Dex: 20, Con: 30, Hp: 800, MaxHp: 800, Mp: 200, MaxMp: 200,
-			ClassMaster: 2,
-			Equip:       []domain.Item{{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9}},
-			Carry:       []domain.Item{{Slot: 5, Index: 2200, ExpiresAt: 1893456000}}, // a timed mount
-			Affects:     []domain.Affect{{Type: 3, Value: 1, Level: 2, Time: 99}},
+			ClassMaster: 2, SaveX: 2096, SaveY: 2096,
+			Equip:   []domain.Item{{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9}},
+			Carry:   []domain.Item{{Slot: 5, Index: 2200, ExpiresAt: 1893456000}}, // a timed mount
+			Affects: []domain.Affect{{Type: 3, Value: 1, Level: 2, Time: 99}},
 		}},
 	})
 	if err != nil {
@@ -69,6 +69,9 @@ func TestLiveQueries(t *testing.T) {
 	if ch.Level != 40 || ch.Exp != 5000 || ch.Coin != 1000 || len(ch.Equip) != 1 || ch.Equip[0].Index != 1100 {
 		t.Fatalf("LoadCharacter mismatch: %+v", ch)
 	}
+	if ch.SaveX != 2096 || ch.SaveY != 2096 {
+		t.Fatalf("Gema Estelar save-point not loaded: SaveX=%d SaveY=%d", ch.SaveX, ch.SaveY)
+	}
 	if len(ch.Carry) != 1 || ch.Carry[0].ExpiresAt != 1893456000 {
 		t.Fatalf("carry expiry not round-tripped: %+v", ch.Carry)
 	}
@@ -85,6 +88,8 @@ func TestLiveQueries(t *testing.T) {
 	ch.MaxHp = 803
 	ch.Mp = 260
 	ch.MaxMp = 260
+	ch.SaveX = 1200
+	ch.SaveY = 150
 	ch.Carry = []domain.Item{{Slot: 6, Index: 3300}}
 	if err := s.SaveCharacter(ctx, accID, ch); err != nil {
 		t.Fatalf("SaveCharacter: %v", err)
@@ -96,6 +101,12 @@ func TestLiveQueries(t *testing.T) {
 	if reloaded.Level != 41 || reloaded.Exp != 12345 || reloaded.Coin != 1500 ||
 		reloaded.Hp != 750 || reloaded.MaxHp != 803 || reloaded.MaxMp != 260 {
 		t.Fatalf("save not persisted: %+v", reloaded)
+	}
+	// A Gema Estelar use mid-session (Vol 12) updates the warp save-point, which
+	// this in-game partial save must persist (issue #140) — it was previously in
+	// the untouched-columns list.
+	if reloaded.SaveX != 1200 || reloaded.SaveY != 150 {
+		t.Fatalf("Gema Estelar save-point not persisted by SaveCharacter: SaveX=%d SaveY=%d", reloaded.SaveX, reloaded.SaveY)
 	}
 	if len(reloaded.Carry) != 1 || reloaded.Carry[0].Index != 3300 {
 		t.Fatalf("carry not replaced: %+v", reloaded.Carry)

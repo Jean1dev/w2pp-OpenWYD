@@ -301,6 +301,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	}
 	cs.Clan, cs.GuildID, cs.Soul = e.Clan, e.Guild, e.Soul
 	cs.LastCity = e.LastCity
+	cs.SaveX, cs.SaveY = e.SaveX, e.SaveY
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP
