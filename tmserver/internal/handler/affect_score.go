@@ -176,7 +176,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			e.Rsv |= world.RsvHide
 		case 29:
 			applySoulScore(e)
-		case 30:
+		case world.AffectForceMobDamage:
 			e.AffForceMobDamage += level
 		case 31: // Escudo Dourado: AC + Level/2 + Value
 			e.AffAC += level/2 + value

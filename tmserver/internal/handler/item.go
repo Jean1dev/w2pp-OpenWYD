@@ -124,8 +124,8 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
 }
 
-// Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
-// The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
+// Consumable classes (EF_VOLATILE value). Divine values are the Poção Divina of
+// 7/15/30 days; the real deadline is Entity.DivineEnd.
 const (
 	volHpMpPotion   = 1
 	volGemaEstelar  = 12 // Gema Estelar: records the warp save-point
@@ -135,6 +135,7 @@ const (
 	volDivine7      = 64
 	volDivine30     = 66
 	volVigor        = 58
+	volFrango       = 63
 	volSilverBar    = 185
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
@@ -193,6 +194,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useDivine(w, s, e, src, vol)
 	case vol == volVigor:
 		d.useVigor(w, s, e, src, int(e.Carry[src].Index))
+	case vol == volFrango:
+		d.useFrangoAssado(w, s, e, src)
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
 	case vol == volJoiaPvP:
@@ -456,6 +459,24 @@ func (d *Dispatcher) useVigor(w *world.World, s *world.Session, e *world.Entity,
 	}
 	e.Affect[slot] = world.Affect{Type: world.AffectVigor, Level: 1, Time: ticks}
 	e.Carry[src] = world.Item{}
+	d.refreshScore(e)
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// useFrangoAssado consumes a Frango Assado (EF_VOLATILE 63): Affect 30 adds a flat
+// +2000 ForceMobDamage for 4h (_MSG_UseItem.cpp:2308-2341, Basedef.cpp:4427). Unlike
+// the healing potions this is not a heal — it's a mob-damage buff read at score time.
+func (d *Dispatcher) useFrangoAssado(w *world.World, s *world.Session, e *world.Entity, src int) {
+	slot := e.EmptyAffect(world.AffectForceMobDamage)
+	if slot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	e.Affect[slot] = world.Affect{Type: world.AffectForceMobDamage, Level: 2000, Time: affect1H * 4}
+	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
