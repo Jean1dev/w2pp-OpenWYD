@@ -116,6 +116,7 @@ func character(slot int, m savefmt.Mob, ex savefmt.MobExtra, shortSkill [16]uint
 		Citizen:         ex.Citizen(),
 		ClassMaster:     ex.ClassMaster(),
 		Soul:            ex.Soul(),
+		Fame:            ex.Fame(),
 		SkillBar:        m.SkillBar,
 		ShortSkill:      shortSkill,
 		Equip:           items(m.Equip[:]),

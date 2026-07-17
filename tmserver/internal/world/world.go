@@ -131,6 +131,11 @@ type World struct {
 	// select ↔ play), so it is keyed by account, not session/conn. Loop-owned.
 	cargo map[int64]*CargoState
 
+	// guilds is the minimal guild registry (guild.go): name/fame keyed by guild
+	// id. In-memory only — there is no guild-creation flow yet to persist
+	// against. Loop-owned.
+	guilds map[uint16]GuildInfo
+
 	events    chan event
 	callbacks chan event // async handler results (World.Go / World.GoDetached); separate
 	// from events so a long mob-AI tick cannot block login/db callbacks on the main queue.
@@ -184,6 +189,7 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		entities:  make([]*Entity, MaxMob),
 		ground:    make([]*GroundItem, MaxItem),
 		cargo:     make(map[int64]*CargoState),
+		guilds:    make(map[uint16]GuildInfo),
 		grid:      newGrid(cfg.GridDim),
 		rng:       rng.New(),
 		events:    make(chan event, cfg.EventQueue),

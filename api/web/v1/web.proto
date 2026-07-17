@@ -145,17 +145,20 @@ service NpcAdminService {
   rpc SetItemPrice(SetItemPriceRequest) returns (AdminAck);
   // DeleteNpc removes a definition.
   rpc DeleteNpc(DeleteNpcRequest) returns (AdminAck);
-  // ListMerchantTemplates returns the merchant NPC templates found in the
-  // content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
-  // moderator UI can offer a searchable picker instead of a free-text
-  // template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
-  // empty when that flag is unset.
+  // ListMerchantTemplates returns the supported NPC templates found in the
+  // content tree (Release/TMsrv/run/npc/), so the moderator UI can offer a
+  // searchable picker instead of a free-text template_name field. Scanned once
+  // at web-api boot from -content/W2PP_CONTENT; empty when that flag is unset.
   rpc ListMerchantTemplates(ListMerchantTemplatesRequest) returns (ListMerchantTemplatesResponse);
   // ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
   // item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can
   // offer a searchable picker instead of a raw item_index typed by hand.
   // Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
   rpc ListItemCatalog(ListItemCatalogRequest) returns (ListItemCatalogResponse);
+  // ListItemPrices returns every global item price override currently set
+  // (item_price table). An item absent from the list has no override — it
+  // uses the content catalog's base price.
+  rpc ListItemPrices(ListItemPricesRequest) returns (ListItemPricesResponse);
   // ListMapZones returns the fixed city-zone table (label only: the world runs
   // a single grid, so map_id has no gameplay effect today) for the NPC form's
   // map picker instead of a raw map_id typed by hand.
@@ -257,7 +260,7 @@ message DeleteNpcRequest {
   int64 npc_id = 2;
 }
 
-// MerchantTemplate is one merchant-type STRUCT_MOB template found under
+// MerchantTemplate is one supported STRUCT_MOB template found under
 // Release/TMsrv/run/npc/.
 message MerchantTemplate {
   string template_name = 1; // exact value for UpsertNpc.template_name (no .txt)
@@ -283,6 +286,19 @@ message ListItemCatalogRequest { int64 moderator_id = 1; }
 message ListItemCatalogResponse {
   AdminResult result = 1;
   repeated ItemCatalogEntry items = 2;
+}
+
+// ItemPrice is a global per-item price override (item_price table); an item
+// absent from ListItemPrices uses the content catalog's base price.
+message ItemPrice {
+  int32 item_index = 1;
+  int64 price = 2;
+}
+
+message ListItemPricesRequest { int64 moderator_id = 1; }
+message ListItemPricesResponse {
+  AdminResult result = 1;
+  repeated ItemPrice prices = 2;
 }
 
 // MapZone is one of the fixed city zones (tmserver/internal/world/city.go's

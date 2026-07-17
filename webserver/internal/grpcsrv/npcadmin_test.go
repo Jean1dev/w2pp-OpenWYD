@@ -26,6 +26,10 @@ type fakeNpcAdmin struct {
 	listItems    []itemcatalog.Entry
 	listItemsErr error
 
+	listPricesRes npcadmin.Result
+	listPrices    []domain.ItemPriceOverride
+	listPricesErr error
+
 	listZonesRes npcadmin.Result
 	listZones    []mapzones.Zone
 	listZonesErr error
@@ -62,6 +66,10 @@ func (f *fakeNpcAdmin) ListMerchantTemplates(_ context.Context, moderatorID int6
 func (f *fakeNpcAdmin) ListItemCatalog(_ context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error) {
 	f.lastModeratorID = moderatorID
 	return f.listItemsRes, f.listItems, f.listItemsErr
+}
+func (f *fakeNpcAdmin) ListItemPrices(_ context.Context, moderatorID int64) (npcadmin.Result, []domain.ItemPriceOverride, error) {
+	f.lastModeratorID = moderatorID
+	return f.listPricesRes, f.listPrices, f.listPricesErr
 }
 func (f *fakeNpcAdmin) ListMapZones(_ context.Context, moderatorID int64) (npcadmin.Result, []mapzones.Zone, error) {
 	f.lastModeratorID = moderatorID
@@ -166,6 +174,57 @@ func TestListItemCatalogInfraError(t *testing.T) {
 	s := NewNpcAdmin(fake)
 
 	if _, err := s.ListItemCatalog(context.Background(), &webv1.ListItemCatalogRequest{}); err == nil {
+		t.Fatal("expected gRPC error on infra failure")
+	}
+}
+
+func TestListItemPricesMapping(t *testing.T) {
+	fake := &fakeNpcAdmin{
+		listPricesRes: npcadmin.OK,
+		listPrices: []domain.ItemPriceOverride{
+			{ItemIndex: 1100, Price: 500},
+			{ItemIndex: 1101, Price: 1200},
+		},
+	}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.ListItemPrices(context.Background(), &webv1.ListItemPricesRequest{ModeratorId: 7})
+	if err != nil {
+		t.Fatalf("ListItemPrices: %v", err)
+	}
+	if fake.lastModeratorID != 7 {
+		t.Errorf("moderator id forwarded = %d, want 7", fake.lastModeratorID)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_OK {
+		t.Fatalf("result = %v, want OK", resp.GetResult())
+	}
+	if len(resp.GetPrices()) != 2 {
+		t.Fatalf("prices = %+v, want 2 entries", resp.GetPrices())
+	}
+	got := resp.GetPrices()[0]
+	if got.GetItemIndex() != 1100 || got.GetPrice() != 500 {
+		t.Errorf("prices[0] = %+v, want {1100 500}", got)
+	}
+}
+
+func TestListItemPricesForbidden(t *testing.T) {
+	fake := &fakeNpcAdmin{listPricesRes: npcadmin.Forbidden}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.ListItemPrices(context.Background(), &webv1.ListItemPricesRequest{ModeratorId: 3})
+	if err != nil {
+		t.Fatalf("ListItemPrices: %v", err)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_FORBIDDEN {
+		t.Errorf("result = %v, want FORBIDDEN", resp.GetResult())
+	}
+}
+
+func TestListItemPricesInfraError(t *testing.T) {
+	fake := &fakeNpcAdmin{listPricesErr: errors.New("query failed")}
+	s := NewNpcAdmin(fake)
+
+	if _, err := s.ListItemPrices(context.Background(), &webv1.ListItemPricesRequest{}); err == nil {
 		t.Fatal("expected gRPC error on infra failure")
 	}
 }
