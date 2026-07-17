@@ -208,6 +208,29 @@ func TestBaseEffectsCritical(t *testing.T) {
 	}
 }
 
+// TestBaseEffectsNoSanc: quest/trophy stones (Almas, Pedras, Sephirot) are
+// equippable but carry no EF_VOLATILE, so nothing stopped the dust-refine
+// handler from planting an EF_SANC pair into them (issue #133). ItemList.csv
+// now tags them EF_NOSANC so handler.refineItem's
+// itemAbility(dst, efNoSanc) != 0 gate rejects them.
+func TestBaseEffectsNoSanc(t *testing.T) {
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	for _, idx := range []int{1740, 1742, 1748, 1755, 1760, 1763} {
+		var got int16
+		for _, e := range full.BaseEffects()[idx] {
+			if e.Eff == 126 { // EF_NOSANC
+				got = e.Val
+			}
+		}
+		if got == 0 {
+			t.Errorf("BaseEffects()[%d] EF_NOSANC = %d, want nonzero", idx, got)
+		}
+	}
+}
+
 func TestRanges(t *testing.T) {
 	// Mob-model rows (real format): the archer's body item carries EF_RANGE,4 —
 	// the source of a mob's ranged reach (BASE_GetMobAbility). A row without
