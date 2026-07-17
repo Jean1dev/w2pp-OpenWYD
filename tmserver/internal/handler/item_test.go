@@ -730,6 +730,188 @@ func healPotionDB(item world.Item, hp, maxHP, mp, maxMP int32) *fakeDB {
 	return db
 }
 
+func paintDB(bean, target world.Item, targetSlot int) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = bean
+	st.Equip[targetSlot] = target
+	db.loadResult = st
+	return db
+}
+
+func sendPaintUse(t *testing.T, c net.Conn, destSlot int) {
+	t.Helper()
+	body := protocol.MsgUseItemBody{
+		SourType: world.ItemPlaceCarry, SourPos: 0,
+		DestType: world.ItemPlaceEquip, DestPos: int32(destSlot),
+	}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+}
+
+func savedSlot(items []world.SavedItem, slot int) (world.SavedItem, bool) {
+	for _, it := range items {
+		if it.Slot == slot {
+			return it, true
+		}
+	}
+	return world.SavedItem{}, false
+}
+
+func TestUsePaintBeanAppliesColorOverWire(t *testing.T) {
+	bean := world.Item{Index: 3408, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	target := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: 4}}}
+	db := paintDB(bean, target, 1)
+	addr, stop := startServerClockVol(t, db, map[int]int{3408: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	sawNotice, sawEquip, sawScore, sawTarget := false, false, false, false
+	for range 8 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgMessageBoxOk:
+			if noticeCode(t, payload) != NoticeRefineSuccess {
+				t.Fatalf("notice = %v, want NoticeRefineSuccess", noticeCode(t, payload))
+			}
+			sawNotice = true
+		case protocol.MsgUpdateEquip:
+			sawEquip = true
+			if got := payload[33]; got != 117-3 { // AnctCode[1] @body32+1
+				t.Errorf("paint anct[1] = %#x, want %#x", got, 117-3)
+			}
+		case protocol.MsgUpdateScore:
+			sawScore = true
+		case protocol.MsgSendItem:
+			place := int(binary.LittleEndian.Uint16(payload[0:2]))
+			slot := int(binary.LittleEndian.Uint16(payload[2:4]))
+			if place != world.ItemPlaceEquip || slot != 1 {
+				continue
+			}
+			sawTarget = true
+			if idx := le16(payload[4:6]); idx != 555 {
+				t.Fatalf("paint target index = %d, want 555", idx)
+			}
+			if payload[6] != 117 || payload[7] != 4 {
+				t.Fatalf("paint target effect0 = %d.%d, want 117.4", payload[6], payload[7])
+			}
+		}
+	}
+	if !sawNotice || !sawEquip || !sawScore || !sawTarget {
+		t.Fatalf("paint responses notice=%v equip=%v score=%v target=%v, want all true", sawNotice, sawEquip, sawScore, sawTarget)
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	save, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was not saved on logout")
+	}
+	carry0, ok := savedSlot(save.Carry, 0)
+	if !ok || carry0.Index != 3408 || carry0.Eff1 != efAmount || carry0.EffV1 != 2 {
+		t.Fatalf("saved carry slot 0 = %+v ok=%v, want stacked paint bean amount 2", carry0, ok)
+	}
+	equip1, ok := savedSlot(save.Equip, 1)
+	if !ok || equip1.Index != 555 || equip1.Eff1 != 117 || equip1.EffV1 != 4 {
+		t.Fatalf("saved equip slot 1 = %+v ok=%v, want painted item 117.4", equip1, ok)
+	}
+}
+
+func TestUsePaintRemoverRestoresSancCarrier(t *testing.T) {
+	target := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: 119, Value: 6}}}
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3417}, target, 1), map[int]int{3417: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	for range 8 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		if ty != protocol.MsgSendItem {
+			continue
+		}
+		place := int(binary.LittleEndian.Uint16(payload[0:2]))
+		slot := int(binary.LittleEndian.Uint16(payload[2:4]))
+		if place != world.ItemPlaceEquip || slot != 1 {
+			continue
+		}
+		if payload[6] != efSanc || payload[7] != 6 {
+			t.Fatalf("removed paint effect0 = %d.%d, want EF_SANC.6", payload[6], payload[7])
+		}
+		return
+	}
+	t.Fatal("missing target SendItem after paint remover")
+}
+
+func TestUsePaintBeanRejectsUnrefinedTarget(t *testing.T) {
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3408}, world.Item{Index: 555}, 1), map[int]int{3408: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	ty, payload, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgSendItem {
+		t.Fatalf("unrefined paint response = %#x ok=%v, want source SendItem", ty, ok)
+	}
+	if place, slot, idx := le16(payload[0:2]), le16(payload[2:4]), le16(payload[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 3408 {
+		t.Fatalf("source resend place/slot/index = %d/%d/%d, want carry/0/3408", place, slot, idx)
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("unrefined paint produced extra frame %#x", ty)
+	}
+}
+
+func TestUsePaintBeanRejectsForbiddenEquipSlot(t *testing.T) {
+	target := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: 1}}}
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3408}, target, 8), map[int]int{3408: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 8)
+
+	if ty, payload, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeOnlyToEquips {
+		t.Fatalf("forbidden slot notice = %#x/%v ok=%v, want NoticeOnlyToEquips", ty, noticeCode(t, payload), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if place, slot, idx := le16(item[0:2]), le16(item[2:4]), le16(item[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 3408 {
+		t.Fatalf("source resend place/slot/index = %d/%d/%d, want carry/0/3408", place, slot, idx)
+	}
+}
+
+func TestUsePaintRemoverRejectsWithoutEmptyOrPaintSlot(t *testing.T) {
+	target := world.Item{Index: 555, Effects: [3]world.Effect{
+		{Effect: efSanc, Value: 1},
+		{Effect: efSanc, Value: 2},
+		{Effect: efSanc, Value: 3},
+	}}
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3417}, target, 1), map[int]int{3417: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	if ty, payload, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeCantRefineMore {
+		t.Fatalf("remover reject notice = %#x/%v ok=%v, want NoticeCantRefineMore", ty, noticeCode(t, payload), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if place, slot, idx := le16(item[0:2]), le16(item[2:4]), le16(item[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 3417 {
+		t.Fatalf("source resend place/slot/index = %d/%d/%d, want carry/0/3417", place, slot, idx)
+	}
+}
+
 func TestUseExpChest(t *testing.T) {
 	addr, stop := startServerClockVol(t, expChestDB(), map[int]int{4140: volExpChest})
 	defer stop()

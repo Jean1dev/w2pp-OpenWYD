@@ -243,6 +243,7 @@ const (
 	volDivine30   = 66
 	volVigor      = 58
 	volSilverBar  = 185
+	volPaint      = 186
 	volFrango     = 63
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
@@ -300,6 +301,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useFrangoAssado(w, s, e, src)
 	case vol == volSilverBar:
 		d.useSilverBar(w, s, e, src)
+	case vol == volPaint:
+		d.usePaintBean(w, s, e, body, src)
 	case vol == volJoiaPvP:
 		d.useJoiaPvP(w, s, e, src)
 	case vol == volJoiaRecovery:
@@ -580,6 +583,86 @@ func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Ent
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendEtc(w, s, e)
 	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
+}
+
+// Magic-bean paint items (3407..3416) and the paint remover (3417) are all
+// EF_VOLATILE 186 in ItemList.csv. The source index selects the visual carrier:
+// 3407 -> effect 116, ..., 3416 -> 125, and 3417 restores EF_SANC.
+const (
+	paintItemBase = 3407
+	paintRemove   = 10
+	paintEffectLo = 116
+	paintEffectHi = 125
+)
+
+// usePaintBean ports the "Feijões mágicos - Removedor" branch of
+// _MSG_UseItem.cpp:3767. It does not change the refine value; it only swaps the
+// effect id that carries that value, which is what the 7662 client renders as an
+// equipment color/glow.
+func (d *Dispatcher) usePaintBean(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
+	dstPlace, dstSlot := int(body.DestType), int(body.DestPos)
+	dst := d.itemSlot(w, s, e, dstPlace, dstSlot)
+	if dst == nil {
+		return // GetItemPointer returned NULL in the legacy; only logs there.
+	}
+	if dstPlace != world.ItemPlaceEquip || (dstSlot >= 8 && dstSlot < 16) || dstSlot == 0 {
+		d.notify(w, s, NoticeOnlyToEquips)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	if refine.Level(*dst) < 1 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	color := int(e.Carry[src].Index) - paintItemBase
+	if color < 0 || color > paintRemove {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	var ok bool
+	if color == paintRemove {
+		ok = removePaint(dst)
+	} else {
+		ok = applyPaint(dst, color)
+	}
+	if !ok {
+		d.notify(w, s, NoticeCantRefineMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	d.notify(w, s, NoticeRefineSuccess)
+	consumeOneItem(&e.Carry[src])
+	d.refreshEquip(w, s, e)
+	d.sendSlot(w, s, dstPlace, dstSlot, *dst)
+}
+
+func applyPaint(it *world.Item, color int) bool {
+	effect := uint8(paintEffectLo + color)
+	for i := range it.Effects {
+		cur := it.Effects[i].Effect
+		if cur == 0 || cur == efSanc || isPaintEffect(cur) {
+			it.Effects[i].Effect = effect
+			return true
+		}
+	}
+	return false
+}
+
+func removePaint(it *world.Item) bool {
+	for i := range it.Effects {
+		cur := it.Effects[i].Effect
+		if cur == 0 || isPaintEffect(cur) {
+			it.Effects[i].Effect = efSanc
+			return true
+		}
+	}
+	return false
+}
+
+func isPaintEffect(effect uint8) bool {
+	return effect >= paintEffectLo && effect <= paintEffectHi
 }
 
 // Jóia (cash jewel) volatiles. Vol 242 is the PvP buff set (grants affect type
