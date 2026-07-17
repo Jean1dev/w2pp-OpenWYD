@@ -89,11 +89,15 @@ func (d *Dispatcher) createGuild(w *world.World, s *world.Session, args []byte) 
 	}
 	accountID, slot, charName, clan, citizen, serverIndex := s.AccountID, s.Slot, e.Name, e.Clan, e.Citizen, d.serverIndex
 	p := w.Persistence()
+	s.Mode = world.UserWaitDB
 	w.Go(s, func() func(*world.World, *world.Session) {
-		guild, ok, err := p.CreateGuild(context.Background(), accountID, slot, charName, name, clan, citizen, serverIndex)
+		guild, ok, err := p.CreateGuild(context.Background(), accountID, slot, charName, name, clan, citizen, serverIndex, guildCreateCost)
 		return func(w *world.World, s *world.Session) {
+			if s.Mode == world.UserWaitDB {
+				s.Mode = world.UserPlay
+			}
 			e := w.Entity(s.Conn)
-			if e == nil || s.Mode != world.UserPlay {
+			if e == nil {
 				return
 			}
 			if err != nil {
@@ -101,7 +105,7 @@ func (d *Dispatcher) createGuild(w *world.World, s *world.Session, args []byte) 
 				d.notify(w, s, NoticeDBError)
 				return
 			}
-			if !ok || guild.ID == 0 || e.Guild != 0 || e.Coin < guildCreateCost {
+			if !ok || guild.ID == 0 || e.Guild != 0 {
 				return
 			}
 			e.Coin -= guildCreateCost
@@ -124,7 +128,7 @@ func validGuildName(name string) bool {
 
 func (d *Dispatcher) subcreate(w *world.World, s *world.Session, args []byte) {
 	e := w.Entity(s.Conn)
-	if e == nil || e.Guild == 0 || e.GuildLevel != guildLeaderLevel || e.Coin < guildSubCost {
+	if e == nil || s.Mode != world.UserPlay || e.Guild == 0 || e.GuildLevel != guildLeaderLevel || e.Coin < guildSubCost {
 		if e != nil && e.Coin < guildSubCost {
 			d.notify(w, s, NoticeNotEnoughCoin)
 		}
@@ -139,40 +143,68 @@ func (d *Dispatcher) subcreate(w *world.World, s *world.Session, args []byte) {
 		d.notify(w, s, NoticeNotConnected)
 		return
 	}
+	if targetSession.Mode != world.UserPlay {
+		return
+	}
 	if target.Guild != e.Guild || target.GuildLevel != 0 {
 		return
 	}
 	p := w.Persistence()
-	guildID, accountID, slot := e.Guild, targetSession.AccountID, targetSession.Slot
-	w.Go(s, func() func(*world.World, *world.Session) {
-		level, ok, err := p.PromoteGuildMember(context.Background(), guildID, accountID, slot)
-		return func(w *world.World, s *world.Session) {
-			e := w.Entity(s.Conn)
-			ts, te := w.Session(target.ID), w.Entity(target.ID)
-			if e == nil || ts == nil || te == nil || te.Guild != guildID || te.GuildLevel != 0 {
-				return
+	guildID := e.Guild
+	leaderConn, targetConn := s.Conn, target.ID
+	leaderSession, memberSession := s, targetSession
+	leaderAccountID, leaderSlot := s.AccountID, s.Slot
+	accountID, slot, targetName := targetSession.AccountID, targetSession.Slot, target.Name
+	s.Mode = world.UserWaitDB
+	targetSession.Mode = world.UserWaitDB
+	w.GoDetached(func() func(*world.World) {
+		level, ok, err := p.PromoteGuildMember(context.Background(), guildID, leaderAccountID, leaderSlot, accountID, slot, guildSubCost)
+		return func(w *world.World) {
+			ls := w.Session(leaderConn)
+			if ls != leaderSession {
+				ls = nil
+			}
+			ts := w.Session(targetConn)
+			if ts != memberSession {
+				ts = nil
+			}
+			if ls != nil && ls.Mode == world.UserWaitDB {
+				ls.Mode = world.UserPlay
+			}
+			if ts != nil && ts.Mode == world.UserWaitDB {
+				ts.Mode = world.UserPlay
 			}
 			if err != nil {
-				d.log.Warn("subcreate failed", "conn", s.Conn, "target", target.Name, "err", err)
-				d.notify(w, s, NoticeDBError)
+				d.log.Warn("subcreate failed", "conn", leaderConn, "target", targetName, "err", err)
+				if ls != nil {
+					d.notify(w, ls, NoticeDBError)
+				}
 				return
 			}
-			if !ok || level < 6 || level > 8 || e.Coin < guildSubCost {
+			if !ok || level < 6 || level > 8 {
 				return
 			}
-			e.Coin -= guildSubCost
-			te.GuildLevel = level
-			d.sendEtc(w, s, e)
-			d.refreshGuildTag(w, te.ID)
-			w.SaveCharacterAsync(s)
-			w.SaveCharacterAsync(ts)
+			if ls != nil {
+				if le := w.Entity(leaderConn); le != nil {
+					le.Coin -= guildSubCost
+					d.sendEtc(w, ls, le)
+					w.SaveCharacterAsync(ls)
+				}
+			}
+			if ts != nil {
+				if te := w.Entity(targetConn); te != nil && te.Guild == guildID {
+					te.GuildLevel = level
+					d.refreshGuildTag(w, te.ID)
+					w.SaveCharacterAsync(ts)
+				}
+			}
 		}
 	})
 }
 
 func (d *Dispatcher) handoverGuild(w *world.World, s *world.Session, args []byte) {
 	e := w.Entity(s.Conn)
-	if e == nil || e.Guild == 0 || e.GuildLevel != guildLeaderLevel {
+	if e == nil || s.Mode != world.UserPlay || e.Guild == 0 || e.GuildLevel != guildLeaderLevel {
 		return
 	}
 	name := strings.TrimSpace(cstr(args))
@@ -181,24 +213,57 @@ func (d *Dispatcher) handoverGuild(w *world.World, s *world.Session, args []byte
 		d.notify(w, s, NoticeNotConnected)
 		return
 	}
+	if targetSession.Mode != world.UserPlay {
+		return
+	}
 	if target.Guild != e.Guild {
 		return
 	}
 	guildID := e.Guild
 	oldAccountID, oldSlot := s.AccountID, s.Slot
 	newAccountID, newSlot := targetSession.AccountID, targetSession.Slot
-	e.GuildLevel = 0
-	target.GuildLevel = guildLeaderLevel
-	d.refreshGuildTag(w, s.Conn)
-	d.refreshGuildTag(w, target.ID)
-	w.SaveCharacterAsync(s)
-	w.SaveCharacterAsync(targetSession)
+	leaderConn, targetConn := s.Conn, target.ID
+	leaderSession, memberSession := s, targetSession
 	p := w.Persistence()
-	w.Go(s, func() func(*world.World, *world.Session) {
+	s.Mode = world.UserWaitDB
+	targetSession.Mode = world.UserWaitDB
+	w.GoDetached(func() func(*world.World) {
 		err := p.TransferGuildLeader(context.Background(), guildID, oldAccountID, oldSlot, newAccountID, newSlot)
-		return func(w *world.World, s *world.Session) {
+		return func(w *world.World) {
+			ls := w.Session(leaderConn)
+			if ls != leaderSession {
+				ls = nil
+			}
+			ts := w.Session(targetConn)
+			if ts != memberSession {
+				ts = nil
+			}
+			if ls != nil && ls.Mode == world.UserWaitDB {
+				ls.Mode = world.UserPlay
+			}
+			if ts != nil && ts.Mode == world.UserWaitDB {
+				ts.Mode = world.UserPlay
+			}
 			if err != nil {
-				d.log.Warn("handover guild failed", "conn", s.Conn, "guild", guildID, "err", err)
+				d.log.Warn("handover guild failed", "conn", leaderConn, "guild", guildID, "err", err)
+				if ls != nil {
+					d.notify(w, ls, NoticeDBError)
+				}
+				return
+			}
+			if ls != nil {
+				if le := w.Entity(leaderConn); le != nil && le.Guild == guildID {
+					le.GuildLevel = 0
+					d.refreshGuildTag(w, leaderConn)
+					w.SaveCharacterAsync(ls)
+				}
+			}
+			if ts != nil {
+				if te := w.Entity(targetConn); te != nil && te.Guild == guildID {
+					te.GuildLevel = guildLeaderLevel
+					d.refreshGuildTag(w, targetConn)
+					w.SaveCharacterAsync(ts)
+				}
 			}
 		}
 	})
@@ -334,7 +399,8 @@ func (d *Dispatcher) guildRelay(w *world.World, s *world.Session, payload []byte
 				d.log.Warn("guild relation failed", "conn", s.Conn, "guild", guildID, "target", targetID, "kind", kind, "err", err)
 				return
 			}
-			d.sendWarInfoToGuild(w, guildID, kind, targetID)
+			d.applyGuildRelation(guildID, targetID, kind)
+			d.sendWarInfoToGuild(w, guildID)
 		}
 	})
 }
@@ -443,14 +509,9 @@ func (d *Dispatcher) persistGuildZone(w *world.World, s *world.Session, z world.
 	})
 }
 
-func (d *Dispatcher) sendWarInfoToGuild(w *world.World, guildID uint16, kind world.GuildRelationKind, target uint16) {
-	var warTarget, allyTarget int32
-	switch kind {
-	case world.GuildRelationWar:
-		warTarget = int32(target)
-	case world.GuildRelationAlly:
-		allyTarget = int32(target)
-	}
+func (d *Dispatcher) sendWarInfoToGuild(w *world.World, guildID uint16) {
+	warTarget := int32(d.guildWars[guildID])
+	allyTarget := int32(d.guildAllies[guildID])
 	body := protocol.EncodeStandardParm3(warTarget, 0, allyTarget)
 	w.ForEachPlaying(-1, func(s *world.Session, e *world.Entity) {
 		if e.Guild == guildID {

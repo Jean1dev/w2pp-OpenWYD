@@ -276,6 +276,7 @@ func run(logger *slog.Logger) error {
 	if npcConfig != nil {
 		dispatch.ApplyNPCConfigBoot(w)
 	}
+	dispatch.ApplyGuildStateBoot(w)
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

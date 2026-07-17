@@ -289,10 +289,10 @@ type Persistence interface {
 
 	// Guild lifecycle/state (issue #114). These calls block on dbServer and must
 	// be made through World.Go/GoDetached by loop handlers.
-	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int) (GuildRecord, bool, error)
+	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (GuildRecord, bool, error)
 	SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error
 	LeaveGuild(ctx context.Context, accountID int64, slot int) error
-	PromoteGuildMember(ctx context.Context, guildID uint16, accountID int64, slot int) (uint8, bool, error)
+	PromoteGuildMember(ctx context.Context, guildID uint16, leaderAccountID int64, leaderSlot int, accountID int64, slot int, cost int32) (uint8, bool, error)
 	TransferGuildLeader(ctx context.Context, guildID uint16, oldAccountID int64, oldSlot int, newAccountID int64, newSlot int) error
 	SetGuildRelation(ctx context.Context, guildID, targetGuildID uint16, kind GuildRelationKind) error
 	ListGuilds(ctx context.Context) ([]GuildRecord, error)
@@ -380,7 +380,7 @@ func (NopPersistence) SetAccountBlocked(context.Context, string, bool) error {
 }
 
 // CreateGuild is unsupported without a backend.
-func (NopPersistence) CreateGuild(context.Context, int64, int, string, string, uint8, uint8, int) (GuildRecord, bool, error) {
+func (NopPersistence) CreateGuild(context.Context, int64, int, string, string, uint8, uint8, int, int32) (GuildRecord, bool, error) {
 	return GuildRecord{}, false, errNoPersistence
 }
 
@@ -393,7 +393,7 @@ func (NopPersistence) SetGuildMember(context.Context, int64, int, string, uint16
 func (NopPersistence) LeaveGuild(context.Context, int64, int) error { return errNoPersistence }
 
 // PromoteGuildMember is unsupported without a backend.
-func (NopPersistence) PromoteGuildMember(context.Context, uint16, int64, int) (uint8, bool, error) {
+func (NopPersistence) PromoteGuildMember(context.Context, uint16, int64, int, int64, int, int32) (uint8, bool, error) {
 	return 0, false, errNoPersistence
 }
 

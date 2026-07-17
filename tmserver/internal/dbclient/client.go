@@ -272,8 +272,9 @@ func (c *Client) SetAccountBlocked(ctx context.Context, name string, blocked boo
 	return nil
 }
 
-// CreateGuild allocates a persistent legacy guild id and makes the character leader.
-func (c *Client) CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int) (world.GuildRecord, bool, error) {
+// CreateGuild allocates a persistent legacy guild id, charges the creation cost,
+// and makes the character leader.
+func (c *Client) CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (world.GuildRecord, bool, error) {
 	resp, err := c.api.CreateGuild(ctx, &dbv1.CreateGuildRequest{
 		AccountId:     accountID,
 		Slot:          int32(slot),
@@ -282,6 +283,7 @@ func (c *Client) CreateGuild(ctx context.Context, accountID int64, slot int, cha
 		Clan:          int32(clan),
 		Citizen:       int32(citizen),
 		ServerIndex:   int32(serverIndex),
+		Cost:          cost,
 	})
 	if err != nil {
 		return world.GuildRecord{}, false, fmt.Errorf("dbclient: create guild: %w", err)
@@ -319,12 +321,16 @@ func (c *Client) LeaveGuild(ctx context.Context, accountID int64, slot int) erro
 	return nil
 }
 
-// PromoteGuildMember assigns the first available sub-leader rank.
-func (c *Client) PromoteGuildMember(ctx context.Context, guildID uint16, accountID int64, slot int) (uint8, bool, error) {
+// PromoteGuildMember assigns the first available sub-leader rank and charges the
+// leader in the same dbServer transaction.
+func (c *Client) PromoteGuildMember(ctx context.Context, guildID uint16, leaderAccountID int64, leaderSlot int, accountID int64, slot int, cost int32) (uint8, bool, error) {
 	resp, err := c.api.PromoteGuildMember(ctx, &dbv1.PromoteGuildMemberRequest{
-		GuildId:   uint32(guildID),
-		AccountId: accountID,
-		Slot:      int32(slot),
+		GuildId:         uint32(guildID),
+		LeaderAccountId: leaderAccountID,
+		LeaderSlot:      int32(leaderSlot),
+		AccountId:       accountID,
+		Slot:            int32(slot),
+		Cost:            cost,
 	})
 	if err != nil {
 		return 0, false, fmt.Errorf("dbclient: promote guild member: %w", err)

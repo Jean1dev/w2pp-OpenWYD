@@ -129,6 +129,12 @@ type Dispatcher struct {
 	serverIndex     int                          // legacy guild id high bits
 	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
 	taxChanged      [5]bool                      // one guildtax change per in-memory cycle
+	guildWars       map[uint16]uint16            // directed guild -> current war target
+	guildAllies     map[uint16]uint16            // directed guild -> current ally target
+	towerState      world.GuildTowerState        // loop-owned GTorre ownership cache
+	castleState     world.CastleQuestState       // loop-owned Castle/Zakum state cache
+	guildStateLoad  bool                         // guild persistence boot snapshot has been applied
+	guildStateBusy  bool                         // one guild-state load in flight
 
 	// NPC-config overlay (npc-editing-plan.md). All loop-only. baseItemPrices is the
 	// immutable content catalog; itemPrices is the effective map (base + global
@@ -179,6 +185,8 @@ func New(cfg Config) *Dispatcher {
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
 		serverIndex:     cfg.ServerIndex,
+		guildWars:       make(map[uint16]uint16),
+		guildAllies:     make(map[uint16]uint16),
 		npcSource:       cfg.NpcConfig,
 		managedNPCs:     make(map[string]int),
 	}
@@ -270,6 +278,7 @@ func New(cfg Config) *Dispatcher {
 
 // Handle is the world.Handler. It runs in the loop goroutine.
 func (d *Dispatcher) Handle(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
+	d.ensureGuildStateLoaded(w)
 	fn, ok := d.routes[h.Type]
 	// DIAGNOSTIC: log every received Type (hex) so client packets can be mapped.
 	d.log.Info("recv packet", "conn", s.Conn, "type", formatType(h.Type), "len", len(payload), "routed", ok)

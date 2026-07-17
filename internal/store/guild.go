@@ -16,9 +16,10 @@ const (
 	guildAllocLockBase   = 0x77326775696c6400
 )
 
-// CreateGuild allocates a legacy ushort guild id, creates the guild row, and
-// makes the requesting character its leader in one transaction.
-func (s *Store) CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int) (domain.Guild, error) {
+// CreateGuild allocates a legacy ushort guild id, creates the guild row, debits
+// the creation cost, and makes the requesting character its leader in one
+// transaction.
+func (s *Store) CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (domain.Guild, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.Guild{}, fmt.Errorf("store: begin create guild: %w", err)
@@ -34,20 +35,21 @@ func (s *Store) CreateGuild(ctx context.Context, accountID int64, slot int, char
 
 	var charID int64
 	var currentGuild int
+	var coin int32
 	err = tx.QueryRow(ctx, `
-		SELECT id, guild_id
+		SELECT id, guild_id, coin
 		  FROM character
 		 WHERE account_id = $1 AND slot = $2 AND name = $3
 		 FOR UPDATE`,
 		accountID, slot, characterName,
-	).Scan(&charID, &currentGuild)
+	).Scan(&charID, &currentGuild, &coin)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Guild{}, ErrNotFound
 	}
 	if err != nil {
 		return domain.Guild{}, fmt.Errorf("store: lock character for guild create: %w", err)
 	}
-	if currentGuild != 0 {
+	if currentGuild != 0 || cost < 0 || coin < cost {
 		return domain.Guild{}, ErrConflict
 	}
 
@@ -74,6 +76,9 @@ func (s *Store) CreateGuild(ctx context.Context, accountID int64, slot int, char
 		return domain.Guild{}, fmt.Errorf("store: insert guild %q: %w", guildName, err)
 	}
 	if err := setGuildMemberTx(ctx, tx, accountID, slot, charID, characterName, uint16(guildID), 9); err != nil {
+		return domain.Guild{}, err
+	}
+	if err := spendCharacterCoinTx(ctx, tx, charID, cost); err != nil {
 		return domain.Guild{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -141,13 +146,22 @@ func (s *Store) LeaveGuild(ctx context.Context, accountID int64, slot int) error
 	return nil
 }
 
-// PromoteGuildMember assigns the first available sub-leader level (6, 7, 8).
-func (s *Store) PromoteGuildMember(ctx context.Context, guildID uint16, accountID int64, slot int) (uint8, error) {
+// PromoteGuildMember assigns the first available sub-leader level (6, 7, 8) and
+// debits the leader in the same transaction.
+func (s *Store) PromoteGuildMember(ctx context.Context, guildID uint16, leaderAccountID int64, leaderSlot int, accountID int64, slot int, cost int32) (uint8, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("store: begin promote guild member: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	leaderID, _, leaderGuild, leaderLevel, leaderCoin, err := lockGuildCharacterWithCoin(ctx, tx, leaderAccountID, leaderSlot)
+	if err != nil {
+		return 0, err
+	}
+	if leaderGuild != int(guildID) || leaderLevel != 9 || cost < 0 || leaderCoin < cost {
+		return 0, ErrConflict
+	}
 
 	var charID int64
 	var name string
@@ -205,6 +219,9 @@ func (s *Store) PromoteGuildMember(ctx context.Context, guildID uint16, accountI
 	}
 	if level == 0 {
 		return 0, ErrNoFreeSlot
+	}
+	if err := spendCharacterCoinTx(ctx, tx, leaderID, cost); err != nil {
+		return 0, err
 	}
 	if err := setGuildMemberTx(ctx, tx, accountID, slot, charID, name, guildID, level); err != nil {
 		return 0, err
@@ -266,6 +283,41 @@ func lockGuildCharacter(ctx context.Context, tx pgx.Tx, accountID int64, slot in
 	return charID, name, guildID, guildLevel, nil
 }
 
+func lockGuildCharacterWithCoin(ctx context.Context, tx pgx.Tx, accountID int64, slot int) (int64, string, int, int, int32, error) {
+	var charID int64
+	var name string
+	var guildID, guildLevel int
+	var coin int32
+	err := tx.QueryRow(ctx, `
+		SELECT id, name, guild_id, guild_level, coin
+		  FROM character
+		 WHERE account_id = $1 AND slot = $2
+		 FOR UPDATE`,
+		accountID, slot,
+	).Scan(&charID, &name, &guildID, &guildLevel, &coin)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", 0, 0, 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, "", 0, 0, 0, fmt.Errorf("store: lock guild character with coin: %w", err)
+	}
+	return charID, name, guildID, guildLevel, coin, nil
+}
+
+func spendCharacterCoinTx(ctx context.Context, tx pgx.Tx, charID int64, cost int32) error {
+	if cost == 0 {
+		return nil
+	}
+	tag, err := tx.Exec(ctx, `UPDATE character SET coin = coin - $2 WHERE id = $1 AND coin >= $2`, charID, cost)
+	if err != nil {
+		return fmt.Errorf("store: spend character coin: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrConflict
+	}
+	return nil
+}
+
 func setGuildMemberTx(ctx context.Context, tx pgx.Tx, accountID int64, slot int, charID int64, name string, guildID uint16, guildLevel uint8) error {
 	if _, err := tx.Exec(ctx,
 		`UPDATE character SET guild_id = $3, guild_level = $4 WHERE account_id = $1 AND slot = $2`,
@@ -296,7 +348,7 @@ func (s *Store) SetGuildRelation(ctx context.Context, guildID, targetGuildID uin
 	}
 	if kind == domain.GuildRelationNone || targetGuildID == 0 {
 		tag, err := s.pool.Exec(ctx,
-			`DELETE FROM guild_relation WHERE guild_id = $1`, guildID)
+			`DELETE FROM guild_relation WHERE guild_id = $1 AND ($2 = 0 OR kind = $2)`, guildID, kind)
 		if err != nil {
 			return fmt.Errorf("store: clear guild relation: %w", err)
 		}
@@ -308,8 +360,8 @@ func (s *Store) SetGuildRelation(ctx context.Context, guildID, targetGuildID uin
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO guild_relation(guild_id, target_guild_id, kind, updated_at)
 		VALUES ($1, $2, $3, now())
-		ON CONFLICT (guild_id, target_guild_id)
-		DO UPDATE SET kind = EXCLUDED.kind, updated_at = now()`,
+		ON CONFLICT (guild_id, kind)
+		DO UPDATE SET target_guild_id = EXCLUDED.target_guild_id, updated_at = now()`,
 		guildID, targetGuildID, kind,
 	)
 	if err != nil {

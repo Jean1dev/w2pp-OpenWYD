@@ -35,10 +35,10 @@ type Store interface {
 	PendingItemDeliveries(ctx context.Context, accountID int64) ([]domain.Delivery, error)
 	SaveCargoWithDeliveries(ctx context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error
 	SetBlockedByName(ctx context.Context, name string, blocked bool) error
-	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int) (domain.Guild, error)
+	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (domain.Guild, error)
 	SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error
 	LeaveGuild(ctx context.Context, accountID int64, slot int) error
-	PromoteGuildMember(ctx context.Context, guildID uint16, accountID int64, slot int) (uint8, error)
+	PromoteGuildMember(ctx context.Context, guildID uint16, leaderAccountID int64, leaderSlot int, accountID int64, slot int, cost int32) (uint8, error)
 	TransferGuildLeader(ctx context.Context, guildID uint16, oldAccountID int64, oldSlot int, newAccountID int64, newSlot int) error
 	SetGuildRelation(ctx context.Context, guildID, targetGuildID uint16, kind domain.GuildRelationKind) error
 	ListGuilds(ctx context.Context) ([]domain.Guild, error)
@@ -217,7 +217,7 @@ func (s *Server) SetAccountBlocked(ctx context.Context, req *dbv1.SetAccountBloc
 // CreateGuild creates a guild and marks the requester as its leader.
 func (s *Server) CreateGuild(ctx context.Context, req *dbv1.CreateGuildRequest) (*dbv1.CreateGuildResponse, error) {
 	g, err := s.store.CreateGuild(ctx, req.GetAccountId(), int(req.GetSlot()), req.GetCharacterName(),
-		req.GetGuildName(), uint8(req.GetClan()), uint8(req.GetCitizen()), int(req.GetServerIndex()))
+		req.GetGuildName(), uint8(req.GetClan()), uint8(req.GetCitizen()), int(req.GetServerIndex()), req.GetCost())
 	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNoFreeSlot) || isUniqueViolation(err) {
 		return &dbv1.CreateGuildResponse{Ok: false}, nil
 	}
@@ -254,7 +254,8 @@ func (s *Server) LeaveGuild(ctx context.Context, req *dbv1.LeaveGuildRequest) (*
 
 // PromoteGuildMember promotes a member to the first free sub-leader rank.
 func (s *Server) PromoteGuildMember(ctx context.Context, req *dbv1.PromoteGuildMemberRequest) (*dbv1.PromoteGuildMemberResponse, error) {
-	level, err := s.store.PromoteGuildMember(ctx, uint16(req.GetGuildId()), req.GetAccountId(), int(req.GetSlot()))
+	level, err := s.store.PromoteGuildMember(ctx, uint16(req.GetGuildId()), req.GetLeaderAccountId(), int(req.GetLeaderSlot()),
+		req.GetAccountId(), int(req.GetSlot()), req.GetCost())
 	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNoFreeSlot) {
 		return &dbv1.PromoteGuildMemberResponse{Ok: false}, nil
 	}

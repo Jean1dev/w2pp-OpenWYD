@@ -317,6 +317,7 @@ message CreateGuildRequest {
   int32 clan = 5;
   int32 citizen = 6;
   int32 server_index = 7;
+  int32 cost = 8;
 }
 message CreateGuildResponse {
   bool ok = 1;
@@ -339,8 +340,11 @@ message LeaveGuildRequest {
 
 message PromoteGuildMemberRequest {
   uint32 guild_id = 1;
-  int64 account_id = 2;
-  int32 slot = 3;
+  int64 leader_account_id = 2;
+  int32 leader_slot = 3;
+  int64 account_id = 4;
+  int32 slot = 5;
+  int32 cost = 6;
 }
 message PromoteGuildMemberResponse {
   bool ok = 1;

@@ -167,7 +167,7 @@ func (f *fakeStore) SaveCargoWithDeliveries(_ context.Context, accountID int64, 
 	return nil
 }
 
-func (f *fakeStore) CreateGuild(_ context.Context, _ int64, _ int, _, guildName string, clan, citizen uint8, _ int) (domain.Guild, error) {
+func (f *fakeStore) CreateGuild(_ context.Context, _ int64, _ int, _, guildName string, clan, citizen uint8, _ int, _ int32) (domain.Guild, error) {
 	return domain.Guild{ID: 5, Name: guildName, Clan: clan, Citizen: citizen}, nil
 }
 
@@ -177,7 +177,7 @@ func (f *fakeStore) SetGuildMember(_ context.Context, _ int64, _ int, _ string, 
 
 func (f *fakeStore) LeaveGuild(_ context.Context, _ int64, _ int) error { return nil }
 
-func (f *fakeStore) PromoteGuildMember(_ context.Context, _ uint16, _ int64, _ int) (uint8, error) {
+func (f *fakeStore) PromoteGuildMember(_ context.Context, _ uint16, _ int64, _ int, _ int64, _ int, _ int32) (uint8, error) {
 	return 6, nil
 }
 

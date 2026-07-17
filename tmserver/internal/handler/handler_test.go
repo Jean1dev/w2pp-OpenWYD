@@ -59,7 +59,9 @@ type fakeDB struct {
 	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
 
 	createdGuilds []world.GuildRecord
+	guildCosts    []int32
 	promoted      []uint8
+	promoteCosts  []int32
 	transfers     int
 }
 
@@ -117,11 +119,12 @@ func (f *fakeDB) SetAccountBlocked(_ context.Context, name string, blocked bool)
 	return nil
 }
 
-func (f *fakeDB) CreateGuild(_ context.Context, _ int64, _ int, _, guildName string, clan, citizen uint8, _ int) (world.GuildRecord, bool, error) {
+func (f *fakeDB) CreateGuild(_ context.Context, _ int64, _ int, _, guildName string, clan, citizen uint8, _ int, cost int32) (world.GuildRecord, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	g := world.GuildRecord{ID: uint16(100 + len(f.createdGuilds)), Name: guildName, Clan: clan, Citizen: citizen}
 	f.createdGuilds = append(f.createdGuilds, g)
+	f.guildCosts = append(f.guildCosts, cost)
 	return g, true, nil
 }
 
@@ -131,11 +134,12 @@ func (f *fakeDB) SetGuildMember(context.Context, int64, int, string, uint16, uin
 
 func (f *fakeDB) LeaveGuild(context.Context, int64, int) error { return nil }
 
-func (f *fakeDB) PromoteGuildMember(context.Context, uint16, int64, int) (uint8, bool, error) {
+func (f *fakeDB) PromoteGuildMember(_ context.Context, _ uint16, _ int64, _ int, _ int64, _ int, cost int32) (uint8, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	level := uint8(6 + len(f.promoted))
 	f.promoted = append(f.promoted, level)
+	f.promoteCosts = append(f.promoteCosts, cost)
 	return level, true, nil
 }
 

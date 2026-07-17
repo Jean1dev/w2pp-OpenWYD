@@ -35,7 +35,7 @@ CREATE TABLE guild_relation (
     target_guild_id INTEGER NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
     kind            SMALLINT NOT NULL CHECK (kind IN (1, 2)), -- 1 ally, 2 war
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (guild_id, target_guild_id),
+    PRIMARY KEY (guild_id, kind),
     CHECK (guild_id <> target_guild_id)
 );
 

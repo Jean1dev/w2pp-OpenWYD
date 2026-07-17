@@ -2444,6 +2444,7 @@ type CreateGuildRequest struct {
 	Clan          int32                  `protobuf:"varint,5,opt,name=clan,proto3" json:"clan,omitempty"`
 	Citizen       int32                  `protobuf:"varint,6,opt,name=citizen,proto3" json:"citizen,omitempty"`
 	ServerIndex   int32                  `protobuf:"varint,7,opt,name=server_index,json=serverIndex,proto3" json:"server_index,omitempty"`
+	Cost          int32                  `protobuf:"varint,8,opt,name=cost,proto3" json:"cost,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2523,6 +2524,13 @@ func (x *CreateGuildRequest) GetCitizen() int32 {
 func (x *CreateGuildRequest) GetServerIndex() int32 {
 	if x != nil {
 		return x.ServerIndex
+	}
+	return 0
+}
+
+func (x *CreateGuildRequest) GetCost() int32 {
+	if x != nil {
+		return x.Cost
 	}
 	return 0
 }
@@ -2752,12 +2760,15 @@ func (x *LeaveGuildRequest) GetSlot() int32 {
 }
 
 type PromoteGuildMemberRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	GuildId       uint32                 `protobuf:"varint,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
-	AccountId     int64                  `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	Slot          int32                  `protobuf:"varint,3,opt,name=slot,proto3" json:"slot,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	GuildId         uint32                 `protobuf:"varint,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	LeaderAccountId int64                  `protobuf:"varint,2,opt,name=leader_account_id,json=leaderAccountId,proto3" json:"leader_account_id,omitempty"`
+	LeaderSlot      int32                  `protobuf:"varint,3,opt,name=leader_slot,json=leaderSlot,proto3" json:"leader_slot,omitempty"`
+	AccountId       int64                  `protobuf:"varint,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Slot            int32                  `protobuf:"varint,5,opt,name=slot,proto3" json:"slot,omitempty"`
+	Cost            int32                  `protobuf:"varint,6,opt,name=cost,proto3" json:"cost,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PromoteGuildMemberRequest) Reset() {
@@ -2797,6 +2808,20 @@ func (x *PromoteGuildMemberRequest) GetGuildId() uint32 {
 	return 0
 }
 
+func (x *PromoteGuildMemberRequest) GetLeaderAccountId() int64 {
+	if x != nil {
+		return x.LeaderAccountId
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetLeaderSlot() int32 {
+	if x != nil {
+		return x.LeaderSlot
+	}
+	return 0
+}
+
 func (x *PromoteGuildMemberRequest) GetAccountId() int64 {
 	if x != nil {
 		return x.AccountId
@@ -2807,6 +2832,13 @@ func (x *PromoteGuildMemberRequest) GetAccountId() int64 {
 func (x *PromoteGuildMemberRequest) GetSlot() int32 {
 	if x != nil {
 		return x.Slot
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetCost() int32 {
+	if x != nil {
+		return x.Cost
 	}
 	return 0
 }
@@ -4582,7 +4614,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\rGuildRelation\x12\x19\n" +
 	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12&\n" +
 	"\x0ftarget_guild_id\x18\x02 \x01(\rR\rtargetGuildId\x12,\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x18.db.v1.GuildRelationKindR\x04kind\"\xde\x01\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x18.db.v1.GuildRelationKindR\x04kind\"\xf2\x01\n" +
 	"\x12CreateGuildRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
@@ -4592,7 +4624,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"guild_name\x18\x04 \x01(\tR\tguildName\x12\x12\n" +
 	"\x04clan\x18\x05 \x01(\x05R\x04clan\x12\x18\n" +
 	"\acitizen\x18\x06 \x01(\x05R\acitizen\x12!\n" +
-	"\fserver_index\x18\a \x01(\x05R\vserverIndex\"I\n" +
+	"\fserver_index\x18\a \x01(\x05R\vserverIndex\x12\x12\n" +
+	"\x04cost\x18\b \x01(\x05R\x04cost\"I\n" +
 	"\x13CreateGuildResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\"\n" +
 	"\x05guild\x18\x02 \x01(\v2\f.db.v1.GuildR\x05guild\"\xad\x01\n" +
@@ -4609,12 +4642,16 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x11LeaveGuildRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"i\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xca\x01\n" +
 	"\x19PromoteGuildMemberRequest\x12\x19\n" +
-	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12\x1d\n" +
+	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12*\n" +
+	"\x11leader_account_id\x18\x02 \x01(\x03R\x0fleaderAccountId\x12\x1f\n" +
+	"\vleader_slot\x18\x03 \x01(\x05R\n" +
+	"leaderSlot\x12\x1d\n" +
 	"\n" +
-	"account_id\x18\x02 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x03 \x01(\x05R\x04slot\"M\n" +
+	"account_id\x18\x04 \x01(\x03R\taccountId\x12\x12\n" +
+	"\x04slot\x18\x05 \x01(\x05R\x04slot\x12\x12\n" +
+	"\x04cost\x18\x06 \x01(\x05R\x04cost\"M\n" +
 	"\x1aPromoteGuildMemberResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1f\n" +
 	"\vguild_level\x18\x02 \x01(\x05R\n" +
