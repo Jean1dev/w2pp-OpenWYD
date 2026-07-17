@@ -87,6 +87,48 @@ func (f *fakeAPI) SetAccountBlocked(_ context.Context, req *dbv1.SetAccountBlock
 	f.blockedReq = req
 	return &dbv1.SetAccountBlockedResponse{Ok: true}, nil
 }
+func (f *fakeAPI) CreateGuild(_ context.Context, _ *dbv1.CreateGuildRequest, _ ...grpc.CallOption) (*dbv1.CreateGuildResponse, error) {
+	return &dbv1.CreateGuildResponse{Ok: true, Guild: &dbv1.Guild{Id: 5, Name: "guild"}}, nil
+}
+func (f *fakeAPI) SetGuildMember(_ context.Context, _ *dbv1.SetGuildMemberRequest, _ ...grpc.CallOption) (*dbv1.SetGuildMemberResponse, error) {
+	return &dbv1.SetGuildMemberResponse{Ok: true}, nil
+}
+func (f *fakeAPI) LeaveGuild(_ context.Context, _ *dbv1.LeaveGuildRequest, _ ...grpc.CallOption) (*dbv1.SetGuildMemberResponse, error) {
+	return &dbv1.SetGuildMemberResponse{Ok: true}, nil
+}
+func (f *fakeAPI) PromoteGuildMember(_ context.Context, _ *dbv1.PromoteGuildMemberRequest, _ ...grpc.CallOption) (*dbv1.PromoteGuildMemberResponse, error) {
+	return &dbv1.PromoteGuildMemberResponse{Ok: true, GuildLevel: 6}, nil
+}
+func (f *fakeAPI) TransferGuildLeader(_ context.Context, _ *dbv1.TransferGuildLeaderRequest, _ ...grpc.CallOption) (*dbv1.SetGuildMemberResponse, error) {
+	return &dbv1.SetGuildMemberResponse{Ok: true}, nil
+}
+func (f *fakeAPI) SetGuildRelation(_ context.Context, _ *dbv1.SetGuildRelationRequest, _ ...grpc.CallOption) (*dbv1.SetGuildRelationResponse, error) {
+	return &dbv1.SetGuildRelationResponse{Ok: true}, nil
+}
+func (f *fakeAPI) ListGuilds(_ context.Context, _ *dbv1.ListGuildsRequest, _ ...grpc.CallOption) (*dbv1.ListGuildsResponse, error) {
+	return &dbv1.ListGuildsResponse{}, nil
+}
+func (f *fakeAPI) ListGuildRelations(_ context.Context, _ *dbv1.ListGuildRelationsRequest, _ ...grpc.CallOption) (*dbv1.ListGuildRelationsResponse, error) {
+	return &dbv1.ListGuildRelationsResponse{}, nil
+}
+func (f *fakeAPI) LoadGuildZones(_ context.Context, _ *dbv1.LoadGuildZonesRequest, _ ...grpc.CallOption) (*dbv1.LoadGuildZonesResponse, error) {
+	return &dbv1.LoadGuildZonesResponse{}, nil
+}
+func (f *fakeAPI) SaveGuildZone(_ context.Context, _ *dbv1.SaveGuildZoneRequest, _ ...grpc.CallOption) (*dbv1.SaveGuildZoneResponse, error) {
+	return &dbv1.SaveGuildZoneResponse{Ok: true}, nil
+}
+func (f *fakeAPI) LoadGuildTowerState(_ context.Context, _ *dbv1.LoadGuildTowerStateRequest, _ ...grpc.CallOption) (*dbv1.LoadGuildTowerStateResponse, error) {
+	return &dbv1.LoadGuildTowerStateResponse{}, nil
+}
+func (f *fakeAPI) SaveGuildTowerState(_ context.Context, _ *dbv1.SaveGuildTowerStateRequest, _ ...grpc.CallOption) (*dbv1.SaveGuildTowerStateResponse, error) {
+	return &dbv1.SaveGuildTowerStateResponse{Ok: true}, nil
+}
+func (f *fakeAPI) LoadCastleQuestState(_ context.Context, _ *dbv1.LoadCastleQuestStateRequest, _ ...grpc.CallOption) (*dbv1.LoadCastleQuestStateResponse, error) {
+	return &dbv1.LoadCastleQuestStateResponse{}, nil
+}
+func (f *fakeAPI) SaveCastleQuestState(_ context.Context, _ *dbv1.SaveCastleQuestStateRequest, _ ...grpc.CallOption) (*dbv1.SaveCastleQuestStateResponse, error) {
+	return &dbv1.SaveCastleQuestStateResponse{Ok: true}, nil
+}
 
 func newClient(api dbv1.AccountServiceClient) *Client { return &Client{api: api} }
 

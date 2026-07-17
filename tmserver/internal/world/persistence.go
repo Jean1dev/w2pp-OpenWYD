@@ -121,6 +121,7 @@ type CharacterState struct {
 	Clan        uint8
 	GuildID     uint16
 	GuildLevel  uint8
+	Citizen     uint8
 	ClassMaster uint8
 	Soul        uint8
 	Str         int16
@@ -170,23 +171,24 @@ type SavedItem struct {
 // full STRUCT_MOB is UNVERIFIED). Exp IS persisted now (earned from kills). The
 // world builds it (it owns the Entity); the adapter only ships it.
 type CharacterSave struct {
-	AccountID int64
-	Slot      int
-	LastCity  int16
-	Clan      uint8
-	GuildID   uint16
-	Level     int32
-	Exp       int64
-	Coin      int32
-	Str       int16
-	Int       int16
-	Dex       int16
-	Con       int16
-	HP        int32
-	MaxHP     int32
-	MP        int32
-	MaxMP     int32
-	DivineEnd int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
+	AccountID  int64
+	Slot       int
+	LastCity   int16
+	Clan       uint8
+	GuildID    uint16
+	GuildLevel uint8
+	Level      int32
+	Exp        int64
+	Coin       int32
+	Str        int16
+	Int        int16
+	Dex        int16
+	Con        int16
+	HP         int32
+	MaxHP      int32
+	MP         int32
+	MaxMP      int32
+	DivineEnd  int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
 
 	ScoreBonus      uint16
 	SpecialBonus    uint16
@@ -200,6 +202,59 @@ type CharacterSave struct {
 
 	Carry []SavedItem
 	Equip []SavedItem
+}
+
+// GuildRecord is the tmServer-facing guild registry row. ID is the legacy
+// ushort stored on Entity.Guild.
+type GuildRecord struct {
+	ID      uint16
+	Name    string
+	Clan    uint8
+	Fame    int32
+	Citizen uint8
+}
+
+// GuildRelationKind identifies a directed guild relation.
+type GuildRelationKind uint8
+
+// Guild relation kinds.
+const (
+	GuildRelationNone GuildRelationKind = iota
+	GuildRelationAlly
+	GuildRelationWar
+)
+
+// GuildRelation is one directed ally/war relation.
+type GuildRelation struct {
+	GuildID       uint16
+	TargetGuildID uint16
+	Kind          GuildRelationKind
+}
+
+// GuildZone is the persisted guild-zone/city ownership subset.
+type GuildZone struct {
+	Zone           int
+	ChargeGuild    uint16
+	ChallengeGuild uint16
+	Clan           uint8
+	Victory        uint8
+	CityTax        uint8
+	ChallengeMoney int64
+	TaxVault       int64
+}
+
+// GuildTowerState stores the current GTorre owner.
+type GuildTowerState struct {
+	OwnerGuild    uint16
+	UpdatedAtUnix int64
+}
+
+// CastleQuestState stores the single active Castle/Zakum quest state.
+type CastleQuestState struct {
+	Level      int32
+	TimeLeft   int32
+	Clear      bool
+	LeaderName string
 }
 
 // Persistence is the port the loop/handlers use to talk to the dbServer. The
@@ -231,6 +286,23 @@ type Persistence interface {
 	// SetAccountBlocked flips account.is_blocked by name — the write side of the
 	// in-game GM ban/unban command (issue #122). Called off the loop via World.Go.
 	SetAccountBlocked(ctx context.Context, name string, blocked bool) error
+
+	// Guild lifecycle/state (issue #114). These calls block on dbServer and must
+	// be made through World.Go/GoDetached by loop handlers.
+	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int) (GuildRecord, bool, error)
+	SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error
+	LeaveGuild(ctx context.Context, accountID int64, slot int) error
+	PromoteGuildMember(ctx context.Context, guildID uint16, accountID int64, slot int) (uint8, bool, error)
+	TransferGuildLeader(ctx context.Context, guildID uint16, oldAccountID int64, oldSlot int, newAccountID int64, newSlot int) error
+	SetGuildRelation(ctx context.Context, guildID, targetGuildID uint16, kind GuildRelationKind) error
+	ListGuilds(ctx context.Context) ([]GuildRecord, error)
+	ListGuildRelations(ctx context.Context) ([]GuildRelation, error)
+	LoadGuildZones(ctx context.Context) ([]GuildZone, error)
+	SaveGuildZone(ctx context.Context, zone GuildZone) error
+	LoadGuildTowerState(ctx context.Context) (GuildTowerState, error)
+	SaveGuildTowerState(ctx context.Context, state GuildTowerState) error
+	LoadCastleQuestState(ctx context.Context) (CastleQuestState, error)
+	SaveCastleQuestState(ctx context.Context, state CastleQuestState) error
 }
 
 // errNoPersistence is returned by NopPersistence for operations that need a DB.
@@ -304,5 +376,67 @@ func (NopPersistence) SaveCargoWithDeliveries(context.Context, CargoSave, []int6
 
 // SetAccountBlocked is unsupported without a backend (ban needs the account DB).
 func (NopPersistence) SetAccountBlocked(context.Context, string, bool) error {
+	return errNoPersistence
+}
+
+// CreateGuild is unsupported without a backend.
+func (NopPersistence) CreateGuild(context.Context, int64, int, string, string, uint8, uint8, int) (GuildRecord, bool, error) {
+	return GuildRecord{}, false, errNoPersistence
+}
+
+// SetGuildMember is unsupported without a backend.
+func (NopPersistence) SetGuildMember(context.Context, int64, int, string, uint16, uint8) error {
+	return errNoPersistence
+}
+
+// LeaveGuild is unsupported without a backend.
+func (NopPersistence) LeaveGuild(context.Context, int64, int) error { return errNoPersistence }
+
+// PromoteGuildMember is unsupported without a backend.
+func (NopPersistence) PromoteGuildMember(context.Context, uint16, int64, int) (uint8, bool, error) {
+	return 0, false, errNoPersistence
+}
+
+// TransferGuildLeader is unsupported without a backend.
+func (NopPersistence) TransferGuildLeader(context.Context, uint16, int64, int, int64, int) error {
+	return errNoPersistence
+}
+
+// SetGuildRelation is unsupported without a backend.
+func (NopPersistence) SetGuildRelation(context.Context, uint16, uint16, GuildRelationKind) error {
+	return errNoPersistence
+}
+
+// ListGuilds returns no guilds without a backend.
+func (NopPersistence) ListGuilds(context.Context) ([]GuildRecord, error) { return nil, nil }
+
+// ListGuildRelations returns no relations without a backend.
+func (NopPersistence) ListGuildRelations(context.Context) ([]GuildRelation, error) {
+	return nil, nil
+}
+
+// LoadGuildZones returns no persisted zones without a backend.
+func (NopPersistence) LoadGuildZones(context.Context) ([]GuildZone, error) { return nil, nil }
+
+// SaveGuildZone is unsupported without a backend.
+func (NopPersistence) SaveGuildZone(context.Context, GuildZone) error { return errNoPersistence }
+
+// LoadGuildTowerState returns zero state without a backend.
+func (NopPersistence) LoadGuildTowerState(context.Context) (GuildTowerState, error) {
+	return GuildTowerState{}, nil
+}
+
+// SaveGuildTowerState is unsupported without a backend.
+func (NopPersistence) SaveGuildTowerState(context.Context, GuildTowerState) error {
+	return errNoPersistence
+}
+
+// LoadCastleQuestState returns zero state without a backend.
+func (NopPersistence) LoadCastleQuestState(context.Context) (CastleQuestState, error) {
+	return CastleQuestState{}, nil
+}
+
+// SaveCastleQuestState is unsupported without a backend.
+func (NopPersistence) SaveCastleQuestState(context.Context, CastleQuestState) error {
 	return errNoPersistence
 }

@@ -99,6 +99,84 @@ func TestCommandSair(t *testing.T) {
 	}
 }
 
+func TestGuildCreateCommand(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Clan: 7, Citizen: 1, Coin: 100_000_000},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	drainRaw(t, a)
+
+	whisperFrame(t, a, "create", "Knights")
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgUpdateEtc {
+		t.Fatalf("/create got %#x ok=%v, want UpdateEtc", ty, ok)
+	}
+	if ty, _, ok := readMaybeRaw(t, a); !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("/create got %#x ok=%v, want CreateMob tag refresh", ty, ok)
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if len(db.createdGuilds) != 1 || db.createdGuilds[0].Name != "Knights" {
+		t.Fatalf("created guilds = %+v, want Knights", db.createdGuilds)
+	}
+}
+
+func TestGuildSubcreateCommand(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7:  {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Clan: 1, GuildID: 5, GuildLevel: 9, Coin: 100_000_000},
+		11: {Slot: 0, Name: "HeroB", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Clan: 1, GuildID: 5},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	whisperFrame(t, a, "subcreate", "HeroB Sub")
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgUpdateEtc {
+		t.Fatalf("/subcreate got %#x ok=%v, want UpdateEtc", ty, ok)
+	}
+	if ty, _, ok := readMaybeRaw(t, a); !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("/subcreate leader got %#x ok=%v, want CreateMob tag refresh", ty, ok)
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if len(db.promoted) != 1 || db.promoted[0] != 6 {
+		t.Fatalf("promoted = %v, want [6]", db.promoted)
+	}
+}
+
+func TestGuildHandoverCommand(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7:  {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Clan: 1, GuildID: 5, GuildLevel: 9},
+		11: {Slot: 0, Name: "HeroB", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Clan: 1, GuildID: 5},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	whisperFrame(t, a, "handover", "HeroB")
+	if ty, _, ok := readMaybeRaw(t, a); !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("/handover leader got %#x ok=%v, want CreateMob tag refresh", ty, ok)
+	}
+	if ty, _, ok := readMaybeRaw(t, b); !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("/handover target got %#x ok=%v, want CreateMob tag refresh", ty, ok)
+	}
+}
+
 func TestChatPublicBroadcast(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
 	defer stop()

@@ -178,6 +178,7 @@ type Entity struct {
 	Clan        uint8    // clan/race
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
+	Citizen     uint8    // MobExtra.Citizen; guild creation metadata
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)

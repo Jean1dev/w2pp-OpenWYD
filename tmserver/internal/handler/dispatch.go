@@ -26,6 +26,7 @@ import (
 type Config struct {
 	ClientVersion int32        // required client version (default AppVersion 7640)
 	MaxFailLogin  int          // wrong-password lockout threshold (default 3)
+	ServerIndex   int          // legacy guild id high bits (server_index * 4096)
 	Log           *slog.Logger // default slog.Default()
 
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
@@ -125,6 +126,9 @@ type Dispatcher struct {
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
+	serverIndex     int                          // legacy guild id high bits
+	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
+	taxChanged      [5]bool                      // one guildtax change per in-memory cycle
 
 	// NPC-config overlay (npc-editing-plan.md). All loop-only. baseItemPrices is the
 	// immutable content catalog; itemPrices is the effective map (base + global
@@ -174,8 +178,12 @@ func New(cfg Config) *Dispatcher {
 		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
+		serverIndex:     cfg.ServerIndex,
 		npcSource:       cfg.NpcConfig,
 		managedNPCs:     make(map[string]int),
+	}
+	for i := range d.guildZones {
+		d.guildZones[i].Zone = i
 	}
 	// The effective price map starts as the content catalog and is later overlaid
 	// with moderator overrides; keep the base immutable so an override can be

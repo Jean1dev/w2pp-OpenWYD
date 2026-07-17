@@ -623,6 +623,16 @@ func EncodeStandardParm2(parm1, parm2 int32) []byte {
 	return b
 }
 
+// EncodeStandardParm3 builds a three-int32 signal body, used by SendWarInfo
+// (Guild, castle clan, ally/war target).
+func EncodeStandardParm3(parm1, parm2, parm3 int32) []byte {
+	b := make([]byte, 12)
+	le.PutUint32(b[0:4], uint32(parm1))
+	le.PutUint32(b[4:8], uint32(parm2))
+	le.PutUint32(b[8:12], uint32(parm3))
+	return b
+}
+
 // MaxCombine is the number of input slots in a combine packet.
 //
 // UNVERIFIED: MAX_COMBINE is not documented; placeholder (game-rules.md §3 /
