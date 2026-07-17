@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -97,6 +98,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.leaveGuild(w, s)
 		return true
 	}
+	if cmd == "cp" {
+		d.showChaosPoints(w, s)
+		return true
+	}
 	if cmd == "gm" {
 		// GM/moderation command bus (issue #122). args is the whisper's String — the
 		// rest of the typed line (e.g. "/gm kick foo" → args = "kick foo").
@@ -141,6 +146,22 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 		d.sendScore(w, s, e)
 	}
 	d.sendAffect(w, s, e)
+}
+
+// showChaosPoints handles the /cp command: reports the player's current chaos
+// points (_MSG_MessageWhisper.cpp:33-39, _DN_Show_Chao = "Pontos Caos atual: %d").
+// GetPKPoint(conn)-75 maps to pkPoint(e)-75 in our binary PK model (pkmode.go):
+// 0 when clean, -75 while guilty — an approximation of the legacy decaying
+// counter, consistent with the rest of the ported PK/nick-color system.
+func (d *Dispatcher) showChaosPoints(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	chaos := int(pkPoint(e)) - 75
+	msg := fmt.Sprintf("Pontos Caos atual: %d", chaos)
+	payload := append([]byte(msg), 0)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(s.Conn)}, payload)
 }
 
 // firstToken returns the first whitespace-separated token of s.

@@ -22,6 +22,7 @@
 ✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
 ⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>
 ✅ /buffs: Remove todos os buffs do personagem <br/>
+✅ /cp: mostra os pontos de caos atuais do personagem <br/>
 
 > Bônus já implementados (existem na fonte legada, fora da lista acima): `/selados`,
 > `/amagos`, `/agua` (teleportes).
