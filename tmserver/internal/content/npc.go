@@ -25,10 +25,12 @@ type NPCGenerator struct {
 	MaxGroup       int
 	MaxNumMob      int
 	RouteType      int
-	Formation      int // parsed, not modeled yet (group formation offsets)
+	Formation      int
 	SegX, SegY     [5]int16
 	SegRange       [5]int
 	SegWait        [5]int
+	FightAction    [4]string
+	DieAction      [4]string
 }
 
 // LoadNPCGenerators parses NPCGener.txt. Blocks start with '#'; lines are
@@ -87,6 +89,10 @@ func LoadNPCGenerators(path string) ([]NPCGenerator, error) {
 			cur.RouteType = atoi(val)
 		case "Formation":
 			cur.Formation = atoi(val)
+		case "FightAction":
+			setAction(&cur.FightAction, val)
+		case "DieAction":
+			setAction(&cur.DieAction, val)
 		// Waypoints: Start→[0], Segment1..3→[1..3], Dest→[4] (ParseString).
 		case "StartX":
 			cur.SegX[0] = int16(atoi(val))
@@ -105,8 +111,13 @@ func LoadNPCGenerators(path string) ([]NPCGenerator, error) {
 		case "DestWait":
 			cur.SegWait[4] = atoi(val)
 		default:
-			// Segment1..3{X,Y,Range,Wait} → indices 1..3. *Action keys (mob chat
-			// lines) are not modeled.
+			if setIndexedAction(key, "FightAction", &cur.FightAction, val) ||
+				setIndexedAction(key, "DieAction", &cur.DieAction, val) {
+				continue
+			}
+			// Segment1..3{X,Y,Range,Wait} → indices 1..3. Segment*Action keys are
+			// route flavor text and remain unmapped; FightAction/DieAction above are
+			// combat-visible chat lines.
 			if strings.HasPrefix(key, "Segment") && len(key) > 8 {
 				if i := int(key[7] - '0'); i >= 1 && i <= 3 {
 					switch key[8:] {
@@ -147,4 +158,33 @@ func LoadNPCTemplate(dir, name string) ([]byte, error) {
 func atoi(s string) int {
 	n, _ := strconv.Atoi(strings.TrimSpace(s))
 	return n
+}
+
+func setAction(dst *[4]string, val string) {
+	if len(val) >= 79 {
+		return // CNPCGene::SetAct rejects action strings that would overflow [80].
+	}
+	for i := range dst {
+		if dst[i] == "" {
+			dst[i] = val
+			return
+		}
+	}
+}
+
+func setIndexedAction(key, prefix string, dst *[4]string, val string) bool {
+	if !strings.HasPrefix(key, prefix) || key == prefix {
+		return false
+	}
+	n, err := strconv.Atoi(key[len(prefix):])
+	if err != nil {
+		return false
+	}
+	if n < 1 || n > 4 {
+		return false
+	}
+	if len(val) < 79 {
+		dst[n-1] = val
+	}
+	return true
 }

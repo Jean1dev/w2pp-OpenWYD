@@ -31,6 +31,10 @@ const (
 	MaxParty       = 12   // party members (MAX_PARTY)
 	DefaultGridDim = 4096
 
+	// KefraBossGenIndex is KEFRA_BOSS (Basedef.h:475), the NPCGener block with
+	// special fixed-range / fixed-position combat rules in CMob.cpp.
+	KefraBossGenIndex = 396
+
 	// GroundItemIDOffset is added to a ground item's index on the wire
 	// (_MSG_GetItem decodes ItemID-10000; handlers/_MSG_GetItem.md).
 	GroundItemIDOffset = 10000

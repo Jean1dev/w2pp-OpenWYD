@@ -274,6 +274,7 @@ func (d *Dispatcher) summonTick(w *world.World, id int, e *world.Entity) {
 		// pet drops the fight and returns (CMob.cpp:268-274).
 		if mobDistance(e.X, e.Y, owner.X, owner.Y) >= summonLeash {
 			e.Target = 0
+			clearEnemyList(e)
 			e.Mode = world.MobIdle
 		} else {
 			d.mobBattle(w, id, e)
@@ -324,8 +325,7 @@ func (d *Dispatcher) commandSummons(w *world.World, ownerID int, target *world.E
 			continue
 		}
 		if abs16(pet.X-target.X) <= battleDragBox && abs16(pet.Y-target.Y) <= battleDragBox {
-			pet.Target = target.ID
-			pet.Mode = world.MobCombat
+			setBattle(w, m, pet, target)
 		}
 	}
 }
