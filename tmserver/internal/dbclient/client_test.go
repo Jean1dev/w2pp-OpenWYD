@@ -209,7 +209,7 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	api := &fakeAPI{}
 	save := world.CharacterSave{
 		AccountID: 1, Slot: 1, Level: 21, Coin: 600, HP: 150, MaxHP: 200,
-		SecLearnedSkill: 0x01020304, Soul: 3,
+		SecLearnedSkill: 0x01020304, Soul: 3, Fame: 456,
 		Carry: []world.SavedItem{{Slot: 3, Index: 1234, Eff1: 9, EffV1: 1}},
 	}
 	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {
@@ -222,7 +222,7 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	if c.GetLevel() != 21 || c.GetCoin() != 600 || c.GetHp() != 150 {
 		t.Fatalf("save not mapped: %+v", c)
 	}
-	if c.GetSecLearnedSkill() != 0x01020304 || c.GetSoul() != 3 {
+	if c.GetSecLearnedSkill() != 0x01020304 || c.GetSoul() != 3 || c.GetFame() != 456 {
 		t.Fatalf("save MobExtra fields not mapped: %+v", c)
 	}
 	if len(c.GetCarry()) != 1 || c.GetCarry()[0].GetIndex() != 1234 {

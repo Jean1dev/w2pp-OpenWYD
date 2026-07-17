@@ -181,7 +181,7 @@ type Entity struct {
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
 	Citizen     uint8    // MobExtra.Citizen (city allegiance; 0 = none); read-only, not simulated live
-	Fame        int32    // MobExtra.Fame; read-only, not simulated live
+	Fame        int32    // MobExtra.Fame; updated by Selo do Guerreiro and shown by /nick
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
@@ -246,12 +246,6 @@ type Entity struct {
 	// its expiry; the slot's Affect.Time is only the client icon timer.
 	Affect    [MaxAffect]Affect
 	DivineEnd int64
-
-	// Fame is extra.Fame (Selo do Guerreiro, _MSG_UseItem.cpp:3325-3364): a
-	// write-only counter with no other reader in the legacy client/server today.
-	// Deferred persistence (same policy as splitItem) — in-memory only until a
-	// consumer needs it saved.
-	Fame int64
 
 	// Rsv is the MOB.Rsv state-flag byte (RSV_HASTE/BLOCK/…), recomputed from
 	// the active affects by refreshScore. The affect score contributions (Aff*)
