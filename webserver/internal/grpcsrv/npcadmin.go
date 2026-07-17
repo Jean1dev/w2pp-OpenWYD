@@ -26,6 +26,7 @@ type NpcAdmin interface {
 	Delete(ctx context.Context, moderatorID, npcID int64) (npcadmin.Result, error)
 	ListMerchantTemplates(ctx context.Context, moderatorID int64) (npcadmin.Result, []npctemplates.Template, error)
 	ListItemCatalog(ctx context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error)
+	ListItemPrices(ctx context.Context, moderatorID int64) (npcadmin.Result, []domain.ItemPriceOverride, error)
 	ListMapZones(ctx context.Context, moderatorID int64) (npcadmin.Result, []mapzones.Zone, error)
 }
 
@@ -158,6 +159,20 @@ func (s *NpcAdminServer) ListItemCatalog(ctx context.Context, req *webv1.ListIte
 		out = append(out, &webv1.ItemCatalogEntry{ItemIndex: it.Index, Name: it.Name})
 	}
 	return &webv1.ListItemCatalogResponse{Result: resultToProto(res), Items: out}, nil
+}
+
+// ListItemPrices returns every global item price override for the moderator
+// panel's price column/editor.
+func (s *NpcAdminServer) ListItemPrices(ctx context.Context, req *webv1.ListItemPricesRequest) (*webv1.ListItemPricesResponse, error) {
+	res, prices, err := s.admin.ListItemPrices(ctx, req.GetModeratorId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list item prices: %v", err)
+	}
+	out := make([]*webv1.ItemPrice, 0, len(prices))
+	for _, p := range prices {
+		out = append(out, &webv1.ItemPrice{ItemIndex: p.ItemIndex, Price: p.Price})
+	}
+	return &webv1.ListItemPricesResponse{Result: resultToProto(res), Prices: out}, nil
 }
 
 // ListMapZones returns the fixed map_id label table for the NPC form's map

@@ -146,6 +146,8 @@ message Character {
   int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
   int32 soul = 29;                 // MobExtra.Soul
   int32 class_master = 30;         // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
+  int32 citizen = 31;              // MobExtra.Citizen (city allegiance; 0 = none)
+  int32 fame = 32;                 // MobExtra.Fame
 }
 
 message Item {

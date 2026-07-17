@@ -258,6 +258,30 @@ const (
 	divineAffectTime = 2000000000
 )
 
+// issue #135: EF_VOLATILE classes that previously fell through to useItem's
+// default no-op — the client showed a phantom consumption that any later slot
+// resync (e.g. a _MSG_TradingItem move) would revert, since nothing was ever
+// decremented server-side.
+const (
+	volAdamantita  = 9   // Adamantita/Beril/Tectita/Spinner legendary-upgrade combine (_MSG_UseItem.cpp:1097-1213)
+	volChocolate   = 204 // Chocolate do Amor (_MSG_UseItem.cpp:6082-6131)
+	volCoracaoDoce = 205 // Coração Doce (_MSG_UseItem.cpp:6030-6079)
+
+	// Blocked: real behavior needs data that doesn't exist anywhere in the
+	// available Source/ tree (repo-wide grep, not just this file) — see the
+	// reject cases below for what's missing per item.
+	volWaterMLo, volWaterMHi = 21, 30   // Pergaminho da Água (M), _MSG_UseItem.cpp:1726
+	volWaterNLo, volWaterNHi = 131, 140 // Pergaminho da Água (N), _MSG_UseItem.cpp:1920
+	volWaterALo, volWaterAHi = 161, 170 // Pergaminho da Água (A), _MSG_UseItem.cpp:2025
+	volClasses               = 190      // Classes A-E, _MSG_UseItem.cpp:4959
+
+	// itemSeloDoGuerreiro and itemPedraMisteriosa carry no EF_VOLATILE in the
+	// catalog (BASE_GetItemAbility falls back to 0), so the legacy — and this
+	// dispatcher — identify them by sIndex instead (_MSG_UseItem.cpp:3184,3325).
+	itemSeloDoGuerreiro = 4146
+	itemPedraMisteriosa = 4148
+)
+
 // potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
 // The original defaults to 100 and exposes it to the runtime config (Server.cpp:647,
 // :1463); we take the default — a config knob can follow if it's ever tuned.
@@ -281,6 +305,18 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	}
 	src := int(body.SourPos)
 	if src < 0 || src >= world.MaxCarry || e.Carry[src].Empty() {
+		return
+	}
+	// Selo do Guerreiro and Pedra Misteriosa have no EF_VOLATILE, so d.itemVolatiles
+	// defaults to 0 for them — check sIndex first so they don't fall into the vol==0
+	// equip path (canEquipSlot would just silently reject them, the same "phantom
+	// consumption" bug this whole block fixes for issue #135).
+	switch e.Carry[src].Index {
+	case itemSeloDoGuerreiro:
+		d.useSeloDoGuerreiro(w, s, e, src)
+		return
+	case itemPedraMisteriosa:
+		d.rejectUnimplementedConsumable(w, s, e, src)
 		return
 	}
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
@@ -312,9 +348,35 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useJoiaRecovery(w, s, e, src)
 	case vol == volMagicBean:
 		d.useMagicBean(w, s, e, body, src)
+	case vol == volAdamantita:
+		d.useAdamantita(w, s, e, body, src)
+	case vol == volChocolate:
+		d.useChocolateDoAmor(w, s, e, src)
+	case vol == volCoracaoDoce:
+		d.useCoracaoDoce(w, s, e, src)
+	case vol >= volWaterMLo && vol <= volWaterMHi,
+		vol >= volWaterNLo && vol <= volWaterNHi,
+		vol >= volWaterALo && vol <= volWaterAHi,
+		vol == volClasses:
+		// issue #135: real behavior needs data absent from Source/ (see the const
+		// block above) — reject honestly instead of no-op'ing, so the client never
+		// shows a consumption the next slot resync would revert.
+		d.rejectUnimplementedConsumable(w, s, e, src)
 	default:
 		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
 	}
+}
+
+// rejectUnimplementedConsumable answers _MSG_UseItem for a consumable whose real
+// effect this fork can't implement with parity (issue #135: the water-scroll
+// dungeon coordinates, the Celestial-class swap, and the item-bonus reroll all
+// depend on data/algorithms that don't exist anywhere in the available Source/
+// tree). Unlike a silent no-op, this tells the client plainly that nothing
+// happened and re-syncs the slot, so it never shows a phantom consumption that a
+// later move/trade would "revert".
+func (d *Dispatcher) rejectUnimplementedConsumable(w *world.World, s *world.Session, e *world.Entity, src int) {
+	d.notify(w, s, NoticeCantUseHere)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }
 
 const efAmount = 61
@@ -728,6 +790,165 @@ func (d *Dispatcher) useJoiaRecovery(w *world.World, s *world.Session, e *world.
 	}
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+}
+
+// useCoracaoDoce consumes Coração Doce (EF_VOLATILE 205): a short Velocidade
+// (Affect 2) + Defesa (Affect 11) buff, 1h/5 = 12min (_MSG_UseItem.cpp:6030-6079).
+func (d *Dispatcher) useCoracaoDoce(w *world.World, s *world.Session, e *world.Entity, src int) {
+	speedSlot := e.EmptyAffect(2) // Velocidade
+	if speedSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[speedSlot] = world.Affect{Type: 2, Value: 2, Time: affect1H / 5}
+
+	defSlot := e.EmptyAffect(11) // Defesa
+	if defSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[defSlot] = world.Affect{Type: 11, Time: affect1H / 5}
+
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// useChocolateDoAmor consumes Chocolate do Amor (EF_VOLATILE 204): a short Dano
+// (Affect 9) + Skill (Affect 15) buff, 1h/5 = 12min (_MSG_UseItem.cpp:6082-6131).
+func (d *Dispatcher) useChocolateDoAmor(w *world.World, s *world.Session, e *world.Entity, src int) {
+	dmgSlot := e.EmptyAffect(9) // Dano
+	if dmgSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[dmgSlot] = world.Affect{Type: 9, Time: affect1H / 5}
+
+	skillSlot := e.EmptyAffect(15) // Skill
+	if skillSlot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	e.Affect[skillSlot] = world.Affect{Type: 15, Value: 55, Time: affect1H / 5}
+
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+}
+
+// adamantitaUniqueType maps a target item's nUnique to the Adamantita tier it
+// belongs to (0-3), or -1 if it isn't legendary-upgradeable — the literal bucket
+// table from _MSG_UseItem.cpp:1113-1126, including its 10/20/30/40→3 duplicate
+// mapping (a legacy quirk, preserved rather than "fixed").
+func adamantitaUniqueType(nUnique int) int {
+	switch nUnique {
+	case 5, 14, 24, 34:
+		return 0
+	case 6, 15, 25, 35:
+		return 1
+	case 7, 16, 26, 36:
+		return 2
+	case 8, 17, 27, 37, 10, 20, 30, 40:
+		return 3
+	default:
+		return -1
+	}
+}
+
+// useAdamantita applies the Vol 9 legendary-upgrade combine (Spinner/Beril/
+// Tectita/Adamantita, item indices 575-578) onto the body.DestType/DestPos target,
+// matching _MSG_UseItem.cpp:1097-1213. The source item's index picks a tier
+// (Type = index-575); the target's catalog nUnique must bucket into the same
+// tier and its Grade must be 1-3. A 51% roll (rand()%100<=50) swaps the target's
+// index for the catalog's Extra result; either way the source is spent.
+func (d *Dispatcher) useAdamantita(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src int) {
+	dst := d.itemSlot(w, s, e, int(body.DestType), int(body.DestPos))
+	if dst == nil || dst.Empty() {
+		return // no such target — the legacy just logs and drops the message
+	}
+	adamType := int(e.Carry[src].Index) - 575
+	if adamType < 0 || adamType >= 4 {
+		return
+	}
+
+	uniqueType := adamantitaUniqueType(d.itemUnique[int(dst.Index)])
+	if uniqueType == -1 || uniqueType != adamType {
+		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+	grade := d.itemGrades[int(dst.Index)]
+	if grade <= 0 || grade >= 4 {
+		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		return
+	}
+
+	// The dragged Adamantita is already gone from the client's own inventory view
+	// by the time this reply arrives (the drag itself is optimistic) — only the
+	// target slot needs a resync, matching refineSucceed/refineFail's dust
+	// convention (refine.go:232,262), not the source.
+	if w.Rand().Intn(100) <= 50 {
+		if extra := d.itemExtra[int(dst.Index)]; extra > 0 {
+			dst.Index = int16(extra)
+		}
+		d.refreshScore(e)
+		d.sendScore(w, s, e)
+		d.notify(w, s, NoticeRefineSuccess)
+	} else {
+		d.notify(w, s, NoticeFailToRefine)
+	}
+	d.sendSlot(w, s, int(body.DestType), int(body.DestPos), *dst)
+	consumeOneItem(&e.Carry[src])
+}
+
+// amuletSlot is the Equip index Selo do Guerreiro's kingdom amulet lands in
+// (_MSG_UseItem.cpp:3325-3364, Equip[15]).
+const amuletSlot = 15
+
+// useSeloDoGuerreiro consumes Selo do Guerreiro (sIndex 4146, no EF_VOLATILE):
+// grants Fame and, once at a high mortal level without any kingdom amulet
+// already equipped, an entry-tier one (_MSG_UseItem.cpp:3325-3364).
+// SendEmotion(conn,14,3) is cosmetic and not ported, matching the existing
+// precedent in refine.go:233,263 (no emotion opcode exists in this fork yet).
+func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *world.Entity, src int) {
+	const maxFame int32 = 2_000_000_000
+	if e.Fame > maxFame-10 {
+		e.Fame = maxFame
+	} else {
+		e.Fame += 10
+	}
+
+	hasAmulet := false
+	switch e.Equip[amuletSlot].Index {
+	case 3191, 3192, 3193, 3194, 3195, 3196:
+		hasAmulet = true
+	}
+	if e.ClassMaster == classMasterMortal && e.Level >= 354 && !hasAmulet {
+		amulet := int16(3193) // Elite dos Aventureiros — default/other kingdoms
+		switch e.Clan {
+		case 7:
+			amulet = 3191 // Elite de Hekalotia
+		case 8:
+			amulet = 3192 // Elite de Akelonia
+		}
+		e.Equip[amuletSlot] = world.Item{Index: amulet}
+		// The legacy doesn't refresh score here, but the amulet carries real
+		// EF_AC/EF_HP bonuses (ItemList.csv) — recompute so they take effect
+		// immediately instead of waiting for the next unrelated score refresh.
+		d.refreshScore(e)
+		d.sendSlot(w, s, world.ItemPlaceEquip, amuletSlot, e.Equip[amuletSlot])
+		d.sendScore(w, s, e)
+	}
+
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }
 
 const (
