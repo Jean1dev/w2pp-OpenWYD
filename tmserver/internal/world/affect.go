@@ -6,9 +6,10 @@ const MaxAffect = 32
 
 // Affect types the score model reacts to (BASE_GetCurrentScore, captura §C).
 const (
-	AffectExpChest = 39 // Baú de Experiência: +100 ExpBonus (Basedef.cpp:4451)
-	AffectDivine   = 34 // Poção Divina: +20% MaxHp/MaxMp/Damage
-	AffectVigor    = 35 // Poção de Vigor: +10% MaxHp/MaxMp
+	AffectExpChest       = 39 // Baú de Experiência: +100 ExpBonus (Basedef.cpp:4451)
+	AffectDivine         = 34 // Poção Divina: +20% MaxHp/MaxMp/Damage
+	AffectVigor          = 35 // Poção de Vigor: +10% MaxHp/MaxMp
+	AffectForceMobDamage = 30 // Frango Assado: +2000 flat mob-damage, 4h (Basedef.cpp:4427)
 )
 
 // Affect mirrors STRUCT_AFFECT (8 bytes): a timed buff/debuff. Type==0 is an empty
