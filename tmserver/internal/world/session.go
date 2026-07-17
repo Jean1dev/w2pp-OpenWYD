@@ -13,6 +13,44 @@ type outFrame struct {
 	payload []byte
 }
 
+// AccessLevel is a session's GM/moderation privilege tier, derived from the
+// account.role string at login (issue #122). It replaces the legacy fragile
+// "character Level >= 1000" backdoor with an explicit server-side authority.
+// Ordered so a gate can compare with >= (a higher tier passes lower-tier gates).
+type AccessLevel uint8
+
+// Access tiers. Player is the zero value: an unknown/absent role is never a GM.
+const (
+	AccessPlayer    AccessLevel = iota // no GM privilege
+	AccessModerator                    // in-game moderation (the first-batch commands)
+	AccessAdmin                        // reserved for future destructive/server-wide ops
+)
+
+// ParseAccess maps an account.role string ('player'/'moderator'/'admin') to its
+// AccessLevel. Any unrecognized value is AccessPlayer (fail closed).
+func ParseAccess(role string) AccessLevel {
+	switch role {
+	case "admin":
+		return AccessAdmin
+	case "moderator":
+		return AccessModerator
+	default:
+		return AccessPlayer
+	}
+}
+
+// String renders the tier for audit logs.
+func (a AccessLevel) String() string {
+	switch a {
+	case AccessAdmin:
+		return "admin"
+	case AccessModerator:
+		return "moderator"
+	default:
+		return "player"
+	}
+}
+
 // Session is a player's connection/session state (CUser subset,
 // domain-model.md §2.1). It is owned by the loop goroutine; the conn/out/closeCh
 // plumbing is shared with this session's reader and writer goroutines only.
@@ -20,6 +58,7 @@ type Session struct {
 	Conn              int // index into pUser/pMob; also HEADER.ID on the wire
 	AccountName       string
 	AccountID         int64
+	AccessLevel       AccessLevel // account.role tier; gates in-game GM commands (issue #122)
 	Slot              int
 	Mode              Mode
 	IP                string
@@ -95,13 +134,15 @@ type Entity struct {
 	Exp      int64 // STRUCT_MOB.Exp: players accumulate it; for a mob it's the kill reward
 	Coin     int32 // carried gold
 
-	// Mob AI (mobai.go; only meaningful for monsters). Target is the current
-	// combat target's conn (0 = none); AtkTick is the mob's last-attack server
-	// time (cadence); SpawnX/SpawnY is the position the mob (re)spawned at.
-	// Range is the mob's attack reach — the max EF_RANGE over its template's
-	// equips (BASE_GetMobAbility, Basedef.cpp:2415), cached at spawn; 0 means
-	// no ranged gear (the AI falls back to melee adjacency).
+	// Mob AI (mobai.go; only meaningful for monsters). EnemyList is the legacy
+	// CMob.EnemyList[MAX_ENEMY=13]; Target is the currently selected entry
+	// (0 = none). AtkTick is the mob's last-attack server time (cadence);
+	// SpawnX/SpawnY is the position the mob (re)spawned at. Range is the mob's
+	// attack reach — the max EF_RANGE over its template's equips
+	// (BASE_GetMobAbility, Basedef.cpp:2415), cached at spawn; 0 means no ranged
+	// gear (the AI falls back to melee adjacency).
 	Target         int
+	EnemyList      [protocol.MaxTarget]int
 	AtkTick        uint32
 	SpawnX, SpawnY int16
 	Range          int16

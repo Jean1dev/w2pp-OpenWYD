@@ -145,6 +145,16 @@ func (f *fakeStore) PendingItemDeliveries(_ context.Context, accountID int64) ([
 	return f.pendingDeliveries[accountID], nil
 }
 
+func (f *fakeStore) SetBlockedByName(_ context.Context, name string, blocked bool) error {
+	a, ok := f.byName[name]
+	if !ok {
+		return store.ErrNotFound
+	}
+	a.IsBlocked = blocked
+	f.byName[name] = a
+	return nil
+}
+
 func (f *fakeStore) SaveCargoWithDeliveries(_ context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error {
 	if f.saveCargoDeliveriesErr != nil {
 		return f.saveCargoDeliveriesErr
@@ -200,6 +210,48 @@ func TestAccountLogin(t *testing.T) {
 				t.Errorf("account_id = %d, want %d", resp.GetAccountId(), tc.wantID)
 			}
 		})
+	}
+}
+
+func TestAccountLoginRoleReturned(t *testing.T) {
+	pw := "pw"
+	fs := &fakeStore{byName: map[string]store.AccountAuth{
+		"mod": {ID: 5, PassHash: mustHash(t, pw), Role: "moderator"},
+	}}
+	resp, err := New(fs).AccountLogin(context.Background(),
+		&dbv1.AccountLoginRequest{AccountName: "mod", Password: pw})
+	if err != nil {
+		t.Fatalf("AccountLogin: %v", err)
+	}
+	if resp.GetResult() != dbv1.LoginResult_LOGIN_RESULT_OK || resp.GetRole() != "moderator" {
+		t.Errorf("result=%v role=%q, want OK/moderator", resp.GetResult(), resp.GetRole())
+	}
+}
+
+func TestSetAccountBlocked(t *testing.T) {
+	fs := &fakeStore{byName: map[string]store.AccountAuth{"victim": {ID: 9}}}
+	s := New(fs)
+
+	resp, err := s.SetAccountBlocked(context.Background(),
+		&dbv1.SetAccountBlockedRequest{AccountName: "victim", Blocked: true})
+	if err != nil {
+		t.Fatalf("SetAccountBlocked: %v", err)
+	}
+	if !resp.GetOk() {
+		t.Fatal("ok=false, want true")
+	}
+	if !fs.byName["victim"].IsBlocked {
+		t.Error("account not blocked in store")
+	}
+
+	// Unknown account → ok=false, no error.
+	resp, err = s.SetAccountBlocked(context.Background(),
+		&dbv1.SetAccountBlockedRequest{AccountName: "ghost", Blocked: true})
+	if err != nil {
+		t.Fatalf("SetAccountBlocked(ghost): %v", err)
+	}
+	if resp.GetOk() {
+		t.Error("ok=true for unknown account, want false")
 	}
 }
 

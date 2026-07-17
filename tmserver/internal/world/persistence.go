@@ -63,6 +63,7 @@ type CharSummary struct {
 type LoginOutcome struct {
 	Result            LoginResult
 	AccountID         int64
+	Role              string // account.role ('player'/'moderator'/'admin'); GM authz (issue #122)
 	Characters        []CharSummary
 	Cargo             CargoState
 	PendingDeliveries []Delivery
@@ -227,6 +228,9 @@ type Persistence interface {
 	// drained mailbox rows delivered/lost in one backend transaction — the anti-dup
 	// boundary for the drain.
 	SaveCargoWithDeliveries(ctx context.Context, save CargoSave, deliveredIDs, lostIDs []int64) error
+	// SetAccountBlocked flips account.is_blocked by name — the write side of the
+	// in-game GM ban/unban command (issue #122). Called off the loop via World.Go.
+	SetAccountBlocked(ctx context.Context, name string, blocked bool) error
 }
 
 // errNoPersistence is returned by NopPersistence for operations that need a DB.
@@ -296,4 +300,9 @@ func (NopPersistence) ListPendingDeliveries(context.Context, int64) ([]Delivery,
 // SaveCargoWithDeliveries drops the snapshot (no backend to persist to).
 func (NopPersistence) SaveCargoWithDeliveries(context.Context, CargoSave, []int64, []int64) error {
 	return nil
+}
+
+// SetAccountBlocked is unsupported without a backend (ban needs the account DB).
+func (NopPersistence) SetAccountBlocked(context.Context, string, bool) error {
+	return errNoPersistence
 }

@@ -74,6 +74,11 @@ func startServerMobAIRouted(t *testing.T, persist world.Persistence, gridDim int
 // MobSpawn (route/waypoints included) exactly as PROD's spawnNPCs builds it.
 func startServerMobAISpawn(t *testing.T, persist world.Persistence, gridDim int, sp world.MobSpawn, heights *content.Grid) (string, func()) {
 	t.Helper()
+	return startServerMobAISpawns(t, persist, gridDim, []world.MobSpawn{sp}, heights)
+}
+
+func startServerMobAISpawns(t *testing.T, persist world.Persistence, gridDim int, spawns []world.MobSpawn, heights *content.Grid) (string, func()) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +88,9 @@ func startServerMobAISpawn(t *testing.T, persist world.Persistence, gridDim int,
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log, Heights: heights})
 	w := world.New(world.Config{GridDim: gridDim, Now: clock.Load}, log, persist, d.Handle)
-	w.SpawnMobAt(sp) // init-time spawn (loop-safe)
+	for _, sp := range spawns {
+		w.SpawnMobAt(sp) // init-time spawn (loop-safe)
+	}
 	w.SetTickHandler(10*time.Millisecond, d.Tick)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -96,6 +103,159 @@ func startServerMobAISpawn(t *testing.T, persist world.Persistence, gridDim int,
 			t.Error("server did not stop")
 		}
 	}
+}
+
+func startServerMobAIGenerator(t *testing.T, persist world.Persistence, gridDim int, gen *world.Generator) (string, func(), []int) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: gridDim, Now: clock.Load}, log, persist, d.Handle)
+	w.RegisterGenerators([]*world.Generator{gen})
+	ids := w.GenerateMob(0)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}, ids
+}
+
+func waitMobChat(t *testing.T, c net.Conn, mobID int, want string) {
+	t.Helper()
+	for i := 0; i < 12; i++ {
+		h, payload, ok := readMaybeHeader(t, c)
+		if !ok {
+			continue
+		}
+		if h.Type != protocol.MsgMessageChat {
+			continue
+		}
+		if int(h.ID) != mobID {
+			t.Fatalf("chat HEADER.ID = %d, want mob %d", h.ID, mobID)
+		}
+		if len(payload) != protocol.MessageLength {
+			t.Fatalf("chat payload length = %d, want %d", len(payload), protocol.MessageLength)
+		}
+		if got := cstr(payload); got != want {
+			t.Fatalf("chat text = %q, want %q", got, want)
+		}
+		return
+	}
+	t.Fatalf("did not receive mob chat %q from %d", want, mobID)
+}
+
+func TestMobFightActionChat(t *testing.T) {
+	tmpl := aggressiveMob()
+	tmpl[16] = 2                                     // friendly: no ambient aggro
+	binary.LittleEndian.PutUint32(tmpl[92+16:], 800) // survive the first player hit
+	binary.LittleEndian.PutUint32(tmpl[92+24:], 800)
+	gen := &world.Generator{
+		MinuteGenerate: -1, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1,
+		SegX: [5]int16{6}, SegY: [5]int16{5},
+		LeaderTmpl:  tmpl,
+		FightAction: [4]string{"Lute!", "Lute!", "Lute!", "Lute!"},
+	}
+	addr, stop, ids := startServerMobAIGenerator(t, combatDB(), 16, gen)
+	defer stop()
+	if len(ids) != 1 {
+		t.Fatalf("generated %d mobs, want 1", len(ids))
+	}
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	attackFrame(t, c, serverTime, ids[0], 0)
+
+	waitMobChat(t, c, ids[0], "Lute!")
+}
+
+func TestMobDieActionChat(t *testing.T) {
+	tmpl := aggressiveMob()
+	tmpl[16] = 2                                   // friendly: no ambient aggro
+	binary.LittleEndian.PutUint32(tmpl[92+16:], 1) // first player hit kills
+	binary.LittleEndian.PutUint32(tmpl[92+24:], 1)
+	gen := &world.Generator{
+		MinuteGenerate: -1, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1,
+		SegX: [5]int16{6}, SegY: [5]int16{5},
+		LeaderTmpl: tmpl,
+		DieAction:  [4]string{"Adeus!", "Adeus!", "Adeus!", "Adeus!"},
+	}
+	addr, stop, ids := startServerMobAIGenerator(t, combatDB(), 16, gen)
+	defer stop()
+	if len(ids) != 1 {
+		t.Fatalf("generated %d mobs, want 1", len(ids))
+	}
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	attackFrame(t, c, serverTime, ids[0], 0)
+
+	waitMobChat(t, c, ids[0], "Adeus!")
+}
+
+func TestMobKillSendsDieActionChat(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64, Now: clock.Load}, log, combatDB(), d.Handle)
+
+	target := aggressiveMob()
+	copy(target[0:16], "Target")
+	target[16] = 5
+	binary.LittleEndian.PutUint32(target[92+8:], 1)
+	binary.LittleEndian.PutUint32(target[92+16:], 30)
+	binary.LittleEndian.PutUint32(target[92+24:], 30)
+	gen := &world.Generator{
+		MinuteGenerate: -1, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1,
+		SegX: [5]int16{10}, SegY: [5]int16{10},
+		LeaderTmpl: target,
+		DieAction:  [4]string{"MobDown", "MobDown", "MobDown", "MobDown"},
+	}
+	w.RegisterGenerators([]*world.Generator{gen})
+	ids := w.GenerateMob(0)
+	if len(ids) != 1 {
+		t.Fatalf("generated %d mobs, want 1", len(ids))
+	}
+	targetID := ids[0]
+
+	guard := aggressiveMob()
+	copy(guard[0:16], "Guard")
+	guard[16] = 7
+	binary.LittleEndian.PutUint32(guard[92+8:], 5000)
+	guardID := w.SpawnMobAt(world.MobSpawn{Template: guard, X: 9, Y: 10, GenIndex: -1})
+	if guardID < 0 {
+		t.Fatal("SpawnMobAt guard failed")
+	}
+
+	w.SetTickHandler(10*time.Millisecond, d.Tick)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	c := enterWorld(t, ln.Addr().String())
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 8, 10)
+
+	waitMobChat(t, c, targetID, "MobDown")
 }
 
 // actionFrameAt pins the player at (x,y): _MSG_Action sets the entity position
@@ -194,6 +354,110 @@ func TestFriendlyClanMobDoesNotAttack(t *testing.T) {
 			t.Fatal("friendly-clan mob attacked a player")
 		}
 	}
+}
+
+func TestGuardAttacksHostileMob(t *testing.T) {
+	guard := aggressiveMob()
+	copy(guard[0:16], "Guard")
+	guard[16] = 7 // clanTable[7][5]==0, but clanTable[7][0]==1 (player-friendly)
+	const cs = 92
+	binary.LittleEndian.PutUint32(guard[cs+8:], 5000) // one clean hit kills the weak mob
+
+	hostile := aggressiveMob()
+	copy(hostile[0:16], "Intruder")
+	hostile[16] = 5
+	binary.LittleEndian.PutUint32(hostile[cs+8:], 1)   // harmless if it ever ticks
+	binary.LittleEndian.PutUint32(hostile[cs+16:], 30) // MaxHp
+	binary.LittleEndian.PutUint32(hostile[cs+24:], 30) // Hp
+
+	spawns := []world.MobSpawn{
+		{Template: guard, X: 6, Y: 5, GenIndex: -1},
+		{Template: hostile, X: 7, Y: 5, GenIndex: -1},
+	}
+	addr, stop := startServerMobAISpawns(t, combatDB(), 16, spawns, nil)
+	defer stop()
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 5, 5) // observer keeps both mobs awake and in view
+
+	guardID := world.MaxUser
+	hostileID := world.MaxUser + 1
+	sawAttack := false
+	for i := 0; i < 30; i++ {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		switch h.Type {
+		case protocol.MsgAttack:
+			var body protocol.MsgAttackBody
+			if err := body.Decode(payload); err != nil {
+				t.Fatal(err)
+			}
+			if int(body.AttackerID) != guardID {
+				continue
+			}
+			if len(body.Dam) == 0 || int(body.Dam[0].TargetID) != hostileID {
+				t.Fatalf("guard attack Dam = %+v, want target mob %d", body.Dam, hostileID)
+			}
+			if body.Dam[0].Damage <= 0 {
+				t.Fatalf("guard attack damage = %d, want > 0", body.Dam[0].Damage)
+			}
+			sawAttack = true
+		case protocol.MsgRemoveMob:
+			if int(h.ID) == hostileID && sawAttack {
+				return
+			}
+		}
+	}
+	if !sawAttack {
+		t.Fatal("guard never attacked the hostile mob")
+	}
+	t.Fatal("hostile mob was attacked but not removed")
+}
+
+func TestGuardAggrosHostileMobInCityAtViewEdge(t *testing.T) {
+	guard := aggressiveMob()
+	copy(guard[0:16], "Guard")
+	guard[16] = 7 // player-friendly guard, hostile to clan 5
+	const cs = 92
+	binary.LittleEndian.PutUint32(guard[cs+8:], 5000)
+
+	hostile := aggressiveMob()
+	copy(hostile[0:16], "Intruder")
+	hostile[16] = 5
+	binary.LittleEndian.PutUint32(hostile[cs+8:], 1)
+	binary.LittleEndian.PutUint32(hostile[cs+16:], 30)
+	binary.LittleEndian.PutUint32(hostile[cs+24:], 30)
+
+	spawns := []world.MobSpawn{
+		{Template: guard, X: 2090, Y: 2095, GenIndex: -1},
+		{Template: hostile, X: 2091, Y: 2095, GenIndex: -1},
+	}
+	addr, stop := startServerMobAISpawns(t, combatDB(), 2200, spawns, nil)
+	defer stop()
+
+	c := enterWorld(t, addr)
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 2075, 2095) // inside Armia, 15 tiles from guard
+
+	guardID := world.MaxUser
+	hostileID := world.MaxUser + 1
+	for i := 0; i < 30; i++ {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok || h.Type != protocol.MsgAttack {
+			continue
+		}
+		var body protocol.MsgAttackBody
+		if err := body.Decode(payload); err != nil {
+			t.Fatal(err)
+		}
+		if int(body.AttackerID) == guardID && len(body.Dam) > 0 && int(body.Dam[0].TargetID) == hostileID {
+			return
+		}
+	}
+	t.Fatal("guard did not acquire the hostile mob inside the visible city area")
 }
 
 // TestMobDistance pins BASE_GetDistance (Basedef.cpp:6484): the rounded-Euclidean
@@ -517,6 +781,38 @@ func TestMobRoamPatrolAndWait(t *testing.T) {
 	}
 }
 
+// TestRouteType3DespawnsAtFinalWaypoint pins the StandingByProcessor RT3 branch:
+// when a route-3 mob reaches waypoint 4, it returns 0x10000 and the timer calls
+// DeleteMob(index, 3). It does not ping-pong back home and become idle.
+func TestRouteType3DespawnsAtFinalWaypoint(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 32}, log, nil, d.Handle)
+
+	id := w.SpawnMobAt(world.MobSpawn{
+		Template: aggressiveMob(),
+		X:        5, Y: 5,
+		RouteType: 3,
+		SegX:      [5]int16{5, 0, 0, 0, 7},
+		SegY:      [5]int16{5, 0, 0, 0, 5},
+		GenIndex:  -1,
+	})
+	if id < 0 {
+		t.Fatal("SpawnMobAt failed")
+	}
+
+	for i := 0; i < 4; i++ {
+		e := w.Entity(id)
+		if e == nil {
+			break
+		}
+		d.mobRoam(w, id, e)
+	}
+	if e := w.Entity(id); e != nil {
+		t.Fatalf("RT3 mob still alive at (%d,%d), want despawn at waypoint 4", e.X, e.Y)
+	}
+}
+
 // TestMobReturnsHomeAfterCombat: a routeless mob displaced from its anchor (e.g.
 // its target died elsewhere) walks back — the emergent MOB_RETURN (the original
 // BattleProcessor code 16 → GetNextPos(1)).
@@ -605,7 +901,7 @@ func groupWorld(t *testing.T) (*Dispatcher, *world.World, []int) {
 // TestSetGroupBattleDragsGroup: striking one follower puts the whole spawn
 // group on the attacker — SetBattle (Server.cpp:8013) plus the PartyList
 // propagation (ProcessSecMinTimer.cpp:1882-1929). A member already fighting
-// someone else keeps its target.
+// someone else keeps its selected target but records the new enemy.
 func TestSetGroupBattleDragsGroup(t *testing.T) {
 	_, w, ids := groupWorld(t)
 	leader, f1, f2 := w.Entity(ids[0]), w.Entity(ids[1]), w.Entity(ids[2])
@@ -623,6 +919,9 @@ func TestSetGroupBattleDragsGroup(t *testing.T) {
 	if f2.Target != 7 {
 		t.Fatalf("engaged follower Target = %d, want 7 (kept)", f2.Target)
 	}
+	if !enemyListContains(f2, 3) {
+		t.Fatalf("engaged follower EnemyList = %v, want attacker 3 recorded", f2.EnemyList)
+	}
 
 	// Out of the ±23 drag box nobody joins.
 	leader.Target = 0
@@ -631,6 +930,169 @@ func TestSetGroupBattleDragsGroup(t *testing.T) {
 	if leader.Target != 0 {
 		t.Fatalf("leader dragged from %d tiles away, want no drag", 40)
 	}
+}
+
+func TestEnemyListSelectsNearestAndDropsInvalid(t *testing.T) {
+	_, w, _ := groupWorld(t)
+	seekerID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 10, Y: 10, GenIndex: -1})
+	farID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 14, Y: 10, GenIndex: -1})
+	nearID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 11, Y: 10, GenIndex: -1})
+	seeker := w.Entity(seekerID)
+	far := w.Entity(farID)
+	near := w.Entity(nearID)
+
+	addEnemyList(seeker, far)
+	addEnemyList(seeker, near)
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != nearID {
+		t.Fatalf("selected target = %d, want nearer mob %d", seeker.Target, nearID)
+	}
+
+	near.HP = 0
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != farID {
+		t.Fatalf("selected after death = %d, want remaining mob %d", seeker.Target, farID)
+	}
+	if enemyListContains(seeker, nearID) {
+		t.Fatalf("dead target %d still in EnemyList %v", nearID, seeker.EnemyList)
+	}
+
+	w.SetEntityPos(farID, 40, 40)
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != 0 {
+		t.Fatalf("selected out-of-range target = %d, want 0", seeker.Target)
+	}
+	if enemyListContains(seeker, farID) {
+		t.Fatalf("out-of-range target %d still in EnemyList %v", farID, seeker.EnemyList)
+	}
+}
+
+func TestEnemyListTieSelectsLaterSlot(t *testing.T) {
+	_, w, _ := groupWorld(t)
+	seekerID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 10, Y: 10, GenIndex: -1})
+	firstID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 12, Y: 10, GenIndex: -1})
+	secondID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 10, Y: 12, GenIndex: -1})
+	seeker := w.Entity(seekerID)
+
+	addEnemyList(seeker, w.Entity(firstID))
+	addEnemyList(seeker, w.Entity(secondID))
+	selectTargetFromEnemyList(w, seeker)
+	if seeker.Target != secondID {
+		t.Fatalf("tie selected target = %d, want later slot %d", seeker.Target, secondID)
+	}
+}
+
+func TestTickPromotesEnemyListWithoutCurrentTarget(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64}, log, nil, d.Handle)
+
+	guard := aggressiveMob()
+	guard[16] = 7
+	guardID := w.SpawnMobAt(world.MobSpawn{Template: guard, X: 10, Y: 10, GenIndex: -1})
+	target := aggressiveMob()
+	target[16] = 5
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: target, X: 11, Y: 10, GenIndex: -1})
+	guardEntity := w.Entity(guardID)
+	addEnemyList(guardEntity, w.Entity(targetID))
+	guardEntity.Target = 0
+	guardEntity.Mode = world.MobIdle
+
+	d.Tick(w)
+
+	if guardEntity.Target != targetID {
+		t.Fatalf("promoted target = %d, want %d from EnemyList %v", guardEntity.Target, targetID, guardEntity.EnemyList)
+	}
+	if guardEntity.Mode != world.MobCombat {
+		t.Fatalf("guard mode = %v, want MobCombat", guardEntity.Mode)
+	}
+}
+
+func kefraBossMob(dex uint16) []byte {
+	b := aggressiveMob()
+	copy(b[0:16], "Kefra")
+	b[16] = 7 // hostile to clan 5 mobs, player-friendly like guards
+	binary.LittleEndian.PutUint16(b[92+36:], dex)
+	return b
+}
+
+func TestKefraBossEnemySelectionUsesHalfGrid(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64}, log, nil, d.Handle)
+	kefraID := w.SpawnMobAt(world.MobSpawn{Template: kefraBossMob(99), X: 10, Y: 10, GenIndex: world.KefraBossGenIndex})
+	nearID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 25, Y: 10, GenIndex: -1}) // distance 15
+	farID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 27, Y: 10, GenIndex: -1})  // distance 17
+	kefra := w.Entity(kefraID)
+
+	addEnemyList(kefra, w.Entity(nearID))
+	selectTargetFromEnemyList(w, kefra)
+	if kefra.Target != nearID {
+		t.Fatalf("Kefra selected %d, want target inside HALFGRIDX %d", kefra.Target, nearID)
+	}
+
+	addEnemyList(kefra, w.Entity(farID))
+	w.Entity(nearID).HP = 0
+	selectTargetFromEnemyList(w, kefra)
+	if kefra.Target != 0 {
+		t.Fatalf("Kefra selected out-of-halfgrid target %d, want none", kefra.Target)
+	}
+	if enemyListContains(kefra, farID) {
+		t.Fatalf("out-of-halfgrid target %d still in EnemyList %v", farID, kefra.EnemyList)
+	}
+}
+
+func TestKefraBossAttacksAtFixedRange(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	w := world.New(world.Config{GridDim: 64, Now: clock.Load}, log, nil, d.Handle)
+	kefraID := w.SpawnMobAt(world.MobSpawn{Template: kefraBossMob(99), X: 10, Y: 10, GenIndex: world.KefraBossGenIndex})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 25, Y: 10, GenIndex: -1})
+	kefra, target := w.Entity(kefraID), w.Entity(targetID)
+	beforeHP := target.HP
+	addEnemyList(kefra, target)
+
+	d.mobBattle(w, kefraID, kefra)
+
+	if target.HP >= beforeHP {
+		t.Fatalf("Kefra target HP = %d, want damage at fixed range 25 from %d", target.HP, beforeHP)
+	}
+	if kefra.X != 10 || kefra.Y != 10 {
+		t.Fatalf("Kefra moved to (%d,%d), want fixed position (10,10)", kefra.X, kefra.Y)
+	}
+}
+
+func TestKefraBossDoesNotRetreat(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	clock := &atomic.Uint32{}
+	clock.Store(serverTime)
+	w := world.New(world.Config{GridDim: 64, Now: clock.Load}, log, nil, d.Handle)
+	kefraID := w.SpawnMobAt(world.MobSpawn{Template: kefraBossMob(0), X: 10, Y: 10, GenIndex: world.KefraBossGenIndex})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: aggressiveMob(), X: 11, Y: 10, GenIndex: -1})
+	kefra, target := w.Entity(kefraID), w.Entity(targetID)
+	beforeHP := target.HP
+	addEnemyList(kefra, target)
+
+	d.mobBattle(w, kefraID, kefra)
+
+	if kefra.X != 10 || kefra.Y != 10 {
+		t.Fatalf("Kefra retreated to (%d,%d), want fixed position (10,10)", kefra.X, kefra.Y)
+	}
+	if target.HP != beforeHP {
+		t.Fatalf("Kefra attacked while retreat roll should only hold position: HP %d, want %d", target.HP, beforeHP)
+	}
+}
+
+func enemyListContains(e *world.Entity, target int) bool {
+	for _, id := range e.EnemyList {
+		if id == target {
+			return true
+		}
+	}
+	return false
 }
 
 // TestFollowerDoesNotSelfAggro (e2e): a hostile FOLLOWER adjacent to the player

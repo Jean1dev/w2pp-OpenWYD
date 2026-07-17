@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"syscall"
 
@@ -330,10 +331,17 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 
 	wgens := make([]*world.Generator, len(gens))
 	skipped := 0
+	missingLeaderBlocks, missingFollowerBlocks := 0, 0
+	missingLeaderNames := make(map[string]struct{})
+	missingFollowerNames := make(map[string]struct{})
 	for i, g := range gens {
 		leader := load(g.Leader)
 		if leader == nil {
-			continue // block unusable without its Leader template (~1400 miss files)
+			missingLeaderBlocks++
+			if g.Leader != "" {
+				missingLeaderNames[g.Leader] = struct{}{}
+			}
+			continue // block unusable without its Leader template
 		}
 		// When DB-managed NPC config is active, merchant blocks are owned by
 		// npc_definition (materialized by the dispatcher overlay), so skip them here
@@ -342,16 +350,24 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 			skipped++
 			continue
 		}
+		follower := load(g.Follower)
+		if g.Follower != "" && follower == nil {
+			missingFollowerBlocks++
+			missingFollowerNames[g.Follower] = struct{}{}
+		}
 		wg := &world.Generator{
 			MinuteGenerate: g.MinuteGenerate,
 			MinGroup:       g.MinGroup,
 			MaxGroup:       g.MaxGroup,
 			MaxNumMob:      g.MaxNumMob,
 			RouteType:      uint8(g.RouteType),
+			Formation:      g.Formation,
 			SegX:           g.SegX,
 			SegY:           g.SegY,
 			LeaderTmpl:     leader,
-			FollowerTmpl:   load(g.Follower),
+			FollowerTmpl:   follower,
+			FightAction:    g.FightAction,
+			DieAction:      g.DieAction,
 		}
 		for s := 0; s < 5; s++ {
 			wg.SegRange[s] = int16(g.SegRange[s])
@@ -366,6 +382,15 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 		if wgens[i] != nil {
 			total += len(w.GenerateMob(i))
 		}
+	}
+	if missingLeaderBlocks > 0 || missingFollowerBlocks > 0 {
+		logger.Warn("NPC templates missing",
+			"leader_blocks_skipped", missingLeaderBlocks,
+			"missing_leader_templates", len(missingLeaderNames),
+			"missing_leader_sample", sampleNames(missingLeaderNames, 10),
+			"follower_blocks_degraded", missingFollowerBlocks,
+			"missing_follower_templates", len(missingFollowerNames),
+			"missing_follower_sample", sampleNames(missingFollowerNames, 10))
 	}
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
 		"merchant_blocks_skipped", skipped)
@@ -390,6 +415,21 @@ func seedWorldItems(w *world.World, dir string, logger *slog.Logger) {
 		}
 	}
 	logger.Info("world items seeded", "count", seeded)
+}
+
+func sampleNames(names map[string]struct{}, limit int) []string {
+	if len(names) == 0 || limit <= 0 {
+		return nil
+	}
+	out := make([]string, 0, len(names))
+	for name := range names {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	if len(out) > limit {
+		return out[:limit]
+	}
+	return out
 }
 
 // serveStatusHTTP runs the channel-status web server (serv00.htm). It answers any

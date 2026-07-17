@@ -48,6 +48,12 @@ service AccountService {
   // marks the drained mailbox rows delivered/lost in the SAME transaction — the
   // anti-dup boundary for the drain (web-platform-plan.md §mailbox).
   rpc SaveCargoWithDeliveries(SaveCargoWithDeliveriesRequest) returns (SaveCargoResponse);
+  // SetAccountBlocked flips account.is_blocked by account name — the write side of
+  // the in-game GM ban/unban command (issue #122). Login already rejects blocked
+  // accounts (LOGIN_RESULT_BLOCKED), so a ban denies re-login immediately and an
+  // unban restores it. Administrative-ban ownership may later move to binServer
+  // entitlement (web-platform-plan.md §binServer); until then this is the gate.
+  rpc SetAccountBlocked(SetAccountBlockedRequest) returns (SetAccountBlockedResponse);
 }
 
 enum LoginResult {
@@ -68,6 +74,11 @@ message AccountLoginRequest {
 message AccountLoginResponse {
   LoginResult result = 1;
   int64 account_id = 2;
+  // role is account.role ('player'/'moderator'/'admin'). It is carried to the
+  // tmServer so the game loop can gate in-game GM/moderation commands (issue
+  // #122) — the explicit server-side authority that replaces the legacy fragile
+  // "character Level >= 1000" backdoor.
+  string role = 3;
 }
 
 message ListCharactersRequest { int64 account_id = 1; }
@@ -250,6 +261,13 @@ message SaveCargoWithDeliveriesRequest {
   repeated int64 delivered_ids = 4; // rows applied to the cargo
   repeated int64 lost_ids = 5;      // rows dropped (cargo was full)
 }
+
+message SetAccountBlockedRequest {
+  string account_name = 1; // canonical lowercase
+  bool blocked = 2;        // true = ban, false = unban
+}
+// ok is false when no account matched the name (nothing changed).
+message SetAccountBlockedResponse { bool ok = 1; }
 
 // NpcConfigService serves the moderator-editable NPC configuration to tmServer
 // (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes

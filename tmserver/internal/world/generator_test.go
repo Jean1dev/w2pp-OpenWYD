@@ -52,14 +52,21 @@ func TestGenerateMobGroup(t *testing.T) {
 	if leader.Leader != 0 || leader.PartyList[0] != ids[1] || leader.PartyList[1] != ids[2] {
 		t.Fatalf("leader links = Leader %d PartyList %v, want 0 / followers %v", leader.Leader, leader.PartyList[:2], ids[1:])
 	}
-	for _, fid := range ids[1:] {
+	wantOffset := []struct{ x, y int16 }{{1, 1}, {-1, 1}}
+	for i, fid := range ids[1:] {
 		fe := w.Entity(fid)
 		if fe.Leader != ids[0] {
 			t.Fatalf("follower %d Leader = %d, want %d", fid, fe.Leader, ids[0])
 		}
-		// Followers share the leader's randomized waypoints.
-		if fe.SegListX != leader.SegListX || fe.SegListY != leader.SegListY {
-			t.Fatalf("follower waypoints %v differ from leader's %v", fe.SegListX, leader.SegListX)
+		if fe.SegListX[0] != leader.SegListX[0]+wantOffset[i].x ||
+			fe.SegListY[0] != leader.SegListY[0]+wantOffset[i].y {
+			t.Fatalf("follower %d start = %d,%d; leader = %d,%d; want offset %+v",
+				i, fe.SegListX[0], fe.SegListY[0], leader.SegListX[0], leader.SegListY[0], wantOffset[i])
+		}
+		// Waypoints without SegmentRange keep the generator's exact coordinate,
+		// matching GenerateMob's follower branch.
+		if fe.SegListX[4] != 30 || fe.SegListY[4] != 20 {
+			t.Fatalf("follower %d dest = %d,%d, want 30,20", i, fe.SegListX[4], fe.SegListY[4])
 		}
 	}
 	// Waypoint 0 randomized within [seg-Range, seg] (the legacy negative bias);
@@ -79,6 +86,50 @@ func TestGenerateMobGroup(t *testing.T) {
 	// Now saturated: no more spawns until deaths bring the count down.
 	if got := len(w.GenerateMob(0)); got != 0 {
 		t.Fatalf("saturated GenerateMob spawned %d, want 0", got)
+	}
+}
+
+func TestGenerateMobFormationFourOffsetsFollowers(t *testing.T) {
+	w := New(Config{GridDim: 64}, slogDiscard(), nil, nil)
+	g := &Generator{
+		MinuteGenerate: 1,
+		MinGroup:       2, MaxGroup: 2,
+		MaxNumMob:    5,
+		RouteType:    6,
+		Formation:    4,
+		SegX:         [5]int16{24, 0, 0, 0, 28},
+		SegY:         [5]int16{24, 0, 0, 0, 24},
+		SegRange:     [5]int16{1, 0, 0, 0, 1},
+		LeaderTmpl:   genMobTemplate(5),
+		FollowerTmpl: genMobTemplate(5),
+	}
+	w.RegisterGenerators([]*Generator{g})
+
+	ids := w.GenerateMob(0)
+	if len(ids) != 3 {
+		t.Fatalf("GenerateMob spawned %d mobs, want 3", len(ids))
+	}
+	leader := w.Entity(ids[0])
+	tests := []struct {
+		id int
+		x  int16
+		y  int16
+	}{
+		{ids[1], 2, 0},
+		{ids[2], 0, 2},
+	}
+	for _, tt := range tests {
+		follower := w.Entity(tt.id)
+		if follower.SegListX[0] != leader.SegListX[0]+tt.x ||
+			follower.SegListY[0] != leader.SegListY[0]+tt.y {
+			t.Fatalf("follower %d start = %d,%d; leader = %d,%d; want offset %d,%d",
+				tt.id, follower.SegListX[0], follower.SegListY[0], leader.SegListX[0], leader.SegListY[0], tt.x, tt.y)
+		}
+		if follower.SegListX[4] != leader.SegListX[4]+tt.x ||
+			follower.SegListY[4] != leader.SegListY[4]+tt.y {
+			t.Fatalf("follower %d dest = %d,%d; leader = %d,%d; want offset %d,%d",
+				tt.id, follower.SegListX[4], follower.SegListY[4], leader.SegListX[4], leader.SegListY[4], tt.x, tt.y)
+		}
 	}
 }
 

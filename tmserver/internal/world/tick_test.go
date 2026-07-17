@@ -82,6 +82,20 @@ func TestMobAISeams(t *testing.T) {
 		t.Errorf("FindEnemyFromView clan 7 at dx=+9 = %d, want player %d", got, pconn)
 	}
 	w.entities[pconn].Clan = 0
+	w.entities[pconn].HP = 0 // keep the player from winning the mob-vs-mob scans below
+
+	hostile := w.SpawnMob(genMobTemplate(5), 20, 20)
+	if got := w.FindEnemyFromView(18, 20, 7); got != hostile {
+		t.Errorf("FindEnemyFromView hostile mob = %d, want mob %d", got, hostile)
+	}
+	w.SpawnMob(genMobTemplate(2), 30, 30)
+	if got := w.FindEnemyFromView(28, 30, 7); got != 0 {
+		t.Errorf("FindEnemyFromView friendly mob = %d, want 0", got)
+	}
+	w.SpawnMob(genMerchantTemplate(100), 34, 34)
+	if got := w.FindEnemyFromView(32, 34, 5); got != 0 {
+		t.Errorf("FindEnemyFromView merchant NPC = %d, want 0", got)
+	}
 
 	// EntityAt reflects the grid.
 	if id, ok := w.EntityAt(12, 11); !ok || id != near {

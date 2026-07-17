@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
@@ -15,12 +16,13 @@ import (
 const (
 	leashRadius      = 16   // HALFGRIDX: target outside the mob's home box drops aggro
 	meleeRange       = 1    // reach floor when the template has no EF_RANGE gear
+	kefraBossRange   = 25   // CMob.cpp BattleProcessor: KEFRA_BOSS ignores EF_RANGE
 	mobAttackCadence = 1000 // ms between a mob's attacks (≈ the player 800ms guard)
 	// wakeRadius gates the per-tick aggro scan: an idle mob with no player within
-	// this Chebyshev distance skips FindEnemyFromView entirely. It must cover the
-	// widest aggro window (clan 7/8 scan [x-6, x+10) → offset 9); 12 leaves margin.
-	// Pure optimization — the original processed every mob each cycle.
-	wakeRadius = 12
+	// this Chebyshev distance skips FindEnemyFromView entirely. It is ViewRange
+	// rather than the player-aggro window so visible guard-vs-mob encounters still
+	// start when the watcher is near the edge of the scene.
+	wakeRadius = world.ViewRange
 	// roamRadius gates roaming the same way, but must exceed ViewRange (16) so a
 	// player never watches a frozen patrol: mobs start walking just beyond what
 	// the client can see. Same divergence class as wakeRadius.
@@ -29,13 +31,12 @@ const (
 
 // Tick is the world's per-tick mob-AI hook (registered via World.SetTickHandler).
 // It runs inside the loop goroutine, so it mutates entities directly. Each live
-// monster (Merchant==0) acquires a nearby player as a target, then chases and
-// melees it. NPCs (shops/quest givers) and dead mobs are skipped.
+// monster (Merchant==0) acquires a nearby hostile player or mob as a target, then
+// chases and melees it. NPCs (shops/quest givers) and dead mobs are skipped.
 //
 // UNVERIFIED / deferred (captura): real pathfinding (we step one Chebyshev
-// tile), roaming/segments/summons, mob-vs-mob combat (guards), and the player
-// death/resurrection flow (a player dropped to 0 HP just stops being a valid
-// target).
+// tile), roaming/segments/summons, and the player death/resurrection flow (a
+// player dropped to 0 HP just stops being a valid target).
 func (d *Dispatcher) Tick(w *world.World) {
 	// One bump per tick, up front: both regenPlayers (natural-regen phase) and
 	// sweepAffects (per-player stagger) read this counter, and regenPlayers runs
@@ -59,6 +60,11 @@ func (d *Dispatcher) Tick(w *world.World) {
 			d.summonTick(w, id, e) // summoned pets follow their own AI (summon.go)
 			return
 		}
+		if e.Target == 0 && hasEnemyList(e) {
+			e.Mode = world.MobCombat
+			d.mobBattle(w, id, e)
+			return
+		}
 		if e.Target == 0 {
 			if !d.playerNear(e.X, e.Y, roamRadius) {
 				return // dormant: nobody close enough to see or be aggroed
@@ -71,7 +77,8 @@ func (d *Dispatcher) Tick(w *world.World) {
 			// the group drag (setGroupBattle).
 			if e.Leader == 0 && d.playerNear(e.X, e.Y, wakeRadius) &&
 				chebyshev(e.X, e.Y, e.SegmentX, e.SegmentY) <= leashRadius {
-				if p := w.FindEnemyFromView(e.X, e.Y, e.Clan); p != 0 && !inSafeCity(w, p) {
+				if p := w.FindEnemyFromView(e.X, e.Y, e.Clan); p != 0 &&
+					(!world.IsPlayer(p) || !inSafeCity(w, p)) {
 					setGroupBattle(w, id, e, w.Entity(p))
 				}
 			}
@@ -126,17 +133,15 @@ const battleDragBox = 23
 // setGroupBattle puts a mob in combat with target and drags its group into the
 // same fight — SetBattle (Server.cpp:8013-8047) plus the PartyList propagation
 // of the AI tick (ProcessSecMinTimer.cpp:1882-1929): resolve the mob's leader
-// (or itself), then every living, unengaged member within the drag box focuses
-// the target. The leader itself is dragged too (the original block only walks
-// PartyList — leaders join via their own paths; folding it here is a small,
-// coherent divergence). Already-engaged members keep their target (we model a
-// single Target, not the EnemyList[13]).
+// (or itself), then every living member within the drag box records the target
+// in its EnemyList. The leader itself is dragged too (the original block only
+// walks PartyList — leaders join via their own paths; folding it here is a
+// small, coherent divergence).
 func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 	if target == nil {
 		return
 	}
-	e.Target = target.ID
-	e.Mode = world.MobCombat
+	setBattle(w, id, e, target)
 	lid := e.Leader
 	if lid == 0 {
 		lid = id
@@ -146,12 +151,11 @@ func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 		return
 	}
 	drag := func(mid int, me *world.Entity) {
-		if mid == id || me == nil || me.HP <= 0 || me.Merchant != 0 || me.Target != 0 {
+		if mid == id || me == nil || me.HP <= 0 || me.Merchant != 0 {
 			return
 		}
 		if abs16(me.X-target.X) <= battleDragBox && abs16(me.Y-target.Y) <= battleDragBox {
-			me.Target = target.ID
-			me.Mode = world.MobCombat
+			setBattle(w, mid, me, target)
 		}
 	}
 	if lid != id {
@@ -163,6 +167,175 @@ func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 		}
 		drag(m, w.Entity(m))
 	}
+}
+
+func setBattle(w *world.World, id int, e, target *world.Entity) {
+	if e == nil || target == nil || id <= 0 || target.ID <= 0 || id >= world.MaxMob || target.ID >= world.MaxMob || id == target.ID {
+		return
+	}
+	targetInWorld := w.Entity(target.ID) != nil
+	if e.Mode == world.MobEmpty || (targetInWorld && target.Mode == world.MobEmpty) {
+		return
+	}
+	if targetInWorld && world.IsPlayer(target.ID) {
+		if m, ok := w.SessionMode(target.ID); !ok || m != world.UserPlay {
+			return
+		}
+	}
+	if abs16(e.X-target.X) > battleDragBox || abs16(e.Y-target.Y) > battleDragBox {
+		return
+	}
+	e.Mode = world.MobCombat
+	addEnemyList(e, target)
+	sendFightAction(w, id, e)
+	if targetInWorld {
+		selectTargetFromEnemyList(w, e)
+	} else if e.Target == 0 {
+		// Several low-level tests pass a synthetic attacker entity rather than a
+		// world-owned player. Production targets are always in World and use the
+		// EnemyList selection above.
+		e.Target = target.ID
+	}
+}
+
+func sendFightAction(w *world.World, id int, e *world.Entity) {
+	if e == nil {
+		return
+	}
+	say := w.Rand().Intn(4) // Server.cpp SetBattle consumes rand()%4 on engage.
+	gen := w.GeneratorAt(int(e.GenIndex))
+	if gen == nil || e.Leader != 0 || gen.FightAction[say] == "" {
+		return
+	}
+	sendMobChat(w, id, gen.FightAction[say])
+}
+
+func sendMobChat(w *world.World, id int, text string) {
+	if text == "" {
+		return
+	}
+	payload := protocol.EncodeMessageChatBody(text)
+	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(id)}, payload)
+	})
+}
+
+func addEnemyList(e, target *world.Entity) {
+	if e == nil || target == nil || target.ID <= 0 || target.ID >= world.MaxMob {
+		return
+	}
+	if world.IsPlayer(target.ID) {
+		if target.Rsv&world.RsvHide != 0 || target.Merchant&1 != 0 {
+			return
+		}
+	}
+	for _, id := range e.EnemyList {
+		if id == target.ID {
+			return
+		}
+	}
+	for i, id := range e.EnemyList {
+		if id == 0 {
+			e.EnemyList[i] = target.ID
+			return
+		}
+	}
+}
+
+func removeEnemyList(e *world.Entity, targetID int) {
+	if e == nil || targetID <= 0 {
+		return
+	}
+	for i, id := range e.EnemyList {
+		if id == targetID {
+			e.EnemyList[i] = 0
+			return
+		}
+	}
+}
+
+func clearEnemyList(e *world.Entity) {
+	if e != nil {
+		e.EnemyList = [protocol.MaxTarget]int{}
+	}
+}
+
+func hasEnemyList(e *world.Entity) bool {
+	if e == nil {
+		return false
+	}
+	for _, id := range e.EnemyList {
+		if id != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func selectTargetFromEnemyList(w *world.World, e *world.Entity) {
+	if e == nil {
+		return
+	}
+	e.Target = 0
+	enemyDist := [protocol.MaxTarget]int{}
+	for i := range enemyDist {
+		enemyDist[i] = world.MaxUser
+	}
+	dis := enemySelectRange(e)
+	for i, enemyID := range e.EnemyList {
+		if enemyID <= 0 || enemyID >= world.MaxMob {
+			continue
+		}
+		enemy := w.Entity(enemyID)
+		if enemy == nil || enemy.Mode == world.MobEmpty || enemy.HP <= 0 {
+			e.EnemyList[i] = 0
+			continue
+		}
+		if world.IsPlayer(enemyID) {
+			if enemy.Rsv&world.RsvHide != 0 {
+				e.EnemyList[i] = 0
+				continue
+			}
+			if enemy.Level > level.MaxLevel && enemy.Merchant&1 == 0 {
+				e.EnemyList[i] = 0
+				continue
+			}
+		}
+		if enemy.X < e.X-int16(dis) || enemy.X > e.X+int16(dis) ||
+			enemy.Y < e.Y-int16(dis) || enemy.Y > e.Y+int16(dis) {
+			e.EnemyList[i] = 0
+			continue
+		}
+		enemyDist[i] = mobDistance(e.X, e.Y, enemy.X, enemy.Y)
+		if enemyID > world.MaxUser {
+			enemyDist[i] += 2 // CMob.cpp uses > MAX_USER, so id==MAX_USER is unpenalized.
+		}
+	}
+	bestDist := world.MaxUser
+	best := 0
+	for i, enemyID := range e.EnemyList {
+		if enemyID != 0 && bestDist >= enemyDist[i] {
+			best = enemyID
+			bestDist = enemyDist[i]
+		}
+	}
+	if bestDist != world.MaxUser {
+		e.Target = best
+	}
+}
+
+func enemySelectRange(e *world.Entity) int {
+	dis := 6
+	if e.Clan == summonClan || e.Clan == 7 || e.Clan == 8 {
+		dis = 12
+	}
+	if int(e.X)/128 < 12 && int(e.Y)/128 > 25 {
+		dis = 8
+	}
+	if isKefraBoss(e) {
+		dis = leashRadius
+	}
+	return dis
 }
 
 // generateMobs is the per-generator regeneration timer (the GenerateMobs block
@@ -321,8 +494,10 @@ const (
 // mobBattle advances one engaged monster: validate the target, roll the Int
 // hesitation, then attack / back away / chase per the BattleProcessor decision.
 func (d *Dispatcher) mobBattle(w *world.World, id int, e *world.Entity) {
+	selectTargetFromEnemyList(w, e)
 	target := w.Entity(e.Target)
 	if !validTarget(w, e, target) {
+		removeEnemyList(e, e.Target)
 		e.Target = 0
 		e.Mode = world.MobIdle
 		return
@@ -337,19 +512,37 @@ func (d *Dispatcher) mobBattle(w *world.World, id int, e *world.Entity) {
 		return
 	}
 
-	reach := int(e.Range)
-	if reach < meleeRange {
-		reach = meleeRange // no EF_RANGE on the template's gear → melee adjacency
-	}
+	reach := mobReach(e)
 	dis := mobDistance(e.X, e.Y, target.X, target.Y)
 	switch battleCode(w.Rand(), dis, reach, int(e.Dex)) {
 	case battleAttack:
 		d.mobAttack(w, id, e, target)
 	case battleRetreat:
+		if isKefraBoss(e) {
+			return
+		}
 		d.mobRetreat(w, id, e, target)
 	default:
+		if isKefraBoss(e) {
+			return
+		}
 		d.mobStep(w, id, e, target)
 	}
+}
+
+func mobReach(e *world.Entity) int {
+	if isKefraBoss(e) {
+		return kefraBossRange
+	}
+	reach := int(e.Range)
+	if reach < meleeRange {
+		return meleeRange // no EF_RANGE on the template's gear → melee adjacency
+	}
+	return reach
+}
+
+func isKefraBoss(e *world.Entity) bool {
+	return e != nil && int(e.GenIndex) == world.KefraBossGenIndex
 }
 
 // battleCode ports the BattleProcessor reach decision (CMob.cpp:308-327): within
@@ -369,15 +562,15 @@ func battleCode(r *rng.MSVC, dis, reach, dex int) int {
 	return battleChase
 }
 
-// validTarget reports whether a mob's target is still attackable: an in-play,
-// living player within the mob's leash box — centred on its current waypoint
-// anchor (BattleProcessor leashes on SegmentX±HALFGRIDX, CMob.cpp:292; for a
-// routeless mob the anchor is its spawn point).
+// validTarget reports whether a mob's target is still attackable: an in-play
+// player or a hostile mob within the mob's leash box — centred on its current
+// waypoint anchor (BattleProcessor leashes on SegmentX±HALFGRIDX, CMob.cpp:292;
+// for a routeless mob the anchor is its spawn point).
 //
-// Mob targets exist only in summon fights: a summon attacking a monster, or a
-// monster retaliating against a summon (the legacy's EnemyList held either).
-// The summon side skips the waypoint leash — its leash is the distance to its
-// OWNER, enforced by summonTick before mobBattle runs.
+// Summons keep their separate rules: pets attack monsters but never players or
+// other pets, while regular mobs can still retaliate against pets. The summon
+// side skips the waypoint leash — its leash is the distance to its OWNER,
+// enforced by summonTick before mobBattle runs.
 func validTarget(w *world.World, e, target *world.Entity) bool {
 	if target == nil || target.HP <= 0 {
 		return false
@@ -389,8 +582,13 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 		if e.Summoner != 0 {
 			return target.Clan != summonClan // pets fight monsters, never other pets
 		}
-		return target.Summoner != 0 && // a monster only ever targets a pet, and
-			chebyshev(e.SegmentX, e.SegmentY, target.X, target.Y) <= leashRadius
+		if chebyshev(e.SegmentX, e.SegmentY, target.X, target.Y) > leashRadius {
+			return false
+		}
+		if target.Summoner != 0 {
+			return true // regular mobs can retaliate against pets
+		}
+		return world.ClanHostile(e.Clan, target.Clan)
 	}
 	if e.Summoner != 0 {
 		return false // pets never attack players (clan 4 is friendly, clan.go)
@@ -405,10 +603,9 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 }
 
 // mobAttack resolves a strike (melee or in-reach ranged — the original uses the
-// same attack message for both, no projectile) against the target player and
-// broadcasts it so the victim (and onlookers) see the damage. Damage is
-// server-authoritative via the shared combat formula. The player's HP bar
-// updates from the Dam entry.
+// same attack message for both, no projectile) against the target entity and
+// broadcasts it so nearby players see the damage. Damage is server-authoritative
+// via the shared combat formula. Player HP bars update from the Dam entry.
 func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) {
 	now := w.Now()
 	if now < e.AtkTick+mobAttackCadence {
@@ -451,25 +648,25 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
 	})
 
-	// Summon fights (mob targets): a pet's kill rewards its OWNER
-	// (MobKilled.cpp:181-190 credits the Summoner); a monster that downs a pet
-	// removes it for good (removeType 1; the Summoner guard in DespawnMob keeps
-	// it out of the respawn queue). A struck-but-alive monster retaliates
-	// against the pet.
+	// Mob targets: a pet's kill rewards its OWNER (MobKilled.cpp:181-190 credits
+	// the Summoner); a monster that downs a pet removes it for good (removeType
+	// 1; the Summoner guard in DespawnMob keeps it out of the respawn queue). Any
+	// struck-but-alive monster records the attacker in its EnemyList.
 	if !world.IsPlayer(target.ID) {
 		if target.HP == 0 {
 			if e.Summoner != 0 {
 				if owner := w.Entity(e.Summoner); owner != nil {
 					d.mobKilled(w, owner, target)
 				} else {
+					sendDieAction(w, target)
 					w.DespawnMob(target.ID, 1)
 				}
 			} else {
+				sendDieAction(w, target)
 				w.DespawnMob(target.ID, 1)
 			}
-			e.Target = 0
-			e.Mode = world.MobIdle
-		} else if e.Summoner != 0 && target.Target == 0 {
+			dropCurrentTarget(e, target.ID)
+		} else {
 			setGroupBattle(w, target.ID, target, e)
 		}
 		return
@@ -480,7 +677,16 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {
-		e.Target = 0
+		dropCurrentTarget(e, target.ID)
+	}
+}
+
+func dropCurrentTarget(e *world.Entity, targetID int) {
+	removeEnemyList(e, targetID)
+	e.Target = 0
+	if hasEnemyList(e) {
+		e.Mode = world.MobCombat
+	} else {
 		e.Mode = world.MobIdle
 	}
 }
@@ -492,6 +698,9 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 // MOB_RETURN, BattleProcessor code 16). Summons (RouteType 5) never reach
 // here — the Tick routes them to summonTick (summon.go).
 func (d *Dispatcher) mobRoam(w *world.World, id int, e *world.Entity) {
+	if isKefraBoss(e) {
+		return
+	}
 	if e.RouteType == 0 || e.RouteType == 5 || !hasWaypoints(e) {
 		if e.X != e.SegmentX || e.Y != e.SegmentY {
 			d.stepToward(w, id, e, e.SegmentX, e.SegmentY) // return home
@@ -499,6 +708,14 @@ func (d *Dispatcher) mobRoam(w *world.World, id int, e *world.Entity) {
 		return
 	}
 	if e.X == e.SegmentX && e.Y == e.SegmentY { // arrived at the current waypoint
+		if e.RouteType == 3 && e.SegProgress == 4 {
+			if e.WaitTicks > 0 {
+				e.WaitTicks--
+				return
+			}
+			w.DespawnMob(id, 3) // StandingByProcessor 0x10000 → DeleteMob(index, 3)
+			return
+		}
 		if e.RouteType == 6 {
 			return // fixed guard post: SetSegment always resets to 0 (CMob.cpp:167)
 		}
@@ -542,7 +759,8 @@ func hasWaypoints(e *world.Entity) bool {
 //
 // Per-RouteType end behaviour (both ends: past-4 while forward, past-0 while
 // backward): 1 = restart at 0; 2 = ping-pong (also restarts forward at the home
-// end); 3 = ping-pong once, then stop; 4 = circular loop; 6 = always reset to 0.
+// end); 3 would ping-pong here, but StandingByProcessor deletes it at waypoint 4
+// before calling SetSegment again; 4 = circular loop; 6 = always reset to 0.
 // RouteType 0 walks the list once and then becomes a fixed NPC — the original
 // also flips Mode=4 and bit-packs the facing direction into MOB.Merchant
 // (CMob.cpp:558-579); we only stop the walk (our Merchant carries the spawn-city

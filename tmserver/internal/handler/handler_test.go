@@ -20,6 +20,7 @@ import (
 type fakeAccount struct {
 	id             int64
 	pass           string
+	role           string // account.role ('player'/'moderator'/'admin'); GM authz
 	blocked        bool
 	alreadyPlaying bool
 	chars          []world.CharSummary
@@ -51,10 +52,11 @@ type fakeDB struct {
 	pinSetOK     bool            // SetPin ok flag
 	pinSets      []string        // captured SetPin plaintext (test-only; prod never stores plaintext)
 
-	mu          sync.Mutex
-	savedChars  []world.CharacterSave // captured SaveOnShutdown calls
-	savedCargos []world.CargoSave     // captured SaveCargo calls
-	drainSaves  []drainSave           // captured SaveCargoWithDeliveries calls
+	mu           sync.Mutex
+	savedChars   []world.CharacterSave // captured SaveOnShutdown calls
+	savedCargos  []world.CargoSave     // captured SaveCargo calls
+	drainSaves   []drainSave           // captured SaveCargoWithDeliveries calls
+	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
 }
 
 func (f *fakeDB) VerifyPin(_ context.Context, _ int64, _ string) (world.PinResult, error) {
@@ -97,6 +99,35 @@ func (f *fakeDB) SaveCargo(_ context.Context, save world.CargoSave) error {
 
 func (f *fakeDB) ListPendingDeliveries(_ context.Context, accountID int64) ([]world.Delivery, error) {
 	return f.pending[accountID], nil
+}
+
+// SetAccountBlocked records the GM ban/unban write (overrides the NopPersistence
+// error so the ban callback proceeds to the online-kick).
+func (f *fakeDB) SetAccountBlocked(_ context.Context, name string, blocked bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.blockedNames == nil {
+		f.blockedNames = make(map[string]bool)
+	}
+	f.blockedNames[name] = blocked
+	return nil
+}
+
+// blockedState reports the last recorded block state for an account name, waiting
+// briefly for the async ban RPC round-trip to land.
+func (f *fakeDB) blockedState(t *testing.T, name string) (bool, bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		v, ok := f.blockedNames[name]
+		f.mu.Unlock()
+		if ok {
+			return v, true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return false, false
 }
 
 func (f *fakeDB) SaveCargoWithDeliveries(_ context.Context, save world.CargoSave, deliveredIDs, lostIDs []int64) error {
@@ -166,7 +197,7 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 		cargo := a.cargo
 		cargo.AccountID = a.id
 		return world.LoginOutcome{
-			Result: world.LoginOK, AccountID: a.id, Characters: a.chars, Cargo: cargo,
+			Result: world.LoginOK, AccountID: a.id, Role: a.role, Characters: a.chars, Cargo: cargo,
 			PendingDeliveries: f.pending[a.id],
 		}, nil
 	}

@@ -43,6 +43,7 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 	out := world.LoginOutcome{
 		Result:    loginResultFromProto(resp.GetResult()),
 		AccountID: resp.GetAccountId(),
+		Role:      resp.GetRole(),
 	}
 	if out.Result != world.LoginOK {
 		return out, nil
@@ -256,6 +257,17 @@ func (c *Client) SaveCargoWithDeliveries(ctx context.Context, save world.CargoSa
 	})
 	if err != nil {
 		return fmt.Errorf("dbclient: save cargo with deliveries: %w", err)
+	}
+	return nil
+}
+
+// SetAccountBlocked flips account.is_blocked by name (GM ban/unban, issue #122).
+func (c *Client) SetAccountBlocked(ctx context.Context, name string, blocked bool) error {
+	if _, err := c.api.SetAccountBlocked(ctx, &dbv1.SetAccountBlockedRequest{
+		AccountName: name,
+		Blocked:     blocked,
+	}); err != nil {
+		return fmt.Errorf("dbclient: set account blocked: %w", err)
 	}
 	return nil
 }

@@ -15,12 +15,15 @@ type Generator struct {
 	MaxGroup       int
 	MaxNumMob      int // population cap (leader and followers both count toward it)
 	RouteType      uint8
+	Formation      int
 	SegX, SegY     [5]int16
 	SegRange       [5]int16
 	SegWait        [5]int16
 	LeaderTmpl     []byte // raw 816-byte STRUCT_MOB; nil = generator unusable
 	FollowerTmpl   []byte // nil = leader-only groups ("Follower: 0")
 	CurrentNumMob  int    // live mobs from this block (SpawnMobAt ++ / DespawnMob --)
+	FightAction    [4]string
+	DieAction      [4]string
 }
 
 // generateWorldCap stops the generator timer from filling every entity slot:
@@ -28,6 +31,18 @@ type Generator struct {
 // blocks) from being starved by drop-on-full. Deliberate divergence — the
 // original's only cap is MAX_MOB itself.
 const generateWorldCap = 20000
+
+// formationOffsets is g_pFormation[5][12][2] (Basedef.cpp:193), interpreted as
+// [formation][follower slot][x/y]. The Server.cpp use site indexes the array in
+// a decompiled-looking order, but NPCGener contains Formation=4 blocks, so the
+// table's first dimension is the only shape that can represent the content.
+var formationOffsets = [5][MaxParty]struct{ x, y int16 }{
+	{{1, 1}, {-1, 1}, {1, -1}, {-1, -1}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}},
+	{{1, 0}, {-1, 0}, {2, 0}, {-2, 0}, {3, 0}, {-3, 0}, {4, 0}, {-4, 0}, {5, 0}, {-5, 0}, {0, 6}, {0, -6}},
+	{{1, 1}, {-1, 1}, {1, -1}, {-1, -1}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}},
+	{{1, 0}, {-1, 0}, {2, 0}, {-2, 0}, {3, 0}, {-3, 0}, {4, 0}, {-4, 0}, {5, 0}, {-5, 0}, {0, 6}, {0, -6}},
+	{{2, 0}, {0, 2}, {1, 1}, {0, 1}, {1, 0}, {-1, 3}, {3, -1}, {-1, 2}, {2, -1}, {-1, 1}, {1, -1}, {1, 2}},
+}
 
 // RegisterGenerators installs the generator table (index = NPCGener block =
 // Entity.GenIndex). Wiring-time only, before Run.
@@ -132,11 +147,10 @@ func (w *World) GenerateMob(idx int) []int {
 		return ids
 	}
 	for i := 0; i < n && i < MaxParty; i++ {
-		fsp := sp
+		fsp := followerSpawn(sp, g, i)
 		fsp.Template = g.FollowerTmpl
-		// Followers share the leader's randomized waypoints; the per-follower
-		// g_pFormation offsets are deferred with Formation.
-		fx, fy, fok := w.emptyCellNear(baseX, baseY)
+		fbaseX, fbaseY := spawnAnchor(fsp, baseX, baseY)
+		fx, fy, fok := w.emptyCellNear(fbaseX, fbaseY)
 		if !fok {
 			break
 		}
@@ -154,6 +168,39 @@ func (w *World) GenerateMob(idx int) []int {
 		ids = append(ids, fid)
 	}
 	return ids
+}
+
+func spawnAnchor(sp MobSpawn, fallbackX, fallbackY int16) (int16, int16) {
+	if sp.SegX[0] != 0 {
+		return sp.SegX[0], sp.SegY[0]
+	}
+	for i := range sp.SegX {
+		if sp.SegX[i] != 0 {
+			return sp.SegX[i], sp.SegY[i]
+		}
+	}
+	return fallbackX, fallbackY
+}
+
+func followerSpawn(leader MobSpawn, g *Generator, slot int) MobSpawn {
+	sp := leader
+	if g == nil || g.Formation < 0 || g.Formation >= len(formationOffsets) || slot < 0 || slot >= MaxParty {
+		return sp
+	}
+	off := formationOffsets[g.Formation][slot]
+	for i := 0; i < len(sp.SegX); i++ {
+		if sp.SegX[i] == 0 {
+			continue
+		}
+		if g.SegRange[i] != 0 {
+			sp.SegX[i] = leader.SegX[i] + off.x
+			sp.SegY[i] = leader.SegY[i] + off.y
+		} else {
+			sp.SegX[i] = g.SegX[i]
+			sp.SegY[i] = g.SegY[i]
+		}
+	}
+	return sp
 }
 
 // emptyCellNear finds a mob-free grid cell at or around (x,y), scanning the

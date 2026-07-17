@@ -6,6 +6,10 @@ package protocol
 // has a single wire value that matches in any context.
 type Type uint16
 
+// MessageLength is MSG_MessageChat.String[MESSAGE_LENGTH] (Basedef.h:189,
+// 1789): mob action chat and normal public chat are a fixed 96-byte C string.
+const MessageLength = 96
+
 // Direction flag bits (protocol-spec.md §2, Basedef.h:1212-1221).
 const (
 	FlagGame2Client Type = 0x0100 // TMSrv → client
@@ -19,6 +23,13 @@ const (
 	// flagMask covers all direction bits; the remaining low bits are the base.
 	flagMask Type = 0xFF00
 )
+
+// EncodeMessageChatBody returns the fixed MSG_MessageChat.String payload.
+func EncodeMessageChatBody(text string) []byte {
+	body := make([]byte, MessageLength)
+	copy(body, text)
+	return body
+}
 
 // Base returns the message base (the wire value with direction flags stripped).
 func (t Type) Base() Type { return t &^ flagMask }

@@ -34,6 +34,7 @@ type Store interface {
 	SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error
 	PendingItemDeliveries(ctx context.Context, accountID int64) ([]domain.Delivery, error)
 	SaveCargoWithDeliveries(ctx context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error
+	SetBlockedByName(ctx context.Context, name string, blocked bool) error
 }
 
 // Server implements dbv1.AccountServiceServer.
@@ -74,6 +75,7 @@ func (s *Server) AccountLogin(ctx context.Context, req *dbv1.AccountLoginRequest
 	return &dbv1.AccountLoginResponse{
 		Result:    dbv1.LoginResult_LOGIN_RESULT_OK,
 		AccountId: auth.ID,
+		Role:      auth.Role, // carried to tmServer for in-game GM authz (issue #122)
 	}, nil
 }
 
@@ -183,6 +185,19 @@ func (s *Server) SaveCargoWithDeliveries(ctx context.Context, req *dbv1.SaveCarg
 		return nil, status.Errorf(codes.Internal, "save cargo with deliveries: %v", err)
 	}
 	return &dbv1.SaveCargoResponse{Ok: true}, nil
+}
+
+// SetAccountBlocked flips account.is_blocked by name — the write side of the
+// in-game GM ban/unban command (issue #122). A missing account returns ok=false.
+func (s *Server) SetAccountBlocked(ctx context.Context, req *dbv1.SetAccountBlockedRequest) (*dbv1.SetAccountBlockedResponse, error) {
+	err := s.store.SetBlockedByName(ctx, req.GetAccountName(), req.GetBlocked())
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.SetAccountBlockedResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "set account blocked: %v", err)
+	}
+	return &dbv1.SetAccountBlockedResponse{Ok: true}, nil
 }
 
 // CreateCharacter creates a character in a free slot. A taken slot/name (unique

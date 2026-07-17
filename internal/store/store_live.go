@@ -87,6 +87,22 @@ func (s *Store) SetPinHash(ctx context.Context, id int64, hash string) error {
 	return nil
 }
 
+// SetBlockedByName flips account.is_blocked for a canonical (lowercase) account
+// name — the write side of the in-game GM ban/unban command (issue #122). Login
+// gates on this flag (AccountByName → LOGIN_RESULT_BLOCKED), so a ban denies
+// re-login immediately. Returns ErrNotFound when no account matched the name.
+func (s *Store) SetBlockedByName(ctx context.Context, name string, blocked bool) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE account SET is_blocked = $2 WHERE name = $1`, name, blocked)
+	if err != nil {
+		return fmt.Errorf("store: set blocked %q: %w", name, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ListCharacters returns the character-selection projection (slot, name, class,
 // level, exp, guild) for an account, ordered by slot.
 func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error) {
