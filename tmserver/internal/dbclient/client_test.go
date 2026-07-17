@@ -160,7 +160,7 @@ func TestAccountLoginFailSkipsList(t *testing.T) {
 func TestLoadCharacterMapping(t *testing.T) {
 	api := &fakeAPI{loadResp: &dbv1.LoadCharacterResponse{Character: &dbv1.Character{
 		Slot: 1, Name: "mage", Level: 20, Coin: 500, Str: 5, Hp: 100, MaxHp: 200,
-		SecLearnedSkill: 0x01020304, Soul: 3, ClassMaster: 1,
+		SecLearnedSkill: 0x01020304, Soul: 3, ClassMaster: 1, Citizen: 2, Fame: 999,
 		Equip: []*dbv1.Item{{Slot: 1, Index: 1100, Eff1: 4, Effv1: 5}},
 		Carry: []*dbv1.Item{{Slot: 3, Index: 1234, Eff1: 9, Effv1: 1}},
 	}}}
@@ -179,6 +179,9 @@ func TestLoadCharacterMapping(t *testing.T) {
 	}
 	if st.ClassMaster != 1 {
 		t.Fatalf("ClassMaster = %d, want 1", st.ClassMaster)
+	}
+	if st.Citizen != 2 || st.Fame != 999 {
+		t.Fatalf("Citizen/Fame not mapped: citizen=%d fame=%d", st.Citizen, st.Fame)
 	}
 	// Equipment must be injected too (it was previously dropped at this boundary).
 	if st.Equip[1].Index != 1100 || st.Equip[1].Effects[0].Effect != 4 {

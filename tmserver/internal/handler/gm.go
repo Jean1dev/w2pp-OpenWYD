@@ -66,6 +66,10 @@ func (d *Dispatcher) runGMCommand(w *world.World, s *world.Session, args []byte)
 		d.gmBan(w, s, rest, true)
 	case "unban":
 		d.gmBan(w, s, rest, false)
+	case "guildname":
+		d.gmSetGuildName(w, s, rest)
+	case "guildfame":
+		d.gmSetGuildFame(w, s, rest)
 	default:
 		d.log.Warn("gm command: unknown subcommand", "account", s.AccountName, "cmd", sub)
 	}
@@ -268,4 +272,37 @@ func (d *Dispatcher) gmBan(w *world.World, s *world.Session, rest string, blocke
 			}
 		}
 	})
+}
+
+// gmSetGuildName registers a display name for a guild id (issue #131): there
+// is no in-game guild-creation flow yet, so this is the only way to populate
+// the name /nick shows, mirroring the legacy GM-only guild-fame tool
+// (Source/Comandos GM.txt).
+func (d *Dispatcher) gmSetGuildName(w *world.World, s *world.Session, rest string) {
+	id, err := strconv.Atoi(firstToken(rest))
+	if err != nil || id <= 0 || id > 0xFFFF {
+		return
+	}
+	name := strings.TrimSpace(strings.TrimPrefix(rest, firstToken(rest)))
+	if name == "" {
+		return
+	}
+	w.SetGuildName(uint16(id), name)
+	d.log.Info("gm guildname", "account", s.AccountName, "guild", id, "name", name)
+}
+
+// gmSetGuildFame sets a guild's fame score (issue #131), mirroring the legacy
+// GM-only "+guildfame set" tool (Source/Comandos GM.txt).
+func (d *Dispatcher) gmSetGuildFame(w *world.World, s *world.Session, rest string) {
+	fields := strings.Fields(rest)
+	if len(fields) != 2 {
+		return
+	}
+	id, err1 := strconv.Atoi(fields[0])
+	fame, err2 := strconv.Atoi(fields[1])
+	if err1 != nil || err2 != nil || id <= 0 || id > 0xFFFF {
+		return
+	}
+	w.SetGuildFame(uint16(id), int32(fame))
+	d.log.Info("gm guildfame", "account", s.AccountName, "guild", id, "fame", fame)
 }
