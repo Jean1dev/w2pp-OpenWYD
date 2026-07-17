@@ -797,6 +797,53 @@ func TestUseExpChestStack(t *testing.T) {
 	}
 }
 
+// TestUseFrangoAssado is the issue #134 regression: using the item did nothing
+// because Vol 63 had no case in the useItem switch. It should consume the item
+// and grant Affect 30 (AffectForceMobDamage) for 4h (_MSG_UseItem.cpp:2308-2341).
+func TestUseFrangoAssado(t *testing.T) {
+	addr, stop := startServerClockVol(t, expChestDB(), map[int]int{4140: volFrango})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawAffect, sawScore := false, false, false
+	for range 6 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[4:6]) != 0 {
+				t.Errorf("carry slot 0 item = %d, want empty after use", le16(payload[4:6]))
+			}
+		case protocol.MsgSendAffect:
+			sawAffect = true
+			if payload[0] != world.AffectForceMobDamage {
+				t.Errorf("affect type = %d, want %d", payload[0], world.AffectForceMobDamage)
+			}
+			if got := binary.LittleEndian.Uint32(payload[4:8]); got != affect1H*4 {
+				t.Errorf("affect time = %d, want %d", got, affect1H*4)
+			}
+		case protocol.MsgUpdateScore:
+			sawScore = true
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using frango assado")
+	}
+	if !sawAffect {
+		t.Error("missing MsgSendAffect after using frango assado")
+	}
+	if !sawScore {
+		t.Error("missing MsgUpdateScore after using frango assado")
+	}
+}
+
 // setHpMpFields decodes MSG_SetHpMp (protocol/score.go:110): Hp, Mp, ReqHp, ReqMp.
 func setHpMpFields(t *testing.T, p []byte) (hp, mp, reqHp, reqMp int32) {
 	t.Helper()
