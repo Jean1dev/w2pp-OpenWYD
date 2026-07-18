@@ -413,6 +413,47 @@ func TestUseMagicBeanHighestColorAndRemover(t *testing.T) {
 	}
 }
 
+// TestUseMagicBeanBroadcastsVisual proves the #157 fix: applying or removing paint
+// refreshes the cached EquipVisual/EquipAnct and pushes MSG_UpdateEquip, so the worn
+// color survives a later teleport (enterWorldView/createMobFrom rebroadcast from that
+// cache). Pre-fix useMagicBean sent no MSG_UpdateEquip, so this stream would go quiet.
+func TestUseMagicBeanBroadcastsVisual(t *testing.T) {
+	tests := []struct {
+		name     string
+		bean     int16
+		dst      world.Item
+		wantAnct uint8
+	}{
+		{
+			name:     "paint sets the color overlay",
+			bean:     itemMagicBeanBlue,
+			dst:      world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}},
+			wantAnct: magicBeanPaintLo - 3, // VisualAnctCode returns ef-3 for a paint effect
+		},
+		{
+			name:     "remover clears the overlay back to sanc",
+			bean:     itemMagicBeanRemover,
+			dst:      world.Item{Index: itemArmor, Effects: [3]world.Effect{{Effect: magicBeanPaintLo + 4, Value: 8}}},
+			wantAnct: efSanc,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, stop := startServerClockVol(t, magicBeanDB(world.Item{Index: tt.bean}, tt.dst), magicBeanVols(tt.bean))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			useMagicBeanFrame(t, c, 1)
+
+			ue := expect(t, c, protocol.MsgUpdateEquip)
+			if got := ue[33]; got != tt.wantAnct { // AnctCode[1] @ body32+1
+				t.Fatalf("equip anct[1] = %#x, want %#x", got, tt.wantAnct)
+			}
+		})
+	}
+}
+
 func TestUseMagicBeanRejectsMissingSanc(t *testing.T) {
 	tests := []struct {
 		name  string

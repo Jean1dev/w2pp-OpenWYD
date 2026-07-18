@@ -999,8 +999,11 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 	dst.Effects[i].Effect = effect
 
 	d.notify(w, s, NoticeRefineSuccess)
-	d.refreshScore(e)
-	d.sendScore(w, s, e)
+	// refreshEquip recomputes e.EquipVisual/EquipAnct (the cached worn-item color
+	// codes) and rebroadcasts them; refreshScore alone leaves them stale, so on a
+	// later teleport createMobFrom would re-send the pre-paint color (#157). It also
+	// folds in refreshScore + sendScore internally.
+	d.refreshEquip(w, s, e)
 	consumeOneItem(&e.Carry[src])
 	d.sendSlot(w, s, int(body.DestType), dstSlot, *dst)
 }
