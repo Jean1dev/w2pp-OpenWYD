@@ -20,7 +20,14 @@ func mobBytes(name string, merchant byte) []byte {
 	return b
 }
 
-func TestScanFiltersToMerchants(t *testing.T) {
+func mobBytesWithGrade(name string, merchant, grade byte) []byte {
+	b := mobBytes(name, merchant)
+	b[140+2] = 100
+	b[140+3] = grade
+	return b
+}
+
+func TestScanFiltersToSupportedTemplates(t *testing.T) {
 	dir := t.TempDir()
 	npcDir := filepath.Join(dir, "TMsrv", "run", "npc")
 	if err := os.MkdirAll(npcDir, 0o755); err != nil {
@@ -34,7 +41,12 @@ func TestScanFiltersToMerchants(t *testing.T) {
 	}
 	write("HekalMerchant", mobBytes("Hekal", 1))
 	write("AkeMerchant", mobBytes("Ake", 19))
+	write("CargoGuard", mobBytes("Cargo", 2))
 	write("SomeMonster", mobBytes("Monster", 0))
+	write("King_Harabard", mobBytes("King_Harabard", 96))
+	write("BlackOracle", mobBytes("BlackOracle", 78))
+	write("Perzen", mobBytesWithGrade("Perzen", 100, 10))
+	write("Perzen_Normal", mobBytesWithGrade("Perzen_Normal", 100, 7))
 	write("Broken", []byte{1, 2, 3}) // wrong size, must be skipped, not fatal
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -45,7 +57,48 @@ func TestScanFiltersToMerchants(t *testing.T) {
 
 	want := []Template{
 		{TemplateName: "AkeMerchant", DisplayName: "Ake", Merchant: 19},
+		{TemplateName: "CargoGuard", DisplayName: "Cargo", Merchant: 2},
 		{TemplateName: "HekalMerchant", DisplayName: "Hekal", Merchant: 1},
+		{TemplateName: "Perzen_Normal", DisplayName: "Perzen_Normal", Merchant: 100},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d templates, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("templates[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestScanKeepsOnlyCanonicalKingTemplates(t *testing.T) {
+	dir := t.TempDir()
+	npcDir := filepath.Join(dir, "TMsrv", "run", "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	write := func(name string, b []byte) {
+		if err := os.WriteFile(filepath.Join(npcDir, name), b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("KingHarabard", mobBytes("KingHarabard", 111))
+	write("King_Harabard", mobBytes("King_Harabard", 96))
+	write("Rei_Harabard", mobBytes("Rei_Harabard", 111))
+	write("KingGlantuar", mobBytes("KingGlantuar", 111))
+	write("King_Glantuar", mobBytes("King_Glantuar", 96))
+	write("Rei_Glantuar", mobBytes("Rei_Glantuar", 111))
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	got, err := Scan(dir, logger)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	want := []Template{
+		{TemplateName: "Rei_Glantuar", DisplayName: "Rei_Glantuar", Merchant: 111},
+		{TemplateName: "Rei_Harabard", DisplayName: "Rei_Harabard", Merchant: 111},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d templates, want %d: %+v", len(got), len(want), got)

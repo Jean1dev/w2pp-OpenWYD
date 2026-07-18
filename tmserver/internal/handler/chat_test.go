@@ -66,6 +66,67 @@ func TestCommandNoatunTeleport(t *testing.T) {
 	}
 }
 
+// TestCommandReinoNoCape verifies /reino teleports a character with no cape equipped
+// (issue #127).
+func TestCommandReinoNoCape(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "reino", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgAction {
+		t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+	}
+	var body protocol.MsgActionBody
+	if err := body.Decode(payload); err != nil {
+		t.Fatalf("decode MsgAction: %v", err)
+	}
+	if body.TargetX < 1702 || body.TargetX > 1704 || body.TargetY < 1728 || body.TargetY > 1730 {
+		t.Errorf("/reino target = %d,%d, want within 1702..1704,1728..1730", body.TargetX, body.TargetY)
+	}
+}
+
+// TestCommandReinoWhiteCape verifies /reino also teleports a character wearing the
+// neutral Capa Branca do Monstro (#550).
+func TestCommandReinoWhiteCape(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+			Equip: [world.MaxEquip]world.Item{15: {Index: capaBrancaDoMonstroIndex}}},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "reino", "")
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgAction {
+		t.Errorf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+	}
+}
+
+// TestCommandReinoBlocked verifies /reino refuses (and notifies) a character wearing
+// any other (kingdom-aligned) cape.
+func TestCommandReinoBlocked(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+			Equip: [world.MaxEquip]world.Item{15: {Index: 543}}},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "reino", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeReinoCapeRequired {
+		t.Errorf("got %#x ok=%v, want MsgMessageBoxOk/NoticeReinoCapeRequired", ty, ok)
+	}
+}
+
 // TestCommandBuffs verifies /buffs clears affects and pushes a fresh score.
 func TestCommandBuffs(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
@@ -96,6 +157,25 @@ func TestCommandSair(t *testing.T) {
 	// trigger). With no in-view players, the guild-tag broadcast reaches no one.
 	if ty, _, ok := readMaybe(t, a); ok {
 		t.Errorf("/sair produced %#x; want a silent handled command", ty)
+	}
+}
+
+// TestCommandChaosPoints verifies /cp reports the caller's chaos points as a
+// MessageChat line. A freshly logged-in player is never guilty, so the value is 0.
+func TestCommandChaosPoints(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "cp", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgMessageChat {
+		t.Fatalf("got %#x ok=%v, want MessageChat", ty, ok)
+	}
+	want := "Pontos Caos atual: 0"
+	if string(payload[:len(want)]) != want {
+		t.Errorf("chat text = %q, want %q", payload, want)
 	}
 }
 
@@ -161,6 +241,91 @@ func TestWhisperBlocked(t *testing.T) {
 	whisperFrame(t, a, "HeroB", "hi")
 	if ty, p, ok := readMaybe(t, a); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeDenyWhisper {
 		t.Errorf("got %#x/%d, want deny-whisper notice", ty, noticeCode(t, p))
+	}
+}
+
+// TestCommandNickGuildless verifies /nick on a guildless target reports "Sem
+// guilda" plus its (zeroed) citizenship/fame.
+func TestCommandNickGuildless(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb") // name "HeroB"
+	defer b.Close()
+
+	whisperFrame(t, a, "nick", "HeroB")
+	p := expect(t, a, protocol.MsgMessageChat)
+	want := "HeroB [Sem guilda] Cidadania: 0 / Fama: 0"
+	if got := cstr(p); got != want {
+		t.Errorf("/nick text = %q, want %q", got, want)
+	}
+}
+
+// TestCommandNickUnregisteredGuild verifies a target with a nonzero guild id
+// that was never registered via /gm guildname|guildfame shows a placeholder.
+func TestCommandNickUnregisteredGuild(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7:  {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000},
+		11: {Slot: 0, Name: "HeroB", X: 5, Y: 5, HP: 1000, MaxHP: 1000, GuildID: 9, Citizen: 2, Fame: 150},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	whisperFrame(t, a, "nick", "HeroB")
+	p := expect(t, a, protocol.MsgMessageChat)
+	want := "HeroB [Guild #9 (nao registrada)] Cidadania: 2 / Fama: 150"
+	if got := cstr(p); got != want {
+		t.Errorf("/nick text = %q, want %q", got, want)
+	}
+}
+
+// TestCommandNickRegisteredGuild verifies /nick shows the registered guild
+// name/fame (set via /gm guildname and /gm guildfame) alongside citizenship
+// and character fame.
+func TestCommandNickRegisteredGuild(t *testing.T) {
+	db := gmDB()
+	db.loads[23] = world.CharacterState{ // account id 23 = "victim" (see gmDB)
+		Slot: 0, Name: "Victim", Class: 0, Level: 10, X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+		GuildID: 9, Citizen: 3, Fame: 777,
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	mod := enterWorldAs(t, addr, "mod")
+	defer mod.Close()
+	victim := enterWorldAs(t, addr, "victim")
+	defer victim.Close()
+
+	gmFrame(t, mod, "guildname 9 Dragoes")
+	gmFrame(t, mod, "guildfame 9 4242")
+	if ty, _, ok := readMaybe(t, mod); ok {
+		t.Errorf("guildname/guildfame produced %#x; want no client-visible packet", ty)
+	}
+
+	whisperFrame(t, mod, "nick", "Victim")
+	p := expect(t, mod, protocol.MsgMessageChat)
+	want := "Victim [Dragoes (Fama guilda: 4242)] Cidadania: 3 / Fama: 777"
+	if got := cstr(p); got != want {
+		t.Errorf("/nick text = %q, want %q", got, want)
+	}
+}
+
+// TestCommandNickOffline verifies /nick on an unknown name behaves like a
+// normal offline whisper (the existing not-connected notice).
+func TestCommandNickOffline(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "nick", "Ghost")
+	if ty, p, ok := readMaybe(t, a); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeNotConnected {
+		t.Errorf("got %#x/%d, want not-connected notice", ty, noticeCode(t, p))
 	}
 }
 

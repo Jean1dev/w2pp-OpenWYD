@@ -67,10 +67,13 @@ type Config struct {
 
 	// ItemPos maps item index → nPos (equip-slot class) for the refine (+9) threshold
 	// bonuses. ItemUnique maps index → nUnique (gates EF_DAMAGEADD to jewels).
-	// ItemGrades maps index → Grade (grade-7 pieces grant +2 ExpBonus).
+	// ItemGrades maps index → Grade (grade-7 pieces grant +2 ExpBonus). ItemExtra maps
+	// index → Extra (the result-item index for the Anct combine and the Adamantita
+	// legendary-upgrade combine, issue #135).
 	ItemPos    map[int]int
 	ItemUnique map[int]int
 	ItemGrades map[int]int
+	ItemExtra  map[int]int
 
 	// SancRate is the dust-refine success table (Common/Settings/SancRate.txt over
 	// the Basedef.cpp defaults; *content.SancRate satisfies it). When nil the
@@ -120,6 +123,7 @@ type Dispatcher struct {
 	itemPos         map[int]int                  // item index → nPos (refine threshold)
 	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
 	itemGrades      map[int]int                  // item index → Grade (ExpBonus)
+	itemExtra       map[int]int                  // item index → Extra (Anct/Adamantita combine result)
 	sancRate        refine.RateTable             // dust-refine success table (g_pSancRate)
 	expEvents       level.ExpEvents              // global EXP event flags
 	spells          *content.SkillData           // skill catalog (g_pSpell)
@@ -170,6 +174,7 @@ func New(cfg Config) *Dispatcher {
 		itemPos:         cfg.ItemPos,
 		itemUnique:      cfg.ItemUnique,
 		itemGrades:      cfg.ItemGrades,
+		itemExtra:       cfg.ItemExtra,
 		sancRate:        cfg.SancRate,
 		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,

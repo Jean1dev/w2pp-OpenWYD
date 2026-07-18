@@ -82,8 +82,28 @@ func kingTemplate() []byte {
 	binary.LittleEndian.PutUint16(b[40:], 5)      // SPX
 	binary.LittleEndian.PutUint16(b[42:], 5)      // SPY
 	binary.LittleEndian.PutUint16(b[140:], 11)    // Equip[0].index
-	b[140+2], b[140+3] = 100, 4                   // EF_GRADE0 = KING
 	return b
+}
+
+func TestIsKingQuestNPCShapes(t *testing.T) {
+	tests := []struct {
+		name string
+		npc  *world.Entity
+		want bool
+	}{
+		{"real current score merchant", &world.Entity{Merchant: 111}, true},
+		{"legacy top-level harabard", &world.Entity{Merchant: 14}, true},
+		{"legacy top-level glantuar", &world.Entity{Merchant: 15}, true},
+		{"unsupported variant", &world.Entity{Merchant: 96}, false},
+		{"nil", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isKingQuestNPC(tt.npc); got != tt.want {
+				t.Errorf("isKingQuestNPC() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func startServerKing(t *testing.T, db *fakeDB) (string, func(), int) {
