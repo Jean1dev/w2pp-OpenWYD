@@ -116,11 +116,16 @@ type TradeState struct {
 // space. Phase 3 carries only the minimum; full STRUCT_MOB state arrives with
 // the handlers (Phase 4).
 type Entity struct {
-	ID       int
-	Mode     EntityMode
-	Name     string
-	X        int16
-	Y        int16
+	ID   int
+	Mode EntityMode
+	Name string
+	X    int16
+	Y    int16
+	// SaveX/SaveY are the Gema Estelar warp save-point (STRUCT_MOB.SPX/SPY,
+	// _MSG_UseItem.cpp Vol 12/13) — distinct from X/Y, the player's live position.
+	// 0/0 means no point has ever been saved.
+	SaveX    int16
+	SaveY    int16
 	HP       int32
 	MaxHP    int32
 	MP       int32 // current mana (status display)
@@ -181,7 +186,7 @@ type Entity struct {
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
 	Citizen     uint8    // MobExtra.Citizen (city allegiance; 0 = none); read-only, not simulated live
-	Fame        int32    // MobExtra.Fame; loaded from DB and incremented by Selo do Guerreiro
+	Fame        int32    // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat

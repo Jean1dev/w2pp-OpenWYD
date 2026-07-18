@@ -1,10 +1,9 @@
-// Package npctemplates scans the read-only content tree for merchant NPC
+// Package npctemplates scans the read-only content tree for supported NPC
 // templates, so the moderator UI can offer a searchable picker for
 // NpcAdminService.UpsertNpc's template_name instead of free text (a typo there
 // leaves the definition in Postgres but the tmServer silently skips the spawn —
-// npc-editing-plan.md). It reuses internal/savefmt.DecodeMob, the same decoder
-// dbserver's `import-npcs` importer (buildNPCDefinitions) uses to identify
-// merchants, so both agree on what counts as one.
+// npc-editing-plan.md). The picker is intentionally curated: the raw content
+// tree has legacy quest variants that the panel cannot use safely yet.
 //
 // STRUCT_MOB.Name is ISO-8859-1 (same source tree, same encoding as
 // itemcatalog's ItemList.csv) — see cString for the transcoding, needed here
@@ -21,7 +20,22 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
-// Template is one merchant-type STRUCT_MOB template found under
+const (
+	merchantShop      = 1
+	merchantCargo     = 2
+	merchantShopType3 = 19
+	merchantQuest     = 100
+	merchantKing      = 111
+
+	efGrade0 = 100
+)
+
+var canonicalKingTemplates = map[string]struct{}{
+	"Rei_Harabard": {},
+	"Rei_Glantuar": {},
+}
+
+// Template is one supported STRUCT_MOB template found under
 // Release/TMsrv/run/npc/.
 type Template struct {
 	TemplateName string
@@ -30,10 +44,10 @@ type Template struct {
 }
 
 // Scan reads every file in <contentDir>/TMsrv/run/npc/, decodes it as a
-// STRUCT_MOB and keeps only the ones with CurrentScore.Merchant != 0 (the same
-// field buildNPCDefinitions filters on), sorted by TemplateName. A file that
-// isn't a valid 816-byte STRUCT_MOB is logged and skipped rather than failing
-// the whole scan — the npc/ directory can contain non-template files.
+// STRUCT_MOB and keeps only the templates supported by the admin panel today,
+// sorted by TemplateName. A file that isn't a valid 816-byte STRUCT_MOB is
+// logged and skipped rather than failing the whole scan - the npc/ directory can
+// contain non-template files.
 func Scan(contentDir string, logger *slog.Logger) ([]Template, error) {
 	dir := filepath.Join(contentDir, "TMsrv", "run", "npc")
 	entries, err := os.ReadDir(dir)
@@ -57,8 +71,8 @@ func Scan(contentDir string, logger *slog.Logger) ([]Template, error) {
 			logger.Warn("npc template decode failed", "name", name, "err", err)
 			continue
 		}
-		if mob.CurrentScore.Merchant == 0 {
-			continue // monster / non-shop NPC, not offered in the picker
+		if !supportedTemplate(name, mob) {
+			continue
 		}
 		out = append(out, Template{
 			TemplateName: name,
@@ -71,9 +85,33 @@ func Scan(contentDir string, logger *slog.Logger) ([]Template, error) {
 	return out, nil
 }
 
+func supportedTemplate(name string, mob savefmt.Mob) bool {
+	switch mob.CurrentScore.Merchant {
+	case merchantShop, merchantCargo, merchantShopType3:
+		return true
+	case merchantQuest:
+		grade := questGrade(mob)
+		return grade >= 7 && grade <= 9
+	case merchantKing:
+		_, ok := canonicalKingTemplates[name]
+		return ok
+	default:
+		return false
+	}
+}
+
+func questGrade(mob savefmt.Mob) uint8 {
+	for _, ef := range mob.Equip[0].Effects {
+		if ef.Effect == efGrade0 {
+			return ef.Value
+		}
+	}
+	return 0
+}
+
 // cString trims a fixed-size name field at the first NUL byte and converts it
 // from ISO-8859-1 to UTF-8 (each Latin-1 byte's value IS its Unicode code
-// point, by definition of that encoding) — without this, accented names come
+// point, by definition of that encoding) - without this, accented names come
 // out mojibake over gRPC/JSON, same bug class as itemcatalog.latin1ToUTF8.
 func cString(b []byte) string {
 	for i, c := range b {
