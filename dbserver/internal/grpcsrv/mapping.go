@@ -57,6 +57,8 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		ClassMaster:     int32(ch.ClassMaster),
 		Citizen:         int32(ch.Citizen),
 		Fame:            ch.Fame,
+		SaveX:           int32(ch.SaveX),
+		SaveY:           int32(ch.SaveY),
 	}
 }
 
@@ -115,6 +117,8 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		ClassMaster:     uint8(c.GetClassMaster()),
 		Citizen:         uint8(c.GetCitizen()),
 		Fame:            c.GetFame(),
+		SaveX:           int16(c.GetSaveX()),
+		SaveY:           int16(c.GetSaveY()),
 	}
 }
 

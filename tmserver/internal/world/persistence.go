@@ -109,6 +109,8 @@ type CharacterState struct {
 	X           int16
 	Y           int16
 	LastCity    int16 // last city (0..3); login spawn = that city's default area
+	SaveX       int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX), 0 = never set
+	SaveY       int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY), 0 = never set
 	HP          int32
 	MaxHP       int32
 	MP          int32
@@ -167,14 +169,18 @@ type SavedItem struct {
 
 // CharacterSave is the snapshot the world hands to the persistence backend on
 // shutdown. It carries ONLY the fields the in-world Entity authoritatively
-// tracks this phase (domain-model.md §2.2): position is not persisted yet, and
-// class/mp are absent because the world does not simulate them (PROGRESS Fase 4 —
-// full STRUCT_MOB is UNVERIFIED). Exp IS persisted now (earned from kills). The
-// world builds it (it owns the Entity); the adapter only ships it.
+// tracks this phase (domain-model.md §2.2): the world-entry position (X/Y) is
+// not persisted yet, and class/mp are absent because the world does not
+// simulate them (PROGRESS Fase 4 — full STRUCT_MOB is UNVERIFIED). Exp IS
+// persisted now (earned from kills), and so is the Gema Estelar warp
+// save-point (SaveX/SaveY) — distinct from the unpersisted world-entry
+// position. The world builds it (it owns the Entity); the adapter only ships it.
 type CharacterSave struct {
 	AccountID int64
 	Slot      int
 	LastCity  int16
+	SaveX     int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX)
+	SaveY     int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY)
 	Clan      uint8
 	GuildID   uint16
 	Level     int32
@@ -195,6 +201,7 @@ type CharacterSave struct {
 	LearnedSkill    int32
 	SecLearnedSkill int32
 	Soul            uint8
+	Fame            int32
 	BaseSpecial     [4]int16
 	SkillBar        [4]uint8
 	ShortSkill      [16]uint8

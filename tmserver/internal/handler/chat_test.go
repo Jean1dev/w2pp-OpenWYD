@@ -160,6 +160,25 @@ func TestCommandSair(t *testing.T) {
 	}
 }
 
+// TestCommandChaosPoints verifies /cp reports the caller's chaos points as a
+// MessageChat line. A freshly logged-in player is never guilty, so the value is 0.
+func TestCommandChaosPoints(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "cp", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgMessageChat {
+		t.Fatalf("got %#x ok=%v, want MessageChat", ty, ok)
+	}
+	want := "Pontos Caos atual: 0"
+	if string(payload[:len(want)]) != want {
+		t.Errorf("chat text = %q, want %q", payload, want)
+	}
+}
+
 func TestChatPublicBroadcast(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
 	defer stop()
