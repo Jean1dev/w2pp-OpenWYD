@@ -237,6 +237,13 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgTradingItem] = d.tradingItem
 	d.routes[protocol.MsgTrade] = d.trade
 	d.routes[protocol.MsgQuitTrade] = d.quitTrade
+
+	// Personal shop / autotrade (issue #115). Closing a shop is RemoveTrade
+	// (movement / QuitTrade / item ops all route through removeTrade), so there is
+	// no dedicated close route — _MSG_Deprivate is a guild op, left unrouted.
+	d.routes[protocol.MsgSendAutoTrade] = d.sendAutoTrade
+	d.routes[protocol.MsgReqTradeList] = d.reqTradeList
+	d.routes[protocol.MsgReqBuy] = d.reqBuy
 	// Batch 6 — combine/refine (one engine, all Item[]-based variants).
 	for _, ty := range combineItemTypes {
 		d.routes[ty] = d.combineItem

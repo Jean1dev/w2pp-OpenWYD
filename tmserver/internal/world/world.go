@@ -28,6 +28,7 @@ const (
 	MaxCarry       = 64   // inventory slots per entity (MAX_CARRY)
 	MaxEquip       = 16   // equipment slots (MAX_EQUIP)
 	MaxCargo       = 128  // account-shared warehouse slots (MAX_CARGO)
+	MaxAutoTrade   = 12   // personal-shop item slots (MAX_AUTOTRADE, issue #115)
 	MaxParty       = 12   // party members (MAX_PARTY)
 	DefaultGridDim = 4096
 

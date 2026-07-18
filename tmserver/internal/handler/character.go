@@ -552,6 +552,11 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 				// the next character selected on this session (issue #21/#47).
 				e.ResetAffects()
 			}
+			// Drop any open personal shop (issue #115): the RemoveMob above already
+			// cleared the stall pose for viewers, so just clear the session-only
+			// state so it can't leak into the next character on this connection.
+			s.AutoTrade = nil
+			s.TradeMode = 0
 			s.Mode = world.UserSelChar
 			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
 		})

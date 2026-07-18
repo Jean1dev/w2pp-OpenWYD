@@ -126,6 +126,9 @@ func (d *Dispatcher) quitTrade(w *world.World, s *world.Session, _ protocol.Head
 // removeTrade cancels any active trade on s and its opponent, notifying both.
 // It is also the anti-dup hook called when a player drops/uses/attacks mid-trade.
 func (d *Dispatcher) removeTrade(w *world.World, s *world.Session) {
+	// RemoveTrade in the original also closes an open personal shop (Server.cpp:8124);
+	// this is what makes walking/buying/item-ops/quit-trade tear the stall down.
+	d.closeAutoTrade(w, s)
 	if !s.Trade.Active {
 		return
 	}

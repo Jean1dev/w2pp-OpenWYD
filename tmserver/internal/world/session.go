@@ -62,20 +62,21 @@ type Session struct {
 	Slot              int
 	Mode              Mode
 	IP                string
-	CrackError        int        // anti-cheat violation count (CUser.NumError)
-	Whisper           bool       // true blocks incoming whispers
-	GuildDisable      bool       // hide guild tag (guildon/guildoff)
-	TradeMode         int        // non-zero while in auto-trade (blocks attacks)
-	Trade             TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
-	LastAttackTick    uint32     // ClientTick of the last accepted attack (cadence gate)
-	PotionTick        uint32     // CUser.PotionTime: server clock of the last accepted potion
-	LastAttack        int        // SkillIndex of the last attack
-	LastIllusionTick  uint32     // ClientTick of the last Huntress Ilusao movement
-	ReqHp             int32      // CUser.ReqHp: server-owned HP target for regen/potions
-	ReqMp             int32      // CUser.ReqMp: server-owned MP target for regen/potions
-	CriticalProgress  uint16     // CUser.cProgress used by BASE_GetDoubleCritical
-	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
-	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
+	CrackError        int             // anti-cheat violation count (CUser.NumError)
+	Whisper           bool            // true blocks incoming whispers
+	GuildDisable      bool            // hide guild tag (guildon/guildoff)
+	TradeMode         int             // non-zero while in auto-trade (blocks attacks)
+	Trade             TradeState      // P2P direct-trade state (lote2-trade-autotrade.md)
+	AutoTrade         *AutoTradeState // non-nil while a personal shop is open (issue #115); TradeMode==1
+	LastAttackTick    uint32          // ClientTick of the last accepted attack (cadence gate)
+	PotionTick        uint32          // CUser.PotionTime: server clock of the last accepted potion
+	LastAttack        int             // SkillIndex of the last attack
+	LastIllusionTick  uint32          // ClientTick of the last Huntress Ilusao movement
+	ReqHp             int32           // CUser.ReqHp: server-owned HP target for regen/potions
+	ReqMp             int32           // CUser.ReqMp: server-owned MP target for regen/potions
+	CriticalProgress  uint16          // CUser.cProgress used by BASE_GetDoubleCritical
+	ShortSkill        [16]uint8       // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	LoginSpawnX       int16           // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
 	LoginTick         uint32
 	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
@@ -109,6 +110,25 @@ type TradeState struct {
 	Confirmed  bool
 	Money      int32
 	Slots      []int // offered carry slots
+}
+
+// AutoTradeState is an open personal shop (the legacy pUser[conn].AutoTrade, issue
+// #115). It is session-only — never persisted, so a shop never survives relogin —
+// and loop-owned. Items are sold out of the account Cargo by CargoPos; the offered
+// item is copied into the slot so a buy can memcmp it against the live Cargo slot
+// (anti item-swap). While a shop is open the session's TradeMode is 1.
+type AutoTradeState struct {
+	Title string
+	Tax   int16
+	Slots [MaxAutoTrade]AutoTradeSlot
+}
+
+// AutoTradeSlot is one shop offer: the item (copy of the seller's Cargo slot), its
+// source Cargo slot (-1 = empty), and its price. CargoPos < 0 means an unused slot.
+type AutoTradeSlot struct {
+	Item     Item
+	CargoPos int
+	Price    int32
 }
 
 // Entity is a world entity (CMob subset, domain-model.md §2.2). Players
