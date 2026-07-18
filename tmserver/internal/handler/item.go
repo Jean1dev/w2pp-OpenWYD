@@ -249,6 +249,8 @@ const (
 	volGemCoral     = 182
 	volGemGarnet    = 183
 	volSilverBar    = 185
+	volMagicBean    = 186
+	volPaint        = volMagicBean
 	volExpChest     = 198
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
@@ -1067,7 +1069,6 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 }
 
 const (
-	volMagicBean       = 186
 	magicBeanBase      = 3407
 	magicBeanRemover   = 10
 	magicBeanPaintLo   = 116
@@ -1100,6 +1101,10 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 	}
 
 	color := int(e.Carry[src].Index) - magicBeanBase
+	if color < 0 || color > magicBeanRemover {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
 	effect := uint8(magicBeanPaintLo + color)
 	if color == magicBeanRemover {
 		effect = efSanc
@@ -1113,10 +1118,14 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 	dst.Effects[i].Effect = effect
 
 	d.notify(w, s, NoticeRefineSuccess)
-	d.refreshScore(e)
-	d.sendScore(w, s, e)
+	// refreshEquip recomputes e.EquipVisual/EquipAnct (the cached worn-item color
+	// codes) and rebroadcasts them; refreshScore alone leaves them stale, so on a
+	// later teleport createMobFrom would re-send the pre-paint color (#157). It also
+	// folds in refreshScore + sendScore internally.
+	d.refreshEquip(w, s, e)
 	consumeOneItem(&e.Carry[src])
 	d.sendSlot(w, s, int(body.DestType), dstSlot, *dst)
+	d.sendEquipVisual(w, s, e)
 }
 
 func (d *Dispatcher) magicBeanReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
@@ -1217,12 +1226,7 @@ func equipVisual(e *world.Entity) ([16]uint16, [16]uint8) {
 	return v, a
 }
 
-// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
-// the player's own client AND every in-view player, so an equip/unequip is
-// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
-// is the entity id so the client applies it to the right mob. It also re-sends the
-// score, since equipment changes the character's attributes.
-func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+func (d *Dispatcher) sendEquipVisual(w *world.World, s *world.Session, e *world.Entity) {
 	e.EquipVisual, e.EquipAnct = equipVisual(e)
 	body := protocol.EncodeUpdateEquip(e.EquipVisual, e.EquipAnct)
 	h := protocol.Header{Type: protocol.MsgUpdateEquip, ID: uint16(s.Conn)}
@@ -1230,6 +1234,15 @@ func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Ent
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, h, body)
 	})
+}
+
+// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
+// the player's own client AND every in-view player, so an equip/unequip is
+// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
+// is the entity id so the client applies it to the right mob. It also re-sends the
+// score, since equipment changes the character's attributes.
+func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+	d.sendEquipVisual(w, s, e)
 	d.refreshScore(e) // fold the new gear's AC/attributes/HP/MP into CurrentScore
 	d.sendScore(w, s, e)
 }
