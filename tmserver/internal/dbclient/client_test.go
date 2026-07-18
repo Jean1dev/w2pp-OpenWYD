@@ -160,7 +160,8 @@ func TestAccountLoginFailSkipsList(t *testing.T) {
 func TestLoadCharacterMapping(t *testing.T) {
 	api := &fakeAPI{loadResp: &dbv1.LoadCharacterResponse{Character: &dbv1.Character{
 		Slot: 1, Name: "mage", Level: 20, Coin: 500, Str: 5, Hp: 100, MaxHp: 200,
-		SecLearnedSkill: 0x01020304, Soul: 3, ClassMaster: 1,
+		SecLearnedSkill: 0x01020304, Soul: 3, ClassMaster: 1, Citizen: 2, Fame: 999,
+		SaveX: 1234, SaveY: 5678, CelestialLv40: 1, CelestialCircle: 1,
 		Equip: []*dbv1.Item{{Slot: 1, Index: 1100, Eff1: 4, Effv1: 5}},
 		Carry: []*dbv1.Item{{Slot: 3, Index: 1234, Eff1: 9, Effv1: 1}},
 	}}}
@@ -171,6 +172,9 @@ func TestLoadCharacterMapping(t *testing.T) {
 	if st.Name != "mage" || st.Level != 20 || st.Coin != 500 || st.HP != 100 {
 		t.Fatalf("state not mapped: %+v", st)
 	}
+	if st.SaveX != 1234 || st.SaveY != 5678 {
+		t.Fatalf("Gema Estelar save-point not mapped: SaveX=%d SaveY=%d", st.SaveX, st.SaveY)
+	}
 	if st.Carry[3].Index != 1234 || st.Carry[3].Effects[0].Effect != 9 {
 		t.Fatalf("carry not mapped: %+v", st.Carry[3])
 	}
@@ -179,6 +183,12 @@ func TestLoadCharacterMapping(t *testing.T) {
 	}
 	if st.ClassMaster != 1 {
 		t.Fatalf("ClassMaster = %d, want 1", st.ClassMaster)
+	}
+	if st.CelLv40 != 1 || st.CelLv90 != 0 || st.CelCircle != 1 {
+		t.Fatalf("Celestial gates not mapped: lv40=%d lv90=%d circle=%d", st.CelLv40, st.CelLv90, st.CelCircle)
+	}
+	if st.Citizen != 2 || st.Fame != 999 {
+		t.Fatalf("Citizen/Fame not mapped: citizen=%d fame=%d", st.Citizen, st.Fame)
 	}
 	// Equipment must be injected too (it was previously dropped at this boundary).
 	if st.Equip[1].Index != 1100 || st.Equip[1].Effects[0].Effect != 4 {
@@ -206,7 +216,8 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	api := &fakeAPI{}
 	save := world.CharacterSave{
 		AccountID: 1, Slot: 1, Level: 21, Coin: 600, HP: 150, MaxHP: 200,
-		SecLearnedSkill: 0x01020304, Soul: 3,
+		SecLearnedSkill: 0x01020304, Soul: 3, Fame: 456, SaveX: 1234, SaveY: 5678,
+		ClassMaster: 3, CelLv40: 1, CelCircle: 1,
 		Carry: []world.SavedItem{{Slot: 3, Index: 1234, Eff1: 9, EffV1: 1}},
 	}
 	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {
@@ -219,8 +230,14 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	if c.GetLevel() != 21 || c.GetCoin() != 600 || c.GetHp() != 150 {
 		t.Fatalf("save not mapped: %+v", c)
 	}
-	if c.GetSecLearnedSkill() != 0x01020304 || c.GetSoul() != 3 {
+	if c.GetSaveX() != 1234 || c.GetSaveY() != 5678 {
+		t.Fatalf("Gema Estelar save-point not mapped: SaveX=%d SaveY=%d", c.GetSaveX(), c.GetSaveY())
+	}
+	if c.GetSecLearnedSkill() != 0x01020304 || c.GetSoul() != 3 || c.GetFame() != 456 {
 		t.Fatalf("save MobExtra fields not mapped: %+v", c)
+	}
+	if c.GetClassMaster() != 3 || c.GetCelestialLv40() != 1 || c.GetCelestialLv90() != 0 || c.GetCelestialCircle() != 1 {
+		t.Fatalf("save tier fields not mapped: %+v", c)
 	}
 	if len(c.GetCarry()) != 1 || c.GetCarry()[0].GetIndex() != 1234 {
 		t.Fatalf("save carry not mapped: %+v", c.GetCarry())

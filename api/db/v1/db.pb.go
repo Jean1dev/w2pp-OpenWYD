@@ -601,9 +601,13 @@ type Character struct {
 	SecLearnedSkill int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"` // MobExtra.SecLearnedSkill
 	Soul            int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                // MobExtra.Soul
 	ClassMaster     int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`               // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
-	CelestialLv40   int32    `protobuf:"varint,31,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`         // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
-	CelestialLv90   int32    `protobuf:"varint,32,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`         // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
-	CelestialCircle int32    `protobuf:"varint,33,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`   // QuestInfo.Circle (Cythera Arcana quest done)
+	Citizen         int32    `protobuf:"varint,31,opt,name=citizen,proto3" json:"citizen,omitempty"`                                          // MobExtra.Citizen (city allegiance; 0 = none)
+	Fame            int32    `protobuf:"varint,32,opt,name=fame,proto3" json:"fame,omitempty"`                                                // MobExtra.Fame
+	SaveX           int32    `protobuf:"varint,33,opt,name=save_x,json=saveX,proto3" json:"save_x,omitempty"`                                 // STRUCT_MOB.SPX: Gema Estelar warp save-point
+	SaveY           int32    `protobuf:"varint,34,opt,name=save_y,json=saveY,proto3" json:"save_y,omitempty"`                                 // STRUCT_MOB.SPY: Gema Estelar warp save-point
+	CelestialLv40   int32    `protobuf:"varint,35,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`         // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelestialLv90   int32    `protobuf:"varint,36,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`         // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelestialCircle int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`   // QuestInfo.Circle (Cythera Arcana quest done)
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -844,6 +848,34 @@ func (x *Character) GetSoul() int32 {
 func (x *Character) GetClassMaster() int32 {
 	if x != nil {
 		return x.ClassMaster
+	}
+	return 0
+}
+
+func (x *Character) GetCitizen() int32 {
+	if x != nil {
+		return x.Citizen
+	}
+	return 0
+}
+
+func (x *Character) GetFame() int32 {
+	if x != nil {
+		return x.Fame
+	}
+	return 0
+}
+
+func (x *Character) GetSaveX() int32 {
+	if x != nil {
+		return x.SaveX
+	}
+	return 0
+}
+
+func (x *Character) GetSaveY() int32 {
+	if x != nil {
+		return x.SaveY
 	}
 	return 0
 }
@@ -2763,7 +2795,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x8b\a\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xe7\a\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2797,10 +2829,14 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"shortSkill\x12*\n" +
 	"\x11sec_learned_skill\x18\x1c \x01(\x05R\x0fsecLearnedSkill\x12\x12\n" +
 	"\x04soul\x18\x1d \x01(\x05R\x04soul\x12!\n" +
-	"\fclass_master\x18\x1e \x01(\x05R\vclassMaster\x12%\n" +
-	"\x0ecelestial_lv40\x18\x1f \x01(\x05R\rcelestialLv40\x12%\n" +
-	"\x0ecelestial_lv90\x18  \x01(\x05R\rcelestialLv90\x12)\n" +
-	"\x10celestial_circle\x18! \x01(\x05R\x0fcelestialCircle\"\xcd\x01\n" +
+	"\fclass_master\x18\x1e \x01(\x05R\vclassMaster\x12\x18\n" +
+	"\acitizen\x18\x1f \x01(\x05R\acitizen\x12\x12\n" +
+	"\x04fame\x18  \x01(\x05R\x04fame\x12\x15\n" +
+	"\x06save_x\x18! \x01(\x05R\x05saveX\x12\x15\n" +
+	"\x06save_y\x18\" \x01(\x05R\x05saveY\x12%\n" +
+	"\x0ecelestial_lv40\x18# \x01(\x05R\rcelestialLv40\x12%\n" +
+	"\x0ecelestial_lv90\x18$ \x01(\x05R\rcelestialLv90\x12)\n" +
+	"\x10celestial_circle\x18% \x01(\x05R\x0fcelestialCircle\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

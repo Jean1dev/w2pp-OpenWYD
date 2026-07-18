@@ -289,10 +289,10 @@ func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 
 // characterStateFromProto maps the loaded character to the world injection shape.
 //
-// UNVERIFIED: the contract (api/db/v1 Character) does not carry position (X/Y),
-// the derived combat scores (Damage/AC/Master) or GuildLevel, so those stay zero
-// until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4). Position
-// especially must be resolved before live play.
+// UNVERIFIED: the contract (api/db/v1 Character) does not carry the world-entry
+// spawn tile (CharacterState.X/Y, distinct from the Gema Estelar SaveX/SaveY
+// below), the derived combat scores (Damage/AC/Master) or GuildLevel, so those
+// stay zero until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4).
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
 		Slot:        int(c.GetSlot()),
@@ -312,11 +312,15 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		CelLv90:     uint8(c.GetCelestialLv90()),
 		CelCircle:   uint8(c.GetCelestialCircle()),
 		Soul:        uint8(c.GetSoul()),
+		Citizen:     uint8(c.GetCitizen()),
+		Fame:        c.GetFame(),
 		Str:         int16(c.GetStr()),
 		Int:         int16(c.GetInt()),
 		Dex:         int16(c.GetDex()),
 		Con:         int16(c.GetCon()),
 		LastCity:    int16(c.GetLastCity()),
+		SaveX:       int16(c.GetSaveX()),
+		SaveY:       int16(c.GetSaveY()),
 
 		ScoreBonus:      uint16(c.GetScoreBonus()),
 		SpecialBonus:    uint16(c.GetSpecialBonus()),
@@ -404,6 +408,8 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Mp:       s.MP,
 		MaxMp:    s.MaxMP,
 		LastCity: int32(s.LastCity),
+		SaveX:    int32(s.SaveX),
+		SaveY:    int32(s.SaveY),
 		Carry:    savedItemsToProto(s.Carry),
 		Equip:    savedItemsToProto(s.Equip),
 
@@ -412,6 +418,7 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		LearnedSkill:    s.LearnedSkill,
 		SecLearnedSkill: s.SecLearnedSkill,
 		Soul:            int32(s.Soul),
+		Fame:            s.Fame,
 		// Tier state: class_master (transformations) + the celestial quest gates.
 		// The load side never trusted class_master=0 (defaults to MORTAL); saving it
 		// here is what makes a tier change survive relog.

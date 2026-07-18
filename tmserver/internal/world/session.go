@@ -75,6 +75,7 @@ type Session struct {
 	ReqMp             int32      // CUser.ReqMp: server-owned MP target for regen/potions
 	CriticalProgress  uint16     // CUser.cProgress used by BASE_GetDoubleCritical
 	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	QuestTicketTravel bool       // right-click Quest 256 ticket travel is pending; blocks double-use
 	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
 	LoginTick         uint32
@@ -116,11 +117,16 @@ type TradeState struct {
 // space. Phase 3 carries only the minimum; full STRUCT_MOB state arrives with
 // the handlers (Phase 4).
 type Entity struct {
-	ID       int
-	Mode     EntityMode
-	Name     string
-	X        int16
-	Y        int16
+	ID   int
+	Mode EntityMode
+	Name string
+	X    int16
+	Y    int16
+	// SaveX/SaveY are the Gema Estelar warp save-point (STRUCT_MOB.SPX/SPY,
+	// _MSG_UseItem.cpp Vol 12/13) — distinct from X/Y, the player's live position.
+	// 0/0 means no point has ever been saved.
+	SaveX    int16
+	SaveY    int16
 	HP       int32
 	MaxHP    int32
 	MP       int32 // current mana (status display)
@@ -184,6 +190,8 @@ type Entity struct {
 	// CMob.cpp:1107); CelCircle marks the Cythera Arcana quest done (/arcana). Persisted.
 	CelLv40, CelLv90, CelCircle uint8
 	Soul                        uint8 // MobExtra.Soul; 0 means no modeled soul
+	Citizen                     uint8 // MobExtra.Citizen (city allegiance; 0 = none); read-only, not simulated live
+	Fame                        int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
 	QuestFlag                   uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat

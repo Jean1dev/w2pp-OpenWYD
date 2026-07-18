@@ -1967,7 +1967,7 @@ func (x *DeleteNpcRequest) GetNpcId() int64 {
 	return 0
 }
 
-// MerchantTemplate is one merchant-type STRUCT_MOB template found under
+// MerchantTemplate is one supported STRUCT_MOB template found under
 // Release/TMsrv/run/npc/.
 type MerchantTemplate struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
