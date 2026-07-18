@@ -186,7 +186,7 @@ type Entity struct {
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
 	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
 	Citizen     uint8    // MobExtra.Citizen (city allegiance; 0 = none); read-only, not simulated live
-	Fame        int32    // MobExtra.Fame; updated by Selo do Guerreiro and shown by /nick
+	Fame        int32    // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
 	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
