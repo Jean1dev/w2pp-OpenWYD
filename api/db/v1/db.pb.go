@@ -652,7 +652,9 @@ type Character struct {
 	ClassMaster     int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`               // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
 	Citizen         int32    `protobuf:"varint,31,opt,name=citizen,proto3" json:"citizen,omitempty"`                                          // MobExtra.Citizen (city allegiance; 0 = none)
 	Fame            int32    `protobuf:"varint,32,opt,name=fame,proto3" json:"fame,omitempty"`                                                // MobExtra.Fame
-	GuildLevel      int32    `protobuf:"varint,33,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                  // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
+	SaveX           int32    `protobuf:"varint,33,opt,name=save_x,json=saveX,proto3" json:"save_x,omitempty"`                                 // STRUCT_MOB.SPX: Gema Estelar warp save-point
+	SaveY           int32    `protobuf:"varint,34,opt,name=save_y,json=saveY,proto3" json:"save_y,omitempty"`                                 // STRUCT_MOB.SPY: Gema Estelar warp save-point
+	GuildLevel      int32    `protobuf:"varint,35,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                  // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -907,6 +909,20 @@ func (x *Character) GetCitizen() int32 {
 func (x *Character) GetFame() int32 {
 	if x != nil {
 		return x.Fame
+	}
+	return 0
+}
+
+func (x *Character) GetSaveX() int32 {
+	if x != nil {
+		return x.SaveX
+	}
+	return 0
+}
+
+func (x *Character) GetSaveY() int32 {
+	if x != nil {
+		return x.SaveY
 	}
 	return 0
 }
@@ -4472,7 +4488,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xe1\x06\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x8f\a\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -4508,8 +4524,10 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04soul\x18\x1d \x01(\x05R\x04soul\x12!\n" +
 	"\fclass_master\x18\x1e \x01(\x05R\vclassMaster\x12\x18\n" +
 	"\acitizen\x18\x1f \x01(\x05R\acitizen\x12\x12\n" +
-	"\x04fame\x18  \x01(\x05R\x04fame\x12\x1f\n" +
-	"\vguild_level\x18! \x01(\x05R\n" +
+	"\x04fame\x18  \x01(\x05R\x04fame\x12\x15\n" +
+	"\x06save_x\x18! \x01(\x05R\x05saveX\x12\x15\n" +
+	"\x06save_y\x18\" \x01(\x05R\x05saveY\x12\x1f\n" +
+	"\vguild_level\x18# \x01(\x05R\n" +
 	"guildLevel\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +

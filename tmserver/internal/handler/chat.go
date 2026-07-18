@@ -78,6 +78,19 @@ var teleportCmds = map[string][2]int16{
 	"noatun": {1052, 1726},
 }
 
+// reinoCapeSlot is the cape equip slot (Equip[15]), confirmed by _MSG_Quest.cpp:702
+// (STRUCT_ITEM *Capa = &pMob[conn].MOB.Equip[15]) and every cape's nPos=-32768
+// (bit 15) in Release/Common/ItemList.csv.
+const reinoCapeSlot = 15
+
+// capaBrancaDoMonstroIndex is ItemList.csv #550 "Capa_Branca_do_Monstro" — the neutral
+// cape the /reino command (issue #127) treats as equivalent to no cape at all.
+const capaBrancaDoMonstroIndex = 550
+
+// reinoDest is the /reino destination (issue #127): the kingdom-city neighborhood,
+// the same area as the existing /arch teleport ({1706,1723}).
+var reinoDest = [2]int16{1702, 1728}
+
 // runCommand executes a chat slash command delivered as a whisper whose target name is
 // the command. Returns true when name was a command (handled); false to fall through to
 // the normal whisper delivery. Mirrors the dispatch in _MSG_MessageWhisper.cpp.
@@ -91,6 +104,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		if e := w.Entity(s.Conn); e != nil {
 			d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
 		}
+		return true
+	}
+	if cmd == "reino" {
+		d.teleportReino(w, s)
 		return true
 	}
 	if cmd == "buffs" {
@@ -121,6 +138,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.leaveGuild(w, s)
 		return true
 	}
+	if cmd == "cp" {
+		d.showChaosPoints(w, s)
+		return true
+	}
 	if cmd == "gm" {
 		// GM/moderation command bus (issue #122). args is the whisper's String — the
 		// rest of the typed line (e.g. "/gm kick foo" → args = "kick foo").
@@ -132,6 +153,24 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		return true
 	}
 	return false
+}
+
+// teleportReino handles the /reino command (issue #127): teleports players with no
+// cape equipped, or the neutral Capa Branca do Monstro (#550), to the kingdom city.
+// Not among the 55 legacy command regions enumerated from _MSG_MessageWhisper.cpp
+// (docs/migration/handlers) — a new addition, not a ported one. Players wearing any
+// other (kingdom-aligned) cape are notified instead of being teleported.
+func (d *Dispatcher) teleportReino(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	cape := e.Equip[reinoCapeSlot]
+	if !cape.Empty() && cape.Index != capaBrancaDoMonstroIndex {
+		d.notify(w, s, NoticeReinoCapeRequired)
+		return
+	}
+	d.doTeleport(w, s, reinoDest[0]+int16(w.Rand().Intn(3)), reinoDest[1]+int16(w.Rand().Intn(3)))
 }
 
 // clearBuffs removes every active buff/debuff (the /buffs command), recomputes the score
@@ -152,6 +191,22 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 		d.sendScore(w, s, e)
 	}
 	d.sendAffect(w, s, e)
+}
+
+// showChaosPoints handles the /cp command: reports the player's current chaos
+// points (_MSG_MessageWhisper.cpp:33-39, _DN_Show_Chao = "Pontos Caos atual: %d").
+// GetPKPoint(conn)-75 maps to pkPoint(e)-75 in our binary PK model (pkmode.go):
+// 0 when clean, -75 while guilty — an approximation of the legacy decaying
+// counter, consistent with the rest of the ported PK/nick-color system.
+func (d *Dispatcher) showChaosPoints(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	chaos := int(pkPoint(e)) - 75
+	msg := fmt.Sprintf("Pontos Caos atual: %d", chaos)
+	payload := append([]byte(msg), 0)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(s.Conn)}, payload)
 }
 
 // showNick handles the /nick <jogador> command (issue #131): replies to the

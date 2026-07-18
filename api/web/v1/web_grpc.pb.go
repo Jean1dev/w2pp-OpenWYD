@@ -448,11 +448,10 @@ type NpcAdminServiceClient interface {
 	SetItemPrice(ctx context.Context, in *SetItemPriceRequest, opts ...grpc.CallOption) (*AdminAck, error)
 	// DeleteNpc removes a definition.
 	DeleteNpc(ctx context.Context, in *DeleteNpcRequest, opts ...grpc.CallOption) (*AdminAck, error)
-	// ListMerchantTemplates returns the merchant NPC templates found in the
-	// content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
-	// moderator UI can offer a searchable picker instead of a free-text
-	// template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
-	// empty when that flag is unset.
+	// ListMerchantTemplates returns the supported NPC templates found in the
+	// content tree (Release/TMsrv/run/npc/), so the moderator UI can offer a
+	// searchable picker instead of a free-text template_name field. Scanned once
+	// at web-api boot from -content/W2PP_CONTENT; empty when that flag is unset.
 	ListMerchantTemplates(ctx context.Context, in *ListMerchantTemplatesRequest, opts ...grpc.CallOption) (*ListMerchantTemplatesResponse, error)
 	// ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
 	// item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can
@@ -612,11 +611,10 @@ type NpcAdminServiceServer interface {
 	SetItemPrice(context.Context, *SetItemPriceRequest) (*AdminAck, error)
 	// DeleteNpc removes a definition.
 	DeleteNpc(context.Context, *DeleteNpcRequest) (*AdminAck, error)
-	// ListMerchantTemplates returns the merchant NPC templates found in the
-	// content tree (Release/TMsrv/run/npc/, CurrentScore.Merchant != 0), so the
-	// moderator UI can offer a searchable picker instead of a free-text
-	// template_name field. Scanned once at web-api boot from -content/W2PP_CONTENT;
-	// empty when that flag is unset.
+	// ListMerchantTemplates returns the supported NPC templates found in the
+	// content tree (Release/TMsrv/run/npc/), so the moderator UI can offer a
+	// searchable picker instead of a free-text template_name field. Scanned once
+	// at web-api boot from -content/W2PP_CONTENT; empty when that flag is unset.
 	ListMerchantTemplates(context.Context, *ListMerchantTemplatesRequest) (*ListMerchantTemplatesResponse, error)
 	// ListItemCatalog returns the item catalog (Release/Common/ItemList.csv:
 	// item_index, name), so the shop-item editor (SetNpcShop/SetItemPrice) can

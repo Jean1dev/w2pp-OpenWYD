@@ -943,6 +943,188 @@ func healPotionDB(item world.Item, hp, maxHP, mp, maxMP int32) *fakeDB {
 	return db
 }
 
+func paintDB(bean, target world.Item, targetSlot int) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = bean
+	st.Equip[targetSlot] = target
+	db.loadResult = st
+	return db
+}
+
+func sendPaintUse(t *testing.T, c net.Conn, destSlot int) {
+	t.Helper()
+	body := protocol.MsgUseItemBody{
+		SourType: world.ItemPlaceCarry, SourPos: 0,
+		DestType: world.ItemPlaceEquip, DestPos: int32(destSlot),
+	}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+}
+
+func savedSlot(items []world.SavedItem, slot int) (world.SavedItem, bool) {
+	for _, it := range items {
+		if it.Slot == slot {
+			return it, true
+		}
+	}
+	return world.SavedItem{}, false
+}
+
+func TestUsePaintBeanAppliesColorOverWire(t *testing.T) {
+	bean := world.Item{Index: 3408, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
+	target := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: 4}}}
+	db := paintDB(bean, target, 1)
+	addr, stop := startServerClockVol(t, db, map[int]int{3408: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	sawNotice, sawEquip, sawScore, sawTarget := false, false, false, false
+	for range 8 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgMessageBoxOk:
+			if noticeCode(t, payload) != NoticeRefineSuccess {
+				t.Fatalf("notice = %v, want NoticeRefineSuccess", noticeCode(t, payload))
+			}
+			sawNotice = true
+		case protocol.MsgUpdateEquip:
+			sawEquip = true
+			if got := payload[33]; got != 117-3 { // AnctCode[1] @body32+1
+				t.Errorf("paint anct[1] = %#x, want %#x", got, 117-3)
+			}
+		case protocol.MsgUpdateScore:
+			sawScore = true
+		case protocol.MsgSendItem:
+			place := int(binary.LittleEndian.Uint16(payload[0:2]))
+			slot := int(binary.LittleEndian.Uint16(payload[2:4]))
+			if place != world.ItemPlaceEquip || slot != 1 {
+				continue
+			}
+			sawTarget = true
+			if idx := le16(payload[4:6]); idx != 555 {
+				t.Fatalf("paint target index = %d, want 555", idx)
+			}
+			if payload[6] != 117 || payload[7] != 4 {
+				t.Fatalf("paint target effect0 = %d.%d, want 117.4", payload[6], payload[7])
+			}
+		}
+	}
+	if !sawNotice || !sawEquip || !sawScore || !sawTarget {
+		t.Fatalf("paint responses notice=%v equip=%v score=%v target=%v, want all true", sawNotice, sawEquip, sawScore, sawTarget)
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	save, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was not saved on logout")
+	}
+	carry0, ok := savedSlot(save.Carry, 0)
+	if !ok || carry0.Index != 3408 || carry0.Eff1 != efAmount || carry0.EffV1 != 2 {
+		t.Fatalf("saved carry slot 0 = %+v ok=%v, want stacked paint bean amount 2", carry0, ok)
+	}
+	equip1, ok := savedSlot(save.Equip, 1)
+	if !ok || equip1.Index != 555 || equip1.Eff1 != 117 || equip1.EffV1 != 4 {
+		t.Fatalf("saved equip slot 1 = %+v ok=%v, want painted item 117.4", equip1, ok)
+	}
+}
+
+func TestUsePaintRemoverRestoresSancCarrier(t *testing.T) {
+	target := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: 119, Value: 6}}}
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3417}, target, 1), map[int]int{3417: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	for range 8 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		if ty != protocol.MsgSendItem {
+			continue
+		}
+		place := int(binary.LittleEndian.Uint16(payload[0:2]))
+		slot := int(binary.LittleEndian.Uint16(payload[2:4]))
+		if place != world.ItemPlaceEquip || slot != 1 {
+			continue
+		}
+		if payload[6] != efSanc || payload[7] != 6 {
+			t.Fatalf("removed paint effect0 = %d.%d, want EF_SANC.6", payload[6], payload[7])
+		}
+		return
+	}
+	t.Fatal("missing target SendItem after paint remover")
+}
+
+func TestUsePaintBeanRejectsUnrefinedTarget(t *testing.T) {
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3408}, world.Item{Index: 555}, 1), map[int]int{3408: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	ty, payload, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgSendItem {
+		t.Fatalf("unrefined paint response = %#x ok=%v, want source SendItem", ty, ok)
+	}
+	if place, slot, idx := le16(payload[0:2]), le16(payload[2:4]), le16(payload[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 3408 {
+		t.Fatalf("source resend place/slot/index = %d/%d/%d, want carry/0/3408", place, slot, idx)
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("unrefined paint produced extra frame %#x", ty)
+	}
+}
+
+func TestUsePaintBeanRejectsForbiddenEquipSlot(t *testing.T) {
+	target := world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: 1}}}
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3408}, target, 8), map[int]int{3408: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 8)
+
+	if ty, payload, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeOnlyToEquips {
+		t.Fatalf("forbidden slot notice = %#x/%v ok=%v, want NoticeOnlyToEquips", ty, noticeCode(t, payload), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if place, slot, idx := le16(item[0:2]), le16(item[2:4]), le16(item[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 3408 {
+		t.Fatalf("source resend place/slot/index = %d/%d/%d, want carry/0/3408", place, slot, idx)
+	}
+}
+
+func TestUsePaintRemoverRejectsWithoutEmptyOrPaintSlot(t *testing.T) {
+	target := world.Item{Index: 555, Effects: [3]world.Effect{
+		{Effect: efSanc, Value: 1},
+		{Effect: efSanc, Value: 2},
+		{Effect: efSanc, Value: 3},
+	}}
+	addr, stop := startServerClockVol(t, paintDB(world.Item{Index: 3417}, target, 1), map[int]int{3417: volPaint})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sendPaintUse(t, c, 1)
+
+	if ty, payload, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeCantRefineMore {
+		t.Fatalf("remover reject notice = %#x/%v ok=%v, want NoticeCantRefineMore", ty, noticeCode(t, payload), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if place, slot, idx := le16(item[0:2]), le16(item[2:4]), le16(item[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 3417 {
+		t.Fatalf("source resend place/slot/index = %d/%d/%d, want carry/0/3417", place, slot, idx)
+	}
+}
+
 func TestUseExpChest(t *testing.T) {
 	addr, stop := startServerClockVol(t, expChestDB(), map[int]int{4140: volExpChest})
 	defer stop()
@@ -1770,5 +1952,197 @@ func TestUseSilverBarOver2G(t *testing.T) {
 	}
 	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgUpdateEtc {
 		t.Error("overflow use sent MsgUpdateEtc; coin should be unchanged")
+	}
+}
+
+// Gema Estelar (issue #140): item 700 records the warp save-point; item 776/3430
+// (Pergaminho de Portal) teleports back to it. Tests below use the real catalog
+// indices for readability, but the harness classifies items purely by the vols
+// map, not a real ItemList lookup.
+
+// gemaEstelarDB seeds a character at (x,y) with an existing save-point
+// (saveX,saveY — 0,0 for "never saved") and the given carried items.
+func gemaEstelarDB(x, y, saveX, saveY int16, carry ...world.Item) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: x, Y: y, SaveX: saveX, SaveY: saveY, HP: 1000, MaxHP: 1000}
+	for i, it := range carry {
+		if i >= len(st.Carry) {
+			break
+		}
+		st.Carry[i] = it
+	}
+	db.loadResult = st
+	return db
+}
+
+// startServerClockVolGrid is startServerClockVol with a configurable grid
+// dimension, needed for tests that place the player at real city/Pesadelo map
+// coordinates (world.Village and inPesadelo compare against actual legacy
+// segment/rectangle constants, which exceed the usual 16x16 test grid).
+func startServerClockVolGrid(t *testing.T, persist world.Persistence, vols map[int]int, gridDim int) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, ItemVolatiles: vols})
+	w := world.New(world.Config{GridDim: gridDim}, log, persist, d.Handle)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}
+}
+
+func useItemFrame(t *testing.T, c net.Conn, slot int) {
+	t.Helper()
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: int32(slot)}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+}
+
+// TestUseGemaEstelarThenPortalRoundTrip: saving at the current position, then
+// using the portal scroll, teleports the player back to that exact tile —
+// the core mechanic issue #140 reports as broken (neither item did anything).
+func TestUseGemaEstelarThenPortalRoundTrip(t *testing.T) {
+	const gema, portal = 700, 776
+	db := gemaEstelarDB(5, 5, 0, 0, world.Item{Index: gema}, world.Item{Index: portal})
+	addr, stop := startServerClockVol(t, db, map[int]int{gema: volGemaEstelar, portal: volPortalScroll})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0) // Gema Estelar
+	saved := expect(t, c, protocol.MsgSendItem)
+	if got := le16(saved[4:6]); got != 0 {
+		t.Errorf("gema slot = %d, want empty after use", got)
+	}
+	if got := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); got != NoticeSetWarp {
+		t.Errorf("notice = %v, want NoticeSetWarp", got)
+	}
+
+	useItemFrame(t, c, 1) // Pergaminho de Portal
+	scroll := expect(t, c, protocol.MsgSendItem)
+	if got := le16(scroll[4:6]); got != 0 {
+		t.Errorf("portal slot = %d, want empty after use", got)
+	}
+	action := expectAction(t, c)
+	if action.TargetX != 5 || action.TargetY != 5 {
+		t.Errorf("teleport target = (%d,%d), want (5,5)", action.TargetX, action.TargetY)
+	}
+}
+
+// TestUsePortalScrollStack: a multi-charge scroll (EF_AMOUNT) decrements
+// instead of clearing, and still teleports.
+func TestUsePortalScrollStack(t *testing.T) {
+	const portal = 776
+	db := gemaEstelarDB(5, 5, 20, 20, world.Item{Index: portal, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}})
+	addr, stop := startServerClockVol(t, db, map[int]int{portal: volPortalScroll})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	payload := expect(t, c, protocol.MsgSendItem)
+	if got := le16(payload[4:6]); got != portal {
+		t.Fatalf("carry slot 0 item = %d, want stacked scroll", got)
+	}
+	if payload[6] != efAmount || payload[7] != 2 {
+		t.Errorf("effect0 = %d.%d, want %d.2", payload[6], payload[7], efAmount)
+	}
+	action := expectAction(t, c)
+	if action.TargetX != 20 || action.TargetY != 20 {
+		t.Errorf("teleport target = (%d,%d), want (20,20)", action.TargetX, action.TargetY)
+	}
+}
+
+// TestUsePortalScrollNoSavePoint: a character that never used a Gema Estelar
+// has SaveX==SaveY==0; the scroll must no-op rather than warp to the map origin.
+func TestUsePortalScrollNoSavePoint(t *testing.T) {
+	const portal = 776
+	db := gemaEstelarDB(5, 5, 0, 0, world.Item{Index: portal})
+	addr, stop := startServerClockVol(t, db, map[int]int{portal: volPortalScroll})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("got %#x, want no response (no save point set)", ty)
+	}
+}
+
+// TestUseGemaEstelarBlockedInCity: the legacy refuses to record a save-point
+// while standing inside a city's limits (BASE_GetVillage); the item is not
+// consumed and the client is told why. Armia's CityLimit rectangle is
+// (2052,2052)-(2171,2163) (world/city.go), so the test grid must be large
+// enough to place the player there.
+func TestUseGemaEstelarBlockedInCity(t *testing.T) {
+	const gema = 700
+	const armiaX, armiaY = 2100, 2100
+	db := gemaEstelarDB(armiaX, armiaY, 0, 0, world.Item{Index: gema})
+	addr, stop := startServerClockVolGrid(t, db, map[int]int{gema: volGemaEstelar}, 2200)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	if ty, p, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeCantUseHere {
+		t.Fatalf("notice = %#x/%v ok=%v, want NoticeCantUseHere", ty, noticeCode(t, p), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[4:6]); got != gema {
+		t.Errorf("carry slot 0 item = %d, want %d preserved (not consumed)", got, gema)
+	}
+}
+
+// TestUseGemaEstelarPesadeloCarveOut: the two Pesadelo instanced-dungeon
+// segments are exempt from the city/arena gate (legacy "goto CanSave"), so a
+// save still succeeds there even though the tile would otherwise be blocked.
+// (9*128, 1*128) = (1152,128) falls inside the Pesadelo_A segment.
+func TestUseGemaEstelarPesadeloCarveOut(t *testing.T) {
+	const gema = 700
+	const pesadeloX, pesadeloY = 1200, 150
+	db := gemaEstelarDB(pesadeloX, pesadeloY, 0, 0, world.Item{Index: gema})
+	addr, stop := startServerClockVolGrid(t, db, map[int]int{gema: volGemaEstelar}, 1300)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	saved := expect(t, c, protocol.MsgSendItem)
+	if got := le16(saved[4:6]); got != 0 {
+		t.Errorf("gema slot = %d, want empty after use (Pesadelo carve-out should allow the save)", got)
+	}
+	if got := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); got != NoticeSetWarp {
+		t.Errorf("notice = %v, want NoticeSetWarp", got)
+	}
+}
+
+// TestUsePortalScrollBlockedFromPesadeloSavePoint: a saved point that happens
+// to fall inside a Pesadelo segment refuses the portal (can't warp into the
+// instance from outside), independent of the player's own current position.
+func TestUsePortalScrollBlockedFromPesadeloSavePoint(t *testing.T) {
+	const portal = 776
+	const pesadeloX, pesadeloY = 1200, 150
+	db := gemaEstelarDB(5, 5, pesadeloX, pesadeloY, world.Item{Index: portal})
+	addr, stop := startServerClockVol(t, db, map[int]int{portal: volPortalScroll})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	if ty, p, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeCantUseHere {
+		t.Fatalf("notice = %#x/%v ok=%v, want NoticeCantUseHere", ty, noticeCode(t, p), ok)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[4:6]); got != portal {
+		t.Errorf("carry slot 0 item = %d, want %d preserved (not consumed)", got, portal)
 	}
 }

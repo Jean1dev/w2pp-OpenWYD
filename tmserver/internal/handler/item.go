@@ -236,18 +236,22 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 // Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
 // The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
 const (
-	volHpMpPotion = 1
-	volExpChest   = 198
-	volFairyDust  = 7
-	volDivine7    = 64
-	volDivine30   = 66
-	volVigor      = 58
-	volSilverBar  = 185
-	volFrango     = 63
-	volGemDiamond = 180
-	volGemEmerald = 181
-	volGemCoral   = 182
-	volGemGarnet  = 183
+	volHpMpPotion   = 1
+	volFairyDust    = 7
+	volGemaEstelar  = 12 // Gema Estelar: records the warp save-point
+	volPortalScroll = 13 // Pergaminho de Portal: teleports to the save-point
+	volVigor        = 58
+	volFrango       = 63
+	volDivine7      = 64
+	volDivine30     = 66
+	volGemDiamond   = 180
+	volGemEmerald   = 181
+	volGemCoral     = 182
+	volGemGarnet    = 183
+	volSilverBar    = 185
+	volMagicBean    = 186
+	volPaint        = volMagicBean
+	volExpChest     = 198
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -289,8 +293,9 @@ const potionDelay = 100
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
 // classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
-// 0 = equip (CARRY → EQUIP); 64-66 = Poção Divina; other consumables are UNVERIFIED and
-// not handled yet. Drag-and-drop between slots is a different message (tradingItem).
+// 0 = equip (CARRY → EQUIP); 12/13 = Gema Estelar/Portal (warp save-point, issue #140);
+// 64-66 = Poção Divina; other consumables are UNVERIFIED and not handled yet.
+// Drag-and-drop between slots is a different message (tradingItem).
 func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -326,6 +331,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.refineItem(w, s, e, body, src, vol)
 	case vol == volHpMpPotion:
 		d.useHealPotion(w, s, e, src)
+	case vol == volGemaEstelar:
+		d.useGemaEstelar(w, s, e, src)
+	case vol == volPortalScroll:
+		d.usePortalScroll(w, s, e, src)
 	case vol >= volSephiraLo && vol <= volSephiraHi:
 		d.useSkillBook(w, s, e, src, vol)
 	case vol == volFairyDust:
@@ -493,6 +502,54 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 		d.sendEtc(w, s, e)
 	}
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
+}
+
+// inPesadelo reports whether (x,y) falls in the Pesadelo_A or Pesadelo_M
+// instanced-dungeon zones (Release/TMsrv/run/Regions.txt rows 5-6), the same
+// 128-unit segment test _MSG_UseItem.cpp reuses for the Vol 12/13/174/175
+// tickets (Gema Estelar, Portal, and the two Pesadelo entry scrolls).
+func inPesadelo(x, y int16) bool {
+	return (x/128 == 9 && y/128 == 1) || (x/128 == 8 && y/128 == 2)
+}
+
+// useGemaEstelar consumes a Gema Estelar (EF_VOLATILE 12): records the player's
+// current position as the warp save-point (_MSG_UseItem.cpp:1360-1419). Blocked
+// while standing inside a city's limits, unless the tile is a Pesadelo instance
+// carve-out (legacy goto CanSave) — mirrors the legacy Village/Arena gate, minus
+// the map_att&4 and BASE_GetArena checks: the raw per-tile attribute grid has no
+// runtime query path today and BASE_GetArena's WarArea table has no Go
+// equivalent yet (issue #140 plan), so those two are a deliberate divergence.
+func (d *Dispatcher) useGemaEstelar(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if !inPesadelo(e.X, e.Y) && world.Village(e.X, e.Y) >= 0 {
+		d.notify(w, s, NoticeCantUseHere)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	e.SaveX, e.SaveY = e.X, e.Y
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.notify(w, s, NoticeSetWarp)
+}
+
+// usePortalScroll consumes a Pergaminho de Portal (EF_VOLATILE 13): teleports
+// the player to their saved Gema Estelar point (_MSG_UseItem.cpp:1421-1452).
+// Blocked if the saved point is inside a Pesadelo instance (can't portal into
+// it from outside, mirroring the legacy check), or if no point has ever been
+// saved (SaveX/SaveY still zero — a Go-port guard against teleporting to the
+// map origin; the legacy always has some default via the character's seeded
+// save position).
+func (d *Dispatcher) usePortalScroll(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if inPesadelo(e.SaveX, e.SaveY) {
+		d.notify(w, s, NoticeCantUseHere)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	if e.SaveX == 0 && e.SaveY == 0 {
+		return
+	}
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.doTeleport(w, s, e.SaveX, e.SaveY)
 }
 
 // useHealPotion consumes an HP/MP potion (EF_VOLATILE 1), porting
@@ -918,10 +975,11 @@ const amuletSlot = 15
 // SendEmotion(conn,14,3) is cosmetic and not ported, matching the existing
 // precedent in refine.go:233,263 (no emotion opcode exists in this fork yet).
 func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *world.Entity, src int) {
-	const maxFame = 2_000_000_000
-	e.Fame += 10
-	if e.Fame > maxFame {
+	const maxFame int32 = 2_000_000_000
+	if e.Fame >= maxFame-10 {
 		e.Fame = maxFame
+	} else {
+		e.Fame += 10
 	}
 
 	hasAmulet := false
@@ -951,7 +1009,6 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 }
 
 const (
-	volMagicBean       = 186
 	magicBeanBase      = 3407
 	magicBeanRemover   = 10
 	magicBeanPaintLo   = 116
@@ -984,6 +1041,10 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 	}
 
 	color := int(e.Carry[src].Index) - magicBeanBase
+	if color < 0 || color > magicBeanRemover {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
 	effect := uint8(magicBeanPaintLo + color)
 	if color == magicBeanRemover {
 		effect = efSanc
@@ -1001,6 +1062,7 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 	d.sendScore(w, s, e)
 	consumeOneItem(&e.Carry[src])
 	d.sendSlot(w, s, int(body.DestType), dstSlot, *dst)
+	d.sendEquipVisual(w, s, e)
 }
 
 func (d *Dispatcher) magicBeanReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
@@ -1101,12 +1163,7 @@ func equipVisual(e *world.Entity) ([16]uint16, [16]uint8) {
 	return v, a
 }
 
-// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
-// the player's own client AND every in-view player, so an equip/unequip is
-// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
-// is the entity id so the client applies it to the right mob. It also re-sends the
-// score, since equipment changes the character's attributes.
-func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+func (d *Dispatcher) sendEquipVisual(w *world.World, s *world.Session, e *world.Entity) {
 	e.EquipVisual, e.EquipAnct = equipVisual(e)
 	body := protocol.EncodeUpdateEquip(e.EquipVisual, e.EquipAnct)
 	h := protocol.Header{Type: protocol.MsgUpdateEquip, ID: uint16(s.Conn)}
@@ -1114,6 +1171,15 @@ func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Ent
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, h, body)
 	})
+}
+
+// refreshEquip recomputes the entity's visible gear and pushes _MSG_UpdateEquip to
+// the player's own client AND every in-view player, so an equip/unequip is
+// rendered on the character model everywhere (SendFunc.cpp:SendEquip). HEADER.ID
+// is the entity id so the client applies it to the right mob. It also re-sends the
+// score, since equipment changes the character's attributes.
+func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Entity) {
+	d.sendEquipVisual(w, s, e)
 	d.refreshScore(e) // fold the new gear's AC/attributes/HP/MP into CurrentScore
 	d.sendScore(w, s, e)
 }

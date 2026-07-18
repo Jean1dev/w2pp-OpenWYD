@@ -330,12 +330,12 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 //
 // This is a PARTIAL update on purpose: it touches only the columns the in-world
 // Entity authoritatively tracks (world.CharacterSave) — clan, guild_id, level,
-// exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, and the skill
-// state the world now simulates (score_bonus, special_bonus, learned_skill,
-// sec_learned_skill, soul, special, skill_bar, short_skill). GuildLevel is now
-// world-authoritative because guild commands mutate it live. Everything else
-// (class, regen/resist, magic, save_x/y, citizen, class_master) is left UNTOUCHED so an
-// in-game save never wipes imported data the world does not simulate.
+// guild_level, exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, the
+// Gema Estelar warp save-point (save_x/y), and the skill state the world now
+// simulates (score_bonus, special_bonus, learned_skill, sec_learned_skill, soul,
+// fame, special, skill_bar, short_skill). Everything else (class, regen/resist,
+// magic, citizen, class_master) is left UNTOUCHED so an in-game save never wipes
+// imported data the world does not simulate.
 // skill_bonus is also untouched: the tmServer re-derives it at login
 // (BASE_GetBonusSkillPoint) instead of trusting the stored value.
 func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error {
@@ -351,15 +351,17 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			clan=$3, guild_id=$4, guild_level=$5, level=$6, coin=$7,
 			str=$8, int=$9, dex=$10, con=$11, hp=$12, max_hp=$13, last_city=$14, exp=$15,
 			mp=$16, max_mp=$17,
-			score_bonus=$18, special_bonus=$19, learned_skill=$20, sec_learned_skill=$21, soul=$22,
-			special=$23, skill_bar=$24, short_skill=$25
+			score_bonus=$18, special_bonus=$19, learned_skill=$20, sec_learned_skill=$21, soul=$22, fame=$23,
+			special=$24, skill_bar=$25, short_skill=$26, save_x=$27, save_y=$28
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
 		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity, ch.Exp,
 		ch.Mp, ch.MaxMp,
 		ch.ScoreBonus, ch.SpecialBonus, ch.LearnedSkill, ch.SecLearnedSkill, ch.Soul,
+		ch.Fame,
 		ch.Special[:], byteArrToInt16Arr(ch.SkillBar[:]), byteArrToInt16Arr(ch.ShortSkill[:]),
+		ch.SaveX, ch.SaveY,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

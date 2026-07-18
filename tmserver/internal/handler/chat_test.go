@@ -66,6 +66,67 @@ func TestCommandNoatunTeleport(t *testing.T) {
 	}
 }
 
+// TestCommandReinoNoCape verifies /reino teleports a character with no cape equipped
+// (issue #127).
+func TestCommandReinoNoCape(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "reino", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgAction {
+		t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+	}
+	var body protocol.MsgActionBody
+	if err := body.Decode(payload); err != nil {
+		t.Fatalf("decode MsgAction: %v", err)
+	}
+	if body.TargetX < 1702 || body.TargetX > 1704 || body.TargetY < 1728 || body.TargetY > 1730 {
+		t.Errorf("/reino target = %d,%d, want within 1702..1704,1728..1730", body.TargetX, body.TargetY)
+	}
+}
+
+// TestCommandReinoWhiteCape verifies /reino also teleports a character wearing the
+// neutral Capa Branca do Monstro (#550).
+func TestCommandReinoWhiteCape(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+			Equip: [world.MaxEquip]world.Item{15: {Index: capaBrancaDoMonstroIndex}}},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "reino", "")
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgAction {
+		t.Errorf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+	}
+}
+
+// TestCommandReinoBlocked verifies /reino refuses (and notifies) a character wearing
+// any other (kingdom-aligned) cape.
+func TestCommandReinoBlocked(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+			Equip: [world.MaxEquip]world.Item{15: {Index: 543}}},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "reino", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeReinoCapeRequired {
+		t.Errorf("got %#x ok=%v, want MsgMessageBoxOk/NoticeReinoCapeRequired", ty, ok)
+	}
+}
+
 // TestCommandBuffs verifies /buffs clears affects and pushes a fresh score.
 func TestCommandBuffs(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
@@ -174,6 +235,25 @@ func TestGuildHandoverCommand(t *testing.T) {
 	}
 	if ty, _, ok := readMaybeRaw(t, b); !ok || ty != protocol.MsgCreateMob {
 		t.Fatalf("/handover target got %#x ok=%v, want CreateMob tag refresh", ty, ok)
+	}
+}
+
+// TestCommandChaosPoints verifies /cp reports the caller's chaos points as a
+// MessageChat line. A freshly logged-in player is never guilty, so the value is 0.
+func TestCommandChaosPoints(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "cp", "")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgMessageChat {
+		t.Fatalf("got %#x ok=%v, want MessageChat", ty, ok)
+	}
+	want := "Pontos Caos atual: 0"
+	if string(payload[:len(want)]) != want {
+		t.Errorf("chat text = %q, want %q", payload, want)
 	}
 }
 
