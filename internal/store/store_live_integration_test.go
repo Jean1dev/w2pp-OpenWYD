@@ -90,6 +90,7 @@ func TestLiveQueries(t *testing.T) {
 	ch.MaxMp = 260
 	ch.SaveX = 1200
 	ch.SaveY = 150
+	ch.Fame = 42
 	ch.Carry = []domain.Item{{Slot: 6, Index: 3300}}
 	if err := s.SaveCharacter(ctx, accID, ch); err != nil {
 		t.Fatalf("SaveCharacter: %v", err)
@@ -99,7 +100,7 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("reload: %v", err)
 	}
 	if reloaded.Level != 41 || reloaded.Exp != 12345 || reloaded.Coin != 1500 ||
-		reloaded.Hp != 750 || reloaded.MaxHp != 803 || reloaded.MaxMp != 260 {
+		reloaded.Hp != 750 || reloaded.MaxHp != 803 || reloaded.MaxMp != 260 || reloaded.Fame != 42 {
 		t.Fatalf("save not persisted: %+v", reloaded)
 	}
 	// A Gema Estelar use mid-session (Vol 12) updates the warp save-point, which

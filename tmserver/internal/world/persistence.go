@@ -201,6 +201,7 @@ type CharacterSave struct {
 	LearnedSkill    int32
 	SecLearnedSkill int32
 	Soul            uint8
+	Fame            int32
 	BaseSpecial     [4]int16
 	SkillBar        [4]uint8
 	ShortSkill      [16]uint8

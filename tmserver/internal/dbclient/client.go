@@ -415,6 +415,7 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		LearnedSkill:    s.LearnedSkill,
 		SecLearnedSkill: s.SecLearnedSkill,
 		Soul:            int32(s.Soul),
+		Fame:            s.Fame,
 		Special:         make([]int32, len(s.BaseSpecial)),
 		SkillBar:        make([]uint32, len(s.SkillBar)),
 		ShortSkill:      make([]uint32, len(s.ShortSkill)),

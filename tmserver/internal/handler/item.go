@@ -973,10 +973,12 @@ const amuletSlot = 15
 // SendEmotion(conn,14,3) is cosmetic and not ported, matching the existing
 // precedent in refine.go:233,263 (no emotion opcode exists in this fork yet).
 func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *world.Entity, src int) {
-	const maxFame = 2_000_000_000
-	e.Fame += 10
-	if e.Fame > maxFame {
-		e.Fame = maxFame
+	const maxFame int32 = 2_000_000_000
+	if e.Fame < maxFame {
+		e.Fame += 10
+		if e.Fame > maxFame {
+			e.Fame = maxFame
+		}
 	}
 
 	hasAmulet := false
