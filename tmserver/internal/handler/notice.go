@@ -58,6 +58,8 @@ const (
 
 	// Gema Estelar / Portal Scroll (_MSG_UseItem.cpp Vol 12/13, issue #140).
 	NoticeSetWarp // _NN_Set_Warp (186): warp save-point recorded
+
+	NoticeReinoCapeRequired // /reino (issue #127): cape must be empty or Capa Branca do Monstro (#550)
 )
 
 // notify sends a client notification.

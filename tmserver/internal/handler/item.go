@@ -974,11 +974,10 @@ const amuletSlot = 15
 // precedent in refine.go:233,263 (no emotion opcode exists in this fork yet).
 func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *world.Entity, src int) {
 	const maxFame int32 = 2_000_000_000
-	if e.Fame < maxFame {
+	if e.Fame >= maxFame-10 {
+		e.Fame = maxFame
+	} else {
 		e.Fame += 10
-		if e.Fame > maxFame {
-			e.Fame = maxFame
-		}
 	}
 
 	hasAmulet := false

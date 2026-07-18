@@ -14,6 +14,7 @@
 ✅ /red: se teleportará para o rei de Akelonia <br/>
 ✅ /blue: se teleportará para o rei de Hekalotia <br/>
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>
+✅ /reino: se teleportará para a cidade dos reinos, só para quem está sem capa ou com a Capa Branca do Monstro (#550) — comando novo, não existe na fonte legada <br/>
 ⏳ /crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) — sem coordenada na fonte legada <br/>
 ⏳ /destravar40: destrava o level 40 do celestial — sistema Celestial não modelado <br/>
 ⏳ /destravar90: destrava  o level 90 do celestial — sistema Celestial não modelado <br/>
