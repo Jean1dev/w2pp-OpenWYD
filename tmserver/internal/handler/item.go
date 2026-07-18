@@ -312,6 +312,9 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	if src < 0 || src >= world.MaxCarry || e.Carry[src].Empty() {
 		return
 	}
+	if d.useQuest256Ticket(w, s, e, src) {
+		return
+	}
 	// Selo do Guerreiro and Pedra Misteriosa have no EF_VOLATILE, so d.itemVolatiles
 	// defaults to 0 for them — check sIndex first so they don't fall into the vol==0
 	// equip path (canEquipSlot would just silently reject them, the same "phantom
@@ -374,6 +377,63 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	default:
 		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
 	}
+}
+
+func quest256StepForTicket(index int16) (quest256Step, bool) {
+	stepIdx := int(index - 4038)
+	if stepIdx < 0 || stepIdx >= len(quest256Steps) {
+		return quest256Step{}, false
+	}
+	return quest256Steps[stepIdx], true
+}
+
+func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *world.Entity, src int) bool {
+	step, ok := quest256StepForTicket(e.Carry[src].Index)
+	if !ok {
+		return false
+	}
+	if s.Trade.Active {
+		d.removeTrade(w, s)
+		return true
+	}
+	if s.TradeMode != 0 {
+		s.TradeMode = 0
+		d.removeTrade(w, s)
+		return true
+	}
+	if s.QuestTicketTravel {
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return true
+	}
+	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
+		d.notify(w, s, NoticeReqNotMet)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return true
+	}
+	if e.Level < step.minLevel || e.Level >= step.maxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return true
+	}
+
+	itemIdx := e.Carry[src].Index
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	s.QuestTicketTravel = true
+	d.log.Info("quest256 ticket travel started", "conn", s.Conn, "item", itemIdx, "level", e.Level, "quest_flag", step.flag)
+	w.Go(s, func() func(*world.World, *world.Session) {
+		time.Sleep(masterGriffTravelDelay)
+		return func(w *world.World, s *world.Session) {
+			s.QuestTicketTravel = false
+			e := w.Entity(s.Conn)
+			if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+				return
+			}
+			d.teleportQuest256Step(w, s, e, step)
+			d.log.Info("quest256 ticket teleport", "conn", s.Conn, "item", itemIdx, "level", e.Level, "quest_flag", step.flag)
+		}
+	})
+	return true
 }
 
 // rejectUnimplementedConsumable answers _MSG_UseItem for a consumable whose real

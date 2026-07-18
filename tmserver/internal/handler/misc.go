@@ -294,7 +294,7 @@ var quest256Steps = []quest256Step{
 	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
 }
 
-const masterGriffTravelDelay = 9500 * time.Millisecond
+var masterGriffTravelDelay = 9500 * time.Millisecond
 
 type masterGriffDestination struct {
 	name string
