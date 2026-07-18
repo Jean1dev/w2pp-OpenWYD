@@ -1,12 +1,24 @@
 package handler
 
 import (
+	"encoding/binary"
 	"net"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
+
+// celestialDB loads a single Celestial character (the tier the unlock commands
+// require). Level is above the gates so the commands are the only variable.
+func celestialDB(classMaster uint8) *fakeDB {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Celeste", Class: 0, ClassMaster: classMaster,
+		X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 41,
+	}
+	return db
+}
 
 func chatDB() *fakeDB {
 	db := newDB()
@@ -241,6 +253,99 @@ func TestWhisperBlocked(t *testing.T) {
 	whisperFrame(t, a, "HeroB", "hi")
 	if ty, p, ok := readMaybe(t, a); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeDenyWhisper {
 		t.Errorf("got %#x/%d, want deny-whisper notice", ty, noticeCode(t, p))
+	}
+}
+
+// TestCommandDestravar40 verifies /destravar40 on a Celestial sets the Lv40 gate
+// (signalled by MsgCombineComplete) and the flag persists through a save.
+func TestCommandDestravar40(t *testing.T) {
+	db := celestialDB(classMasterCelestial)
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	whisperFrame(t, c, "destravar40", "")
+	ty, p, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgCombineComplete {
+		t.Fatalf("got %#x ok=%v, want MsgCombineComplete", ty, ok)
+	}
+	if parm := int16(binary.LittleEndian.Uint16(p)); parm != celestialUnlockParm {
+		t.Errorf("CombineComplete parm = %d, want %d", parm, celestialUnlockParm)
+	}
+
+	// Logout flushes the character save; the gate flag must ride along.
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	char, n := db.lastSavedChar()
+	if n == 0 || char.CelLv40 != 1 {
+		t.Errorf("saved CelLv40 = %d (n=%d), want 1", char.CelLv40, n)
+	}
+}
+
+// TestCommandDestravarNonCelestial verifies the unlock is a no-op for a non-Celestial
+// (Mortal): the command is still consumed (not delivered as a whisper) but nothing
+// is sent and no flag is set.
+func TestCommandDestravarNonCelestial(t *testing.T) {
+	db := celestialDB(classMasterMortal)
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	whisperFrame(t, c, "destravar40", "")
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("/destravar40 on a mortal produced %#x; want a silent no-op", ty)
+	}
+}
+
+// TestCommandDestravar90 verifies /destravar90 grants the FuryStone (item 3502) to
+// carry, signals the client, and persists both the item and the Lv90 gate.
+func TestCommandDestravar90(t *testing.T) {
+	db := celestialDB(classMasterCelestial)
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	whisperFrame(t, c, "destravar90", "")
+	expect(t, c, protocol.MsgSendItem)        // FuryStone into carry
+	expect(t, c, protocol.MsgCombineComplete) // unlock signal
+	expect(t, c, protocol.MsgMotion)          // unlock emote
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	char, n := db.lastSavedChar()
+	if n == 0 || char.CelLv90 != 1 {
+		t.Errorf("saved CelLv90 = %d (n=%d), want 1", char.CelLv90, n)
+	}
+	if !hasItem(char.Carry, furyStoneIndex) {
+		t.Errorf("saved carry missing FuryStone %d: %+v", furyStoneIndex, char.Carry)
+	}
+}
+
+// TestCommandArcana verifies /arcana places the reward (item 3507) in Equip[1], sets
+// the Circle flag, and persists both.
+func TestCommandArcana(t *testing.T) {
+	db := celestialDB(classMasterCelestial)
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	whisperFrame(t, c, "arcana", "")
+	expect(t, c, protocol.MsgSendItem)        // reward into Equip[1]
+	expect(t, c, protocol.MsgCombineComplete) // signal
+	expect(t, c, protocol.MsgMotion)          // emote
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	char, n := db.lastSavedChar()
+	if n == 0 || char.CelCircle != 1 {
+		t.Errorf("saved CelCircle = %d (n=%d), want 1", char.CelCircle, n)
+	}
+	if !hasItem(char.Equip, arcanaItemIndex) {
+		t.Errorf("saved equip missing arcana item %d: %+v", arcanaItemIndex, char.Equip)
 	}
 }
 

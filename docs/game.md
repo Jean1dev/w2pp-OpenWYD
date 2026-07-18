@@ -16,9 +16,9 @@
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>
 ✅ /reino: se teleportará para a cidade dos reinos, só para quem está sem capa ou com a Capa Branca do Monstro (#550) — comando novo, não existe na fonte legada <br/>
 ⏳ /crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) — sem coordenada na fonte legada <br/>
-⏳ /destravar40: destrava o level 40 do celestial — sistema Celestial não modelado <br/>
-⏳ /destravar90: destrava  o level 90 do celestial — sistema Celestial não modelado <br/>
-⏳ /arcana: realiza a quest  da cythera arcana — sistema de quests não modelado <br/>
+✅ /destravar40: destrava o level 40 do celestial (seta o gate `QuestInfo.Celestial.Lv40`; efetivo só para chars Celestial) <br/>
+✅ /destravar90: destrava o level 90 do celestial (gate `Lv90` + dá a FuryStone item 3502) <br/>
+✅ /arcana: realiza a quest da cythera arcana (seta `Circle` + põe o item 3507 no Equip[1]) <br/>
 ⏳ /create: (nome da guild): cria guild — sistema de guild não modelado <br/>
 ✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
 ⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>

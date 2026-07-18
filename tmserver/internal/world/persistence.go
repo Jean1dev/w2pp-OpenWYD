@@ -124,6 +124,9 @@ type CharacterState struct {
 	GuildID     uint16
 	GuildLevel  uint8
 	ClassMaster uint8
+	CelLv40     uint8 // QuestInfo.Celestial.Lv40 gate
+	CelLv90     uint8 // QuestInfo.Celestial.Lv90 gate
+	CelCircle   uint8 // QuestInfo.Circle (Arcana quest done)
 	Soul        uint8
 	Citizen     uint8 // MobExtra.Citizen (city allegiance; 0 = none)
 	Fame        int32 // MobExtra.Fame
@@ -202,10 +205,16 @@ type CharacterSave struct {
 	SecLearnedSkill int32
 	Soul            uint8
 	Fame            int32
-	BaseSpecial     [4]int16
-	SkillBar        [4]uint8
-	ShortSkill      [16]uint8
-	Affects         []Affect // active buff slots (minus Divine — see DivineEnd)
+	// Tier state persisted by the in-game save (world-owned): ClassMaster carries
+	// tier transformations; CelLv40/CelLv90/CelCircle are the celestial quest gates.
+	ClassMaster uint8
+	CelLv40     uint8
+	CelLv90     uint8
+	CelCircle   uint8
+	BaseSpecial [4]int16
+	SkillBar    [4]uint8
+	ShortSkill  [16]uint8
+	Affects     []Affect // active buff slots (minus Divine — see DivineEnd)
 
 	Carry []SavedItem
 	Equip []SavedItem

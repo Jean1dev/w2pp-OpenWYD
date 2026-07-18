@@ -59,6 +59,9 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		Fame:            ch.Fame,
 		SaveX:           int32(ch.SaveX),
 		SaveY:           int32(ch.SaveY),
+		CelestialLv40:   int32(ch.CelLv40),
+		CelestialLv90:   int32(ch.CelLv90),
+		CelestialCircle: int32(ch.CelCircle),
 	}
 }
 
@@ -119,6 +122,9 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		Fame:            c.GetFame(),
 		SaveX:           int16(c.GetSaveX()),
 		SaveY:           int16(c.GetSaveY()),
+		CelLv40:         uint8(c.GetCelestialLv40()),
+		CelLv90:         uint8(c.GetCelestialLv90()),
+		CelCircle:       uint8(c.GetCelestialCircle()),
 	}
 }
 

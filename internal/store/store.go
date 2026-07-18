@@ -88,15 +88,16 @@ func insertCharacter(ctx context.Context, tx pgx.Tx, accountID int64, ch domain.
 			 max_hp, max_mp, hp, mp, critical, regen_hp, regen_mp,
 			 resist_fire, resist_ice, resist_thunder, resist_magic,
 			 learned_skill, sec_learned_skill, magic, save_x, save_y, citizen, class_master, soul, fame,
-			 skill_bar, short_skill)
+			 celestial_lv40, celestial_lv90, celestial_circle, skill_bar, short_skill)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-			 $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
+			 $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
 		RETURNING id`,
 		accountID, ch.Slot, ch.Name, ch.Class, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Exp, ch.Coin,
 		ch.Str, ch.Int, ch.Dex, ch.Con, ch.ScoreBonus, ch.SpecialBonus, ch.SkillBonus,
 		ch.MaxHp, ch.MaxMp, ch.Hp, ch.Mp, ch.Critical, ch.RegenHP, ch.RegenMP,
 		ch.ResistFire, ch.ResistIce, ch.ResistThunder, ch.ResistMagic,
 		ch.LearnedSkill, ch.SecLearnedSkill, ch.Magic, ch.SaveX, ch.SaveY, ch.Citizen, ch.ClassMaster, ch.Soul, ch.Fame,
+		ch.CelLv40, ch.CelLv90, ch.CelCircle,
 		byteArrToInt16(ch.SkillBar[:]), byteArrToInt16(ch.ShortSkill[:]),
 	).Scan(&id); err != nil {
 		return 0, fmt.Errorf("store: insert character %q: %w", ch.Name, err)
