@@ -244,6 +244,8 @@ func (d *Dispatcher) doTeleport(w *world.World, s *world.Session, x, y int16) {
 		return
 	}
 	oldX, oldY := e.X, e.Y
+	cmBefore := w.SentOfType(s, protocol.MsgCreateMob)
+	rmBefore := w.SentOfType(s, protocol.MsgRemoveMob)
 	w.SetEntityPos(s.Conn, x, y)
 	if c := world.Village(x, y); c >= 0 && c <= 3 {
 		e.LastCity = int16(c)
@@ -256,6 +258,14 @@ func (d *Dispatcher) doTeleport(w *world.World, s *world.Session, x, y int16) {
 	// mobs/NPCs, creates new-window entities and forwards the same jump frame to
 	// watchers, but does not resend the player's own CreateMob/UpdateScore.
 	d.moveMulticast(w, s.Conn, oldX, oldY, protocol.MsgAction, payload)
+	// Freeze investigation (investigacao-freeze-cliente.md): the incidents
+	// cluster right after city teleports, and teleports used to be invisible in
+	// the logs. The CreateMob/RemoveMob deltas size the reveal burst the client
+	// had to absorb at the destination.
+	d.log.Info("teleport", "conn", s.Conn, "name", e.Name,
+		"from_x", oldX, "from_y", oldY, "to_x", x, "to_y", y,
+		"create_mobs", w.SentOfType(s, protocol.MsgCreateMob)-cmBefore,
+		"remove_mobs", w.SentOfType(s, protocol.MsgRemoveMob)-rmBefore)
 }
 
 // noViewMob handles _MSG_NoViewMob (0x0369): the client asks to re-sync one

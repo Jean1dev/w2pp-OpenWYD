@@ -49,6 +49,10 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 	}
 	name := cstr(body.MobName[:])
 	if d.runCommand(w, s, name, body.String) {
+		// Freeze investigation: commands were invisible in the logs (the recv
+		// packet line only shows 0x0334), so incident timelines could not tell a
+		// teleport command from a plain whisper. Keyword only — no whisper text.
+		d.log.Info("chat command", "conn", s.Conn, "cmd", strings.TrimPrefix(name, "/"))
 		return // a slash command (the client sends "/x" as a whisper to "x")
 	}
 	target, _ := w.SessionByName(name)
