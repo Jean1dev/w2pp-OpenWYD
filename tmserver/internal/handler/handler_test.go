@@ -57,6 +57,12 @@ type fakeDB struct {
 	savedCargos  []world.CargoSave     // captured SaveCargo calls
 	drainSaves   []drainSave           // captured SaveCargoWithDeliveries calls
 	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
+
+	createdGuilds []world.GuildRecord
+	guildCosts    []int32
+	promoted      []uint8
+	promoteCosts  []int32
+	transfers     int
 }
 
 func (f *fakeDB) VerifyPin(_ context.Context, _ int64, _ string) (world.PinResult, error) {
@@ -110,6 +116,67 @@ func (f *fakeDB) SetAccountBlocked(_ context.Context, name string, blocked bool)
 		f.blockedNames = make(map[string]bool)
 	}
 	f.blockedNames[name] = blocked
+	return nil
+}
+
+func (f *fakeDB) CreateGuild(_ context.Context, _ int64, _ int, _, guildName string, clan, citizen uint8, _ int, cost int32) (world.GuildRecord, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	g := world.GuildRecord{ID: uint16(100 + len(f.createdGuilds)), Name: guildName, Clan: clan, Citizen: citizen}
+	f.createdGuilds = append(f.createdGuilds, g)
+	f.guildCosts = append(f.guildCosts, cost)
+	return g, true, nil
+}
+
+func (f *fakeDB) SetGuildMember(context.Context, int64, int, string, uint16, uint8) error {
+	return nil
+}
+
+func (f *fakeDB) LeaveGuild(context.Context, int64, int) error { return nil }
+
+func (f *fakeDB) PromoteGuildMember(_ context.Context, _ uint16, _ int64, _ int, _ int64, _ int, cost int32) (uint8, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	level := uint8(6 + len(f.promoted))
+	f.promoted = append(f.promoted, level)
+	f.promoteCosts = append(f.promoteCosts, cost)
+	return level, true, nil
+}
+
+func (f *fakeDB) TransferGuildLeader(context.Context, uint16, int64, int, int64, int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.transfers++
+	return nil
+}
+
+func (f *fakeDB) SetGuildRelation(context.Context, uint16, uint16, world.GuildRelationKind) error {
+	return nil
+}
+
+func (f *fakeDB) ListGuilds(context.Context) ([]world.GuildRecord, error) { return nil, nil }
+
+func (f *fakeDB) ListGuildRelations(context.Context) ([]world.GuildRelation, error) {
+	return nil, nil
+}
+
+func (f *fakeDB) LoadGuildZones(context.Context) ([]world.GuildZone, error) { return nil, nil }
+
+func (f *fakeDB) SaveGuildZone(context.Context, world.GuildZone) error { return nil }
+
+func (f *fakeDB) LoadGuildTowerState(context.Context) (world.GuildTowerState, error) {
+	return world.GuildTowerState{}, nil
+}
+
+func (f *fakeDB) SaveGuildTowerState(context.Context, world.GuildTowerState) error {
+	return nil
+}
+
+func (f *fakeDB) LoadCastleQuestState(context.Context) (world.CastleQuestState, error) {
+	return world.CastleQuestState{}, nil
+}
+
+func (f *fakeDB) SaveCastleQuestState(context.Context, world.CastleQuestState) error {
 	return nil
 }
 

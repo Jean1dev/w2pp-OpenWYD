@@ -143,6 +143,7 @@ const (
 	MsgCNFDropItem        Type = 0x0175 // 373
 	MsgDecayItem          Type = 0x016F // 367  ground item gone
 	MsgCombineComplete    Type = 0x03A7 // 935  combine result (parm 0/1/2)
+	MsgSendWarInfo        Type = 0x03A8 // 936  S→C guild war/ally status
 	MsgUpdateScore        Type = 0x0336 // 822  attributes/score update
 	MsgSetHpDam           Type = 0x018A // 394  S→C HP + floated heal/damage (affect ticks)
 	MsgSetHpMp            Type = 0x0181 // 385

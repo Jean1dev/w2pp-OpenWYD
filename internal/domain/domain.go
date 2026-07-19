@@ -93,6 +93,60 @@ type RankingEntry struct {
 	ClassMaster uint8
 }
 
+// Guild is the durable guild registry entry. ID is the legacy ushort value
+// written into STRUCT_MOB.Guild and shown by the 7662 client.
+type Guild struct {
+	ID      uint16
+	Name    string
+	Clan    uint8
+	Fame    int32
+	Citizen uint8
+}
+
+// GuildRelationKind identifies one directed guild relation row.
+type GuildRelationKind uint8
+
+// Guild relation kinds.
+const (
+	GuildRelationNone GuildRelationKind = iota
+	GuildRelationAlly
+	GuildRelationWar
+)
+
+// GuildRelation is one directed ally/war relation between guilds.
+type GuildRelation struct {
+	GuildID       uint16
+	TargetGuildID uint16
+	Kind          GuildRelationKind
+}
+
+// GuildZone is the persisted STRUCT_GUILDZONE subset used by city ownership,
+// challenge bids, city tax and castle ownership.
+type GuildZone struct {
+	Zone           int
+	ChargeGuild    uint16
+	ChallengeGuild uint16
+	Clan           uint8
+	Victory        uint8
+	CityTax        uint8
+	ChallengeMoney int64
+	TaxVault       int64
+}
+
+// GuildTowerState stores the current GTorre owner.
+type GuildTowerState struct {
+	OwnerGuild    uint16
+	UpdatedAtUnix int64
+}
+
+// CastleQuestState stores the single active Castle/Zakum quest state.
+type CastleQuestState struct {
+	Level      int32
+	TimeLeft   int32
+	Clear      bool
+	LeaderName string
+}
+
 // Item is a normalized inventory/equip/cargo entry. Slot preserves the array
 // index (positional meaning); empty slots are not represented.
 type Item struct {

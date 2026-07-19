@@ -143,6 +143,55 @@ func (PinResult) EnumDescriptor() ([]byte, []int) {
 	return file_api_db_v1_db_proto_rawDescGZIP(), []int{1}
 }
 
+type GuildRelationKind int32
+
+const (
+	GuildRelationKind_GUILD_RELATION_KIND_NONE GuildRelationKind = 0
+	GuildRelationKind_GUILD_RELATION_KIND_ALLY GuildRelationKind = 1
+	GuildRelationKind_GUILD_RELATION_KIND_WAR  GuildRelationKind = 2
+)
+
+// Enum value maps for GuildRelationKind.
+var (
+	GuildRelationKind_name = map[int32]string{
+		0: "GUILD_RELATION_KIND_NONE",
+		1: "GUILD_RELATION_KIND_ALLY",
+		2: "GUILD_RELATION_KIND_WAR",
+	}
+	GuildRelationKind_value = map[string]int32{
+		"GUILD_RELATION_KIND_NONE": 0,
+		"GUILD_RELATION_KIND_ALLY": 1,
+		"GUILD_RELATION_KIND_WAR":  2,
+	}
+)
+
+func (x GuildRelationKind) Enum() *GuildRelationKind {
+	p := new(GuildRelationKind)
+	*p = x
+	return p
+}
+
+func (x GuildRelationKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (GuildRelationKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_db_v1_db_proto_enumTypes[2].Descriptor()
+}
+
+func (GuildRelationKind) Type() protoreflect.EnumType {
+	return &file_api_db_v1_db_proto_enumTypes[2]
+}
+
+func (x GuildRelationKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use GuildRelationKind.Descriptor instead.
+func (GuildRelationKind) EnumDescriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{2}
+}
+
 type AccountLoginRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountName   string                 `protobuf:"bytes,1,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"` // canonical lowercase
@@ -608,6 +657,7 @@ type Character struct {
 	CelestialLv40   int32    `protobuf:"varint,35,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`         // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
 	CelestialLv90   int32    `protobuf:"varint,36,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`         // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
 	CelestialCircle int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`   // QuestInfo.Circle (Cythera Arcana quest done)
+	GuildLevel      int32    `protobuf:"varint,38,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                  // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -897,6 +947,13 @@ func (x *Character) GetCelestialLv90() int32 {
 func (x *Character) GetCelestialCircle() int32 {
 	if x != nil {
 		return x.CelestialCircle
+	}
+	return 0
+}
+
+func (x *Character) GetGuildLevel() int32 {
+	if x != nil {
+		return x.GuildLevel
 	}
 	return 0
 }
@@ -2290,6 +2347,1666 @@ func (x *SetAccountBlockedResponse) GetOk() bool {
 	return false
 }
 
+type Guild struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"` // legacy ushort guild id
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Clan          int32                  `protobuf:"varint,3,opt,name=clan,proto3" json:"clan,omitempty"`
+	Fame          int32                  `protobuf:"varint,4,opt,name=fame,proto3" json:"fame,omitempty"`
+	Citizen       int32                  `protobuf:"varint,5,opt,name=citizen,proto3" json:"citizen,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Guild) Reset() {
+	*x = Guild{}
+	mi := &file_api_db_v1_db_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Guild) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Guild) ProtoMessage() {}
+
+func (x *Guild) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Guild.ProtoReflect.Descriptor instead.
+func (*Guild) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *Guild) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Guild) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Guild) GetClan() int32 {
+	if x != nil {
+		return x.Clan
+	}
+	return 0
+}
+
+func (x *Guild) GetFame() int32 {
+	if x != nil {
+		return x.Fame
+	}
+	return 0
+}
+
+func (x *Guild) GetCitizen() int32 {
+	if x != nil {
+		return x.Citizen
+	}
+	return 0
+}
+
+type GuildRelation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GuildId       uint32                 `protobuf:"varint,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	TargetGuildId uint32                 `protobuf:"varint,2,opt,name=target_guild_id,json=targetGuildId,proto3" json:"target_guild_id,omitempty"`
+	Kind          GuildRelationKind      `protobuf:"varint,3,opt,name=kind,proto3,enum=db.v1.GuildRelationKind" json:"kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GuildRelation) Reset() {
+	*x = GuildRelation{}
+	mi := &file_api_db_v1_db_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuildRelation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuildRelation) ProtoMessage() {}
+
+func (x *GuildRelation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuildRelation.ProtoReflect.Descriptor instead.
+func (*GuildRelation) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *GuildRelation) GetGuildId() uint32 {
+	if x != nil {
+		return x.GuildId
+	}
+	return 0
+}
+
+func (x *GuildRelation) GetTargetGuildId() uint32 {
+	if x != nil {
+		return x.TargetGuildId
+	}
+	return 0
+}
+
+func (x *GuildRelation) GetKind() GuildRelationKind {
+	if x != nil {
+		return x.Kind
+	}
+	return GuildRelationKind_GUILD_RELATION_KIND_NONE
+}
+
+type CreateGuildRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Slot          int32                  `protobuf:"varint,2,opt,name=slot,proto3" json:"slot,omitempty"`
+	CharacterName string                 `protobuf:"bytes,3,opt,name=character_name,json=characterName,proto3" json:"character_name,omitempty"`
+	GuildName     string                 `protobuf:"bytes,4,opt,name=guild_name,json=guildName,proto3" json:"guild_name,omitempty"`
+	Clan          int32                  `protobuf:"varint,5,opt,name=clan,proto3" json:"clan,omitempty"`
+	Citizen       int32                  `protobuf:"varint,6,opt,name=citizen,proto3" json:"citizen,omitempty"`
+	ServerIndex   int32                  `protobuf:"varint,7,opt,name=server_index,json=serverIndex,proto3" json:"server_index,omitempty"`
+	Cost          int32                  `protobuf:"varint,8,opt,name=cost,proto3" json:"cost,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateGuildRequest) Reset() {
+	*x = CreateGuildRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateGuildRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateGuildRequest) ProtoMessage() {}
+
+func (x *CreateGuildRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateGuildRequest.ProtoReflect.Descriptor instead.
+func (*CreateGuildRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *CreateGuildRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *CreateGuildRequest) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *CreateGuildRequest) GetCharacterName() string {
+	if x != nil {
+		return x.CharacterName
+	}
+	return ""
+}
+
+func (x *CreateGuildRequest) GetGuildName() string {
+	if x != nil {
+		return x.GuildName
+	}
+	return ""
+}
+
+func (x *CreateGuildRequest) GetClan() int32 {
+	if x != nil {
+		return x.Clan
+	}
+	return 0
+}
+
+func (x *CreateGuildRequest) GetCitizen() int32 {
+	if x != nil {
+		return x.Citizen
+	}
+	return 0
+}
+
+func (x *CreateGuildRequest) GetServerIndex() int32 {
+	if x != nil {
+		return x.ServerIndex
+	}
+	return 0
+}
+
+func (x *CreateGuildRequest) GetCost() int32 {
+	if x != nil {
+		return x.Cost
+	}
+	return 0
+}
+
+type CreateGuildResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Guild         *Guild                 `protobuf:"bytes,2,opt,name=guild,proto3" json:"guild,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateGuildResponse) Reset() {
+	*x = CreateGuildResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateGuildResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateGuildResponse) ProtoMessage() {}
+
+func (x *CreateGuildResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateGuildResponse.ProtoReflect.Descriptor instead.
+func (*CreateGuildResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *CreateGuildResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *CreateGuildResponse) GetGuild() *Guild {
+	if x != nil {
+		return x.Guild
+	}
+	return nil
+}
+
+type SetGuildMemberRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Slot          int32                  `protobuf:"varint,2,opt,name=slot,proto3" json:"slot,omitempty"`
+	CharacterName string                 `protobuf:"bytes,3,opt,name=character_name,json=characterName,proto3" json:"character_name,omitempty"`
+	GuildId       uint32                 `protobuf:"varint,4,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	GuildLevel    int32                  `protobuf:"varint,5,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGuildMemberRequest) Reset() {
+	*x = SetGuildMemberRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGuildMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGuildMemberRequest) ProtoMessage() {}
+
+func (x *SetGuildMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGuildMemberRequest.ProtoReflect.Descriptor instead.
+func (*SetGuildMemberRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *SetGuildMemberRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *SetGuildMemberRequest) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *SetGuildMemberRequest) GetCharacterName() string {
+	if x != nil {
+		return x.CharacterName
+	}
+	return ""
+}
+
+func (x *SetGuildMemberRequest) GetGuildId() uint32 {
+	if x != nil {
+		return x.GuildId
+	}
+	return 0
+}
+
+func (x *SetGuildMemberRequest) GetGuildLevel() int32 {
+	if x != nil {
+		return x.GuildLevel
+	}
+	return 0
+}
+
+type SetGuildMemberResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGuildMemberResponse) Reset() {
+	*x = SetGuildMemberResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGuildMemberResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGuildMemberResponse) ProtoMessage() {}
+
+func (x *SetGuildMemberResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGuildMemberResponse.ProtoReflect.Descriptor instead.
+func (*SetGuildMemberResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *SetGuildMemberResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+type LeaveGuildRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Slot          int32                  `protobuf:"varint,2,opt,name=slot,proto3" json:"slot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveGuildRequest) Reset() {
+	*x = LeaveGuildRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveGuildRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveGuildRequest) ProtoMessage() {}
+
+func (x *LeaveGuildRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveGuildRequest.ProtoReflect.Descriptor instead.
+func (*LeaveGuildRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *LeaveGuildRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *LeaveGuildRequest) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+type PromoteGuildMemberRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	GuildId         uint32                 `protobuf:"varint,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	LeaderAccountId int64                  `protobuf:"varint,2,opt,name=leader_account_id,json=leaderAccountId,proto3" json:"leader_account_id,omitempty"`
+	LeaderSlot      int32                  `protobuf:"varint,3,opt,name=leader_slot,json=leaderSlot,proto3" json:"leader_slot,omitempty"`
+	AccountId       int64                  `protobuf:"varint,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Slot            int32                  `protobuf:"varint,5,opt,name=slot,proto3" json:"slot,omitempty"`
+	Cost            int32                  `protobuf:"varint,6,opt,name=cost,proto3" json:"cost,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *PromoteGuildMemberRequest) Reset() {
+	*x = PromoteGuildMemberRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromoteGuildMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromoteGuildMemberRequest) ProtoMessage() {}
+
+func (x *PromoteGuildMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromoteGuildMemberRequest.ProtoReflect.Descriptor instead.
+func (*PromoteGuildMemberRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *PromoteGuildMemberRequest) GetGuildId() uint32 {
+	if x != nil {
+		return x.GuildId
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetLeaderAccountId() int64 {
+	if x != nil {
+		return x.LeaderAccountId
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetLeaderSlot() int32 {
+	if x != nil {
+		return x.LeaderSlot
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetAccountId() int64 {
+	if x != nil {
+		return x.AccountId
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *PromoteGuildMemberRequest) GetCost() int32 {
+	if x != nil {
+		return x.Cost
+	}
+	return 0
+}
+
+type PromoteGuildMemberResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	GuildLevel    int32                  `protobuf:"varint,2,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PromoteGuildMemberResponse) Reset() {
+	*x = PromoteGuildMemberResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromoteGuildMemberResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromoteGuildMemberResponse) ProtoMessage() {}
+
+func (x *PromoteGuildMemberResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromoteGuildMemberResponse.ProtoReflect.Descriptor instead.
+func (*PromoteGuildMemberResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *PromoteGuildMemberResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *PromoteGuildMemberResponse) GetGuildLevel() int32 {
+	if x != nil {
+		return x.GuildLevel
+	}
+	return 0
+}
+
+type TransferGuildLeaderRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GuildId       uint32                 `protobuf:"varint,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	OldAccountId  int64                  `protobuf:"varint,2,opt,name=old_account_id,json=oldAccountId,proto3" json:"old_account_id,omitempty"`
+	OldSlot       int32                  `protobuf:"varint,3,opt,name=old_slot,json=oldSlot,proto3" json:"old_slot,omitempty"`
+	NewAccountId  int64                  `protobuf:"varint,4,opt,name=new_account_id,json=newAccountId,proto3" json:"new_account_id,omitempty"`
+	NewSlot       int32                  `protobuf:"varint,5,opt,name=new_slot,json=newSlot,proto3" json:"new_slot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransferGuildLeaderRequest) Reset() {
+	*x = TransferGuildLeaderRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransferGuildLeaderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferGuildLeaderRequest) ProtoMessage() {}
+
+func (x *TransferGuildLeaderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferGuildLeaderRequest.ProtoReflect.Descriptor instead.
+func (*TransferGuildLeaderRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *TransferGuildLeaderRequest) GetGuildId() uint32 {
+	if x != nil {
+		return x.GuildId
+	}
+	return 0
+}
+
+func (x *TransferGuildLeaderRequest) GetOldAccountId() int64 {
+	if x != nil {
+		return x.OldAccountId
+	}
+	return 0
+}
+
+func (x *TransferGuildLeaderRequest) GetOldSlot() int32 {
+	if x != nil {
+		return x.OldSlot
+	}
+	return 0
+}
+
+func (x *TransferGuildLeaderRequest) GetNewAccountId() int64 {
+	if x != nil {
+		return x.NewAccountId
+	}
+	return 0
+}
+
+func (x *TransferGuildLeaderRequest) GetNewSlot() int32 {
+	if x != nil {
+		return x.NewSlot
+	}
+	return 0
+}
+
+type SetGuildRelationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GuildId       uint32                 `protobuf:"varint,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	TargetGuildId uint32                 `protobuf:"varint,2,opt,name=target_guild_id,json=targetGuildId,proto3" json:"target_guild_id,omitempty"`
+	Kind          GuildRelationKind      `protobuf:"varint,3,opt,name=kind,proto3,enum=db.v1.GuildRelationKind" json:"kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGuildRelationRequest) Reset() {
+	*x = SetGuildRelationRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGuildRelationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGuildRelationRequest) ProtoMessage() {}
+
+func (x *SetGuildRelationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGuildRelationRequest.ProtoReflect.Descriptor instead.
+func (*SetGuildRelationRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *SetGuildRelationRequest) GetGuildId() uint32 {
+	if x != nil {
+		return x.GuildId
+	}
+	return 0
+}
+
+func (x *SetGuildRelationRequest) GetTargetGuildId() uint32 {
+	if x != nil {
+		return x.TargetGuildId
+	}
+	return 0
+}
+
+func (x *SetGuildRelationRequest) GetKind() GuildRelationKind {
+	if x != nil {
+		return x.Kind
+	}
+	return GuildRelationKind_GUILD_RELATION_KIND_NONE
+}
+
+type SetGuildRelationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGuildRelationResponse) Reset() {
+	*x = SetGuildRelationResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGuildRelationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGuildRelationResponse) ProtoMessage() {}
+
+func (x *SetGuildRelationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGuildRelationResponse.ProtoReflect.Descriptor instead.
+func (*SetGuildRelationResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *SetGuildRelationResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+type ListGuildsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGuildsRequest) Reset() {
+	*x = ListGuildsRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGuildsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGuildsRequest) ProtoMessage() {}
+
+func (x *ListGuildsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGuildsRequest.ProtoReflect.Descriptor instead.
+func (*ListGuildsRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{44}
+}
+
+type ListGuildsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Guilds        []*Guild               `protobuf:"bytes,1,rep,name=guilds,proto3" json:"guilds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGuildsResponse) Reset() {
+	*x = ListGuildsResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGuildsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGuildsResponse) ProtoMessage() {}
+
+func (x *ListGuildsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGuildsResponse.ProtoReflect.Descriptor instead.
+func (*ListGuildsResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListGuildsResponse) GetGuilds() []*Guild {
+	if x != nil {
+		return x.Guilds
+	}
+	return nil
+}
+
+type ListGuildRelationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGuildRelationsRequest) Reset() {
+	*x = ListGuildRelationsRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGuildRelationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGuildRelationsRequest) ProtoMessage() {}
+
+func (x *ListGuildRelationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGuildRelationsRequest.ProtoReflect.Descriptor instead.
+func (*ListGuildRelationsRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{46}
+}
+
+type ListGuildRelationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Relations     []*GuildRelation       `protobuf:"bytes,1,rep,name=relations,proto3" json:"relations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGuildRelationsResponse) Reset() {
+	*x = ListGuildRelationsResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGuildRelationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGuildRelationsResponse) ProtoMessage() {}
+
+func (x *ListGuildRelationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGuildRelationsResponse.ProtoReflect.Descriptor instead.
+func (*ListGuildRelationsResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ListGuildRelationsResponse) GetRelations() []*GuildRelation {
+	if x != nil {
+		return x.Relations
+	}
+	return nil
+}
+
+type GuildZone struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Zone           int32                  `protobuf:"varint,1,opt,name=zone,proto3" json:"zone,omitempty"`
+	ChargeGuild    uint32                 `protobuf:"varint,2,opt,name=charge_guild,json=chargeGuild,proto3" json:"charge_guild,omitempty"`
+	ChallengeGuild uint32                 `protobuf:"varint,3,opt,name=challenge_guild,json=challengeGuild,proto3" json:"challenge_guild,omitempty"`
+	Clan           int32                  `protobuf:"varint,4,opt,name=clan,proto3" json:"clan,omitempty"`
+	Victory        int32                  `protobuf:"varint,5,opt,name=victory,proto3" json:"victory,omitempty"`
+	CityTax        int32                  `protobuf:"varint,6,opt,name=city_tax,json=cityTax,proto3" json:"city_tax,omitempty"`
+	ChallengeMoney int64                  `protobuf:"varint,7,opt,name=challenge_money,json=challengeMoney,proto3" json:"challenge_money,omitempty"`
+	TaxVault       int64                  `protobuf:"varint,8,opt,name=tax_vault,json=taxVault,proto3" json:"tax_vault,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GuildZone) Reset() {
+	*x = GuildZone{}
+	mi := &file_api_db_v1_db_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuildZone) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuildZone) ProtoMessage() {}
+
+func (x *GuildZone) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuildZone.ProtoReflect.Descriptor instead.
+func (*GuildZone) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *GuildZone) GetZone() int32 {
+	if x != nil {
+		return x.Zone
+	}
+	return 0
+}
+
+func (x *GuildZone) GetChargeGuild() uint32 {
+	if x != nil {
+		return x.ChargeGuild
+	}
+	return 0
+}
+
+func (x *GuildZone) GetChallengeGuild() uint32 {
+	if x != nil {
+		return x.ChallengeGuild
+	}
+	return 0
+}
+
+func (x *GuildZone) GetClan() int32 {
+	if x != nil {
+		return x.Clan
+	}
+	return 0
+}
+
+func (x *GuildZone) GetVictory() int32 {
+	if x != nil {
+		return x.Victory
+	}
+	return 0
+}
+
+func (x *GuildZone) GetCityTax() int32 {
+	if x != nil {
+		return x.CityTax
+	}
+	return 0
+}
+
+func (x *GuildZone) GetChallengeMoney() int64 {
+	if x != nil {
+		return x.ChallengeMoney
+	}
+	return 0
+}
+
+func (x *GuildZone) GetTaxVault() int64 {
+	if x != nil {
+		return x.TaxVault
+	}
+	return 0
+}
+
+type LoadGuildZonesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadGuildZonesRequest) Reset() {
+	*x = LoadGuildZonesRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadGuildZonesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadGuildZonesRequest) ProtoMessage() {}
+
+func (x *LoadGuildZonesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadGuildZonesRequest.ProtoReflect.Descriptor instead.
+func (*LoadGuildZonesRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{49}
+}
+
+type LoadGuildZonesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Zones         []*GuildZone           `protobuf:"bytes,1,rep,name=zones,proto3" json:"zones,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadGuildZonesResponse) Reset() {
+	*x = LoadGuildZonesResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadGuildZonesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadGuildZonesResponse) ProtoMessage() {}
+
+func (x *LoadGuildZonesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadGuildZonesResponse.ProtoReflect.Descriptor instead.
+func (*LoadGuildZonesResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *LoadGuildZonesResponse) GetZones() []*GuildZone {
+	if x != nil {
+		return x.Zones
+	}
+	return nil
+}
+
+type SaveGuildZoneRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Zone          *GuildZone             `protobuf:"bytes,1,opt,name=zone,proto3" json:"zone,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveGuildZoneRequest) Reset() {
+	*x = SaveGuildZoneRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveGuildZoneRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveGuildZoneRequest) ProtoMessage() {}
+
+func (x *SaveGuildZoneRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveGuildZoneRequest.ProtoReflect.Descriptor instead.
+func (*SaveGuildZoneRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *SaveGuildZoneRequest) GetZone() *GuildZone {
+	if x != nil {
+		return x.Zone
+	}
+	return nil
+}
+
+type SaveGuildZoneResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveGuildZoneResponse) Reset() {
+	*x = SaveGuildZoneResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveGuildZoneResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveGuildZoneResponse) ProtoMessage() {}
+
+func (x *SaveGuildZoneResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveGuildZoneResponse.ProtoReflect.Descriptor instead.
+func (*SaveGuildZoneResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *SaveGuildZoneResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+type GuildTowerState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OwnerGuild    uint32                 `protobuf:"varint,1,opt,name=owner_guild,json=ownerGuild,proto3" json:"owner_guild,omitempty"`
+	UpdatedAtUnix int64                  `protobuf:"varint,2,opt,name=updated_at_unix,json=updatedAtUnix,proto3" json:"updated_at_unix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GuildTowerState) Reset() {
+	*x = GuildTowerState{}
+	mi := &file_api_db_v1_db_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuildTowerState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuildTowerState) ProtoMessage() {}
+
+func (x *GuildTowerState) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuildTowerState.ProtoReflect.Descriptor instead.
+func (*GuildTowerState) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GuildTowerState) GetOwnerGuild() uint32 {
+	if x != nil {
+		return x.OwnerGuild
+	}
+	return 0
+}
+
+func (x *GuildTowerState) GetUpdatedAtUnix() int64 {
+	if x != nil {
+		return x.UpdatedAtUnix
+	}
+	return 0
+}
+
+type LoadGuildTowerStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadGuildTowerStateRequest) Reset() {
+	*x = LoadGuildTowerStateRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadGuildTowerStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadGuildTowerStateRequest) ProtoMessage() {}
+
+func (x *LoadGuildTowerStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadGuildTowerStateRequest.ProtoReflect.Descriptor instead.
+func (*LoadGuildTowerStateRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{54}
+}
+
+type LoadGuildTowerStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *GuildTowerState       `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadGuildTowerStateResponse) Reset() {
+	*x = LoadGuildTowerStateResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadGuildTowerStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadGuildTowerStateResponse) ProtoMessage() {}
+
+func (x *LoadGuildTowerStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadGuildTowerStateResponse.ProtoReflect.Descriptor instead.
+func (*LoadGuildTowerStateResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *LoadGuildTowerStateResponse) GetState() *GuildTowerState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type SaveGuildTowerStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *GuildTowerState       `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveGuildTowerStateRequest) Reset() {
+	*x = SaveGuildTowerStateRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveGuildTowerStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveGuildTowerStateRequest) ProtoMessage() {}
+
+func (x *SaveGuildTowerStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveGuildTowerStateRequest.ProtoReflect.Descriptor instead.
+func (*SaveGuildTowerStateRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *SaveGuildTowerStateRequest) GetState() *GuildTowerState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type SaveGuildTowerStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveGuildTowerStateResponse) Reset() {
+	*x = SaveGuildTowerStateResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveGuildTowerStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveGuildTowerStateResponse) ProtoMessage() {}
+
+func (x *SaveGuildTowerStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveGuildTowerStateResponse.ProtoReflect.Descriptor instead.
+func (*SaveGuildTowerStateResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *SaveGuildTowerStateResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+type CastleQuestState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Level         int32                  `protobuf:"varint,1,opt,name=level,proto3" json:"level,omitempty"`
+	TimeLeft      int32                  `protobuf:"varint,2,opt,name=time_left,json=timeLeft,proto3" json:"time_left,omitempty"`
+	Clear         bool                   `protobuf:"varint,3,opt,name=clear,proto3" json:"clear,omitempty"`
+	LeaderName    string                 `protobuf:"bytes,4,opt,name=leader_name,json=leaderName,proto3" json:"leader_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CastleQuestState) Reset() {
+	*x = CastleQuestState{}
+	mi := &file_api_db_v1_db_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CastleQuestState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CastleQuestState) ProtoMessage() {}
+
+func (x *CastleQuestState) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CastleQuestState.ProtoReflect.Descriptor instead.
+func (*CastleQuestState) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *CastleQuestState) GetLevel() int32 {
+	if x != nil {
+		return x.Level
+	}
+	return 0
+}
+
+func (x *CastleQuestState) GetTimeLeft() int32 {
+	if x != nil {
+		return x.TimeLeft
+	}
+	return 0
+}
+
+func (x *CastleQuestState) GetClear() bool {
+	if x != nil {
+		return x.Clear
+	}
+	return false
+}
+
+func (x *CastleQuestState) GetLeaderName() string {
+	if x != nil {
+		return x.LeaderName
+	}
+	return ""
+}
+
+type LoadCastleQuestStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadCastleQuestStateRequest) Reset() {
+	*x = LoadCastleQuestStateRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadCastleQuestStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadCastleQuestStateRequest) ProtoMessage() {}
+
+func (x *LoadCastleQuestStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadCastleQuestStateRequest.ProtoReflect.Descriptor instead.
+func (*LoadCastleQuestStateRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{59}
+}
+
+type LoadCastleQuestStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *CastleQuestState      `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadCastleQuestStateResponse) Reset() {
+	*x = LoadCastleQuestStateResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadCastleQuestStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadCastleQuestStateResponse) ProtoMessage() {}
+
+func (x *LoadCastleQuestStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadCastleQuestStateResponse.ProtoReflect.Descriptor instead.
+func (*LoadCastleQuestStateResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *LoadCastleQuestStateResponse) GetState() *CastleQuestState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type SaveCastleQuestStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *CastleQuestState      `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveCastleQuestStateRequest) Reset() {
+	*x = SaveCastleQuestStateRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveCastleQuestStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveCastleQuestStateRequest) ProtoMessage() {}
+
+func (x *SaveCastleQuestStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveCastleQuestStateRequest.ProtoReflect.Descriptor instead.
+func (*SaveCastleQuestStateRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *SaveCastleQuestStateRequest) GetState() *CastleQuestState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type SaveCastleQuestStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveCastleQuestStateResponse) Reset() {
+	*x = SaveCastleQuestStateResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveCastleQuestStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveCastleQuestStateResponse) ProtoMessage() {}
+
+func (x *SaveCastleQuestStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveCastleQuestStateResponse.ProtoReflect.Descriptor instead.
+func (*SaveCastleQuestStateResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *SaveCastleQuestStateResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
 type NpcConfigVersionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2298,7 +4015,7 @@ type NpcConfigVersionRequest struct {
 
 func (x *NpcConfigVersionRequest) Reset() {
 	*x = NpcConfigVersionRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[32]
+	mi := &file_api_db_v1_db_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2310,7 +4027,7 @@ func (x *NpcConfigVersionRequest) String() string {
 func (*NpcConfigVersionRequest) ProtoMessage() {}
 
 func (x *NpcConfigVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[32]
+	mi := &file_api_db_v1_db_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2323,7 +4040,7 @@ func (x *NpcConfigVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcConfigVersionRequest.ProtoReflect.Descriptor instead.
 func (*NpcConfigVersionRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{32}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{63}
 }
 
 type NpcConfigVersionResponse struct {
@@ -2335,7 +4052,7 @@ type NpcConfigVersionResponse struct {
 
 func (x *NpcConfigVersionResponse) Reset() {
 	*x = NpcConfigVersionResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[33]
+	mi := &file_api_db_v1_db_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2347,7 +4064,7 @@ func (x *NpcConfigVersionResponse) String() string {
 func (*NpcConfigVersionResponse) ProtoMessage() {}
 
 func (x *NpcConfigVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[33]
+	mi := &file_api_db_v1_db_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2360,7 +4077,7 @@ func (x *NpcConfigVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcConfigVersionResponse.ProtoReflect.Descriptor instead.
 func (*NpcConfigVersionResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{33}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *NpcConfigVersionResponse) GetVersion() int64 {
@@ -2378,7 +4095,7 @@ type ListNpcDefinitionsRequest struct {
 
 func (x *ListNpcDefinitionsRequest) Reset() {
 	*x = ListNpcDefinitionsRequest{}
-	mi := &file_api_db_v1_db_proto_msgTypes[34]
+	mi := &file_api_db_v1_db_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2390,7 +4107,7 @@ func (x *ListNpcDefinitionsRequest) String() string {
 func (*ListNpcDefinitionsRequest) ProtoMessage() {}
 
 func (x *ListNpcDefinitionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[34]
+	mi := &file_api_db_v1_db_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2403,7 +4120,7 @@ func (x *ListNpcDefinitionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNpcDefinitionsRequest.ProtoReflect.Descriptor instead.
 func (*ListNpcDefinitionsRequest) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{34}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{65}
 }
 
 type ListNpcDefinitionsResponse struct {
@@ -2417,7 +4134,7 @@ type ListNpcDefinitionsResponse struct {
 
 func (x *ListNpcDefinitionsResponse) Reset() {
 	*x = ListNpcDefinitionsResponse{}
-	mi := &file_api_db_v1_db_proto_msgTypes[35]
+	mi := &file_api_db_v1_db_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2429,7 +4146,7 @@ func (x *ListNpcDefinitionsResponse) String() string {
 func (*ListNpcDefinitionsResponse) ProtoMessage() {}
 
 func (x *ListNpcDefinitionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[35]
+	mi := &file_api_db_v1_db_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2442,7 +4159,7 @@ func (x *ListNpcDefinitionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNpcDefinitionsResponse.ProtoReflect.Descriptor instead.
 func (*ListNpcDefinitionsResponse) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{35}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ListNpcDefinitionsResponse) GetVersion() int64 {
@@ -2487,7 +4204,7 @@ type NpcShopItem struct {
 
 func (x *NpcShopItem) Reset() {
 	*x = NpcShopItem{}
-	mi := &file_api_db_v1_db_proto_msgTypes[36]
+	mi := &file_api_db_v1_db_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2499,7 +4216,7 @@ func (x *NpcShopItem) String() string {
 func (*NpcShopItem) ProtoMessage() {}
 
 func (x *NpcShopItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[36]
+	mi := &file_api_db_v1_db_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2512,7 +4229,7 @@ func (x *NpcShopItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcShopItem.ProtoReflect.Descriptor instead.
 func (*NpcShopItem) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{36}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *NpcShopItem) GetSlot() int32 {
@@ -2597,7 +4314,7 @@ type NpcDefinition struct {
 
 func (x *NpcDefinition) Reset() {
 	*x = NpcDefinition{}
-	mi := &file_api_db_v1_db_proto_msgTypes[37]
+	mi := &file_api_db_v1_db_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2609,7 +4326,7 @@ func (x *NpcDefinition) String() string {
 func (*NpcDefinition) ProtoMessage() {}
 
 func (x *NpcDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[37]
+	mi := &file_api_db_v1_db_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2622,7 +4339,7 @@ func (x *NpcDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NpcDefinition.ProtoReflect.Descriptor instead.
 func (*NpcDefinition) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{37}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *NpcDefinition) GetId() int64 {
@@ -2712,7 +4429,7 @@ type ItemPrice struct {
 
 func (x *ItemPrice) Reset() {
 	*x = ItemPrice{}
-	mi := &file_api_db_v1_db_proto_msgTypes[38]
+	mi := &file_api_db_v1_db_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2724,7 +4441,7 @@ func (x *ItemPrice) String() string {
 func (*ItemPrice) ProtoMessage() {}
 
 func (x *ItemPrice) ProtoReflect() protoreflect.Message {
-	mi := &file_api_db_v1_db_proto_msgTypes[38]
+	mi := &file_api_db_v1_db_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2737,7 +4454,7 @@ func (x *ItemPrice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemPrice.ProtoReflect.Descriptor instead.
 func (*ItemPrice) Descriptor() ([]byte, []int) {
-	return file_api_db_v1_db_proto_rawDescGZIP(), []int{38}
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ItemPrice) GetItemIndex() int32 {
@@ -2795,7 +4512,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xe7\a\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x88\b\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2836,7 +4553,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x06save_y\x18\" \x01(\x05R\x05saveY\x12%\n" +
 	"\x0ecelestial_lv40\x18# \x01(\x05R\rcelestialLv40\x12%\n" +
 	"\x0ecelestial_lv90\x18$ \x01(\x05R\rcelestialLv90\x12)\n" +
-	"\x10celestial_circle\x18% \x01(\x05R\x0fcelestialCircle\"\xcd\x01\n" +
+	"\x10celestial_circle\x18% \x01(\x05R\x0fcelestialCircle\x12\x1f\n" +
+	"\vguild_level\x18& \x01(\x05R\n" +
+	"guildLevel\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
@@ -2939,6 +4658,115 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\faccount_name\x18\x01 \x01(\tR\vaccountName\x12\x18\n" +
 	"\ablocked\x18\x02 \x01(\bR\ablocked\"+\n" +
 	"\x19SetAccountBlockedResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"m\n" +
+	"\x05Guild\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04clan\x18\x03 \x01(\x05R\x04clan\x12\x12\n" +
+	"\x04fame\x18\x04 \x01(\x05R\x04fame\x12\x18\n" +
+	"\acitizen\x18\x05 \x01(\x05R\acitizen\"\x80\x01\n" +
+	"\rGuildRelation\x12\x19\n" +
+	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12&\n" +
+	"\x0ftarget_guild_id\x18\x02 \x01(\rR\rtargetGuildId\x12,\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x18.db.v1.GuildRelationKindR\x04kind\"\xf2\x01\n" +
+	"\x12CreateGuildRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\x12%\n" +
+	"\x0echaracter_name\x18\x03 \x01(\tR\rcharacterName\x12\x1d\n" +
+	"\n" +
+	"guild_name\x18\x04 \x01(\tR\tguildName\x12\x12\n" +
+	"\x04clan\x18\x05 \x01(\x05R\x04clan\x12\x18\n" +
+	"\acitizen\x18\x06 \x01(\x05R\acitizen\x12!\n" +
+	"\fserver_index\x18\a \x01(\x05R\vserverIndex\x12\x12\n" +
+	"\x04cost\x18\b \x01(\x05R\x04cost\"I\n" +
+	"\x13CreateGuildResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\"\n" +
+	"\x05guild\x18\x02 \x01(\v2\f.db.v1.GuildR\x05guild\"\xad\x01\n" +
+	"\x15SetGuildMemberRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\x12%\n" +
+	"\x0echaracter_name\x18\x03 \x01(\tR\rcharacterName\x12\x19\n" +
+	"\bguild_id\x18\x04 \x01(\rR\aguildId\x12\x1f\n" +
+	"\vguild_level\x18\x05 \x01(\x05R\n" +
+	"guildLevel\"(\n" +
+	"\x16SetGuildMemberResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"F\n" +
+	"\x11LeaveGuildRequest\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xca\x01\n" +
+	"\x19PromoteGuildMemberRequest\x12\x19\n" +
+	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12*\n" +
+	"\x11leader_account_id\x18\x02 \x01(\x03R\x0fleaderAccountId\x12\x1f\n" +
+	"\vleader_slot\x18\x03 \x01(\x05R\n" +
+	"leaderSlot\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x04 \x01(\x03R\taccountId\x12\x12\n" +
+	"\x04slot\x18\x05 \x01(\x05R\x04slot\x12\x12\n" +
+	"\x04cost\x18\x06 \x01(\x05R\x04cost\"M\n" +
+	"\x1aPromoteGuildMemberResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1f\n" +
+	"\vguild_level\x18\x02 \x01(\x05R\n" +
+	"guildLevel\"\xb9\x01\n" +
+	"\x1aTransferGuildLeaderRequest\x12\x19\n" +
+	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12$\n" +
+	"\x0eold_account_id\x18\x02 \x01(\x03R\foldAccountId\x12\x19\n" +
+	"\bold_slot\x18\x03 \x01(\x05R\aoldSlot\x12$\n" +
+	"\x0enew_account_id\x18\x04 \x01(\x03R\fnewAccountId\x12\x19\n" +
+	"\bnew_slot\x18\x05 \x01(\x05R\anewSlot\"\x8a\x01\n" +
+	"\x17SetGuildRelationRequest\x12\x19\n" +
+	"\bguild_id\x18\x01 \x01(\rR\aguildId\x12&\n" +
+	"\x0ftarget_guild_id\x18\x02 \x01(\rR\rtargetGuildId\x12,\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x18.db.v1.GuildRelationKindR\x04kind\"*\n" +
+	"\x18SetGuildRelationResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x13\n" +
+	"\x11ListGuildsRequest\":\n" +
+	"\x12ListGuildsResponse\x12$\n" +
+	"\x06guilds\x18\x01 \x03(\v2\f.db.v1.GuildR\x06guilds\"\x1b\n" +
+	"\x19ListGuildRelationsRequest\"P\n" +
+	"\x1aListGuildRelationsResponse\x122\n" +
+	"\trelations\x18\x01 \x03(\v2\x14.db.v1.GuildRelationR\trelations\"\xfa\x01\n" +
+	"\tGuildZone\x12\x12\n" +
+	"\x04zone\x18\x01 \x01(\x05R\x04zone\x12!\n" +
+	"\fcharge_guild\x18\x02 \x01(\rR\vchargeGuild\x12'\n" +
+	"\x0fchallenge_guild\x18\x03 \x01(\rR\x0echallengeGuild\x12\x12\n" +
+	"\x04clan\x18\x04 \x01(\x05R\x04clan\x12\x18\n" +
+	"\avictory\x18\x05 \x01(\x05R\avictory\x12\x19\n" +
+	"\bcity_tax\x18\x06 \x01(\x05R\acityTax\x12'\n" +
+	"\x0fchallenge_money\x18\a \x01(\x03R\x0echallengeMoney\x12\x1b\n" +
+	"\ttax_vault\x18\b \x01(\x03R\btaxVault\"\x17\n" +
+	"\x15LoadGuildZonesRequest\"@\n" +
+	"\x16LoadGuildZonesResponse\x12&\n" +
+	"\x05zones\x18\x01 \x03(\v2\x10.db.v1.GuildZoneR\x05zones\"<\n" +
+	"\x14SaveGuildZoneRequest\x12$\n" +
+	"\x04zone\x18\x01 \x01(\v2\x10.db.v1.GuildZoneR\x04zone\"'\n" +
+	"\x15SaveGuildZoneResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"Z\n" +
+	"\x0fGuildTowerState\x12\x1f\n" +
+	"\vowner_guild\x18\x01 \x01(\rR\n" +
+	"ownerGuild\x12&\n" +
+	"\x0fupdated_at_unix\x18\x02 \x01(\x03R\rupdatedAtUnix\"\x1c\n" +
+	"\x1aLoadGuildTowerStateRequest\"K\n" +
+	"\x1bLoadGuildTowerStateResponse\x12,\n" +
+	"\x05state\x18\x01 \x01(\v2\x16.db.v1.GuildTowerStateR\x05state\"J\n" +
+	"\x1aSaveGuildTowerStateRequest\x12,\n" +
+	"\x05state\x18\x01 \x01(\v2\x16.db.v1.GuildTowerStateR\x05state\"-\n" +
+	"\x1bSaveGuildTowerStateResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"|\n" +
+	"\x10CastleQuestState\x12\x14\n" +
+	"\x05level\x18\x01 \x01(\x05R\x05level\x12\x1b\n" +
+	"\ttime_left\x18\x02 \x01(\x05R\btimeLeft\x12\x14\n" +
+	"\x05clear\x18\x03 \x01(\bR\x05clear\x12\x1f\n" +
+	"\vleader_name\x18\x04 \x01(\tR\n" +
+	"leaderName\"\x1d\n" +
+	"\x1bLoadCastleQuestStateRequest\"M\n" +
+	"\x1cLoadCastleQuestStateResponse\x12-\n" +
+	"\x05state\x18\x01 \x01(\v2\x17.db.v1.CastleQuestStateR\x05state\"L\n" +
+	"\x1bSaveCastleQuestStateRequest\x12-\n" +
+	"\x05state\x18\x01 \x01(\v2\x17.db.v1.CastleQuestStateR\x05state\".\n" +
+	"\x1cSaveCastleQuestStateResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x19\n" +
 	"\x17NpcConfigVersionRequest\"4\n" +
 	"\x18NpcConfigVersionResponse\x12\x18\n" +
@@ -2989,7 +4817,11 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\rPIN_RESULT_OK\x10\x01\x12\x19\n" +
 	"\x15PIN_RESULT_NO_ACCOUNT\x10\x02\x12\x16\n" +
 	"\x12PIN_RESULT_NOT_SET\x10\x03\x12\x16\n" +
-	"\x12PIN_RESULT_BAD_PIN\x10\x042\xd1\b\n" +
+	"\x12PIN_RESULT_BAD_PIN\x10\x04*l\n" +
+	"\x11GuildRelationKind\x12\x1c\n" +
+	"\x18GUILD_RELATION_KIND_NONE\x10\x00\x12\x1c\n" +
+	"\x18GUILD_RELATION_KIND_ALLY\x10\x01\x12\x1b\n" +
+	"\x17GUILD_RELATION_KIND_WAR\x10\x022\xed\x11\n" +
 	"\x0eAccountService\x12G\n" +
 	"\fAccountLogin\x12\x1a.db.v1.AccountLoginRequest\x1a\x1b.db.v1.AccountLoginResponse\x12M\n" +
 	"\x0eListCharacters\x12\x1c.db.v1.ListCharactersRequest\x1a\x1d.db.v1.ListCharactersResponse\x12J\n" +
@@ -3004,7 +4836,23 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\tSaveCargo\x12\x17.db.v1.SaveCargoRequest\x1a\x18.db.v1.SaveCargoResponse\x12b\n" +
 	"\x15ListPendingDeliveries\x12#.db.v1.ListPendingDeliveriesRequest\x1a$.db.v1.ListPendingDeliveriesResponse\x12Z\n" +
 	"\x17SaveCargoWithDeliveries\x12%.db.v1.SaveCargoWithDeliveriesRequest\x1a\x18.db.v1.SaveCargoResponse\x12V\n" +
-	"\x11SetAccountBlocked\x12\x1f.db.v1.SetAccountBlockedRequest\x1a .db.v1.SetAccountBlockedResponse2\xc2\x01\n" +
+	"\x11SetAccountBlocked\x12\x1f.db.v1.SetAccountBlockedRequest\x1a .db.v1.SetAccountBlockedResponse\x12D\n" +
+	"\vCreateGuild\x12\x19.db.v1.CreateGuildRequest\x1a\x1a.db.v1.CreateGuildResponse\x12M\n" +
+	"\x0eSetGuildMember\x12\x1c.db.v1.SetGuildMemberRequest\x1a\x1d.db.v1.SetGuildMemberResponse\x12E\n" +
+	"\n" +
+	"LeaveGuild\x12\x18.db.v1.LeaveGuildRequest\x1a\x1d.db.v1.SetGuildMemberResponse\x12Y\n" +
+	"\x12PromoteGuildMember\x12 .db.v1.PromoteGuildMemberRequest\x1a!.db.v1.PromoteGuildMemberResponse\x12W\n" +
+	"\x13TransferGuildLeader\x12!.db.v1.TransferGuildLeaderRequest\x1a\x1d.db.v1.SetGuildMemberResponse\x12S\n" +
+	"\x10SetGuildRelation\x12\x1e.db.v1.SetGuildRelationRequest\x1a\x1f.db.v1.SetGuildRelationResponse\x12A\n" +
+	"\n" +
+	"ListGuilds\x12\x18.db.v1.ListGuildsRequest\x1a\x19.db.v1.ListGuildsResponse\x12Y\n" +
+	"\x12ListGuildRelations\x12 .db.v1.ListGuildRelationsRequest\x1a!.db.v1.ListGuildRelationsResponse\x12M\n" +
+	"\x0eLoadGuildZones\x12\x1c.db.v1.LoadGuildZonesRequest\x1a\x1d.db.v1.LoadGuildZonesResponse\x12J\n" +
+	"\rSaveGuildZone\x12\x1b.db.v1.SaveGuildZoneRequest\x1a\x1c.db.v1.SaveGuildZoneResponse\x12\\\n" +
+	"\x13LoadGuildTowerState\x12!.db.v1.LoadGuildTowerStateRequest\x1a\".db.v1.LoadGuildTowerStateResponse\x12\\\n" +
+	"\x13SaveGuildTowerState\x12!.db.v1.SaveGuildTowerStateRequest\x1a\".db.v1.SaveGuildTowerStateResponse\x12_\n" +
+	"\x14LoadCastleQuestState\x12\".db.v1.LoadCastleQuestStateRequest\x1a#.db.v1.LoadCastleQuestStateResponse\x12_\n" +
+	"\x14SaveCastleQuestState\x12\".db.v1.SaveCastleQuestStateRequest\x1a#.db.v1.SaveCastleQuestStateResponse2\xc2\x01\n" +
 	"\x10NpcConfigService\x12S\n" +
 	"\x10NpcConfigVersion\x12\x1e.db.v1.NpcConfigVersionRequest\x1a\x1f.db.v1.NpcConfigVersionResponse\x12Y\n" +
 	"\x12ListNpcDefinitions\x12 .db.v1.ListNpcDefinitionsRequest\x1a!.db.v1.ListNpcDefinitionsResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
@@ -3021,105 +4869,176 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 	return file_api_db_v1_db_proto_rawDescData
 }
 
-var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
 var file_api_db_v1_db_proto_goTypes = []any{
 	(LoginResult)(0),                       // 0: db.v1.LoginResult
 	(PinResult)(0),                         // 1: db.v1.PinResult
-	(*AccountLoginRequest)(nil),            // 2: db.v1.AccountLoginRequest
-	(*AccountLoginResponse)(nil),           // 3: db.v1.AccountLoginResponse
-	(*ListCharactersRequest)(nil),          // 4: db.v1.ListCharactersRequest
-	(*CharacterSummary)(nil),               // 5: db.v1.CharacterSummary
-	(*ListCharactersResponse)(nil),         // 6: db.v1.ListCharactersResponse
-	(*LoadCharacterRequest)(nil),           // 7: db.v1.LoadCharacterRequest
-	(*Character)(nil),                      // 8: db.v1.Character
-	(*Item)(nil),                           // 9: db.v1.Item
-	(*Affect)(nil),                         // 10: db.v1.Affect
-	(*LoadCharacterResponse)(nil),          // 11: db.v1.LoadCharacterResponse
-	(*SaveCharacterRequest)(nil),           // 12: db.v1.SaveCharacterRequest
-	(*SaveCharacterResponse)(nil),          // 13: db.v1.SaveCharacterResponse
-	(*CreateCharacterRequest)(nil),         // 14: db.v1.CreateCharacterRequest
-	(*CreateCharacterResponse)(nil),        // 15: db.v1.CreateCharacterResponse
-	(*CreateArchCharacterRequest)(nil),     // 16: db.v1.CreateArchCharacterRequest
-	(*CreateArchCharacterResponse)(nil),    // 17: db.v1.CreateArchCharacterResponse
-	(*DeleteCharacterRequest)(nil),         // 18: db.v1.DeleteCharacterRequest
-	(*DeleteCharacterResponse)(nil),        // 19: db.v1.DeleteCharacterResponse
-	(*SetPinRequest)(nil),                  // 20: db.v1.SetPinRequest
-	(*SetPinResponse)(nil),                 // 21: db.v1.SetPinResponse
-	(*VerifyPinRequest)(nil),               // 22: db.v1.VerifyPinRequest
-	(*VerifyPinResponse)(nil),              // 23: db.v1.VerifyPinResponse
-	(*LoadCargoRequest)(nil),               // 24: db.v1.LoadCargoRequest
-	(*LoadCargoResponse)(nil),              // 25: db.v1.LoadCargoResponse
-	(*SaveCargoRequest)(nil),               // 26: db.v1.SaveCargoRequest
-	(*SaveCargoResponse)(nil),              // 27: db.v1.SaveCargoResponse
-	(*Delivery)(nil),                       // 28: db.v1.Delivery
-	(*ListPendingDeliveriesRequest)(nil),   // 29: db.v1.ListPendingDeliveriesRequest
-	(*ListPendingDeliveriesResponse)(nil),  // 30: db.v1.ListPendingDeliveriesResponse
-	(*SaveCargoWithDeliveriesRequest)(nil), // 31: db.v1.SaveCargoWithDeliveriesRequest
-	(*SetAccountBlockedRequest)(nil),       // 32: db.v1.SetAccountBlockedRequest
-	(*SetAccountBlockedResponse)(nil),      // 33: db.v1.SetAccountBlockedResponse
-	(*NpcConfigVersionRequest)(nil),        // 34: db.v1.NpcConfigVersionRequest
-	(*NpcConfigVersionResponse)(nil),       // 35: db.v1.NpcConfigVersionResponse
-	(*ListNpcDefinitionsRequest)(nil),      // 36: db.v1.ListNpcDefinitionsRequest
-	(*ListNpcDefinitionsResponse)(nil),     // 37: db.v1.ListNpcDefinitionsResponse
-	(*NpcShopItem)(nil),                    // 38: db.v1.NpcShopItem
-	(*NpcDefinition)(nil),                  // 39: db.v1.NpcDefinition
-	(*ItemPrice)(nil),                      // 40: db.v1.ItemPrice
+	(GuildRelationKind)(0),                 // 2: db.v1.GuildRelationKind
+	(*AccountLoginRequest)(nil),            // 3: db.v1.AccountLoginRequest
+	(*AccountLoginResponse)(nil),           // 4: db.v1.AccountLoginResponse
+	(*ListCharactersRequest)(nil),          // 5: db.v1.ListCharactersRequest
+	(*CharacterSummary)(nil),               // 6: db.v1.CharacterSummary
+	(*ListCharactersResponse)(nil),         // 7: db.v1.ListCharactersResponse
+	(*LoadCharacterRequest)(nil),           // 8: db.v1.LoadCharacterRequest
+	(*Character)(nil),                      // 9: db.v1.Character
+	(*Item)(nil),                           // 10: db.v1.Item
+	(*Affect)(nil),                         // 11: db.v1.Affect
+	(*LoadCharacterResponse)(nil),          // 12: db.v1.LoadCharacterResponse
+	(*SaveCharacterRequest)(nil),           // 13: db.v1.SaveCharacterRequest
+	(*SaveCharacterResponse)(nil),          // 14: db.v1.SaveCharacterResponse
+	(*CreateCharacterRequest)(nil),         // 15: db.v1.CreateCharacterRequest
+	(*CreateCharacterResponse)(nil),        // 16: db.v1.CreateCharacterResponse
+	(*CreateArchCharacterRequest)(nil),     // 17: db.v1.CreateArchCharacterRequest
+	(*CreateArchCharacterResponse)(nil),    // 18: db.v1.CreateArchCharacterResponse
+	(*DeleteCharacterRequest)(nil),         // 19: db.v1.DeleteCharacterRequest
+	(*DeleteCharacterResponse)(nil),        // 20: db.v1.DeleteCharacterResponse
+	(*SetPinRequest)(nil),                  // 21: db.v1.SetPinRequest
+	(*SetPinResponse)(nil),                 // 22: db.v1.SetPinResponse
+	(*VerifyPinRequest)(nil),               // 23: db.v1.VerifyPinRequest
+	(*VerifyPinResponse)(nil),              // 24: db.v1.VerifyPinResponse
+	(*LoadCargoRequest)(nil),               // 25: db.v1.LoadCargoRequest
+	(*LoadCargoResponse)(nil),              // 26: db.v1.LoadCargoResponse
+	(*SaveCargoRequest)(nil),               // 27: db.v1.SaveCargoRequest
+	(*SaveCargoResponse)(nil),              // 28: db.v1.SaveCargoResponse
+	(*Delivery)(nil),                       // 29: db.v1.Delivery
+	(*ListPendingDeliveriesRequest)(nil),   // 30: db.v1.ListPendingDeliveriesRequest
+	(*ListPendingDeliveriesResponse)(nil),  // 31: db.v1.ListPendingDeliveriesResponse
+	(*SaveCargoWithDeliveriesRequest)(nil), // 32: db.v1.SaveCargoWithDeliveriesRequest
+	(*SetAccountBlockedRequest)(nil),       // 33: db.v1.SetAccountBlockedRequest
+	(*SetAccountBlockedResponse)(nil),      // 34: db.v1.SetAccountBlockedResponse
+	(*Guild)(nil),                          // 35: db.v1.Guild
+	(*GuildRelation)(nil),                  // 36: db.v1.GuildRelation
+	(*CreateGuildRequest)(nil),             // 37: db.v1.CreateGuildRequest
+	(*CreateGuildResponse)(nil),            // 38: db.v1.CreateGuildResponse
+	(*SetGuildMemberRequest)(nil),          // 39: db.v1.SetGuildMemberRequest
+	(*SetGuildMemberResponse)(nil),         // 40: db.v1.SetGuildMemberResponse
+	(*LeaveGuildRequest)(nil),              // 41: db.v1.LeaveGuildRequest
+	(*PromoteGuildMemberRequest)(nil),      // 42: db.v1.PromoteGuildMemberRequest
+	(*PromoteGuildMemberResponse)(nil),     // 43: db.v1.PromoteGuildMemberResponse
+	(*TransferGuildLeaderRequest)(nil),     // 44: db.v1.TransferGuildLeaderRequest
+	(*SetGuildRelationRequest)(nil),        // 45: db.v1.SetGuildRelationRequest
+	(*SetGuildRelationResponse)(nil),       // 46: db.v1.SetGuildRelationResponse
+	(*ListGuildsRequest)(nil),              // 47: db.v1.ListGuildsRequest
+	(*ListGuildsResponse)(nil),             // 48: db.v1.ListGuildsResponse
+	(*ListGuildRelationsRequest)(nil),      // 49: db.v1.ListGuildRelationsRequest
+	(*ListGuildRelationsResponse)(nil),     // 50: db.v1.ListGuildRelationsResponse
+	(*GuildZone)(nil),                      // 51: db.v1.GuildZone
+	(*LoadGuildZonesRequest)(nil),          // 52: db.v1.LoadGuildZonesRequest
+	(*LoadGuildZonesResponse)(nil),         // 53: db.v1.LoadGuildZonesResponse
+	(*SaveGuildZoneRequest)(nil),           // 54: db.v1.SaveGuildZoneRequest
+	(*SaveGuildZoneResponse)(nil),          // 55: db.v1.SaveGuildZoneResponse
+	(*GuildTowerState)(nil),                // 56: db.v1.GuildTowerState
+	(*LoadGuildTowerStateRequest)(nil),     // 57: db.v1.LoadGuildTowerStateRequest
+	(*LoadGuildTowerStateResponse)(nil),    // 58: db.v1.LoadGuildTowerStateResponse
+	(*SaveGuildTowerStateRequest)(nil),     // 59: db.v1.SaveGuildTowerStateRequest
+	(*SaveGuildTowerStateResponse)(nil),    // 60: db.v1.SaveGuildTowerStateResponse
+	(*CastleQuestState)(nil),               // 61: db.v1.CastleQuestState
+	(*LoadCastleQuestStateRequest)(nil),    // 62: db.v1.LoadCastleQuestStateRequest
+	(*LoadCastleQuestStateResponse)(nil),   // 63: db.v1.LoadCastleQuestStateResponse
+	(*SaveCastleQuestStateRequest)(nil),    // 64: db.v1.SaveCastleQuestStateRequest
+	(*SaveCastleQuestStateResponse)(nil),   // 65: db.v1.SaveCastleQuestStateResponse
+	(*NpcConfigVersionRequest)(nil),        // 66: db.v1.NpcConfigVersionRequest
+	(*NpcConfigVersionResponse)(nil),       // 67: db.v1.NpcConfigVersionResponse
+	(*ListNpcDefinitionsRequest)(nil),      // 68: db.v1.ListNpcDefinitionsRequest
+	(*ListNpcDefinitionsResponse)(nil),     // 69: db.v1.ListNpcDefinitionsResponse
+	(*NpcShopItem)(nil),                    // 70: db.v1.NpcShopItem
+	(*NpcDefinition)(nil),                  // 71: db.v1.NpcDefinition
+	(*ItemPrice)(nil),                      // 72: db.v1.ItemPrice
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
-	5,  // 1: db.v1.ListCharactersResponse.characters:type_name -> db.v1.CharacterSummary
-	9,  // 2: db.v1.Character.equip:type_name -> db.v1.Item
-	9,  // 3: db.v1.Character.carry:type_name -> db.v1.Item
-	10, // 4: db.v1.Character.affects:type_name -> db.v1.Affect
-	8,  // 5: db.v1.LoadCharacterResponse.character:type_name -> db.v1.Character
-	8,  // 6: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
+	6,  // 1: db.v1.ListCharactersResponse.characters:type_name -> db.v1.CharacterSummary
+	10, // 2: db.v1.Character.equip:type_name -> db.v1.Item
+	10, // 3: db.v1.Character.carry:type_name -> db.v1.Item
+	11, // 4: db.v1.Character.affects:type_name -> db.v1.Affect
+	9,  // 5: db.v1.LoadCharacterResponse.character:type_name -> db.v1.Character
+	9,  // 6: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
 	1,  // 7: db.v1.VerifyPinResponse.result:type_name -> db.v1.PinResult
-	9,  // 8: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
-	9,  // 9: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
-	9,  // 10: db.v1.Delivery.item:type_name -> db.v1.Item
-	28, // 11: db.v1.ListPendingDeliveriesResponse.deliveries:type_name -> db.v1.Delivery
-	9,  // 12: db.v1.SaveCargoWithDeliveriesRequest.items:type_name -> db.v1.Item
-	39, // 13: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
-	40, // 14: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
-	38, // 15: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
-	2,  // 16: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	4,  // 17: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	7,  // 18: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	12, // 19: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	14, // 20: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	16, // 21: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
-	18, // 22: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	20, // 23: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
-	22, // 24: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
-	24, // 25: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
-	26, // 26: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
-	29, // 27: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
-	31, // 28: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
-	32, // 29: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
-	34, // 30: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
-	36, // 31: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
-	3,  // 32: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	6,  // 33: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	11, // 34: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	13, // 35: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	15, // 36: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	17, // 37: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
-	19, // 38: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	21, // 39: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
-	23, // 40: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
-	25, // 41: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
-	27, // 42: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
-	30, // 43: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
-	27, // 44: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
-	33, // 45: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
-	35, // 46: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
-	37, // 47: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
-	32, // [32:48] is the sub-list for method output_type
-	16, // [16:32] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	10, // 8: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
+	10, // 9: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
+	10, // 10: db.v1.Delivery.item:type_name -> db.v1.Item
+	29, // 11: db.v1.ListPendingDeliveriesResponse.deliveries:type_name -> db.v1.Delivery
+	10, // 12: db.v1.SaveCargoWithDeliveriesRequest.items:type_name -> db.v1.Item
+	2,  // 13: db.v1.GuildRelation.kind:type_name -> db.v1.GuildRelationKind
+	35, // 14: db.v1.CreateGuildResponse.guild:type_name -> db.v1.Guild
+	2,  // 15: db.v1.SetGuildRelationRequest.kind:type_name -> db.v1.GuildRelationKind
+	35, // 16: db.v1.ListGuildsResponse.guilds:type_name -> db.v1.Guild
+	36, // 17: db.v1.ListGuildRelationsResponse.relations:type_name -> db.v1.GuildRelation
+	51, // 18: db.v1.LoadGuildZonesResponse.zones:type_name -> db.v1.GuildZone
+	51, // 19: db.v1.SaveGuildZoneRequest.zone:type_name -> db.v1.GuildZone
+	56, // 20: db.v1.LoadGuildTowerStateResponse.state:type_name -> db.v1.GuildTowerState
+	56, // 21: db.v1.SaveGuildTowerStateRequest.state:type_name -> db.v1.GuildTowerState
+	61, // 22: db.v1.LoadCastleQuestStateResponse.state:type_name -> db.v1.CastleQuestState
+	61, // 23: db.v1.SaveCastleQuestStateRequest.state:type_name -> db.v1.CastleQuestState
+	71, // 24: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
+	72, // 25: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
+	70, // 26: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
+	3,  // 27: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	5,  // 28: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	8,  // 29: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	13, // 30: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	15, // 31: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	17, // 32: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
+	19, // 33: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	21, // 34: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
+	23, // 35: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
+	25, // 36: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	27, // 37: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	30, // 38: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
+	32, // 39: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
+	33, // 40: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
+	37, // 41: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
+	39, // 42: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
+	41, // 43: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
+	42, // 44: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
+	44, // 45: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
+	45, // 46: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
+	47, // 47: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
+	49, // 48: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
+	52, // 49: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
+	54, // 50: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
+	57, // 51: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
+	59, // 52: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
+	62, // 53: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
+	64, // 54: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
+	66, // 55: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
+	68, // 56: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
+	4,  // 57: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	7,  // 58: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	12, // 59: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	14, // 60: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	16, // 61: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	18, // 62: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
+	20, // 63: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	22, // 64: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
+	24, // 65: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
+	26, // 66: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	28, // 67: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	31, // 68: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
+	28, // 69: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
+	34, // 70: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
+	38, // 71: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
+	40, // 72: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
+	40, // 73: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
+	43, // 74: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
+	40, // 75: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
+	46, // 76: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
+	48, // 77: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
+	50, // 78: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
+	53, // 79: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
+	55, // 80: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
+	58, // 81: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
+	60, // 82: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
+	63, // 83: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
+	65, // 84: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
+	67, // 85: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
+	69, // 86: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
+	57, // [57:87] is the sub-list for method output_type
+	27, // [27:57] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }
@@ -3132,8 +5051,8 @@ func file_api_db_v1_db_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   39,
+			NumEnums:      3,
+			NumMessages:   70,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

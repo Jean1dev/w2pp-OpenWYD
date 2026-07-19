@@ -340,7 +340,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	if e == nil {
 		return cs
 	}
-	cs.Clan, cs.GuildID, cs.Soul, cs.Fame = e.Clan, e.Guild, e.Soul, e.Fame
+	cs.Clan, cs.GuildID, cs.GuildLevel, cs.Soul, cs.Fame = e.Clan, e.Guild, e.GuildLevel, e.Soul, e.Fame
 	cs.ClassMaster = e.ClassMaster
 	cs.CelLv40, cs.CelLv90, cs.CelCircle = e.CelLv40, e.CelLv90, e.CelCircle
 	cs.LastCity = e.LastCity

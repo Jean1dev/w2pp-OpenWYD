@@ -11,21 +11,24 @@ import (
 // messageChat handles _MSG_MessageChat (0x0333): public chat plus a few slash
 // commands (lote2-chat.md). A non-command line is multicast to players in view.
 //
-// UNVERIFIED: the full command list (guildtax, partychat/kingdomchat/guildchat/
-// chatting routing) is not reproduced — only the toggles below; everything else
-// is treated as public speech. Recommended migration: split a command-bus from
-// the chat transport.
+// UNVERIFIED: the full command list (partychat/kingdomchat/guildchat/chatting
+// routing) is not reproduced — only the toggles and guildtax below; everything
+// else is treated as public speech. Recommended migration: split a command-bus
+// from the chat transport.
 func (d *Dispatcher) messageChat(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
 		return
 	}
-	switch firstToken(cstr(payload)) {
+	text := cstr(payload)
+	switch firstToken(text) {
 	case "whisper":
 		s.Whisper = !s.Whisper
 	case "guildon":
 		s.GuildDisable = false
 	case "guildoff":
 		s.GuildDisable = true
+	case "guildtax":
+		d.guildTax(w, s, text)
 	default:
 		// Public speech → everyone in view (HEADER.ID = speaker).
 		w.BroadcastInView(s.Conn, protocol.MsgMessageChat, payload)
@@ -96,9 +99,9 @@ var reinoDest = [2]int16{1702, 1728}
 // the command. Returns true when name was a command (handled); false to fall through to
 // the normal whisper delivery. Mirrors the dispatch in _MSG_MessageWhisper.cpp.
 //
-// UNVERIFIED / deferred: the unlock/quest/guild commands (destravar40/90, arcana,
-// create/sair/guild, crias) depend on the Arch/Celestial, quest and guild systems that
-// are not modeled yet, so they are not handled here.
+// UNVERIFIED / deferred: the unlock/quest commands (destravar40/90, arcana,
+// crias) depend on the Arch/Celestial and quest systems that are not modeled yet,
+// so they are not handled here.
 func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, args []byte) bool {
 	cmd := strings.TrimPrefix(name, "/")
 	if dest, ok := teleportCmds[cmd]; ok {
@@ -113,6 +116,26 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 	}
 	if cmd == "buffs" {
 		d.clearBuffs(w, s)
+		return true
+	}
+	if cmd == "create" {
+		d.createGuild(w, s, args)
+		return true
+	}
+	if cmd == "subcreate" {
+		d.subcreate(w, s, args)
+		return true
+	}
+	if cmd == "handover" {
+		d.handoverGuild(w, s, args)
+		return true
+	}
+	if cmd == "summonguild" {
+		d.summonGuild(w, s)
+		return true
+	}
+	if cmd == "expulsar" {
+		d.kickGuild(w, s, args)
 		return true
 	}
 	if cmd == "sair" || cmd == "abandonar" {
@@ -164,23 +187,6 @@ func (d *Dispatcher) teleportReino(w *world.World, s *world.Session) {
 		return
 	}
 	d.doTeleport(w, s, reinoDest[0]+int16(w.Rand().Intn(3)), reinoDest[1]+int16(w.Rand().Intn(3)))
-}
-
-// leaveGuild handles the /sair (and /abandonar) command: the player leaves its guild.
-// Mirrors _MSG_MessageWhisper.cpp:396 (the sub-guild registry cleanup is skipped — guild
-// metadata is not modeled). The player's MSG_CreateMob is re-broadcast so the guild tag
-// disappears for everyone in view.
-func (d *Dispatcher) leaveGuild(w *world.World, s *world.Session) {
-	e := w.Entity(s.Conn)
-	if e == nil || e.Guild == 0 {
-		return
-	}
-	e.Guild = 0
-	e.GuildLevel = 0
-	body := protocol.EncodeCreateMobBody(createMobFrom(e, 0))
-	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
-		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
-	})
 }
 
 // clearBuffs removes every active buff/debuff (the /buffs command), recomputes the score

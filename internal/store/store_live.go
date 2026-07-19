@@ -17,6 +17,10 @@ var ErrNotFound = errors.New("store: not found")
 // ErrNoFreeSlot is returned when an account already has all character slots in use.
 var ErrNoFreeSlot = errors.New("store: no free character slot")
 
+// ErrConflict is returned when a write is validly shaped but violates current
+// guild/account state, such as creating a guild while already in one.
+var ErrConflict = errors.New("store: conflict")
+
 // AccountAuth is the minimum account data needed to authenticate a login: the
 // id, the stored argon2id password hash and the blocked flag. The caller
 // verifies the password (store never sees plaintext beyond the hash).
@@ -327,13 +331,13 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 //
 // This is a PARTIAL update on purpose: it touches only the columns the in-world
 // Entity authoritatively tracks (world.CharacterSave) — clan, guild_id, level,
-// exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, the Gema Estelar
-// warp save-point (save_x/y), the skill state the world now simulates
-// (score_bonus, special_bonus, learned_skill, sec_learned_skill, soul, fame,
-// special, skill_bar, short_skill), and the tier state (class_master + the
+// guild_level, exp, coin, str/int/dex/con, hp/max_hp, mp/max_mp, last_city, the
+// Gema Estelar warp save-point (save_x/y), the skill state the world now
+// simulates (score_bonus, special_bonus, learned_skill, sec_learned_skill, soul,
+// fame, special, skill_bar, short_skill), and the tier state (class_master + the
 // celestial quest gates celestial_lv40/90/circle). Everything else (class,
-// guild_level, regen/resist, magic, citizen) is left UNTOUCHED so an in-game save
-// never wipes imported data the world does not simulate.
+// regen/resist, magic, citizen) is left UNTOUCHED so an in-game save never wipes
+// imported data the world does not simulate.
 // skill_bonus is also untouched: the tmServer re-derives it at login
 // (BASE_GetBonusSkillPoint) instead of trusting the stored value.
 func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error {
@@ -346,15 +350,15 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 	var charID int64
 	err = tx.QueryRow(ctx, `
 		UPDATE character SET
-			clan=$3, guild_id=$4, level=$5, coin=$6,
-			str=$7, int=$8, dex=$9, con=$10, hp=$11, max_hp=$12, last_city=$13, exp=$14,
-			mp=$15, max_mp=$16,
-			score_bonus=$17, special_bonus=$18, learned_skill=$19, sec_learned_skill=$20, soul=$21, fame=$22,
-			special=$23, skill_bar=$24, short_skill=$25, save_x=$26, save_y=$27,
-			class_master=$28, celestial_lv40=$29, celestial_lv90=$30, celestial_circle=$31
+			clan=$3, guild_id=$4, guild_level=$5, level=$6, coin=$7,
+			str=$8, int=$9, dex=$10, con=$11, hp=$12, max_hp=$13, last_city=$14, exp=$15,
+			mp=$16, max_mp=$17,
+			score_bonus=$18, special_bonus=$19, learned_skill=$20, sec_learned_skill=$21, soul=$22, fame=$23,
+			special=$24, skill_bar=$25, short_skill=$26, save_x=$27, save_y=$28,
+			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
-		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.Level, ch.Coin,
+		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
 		ch.Str, ch.Int, ch.Dex, ch.Con, ch.Hp, ch.MaxHp, ch.LastCity, ch.Exp,
 		ch.Mp, ch.MaxMp,
 		ch.ScoreBonus, ch.SpecialBonus, ch.LearnedSkill, ch.SecLearnedSkill, ch.Soul,

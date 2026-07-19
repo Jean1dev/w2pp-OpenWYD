@@ -13,6 +13,7 @@ package handler
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
@@ -24,9 +25,11 @@ import (
 
 // Config tunes the dispatcher. Zero values get sensible defaults.
 type Config struct {
-	ClientVersion int32        // required client version (default AppVersion 7640)
-	MaxFailLogin  int          // wrong-password lockout threshold (default 3)
-	Log           *slog.Logger // default slog.Default()
+	ClientVersion int32            // required client version (default AppVersion 7640)
+	MaxFailLogin  int              // wrong-password lockout threshold (default 3)
+	ServerIndex   int              // legacy guild id high bits (server_index * 4096)
+	Log           *slog.Logger     // default slog.Default()
+	Now           func() time.Time // wall clock for calendar-gated guild ops
 
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
 	// UNVERIFIED placeholders are installed (every recipe reports "no match").
@@ -128,7 +131,17 @@ type Dispatcher struct {
 	expEvents       level.ExpEvents              // global EXP event flags
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
+	now             func() time.Time             // wall clock for calendar-gated guild ops
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
+	serverIndex     int                          // legacy guild id high bits
+	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
+	taxChangedAt    [5]time.Time                 // day each zone's guildtax last changed (one change/day, lote2-chat.md)
+	guildWars       map[uint16]uint16            // directed guild -> current war target
+	guildAllies     map[uint16]uint16            // directed guild -> current ally target
+	towerState      world.GuildTowerState        // loop-owned GTorre ownership cache
+	castleState     world.CastleQuestState       // loop-owned Castle/Zakum state cache
+	guildStateLoad  bool                         // guild persistence boot snapshot has been applied
+	guildStateBusy  bool                         // one guild-state load in flight
 
 	// NPC-config overlay (npc-editing-plan.md). All loop-only. baseItemPrices is the
 	// immutable content catalog; itemPrices is the effective map (base + global
@@ -158,6 +171,9 @@ func New(cfg Config) *Dispatcher {
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
 	d := &Dispatcher{
 		cfg:             cfg,
 		log:             cfg.Log,
@@ -179,8 +195,15 @@ func New(cfg Config) *Dispatcher {
 		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
+		now:             cfg.Now,
+		serverIndex:     cfg.ServerIndex,
+		guildWars:       make(map[uint16]uint16),
+		guildAllies:     make(map[uint16]uint16),
 		npcSource:       cfg.NpcConfig,
 		managedNPCs:     make(map[string]int),
+	}
+	for i := range d.guildZones {
+		d.guildZones[i].Zone = i
 	}
 	// The effective price map starts as the content catalog and is later overlaid
 	// with moderator overrides; keep the base immutable so an override can be
@@ -274,6 +297,7 @@ func New(cfg Config) *Dispatcher {
 
 // Handle is the world.Handler. It runs in the loop goroutine.
 func (d *Dispatcher) Handle(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
+	d.ensureGuildStateLoaded(w)
 	fn, ok := d.routes[h.Type]
 	// DIAGNOSTIC: log every received Type (hex) so client packets can be mapped.
 	d.log.Info("recv packet", "conn", s.Conn, "type", formatType(h.Type), "len", len(payload), "routed", ok)

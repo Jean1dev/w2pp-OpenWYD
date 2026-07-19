@@ -42,6 +42,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	// sweepAffects (per-player stagger) read this counter, and regenPlayers runs
 	// first, so it cannot live inside either sweep.
 	d.tickCount++
+	d.ensureGuildStateLoaded(w)
 
 	// Dormancy gate: snapshot the (few) in-play player positions once, so the
 	// ~10k idle mobs far from any player skip the 81-cell aggro scan. The scratch

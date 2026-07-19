@@ -167,6 +167,54 @@ func (f *fakeStore) SaveCargoWithDeliveries(_ context.Context, accountID int64, 
 	return nil
 }
 
+func (f *fakeStore) CreateGuild(_ context.Context, _ int64, _ int, _, guildName string, clan, citizen uint8, _ int, _ int32) (domain.Guild, error) {
+	return domain.Guild{ID: 5, Name: guildName, Clan: clan, Citizen: citizen}, nil
+}
+
+func (f *fakeStore) SetGuildMember(_ context.Context, _ int64, _ int, _ string, _ uint16, _ uint8) error {
+	return nil
+}
+
+func (f *fakeStore) LeaveGuild(_ context.Context, _ int64, _ int) error { return nil }
+
+func (f *fakeStore) PromoteGuildMember(_ context.Context, _ uint16, _ int64, _ int, _ int64, _ int, _ int32) (uint8, error) {
+	return 6, nil
+}
+
+func (f *fakeStore) TransferGuildLeader(_ context.Context, _ uint16, _ int64, _ int, _ int64, _ int) error {
+	return nil
+}
+
+func (f *fakeStore) SetGuildRelation(_ context.Context, _ uint16, _ uint16, _ domain.GuildRelationKind) error {
+	return nil
+}
+
+func (f *fakeStore) ListGuilds(context.Context) ([]domain.Guild, error) { return nil, nil }
+
+func (f *fakeStore) ListGuildRelations(context.Context) ([]domain.GuildRelation, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) LoadGuildZones(context.Context) ([]domain.GuildZone, error) { return nil, nil }
+
+func (f *fakeStore) SaveGuildZone(context.Context, domain.GuildZone) error { return nil }
+
+func (f *fakeStore) LoadGuildTowerState(context.Context) (domain.GuildTowerState, error) {
+	return domain.GuildTowerState{}, nil
+}
+
+func (f *fakeStore) SaveGuildTowerState(context.Context, domain.GuildTowerState) error {
+	return nil
+}
+
+func (f *fakeStore) LoadCastleQuestState(context.Context) (domain.CastleQuestState, error) {
+	return domain.CastleQuestState{}, nil
+}
+
+func (f *fakeStore) SaveCastleQuestState(context.Context, domain.CastleQuestState) error {
+	return nil
+}
+
 func mustHash(t *testing.T, pw string) string {
 	t.Helper()
 	h, err := secret.HashSecret(pw)
