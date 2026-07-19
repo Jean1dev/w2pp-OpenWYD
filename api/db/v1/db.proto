@@ -168,7 +168,10 @@ message Character {
   int32 fame = 32;                 // MobExtra.Fame
   int32 save_x = 33;               // STRUCT_MOB.SPX: Gema Estelar warp save-point
   int32 save_y = 34;               // STRUCT_MOB.SPY: Gema Estelar warp save-point
-  int32 guild_level = 35;          // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
+  int32 celestial_lv40 = 35;       // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+  int32 celestial_lv90 = 36;       // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+  int32 celestial_circle = 37;     // QuestInfo.Circle (Cythera Arcana quest done)
+  int32 guild_level = 38;          // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
 }
 
 message Item {

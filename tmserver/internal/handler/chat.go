@@ -52,6 +52,10 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 	}
 	name := cstr(body.MobName[:])
 	if d.runCommand(w, s, name, body.String) {
+		// Freeze investigation: commands were invisible in the logs (the recv
+		// packet line only shows 0x0334), so incident timelines could not tell a
+		// teleport command from a plain whisper. Keyword only — no whisper text.
+		d.log.Info("chat command", "conn", s.Conn, "cmd", strings.TrimPrefix(name, "/"))
 		return // a slash command (the client sends "/x" as a whisper to "x")
 	}
 	target, _ := w.SessionByName(name)
@@ -138,6 +142,18 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.leaveGuild(w, s)
 		return true
 	}
+	if cmd == "destravar40" {
+		d.destravarCelestial(w, s, false)
+		return true
+	}
+	if cmd == "destravar90" {
+		d.destravarCelestial(w, s, true)
+		return true
+	}
+	if cmd == "arcana" {
+		d.arcana(w, s)
+		return true
+	}
 	if cmd == "cp" {
 		d.showChaosPoints(w, s)
 		return true
@@ -191,6 +207,92 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 		d.sendScore(w, s, e)
 	}
 	d.sendAffect(w, s, e)
+}
+
+// Celestial unlock constants (_MSG_MessageWhisper.cpp:628/645/676).
+const (
+	celestialUnlockParm = 1    // _MSG_CombineComplete Parm on a successful unlock
+	furyStoneIndex      = 3502 // /destravar90 reward (FuryStone), granted to carry
+	arcanaItemIndex     = 3507 // /arcana reward, placed in Equip[1]
+	arcanaEquipSlot     = 1
+)
+
+// destravarCelestial handles /destravar40 (ninety=false) and /destravar90
+// (ninety=true): the Celestial level-40/90 unlock (_MSG_MessageWhisper.cpp:628/645).
+// It sets the QuestInfo.Celestial gate flag so CheckGetLevel lets the character pass
+// level 40/90 (CMob.cpp:1107), signals the client, and persists the flag. /destravar90
+// additionally hands out the FuryStone (item 3502) and plays the unlock emote.
+//
+// The command is only effective for a Celestial — for anyone else it is a no-op
+// (there is no gate to unlock on the Mortal/Arch curve), matching the design in
+// celestial-system-plan.md. Re-running after the flag is already set is idempotent.
+func (d *Dispatcher) destravarCelestial(w *world.World, s *world.Session, ninety bool) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.ClassMaster != classMasterCelestial {
+		d.log.Debug("destravar: not a celestial", "conn", s.Conn, "ninety", ninety)
+		return
+	}
+	if ninety {
+		if e.CelLv90 != 0 {
+			return
+		}
+		e.CelLv90 = 1
+		d.grantCarry(w, s, e, furyStoneIndex)
+	} else {
+		if e.CelLv40 != 0 {
+			return
+		}
+		e.CelLv40 = 1
+	}
+	w.Send(s, protocol.MsgCombineComplete, parmPayload(celestialUnlockParm))
+	if ninety {
+		d.playUnlockEmote(w, s)
+	}
+	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
+	d.log.Info("celestial unlock", "conn", s.Conn, "name", e.Name, "ninety", ninety)
+}
+
+// arcana handles /arcana: the Cythera Arcana quest turn-in (_MSG_MessageWhisper.cpp:676).
+// It sets QuestInfo.Circle, places the reward (item 3507) in Equip[1], signals the
+// client, plays the unlock emote, and persists. Only effective for a Celestial.
+func (d *Dispatcher) arcana(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil || e.ClassMaster != classMasterCelestial {
+		d.log.Debug("arcana: not a celestial", "conn", s.Conn)
+		return
+	}
+	if e.CelCircle != 0 {
+		return
+	}
+	e.CelCircle = 1
+	e.Equip[arcanaEquipSlot] = world.Item{Index: arcanaItemIndex}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, arcanaEquipSlot, itemToSel(e.Equip[arcanaEquipSlot])))
+	w.Send(s, protocol.MsgCombineComplete, parmPayload(celestialUnlockParm))
+	d.playUnlockEmote(w, s)
+	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
+	d.log.Info("arcana quest", "conn", s.Conn, "name", e.Name)
+}
+
+// grantCarry places an item into the player's first free carry slot and pushes the
+// SendItem update. If the inventory is full the grant is dropped (logged) — the flag
+// change still stands, matching the legacy PutItem best-effort behavior.
+func (d *Dispatcher) grantCarry(w *world.World, s *world.Session, e *world.Entity, index int16) {
+	for i := range e.Carry {
+		if e.Carry[i].Empty() {
+			e.Carry[i] = world.Item{Index: index}
+			w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
+			return
+		}
+	}
+	d.log.Info("grantCarry: inventory full", "conn", s.Conn, "index", index)
+}
+
+// playUnlockEmote sends the celestial-unlock emotion (MsgMotion 14/3) to the caller
+// and everyone in view (the same emote the client plays on level-up).
+func (d *Dispatcher) playUnlockEmote(w *world.World, s *world.Session) {
+	motion := protocol.EncodeMotion(motionLevelUp, motionLevelUpParm)
+	w.Send(s, protocol.MsgMotion, motion)
+	w.BroadcastInView(s.Conn, protocol.MsgMotion, motion)
 }
 
 // showChaosPoints handles the /cp command: reports the player's current chaos

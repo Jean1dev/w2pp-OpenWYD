@@ -60,6 +60,13 @@ const (
 	NoticeSetWarp // _NN_Set_Warp (186): warp save-point recorded
 
 	NoticeReinoCapeRequired // /reino (issue #127): cape must be empty or Capa Branca do Monstro (#550)
+
+	// Personal shop / autotrade (issue #115, _MSG_SendAutoTrade.cpp / _MSG_ReqBuy.cpp).
+	NoticeOnlyVillage    // _NN_OnlyVillage: a shop can only open inside a village
+	NoticeNotEnoughMoney // _NN_Not_Enough_Money: buyer can't afford the item
+	NoticeCantGetMore2G  // _NN_Cant_get_more_than_2G: seller would exceed the 2G cap
+	NoticeNoSpaceToTrade // _NN_You_Have_No_Space_To_Trade: buyer inventory full
+	NoticeItemSold       // _NN_ItemSold: an item left the seller's shop
 )
 
 // notify sends a client notification.

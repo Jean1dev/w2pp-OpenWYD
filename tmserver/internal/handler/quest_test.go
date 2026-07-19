@@ -192,6 +192,13 @@ func inRange(v, center int16) bool {
 	return v >= center-3 && v <= center+1
 }
 
+func withMasterGriffTravelDelay(t *testing.T, delay time.Duration) {
+	t.Helper()
+	old := masterGriffTravelDelay
+	masterGriffTravelDelay = delay
+	t.Cleanup(func() { masterGriffTravelDelay = old })
+}
+
 // TestPerzenExchange: handing the required item to a Perzen NPC swaps it for the
 // reward mount in the same inventory slot.
 func TestPerzenExchange(t *testing.T) {
@@ -430,6 +437,7 @@ func TestMestreGrifoRealTemplateTeleportsAndSurvivesGuard(t *testing.T) {
 }
 
 func TestMasterGriffOpcodeUsesWarpDestinations(t *testing.T) {
+	withMasterGriffTravelDelay(t, 500*time.Millisecond)
 	tests := []struct {
 		name   string
 		warpID int32
@@ -466,6 +474,7 @@ func TestMasterGriffOpcodeUsesWarpDestinations(t *testing.T) {
 }
 
 func TestMasterGriffWarpIDZeroDefaultsToFirstDestination(t *testing.T) {
+	withMasterGriffTravelDelay(t, 20*time.Millisecond)
 	st := world.CharacterState{
 		Slot: 0, Name: "Hero", Level: 200, X: 2113, Y: 2079,
 		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
@@ -480,5 +489,134 @@ func TestMasterGriffWarpIDZeroDefaultsToFirstDestination(t *testing.T) {
 	body := expectAction(t, c)
 	if body.TargetX != 2372 || body.TargetY != 2099 {
 		t.Fatalf("master griff target = %d,%d, want first destination", body.TargetX, body.TargetY)
+	}
+}
+
+func TestQuest256TicketTravelsAfterDelay(t *testing.T) {
+	withMasterGriffTravelDelay(t, 20*time.Millisecond)
+	tests := []struct {
+		name  string
+		item  int16
+		level int32
+		wantX int16
+		wantY int16
+	}{
+		{name: "coveiro", item: 4038, level: 50, wantX: 2398, wantY: 2105},
+		{name: "jardineiro", item: 4039, level: 120, wantX: 2234, wantY: 1714},
+		{name: "kaizen", item: 4040, level: 200, wantX: 464, wantY: 3902},
+		{name: "hidra", item: 4041, level: 270, wantX: 668, wantY: 3756},
+		{name: "elfos", item: 4042, level: 330, wantX: 1322, wantY: 4041},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := world.CharacterState{
+				Slot: 0, Name: "Hero", Level: int(tt.level), X: 2113, Y: 2079,
+				HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+			}
+			st.Carry[0] = world.Item{Index: tt.item}
+			addr, stop, _ := startServerMestreGrifo(t, st, false)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+			send(t, c, protocol.MsgUseItem, body.Encode())
+			consumed := expect(t, c, protocol.MsgSendItem)
+			if slot, idx := le16(consumed[2:4]), le16(consumed[4:6]); slot != 0 || idx != 0 {
+				t.Fatalf("ticket consume slot=%d idx=%d, want slot 0 cleared", slot, idx)
+			}
+			action := expectAction(t, c)
+			if action.Effect != 1 {
+				t.Fatalf("ticket travel effect = %d, want 1", action.Effect)
+			}
+			if !inRange(action.TargetX, tt.wantX) || !inRange(action.TargetY, tt.wantY) {
+				t.Fatalf("ticket target = %d,%d, want around %d,%d", action.TargetX, action.TargetY, tt.wantX, tt.wantY)
+			}
+		})
+	}
+}
+
+func TestQuest256TicketDoesNotTeleportImmediately(t *testing.T) {
+	withMasterGriffTravelDelay(t, 500*time.Millisecond)
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Level: 50, X: 2113, Y: 2079,
+		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+	}
+	st.Carry[0] = world.Item{Index: 4038}
+	addr, stop, _ := startServerMestreGrifo(t, st, false)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	expect(t, c, protocol.MsgSendItem)
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
+		t.Fatalf("ticket teleported immediately with %#x; want delayed travel", ty)
+	}
+	time.Sleep(masterGriffTravelDelay + 50*time.Millisecond)
+	action := expectAction(t, c)
+	if !inRange(action.TargetX, 2398) || !inRange(action.TargetY, 2105) {
+		t.Fatalf("delayed ticket target = %d,%d, want Coveiro", action.TargetX, action.TargetY)
+	}
+}
+
+func TestQuest256TicketInvalidLevelDoesNotConsume(t *testing.T) {
+	withMasterGriffTravelDelay(t, 20*time.Millisecond)
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Level: 38, X: 2113, Y: 2079,
+		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+	}
+	st.Carry[0] = world.Item{Index: 4038}
+	addr, stop, _ := startServerMestreGrifo(t, st, false)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("invalid-level notice = %d, want NoticeReqNotMet", code)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if slot, idx := le16(item[2:4]), le16(item[4:6]); slot != 0 || idx != 4038 {
+		t.Fatalf("invalid-level item slot=%d idx=%d, want ticket kept", slot, idx)
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
+		t.Fatalf("invalid-level ticket still teleported with %#x", ty)
+	}
+}
+
+func TestQuest256TicketPendingBlocksDoubleUse(t *testing.T) {
+	withMasterGriffTravelDelay(t, 500*time.Millisecond)
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", Level: 50, X: 2113, Y: 2079,
+		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+	}
+	st.Carry[0] = world.Item{Index: 4038, Effects: [3]world.Effect{{Effect: efAmount, Value: 2}}}
+	addr, stop, _ := startServerMestreGrifo(t, st, false)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	first := expect(t, c, protocol.MsgSendItem)
+	if idx, amount := le16(first[4:6]), first[7]; idx != 4038 || amount != 1 {
+		t.Fatalf("first consume idx=%d amount=%d, want ticket amount 1", idx, amount)
+	}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	second := expect(t, c, protocol.MsgSendItem)
+	if idx, amount := le16(second[4:6]), second[7]; idx != 4038 || amount != 1 {
+		t.Fatalf("pending resync idx=%d amount=%d, want ticket still amount 1", idx, amount)
+	}
+
+	time.Sleep(masterGriffTravelDelay + 50*time.Millisecond)
+	action := expectAction(t, c)
+	if !inRange(action.TargetX, 2398) || !inRange(action.TargetY, 2105) {
+		t.Fatalf("pending ticket target = %d,%d, want Coveiro", action.TargetX, action.TargetY)
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
+		t.Fatalf("pending ticket queued a second teleport: %#x", ty)
 	}
 }

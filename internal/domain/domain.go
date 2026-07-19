@@ -68,6 +68,9 @@ type Character struct {
 	LastCity        int16 // last city (0..3); login spawn = that city's default area
 	Citizen         uint8 // MobExtra.Citizen
 	ClassMaster     uint8 // MobExtra.ClassMaster
+	CelLv40         uint8 // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelLv90         uint8 // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelCircle       uint8 // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
 	Soul            uint8 // MobExtra.Soul
 	Fame            int32 // MobExtra.Fame
 	SkillBar        [4]uint8

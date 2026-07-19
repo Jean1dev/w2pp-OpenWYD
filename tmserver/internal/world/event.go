@@ -144,6 +144,10 @@ func (w *World) removeSession(s *Session) {
 	if s == nil || w.sessions[s.Conn] != s {
 		return
 	}
+	// S→C post-mortem first, while the slot still identifies the session: what
+	// the client was sent last is the key evidence for a client-side freeze
+	// (docs/migration/investigacao-freeze-cliente.md).
+	w.logSendStats(s)
 	// Persist the live character (purchases/gold/stats) before tearing down.
 	w.SaveCharacterAsync(s)
 	// The account session ends with the connection, so persist and evict the

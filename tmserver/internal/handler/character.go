@@ -266,6 +266,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		if e.ClassMaster == 0 {
 			e.ClassMaster = classMasterMortal
 		}
+		// Celestial quest gates (set by /destravar40/90 and /arcana; CheckGetLevel
+		// reads Lv40/Lv90 to unlock the 40/90 caps).
+		e.CelLv40, e.CelLv90, e.CelCircle = st.CelLv40, st.CelLv90, st.CelCircle
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned
@@ -552,6 +555,11 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 				// the next character selected on this session (issue #21/#47).
 				e.ResetAffects()
 			}
+			// Drop any open personal shop (issue #115): the RemoveMob above already
+			// cleared the stall pose for viewers, so just clear the session-only
+			// state so it can't leak into the next character on this connection.
+			s.AutoTrade = nil
+			s.TradeMode = 0
 			s.Mode = world.UserSelChar
 			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
 		})
