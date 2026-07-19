@@ -25,10 +25,11 @@ import (
 
 // Config tunes the dispatcher. Zero values get sensible defaults.
 type Config struct {
-	ClientVersion int32        // required client version (default AppVersion 7640)
-	MaxFailLogin  int          // wrong-password lockout threshold (default 3)
-	ServerIndex   int          // legacy guild id high bits (server_index * 4096)
-	Log           *slog.Logger // default slog.Default()
+	ClientVersion int32            // required client version (default AppVersion 7640)
+	MaxFailLogin  int              // wrong-password lockout threshold (default 3)
+	ServerIndex   int              // legacy guild id high bits (server_index * 4096)
+	Log           *slog.Logger     // default slog.Default()
+	Now           func() time.Time // wall clock for calendar-gated guild ops
 
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
 	// UNVERIFIED placeholders are installed (every recipe reports "no match").
@@ -130,6 +131,7 @@ type Dispatcher struct {
 	expEvents       level.ExpEvents              // global EXP event flags
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
+	now             func() time.Time             // wall clock for calendar-gated guild ops
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
 	serverIndex     int                          // legacy guild id high bits
 	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
@@ -169,6 +171,9 @@ func New(cfg Config) *Dispatcher {
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
 	d := &Dispatcher{
 		cfg:             cfg,
 		log:             cfg.Log,
@@ -190,6 +195,7 @@ func New(cfg Config) *Dispatcher {
 		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
+		now:             cfg.Now,
 		serverIndex:     cfg.ServerIndex,
 		guildWars:       make(map[uint16]uint16),
 		guildAllies:     make(map[uint16]uint16),

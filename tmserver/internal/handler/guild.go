@@ -42,7 +42,7 @@ func (d *Dispatcher) inviteGuild(w *world.World, s *world.Session, _ protocol.He
 	if inviteType != 0 && e.GuildLevel != guildLeaderLevel {
 		return
 	}
-	if time.Now().Weekday() == time.Sunday {
+	if d.now().Weekday() == time.Sunday {
 		return
 	}
 	other, te := w.Session(target), w.Entity(target)
@@ -84,7 +84,7 @@ func (d *Dispatcher) createGuild(w *world.World, s *world.Session, args []byte) 
 		}
 		return
 	}
-	if time.Now().Weekday() == time.Sunday {
+	if d.now().Weekday() == time.Sunday {
 		return
 	}
 	accountID, slot, charName, clan, citizen, serverIndex := s.AccountID, s.Slot, e.Name, e.Clan, e.Citizen, d.serverIndex
@@ -341,7 +341,7 @@ func (d *Dispatcher) guildTax(w *world.World, s *world.Session, text string) boo
 	if !ok || tax < 0 || tax > 30 {
 		return true
 	}
-	now := time.Now()
+	now := d.now()
 	for i := range d.guildZones {
 		z := &d.guildZones[i]
 		if z.ChargeGuild != e.Guild || sameDate(d.taxChangedAt[i], now) {
