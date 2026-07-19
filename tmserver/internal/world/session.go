@@ -83,6 +83,16 @@ type Session struct {
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
 
+	// S→C send diagnostics (sendstats.go): per-type counts, totals, the trailing
+	// frames and the out-queue high-water mark, dumped on disconnect so a frozen
+	// client leaves a post-mortem. Loop-owned like every other Session field.
+	sentFrames   uint64
+	sentBytes    uint64
+	sentByType   map[protocol.Type]uint32
+	lastSent     [lastSentRing]sentRecord
+	lastSentIdx  int
+	outHighWater int
+
 	conn    net.Conn
 	out     chan outFrame
 	closeCh chan struct{}
