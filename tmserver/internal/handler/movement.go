@@ -244,20 +244,18 @@ func (d *Dispatcher) doTeleport(w *world.World, s *world.Session, x, y int16) {
 		return
 	}
 	oldX, oldY := e.X, e.Y
-	// The player vanishes from everyone who saw it at the old location.
-	rm := protocol.EncodeRemoveMobBody(0) // 0 = out of view
-	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
-		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, rm)
-	})
 	w.SetEntityPos(s.Conn, x, y)
 	if c := world.Village(x, y); c >= 0 && c <= 3 {
 		e.LastCity = int16(c)
 	}
 	// Jump the player's own avatar: MSG_Action, Effect=1 (PosX/Y old → TargetX/Y dest).
 	body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Effect: 1, Speed: 2, TargetX: x, TargetY: y}
-	w.SendTo(s, protocol.Header{Type: protocol.MsgAction, ID: uint16(s.Conn)}, body.Encode())
-	// Rebuild the view at the destination (players + NPCs).
-	d.enterWorldView(w, s)
+	payload := body.Encode()
+	w.SendTo(s, protocol.Header{Type: protocol.MsgAction, ID: uint16(s.Conn)}, payload)
+	// DoTeleport goes through GridMulticast in the legacy: it removes old-window
+	// mobs/NPCs, creates new-window entities and forwards the same jump frame to
+	// watchers, but does not resend the player's own CreateMob/UpdateScore.
+	d.moveMulticast(w, s.Conn, oldX, oldY, protocol.MsgAction, payload)
 }
 
 // noViewMob handles _MSG_NoViewMob (0x0369): the client asks to re-sync one
