@@ -50,6 +50,15 @@ const (
 	NoticeNoEmptySlot // _NN_NoEmptySlot
 
 	NoticeNoKey // _NN_No_Key: a locked gate needs a key the player doesn't hold
+
+	// Duel (_MSG_ReqRanking, issue #118). _SS_S_S_Draw/_SS_S_WinBy_S carry the two
+	// player names in the original (Server.cpp:8940-8970); the placeholder wire
+	// format here can't interpolate names until captured, so the client-side text
+	// is UNVERIFIED — only the code + recipient identify the outcome.
+	NoticeDuelBattleInProgress // _NN_Battle_In_Progress
+	NoticeDuelWin              // you won the duel
+	NoticeDuelLose             // you lost the duel
+	NoticeDuelDraw             // the duel ended in a draw (timeout)
 )
 
 // notify sends a client notification.

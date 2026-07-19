@@ -18,6 +18,12 @@ func (f *fakeStore) ListExpRanking(_ context.Context, limit, offset int) ([]doma
 	return []domain.RankingEntry{{Name: "Hero"}, {Name: "Mage"}}, 2, nil
 }
 
+func (f *fakeStore) ListDuelRanking(_ context.Context, limit, offset int) ([]domain.DuelRankingEntry, int, error) {
+	f.limit = limit
+	f.offset = offset
+	return []domain.DuelRankingEntry{{Name: "Hero", Wins: 5}, {Name: "Mage", Wins: 2}}, 2, nil
+}
+
 func TestListExpNormalizesPaginationAndRanks(t *testing.T) {
 	cases := []struct {
 		name       string

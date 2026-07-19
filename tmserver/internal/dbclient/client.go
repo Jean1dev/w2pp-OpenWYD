@@ -272,6 +272,22 @@ func (c *Client) SetAccountBlocked(ctx context.Context, name string, blocked boo
 	return nil
 }
 
+// RecordDuelResult persists a 1v1 duel outcome (issue #118): winnerName's wins
+// and loserName's losses are each incremented by one.
+func (c *Client) RecordDuelResult(ctx context.Context, winnerName, loserName string) error {
+	resp, err := c.api.RecordDuelResult(ctx, &dbv1.RecordDuelResultRequest{
+		WinnerName: winnerName,
+		LoserName:  loserName,
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: record duel result: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: record duel result: unknown character (winner=%q loser=%q)", winnerName, loserName)
+	}
+	return nil
+}
+
 func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 	switch r {
 	case dbv1.LoginResult_LOGIN_RESULT_OK:

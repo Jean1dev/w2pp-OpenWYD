@@ -182,7 +182,8 @@ var AccountWebService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	RankingWebService_ListExpRanking_FullMethodName = "/web.v1.RankingWebService/ListExpRanking"
+	RankingWebService_ListExpRanking_FullMethodName  = "/web.v1.RankingWebService/ListExpRanking"
+	RankingWebService_ListDuelRanking_FullMethodName = "/web.v1.RankingWebService/ListDuelRanking"
 )
 
 // RankingWebServiceClient is the client API for RankingWebService service.
@@ -195,6 +196,8 @@ const (
 type RankingWebServiceClient interface {
 	// ListExpRanking returns the Top EXP character ranking.
 	ListExpRanking(ctx context.Context, in *ListExpRankingRequest, opts ...grpc.CallOption) (*ListExpRankingResponse, error)
+	// ListDuelRanking returns the 1v1 duel win/loss leaderboard (issue #118).
+	ListDuelRanking(ctx context.Context, in *ListDuelRankingRequest, opts ...grpc.CallOption) (*ListDuelRankingResponse, error)
 }
 
 type rankingWebServiceClient struct {
@@ -215,6 +218,16 @@ func (c *rankingWebServiceClient) ListExpRanking(ctx context.Context, in *ListEx
 	return out, nil
 }
 
+func (c *rankingWebServiceClient) ListDuelRanking(ctx context.Context, in *ListDuelRankingRequest, opts ...grpc.CallOption) (*ListDuelRankingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDuelRankingResponse)
+	err := c.cc.Invoke(ctx, RankingWebService_ListDuelRanking_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RankingWebServiceServer is the server API for RankingWebService service.
 // All implementations must embed UnimplementedRankingWebServiceServer
 // for forward compatibility.
@@ -225,6 +238,8 @@ func (c *rankingWebServiceClient) ListExpRanking(ctx context.Context, in *ListEx
 type RankingWebServiceServer interface {
 	// ListExpRanking returns the Top EXP character ranking.
 	ListExpRanking(context.Context, *ListExpRankingRequest) (*ListExpRankingResponse, error)
+	// ListDuelRanking returns the 1v1 duel win/loss leaderboard (issue #118).
+	ListDuelRanking(context.Context, *ListDuelRankingRequest) (*ListDuelRankingResponse, error)
 	mustEmbedUnimplementedRankingWebServiceServer()
 }
 
@@ -237,6 +252,9 @@ type UnimplementedRankingWebServiceServer struct{}
 
 func (UnimplementedRankingWebServiceServer) ListExpRanking(context.Context, *ListExpRankingRequest) (*ListExpRankingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListExpRanking not implemented")
+}
+func (UnimplementedRankingWebServiceServer) ListDuelRanking(context.Context, *ListDuelRankingRequest) (*ListDuelRankingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDuelRanking not implemented")
 }
 func (UnimplementedRankingWebServiceServer) mustEmbedUnimplementedRankingWebServiceServer() {}
 func (UnimplementedRankingWebServiceServer) testEmbeddedByValue()                           {}
@@ -277,6 +295,24 @@ func _RankingWebService_ListExpRanking_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RankingWebService_ListDuelRanking_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDuelRankingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RankingWebServiceServer).ListDuelRanking(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RankingWebService_ListDuelRanking_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RankingWebServiceServer).ListDuelRanking(ctx, req.(*ListDuelRankingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RankingWebService_ServiceDesc is the grpc.ServiceDesc for RankingWebService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -287,6 +323,10 @@ var RankingWebService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListExpRanking",
 			Handler:    _RankingWebService_ListExpRanking_Handler,
+		},
+		{
+			MethodName: "ListDuelRanking",
+			Handler:    _RankingWebService_ListDuelRanking_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

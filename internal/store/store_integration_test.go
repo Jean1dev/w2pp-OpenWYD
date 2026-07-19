@@ -43,6 +43,7 @@ func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
 			npc_config_meta,
 			affect,
 			item,
+			character_pvp_stats,
 			character,
 			account,
 			donate_shop_audit,

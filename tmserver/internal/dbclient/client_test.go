@@ -32,6 +32,9 @@ type fakeAPI struct {
 	pinSetOK   bool
 	pinResult  dbv1.PinResult
 	blockedReq *dbv1.SetAccountBlockedRequest
+
+	duelReq  *dbv1.RecordDuelResultRequest
+	duelResp *dbv1.RecordDuelResultResponse
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {
@@ -88,6 +91,14 @@ func (f *fakeAPI) SetAccountBlocked(_ context.Context, req *dbv1.SetAccountBlock
 	return &dbv1.SetAccountBlockedResponse{Ok: true}, nil
 }
 
+func (f *fakeAPI) RecordDuelResult(_ context.Context, req *dbv1.RecordDuelResultRequest, _ ...grpc.CallOption) (*dbv1.RecordDuelResultResponse, error) {
+	f.duelReq = req
+	if f.duelResp != nil {
+		return f.duelResp, nil
+	}
+	return &dbv1.RecordDuelResultResponse{Ok: true}, nil
+}
+
 func newClient(api dbv1.AccountServiceClient) *Client { return &Client{api: api} }
 
 func TestAccountLoginMapping(t *testing.T) {
@@ -141,6 +152,23 @@ func TestSetAccountBlocked(t *testing.T) {
 	}
 	if api.blockedReq == nil || api.blockedReq.GetAccountName() != "victim" || !api.blockedReq.GetBlocked() {
 		t.Fatalf("request not forwarded: %+v", api.blockedReq)
+	}
+}
+
+func TestRecordDuelResult(t *testing.T) {
+	api := &fakeAPI{}
+	if err := newClient(api).RecordDuelResult(context.Background(), "winner", "loser"); err != nil {
+		t.Fatalf("RecordDuelResult: %v", err)
+	}
+	if api.duelReq == nil || api.duelReq.GetWinnerName() != "winner" || api.duelReq.GetLoserName() != "loser" {
+		t.Fatalf("request not forwarded: %+v", api.duelReq)
+	}
+}
+
+func TestRecordDuelResultNotOKIsError(t *testing.T) {
+	api := &fakeAPI{duelResp: &dbv1.RecordDuelResultResponse{Ok: false}}
+	if err := newClient(api).RecordDuelResult(context.Background(), "winner", "loser"); err == nil {
+		t.Fatal("expected an error when the dbServer reports ok=false")
 	}
 }
 

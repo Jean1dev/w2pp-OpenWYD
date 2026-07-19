@@ -175,7 +175,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// keys off an attribute-map PK bit on the ATTACKER tile plus war-state
 		// bypasses, and the coarse city rectangles caused issue #67 by zeroing
 		// PvP damage near every spawn point.
-		if pvpHit && combatHit && !e.PKMode {
+		if pvpHit && combatHit && !e.PKMode && !d.dueling(s.Conn, tid) {
 			writeDamage(payload, i, 0)
 			continue
 		}
@@ -245,11 +245,12 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			}
 			d.applyOnHitAffects(w, e, target, tid)
 			d.applyHpAbs(w, s, e, dmg)
-			if pvpHit && combatHit {
+			if pvpHit && combatHit && !d.dueling(s.Conn, tid) {
 				// Landing a PvP hit starts (or refreshes) the chaotic red-blink
 				// timer, independent of whether it's already running. On the 0→1
 				// transition, re-broadcast the PK state so the attacker's nick turns
-				// red (MobName[12]=0) for itself and everyone in view.
+				// red (MobName[12]=0) for itself and everyone in view. A duel hit
+				// must never mark PK (issue #118 acceptance criteria).
 				wasGuilty := pkGuilty(e)
 				e.GuiltyUntil = time.Now().Add(pkGuiltyDuration).Unix()
 				if !wasGuilty {

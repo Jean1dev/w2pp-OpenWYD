@@ -26,6 +26,17 @@ func (f *fakeRanking) ListExp(_ context.Context, limit, offset int) ([]domain.Ra
 	}}, 10, nil
 }
 
+func (f *fakeRanking) ListDuel(_ context.Context, limit, offset int) ([]domain.DuelRankingEntry, int, error) {
+	f.limit = limit
+	f.offset = offset
+	if f.err != nil {
+		return nil, 0, f.err
+	}
+	return []domain.DuelRankingEntry{{
+		Rank: 1, Name: "Hero", Class: 1, Clan: 7, GuildID: 99, Wins: 5, Losses: 1,
+	}}, 4, nil
+}
+
 func TestListExpRankingMapping(t *testing.T) {
 	fake := &fakeRanking{}
 	s := NewRanking(fake)

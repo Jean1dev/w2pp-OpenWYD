@@ -417,14 +417,6 @@ func (d *Dispatcher) perzenExchange(w *world.World, s *world.Session, npc *world
 	d.log.Info("perzen exchange", "conn", s.Conn, "npc", npc.ID, "input", input, "reward", reward.Index)
 }
 
-// reqRanking handles _MSG_ReqRanking (0x039F): duel request/accept.
-//
-// UNVERIFIED: the request→accept duel state machine and DoRanking (Server.cpp)
-// are not reproduced — stub.
-func (d *Dispatcher) reqRanking(_ *world.World, s *world.Session, _ protocol.Header, _ []byte) {
-	d.log.Debug("ReqRanking not yet implemented (UNVERIFIED duel)", "conn", s.Conn)
-}
-
 // capsuleInfo handles _MSG_CapsuleInfo (0x02CD): a pure relay to the dbServer.
 //
 // UNVERIFIED: becomes a dbServer cash/capsule RPC (Phase 6).

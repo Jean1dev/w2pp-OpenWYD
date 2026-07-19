@@ -54,6 +54,11 @@ service AccountService {
   // unban restores it. Administrative-ban ownership may later move to binServer
   // entitlement (web-platform-plan.md §binServer); until then this is the gate.
   rpc SetAccountBlocked(SetAccountBlockedRequest) returns (SetAccountBlockedResponse);
+  // RecordDuelResult persists a 1v1 duel outcome (issue #118, _MSG_ReqRanking):
+  // winner_name's wins and loser_name's losses are each incremented by one in
+  // character_pvp_stats. Both names must resolve to an existing character or
+  // the whole call fails (no lopsided half-result).
+  rpc RecordDuelResult(RecordDuelResultRequest) returns (RecordDuelResultResponse);
 }
 
 enum LoginResult {
@@ -268,6 +273,13 @@ message SetAccountBlockedRequest {
 }
 // ok is false when no account matched the name (nothing changed).
 message SetAccountBlockedResponse { bool ok = 1; }
+
+message RecordDuelResultRequest {
+  string winner_name = 1;
+  string loser_name = 2;
+}
+// ok is false when either character name didn't resolve (nothing recorded).
+message RecordDuelResultResponse { bool ok = 1; }
 
 // NpcConfigService serves the moderator-editable NPC configuration to tmServer
 // (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes
