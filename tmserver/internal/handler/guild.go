@@ -341,17 +341,24 @@ func (d *Dispatcher) guildTax(w *world.World, s *world.Session, text string) boo
 	if !ok || tax < 0 || tax > 30 {
 		return true
 	}
+	now := time.Now()
 	for i := range d.guildZones {
 		z := &d.guildZones[i]
-		if z.ChargeGuild != e.Guild || d.taxChanged[i] {
+		if z.ChargeGuild != e.Guild || sameDate(d.taxChangedAt[i], now) {
 			continue
 		}
 		z.CityTax = uint8(tax)
-		d.taxChanged[i] = true
+		d.taxChangedAt[i] = now
 		d.persistGuildZone(w, s, *z)
 		break
 	}
 	return true
+}
+
+// sameDate reports whether a and b fall on the same calendar day, used to
+// gate guildtax to one change per day (lote2-chat.md: TaxChanged[i]).
+func sameDate(a, b time.Time) bool {
+	return a.Year() == b.Year() && a.YearDay() == b.YearDay()
 }
 
 func parseSmallInt(s string) (int, bool) {

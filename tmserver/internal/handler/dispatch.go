@@ -13,6 +13,7 @@ package handler
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
@@ -132,7 +133,7 @@ type Dispatcher struct {
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
 	serverIndex     int                          // legacy guild id high bits
 	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
-	taxChanged      [5]bool                      // one guildtax change per in-memory cycle
+	taxChangedAt    [5]time.Time                 // day each zone's guildtax last changed (one change/day, lote2-chat.md)
 	guildWars       map[uint16]uint16            // directed guild -> current war target
 	guildAllies     map[uint16]uint16            // directed guild -> current ally target
 	towerState      world.GuildTowerState        // loop-owned GTorre ownership cache
