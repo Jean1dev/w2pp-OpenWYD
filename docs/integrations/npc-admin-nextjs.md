@@ -90,6 +90,7 @@ Erros gRPC (ex.: `UNAVAILABLE`, `INTERNAL`) = falha de infraestrutura → 502/50
 | `DeleteNpc` | `npc_id` | `AdminAck{ result }` | remover definição |
 | `ListMerchantTemplates` | — | `{ result, templates: MerchantTemplate[] }` | combobox de `template_name` no formulário |
 | `ListItemCatalog` | — | `{ result, items: ItemCatalogEntry[] }` | combobox de `item_index` na loja/preço |
+| `ListItemPrices` | — | `{ result, prices: ItemPrice[] }` | overrides de preço global atuais, para popular a coluna/edição de preço |
 | `ListMapZones` | — | `{ result, zones: MapZone[] }` | combobox de `map_id` no formulário |
 
 ### 4.3 Mensagens
@@ -141,6 +142,18 @@ message ListItemCatalogRequest { int64 moderator_id = 1; }
 message ListItemCatalogResponse {
   AdminResult result = 1;
   repeated ItemCatalogEntry items = 2;
+}
+
+// Override de preço global de um item (tabela item_price). Item ausente desta
+// lista = sem override, vale o preço-base do catálogo do jogo.
+message ItemPrice {
+  int32 item_index = 1;
+  int64 price = 2;
+}
+message ListItemPricesRequest { int64 moderator_id = 1; }
+message ListItemPricesResponse {
+  AdminResult result = 1;
+  repeated ItemPrice prices = 2;
 }
 
 // Uma das 5 zonas fixas de cidade (mesma ordem da tabela `cities` do tmServer).
@@ -209,6 +222,12 @@ Não existe preço por-NPC. `SetItemPrice(item_index, price)`:
 - `price >= 0` → define o preço global daquele item (vale em **todos** os NPCs que o vendem);
 - `price < 0` → **limpa** o override e o item volta ao preço do catálogo do jogo.
 
+`ListItemPrices()` retorna a lista atual de overrides (`item_index, price`) para a UI popular a
+coluna/edição de preço na tabela de itens sem precisar rastrear cada `SetItemPrice` chamado
+anteriormente (mesma semântica de ausência/limpeza acima). Assim como `ListItemCatalog`, essa lista
+não depende do NPC — junte com `ListItemCatalog`/`GetNpc` no cliente por `item_index` para montar a
+coluna de preço da tabela de itens.
+
 ### 5.4 Propagação para o jogo (não é instantâneo)
 
 A escrita vai para o Postgres na hora, mas o mundo do jogo só reflete quando o **tmServer recarrega**:
@@ -272,6 +291,7 @@ gRPC+mTLS. Sugestão de mapeamento REST → RPC:
 | `PATCH /api/admin/npcs/:id/visibility` | `SetNpcVisibility` |
 | `PUT /api/admin/npcs/:id/shop` | `SetNpcShop` |
 | `PUT /api/admin/items/:index/price` | `SetItemPrice` |
+| `GET /api/admin/item-prices` | `ListItemPrices` |
 | `DELETE /api/admin/npcs/:id` | `DeleteNpc` |
 | `GET /api/admin/npc-templates` | `ListMerchantTemplates` |
 | `GET /api/admin/items` | `ListItemCatalog` |
@@ -411,7 +431,8 @@ feature). Ferramentas usuais: `@grpc/grpc-js` + `grpc-tools`/`ts-proto`, ou `buf
 - [ ] Cada item da loja tem um controle de remover (ex.: botão "x" por slot) que, ao salvar, tira aquele
       slot do array de `items` antes de chamar `SetNpcShop` (§5.2) — sem isso não há como excluir um item
       já adicionado.
-- [ ] Preço via `SetItemPrice` (global; `price < 0` limpa).
+- [ ] Preço via `SetItemPrice` (global; `price < 0` limpa); tabela/coluna de preço populada via
+      `ListItemPrices` (item ausente = preço do catálogo, sem override).
 - [ ] Avisar que a mudança aparece no jogo em ~alguns segundos (poll do tmServer).
 - [ ] Garantir que o operador setou `account.role` do moderador e rodou `import-npcs`.
 - [ ] Moderador vê um combobox pesquisável de templates merchant válidos (`ListMerchantTemplates`,

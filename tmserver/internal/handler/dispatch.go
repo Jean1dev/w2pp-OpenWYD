@@ -13,6 +13,7 @@ package handler
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
@@ -24,9 +25,11 @@ import (
 
 // Config tunes the dispatcher. Zero values get sensible defaults.
 type Config struct {
-	ClientVersion int32        // required client version (default AppVersion 7640)
-	MaxFailLogin  int          // wrong-password lockout threshold (default 3)
-	Log           *slog.Logger // default slog.Default()
+	ClientVersion int32            // required client version (default AppVersion 7640)
+	MaxFailLogin  int              // wrong-password lockout threshold (default 3)
+	ServerIndex   int              // legacy guild id high bits (server_index * 4096)
+	Log           *slog.Logger     // default slog.Default()
+	Now           func() time.Time // wall clock for calendar-gated guild ops
 
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
 	// UNVERIFIED placeholders are installed (every recipe reports "no match").
@@ -67,10 +70,13 @@ type Config struct {
 
 	// ItemPos maps item index → nPos (equip-slot class) for the refine (+9) threshold
 	// bonuses. ItemUnique maps index → nUnique (gates EF_DAMAGEADD to jewels).
-	// ItemGrades maps index → Grade (grade-7 pieces grant +2 ExpBonus).
+	// ItemGrades maps index → Grade (grade-7 pieces grant +2 ExpBonus). ItemExtra maps
+	// index → Extra (the result-item index for the Anct combine and the Adamantita
+	// legendary-upgrade combine, issue #135).
 	ItemPos    map[int]int
 	ItemUnique map[int]int
 	ItemGrades map[int]int
+	ItemExtra  map[int]int
 
 	// SancRate is the dust-refine success table (Common/Settings/SancRate.txt over
 	// the Basedef.cpp defaults; *content.SancRate satisfies it). When nil the
@@ -120,11 +126,22 @@ type Dispatcher struct {
 	itemPos         map[int]int                  // item index → nPos (refine threshold)
 	itemUnique      map[int]int                  // item index → nUnique (EF_DAMAGEADD gate)
 	itemGrades      map[int]int                  // item index → Grade (ExpBonus)
+	itemExtra       map[int]int                  // item index → Extra (Anct/Adamantita combine result)
 	sancRate        refine.RateTable             // dust-refine success table (g_pSancRate)
 	expEvents       level.ExpEvents              // global EXP event flags
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
+	now             func() time.Time             // wall clock for calendar-gated guild ops
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
+	serverIndex     int                          // legacy guild id high bits
+	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
+	taxChangedAt    [5]time.Time                 // day each zone's guildtax last changed (one change/day, lote2-chat.md)
+	guildWars       map[uint16]uint16            // directed guild -> current war target
+	guildAllies     map[uint16]uint16            // directed guild -> current ally target
+	towerState      world.GuildTowerState        // loop-owned GTorre ownership cache
+	castleState     world.CastleQuestState       // loop-owned Castle/Zakum state cache
+	guildStateLoad  bool                         // guild persistence boot snapshot has been applied
+	guildStateBusy  bool                         // one guild-state load in flight
 
 	// NPC-config overlay (npc-editing-plan.md). All loop-only. baseItemPrices is the
 	// immutable content catalog; itemPrices is the effective map (base + global
@@ -159,6 +176,9 @@ func New(cfg Config) *Dispatcher {
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
 	d := &Dispatcher{
 		cfg:             cfg,
 		log:             cfg.Log,
@@ -175,12 +195,20 @@ func New(cfg Config) *Dispatcher {
 		itemPos:         cfg.ItemPos,
 		itemUnique:      cfg.ItemUnique,
 		itemGrades:      cfg.ItemGrades,
+		itemExtra:       cfg.ItemExtra,
 		sancRate:        cfg.SancRate,
 		expEvents:       cfg.ExpEvents,
 		spells:          cfg.Spells,
 		heights:         cfg.Heights,
+		now:             cfg.Now,
+		serverIndex:     cfg.ServerIndex,
+		guildWars:       make(map[uint16]uint16),
+		guildAllies:     make(map[uint16]uint16),
 		npcSource:       cfg.NpcConfig,
 		managedNPCs:     make(map[string]int),
+	}
+	for i := range d.guildZones {
+		d.guildZones[i].Zone = i
 	}
 	// The effective price map starts as the content catalog and is later overlaid
 	// with moderator overrides; keep the base immutable so an override can be
@@ -237,6 +265,13 @@ func New(cfg Config) *Dispatcher {
 	d.routes[protocol.MsgTradingItem] = d.tradingItem
 	d.routes[protocol.MsgTrade] = d.trade
 	d.routes[protocol.MsgQuitTrade] = d.quitTrade
+
+	// Personal shop / autotrade (issue #115). Closing a shop is RemoveTrade
+	// (movement / QuitTrade / item ops all route through removeTrade), so there is
+	// no dedicated close route — _MSG_Deprivate is a guild op, left unrouted.
+	d.routes[protocol.MsgSendAutoTrade] = d.sendAutoTrade
+	d.routes[protocol.MsgReqTradeList] = d.reqTradeList
+	d.routes[protocol.MsgReqBuy] = d.reqBuy
 	// Batch 6 — combine/refine (one engine, all Item[]-based variants).
 	for _, ty := range combineItemTypes {
 		d.routes[ty] = d.combineItem
@@ -267,6 +302,7 @@ func New(cfg Config) *Dispatcher {
 
 // Handle is the world.Handler. It runs in the loop goroutine.
 func (d *Dispatcher) Handle(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
+	d.ensureGuildStateLoaded(w)
 	fn, ok := d.routes[h.Type]
 	// DIAGNOSTIC: log every received Type (hex) so client packets can be mapped.
 	d.log.Info("recv packet", "conn", s.Conn, "type", formatType(h.Type), "len", len(payload), "routed", ok)

@@ -12,8 +12,9 @@ A "nova estrutura de NPC" (`npc_definition`, `dbserver import-npcs`) já sabia *
 merchant — qualquer bloco de `NPCGener.txt` cujo template líder tenha `CurrentScore.Merchant != 0`.
 Rodando contra o conteúdo real deste repo (`go run ./dbserver/cmd/dbserver import-npcs -content
 ./Release`, dry run): **544 blocos de spawn merchant**, de **205 templates únicos**, cobrindo
-**muito mais códigos `Merchant`** do que os 4 que o `NpcAdminService` sabe validar
-(`npcadmin.validMerchant = {0,1,2,19,100}`).
+**muito mais códigos `Merchant`** do que os códigos seedados no roster padrão. O
+`NpcAdminService` também valida `111` para os reis canônicos (`Rei_Harabard`/`Rei_Glantuar`), mas
+eles não fazem parte deste seed curado da issue #29.
 
 O que faltava não era identificação — era **curadoria**: decidir qual subconjunto conta como o
 roster "padrão" (estável, documentado, com identidade), em vez de importar cegamente tudo que o
@@ -22,10 +23,9 @@ hoje (64, 96, 100+ variantes de raid/quest ainda não implementadas — ver `npc
 
 ## 2. Critério de curadoria
 
-1. **Só os 4 códigos editáveis hoje**: `Merchant ∈ {1 (loja), 2 (guarda de carga/banco), 19 (loja
-   tipo 3), 100 (quest)}` — os mesmos que `npcadmin.validMerchant` aceita. Qualquer coisa fora disso
-   (raids do Zakum, chefes com `Merchant` usado como gatilho de quest não implementada, etc.) fica de
-   fora do roster.
+1. **Só os 4 códigos seedados no roster padrão**: `Merchant ∈ {1 (loja), 2 (guarda de carga/banco),
+   19 (loja tipo 3), 100 (quest)}`. Qualquer coisa fora disso (raids do Zakum, chefes com
+   `Merchant` usado como gatilho de quest não implementada, reis `111`, etc.) fica de fora do roster.
 2. **Um representante por arquétipo**, não por variante regional/tier. Vários templates são cópias
    do mesmo NPC para outro continente ou versão: `Acessorios`/`Acessorios2..6`/`AcessoriosErion`
    (mesma loja, cópias diferentes) colapsam para `Acessorios`; `Set_BM`/`Set_BM_Erion` (mesmo

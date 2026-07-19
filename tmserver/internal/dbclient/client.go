@@ -288,6 +288,199 @@ func (c *Client) RecordDuelResult(ctx context.Context, winnerName, loserName str
 	return nil
 }
 
+// CreateGuild allocates a persistent legacy guild id, charges the creation cost,
+// and makes the character leader.
+func (c *Client) CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (world.GuildRecord, bool, error) {
+	resp, err := c.api.CreateGuild(ctx, &dbv1.CreateGuildRequest{
+		AccountId:     accountID,
+		Slot:          int32(slot),
+		CharacterName: characterName,
+		GuildName:     guildName,
+		Clan:          int32(clan),
+		Citizen:       int32(citizen),
+		ServerIndex:   int32(serverIndex),
+		Cost:          cost,
+	})
+	if err != nil {
+		return world.GuildRecord{}, false, fmt.Errorf("dbclient: create guild: %w", err)
+	}
+	return guildFromProto(resp.GetGuild()), resp.GetOk(), nil
+}
+
+// SetGuildMember persists one character's guild membership/rank.
+func (c *Client) SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error {
+	resp, err := c.api.SetGuildMember(ctx, &dbv1.SetGuildMemberRequest{
+		AccountId:     accountID,
+		Slot:          int32(slot),
+		CharacterName: characterName,
+		GuildId:       uint32(guildID),
+		GuildLevel:    int32(guildLevel),
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: set guild member: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: set guild member rejected")
+	}
+	return nil
+}
+
+// LeaveGuild clears one character's persistent guild membership.
+func (c *Client) LeaveGuild(ctx context.Context, accountID int64, slot int) error {
+	resp, err := c.api.LeaveGuild(ctx, &dbv1.LeaveGuildRequest{AccountId: accountID, Slot: int32(slot)})
+	if err != nil {
+		return fmt.Errorf("dbclient: leave guild: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: leave guild rejected")
+	}
+	return nil
+}
+
+// PromoteGuildMember assigns the first available sub-leader rank and charges the
+// leader in the same dbServer transaction.
+func (c *Client) PromoteGuildMember(ctx context.Context, guildID uint16, leaderAccountID int64, leaderSlot int, accountID int64, slot int, cost int32) (uint8, bool, error) {
+	resp, err := c.api.PromoteGuildMember(ctx, &dbv1.PromoteGuildMemberRequest{
+		GuildId:         uint32(guildID),
+		LeaderAccountId: leaderAccountID,
+		LeaderSlot:      int32(leaderSlot),
+		AccountId:       accountID,
+		Slot:            int32(slot),
+		Cost:            cost,
+	})
+	if err != nil {
+		return 0, false, fmt.Errorf("dbclient: promote guild member: %w", err)
+	}
+	return uint8(resp.GetGuildLevel()), resp.GetOk(), nil
+}
+
+// TransferGuildLeader persists a guild leadership transfer.
+func (c *Client) TransferGuildLeader(ctx context.Context, guildID uint16, oldAccountID int64, oldSlot int, newAccountID int64, newSlot int) error {
+	resp, err := c.api.TransferGuildLeader(ctx, &dbv1.TransferGuildLeaderRequest{
+		GuildId:      uint32(guildID),
+		OldAccountId: oldAccountID,
+		OldSlot:      int32(oldSlot),
+		NewAccountId: newAccountID,
+		NewSlot:      int32(newSlot),
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: transfer guild leader: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: transfer guild leader rejected")
+	}
+	return nil
+}
+
+// SetGuildRelation persists a directed guild ally/war relation.
+func (c *Client) SetGuildRelation(ctx context.Context, guildID, targetGuildID uint16, kind world.GuildRelationKind) error {
+	resp, err := c.api.SetGuildRelation(ctx, &dbv1.SetGuildRelationRequest{
+		GuildId:       uint32(guildID),
+		TargetGuildId: uint32(targetGuildID),
+		Kind:          relationKindToProto(kind),
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: set guild relation: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: set guild relation rejected")
+	}
+	return nil
+}
+
+// ListGuilds loads the guild registry snapshot.
+func (c *Client) ListGuilds(ctx context.Context) ([]world.GuildRecord, error) {
+	resp, err := c.api.ListGuilds(ctx, &dbv1.ListGuildsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("dbclient: list guilds: %w", err)
+	}
+	out := make([]world.GuildRecord, 0, len(resp.GetGuilds()))
+	for _, g := range resp.GetGuilds() {
+		out = append(out, guildFromProto(g))
+	}
+	return out, nil
+}
+
+// ListGuildRelations loads every directed guild relation.
+func (c *Client) ListGuildRelations(ctx context.Context) ([]world.GuildRelation, error) {
+	resp, err := c.api.ListGuildRelations(ctx, &dbv1.ListGuildRelationsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("dbclient: list guild relations: %w", err)
+	}
+	out := make([]world.GuildRelation, 0, len(resp.GetRelations()))
+	for _, r := range resp.GetRelations() {
+		out = append(out, relationFromProto(r))
+	}
+	return out, nil
+}
+
+// LoadGuildZones loads city/guild-zone state.
+func (c *Client) LoadGuildZones(ctx context.Context) ([]world.GuildZone, error) {
+	resp, err := c.api.LoadGuildZones(ctx, &dbv1.LoadGuildZonesRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("dbclient: load guild zones: %w", err)
+	}
+	out := make([]world.GuildZone, 0, len(resp.GetZones()))
+	for _, z := range resp.GetZones() {
+		out = append(out, zoneFromProto(z))
+	}
+	return out, nil
+}
+
+// SaveGuildZone persists one city/guild-zone row.
+func (c *Client) SaveGuildZone(ctx context.Context, zone world.GuildZone) error {
+	resp, err := c.api.SaveGuildZone(ctx, &dbv1.SaveGuildZoneRequest{Zone: zoneToProto(zone)})
+	if err != nil {
+		return fmt.Errorf("dbclient: save guild zone: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: save guild zone rejected")
+	}
+	return nil
+}
+
+// LoadGuildTowerState loads the current GTorre owner.
+func (c *Client) LoadGuildTowerState(ctx context.Context) (world.GuildTowerState, error) {
+	resp, err := c.api.LoadGuildTowerState(ctx, &dbv1.LoadGuildTowerStateRequest{})
+	if err != nil {
+		return world.GuildTowerState{}, fmt.Errorf("dbclient: load guild tower state: %w", err)
+	}
+	return towerStateFromProto(resp.GetState()), nil
+}
+
+// SaveGuildTowerState persists the current GTorre owner.
+func (c *Client) SaveGuildTowerState(ctx context.Context, state world.GuildTowerState) error {
+	resp, err := c.api.SaveGuildTowerState(ctx, &dbv1.SaveGuildTowerStateRequest{State: towerStateToProto(state)})
+	if err != nil {
+		return fmt.Errorf("dbclient: save guild tower state: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: save guild tower state rejected")
+	}
+	return nil
+}
+
+// LoadCastleQuestState loads the current Castle/Zakum quest state.
+func (c *Client) LoadCastleQuestState(ctx context.Context) (world.CastleQuestState, error) {
+	resp, err := c.api.LoadCastleQuestState(ctx, &dbv1.LoadCastleQuestStateRequest{})
+	if err != nil {
+		return world.CastleQuestState{}, fmt.Errorf("dbclient: load castle quest state: %w", err)
+	}
+	return castleQuestStateFromProto(resp.GetState()), nil
+}
+
+// SaveCastleQuestState persists the current Castle/Zakum quest state.
+func (c *Client) SaveCastleQuestState(ctx context.Context, state world.CastleQuestState) error {
+	resp, err := c.api.SaveCastleQuestState(ctx, &dbv1.SaveCastleQuestStateRequest{State: castleQuestStateToProto(state)})
+	if err != nil {
+		return fmt.Errorf("dbclient: save castle quest state: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: save castle quest state rejected")
+	}
+	return nil
+}
+
 func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 	switch r {
 	case dbv1.LoginResult_LOGIN_RESULT_OK:
@@ -303,12 +496,109 @@ func loginResultFromProto(r dbv1.LoginResult) world.LoginResult {
 	}
 }
 
+func guildFromProto(g *dbv1.Guild) world.GuildRecord {
+	if g == nil {
+		return world.GuildRecord{}
+	}
+	return world.GuildRecord{
+		ID:      uint16(g.GetId()),
+		Name:    g.GetName(),
+		Clan:    uint8(g.GetClan()),
+		Fame:    g.GetFame(),
+		Citizen: uint8(g.GetCitizen()),
+	}
+}
+
+func relationKindToProto(k world.GuildRelationKind) dbv1.GuildRelationKind {
+	switch k {
+	case world.GuildRelationAlly:
+		return dbv1.GuildRelationKind_GUILD_RELATION_KIND_ALLY
+	case world.GuildRelationWar:
+		return dbv1.GuildRelationKind_GUILD_RELATION_KIND_WAR
+	default:
+		return dbv1.GuildRelationKind_GUILD_RELATION_KIND_NONE
+	}
+}
+
+func relationKindFromProto(k dbv1.GuildRelationKind) world.GuildRelationKind {
+	switch k {
+	case dbv1.GuildRelationKind_GUILD_RELATION_KIND_ALLY:
+		return world.GuildRelationAlly
+	case dbv1.GuildRelationKind_GUILD_RELATION_KIND_WAR:
+		return world.GuildRelationWar
+	default:
+		return world.GuildRelationNone
+	}
+}
+
+func relationFromProto(r *dbv1.GuildRelation) world.GuildRelation {
+	if r == nil {
+		return world.GuildRelation{}
+	}
+	return world.GuildRelation{
+		GuildID:       uint16(r.GetGuildId()),
+		TargetGuildID: uint16(r.GetTargetGuildId()),
+		Kind:          relationKindFromProto(r.GetKind()),
+	}
+}
+
+func zoneToProto(z world.GuildZone) *dbv1.GuildZone {
+	return &dbv1.GuildZone{
+		Zone:           int32(z.Zone),
+		ChargeGuild:    uint32(z.ChargeGuild),
+		ChallengeGuild: uint32(z.ChallengeGuild),
+		Clan:           int32(z.Clan),
+		Victory:        int32(z.Victory),
+		CityTax:        int32(z.CityTax),
+		ChallengeMoney: z.ChallengeMoney,
+		TaxVault:       z.TaxVault,
+	}
+}
+
+func zoneFromProto(z *dbv1.GuildZone) world.GuildZone {
+	if z == nil {
+		return world.GuildZone{}
+	}
+	return world.GuildZone{
+		Zone:           int(z.GetZone()),
+		ChargeGuild:    uint16(z.GetChargeGuild()),
+		ChallengeGuild: uint16(z.GetChallengeGuild()),
+		Clan:           uint8(z.GetClan()),
+		Victory:        uint8(z.GetVictory()),
+		CityTax:        uint8(z.GetCityTax()),
+		ChallengeMoney: z.GetChallengeMoney(),
+		TaxVault:       z.GetTaxVault(),
+	}
+}
+
+func towerStateToProto(st world.GuildTowerState) *dbv1.GuildTowerState {
+	return &dbv1.GuildTowerState{OwnerGuild: uint32(st.OwnerGuild), UpdatedAtUnix: st.UpdatedAtUnix}
+}
+
+func towerStateFromProto(st *dbv1.GuildTowerState) world.GuildTowerState {
+	if st == nil {
+		return world.GuildTowerState{}
+	}
+	return world.GuildTowerState{OwnerGuild: uint16(st.GetOwnerGuild()), UpdatedAtUnix: st.GetUpdatedAtUnix()}
+}
+
+func castleQuestStateToProto(st world.CastleQuestState) *dbv1.CastleQuestState {
+	return &dbv1.CastleQuestState{Level: st.Level, TimeLeft: st.TimeLeft, Clear: st.Clear, LeaderName: st.LeaderName}
+}
+
+func castleQuestStateFromProto(st *dbv1.CastleQuestState) world.CastleQuestState {
+	if st == nil {
+		return world.CastleQuestState{}
+	}
+	return world.CastleQuestState{Level: st.GetLevel(), TimeLeft: st.GetTimeLeft(), Clear: st.GetClear(), LeaderName: st.GetLeaderName()}
+}
+
 // characterStateFromProto maps the loaded character to the world injection shape.
 //
-// UNVERIFIED: the contract (api/db/v1 Character) does not carry position (X/Y),
-// the derived combat scores (Damage/AC/Master) or GuildLevel, so those stay zero
-// until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4). Position
-// especially must be resolved before live play.
+// UNVERIFIED: the contract (api/db/v1 Character) does not carry the world-entry
+// spawn tile (CharacterState.X/Y, distinct from the Gema Estelar SaveX/SaveY
+// below) or the derived combat scores (Damage/AC/Master), so those stay zero
+// until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4).
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
 		Slot:        int(c.GetSlot()),
@@ -323,13 +613,21 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Coin:        c.GetCoin(),
 		Clan:        uint8(c.GetClan()),
 		GuildID:     uint16(c.GetGuildId()),
+		GuildLevel:  uint8(c.GetGuildLevel()),
+		Citizen:     uint8(c.GetCitizen()),
 		ClassMaster: uint8(c.GetClassMaster()),
+		CelLv40:     uint8(c.GetCelestialLv40()),
+		CelLv90:     uint8(c.GetCelestialLv90()),
+		CelCircle:   uint8(c.GetCelestialCircle()),
 		Soul:        uint8(c.GetSoul()),
+		Fame:        c.GetFame(),
 		Str:         int16(c.GetStr()),
 		Int:         int16(c.GetInt()),
 		Dex:         int16(c.GetDex()),
 		Con:         int16(c.GetCon()),
 		LastCity:    int16(c.GetLastCity()),
+		SaveX:       int16(c.GetSaveX()),
+		SaveY:       int16(c.GetSaveY()),
 
 		ScoreBonus:      uint16(c.GetScoreBonus()),
 		SpecialBonus:    uint16(c.GetSpecialBonus()),
@@ -402,29 +700,40 @@ func itemFromProto(it *dbv1.Item) world.Item {
 
 func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 	c := &dbv1.Character{
-		Slot:     int32(s.Slot),
-		Clan:     int32(s.Clan),
-		GuildId:  uint32(s.GuildID),
-		Level:    s.Level,
-		Exp:      s.Exp,
-		Coin:     s.Coin,
-		Str:      int32(s.Str),
-		Int:      int32(s.Int),
-		Dex:      int32(s.Dex),
-		Con:      int32(s.Con),
-		Hp:       s.HP,
-		MaxHp:    s.MaxHP,
-		Mp:       s.MP,
-		MaxMp:    s.MaxMP,
-		LastCity: int32(s.LastCity),
-		Carry:    savedItemsToProto(s.Carry),
-		Equip:    savedItemsToProto(s.Equip),
+		Slot:       int32(s.Slot),
+		Clan:       int32(s.Clan),
+		GuildId:    uint32(s.GuildID),
+		GuildLevel: int32(s.GuildLevel),
+		Level:      s.Level,
+		Exp:        s.Exp,
+		Coin:       s.Coin,
+		Str:        int32(s.Str),
+		Int:        int32(s.Int),
+		Dex:        int32(s.Dex),
+		Con:        int32(s.Con),
+		Hp:         s.HP,
+		MaxHp:      s.MaxHP,
+		Mp:         s.MP,
+		MaxMp:      s.MaxMP,
+		LastCity:   int32(s.LastCity),
+		SaveX:      int32(s.SaveX),
+		SaveY:      int32(s.SaveY),
+		Carry:      savedItemsToProto(s.Carry),
+		Equip:      savedItemsToProto(s.Equip),
 
 		ScoreBonus:      int32(s.ScoreBonus),
 		SpecialBonus:    int32(s.SpecialBonus),
 		LearnedSkill:    s.LearnedSkill,
 		SecLearnedSkill: s.SecLearnedSkill,
 		Soul:            int32(s.Soul),
+		Fame:            s.Fame,
+		// Tier state: class_master (transformations) + the celestial quest gates.
+		// The load side never trusted class_master=0 (defaults to MORTAL); saving it
+		// here is what makes a tier change survive relog.
+		ClassMaster:     int32(s.ClassMaster),
+		CelestialLv40:   int32(s.CelLv40),
+		CelestialLv90:   int32(s.CelLv90),
+		CelestialCircle: int32(s.CelCircle),
 		Special:         make([]int32, len(s.BaseSpecial)),
 		SkillBar:        make([]uint32, len(s.SkillBar)),
 		ShortSkill:      make([]uint32, len(s.ShortSkill)),

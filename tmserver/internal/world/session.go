@@ -62,20 +62,22 @@ type Session struct {
 	Slot              int
 	Mode              Mode
 	IP                string
-	CrackError        int        // anti-cheat violation count (CUser.NumError)
-	Whisper           bool       // true blocks incoming whispers
-	GuildDisable      bool       // hide guild tag (guildon/guildoff)
-	TradeMode         int        // non-zero while in auto-trade (blocks attacks)
-	Trade             TradeState // P2P direct-trade state (lote2-trade-autotrade.md)
-	LastAttackTick    uint32     // ClientTick of the last accepted attack (cadence gate)
-	PotionTick        uint32     // CUser.PotionTime: server clock of the last accepted potion
-	LastAttack        int        // SkillIndex of the last attack
-	LastIllusionTick  uint32     // ClientTick of the last Huntress Ilusao movement
-	ReqHp             int32      // CUser.ReqHp: server-owned HP target for regen/potions
-	ReqMp             int32      // CUser.ReqMp: server-owned MP target for regen/potions
-	CriticalProgress  uint16     // CUser.cProgress used by BASE_GetDoubleCritical
-	ShortSkill        [16]uint8  // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
-	LoginSpawnX       int16      // last server-injected login spawn, for movement diagnostics
+	CrackError        int             // anti-cheat violation count (CUser.NumError)
+	Whisper           bool            // true blocks incoming whispers
+	GuildDisable      bool            // hide guild tag (guildon/guildoff)
+	TradeMode         int             // non-zero while in auto-trade (blocks attacks)
+	Trade             TradeState      // P2P direct-trade state (lote2-trade-autotrade.md)
+	AutoTrade         *AutoTradeState // non-nil while a personal shop is open (issue #115); TradeMode==1
+	LastAttackTick    uint32          // ClientTick of the last accepted attack (cadence gate)
+	PotionTick        uint32          // CUser.PotionTime: server clock of the last accepted potion
+	LastAttack        int             // SkillIndex of the last attack
+	LastIllusionTick  uint32          // ClientTick of the last Huntress Ilusao movement
+	ReqHp             int32           // CUser.ReqHp: server-owned HP target for regen/potions
+	ReqMp             int32           // CUser.ReqMp: server-owned MP target for regen/potions
+	CriticalProgress  uint16          // CUser.cProgress used by BASE_GetDoubleCritical
+	ShortSkill        [16]uint8       // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	QuestTicketTravel bool            // right-click Quest 256 ticket travel is pending; blocks double-use
+	LoginSpawnX       int16           // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
 	LoginTick         uint32
 	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
@@ -89,6 +91,16 @@ type Session struct {
 	DuelTargetExpiry int64
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
+
+	// S→C send diagnostics (sendstats.go): per-type counts, totals, the trailing
+	// frames and the out-queue high-water mark, dumped on disconnect so a frozen
+	// client leaves a post-mortem. Loop-owned like every other Session field.
+	sentFrames   uint64
+	sentBytes    uint64
+	sentByType   map[protocol.Type]uint32
+	lastSent     [lastSentRing]sentRecord
+	lastSentIdx  int
+	outHighWater int
 
 	conn    net.Conn
 	out     chan outFrame
@@ -119,16 +131,40 @@ type TradeState struct {
 	Slots      []int // offered carry slots
 }
 
+// AutoTradeState is an open personal shop (the legacy pUser[conn].AutoTrade, issue
+// #115). It is session-only — never persisted, so a shop never survives relogin —
+// and loop-owned. Items are sold out of the account Cargo by CargoPos; the offered
+// item is copied into the slot so a buy can memcmp it against the live Cargo slot
+// (anti item-swap). While a shop is open the session's TradeMode is 1.
+type AutoTradeState struct {
+	Title string
+	Tax   int16
+	Slots [MaxAutoTrade]AutoTradeSlot
+}
+
+// AutoTradeSlot is one shop offer: the item (copy of the seller's Cargo slot), its
+// source Cargo slot (-1 = empty), and its price. CargoPos < 0 means an unused slot.
+type AutoTradeSlot struct {
+	Item     Item
+	CargoPos int
+	Price    int32
+}
+
 // Entity is a world entity (CMob subset, domain-model.md §2.2). Players
 // (ID < MaxUser) and mobs (ID >= MaxUser) share this type and the same index
 // space. Phase 3 carries only the minimum; full STRUCT_MOB state arrives with
 // the handlers (Phase 4).
 type Entity struct {
-	ID       int
-	Mode     EntityMode
-	Name     string
-	X        int16
-	Y        int16
+	ID   int
+	Mode EntityMode
+	Name string
+	X    int16
+	Y    int16
+	// SaveX/SaveY are the Gema Estelar warp save-point (STRUCT_MOB.SPX/SPY,
+	// _MSG_UseItem.cpp Vol 12/13) — distinct from X/Y, the player's live position.
+	// 0/0 means no point has ever been saved.
+	SaveX    int16
+	SaveY    int16
 	HP       int32
 	MaxHP    int32
 	MP       int32 // current mana (status display)
@@ -186,9 +222,15 @@ type Entity struct {
 	Clan        uint8    // clan/race
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
+	Citizen     uint8    // MobExtra.Citizen; city allegiance and guild creation metadata
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
-	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
-	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// Celestial quest gate flags (MobExtra.QuestInfo.Celestial, Basedef.h:659-678).
+	// CelLv40/CelLv90 unlock the Celestial level 40/90 caps (CheckGetLevel gate,
+	// CMob.cpp:1107); CelCircle marks the Cythera Arcana quest done (/arcana). Persisted.
+	CelLv40, CelLv90, CelCircle uint8
+	Soul                        uint8 // MobExtra.Soul; 0 means no modeled soul
+	Fame                        int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
+	QuestFlag                   uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
 	// hits, but it does NOT by itself blink the nickname.

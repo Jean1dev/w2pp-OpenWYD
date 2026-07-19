@@ -42,6 +42,20 @@ const (
 	AccountService_SaveCargoWithDeliveries_FullMethodName = "/db.v1.AccountService/SaveCargoWithDeliveries"
 	AccountService_SetAccountBlocked_FullMethodName       = "/db.v1.AccountService/SetAccountBlocked"
 	AccountService_RecordDuelResult_FullMethodName        = "/db.v1.AccountService/RecordDuelResult"
+	AccountService_CreateGuild_FullMethodName             = "/db.v1.AccountService/CreateGuild"
+	AccountService_SetGuildMember_FullMethodName          = "/db.v1.AccountService/SetGuildMember"
+	AccountService_LeaveGuild_FullMethodName              = "/db.v1.AccountService/LeaveGuild"
+	AccountService_PromoteGuildMember_FullMethodName      = "/db.v1.AccountService/PromoteGuildMember"
+	AccountService_TransferGuildLeader_FullMethodName     = "/db.v1.AccountService/TransferGuildLeader"
+	AccountService_SetGuildRelation_FullMethodName        = "/db.v1.AccountService/SetGuildRelation"
+	AccountService_ListGuilds_FullMethodName              = "/db.v1.AccountService/ListGuilds"
+	AccountService_ListGuildRelations_FullMethodName      = "/db.v1.AccountService/ListGuildRelations"
+	AccountService_LoadGuildZones_FullMethodName          = "/db.v1.AccountService/LoadGuildZones"
+	AccountService_SaveGuildZone_FullMethodName           = "/db.v1.AccountService/SaveGuildZone"
+	AccountService_LoadGuildTowerState_FullMethodName     = "/db.v1.AccountService/LoadGuildTowerState"
+	AccountService_SaveGuildTowerState_FullMethodName     = "/db.v1.AccountService/SaveGuildTowerState"
+	AccountService_LoadCastleQuestState_FullMethodName    = "/db.v1.AccountService/LoadCastleQuestState"
+	AccountService_SaveCastleQuestState_FullMethodName    = "/db.v1.AccountService/SaveCastleQuestState"
 )
 
 // AccountServiceClient is the client API for AccountService service.
@@ -96,6 +110,23 @@ type AccountServiceClient interface {
 	// character_pvp_stats. Both names must resolve to an existing character or
 	// the whole call fails (no lopsided half-result).
 	RecordDuelResult(ctx context.Context, in *RecordDuelResultRequest, opts ...grpc.CallOption) (*RecordDuelResultResponse, error)
+	// Guild lifecycle and war/city state (issue #114). These RPCs are modern
+	// tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
+	// GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
+	CreateGuild(ctx context.Context, in *CreateGuildRequest, opts ...grpc.CallOption) (*CreateGuildResponse, error)
+	SetGuildMember(ctx context.Context, in *SetGuildMemberRequest, opts ...grpc.CallOption) (*SetGuildMemberResponse, error)
+	LeaveGuild(ctx context.Context, in *LeaveGuildRequest, opts ...grpc.CallOption) (*SetGuildMemberResponse, error)
+	PromoteGuildMember(ctx context.Context, in *PromoteGuildMemberRequest, opts ...grpc.CallOption) (*PromoteGuildMemberResponse, error)
+	TransferGuildLeader(ctx context.Context, in *TransferGuildLeaderRequest, opts ...grpc.CallOption) (*SetGuildMemberResponse, error)
+	SetGuildRelation(ctx context.Context, in *SetGuildRelationRequest, opts ...grpc.CallOption) (*SetGuildRelationResponse, error)
+	ListGuilds(ctx context.Context, in *ListGuildsRequest, opts ...grpc.CallOption) (*ListGuildsResponse, error)
+	ListGuildRelations(ctx context.Context, in *ListGuildRelationsRequest, opts ...grpc.CallOption) (*ListGuildRelationsResponse, error)
+	LoadGuildZones(ctx context.Context, in *LoadGuildZonesRequest, opts ...grpc.CallOption) (*LoadGuildZonesResponse, error)
+	SaveGuildZone(ctx context.Context, in *SaveGuildZoneRequest, opts ...grpc.CallOption) (*SaveGuildZoneResponse, error)
+	LoadGuildTowerState(ctx context.Context, in *LoadGuildTowerStateRequest, opts ...grpc.CallOption) (*LoadGuildTowerStateResponse, error)
+	SaveGuildTowerState(ctx context.Context, in *SaveGuildTowerStateRequest, opts ...grpc.CallOption) (*SaveGuildTowerStateResponse, error)
+	LoadCastleQuestState(ctx context.Context, in *LoadCastleQuestStateRequest, opts ...grpc.CallOption) (*LoadCastleQuestStateResponse, error)
+	SaveCastleQuestState(ctx context.Context, in *SaveCastleQuestStateRequest, opts ...grpc.CallOption) (*SaveCastleQuestStateResponse, error)
 }
 
 type accountServiceClient struct {
@@ -256,6 +287,146 @@ func (c *accountServiceClient) RecordDuelResult(ctx context.Context, in *RecordD
 	return out, nil
 }
 
+func (c *accountServiceClient) CreateGuild(ctx context.Context, in *CreateGuildRequest, opts ...grpc.CallOption) (*CreateGuildResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateGuildResponse)
+	err := c.cc.Invoke(ctx, AccountService_CreateGuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SetGuildMember(ctx context.Context, in *SetGuildMemberRequest, opts ...grpc.CallOption) (*SetGuildMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetGuildMemberResponse)
+	err := c.cc.Invoke(ctx, AccountService_SetGuildMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) LeaveGuild(ctx context.Context, in *LeaveGuildRequest, opts ...grpc.CallOption) (*SetGuildMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetGuildMemberResponse)
+	err := c.cc.Invoke(ctx, AccountService_LeaveGuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) PromoteGuildMember(ctx context.Context, in *PromoteGuildMemberRequest, opts ...grpc.CallOption) (*PromoteGuildMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromoteGuildMemberResponse)
+	err := c.cc.Invoke(ctx, AccountService_PromoteGuildMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) TransferGuildLeader(ctx context.Context, in *TransferGuildLeaderRequest, opts ...grpc.CallOption) (*SetGuildMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetGuildMemberResponse)
+	err := c.cc.Invoke(ctx, AccountService_TransferGuildLeader_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SetGuildRelation(ctx context.Context, in *SetGuildRelationRequest, opts ...grpc.CallOption) (*SetGuildRelationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetGuildRelationResponse)
+	err := c.cc.Invoke(ctx, AccountService_SetGuildRelation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) ListGuilds(ctx context.Context, in *ListGuildsRequest, opts ...grpc.CallOption) (*ListGuildsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGuildsResponse)
+	err := c.cc.Invoke(ctx, AccountService_ListGuilds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) ListGuildRelations(ctx context.Context, in *ListGuildRelationsRequest, opts ...grpc.CallOption) (*ListGuildRelationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGuildRelationsResponse)
+	err := c.cc.Invoke(ctx, AccountService_ListGuildRelations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) LoadGuildZones(ctx context.Context, in *LoadGuildZonesRequest, opts ...grpc.CallOption) (*LoadGuildZonesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoadGuildZonesResponse)
+	err := c.cc.Invoke(ctx, AccountService_LoadGuildZones_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SaveGuildZone(ctx context.Context, in *SaveGuildZoneRequest, opts ...grpc.CallOption) (*SaveGuildZoneResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveGuildZoneResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveGuildZone_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) LoadGuildTowerState(ctx context.Context, in *LoadGuildTowerStateRequest, opts ...grpc.CallOption) (*LoadGuildTowerStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoadGuildTowerStateResponse)
+	err := c.cc.Invoke(ctx, AccountService_LoadGuildTowerState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SaveGuildTowerState(ctx context.Context, in *SaveGuildTowerStateRequest, opts ...grpc.CallOption) (*SaveGuildTowerStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveGuildTowerStateResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveGuildTowerState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) LoadCastleQuestState(ctx context.Context, in *LoadCastleQuestStateRequest, opts ...grpc.CallOption) (*LoadCastleQuestStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoadCastleQuestStateResponse)
+	err := c.cc.Invoke(ctx, AccountService_LoadCastleQuestState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SaveCastleQuestState(ctx context.Context, in *SaveCastleQuestStateRequest, opts ...grpc.CallOption) (*SaveCastleQuestStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveCastleQuestStateResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveCastleQuestState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility.
@@ -308,6 +479,23 @@ type AccountServiceServer interface {
 	// character_pvp_stats. Both names must resolve to an existing character or
 	// the whole call fails (no lopsided half-result).
 	RecordDuelResult(context.Context, *RecordDuelResultRequest) (*RecordDuelResultResponse, error)
+	// Guild lifecycle and war/city state (issue #114). These RPCs are modern
+	// tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
+	// GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
+	CreateGuild(context.Context, *CreateGuildRequest) (*CreateGuildResponse, error)
+	SetGuildMember(context.Context, *SetGuildMemberRequest) (*SetGuildMemberResponse, error)
+	LeaveGuild(context.Context, *LeaveGuildRequest) (*SetGuildMemberResponse, error)
+	PromoteGuildMember(context.Context, *PromoteGuildMemberRequest) (*PromoteGuildMemberResponse, error)
+	TransferGuildLeader(context.Context, *TransferGuildLeaderRequest) (*SetGuildMemberResponse, error)
+	SetGuildRelation(context.Context, *SetGuildRelationRequest) (*SetGuildRelationResponse, error)
+	ListGuilds(context.Context, *ListGuildsRequest) (*ListGuildsResponse, error)
+	ListGuildRelations(context.Context, *ListGuildRelationsRequest) (*ListGuildRelationsResponse, error)
+	LoadGuildZones(context.Context, *LoadGuildZonesRequest) (*LoadGuildZonesResponse, error)
+	SaveGuildZone(context.Context, *SaveGuildZoneRequest) (*SaveGuildZoneResponse, error)
+	LoadGuildTowerState(context.Context, *LoadGuildTowerStateRequest) (*LoadGuildTowerStateResponse, error)
+	SaveGuildTowerState(context.Context, *SaveGuildTowerStateRequest) (*SaveGuildTowerStateResponse, error)
+	LoadCastleQuestState(context.Context, *LoadCastleQuestStateRequest) (*LoadCastleQuestStateResponse, error)
+	SaveCastleQuestState(context.Context, *SaveCastleQuestStateRequest) (*SaveCastleQuestStateResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -362,6 +550,48 @@ func (UnimplementedAccountServiceServer) SetAccountBlocked(context.Context, *Set
 }
 func (UnimplementedAccountServiceServer) RecordDuelResult(context.Context, *RecordDuelResultRequest) (*RecordDuelResultResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RecordDuelResult not implemented")
+}
+func (UnimplementedAccountServiceServer) CreateGuild(context.Context, *CreateGuildRequest) (*CreateGuildResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateGuild not implemented")
+}
+func (UnimplementedAccountServiceServer) SetGuildMember(context.Context, *SetGuildMemberRequest) (*SetGuildMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetGuildMember not implemented")
+}
+func (UnimplementedAccountServiceServer) LeaveGuild(context.Context, *LeaveGuildRequest) (*SetGuildMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LeaveGuild not implemented")
+}
+func (UnimplementedAccountServiceServer) PromoteGuildMember(context.Context, *PromoteGuildMemberRequest) (*PromoteGuildMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PromoteGuildMember not implemented")
+}
+func (UnimplementedAccountServiceServer) TransferGuildLeader(context.Context, *TransferGuildLeaderRequest) (*SetGuildMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TransferGuildLeader not implemented")
+}
+func (UnimplementedAccountServiceServer) SetGuildRelation(context.Context, *SetGuildRelationRequest) (*SetGuildRelationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetGuildRelation not implemented")
+}
+func (UnimplementedAccountServiceServer) ListGuilds(context.Context, *ListGuildsRequest) (*ListGuildsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGuilds not implemented")
+}
+func (UnimplementedAccountServiceServer) ListGuildRelations(context.Context, *ListGuildRelationsRequest) (*ListGuildRelationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGuildRelations not implemented")
+}
+func (UnimplementedAccountServiceServer) LoadGuildZones(context.Context, *LoadGuildZonesRequest) (*LoadGuildZonesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LoadGuildZones not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveGuildZone(context.Context, *SaveGuildZoneRequest) (*SaveGuildZoneResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveGuildZone not implemented")
+}
+func (UnimplementedAccountServiceServer) LoadGuildTowerState(context.Context, *LoadGuildTowerStateRequest) (*LoadGuildTowerStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LoadGuildTowerState not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveGuildTowerState(context.Context, *SaveGuildTowerStateRequest) (*SaveGuildTowerStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveGuildTowerState not implemented")
+}
+func (UnimplementedAccountServiceServer) LoadCastleQuestState(context.Context, *LoadCastleQuestStateRequest) (*LoadCastleQuestStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LoadCastleQuestState not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveCastleQuestState(context.Context, *SaveCastleQuestStateRequest) (*SaveCastleQuestStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveCastleQuestState not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 func (UnimplementedAccountServiceServer) testEmbeddedByValue()                        {}
@@ -654,6 +884,258 @@ func _AccountService_RecordDuelResult_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_CreateGuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateGuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).CreateGuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_CreateGuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).CreateGuild(ctx, req.(*CreateGuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SetGuildMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetGuildMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SetGuildMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SetGuildMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SetGuildMember(ctx, req.(*SetGuildMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_LeaveGuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaveGuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).LeaveGuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_LeaveGuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).LeaveGuild(ctx, req.(*LeaveGuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_PromoteGuildMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PromoteGuildMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).PromoteGuildMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_PromoteGuildMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).PromoteGuildMember(ctx, req.(*PromoteGuildMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_TransferGuildLeader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransferGuildLeaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).TransferGuildLeader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_TransferGuildLeader_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).TransferGuildLeader(ctx, req.(*TransferGuildLeaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SetGuildRelation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetGuildRelationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SetGuildRelation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SetGuildRelation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SetGuildRelation(ctx, req.(*SetGuildRelationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_ListGuilds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGuildsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).ListGuilds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_ListGuilds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).ListGuilds(ctx, req.(*ListGuildsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_ListGuildRelations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGuildRelationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).ListGuildRelations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_ListGuildRelations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).ListGuildRelations(ctx, req.(*ListGuildRelationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_LoadGuildZones_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadGuildZonesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).LoadGuildZones(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_LoadGuildZones_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).LoadGuildZones(ctx, req.(*LoadGuildZonesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SaveGuildZone_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveGuildZoneRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveGuildZone(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveGuildZone_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveGuildZone(ctx, req.(*SaveGuildZoneRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_LoadGuildTowerState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadGuildTowerStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).LoadGuildTowerState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_LoadGuildTowerState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).LoadGuildTowerState(ctx, req.(*LoadGuildTowerStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SaveGuildTowerState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveGuildTowerStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveGuildTowerState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveGuildTowerState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveGuildTowerState(ctx, req.(*SaveGuildTowerStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_LoadCastleQuestState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadCastleQuestStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).LoadCastleQuestState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_LoadCastleQuestState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).LoadCastleQuestState(ctx, req.(*LoadCastleQuestStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SaveCastleQuestState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveCastleQuestStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveCastleQuestState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveCastleQuestState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveCastleQuestState(ctx, req.(*SaveCastleQuestStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -720,6 +1202,62 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RecordDuelResult",
 			Handler:    _AccountService_RecordDuelResult_Handler,
+		},
+		{
+			MethodName: "CreateGuild",
+			Handler:    _AccountService_CreateGuild_Handler,
+		},
+		{
+			MethodName: "SetGuildMember",
+			Handler:    _AccountService_SetGuildMember_Handler,
+		},
+		{
+			MethodName: "LeaveGuild",
+			Handler:    _AccountService_LeaveGuild_Handler,
+		},
+		{
+			MethodName: "PromoteGuildMember",
+			Handler:    _AccountService_PromoteGuildMember_Handler,
+		},
+		{
+			MethodName: "TransferGuildLeader",
+			Handler:    _AccountService_TransferGuildLeader_Handler,
+		},
+		{
+			MethodName: "SetGuildRelation",
+			Handler:    _AccountService_SetGuildRelation_Handler,
+		},
+		{
+			MethodName: "ListGuilds",
+			Handler:    _AccountService_ListGuilds_Handler,
+		},
+		{
+			MethodName: "ListGuildRelations",
+			Handler:    _AccountService_ListGuildRelations_Handler,
+		},
+		{
+			MethodName: "LoadGuildZones",
+			Handler:    _AccountService_LoadGuildZones_Handler,
+		},
+		{
+			MethodName: "SaveGuildZone",
+			Handler:    _AccountService_SaveGuildZone_Handler,
+		},
+		{
+			MethodName: "LoadGuildTowerState",
+			Handler:    _AccountService_LoadGuildTowerState_Handler,
+		},
+		{
+			MethodName: "SaveGuildTowerState",
+			Handler:    _AccountService_SaveGuildTowerState_Handler,
+		},
+		{
+			MethodName: "LoadCastleQuestState",
+			Handler:    _AccountService_LoadCastleQuestState_Handler,
+		},
+		{
+			MethodName: "SaveCastleQuestState",
+			Handler:    _AccountService_SaveCastleQuestState_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

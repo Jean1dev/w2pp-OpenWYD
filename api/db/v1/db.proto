@@ -59,6 +59,24 @@ service AccountService {
   // character_pvp_stats. Both names must resolve to an existing character or
   // the whole call fails (no lopsided half-result).
   rpc RecordDuelResult(RecordDuelResultRequest) returns (RecordDuelResultResponse);
+
+  // Guild lifecycle and war/city state (issue #114). These RPCs are modern
+  // tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
+  // GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
+  rpc CreateGuild(CreateGuildRequest) returns (CreateGuildResponse);
+  rpc SetGuildMember(SetGuildMemberRequest) returns (SetGuildMemberResponse);
+  rpc LeaveGuild(LeaveGuildRequest) returns (SetGuildMemberResponse);
+  rpc PromoteGuildMember(PromoteGuildMemberRequest) returns (PromoteGuildMemberResponse);
+  rpc TransferGuildLeader(TransferGuildLeaderRequest) returns (SetGuildMemberResponse);
+  rpc SetGuildRelation(SetGuildRelationRequest) returns (SetGuildRelationResponse);
+  rpc ListGuilds(ListGuildsRequest) returns (ListGuildsResponse);
+  rpc ListGuildRelations(ListGuildRelationsRequest) returns (ListGuildRelationsResponse);
+  rpc LoadGuildZones(LoadGuildZonesRequest) returns (LoadGuildZonesResponse);
+  rpc SaveGuildZone(SaveGuildZoneRequest) returns (SaveGuildZoneResponse);
+  rpc LoadGuildTowerState(LoadGuildTowerStateRequest) returns (LoadGuildTowerStateResponse);
+  rpc SaveGuildTowerState(SaveGuildTowerStateRequest) returns (SaveGuildTowerStateResponse);
+  rpc LoadCastleQuestState(LoadCastleQuestStateRequest) returns (LoadCastleQuestStateResponse);
+  rpc SaveCastleQuestState(SaveCastleQuestStateRequest) returns (SaveCastleQuestStateResponse);
 }
 
 enum LoginResult {
@@ -151,6 +169,14 @@ message Character {
   int32 sec_learned_skill = 28;    // MobExtra.SecLearnedSkill
   int32 soul = 29;                 // MobExtra.Soul
   int32 class_master = 30;         // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
+  int32 citizen = 31;              // MobExtra.Citizen (city allegiance; 0 = none)
+  int32 fame = 32;                 // MobExtra.Fame
+  int32 save_x = 33;               // STRUCT_MOB.SPX: Gema Estelar warp save-point
+  int32 save_y = 34;               // STRUCT_MOB.SPY: Gema Estelar warp save-point
+  int32 celestial_lv40 = 35;       // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+  int32 celestial_lv90 = 36;       // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+  int32 celestial_circle = 37;     // QuestInfo.Circle (Cythera Arcana quest done)
+  int32 guild_level = 38;          // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
 }
 
 message Item {
@@ -280,6 +306,126 @@ message RecordDuelResultRequest {
 }
 // ok is false when either character name didn't resolve (nothing recorded).
 message RecordDuelResultResponse { bool ok = 1; }
+
+message Guild {
+  uint32 id = 1;      // legacy ushort guild id
+  string name = 2;
+  int32 clan = 3;
+  int32 fame = 4;
+  int32 citizen = 5;
+}
+
+enum GuildRelationKind {
+  GUILD_RELATION_KIND_NONE = 0;
+  GUILD_RELATION_KIND_ALLY = 1;
+  GUILD_RELATION_KIND_WAR = 2;
+}
+
+message GuildRelation {
+  uint32 guild_id = 1;
+  uint32 target_guild_id = 2;
+  GuildRelationKind kind = 3;
+}
+
+message CreateGuildRequest {
+  int64 account_id = 1;
+  int32 slot = 2;
+  string character_name = 3;
+  string guild_name = 4;
+  int32 clan = 5;
+  int32 citizen = 6;
+  int32 server_index = 7;
+  int32 cost = 8;
+}
+message CreateGuildResponse {
+  bool ok = 1;
+  Guild guild = 2;
+}
+
+message SetGuildMemberRequest {
+  int64 account_id = 1;
+  int32 slot = 2;
+  string character_name = 3;
+  uint32 guild_id = 4;
+  int32 guild_level = 5;
+}
+message SetGuildMemberResponse { bool ok = 1; }
+
+message LeaveGuildRequest {
+  int64 account_id = 1;
+  int32 slot = 2;
+}
+
+message PromoteGuildMemberRequest {
+  uint32 guild_id = 1;
+  int64 leader_account_id = 2;
+  int32 leader_slot = 3;
+  int64 account_id = 4;
+  int32 slot = 5;
+  int32 cost = 6;
+}
+message PromoteGuildMemberResponse {
+  bool ok = 1;
+  int32 guild_level = 2;
+}
+
+message TransferGuildLeaderRequest {
+  uint32 guild_id = 1;
+  int64 old_account_id = 2;
+  int32 old_slot = 3;
+  int64 new_account_id = 4;
+  int32 new_slot = 5;
+}
+
+message SetGuildRelationRequest {
+  uint32 guild_id = 1;
+  uint32 target_guild_id = 2;
+  GuildRelationKind kind = 3;
+}
+message SetGuildRelationResponse { bool ok = 1; }
+
+message ListGuildsRequest {}
+message ListGuildsResponse { repeated Guild guilds = 1; }
+
+message ListGuildRelationsRequest {}
+message ListGuildRelationsResponse { repeated GuildRelation relations = 1; }
+
+message GuildZone {
+  int32 zone = 1;
+  uint32 charge_guild = 2;
+  uint32 challenge_guild = 3;
+  int32 clan = 4;
+  int32 victory = 5;
+  int32 city_tax = 6;
+  int64 challenge_money = 7;
+  int64 tax_vault = 8;
+}
+
+message LoadGuildZonesRequest {}
+message LoadGuildZonesResponse { repeated GuildZone zones = 1; }
+
+message SaveGuildZoneRequest { GuildZone zone = 1; }
+message SaveGuildZoneResponse { bool ok = 1; }
+
+message GuildTowerState {
+  uint32 owner_guild = 1;
+  int64 updated_at_unix = 2;
+}
+message LoadGuildTowerStateRequest {}
+message LoadGuildTowerStateResponse { GuildTowerState state = 1; }
+message SaveGuildTowerStateRequest { GuildTowerState state = 1; }
+message SaveGuildTowerStateResponse { bool ok = 1; }
+
+message CastleQuestState {
+  int32 level = 1;
+  int32 time_left = 2;
+  bool clear = 3;
+  string leader_name = 4;
+}
+message LoadCastleQuestStateRequest {}
+message LoadCastleQuestStateResponse { CastleQuestState state = 1; }
+message SaveCastleQuestStateRequest { CastleQuestState state = 1; }
+message SaveCastleQuestStateResponse { bool ok = 1; }
 
 // NpcConfigService serves the moderator-editable NPC configuration to tmServer
 // (npc-editing-plan.md). It is READ-ONLY from tmServer's side: the web-api writes

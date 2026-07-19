@@ -36,6 +36,20 @@ type Store interface {
 	SaveCargoWithDeliveries(ctx context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error
 	SetBlockedByName(ctx context.Context, name string, blocked bool) error
 	RecordDuelResult(ctx context.Context, winnerName, loserName string) error
+	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (domain.Guild, error)
+	SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error
+	LeaveGuild(ctx context.Context, accountID int64, slot int) error
+	PromoteGuildMember(ctx context.Context, guildID uint16, leaderAccountID int64, leaderSlot int, accountID int64, slot int, cost int32) (uint8, error)
+	TransferGuildLeader(ctx context.Context, guildID uint16, oldAccountID int64, oldSlot int, newAccountID int64, newSlot int) error
+	SetGuildRelation(ctx context.Context, guildID, targetGuildID uint16, kind domain.GuildRelationKind) error
+	ListGuilds(ctx context.Context) ([]domain.Guild, error)
+	ListGuildRelations(ctx context.Context) ([]domain.GuildRelation, error)
+	LoadGuildZones(ctx context.Context) ([]domain.GuildZone, error)
+	SaveGuildZone(ctx context.Context, zone domain.GuildZone) error
+	LoadGuildTowerState(ctx context.Context) (domain.GuildTowerState, error)
+	SaveGuildTowerState(ctx context.Context, state domain.GuildTowerState) error
+	LoadCastleQuestState(ctx context.Context) (domain.CastleQuestState, error)
+	SaveCastleQuestState(ctx context.Context, state domain.CastleQuestState) error
 }
 
 // Server implements dbv1.AccountServiceServer.
@@ -213,6 +227,161 @@ func (s *Server) RecordDuelResult(ctx context.Context, req *dbv1.RecordDuelResul
 		return nil, status.Errorf(codes.Internal, "record duel result: %v", err)
 	}
 	return &dbv1.RecordDuelResultResponse{Ok: true}, nil
+}
+
+// CreateGuild creates a guild and marks the requester as its leader.
+func (s *Server) CreateGuild(ctx context.Context, req *dbv1.CreateGuildRequest) (*dbv1.CreateGuildResponse, error) {
+	g, err := s.store.CreateGuild(ctx, req.GetAccountId(), int(req.GetSlot()), req.GetCharacterName(),
+		req.GetGuildName(), uint8(req.GetClan()), uint8(req.GetCitizen()), int(req.GetServerIndex()), req.GetCost())
+	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNoFreeSlot) || isUniqueViolation(err) {
+		return &dbv1.CreateGuildResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "create guild: %v", err)
+	}
+	return &dbv1.CreateGuildResponse{Ok: true, Guild: guildToProto(g)}, nil
+}
+
+// SetGuildMember sets or clears one character's guild membership.
+func (s *Server) SetGuildMember(ctx context.Context, req *dbv1.SetGuildMemberRequest) (*dbv1.SetGuildMemberResponse, error) {
+	err := s.store.SetGuildMember(ctx, req.GetAccountId(), int(req.GetSlot()), req.GetCharacterName(),
+		uint16(req.GetGuildId()), uint8(req.GetGuildLevel()))
+	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) {
+		return &dbv1.SetGuildMemberResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "set guild member: %v", err)
+	}
+	return &dbv1.SetGuildMemberResponse{Ok: true}, nil
+}
+
+// LeaveGuild removes one character from its guild.
+func (s *Server) LeaveGuild(ctx context.Context, req *dbv1.LeaveGuildRequest) (*dbv1.SetGuildMemberResponse, error) {
+	err := s.store.LeaveGuild(ctx, req.GetAccountId(), int(req.GetSlot()))
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.SetGuildMemberResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "leave guild: %v", err)
+	}
+	return &dbv1.SetGuildMemberResponse{Ok: true}, nil
+}
+
+// PromoteGuildMember promotes a member to the first free sub-leader rank.
+func (s *Server) PromoteGuildMember(ctx context.Context, req *dbv1.PromoteGuildMemberRequest) (*dbv1.PromoteGuildMemberResponse, error) {
+	level, err := s.store.PromoteGuildMember(ctx, uint16(req.GetGuildId()), req.GetLeaderAccountId(), int(req.GetLeaderSlot()),
+		req.GetAccountId(), int(req.GetSlot()), req.GetCost())
+	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNoFreeSlot) {
+		return &dbv1.PromoteGuildMemberResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "promote guild member: %v", err)
+	}
+	return &dbv1.PromoteGuildMemberResponse{Ok: true, GuildLevel: int32(level)}, nil
+}
+
+// TransferGuildLeader transfers rank 9 to another member.
+func (s *Server) TransferGuildLeader(ctx context.Context, req *dbv1.TransferGuildLeaderRequest) (*dbv1.SetGuildMemberResponse, error) {
+	err := s.store.TransferGuildLeader(ctx, uint16(req.GetGuildId()), req.GetOldAccountId(), int(req.GetOldSlot()),
+		req.GetNewAccountId(), int(req.GetNewSlot()))
+	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) {
+		return &dbv1.SetGuildMemberResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "transfer guild leader: %v", err)
+	}
+	return &dbv1.SetGuildMemberResponse{Ok: true}, nil
+}
+
+// SetGuildRelation upserts or clears a directed ally/war relation.
+func (s *Server) SetGuildRelation(ctx context.Context, req *dbv1.SetGuildRelationRequest) (*dbv1.SetGuildRelationResponse, error) {
+	err := s.store.SetGuildRelation(ctx, uint16(req.GetGuildId()), uint16(req.GetTargetGuildId()), relationKindFromProto(req.GetKind()))
+	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrConflict) {
+		return &dbv1.SetGuildRelationResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "set guild relation: %v", err)
+	}
+	return &dbv1.SetGuildRelationResponse{Ok: true}, nil
+}
+
+// ListGuilds returns the guild registry snapshot.
+func (s *Server) ListGuilds(ctx context.Context, _ *dbv1.ListGuildsRequest) (*dbv1.ListGuildsResponse, error) {
+	guilds, err := s.store.ListGuilds(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list guilds: %v", err)
+	}
+	return &dbv1.ListGuildsResponse{Guilds: guildsToProto(guilds)}, nil
+}
+
+// ListGuildRelations returns all directed ally/war relations.
+func (s *Server) ListGuildRelations(ctx context.Context, _ *dbv1.ListGuildRelationsRequest) (*dbv1.ListGuildRelationsResponse, error) {
+	relations, err := s.store.ListGuildRelations(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list guild relations: %v", err)
+	}
+	return &dbv1.ListGuildRelationsResponse{Relations: relationsToProto(relations)}, nil
+}
+
+// LoadGuildZones loads city/guild-zone state.
+func (s *Server) LoadGuildZones(ctx context.Context, _ *dbv1.LoadGuildZonesRequest) (*dbv1.LoadGuildZonesResponse, error) {
+	zones, err := s.store.LoadGuildZones(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "load guild zones: %v", err)
+	}
+	return &dbv1.LoadGuildZonesResponse{Zones: zonesToProto(zones)}, nil
+}
+
+// SaveGuildZone persists one city/guild-zone row.
+func (s *Server) SaveGuildZone(ctx context.Context, req *dbv1.SaveGuildZoneRequest) (*dbv1.SaveGuildZoneResponse, error) {
+	err := s.store.SaveGuildZone(ctx, zoneFromProto(req.GetZone()))
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.SaveGuildZoneResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "save guild zone: %v", err)
+	}
+	return &dbv1.SaveGuildZoneResponse{Ok: true}, nil
+}
+
+// LoadGuildTowerState loads current GTorre ownership.
+func (s *Server) LoadGuildTowerState(ctx context.Context, _ *dbv1.LoadGuildTowerStateRequest) (*dbv1.LoadGuildTowerStateResponse, error) {
+	st, err := s.store.LoadGuildTowerState(ctx)
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.LoadGuildTowerStateResponse{State: &dbv1.GuildTowerState{}}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "load guild tower state: %v", err)
+	}
+	return &dbv1.LoadGuildTowerStateResponse{State: towerStateToProto(st)}, nil
+}
+
+// SaveGuildTowerState persists current GTorre ownership.
+func (s *Server) SaveGuildTowerState(ctx context.Context, req *dbv1.SaveGuildTowerStateRequest) (*dbv1.SaveGuildTowerStateResponse, error) {
+	if err := s.store.SaveGuildTowerState(ctx, towerStateFromProto(req.GetState())); err != nil {
+		return nil, status.Errorf(codes.Internal, "save guild tower state: %v", err)
+	}
+	return &dbv1.SaveGuildTowerStateResponse{Ok: true}, nil
+}
+
+// LoadCastleQuestState loads current Castle/Zakum quest state.
+func (s *Server) LoadCastleQuestState(ctx context.Context, _ *dbv1.LoadCastleQuestStateRequest) (*dbv1.LoadCastleQuestStateResponse, error) {
+	st, err := s.store.LoadCastleQuestState(ctx)
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.LoadCastleQuestStateResponse{State: &dbv1.CastleQuestState{}}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "load castle quest state: %v", err)
+	}
+	return &dbv1.LoadCastleQuestStateResponse{State: castleQuestStateToProto(st)}, nil
+}
+
+// SaveCastleQuestState persists current Castle/Zakum quest state.
+func (s *Server) SaveCastleQuestState(ctx context.Context, req *dbv1.SaveCastleQuestStateRequest) (*dbv1.SaveCastleQuestStateResponse, error) {
+	if err := s.store.SaveCastleQuestState(ctx, castleQuestStateFromProto(req.GetState())); err != nil {
+		return nil, status.Errorf(codes.Internal, "save castle quest state: %v", err)
+	}
+	return &dbv1.SaveCastleQuestStateResponse{Ok: true}, nil
 }
 
 // CreateCharacter creates a character in a free slot. A taken slot/name (unique

@@ -57,7 +57,7 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 101 | 8 | Cecilia, U_Ni_Corn | _MSG_Quest | ❌ montaria unicórnio? |
 | 104/105/107 | 4/2/1 | Uxmal, Treinador2/3, TrainerChief | _MSG_Quest (tutoriais) | ❌ |
 | 110 | 1 | Unicornio_Puro | _MSG_Quest | ❌ |
-| 111 | 4 | Rei_Glantuar, Rei_Harabard | _MSG_Quest (KING) | ❌ |
+| 111 | 4 | Rei_Glantuar, Rei_Harabard | _MSG_Quest (KING) | ⚠️ King Arch ✅; reino pendente |
 | 113 | 5 | Mercador_Noel, Arqueologo | _MSG_Quest | ❌ |
 | 120 | 4 | Carbuncle_Wind, Ajudante | _MSG_Quest (CARBUNCLE_WIND) | ❌ |
 | 128 | 5 | Gate_Keeper, Town_Watcher | _MSG_Quest | ❌ guardas/teleporte |
@@ -85,6 +85,7 @@ quests grade 11–16/24–30) **não**.
 - **Cargo/banco** (Merchant 2): `reqShopList` → `openCargo`, deposit/withdraw.
 - **Combine/refino**: família `combineItem` (Odin/Lindy/Shany/… via opcodes dedicados).
 - **Perzen** (Merchant 100 grade 7/8/9): troca esfera→montaria.
+- **King Arch** (Merchant 111): cria personagem Arch a partir dos reis canônicos.
 - **Mestre Grifo** (`_MSG_MasterGriff` 0x0AD9): teleporta, após a animação de viagem do cliente, para
   Defensor de Almas `(2372,2099)`, Jardim dos Deuses `(2220,1714)`, Calabouco `(2365,2279)` ou
   Submundo `(1826,1771)`.

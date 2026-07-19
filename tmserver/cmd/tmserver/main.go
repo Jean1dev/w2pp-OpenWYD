@@ -107,6 +107,7 @@ func run(logger *slog.Logger) error {
 	doubleExp := flag.Bool("double-exp", envBool("W2PP_DOUBLE_EXP", false), "DOUBLEMODE: double PvE experience (gameconfig double)")
 	newbieEvent := flag.Bool("newbie-event", envBool("W2PP_NEWBIE_EVENT", false), "NewbieEventServer: +15% exp and newbie under-100 bonus (gameconfig)")
 	kefraLive := flag.Bool("kefra-live", envBool("W2PP_KEFRA_LIVE", false), "KefraLive: when false, PvE exp is halved (default legacy KefraLive=0)")
+	logSends := flag.Bool("log-sends", envBool("W2PP_LOG_SENDS", false), "log every S→C frame (conn/type/id/len) — client-freeze diagnostics (investigacao-freeze-cliente.md); high volume, enable only while reproducing an incident")
 	flag.Parse()
 
 	// Echo the effective wiring at boot: the client-version and the resolved
@@ -128,7 +129,7 @@ func run(logger *slog.Logger) error {
 	var itemPrices map[int]int32
 	var itemEffects map[int][]content.BaseEffect
 	var itemReqs map[int]content.ItemReq
-	var itemVolatiles, itemPos, itemUnique, itemGrades map[int]int
+	var itemVolatiles, itemPos, itemUnique, itemGrades, itemExtra map[int]int
 	var itemRanges map[int]int16
 	var combineFamilies map[protocol.Type]handler.CombineFamily
 	var spells *content.SkillData
@@ -143,6 +144,7 @@ func run(logger *slog.Logger) error {
 		itemPrices, itemEffects, itemReqs = items.Prices(), items.BaseEffects(), items.Requirements()
 		itemVolatiles, itemPos, itemUnique = items.Volatiles(), items.Positions(), items.Uniques()
 		itemGrades = items.Grades()
+		itemExtra = items.Extras()
 		itemRanges = items.Ranges()
 		combineFamilies = handler.DefaultCombineFamilies(handler.NewCombineCatalog(items, c.comp))
 		spells = c.skills
@@ -229,7 +231,7 @@ func run(logger *slog.Logger) error {
 
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, Spells: spells, Heights: heights,
+		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		CombineFamilies: combineFamilies,
@@ -241,6 +243,7 @@ func run(logger *slog.Logger) error {
 		MsgBurst:       *msgBurst,
 		StatusFile:     statusFile,
 		ItemRanges:     itemRanges,
+		LogSends:       *logSends,
 	}, logger, persist, dispatch.Handle)
 	// Mob-AI pulse: monsters acquire/chase/melee nearby players each tick (mobai.go).
 	w.SetTickHandler(world.DefaultMobTick, dispatch.Tick)
@@ -276,6 +279,7 @@ func run(logger *slog.Logger) error {
 	if npcConfig != nil {
 		dispatch.ApplyNPCConfigBoot(w)
 	}
+	dispatch.ApplyGuildStateBoot(w)
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

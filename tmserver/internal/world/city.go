@@ -31,6 +31,21 @@ func Village(x, y int16) int {
 	return -1
 }
 
+// cityTax is g_pGuildZone[village].CityTax — the percent tax a village charges on
+// a personal-shop sale (issue #115). The static init is 5 for every village
+// (Basedef.cpp:54-61); at runtime a siege can override it (0..20, default 10,
+// CReadFiles.cpp:809), which the rewrite does not model yet. Indexed by Village().
+var cityTax = [5]int16{5, 5, 5, 5, 5}
+
+// CityTax returns the sale tax percent for a village index (0..4), or 0 if out of
+// range (BASE_GetVillage returned -1 → no tax). Loop-only read.
+func CityTax(village int) int16 {
+	if village < 0 || village >= len(cityTax) {
+		return 0
+	}
+	return cityTax[village]
+}
+
 // CitySpawn returns a default spawn position for the given city (CitySpawn +
 // rand%15). city is clamped to 0..3 (the saved "last city" only holds 2 bits;
 // Noatum=4 falls back to Armia, mirroring the original Merchant<<6 overflow).

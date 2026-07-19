@@ -26,6 +26,7 @@ type Store interface {
 	SetNPCShop(ctx context.Context, npcID int64, items []domain.NPCShopItem, moderatorID int64) error
 	SetNPCVisibility(ctx context.Context, npcID int64, enabled bool, moderatorID int64) error
 	SetItemPrice(ctx context.Context, itemIndex int32, price int64, moderatorID int64) error
+	ItemPriceOverrides(ctx context.Context) ([]domain.ItemPriceOverride, error)
 	DeleteNPCDefinition(ctx context.Context, npcID int64, moderatorID int64) error
 }
 
@@ -201,6 +202,20 @@ func (s *Service) SetItemPrice(ctx context.Context, moderatorID int64, itemIndex
 	return OK, nil
 }
 
+// ListItemPrices returns every global item price override currently set
+// (item_price table), after authorizing the caller. An item with no override
+// simply doesn't appear — it uses the content catalog's base price.
+func (s *Service) ListItemPrices(ctx context.Context, moderatorID int64) (Result, []domain.ItemPriceOverride, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	prices, err := s.store.ItemPriceOverrides(ctx)
+	if err != nil {
+		return Invalid, nil, fmt.Errorf("npcadmin: list item prices: %w", err)
+	}
+	return OK, prices, nil
+}
+
 // Delete removes a definition.
 func (s *Service) Delete(ctx context.Context, moderatorID, npcID int64) (Result, error) {
 	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
@@ -242,12 +257,13 @@ func classifyWrite(err error, op string) (Result, error) {
 	}
 }
 
-// validMerchant accepts the merchant sub-types the game knows: 0 (none/monster),
-// 1 (shop), 2 (cargo guard), 19 (shop type 3), 100 (quest NPC). Others are
-// rejected until confirmed by capture (npc-editing-plan.md §9.4).
+// validMerchant accepts the merchant sub-types the admin panel can materialize:
+// 0 (none/monster), 1 (shop), 2 (cargo guard), 19 (shop type 3), 100 (supported
+// quest NPC), and 111 (canonical King templates). Others are rejected until
+// confirmed by capture (npc-editing-plan.md §9.4).
 func validMerchant(m int16) bool {
 	switch m {
-	case 0, 1, 2, 19, 100:
+	case 0, 1, 2, 19, 100, 111:
 		return true
 	default:
 		return false

@@ -97,6 +97,17 @@ const (
 	MsgChallange           Type = 0x028E // 654  zone challenge / tax (MSG_STANDARDPARM)
 	MsgChallangeConfirm    Type = 0x028F // 655  confirm challenge (MSG_STANDARDPARM2)
 	MsgPing                Type = 0x03A0 // 928  keepalive — no-op on receive (§2)
+
+	// Personal shop / autotrade (issue #115, Basedef.h:2165-2325). SendAutoTrade is
+	// bidirectional: C→S opens the shop, S→C (SendAutoTrade) lists it back.
+	MsgSendAutoTrade Type = 0x0397 // 919  C↔S open shop / list a shop (MSG_SendAutoTrade)
+	MsgReqBuy        Type = 0x0398 // 920  C→S buy an item from a shop (MSG_ReqBuy)
+	MsgReqTradeList  Type = 0x039A // 922  C→S browse a shop (MSG_STANDARDPARM, Parm=sellerID)
+	// MsgDeprivate (0x028C, 140|FLAG_CLIENT2GAME) is NOT autotrade — despite the
+	// issue title it is a GUILD op (destitute a sub-leader, Server.cpp:8694
+	// DoDeprivate). A personal shop is closed by RemoveTrade (handler.removeTrade),
+	// not by this message, so it is intentionally left unrouted here.
+	MsgDeprivate Type = 0x028C // 652  C→S guild destitute (out of scope for #115)
 )
 
 // TMSrv → client message types the server must produce (protocol-spec.md §3.2,
@@ -132,10 +143,16 @@ const (
 	MsgCNFDropItem        Type = 0x0175 // 373
 	MsgDecayItem          Type = 0x016F // 367  ground item gone
 	MsgCombineComplete    Type = 0x03A7 // 935  combine result (parm 0/1/2)
+	MsgSendWarInfo        Type = 0x03A8 // 936  S→C guild war/ally status
 	MsgUpdateScore        Type = 0x0336 // 822  attributes/score update
 	MsgSetHpDam           Type = 0x018A // 394  S→C HP + floated heal/damage (affect ticks)
 	MsgSetHpMp            Type = 0x0181 // 385
 	MsgSendArchEffect     Type = 0x03B4 // 948  S↔C arch-created effect (MSG_STANDARDPARM)
 	MsgStartTime          Type = 0x03A1 // 929  S→C countdown signal (MSG_STANDARDPARM, Basedef.h:2526)
 	MsgEnvEffect          Type = 0x03A2 // 930  S→C area effect box (MSG_EnvEffect, Basedef.h:2529)
+
+	// Personal shop / autotrade S→C (issue #115). CreateMobTrade is the shop pose:
+	// the pose is driven by this Type (0x0363), NOT by a CreateType value.
+	MsgCreateMobTrade Type = 0x0363 // 867  S→C spawn a shop-owner in view (MSG_CreateMobTrade)
+	MsgItemSold       Type = 0x039B // 923  S→C an item left a shop (MSG_STANDARDPARM2, Parm1=seller Parm2=pos)
 )
