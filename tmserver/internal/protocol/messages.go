@@ -623,6 +623,20 @@ func EncodeStandardParm2(parm1, parm2 int32) []byte {
 	return b
 }
 
+// EncodeEnvEffect builds a MSG_EnvEffect body (x1,y1,x2,y2,Effect,EffectParm —
+// six int16 fields, Basedef.h:2529), used for the duel arena's closing-wall
+// visual (SendEnvEffect, SendFunc.cpp:456).
+func EncodeEnvEffect(x1, y1, x2, y2, effect, effectParm int16) []byte {
+	b := make([]byte, 12)
+	le.PutUint16(b[0:2], uint16(x1))
+	le.PutUint16(b[2:4], uint16(y1))
+	le.PutUint16(b[4:6], uint16(x2))
+	le.PutUint16(b[6:8], uint16(y2))
+	le.PutUint16(b[8:10], uint16(effect))
+	le.PutUint16(b[10:12], uint16(effectParm))
+	return b
+}
+
 // EncodeStandardParm3 builds a three-int32 signal body, used by SendWarInfo
 // (Guild, castle clan, ally/war target).
 func EncodeStandardParm3(parm1, parm2, parm3 int32) []byte {

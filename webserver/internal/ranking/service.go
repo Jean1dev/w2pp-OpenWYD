@@ -11,6 +11,7 @@ import (
 // Store is the persistence surface needed by Service.
 type Store interface {
 	ListExpRanking(ctx context.Context, limit, offset int) ([]domain.RankingEntry, int, error)
+	ListDuelRanking(ctx context.Context, limit, offset int) ([]domain.DuelRankingEntry, int, error)
 }
 
 // Service exposes public ranking projections for the web front-end.
@@ -32,6 +33,20 @@ func (s *Service) ListExp(ctx context.Context, limit, offset int) ([]domain.Rank
 	entries, total, err := s.store.ListExpRanking(ctx, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("ranking: list exp: %w", err)
+	}
+	for i := range entries {
+		entries[i].Rank = int32(offset + i + 1)
+	}
+	return entries, total, nil
+}
+
+// ListDuel returns the 1v1 duel win/loss leaderboard with stable pagination
+// defaults (issue #118).
+func (s *Service) ListDuel(ctx context.Context, limit, offset int) ([]domain.DuelRankingEntry, int, error) {
+	limit, offset = normalizePage(limit, offset)
+	entries, total, err := s.store.ListDuelRanking(ctx, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("ranking: list duel: %w", err)
 	}
 	for i := range entries {
 		entries[i].Rank = int32(offset + i + 1)

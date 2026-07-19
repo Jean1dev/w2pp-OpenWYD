@@ -13,6 +13,7 @@ import (
 // Ranking is the public ranking surface the server depends on.
 type Ranking interface {
 	ListExp(ctx context.Context, limit, offset int) ([]domain.RankingEntry, int, error)
+	ListDuel(ctx context.Context, limit, offset int) ([]domain.DuelRankingEntry, int, error)
 }
 
 // RankingServer implements webv1.RankingWebServiceServer.
@@ -47,5 +48,30 @@ func rankingEntryToProto(e domain.RankingEntry) *webv1.RankingEntry {
 		Level:       e.Level,
 		Exp:         e.Exp,
 		ClassMaster: int32(e.ClassMaster),
+	}
+}
+
+// ListDuelRanking returns the public 1v1 duel win/loss leaderboard (issue #118).
+func (s *RankingServer) ListDuelRanking(ctx context.Context, req *webv1.ListDuelRankingRequest) (*webv1.ListDuelRankingResponse, error) {
+	entries, total, err := s.ranking.ListDuel(ctx, int(req.GetLimit()), int(req.GetOffset()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list duel ranking: %v", err)
+	}
+	out := make([]*webv1.DuelRankingEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, duelRankingEntryToProto(e))
+	}
+	return &webv1.ListDuelRankingResponse{Entries: out, TotalCount: int32(total)}, nil
+}
+
+func duelRankingEntryToProto(e domain.DuelRankingEntry) *webv1.DuelRankingEntry {
+	return &webv1.DuelRankingEntry{
+		Rank:    e.Rank,
+		Name:    e.Name,
+		Class:   int32(e.Class),
+		Clan:    int32(e.Clan),
+		GuildId: uint32(e.GuildID),
+		Wins:    e.Wins,
+		Losses:  e.Losses,
 	}
 }

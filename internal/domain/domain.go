@@ -93,6 +93,19 @@ type RankingEntry struct {
 	ClassMaster uint8
 }
 
+// DuelRankingEntry is a web-facing PvP win/loss leaderboard projection (issue
+// #118, character_pvp_stats). Rank is assigned by the caller after pagination,
+// same as RankingEntry.
+type DuelRankingEntry struct {
+	Rank    int32
+	Name    string
+	Class   uint8
+	Clan    uint8
+	GuildID uint16
+	Wins    int32
+	Losses  int32
+}
+
 // Guild is the durable guild registry entry. ID is the legacy ushort value
 // written into STRUCT_MOB.Guild and shown by the 7662 client.
 type Guild struct {

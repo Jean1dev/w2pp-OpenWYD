@@ -39,7 +39,12 @@ type fakeStore struct {
 	saveCargoDeliveriesErr error                       // forces SaveCargoWithDeliveries to return this
 
 	pinHashes map[int64]string // accountID -> stored argon2id PIN hash ("" = unset)
+
+	duelResults []duelResult // RecordDuelResult calls, for assertions
+	duelErr     error        // forces RecordDuelResult to return this
 }
+
+type duelResult struct{ winner, loser string }
 
 func (f *fakeStore) PinHashByID(_ context.Context, id int64) (string, error) {
 	if _, known := f.byID[id]; !known {
@@ -152,6 +157,20 @@ func (f *fakeStore) SetBlockedByName(_ context.Context, name string, blocked boo
 	}
 	a.IsBlocked = blocked
 	f.byName[name] = a
+	return nil
+}
+
+func (f *fakeStore) RecordDuelResult(_ context.Context, winnerName, loserName string) error {
+	if f.duelErr != nil {
+		return f.duelErr
+	}
+	if _, ok := f.byName[winnerName]; !ok {
+		return store.ErrNotFound
+	}
+	if _, ok := f.byName[loserName]; !ok {
+		return store.ErrNotFound
+	}
+	f.duelResults = append(f.duelResults, duelResult{winnerName, loserName})
 	return nil
 }
 

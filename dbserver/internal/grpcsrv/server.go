@@ -35,6 +35,7 @@ type Store interface {
 	PendingItemDeliveries(ctx context.Context, accountID int64) ([]domain.Delivery, error)
 	SaveCargoWithDeliveries(ctx context.Context, accountID int64, coin int32, items []domain.Item, deliveredIDs, lostIDs []int64) error
 	SetBlockedByName(ctx context.Context, name string, blocked bool) error
+	RecordDuelResult(ctx context.Context, winnerName, loserName string) error
 	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (domain.Guild, error)
 	SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error
 	LeaveGuild(ctx context.Context, accountID int64, slot int) error
@@ -212,6 +213,20 @@ func (s *Server) SetAccountBlocked(ctx context.Context, req *dbv1.SetAccountBloc
 		return nil, status.Errorf(codes.Internal, "set account blocked: %v", err)
 	}
 	return &dbv1.SetAccountBlockedResponse{Ok: true}, nil
+}
+
+// RecordDuelResult persists a 1v1 duel outcome (issue #118): winner_name's
+// wins and loser_name's losses are each incremented by one. Either name not
+// resolving to a character is reported as ok=false, not an error.
+func (s *Server) RecordDuelResult(ctx context.Context, req *dbv1.RecordDuelResultRequest) (*dbv1.RecordDuelResultResponse, error) {
+	err := s.store.RecordDuelResult(ctx, req.GetWinnerName(), req.GetLoserName())
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.RecordDuelResultResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "record duel result: %v", err)
+	}
+	return &dbv1.RecordDuelResultResponse{Ok: true}, nil
 }
 
 // CreateGuild creates a guild and marks the requester as its leader.

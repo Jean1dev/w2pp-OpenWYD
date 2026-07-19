@@ -41,6 +41,7 @@ const (
 	AccountService_ListPendingDeliveries_FullMethodName   = "/db.v1.AccountService/ListPendingDeliveries"
 	AccountService_SaveCargoWithDeliveries_FullMethodName = "/db.v1.AccountService/SaveCargoWithDeliveries"
 	AccountService_SetAccountBlocked_FullMethodName       = "/db.v1.AccountService/SetAccountBlocked"
+	AccountService_RecordDuelResult_FullMethodName        = "/db.v1.AccountService/RecordDuelResult"
 	AccountService_CreateGuild_FullMethodName             = "/db.v1.AccountService/CreateGuild"
 	AccountService_SetGuildMember_FullMethodName          = "/db.v1.AccountService/SetGuildMember"
 	AccountService_LeaveGuild_FullMethodName              = "/db.v1.AccountService/LeaveGuild"
@@ -104,6 +105,11 @@ type AccountServiceClient interface {
 	// unban restores it. Administrative-ban ownership may later move to binServer
 	// entitlement (web-platform-plan.md §binServer); until then this is the gate.
 	SetAccountBlocked(ctx context.Context, in *SetAccountBlockedRequest, opts ...grpc.CallOption) (*SetAccountBlockedResponse, error)
+	// RecordDuelResult persists a 1v1 duel outcome (issue #118, _MSG_ReqRanking):
+	// winner_name's wins and loser_name's losses are each incremented by one in
+	// character_pvp_stats. Both names must resolve to an existing character or
+	// the whole call fails (no lopsided half-result).
+	RecordDuelResult(ctx context.Context, in *RecordDuelResultRequest, opts ...grpc.CallOption) (*RecordDuelResultResponse, error)
 	// Guild lifecycle and war/city state (issue #114). These RPCs are modern
 	// tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
 	// GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
@@ -265,6 +271,16 @@ func (c *accountServiceClient) SetAccountBlocked(ctx context.Context, in *SetAcc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetAccountBlockedResponse)
 	err := c.cc.Invoke(ctx, AccountService_SetAccountBlocked_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) RecordDuelResult(ctx context.Context, in *RecordDuelResultRequest, opts ...grpc.CallOption) (*RecordDuelResultResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecordDuelResultResponse)
+	err := c.cc.Invoke(ctx, AccountService_RecordDuelResult_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -458,6 +474,11 @@ type AccountServiceServer interface {
 	// unban restores it. Administrative-ban ownership may later move to binServer
 	// entitlement (web-platform-plan.md §binServer); until then this is the gate.
 	SetAccountBlocked(context.Context, *SetAccountBlockedRequest) (*SetAccountBlockedResponse, error)
+	// RecordDuelResult persists a 1v1 duel outcome (issue #118, _MSG_ReqRanking):
+	// winner_name's wins and loser_name's losses are each incremented by one in
+	// character_pvp_stats. Both names must resolve to an existing character or
+	// the whole call fails (no lopsided half-result).
+	RecordDuelResult(context.Context, *RecordDuelResultRequest) (*RecordDuelResultResponse, error)
 	// Guild lifecycle and war/city state (issue #114). These RPCs are modern
 	// tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
 	// GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
@@ -526,6 +547,9 @@ func (UnimplementedAccountServiceServer) SaveCargoWithDeliveries(context.Context
 }
 func (UnimplementedAccountServiceServer) SetAccountBlocked(context.Context, *SetAccountBlockedRequest) (*SetAccountBlockedResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetAccountBlocked not implemented")
+}
+func (UnimplementedAccountServiceServer) RecordDuelResult(context.Context, *RecordDuelResultRequest) (*RecordDuelResultResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordDuelResult not implemented")
 }
 func (UnimplementedAccountServiceServer) CreateGuild(context.Context, *CreateGuildRequest) (*CreateGuildResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateGuild not implemented")
@@ -838,6 +862,24 @@ func _AccountService_SetAccountBlocked_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AccountServiceServer).SetAccountBlocked(ctx, req.(*SetAccountBlockedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_RecordDuelResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordDuelResultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).RecordDuelResult(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_RecordDuelResult_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).RecordDuelResult(ctx, req.(*RecordDuelResultRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1156,6 +1198,10 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetAccountBlocked",
 			Handler:    _AccountService_SetAccountBlocked_Handler,
+		},
+		{
+			MethodName: "RecordDuelResult",
+			Handler:    _AccountService_RecordDuelResult_Handler,
 		},
 		{
 			MethodName: "CreateGuild",

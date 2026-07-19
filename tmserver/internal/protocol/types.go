@@ -148,6 +148,8 @@ const (
 	MsgSetHpDam           Type = 0x018A // 394  S→C HP + floated heal/damage (affect ticks)
 	MsgSetHpMp            Type = 0x0181 // 385
 	MsgSendArchEffect     Type = 0x03B4 // 948  S↔C arch-created effect (MSG_STANDARDPARM)
+	MsgStartTime          Type = 0x03A1 // 929  S→C countdown signal (MSG_STANDARDPARM, Basedef.h:2526)
+	MsgEnvEffect          Type = 0x03A2 // 930  S→C area effect box (MSG_EnvEffect, Basedef.h:2529)
 
 	// Personal shop / autotrade S→C (issue #115). CreateMobTrade is the shop pose:
 	// the pose is driven by this Type (0x0363), NOT by a CreateType value.

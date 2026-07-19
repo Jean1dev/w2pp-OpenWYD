@@ -304,6 +304,10 @@ type Persistence interface {
 	// SetAccountBlocked flips account.is_blocked by name — the write side of the
 	// in-game GM ban/unban command (issue #122). Called off the loop via World.Go.
 	SetAccountBlocked(ctx context.Context, name string, blocked bool) error
+	// RecordDuelResult persists a 1v1 duel outcome (issue #118): winnerName's
+	// wins and loserName's losses are each incremented by one. Called off the
+	// loop via World.GoDetached (not bound to either duelist's session).
+	RecordDuelResult(ctx context.Context, winnerName, loserName string) error
 
 	// Guild lifecycle/state (issue #114). These calls block on dbServer and must
 	// be made through World.Go/GoDetached by loop handlers.
@@ -395,6 +399,11 @@ func (NopPersistence) SaveCargoWithDeliveries(context.Context, CargoSave, []int6
 // SetAccountBlocked is unsupported without a backend (ban needs the account DB).
 func (NopPersistence) SetAccountBlocked(context.Context, string, bool) error {
 	return errNoPersistence
+}
+
+// RecordDuelResult does nothing.
+func (NopPersistence) RecordDuelResult(context.Context, string, string) error {
+	return nil
 }
 
 // CreateGuild is unsupported without a backend.

@@ -37,12 +37,9 @@ func (s *Store) ListExpRanking(ctx context.Context, limit, offset int) ([]domain
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("store: list exp ranking: %w", err)
 	}
-	if len(entries) == 0 && offset > 0 {
-		var err error
-		total, err = s.countExpRanking(ctx)
-		if err != nil {
-			return nil, 0, err
-		}
+	total, err = fallbackTotal(ctx, len(entries), offset, total, s.countExpRanking)
+	if err != nil {
+		return nil, 0, err
 	}
 	return entries, total, nil
 }
@@ -53,4 +50,15 @@ func (s *Store) countExpRanking(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("store: count exp ranking: %w", err)
 	}
 	return total, nil
+}
+
+// fallbackTotal covers a `count(*) OVER()` window function's blind spot: it
+// only appears on returned rows, so a page past the last row (empty result,
+// non-zero offset) would otherwise report total=0. In that case only, run a
+// plain COUNT(*) instead.
+func fallbackTotal(ctx context.Context, rowsReturned, offset, windowTotal int, count func(context.Context) (int, error)) (int, error) {
+	if rowsReturned != 0 || offset == 0 {
+		return windowTotal, nil
+	}
+	return count(ctx)
 }

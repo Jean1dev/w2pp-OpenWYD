@@ -57,6 +57,7 @@ type fakeDB struct {
 	savedCargos  []world.CargoSave     // captured SaveCargo calls
 	drainSaves   []drainSave           // captured SaveCargoWithDeliveries calls
 	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
+	duelResults  []duelResult          // captured RecordDuelResult calls (issue #118)
 
 	createdGuilds []world.GuildRecord
 	guildCosts    []int32
@@ -64,6 +65,9 @@ type fakeDB struct {
 	promoteCosts  []int32
 	transfers     int
 }
+
+// duelResult captures one RecordDuelResult call for assertions.
+type duelResult struct{ winner, loser string }
 
 func (f *fakeDB) VerifyPin(_ context.Context, _ int64, _ string) (world.PinResult, error) {
 	return f.pinVerify, f.pinVerifyErr
@@ -202,6 +206,34 @@ func (f *fakeDB) SaveCargoWithDeliveries(_ context.Context, save world.CargoSave
 	defer f.mu.Unlock()
 	f.drainSaves = append(f.drainSaves, drainSave{save: save, delivered: deliveredIDs, lost: lostIDs})
 	return nil
+}
+
+// RecordDuelResult records the duel win/loss write (overrides the
+// NopPersistence error so sweepDuelArena's off-loop call proceeds).
+func (f *fakeDB) RecordDuelResult(_ context.Context, winnerName, loserName string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.duelResults = append(f.duelResults, duelResult{winner: winnerName, loser: loserName})
+	return nil
+}
+
+// lastDuelResult returns the most recent RecordDuelResult capture, waiting
+// briefly for the async result round-trip to land.
+func (f *fakeDB) lastDuelResult(t *testing.T) (duelResult, bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		f.mu.Lock()
+		n := len(f.duelResults)
+		if n > 0 {
+			dr := f.duelResults[n-1]
+			f.mu.Unlock()
+			return dr, true
+		}
+		f.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+	}
+	return duelResult{}, false
 }
 
 // lastDrainSave returns the most recent SaveCargoWithDeliveries capture, waiting

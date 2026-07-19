@@ -82,6 +82,14 @@ type Session struct {
 	LoginTick         uint32
 	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
 
+	// DuelTarget is CUser.RankingTarget: the conn I've most recently invited to a
+	// 1v1 duel (0 = none). DuelTargetExpiry is the wall-clock deadline (Unix
+	// seconds) for that pending invite — the legacy _MSG_ReqRanking.cpp has no
+	// explicit decline opcode, so a timeout is how "recusado" is modeled (same
+	// shape as Entity.GuiltyUntil).
+	DuelTarget       int
+	DuelTargetExpiry int64
+
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
 
 	// S→C send diagnostics (sendstats.go): per-type counts, totals, the trailing

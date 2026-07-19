@@ -272,6 +272,22 @@ func (c *Client) SetAccountBlocked(ctx context.Context, name string, blocked boo
 	return nil
 }
 
+// RecordDuelResult persists a 1v1 duel outcome (issue #118): winnerName's wins
+// and loserName's losses are each incremented by one.
+func (c *Client) RecordDuelResult(ctx context.Context, winnerName, loserName string) error {
+	resp, err := c.api.RecordDuelResult(ctx, &dbv1.RecordDuelResultRequest{
+		WinnerName: winnerName,
+		LoserName:  loserName,
+	})
+	if err != nil {
+		return fmt.Errorf("dbclient: record duel result: %w", err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: record duel result: unknown character (winner=%q loser=%q)", winnerName, loserName)
+	}
+	return nil
+}
+
 // CreateGuild allocates a persistent legacy guild id, charges the creation cost,
 // and makes the character leader.
 func (c *Client) CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (world.GuildRecord, bool, error) {

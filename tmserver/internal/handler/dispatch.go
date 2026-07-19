@@ -158,6 +158,11 @@ type Dispatcher struct {
 	// playersX/Y are per-tick scratch snapshots of in-play player positions
 	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
 	playersX, playersY []int16
+
+	// duel is the server-wide active 1v1 duel (issue #118, duel.go). Legacy
+	// RankingProgress/Ranking1/Ranking2/RankingTime are process-wide globals, not
+	// per-pair — only one duel occupies the arena at a time.
+	duel duelArena
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
