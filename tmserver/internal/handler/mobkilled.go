@@ -84,17 +84,16 @@ func sendDieAction(w *world.World, mob *world.Entity) {
 }
 
 // grantExp awards solo PvE experience to the killer and applies any resulting
-// level-ups (captura-wyd-levelup.md, CMob::CheckGetLevel — MORTAL path). The gain
-// is GetExpApply-scaled by the attacker↔target level ratio; the total is clamped
-// to the curve ceiling. Each level raises MaxHp/MaxMp by the per-class increment,
+// level-ups (captura-wyd-levelup.md, CMob::CheckGetLevel). The gain is
+// GetExpApply-scaled by the attacker↔target level ratio; the total is clamped to
+// the curve ceiling. Each level raises MaxHp/MaxMp by the per-class increment,
 // refills HP/MP, and recomputes the free attribute points (BASE_GetBonusScorePoint
 // — idempotent from level+stats, so it need not be persisted). On a level gain the
 // killer's client gets a fresh score and the level-up effect, with the effect also
 // shown to in-view players.
 //
-// UNVERIFIED / deferred: the ARCH/CELESTIAL curves and quest gates, AC++
-// (BaseAC exists but the legacy's +1/level needs the exact recompute order),
-// party distribution, and the per-level reward items (DoItemLevel).
+// UNVERIFIED / deferred: party distribution and the per-level reward items
+// (DoItemLevel).
 func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
 	gain := level.SoloExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
 	if gain <= 0 {
@@ -105,29 +104,52 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 		killer.Exp = level.MaxExp
 	}
 
-	d.applyMortalLevelUps(w, ks, killer)
+	d.applyLevelUps(w, ks, killer)
 }
 
-// applyMortalLevelUps ports the MORTAL path of CMob::CheckGetLevel after Exp has
-// already been raised to the desired total. It is shared by kill EXP and Poeira
-// de Fada, whose legacy handler sets Exp directly to the next threshold.
-func (d *Dispatcher) applyMortalLevelUps(w *world.World, s *world.Session, e *world.Entity) bool {
+// isCelestialTier reports whether the tier rides the Celestial curve (g_pNextLevel_2)
+// and cap (MAX_CLEVEL): CELESTIAL/CELESTIALCS/SCELESTIAL (CMob.cpp:1085).
+func isCelestialTier(classMaster uint8) bool {
+	return classMaster == classMasterCelestial ||
+		classMaster == classMasterCelestialCS ||
+		classMaster == classMasterSCelestial
+}
+
+// applyLevelUps ports CMob::CheckGetLevel after Exp has already been raised to the
+// desired total. It is tier-aware: Mortal/Arch ride g_pNextLevel to MAX_LEVEL and
+// gain skill/special points per level; Celestial tiers ride g_pNextLevel_2 to
+// MAX_CLEVEL, gain only AC + attribute points, and stay gated at levels 40/90 until
+// /destravar40 and /destravar90 set the flags (CMob.cpp:1107, 1121-1151). Shared by
+// kill EXP, Poeira de Fada, GM setlevel and combat.
+func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.Entity) bool {
 	leveled := false
-	for e.Level < level.MaxLevel && e.Exp >= level.NextLevelExp(e.Level) {
+	celestial := isCelestialTier(e.ClassMaster)
+	levelCap := level.MaxLevelForTier(e.ClassMaster)
+	for e.Level < levelCap && e.Exp >= level.NextLevelExpTier(e.Level, e.ClassMaster) {
+		// Celestial quest gates: the 40/90 caps stay locked until /destravar40 and
+		// /destravar90 set the flags. At the gate CheckGetLevel returns 0 without
+		// leveling (CMob.cpp:1107), so stop the loop here.
+		if celestial && ((e.Level == 39 && e.CelLv40 == 0) || (e.Level == 89 && e.CelLv90 == 0)) {
+			break
+		}
 		e.Level++
 		// The HP/MP increments belong to the BaseScore (CMob.cpp:1116) — writing
 		// only the live MaxHP would be undone by the next refreshScore (= base +
-		// equip). SkillBonus +3/level (+4 from 200) and SpecialBonus +2/level are
-		// the MORTAL level-up grants (CMob.cpp:1121-1129; tiers deferred).
+		// equip).
 		e.BaseMaxHP = addClamp(e.BaseMaxHP, level.IncHP(e.Class), level.MaxHPCap)
 		e.BaseMaxMP = addClamp(e.BaseMaxMP, level.IncMP(e.Class), level.MaxMPCap)
 		e.BaseAC++
-		if e.Level >= 200 {
-			e.SkillBonus += 4
-		} else {
-			e.SkillBonus += 3
+		// SkillBonus +3/level (+4 from 200) and SpecialBonus +2/level are Mortal/Arch
+		// grants only; Celestial tiers grant AC + attribute points and nothing else
+		// (CMob.cpp:1121-1151).
+		if !celestial {
+			if e.Level >= 200 {
+				e.SkillBonus += 4
+			} else {
+				e.SkillBonus += 3
+			}
+			e.SpecialBonus += 2
 		}
-		e.SpecialBonus += 2
 		leveled = true
 	}
 	if !leveled {

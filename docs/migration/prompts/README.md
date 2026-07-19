@@ -18,5 +18,8 @@ Prompts auxiliares de frentes grandes:
   implementação e plano de validação para corrigir todas as skills de forma faseada. Deve esgotar as
   fontes locais antes de gerar perguntas para o agente Windows. Status: executado; resultados em
   `../skills/`, com respostas Windows consolidadas em `../skills/windows-agent-findings.md`.
+- **`railway-troubleshooting-skill.md`** — prompt em formato `SKILL.md` para investigar incidentes
+  de produção via Railway CLI: logs, métricas, deploys, rede, db-server, packet flow e correlação com
+  handlers Go/legado.
 
 `PROGRESS.md` (criado pelo `implement.md`) registra o status de cada fase e os itens UNVERIFIED.

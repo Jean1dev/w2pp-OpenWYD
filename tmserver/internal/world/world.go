@@ -11,6 +11,7 @@ package world
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -103,6 +104,12 @@ type Config struct {
 	// template equips (BASE_GetMobAbility, Basedef.cpp:2415). Immutable after
 	// boot; nil means no catalog (every mob fights at melee reach).
 	ItemRanges map[int]int16
+
+	// LogSends logs every queued S→C frame (conn/type/id/len) at INFO — the
+	// outbound mirror of the dispatcher's "recv packet" log. High volume: enable
+	// only while reproducing an incident (freeze investigation,
+	// docs/migration/investigacao-freeze-cliente.md).
+	LogSends bool
 
 	// StatusFile is the path to the channel-status page (serv00.htm) the client
 	// fetches over HTTP before opening the CPSock game connection. When set, the
@@ -212,7 +219,7 @@ func (w *World) Run(ctx context.Context) error {
 			w.shutdown()
 			return ctx.Err()
 		case cb := <-w.callbacks:
-			cb.apply(w)
+			w.applyTimed(cb)
 			continue
 		default:
 		}
@@ -221,10 +228,37 @@ func (w *World) Run(ctx context.Context) error {
 			w.shutdown()
 			return ctx.Err()
 		case cb := <-w.callbacks:
-			cb.apply(w)
+			w.applyTimed(cb)
 		case ev := <-w.events:
-			ev.apply(w)
+			w.applyTimed(ev)
 		}
+	}
+}
+
+// slowEventThreshold is how long one loop event may take before it is logged:
+// anything past this stalls every session at once (the loop is single-owner), so
+// a "slow world event" WARN is the smoking gun for server-side global lag.
+const slowEventThreshold = 100 * time.Millisecond
+
+// applyTimed applies one loop event and warns when it exceeds slowEventThreshold,
+// identifying the event (frame type/conn, tick, callback) so a stall can be
+// traced to its handler (freeze investigation instrumentation).
+func (w *World) applyTimed(ev event) {
+	start := time.Now()
+	ev.apply(w)
+	d := time.Since(start)
+	if d < slowEventThreshold {
+		return
+	}
+	switch e := ev.(type) {
+	case frameEvent:
+		w.log.Warn("slow world event", "dur_ms", d.Milliseconds(), "kind", "frame", "conn", e.s.Conn, "type", formatSendType(e.header.Type))
+	case tickEvent:
+		w.log.Warn("slow world event", "dur_ms", d.Milliseconds(), "kind", "tick")
+	case callbackEvent:
+		w.log.Warn("slow world event", "dur_ms", d.Milliseconds(), "kind", "callback", "conn", e.conn)
+	default:
+		w.log.Warn("slow world event", "dur_ms", d.Milliseconds(), "kind", fmt.Sprintf("%T", ev))
 	}
 }
 
@@ -307,6 +341,8 @@ func (w *World) characterSave(s *Session) CharacterSave {
 		return cs
 	}
 	cs.Clan, cs.GuildID, cs.Soul, cs.Fame = e.Clan, e.Guild, e.Soul, e.Fame
+	cs.ClassMaster = e.ClassMaster
+	cs.CelLv40, cs.CelLv90, cs.CelCircle = e.CelLv40, e.CelLv90, e.CelCircle
 	cs.LastCity = e.LastCity
 	cs.SaveX, cs.SaveY = e.SaveX, e.SaveY
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
@@ -469,8 +505,22 @@ func (w *World) SaveCargoThen(s *Session, then func(*World, *Session)) {
 // session is dropped instead of stalling the whole world (head-of-line safety).
 func (w *World) enqueue(s *Session, h protocol.Header, payload []byte) {
 	h.ClientTick = w.cfg.Now()
+	s.noteSend(h, len(payload))
+	if w.cfg.LogSends {
+		w.log.Info("send packet", "conn", s.Conn, "type", formatSendType(h.Type), "id", h.ID, "len", len(payload))
+	}
 	select {
 	case s.out <- outFrame{header: h, payload: payload}:
+		// Track writer backpressure: a growing queue means the socket (or the
+		// client) is not draining what the loop produces. Warn on each new
+		// high-water mark past half capacity — bounded, and it precedes the
+		// hard "queue full" drop below.
+		if d := len(s.out); d > s.outHighWater {
+			s.outHighWater = d
+			if d >= w.cfg.OutBuffer/2 {
+				w.log.Warn("session out queue high", "conn", s.Conn, "depth", d, "cap", w.cfg.OutBuffer)
+			}
+		}
 	default:
 		w.log.Warn("session out queue full; dropping connection", "conn", s.Conn)
 		w.dropSession(s)

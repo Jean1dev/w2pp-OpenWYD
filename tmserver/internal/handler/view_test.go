@@ -293,6 +293,73 @@ func passiveMob() []byte {
 	return b
 }
 
+func TestTeleportReconcilesMobViewLikeGridMulticast(t *testing.T) {
+	db := gmDB()
+	db.loads[23] = world.CharacterState{Slot: 0, Name: "Victim", Class: 0, Level: 10, X: 40, Y: 40, HP: 1000, MaxHP: 1000}
+	addr, stop := startServerMobAISpawns(t, db, 64, []world.MobSpawn{
+		{Template: passiveMob(), X: 6, Y: 5, GenIndex: -1},
+		{Template: passiveMob(), X: 41, Y: 40, GenIndex: -1},
+	}, nil)
+	defer stop()
+	mod := enterWorldAs(t, addr, "mod")
+	defer mod.Close()
+	victim := enterWorldAs(t, addr, "victim")
+	defer victim.Close()
+	drainRaw(t, mod)
+	drainRaw(t, victim)
+
+	gmFrame(t, mod, "goto Victim")
+
+	oldMobID, newMobID := world.MaxUser, world.MaxUser+1
+	var sawJump, removedOldMob, createdNewMob bool
+	var selfCreateMob, extraScore bool
+	for {
+		h, payload, ok := readMaybeHeaderRaw(t, mod)
+		if !ok {
+			break
+		}
+		switch h.Type {
+		case protocol.MsgAction:
+			var body protocol.MsgActionBody
+			if err := body.Decode(payload); err != nil {
+				t.Fatalf("decode teleport action: %v", err)
+			}
+			if h.ID == 1 && body.Effect == 1 && body.TargetX == 40 && body.TargetY == 40 {
+				sawJump = true
+			}
+		case protocol.MsgRemoveMob:
+			if int(h.ID) == oldMobID {
+				removedOldMob = true
+			}
+		case protocol.MsgCreateMob:
+			_, _, id := createMobFields(t, payload)
+			if id == newMobID {
+				createdNewMob = true
+			}
+			if id == 1 {
+				selfCreateMob = true
+			}
+		case protocol.MsgUpdateScore:
+			extraScore = true
+		}
+	}
+	if !sawJump {
+		t.Fatal("teleport did not send self jump action")
+	}
+	if !removedOldMob {
+		t.Fatalf("teleport did not remove old-window mob %d from the client", oldMobID)
+	}
+	if !createdNewMob {
+		t.Fatalf("teleport did not reveal new-window mob %d", newMobID)
+	}
+	if selfCreateMob {
+		t.Fatal("teleport resent CreateMob for the player itself; legacy DoTeleport does not re-enter the world")
+	}
+	if extraScore {
+		t.Fatal("teleport resent UpdateScore; legacy DoTeleport only reconciles movement/view")
+	}
+}
+
 // TestNoViewMobRanges: a mob beyond the 16-cell multicast window but inside the
 // 33-cell GetInView range must come back as a full CreateMob; beyond 33 the
 // reply is RemoveMob.

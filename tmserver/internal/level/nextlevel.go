@@ -55,3 +55,29 @@ var nextLevel = [...]int64{
 	3344000000, 3387000000, 3430000000, 3473000000, 3516000000, 3559000000, 3602000000, 3645000000, 3688000000,
 	3731000000, 3774000000, 3817000000, 4000000000, 4100000000,
 }
+
+// nextLevel2 is g_pNextLevel_2[] (Basedef.h:2865): the CELESTIAL experience curve,
+// indexed by celestial level, selected by CheckGetLevel when ClassMaster is
+// CELESTIAL/CELESTIALCS/SCELESTIAL (CMob.cpp:1092-1093). Celestial levels run
+// 0..MaxCLevel (199).
+//
+// PLACEHOLDER — the real long-long values are NOT in the local source (Basedef.cpp
+// ships the array literal and is absent here, exactly like the Mortal curve, which
+// was transcribed from captura-wyd-levelup.md). Until the Windows-agent capture lands
+// (see docs/migration/prompts/captura-celestial-curve.md) this is a synthetic,
+// strictly increasing ramp so the tier level-up logic and its 39→40 / 89→90 gates can
+// be exercised end-to-end. These are NOT parity-correct thresholds — do not ship a
+// live Celestial against them. Replace with the captured array + a golden anchor test
+// (like TestNextLevelTable) when available.
+var nextLevel2 = celestialPlaceholderCurve()
+
+// celestialPlaceholderCurve builds the synthetic stand-in for g_pNextLevel_2: a
+// strictly increasing ramp over 0..MaxCLevel+1. Deliberately obvious (not real
+// capture data) so it can never be mistaken for parity-correct thresholds.
+func celestialPlaceholderCurve() [MaxCLevel + 2]int64 {
+	var c [MaxCLevel + 2]int64
+	for i := 1; i < len(c); i++ {
+		c[i] = c[i-1] + 1_000_000 + int64(i)*100_000
+	}
+	return c
+}

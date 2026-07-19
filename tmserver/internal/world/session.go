@@ -76,12 +76,23 @@ type Session struct {
 	ReqMp             int32           // CUser.ReqMp: server-owned MP target for regen/potions
 	CriticalProgress  uint16          // CUser.cProgress used by BASE_GetDoubleCritical
 	ShortSkill        [16]uint8       // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
+	QuestTicketTravel bool            // right-click Quest 256 ticket travel is pending; blocks double-use
 	LoginSpawnX       int16           // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
 	LoginTick         uint32
 	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
 
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
+
+	// S→C send diagnostics (sendstats.go): per-type counts, totals, the trailing
+	// frames and the out-queue high-water mark, dumped on disconnect so a frozen
+	// client leaves a post-mortem. Loop-owned like every other Session field.
+	sentFrames   uint64
+	sentBytes    uint64
+	sentByType   map[protocol.Type]uint32
+	lastSent     [lastSentRing]sentRecord
+	lastSentIdx  int
+	outHighWater int
 
 	conn    net.Conn
 	out     chan outFrame
@@ -204,10 +215,14 @@ type Entity struct {
 	Guild       uint16   // guild id (0 = none)
 	GuildLevel  uint8    // 0 = member … 9 = leader
 	ClassMaster uint8    // party tier (MobExtra.ClassMaster)
-	Soul        uint8    // MobExtra.Soul; 0 means no modeled soul
-	Citizen     uint8    // MobExtra.Citizen (city allegiance; 0 = none); read-only, not simulated live
-	Fame        int32    // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
-	QuestFlag   uint8    // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// Celestial quest gate flags (MobExtra.QuestInfo.Celestial, Basedef.h:659-678).
+	// CelLv40/CelLv90 unlock the Celestial level 40/90 caps (CheckGetLevel gate,
+	// CMob.cpp:1107); CelCircle marks the Cythera Arcana quest done (/arcana). Persisted.
+	CelLv40, CelLv90, CelCircle uint8
+	Soul                        uint8 // MobExtra.Soul; 0 means no modeled soul
+	Citizen                     uint8 // MobExtra.Citizen (city allegiance; 0 = none); read-only, not simulated live
+	Fame                        int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
+	QuestFlag                   uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
 	// hits, but it does NOT by itself blink the nickname.

@@ -372,10 +372,14 @@ Int (BattleProcessor). Lógica fiel ao `CMob.cpp` (StandingBy/BattleProcessor/Ge
   (summon-vs-mob FEITO na issue #21), Formation (g_pFormation), FightAction/DieAction (chat de mob),
   EnemyList[13]/SelectTargetFromEnemyList, KEFRA_BOSS, ~1400 templates de Leader sem arquivo,
   reveal de players ao cruzar visão andando (compartilha com B1).
-- **Level-up** (da frente anterior) **Falta:** tiers ARCH/CELESTIAL (curva `g_pNextLevel_2`, quest-gates)
-  + AC++/skill/special bonus (Entity não modela base-score separado) + itens por nível (`DoItemLevel`)
-  + `MSG_CreateMob` p/ refletir novo nível/visual aos outros; EXP de party (divisores não confiáveis —
-  ver `captura-wyd-levelup.md`).
+- **Level-up** (da frente anterior) **Feito (issue #117 fase 1):** level-up por tier — Mortal/Arch na
+  curva `g_pNextLevel`, Celestial na `g_pNextLevel_2` até `MAX_CLEVEL` com os gates 39→40 / 89→90
+  (`handler.applyLevelUps`); `class_master` + `QuestInfo.Celestial.{Lv40,Lv90,Circle}` persistem;
+  comandos `/destravar40` `/destravar90` `/arcana`. **Falta:** a curva `g_pNextLevel_2` roda com
+  **placeholder** (capturar — `prompts/agent-prompt-celestial-curve.md`); a **transformação
+  Mortal→Celestial** (NPC Evoluções, entrada do sistema) — sem ela não há Celestial in-game;
+  itens por nível (`DoItemLevel`); `MSG_CreateMob` p/ refletir novo nível/visual aos outros; EXP de
+  party (divisores não confiáveis — ver `captura-wyd-levelup.md`).
 
 ### Frentes menores subsequentes
 - **Demais NPCs de quest/montaria** (mapa completo em `docs/migration/handlers/npc-map.md`): montarias

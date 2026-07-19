@@ -294,7 +294,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		if e.Exp > level.MaxExp {
 			e.Exp = level.MaxExp
 		}
-		d.applyMortalLevelUps(w, s, e)
+		d.applyLevelUps(w, s, e)
 	}
 
 	// Overwrite the attacker's status with the server's authoritative values so every

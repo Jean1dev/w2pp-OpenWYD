@@ -92,6 +92,11 @@ func TestLiveQueries(t *testing.T) {
 	ch.SaveY = 150
 	ch.Fame = 42
 	ch.Carry = []domain.Item{{Slot: 6, Index: 3300}}
+	// Tier transformation + celestial unlock: SaveCharacter must now write class_master
+	// and the celestial gate flags (previously class_master was left untouched).
+	ch.ClassMaster = 3 // Mortal → Celestial
+	ch.CelLv40 = 1
+	ch.CelCircle = 1
 	if err := s.SaveCharacter(ctx, accID, ch); err != nil {
 		t.Fatalf("SaveCharacter: %v", err)
 	}
@@ -102,6 +107,10 @@ func TestLiveQueries(t *testing.T) {
 	if reloaded.Level != 41 || reloaded.Exp != 12345 || reloaded.Coin != 1500 ||
 		reloaded.Hp != 750 || reloaded.MaxHp != 803 || reloaded.MaxMp != 260 || reloaded.Fame != 42 {
 		t.Fatalf("save not persisted: %+v", reloaded)
+	}
+	if reloaded.ClassMaster != 3 || reloaded.CelLv40 != 1 || reloaded.CelLv90 != 0 || reloaded.CelCircle != 1 {
+		t.Fatalf("tier state not persisted: class_master=%d lv40=%d lv90=%d circle=%d",
+			reloaded.ClassMaster, reloaded.CelLv40, reloaded.CelLv90, reloaded.CelCircle)
 	}
 	// A Gema Estelar use mid-session (Vol 12) updates the warp save-point, which
 	// this in-game partial save must persist (issue #140) — it was previously in
