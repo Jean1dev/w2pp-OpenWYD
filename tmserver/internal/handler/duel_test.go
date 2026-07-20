@@ -278,3 +278,133 @@ func TestDuelingHelper(t *testing.T) {
 		t.Error("dueling should be false when no duel is active")
 	}
 }
+
+// duelCityDB is duelDB with "tester" spawned inside Armia (2096,2096, the same
+// point TestVillage in world/city_test.go asserts resolves to city 0) so
+// requests/accepts from that conn hit the best-effort city gate; "tradeb"
+// stays outside any city.
+func duelCityDB() *fakeDB {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7:  {Slot: 0, Name: "Hero", X: 2096, Y: 2096, HP: 1000, MaxHP: 1000, Damage: 500, AC: 0},
+		11: {Slot: 0, Name: "HeroB", X: 5, Y: 5, HP: 50, MaxHP: 50, Damage: 0, AC: 0},
+	}
+	return db
+}
+
+// TestDuelRequestBlockedInSafeCity: the best-effort city gate (issue #118,
+// UNVERIFIED) rejects a duel request from inside a safe city instead of
+// forwarding the invite.
+func TestDuelRequestBlockedInSafeCity(t *testing.T) {
+	addr, stop := startServerDuel(t, duelCityDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester") // conn 1, inside Armia
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb") // conn 2, outside any city
+	defer b.Close()
+
+	reqRankingFrame(t, a, 2, 0)
+	wantNotice(t, a, NoticeDuelInCity)
+	if ty, _, ok := readMaybe(t, b); ok {
+		t.Errorf("B got %#x for a request blocked by the city gate; want nothing", ty)
+	}
+}
+
+// wantNoticeWithin is wantNotice bounded by wall-clock time instead of a
+// fixed read count. The arena's per-tick closing-wall broadcasts (up to a
+// dozen MsgEnvEffect frames per tick once past stage 1) can outrun
+// wantNotice's fixed 20-read budget well before a duel-resolution notice
+// arrives, so a long-running scenario like a draw needs a budget that keeps
+// reading through that noise instead of giving up on read count alone.
+func wantNoticeWithin(t *testing.T, c net.Conn, want Notice, budget time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(budget)
+	for time.Now().Before(deadline) {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			continue
+		}
+		if ty != protocol.MsgMessageBoxOk {
+			continue
+		}
+		if parm, decOK := protocol.StandardParm(payload); decOK && Notice(parm) == want {
+			return
+		}
+	}
+	t.Fatalf("did not observe notice %v within %v", want, budget)
+}
+
+// TestDuelDrawOnTimeout: when the arena countdown runs out with both
+// duelists still alive and in bounds, the duel resolves as a draw — both
+// sides are notified and, unlike a win, nothing is persisted.
+func TestDuelDrawOnTimeout(t *testing.T) {
+	orig := duelTicks
+	// Must resolve after startedDuel's drainDuelStart returns: that helper
+	// drains frames until a ~300ms read times out, so a countdown shorter
+	// than that would race the draw notice into being silently swallowed by
+	// the drain instead of observed below.
+	duelTicks = 100
+	defer func() { duelTicks = orig }()
+
+	db := duelDB()
+	a, b, stop := startedDuel(t, db)
+	defer stop()
+	defer a.Close()
+	defer b.Close()
+
+	wantNoticeWithin(t, a, NoticeDuelDraw, 5*time.Second)
+	wantNoticeWithin(t, b, NoticeDuelDraw, 5*time.Second)
+
+	if _, ok := db.lastDuelResult(t); ok {
+		t.Error("RecordDuelResult was called for a draw; draws must not be persisted")
+	}
+}
+
+// TestDuelStageThresholds is a table-driven unit test of duelStage's bucket
+// boundaries (Server.cpp:8834-8869's three closing-wall stages).
+func TestDuelStageThresholds(t *testing.T) {
+	cases := []struct {
+		ticksLeft int
+		want      int
+	}{
+		{181, 0}, {180, 0},
+		{179, 1}, {120, 1},
+		{119, 2}, {60, 2},
+		{59, 3}, {0, 3}, {-1, 3},
+	}
+	for _, c := range cases {
+		if got := duelStage(c.ticksLeft); got != c.want {
+			t.Errorf("duelStage(%d) = %d, want %d", c.ticksLeft, got, c.want)
+		}
+	}
+}
+
+// TestDuelWallDamageFloorsHP is a pure unit test of duelWallDamage: it floors
+// HP down by 2000, or to 1 if the duelist has less than that, and never
+// drives HP to 0 or below (SendDamage's punishing effect, Server.cpp:5970-6009).
+func TestDuelWallDamageFloorsHP(t *testing.T) {
+	cases := []struct {
+		name   string
+		hp     int32
+		wantHP int32
+	}{
+		{"high HP loses exactly 2000", 5000, 3000},
+		{"HP just above the floor", 2001, 1},
+		{"low HP floors to 1, not 0 or negative", 50, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s := &world.Session{}
+			// MaxHP must be high enough that setReqHp's effectiveMaxHP clamp
+			// (item.go) never kicks in and masks the damage this test checks.
+			e := &world.Entity{HP: c.hp, MaxHP: 10000}
+			duelWallDamage(s, e)
+			if e.HP != c.wantHP {
+				t.Errorf("HP = %d, want %d", e.HP, c.wantHP)
+			}
+			if e.HP <= 0 {
+				t.Error("duelWallDamage must never drive HP to 0 or below")
+			}
+		})
+	}
+}

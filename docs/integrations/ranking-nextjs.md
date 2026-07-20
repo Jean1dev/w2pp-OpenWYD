@@ -186,3 +186,85 @@ Campos mínimos para uma tabela:
 
 Mapeamento visual de `class`, `clan` e `class_master` fica do lado do front-end.
 O backend retorna os valores numéricos do jogo.
+
+## 9. Ranking de Duelo/PvP (`ListDuelRanking`)
+
+> Feature **separada** do ranking Top EXP das seções anteriores: mesma origem
+> de dados de personagem, mas lida de uma tabela própria
+> (`character_pvp_stats`, não `character`) e só compartilha com o Top EXP o
+> serviço gRPC (`RankingWebService`) e as regras de paginação. É o ranking de
+> vitórias/derrotas em duelo 1v1 (issue #118, `_MSG_ReqRanking`/`DoRanking`).
+
+Contrato:
+
+```proto
+service RankingWebService {
+  rpc ListDuelRanking(ListDuelRankingRequest) returns (ListDuelRankingResponse);
+}
+
+message ListDuelRankingRequest {
+  int32 limit = 1;  // default 50, max 100
+  int32 offset = 2; // negative values are treated as 0
+}
+
+message DuelRankingEntry {
+  int32 rank = 1; // 1-based rank in the full ordered list
+  string name = 2;
+  int32 class = 3;
+  int32 clan = 4;
+  uint32 guild_id = 5;
+  int32 wins = 6;
+  int32 losses = 7;
+}
+
+message ListDuelRankingResponse {
+  repeated DuelRankingEntry entries = 1;
+  int32 total_count = 2;
+}
+```
+
+Paginação: mesmas regras da seção 3 (`limit<=0` → 50, `limit>100` → 100,
+`offset<0` → 0, `rank` já vem 1-based calculado pelo backend).
+
+Ordenação: `wins` descendente, `losses` ascendente (desempate por menos
+derrotas), `name` ascendente (desempate final determinístico).
+
+Observações:
+
+- **Empates não entram no placar.** Só duelos concluídos por eliminação ou
+  desconexão do oponente incrementam `wins`/`losses`; um empate por timeout
+  do relógio da arena não é persistido.
+- `wins`/`losses` são `int32` — ao contrário de `exp` (Top EXP, seção 5), não
+  precisam de serialização como `string` para evitar perda de precisão no
+  browser.
+- Assim como o Top EXP, este ranking é público nesta versão (sem sessão).
+
+Payload HTTP sugerido no BFF (mesmo padrão da seção 5, endpoint diferente):
+
+```http
+GET /api/ranking/duel?limit=50&offset=0
+```
+
+```json
+{
+  "entries": [
+    {
+      "rank": 1,
+      "name": "PlayerName",
+      "class": 0,
+      "clan": 1,
+      "guildId": 123,
+      "wins": 42,
+      "losses": 7
+    }
+  ],
+  "totalCount": 250
+}
+```
+
+Campos mínimos para uma tabela: posição (`rank`), personagem (`name`),
+vitórias (`wins`), derrotas (`losses`), classe (`class`), guilda (`guild_id`
+quando `!= 0`), reino/clan (`clan`). O handler Next.js segue o mesmo formato
+do exemplo da seção 6, trocando `rankingClient.listExpRanking` por
+`rankingClient.listDuelRanking` e removendo a conversão de `exp` para
+`string`.

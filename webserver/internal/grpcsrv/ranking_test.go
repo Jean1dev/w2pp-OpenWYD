@@ -65,3 +65,31 @@ func TestListExpRankingInfraError(t *testing.T) {
 		t.Fatal("expected gRPC error on infra failure")
 	}
 }
+
+func TestListDuelRankingMapping(t *testing.T) {
+	fake := &fakeRanking{}
+	s := NewRanking(fake)
+
+	resp, err := s.ListDuelRanking(context.Background(), &webv1.ListDuelRankingRequest{Limit: 25, Offset: 2})
+	if err != nil {
+		t.Fatalf("ListDuelRanking: %v", err)
+	}
+	if fake.limit != 25 || fake.offset != 2 {
+		t.Fatalf("forwarded limit=%d offset=%d; want 25/2", fake.limit, fake.offset)
+	}
+	if resp.GetTotalCount() != 4 || len(resp.GetEntries()) != 1 {
+		t.Fatalf("response total=%d entries=%d; want 4/1", resp.GetTotalCount(), len(resp.GetEntries()))
+	}
+	got := resp.GetEntries()[0]
+	if got.GetRank() != 1 || got.GetName() != "Hero" || got.GetClass() != 1 ||
+		got.GetClan() != 7 || got.GetGuildId() != 99 || got.GetWins() != 5 || got.GetLosses() != 1 {
+		t.Fatalf("entry mapping mismatch: %+v", got)
+	}
+}
+
+func TestListDuelRankingInfraError(t *testing.T) {
+	s := NewRanking(&fakeRanking{err: errors.New("db down")})
+	if _, err := s.ListDuelRanking(context.Background(), &webv1.ListDuelRankingRequest{}); err == nil {
+		t.Fatal("expected gRPC error on infra failure")
+	}
+}
