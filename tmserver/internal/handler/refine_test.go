@@ -267,6 +267,41 @@ func TestRefineLacto100AlwaysSucceeds(t *testing.T) {
 	}
 }
 
+// A tintura never refines: any dust converts it straight into its matching
+// Feijão Mágico (issue #130), bypassing EF_SANC entirely.
+func TestRefineTinturaBecomesFeijaoMagico(t *testing.T) {
+	cases := []struct {
+		name    string
+		dust    int16
+		tintura int16
+	}{
+		{"low bound, Ori", itemPoeiraOri, tinturaLo},
+		{"middle color, Lac", itemPoeiraLac, tinturaLo + 3},
+		{"high bound, Lac", itemPoeiraLac, tinturaHi},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			// alwaysRate(0): every ordinary refine roll would fail — proves the
+			// transform is deterministic and never touches the success-rate roll.
+			f := newRefineFixture(t, alwaysRate(0), nil)
+			f.e.Carry[1] = world.Item{Index: tt.tintura}
+
+			f.refine(tt.dust)
+
+			wantFeijao := tt.tintura + (magicBeanBase - tinturaLo)
+			if got := f.target().Index; got != wantFeijao {
+				t.Errorf("index = %d, want %d (matching Feijão Mágico)", got, wantFeijao)
+			}
+			if !f.e.Carry[0].Empty() {
+				t.Errorf("dust not consumed: %+v", f.e.Carry[0])
+			}
+			if got := refine.Level(f.target()); got != 0 {
+				t.Errorf("level = %d, want 0 (a tintura must never gain EF_SANC)", got)
+			}
+		})
+	}
+}
+
 // TestRefineRNGGolden pins the rand() call order against the MSVC stream from the
 // CRT default seed 1, which is where every world starts:
 //

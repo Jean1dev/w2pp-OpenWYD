@@ -366,6 +366,22 @@ equipado** (`Server.cpp:4884`) — é o cooldown entre tentativas.
 `MountProcess(conn, 0)` (`:914`) é **no-op**: com `Mount == NULL` o `IsEqual` fica 1 e a função
 retorna de cara (`Server.cpp:4639-4643`). Não há nada para portar ali.
 
+#### 3.6.1. Tinturas → Feijão Mágico (issue #130) — **UNVERIFIED, decisão de migração**
+
+`Tintura_*` (**3397-3406**, 10 cores) não têm `EF_VOLATILE` nem `EF_NOSANC` — sem o fix, caíam no
+caminho de "equipamento padrão" acima e ganhavam um `EF_SANC` falso via `refine.Bootstrap`. O
+comportamento esperado (relatado na issue): arrastar uma poeira de Ori **ou** de Lac sobre uma
+tintura consome a poeira e transforma o item no `Feijão_Mágico` da mesma cor (**3407-3416** =
+`tintura + 10`, mesma ordem de cores que `useMagicBean` já usa para o caminho inverso, `item.go:1072`).
+
+> ⚠️ **Nenhuma evidência no legado**: os dois branches de poeira (`_MSG_UseItem.cpp:140-980`) e uma
+> busca no `Source/` inteiro por `3397`-`3417`/`Tintura`/`Feijão` não encontram nenhum caso especial
+> para essa transformação — o único hit em `3407` é o branch, já portado, de *usar* um Feijão Mágico
+> sobre um equipamento (`:3767-3861`, `useMagicBean`). A conversão é portanto uma decisão de
+> migração (não um port): determinística, sem roll de sucesso, já que a tintura não carrega
+> `EF_SANC` para rolar contra. Implementado em `refineTintura` (`refine.go`), curto-circuitado
+> **antes** de `refine.Bootstrap`.
+
 ---
 
 ## 4. Combate (dano) — **fórmulas verificadas**

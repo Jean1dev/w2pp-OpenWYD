@@ -71,6 +71,18 @@ const (
 
 func isEgg(it world.Item) bool { return it.Index >= eggLo && it.Index < eggHi }
 
+// Tintura items (3397-3406) don't refine — a dust converts them straight into
+// the matching Feijão Mágico (3407-3416 = tintura + 10, mirroring the color
+// order useMagicBean's color math already relies on, item.go:1072). This must
+// run before refine.Bootstrap would plant a bogus EF_SANC pair into a fresh
+// tintura's zeroed effect slots (issue #130).
+const (
+	tinturaLo = 3397 // Tintura_Azul
+	tinturaHi = 3406 // Tintura_Azul_Claro
+)
+
+func isTintura(it world.Item) bool { return it.Index >= tinturaLo && it.Index <= tinturaHi }
+
 // itemInstanceAbility sums ONLY an item's instance effects, which is what
 // BASE_GetBonusItemAbility does (Basedef.cpp:2048) — unlike itemAbility (=
 // BASE_GetItemAbility) it never reads the catalog.
@@ -114,6 +126,11 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 	dst := d.itemSlot(w, s, e, int(body.DestType), int(body.DestPos))
 	if dst == nil || dst.Empty() {
 		return // no such target slot — the legacy just logs and drops the message
+	}
+
+	if isTintura(*dst) {
+		d.refineTintura(w, s, e, dst, body, src)
+		return
 	}
 
 	// A dust only refines equipment: a target that is itself a consumable (which
@@ -189,6 +206,17 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 		return
 	}
 	d.refineFail(w, s, e, t, src, anvil, level, pity)
+}
+
+// refineTintura converts a tintura into its matching Feijão Mágico. This is a
+// deterministic conversion, not a success-rate roll — tinturas carry no
+// EF_SANC to roll against, and no legacy source for this branch exists (see
+// game-rules.md §3.6.1); it's a migration design decision, not a port.
+func (d *Dispatcher) refineTintura(w *world.World, s *world.Session, e *world.Entity, dst *world.Item, body protocol.MsgUseItemBody, src int) {
+	dst.Index = int16(magicBeanBase + (int(dst.Index) - tinturaLo))
+	d.notify(w, s, NoticeRefineSuccess)
+	d.sendSlot(w, s, int(body.DestType), int(body.DestPos), *dst)
+	consumeOneItem(&e.Carry[src])
 }
 
 // refineTarget is the item being refined, together with where it lives so the
