@@ -106,8 +106,8 @@ func (w *World) FindEnemyFromView(x, y int16, clan uint8) int {
 			if int(id) < MaxUser && e.Mode != MobUser {
 				continue
 			}
-			if int(id) >= MaxUser && e.Merchant != 0 {
-				continue // shop/bank/quest NPCs are not combat targets
+			if int(id) >= MaxUser && e.NonCombatNPC {
+				continue // town/service NPCs are not combat targets
 			}
 			if int(id) >= MaxUser && e.Summoner != 0 {
 				continue // summons use the owner-assist path, not ambient aggro

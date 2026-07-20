@@ -314,7 +314,7 @@ func validThunderTarget(w *world.World, caster, target *world.Entity) bool {
 	if world.IsPlayer(target.ID) {
 		return false // PK-mode/arena attributes are not modeled; avoid implicit PvP ticks.
 	}
-	if target.Merchant&1 != 0 || target.Rsv&world.RsvHide != 0 || target.Clan == 4 || target.Clan == 6 {
+	if target.NonCombatNPC || target.Rsv&world.RsvHide != 0 || target.Clan == 4 || target.Clan == 6 {
 		return false
 	}
 	if (caster.Clan == 7 && target.Clan == 7) || (caster.Clan == 8 && target.Clan == 8) {

@@ -449,14 +449,19 @@ func TestCreateVineRejectsOccupiedTarget(t *testing.T) {
 // returns the world so the test can inspect the spawned entity's state.
 func startServerSkillsTargetMob(t *testing.T, persist world.Persistence, tmpl []byte) (string, func(), *world.World) {
 	t.Helper()
+	return startServerSkillsTargetMobAt(t, persist, tmpl, 16, 6, 5)
+}
+
+func startServerSkillsTargetMobAt(t *testing.T, persist world.Persistence, tmpl []byte, gridDim int, x, y int16) (string, func(), *world.World) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log, Spells: testSpells()})
-	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
-	w.SpawnMob(tmpl, 6, 5)
+	w := world.New(world.Config{GridDim: gridDim}, log, persist, d.Handle)
+	w.SpawnMob(tmpl, x, y)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -472,8 +477,13 @@ func startServerSkillsTargetMob(t *testing.T, persist world.Persistence, tmpl []
 
 // targetMob builds an 816-byte STRUCT_MOB with the given Merchant flag and HP.
 func targetMob(name string, merchant byte, hp uint32) []byte {
+	return targetMobWithClan(name, 0, merchant, hp)
+}
+
+func targetMobWithClan(name string, clan, merchant byte, hp uint32) []byte {
 	b := make([]byte, 816)
 	copy(b[0:16], name)
+	b[16] = clan
 	const cs = 92 // CurrentScore offset
 	b[cs+12] = merchant
 	binary.LittleEndian.PutUint32(b[cs+16:], 5000) // MaxHp
@@ -481,11 +491,9 @@ func targetMob(name string, merchant byte, hp uint32) []byte {
 	return b
 }
 
-// castEchoDamage casts skillnum (claim -1) at targetID and returns the resolved
-// Dam[0].Damage from the attacker's own authoritative MsgAttack echo.
-func castEchoDamage(t *testing.T, c net.Conn, targetID, skillnum int) int32 {
+func attackEchoDamage(t *testing.T, c net.Conn, tick uint32, targetID, skillnum int, claim int32) int32 {
 	t.Helper()
-	skillAttackFrame(t, c, serverTime, targetID, skillnum, -1)
+	skillAttackFrame(t, c, tick, targetID, skillnum, claim)
 	ty, payload, ok := readMaybe(t, c)
 	if !ok || ty != protocol.MsgAttack {
 		t.Fatalf("attacker got %#x ok=%v, want MsgAttack echo", ty, ok)
@@ -498,6 +506,13 @@ func castEchoDamage(t *testing.T, c net.Conn, targetID, skillnum int) int32 {
 		t.Fatalf("Dam = %+v, want one entry", got.Dam)
 	}
 	return got.Dam[0].Damage
+}
+
+// castEchoDamage casts skillnum (claim -1) at targetID and returns the resolved
+// Dam[0].Damage from the attacker's own authoritative MsgAttack echo.
+func castEchoDamage(t *testing.T, c net.Conn, targetID, skillnum int) int32 {
+	t.Helper()
+	return attackEchoDamage(t, c, serverTime, targetID, skillnum, -1)
 }
 
 // TestSkillMerchantTakesNoDamage: an untouchable NPC (Merchant != 0) is immune
@@ -513,6 +528,44 @@ func TestSkillMerchantTakesNoDamage(t *testing.T) {
 	}
 	if npc := w.Entity(world.MaxUser); npc == nil || npc.HP != 5000 {
 		t.Fatalf("merchant HP = %v, want it untouched at 5000", npc)
+	}
+}
+
+func TestTownNonCombatNPCTakesNoDamage(t *testing.T) {
+	db := skillCombatDB(1 << 2)
+	db.loadResult.X, db.loadResult.Y = 2086, 2093 // Armia
+	addr, stop, w := startServerSkillsTargetMobAt(t, db, targetMobWithClan("Ehre", 3, 0, 5000), 4096, 2087, 2093)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	if dmg := attackEchoDamage(t, c, serverTime, world.MaxUser, -1, -2); dmg != 0 {
+		t.Errorf("town NPC melee damage = %d, want 0", dmg)
+	}
+	if dmg := attackEchoDamage(t, c, serverTime+1000, world.MaxUser, 2, -1); dmg != 0 {
+		t.Errorf("town NPC skill damage = %d, want 0", dmg)
+	}
+	if npc := w.Entity(world.MaxUser); npc == nil || npc.HP != 5000 || !npc.NonCombatNPC {
+		t.Fatalf("town NPC state = %+v, want HP 5000 and NonCombatNPC", npc)
+	}
+}
+
+func TestHostileCityMobStillTakesDamage(t *testing.T) {
+	db := skillCombatDB(1 << 2)
+	db.loadResult.X, db.loadResult.Y = 2086, 2093 // Armia
+	addr, stop, w := startServerSkillsTargetMobAt(t, db, targetMobWithClan("Orc", 1, 0, 5000), 4096, 2087, 2093)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	if dmg := attackEchoDamage(t, c, serverTime, world.MaxUser, -1, -2); dmg <= 0 {
+		t.Fatalf("hostile city mob melee damage = %d, want > 0", dmg)
+	}
+	if dmg := attackEchoDamage(t, c, serverTime+1000, world.MaxUser, 2, -1); dmg <= 0 {
+		t.Fatalf("hostile city mob skill damage = %d, want > 0", dmg)
+	}
+	if mob := w.Entity(world.MaxUser); mob == nil || mob.NonCombatNPC || mob.HP >= 5000 {
+		t.Fatalf("hostile city mob state = %+v, want combat mob with reduced HP", mob)
 	}
 }
 

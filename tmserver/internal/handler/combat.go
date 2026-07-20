@@ -153,8 +153,8 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			d.log.Debug("attack: unexpected Dam claim (resolving as melee)",
 				"conn", s.Conn, "claim", claim, "skill", skillnum)
 		}
-		// Untouchable NPCs (shops/banks/quest givers) never take damage.
-		if !world.IsPlayer(tid) && target.Merchant != 0 {
+		// Untouchable NPCs (shops/banks/quest givers/town services) never take damage.
+		if !world.IsPlayer(tid) && target.NonCombatNPC {
 			writeDamage(payload, i, 0)
 			continue
 		}
@@ -481,6 +481,9 @@ func (d *Dispatcher) applyCastAffect(w *world.World, e, target *world.Entity, ti
 		return
 	}
 	if sp.Aggressive != 0 {
+		if !world.IsPlayer(tid) && target.NonCombatNPC {
+			return
+		}
 		leader := e.Leader
 		if leader == 0 {
 			leader = e.ID
@@ -683,7 +686,7 @@ func (d *Dispatcher) applyDivineFury(w *world.World, caster, target *world.Entit
 	if target == nil {
 		return false
 	}
-	if !world.IsPlayer(tid) && target.Merchant != 0 {
+	if !world.IsPlayer(tid) && target.NonCombatNPC {
 		return false
 	}
 	switch target.Equip[0].Index {
@@ -746,6 +749,9 @@ func (d *Dispatcher) applyExterminarMotion(w *world.World, caster, target *world
 		return false
 	}
 	if target.Equip[0].Index == 219 || target.Equip[0].Index == 220 {
+		return false
+	}
+	if !world.IsPlayer(tid) && target.NonCombatNPC {
 		return false
 	}
 	x, y, ok := d.freeCellNear(w, target.X, target.Y)
