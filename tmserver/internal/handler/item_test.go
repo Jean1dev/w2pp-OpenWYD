@@ -325,10 +325,15 @@ const (
 )
 
 func magicBeanDB(bean, equip world.Item) *fakeDB {
+	return magicBeanDBAt(bean, equip, 1, "")
+}
+
+func magicBeanDBAt(bean, equip world.Item, equipSlot int, role string) *fakeDB {
 	db := newDB()
+	db.accounts["tester"].role = role
 	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
 	st.Carry[0] = bean
-	st.Equip[1] = equip
+	st.Equip[equipSlot] = equip
 	db.loadResult = st
 	return db
 }
@@ -368,6 +373,74 @@ func TestUseMagicBeanPaintsEquippedSet(t *testing.T) {
 	}
 	if got := le16(item[4:6]); got != itemArmor {
 		t.Fatalf("painted item index = %d, want armor", got)
+	}
+	if item[6] != magicBeanPaintLo || item[7] != 9 {
+		t.Fatalf("effect0 = %d.%d, want paint %d preserving sanc value 9", item[6], item[7], magicBeanPaintLo)
+	}
+}
+
+func TestUseMagicBeanRejectsWeaponForPlayers(t *testing.T) {
+	weapon := world.Item{Index: 900, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	db := magicBeanDBAt(world.Item{Index: itemMagicBeanBlue}, weapon, weaponSlotR, "")
+	addr, stop := startServerClockVol(t, db, magicBeanVols(itemMagicBeanBlue))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useMagicBeanFrame(t, c, weaponSlotR)
+
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeCantUseHere {
+		t.Fatalf("notice = %d, want CantUseHere", code)
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[0:2]); got != world.ItemPlaceCarry {
+		t.Fatalf("reject send item place = %d, want carry", got)
+	}
+	if got := le16(item[4:6]); got != itemMagicBeanBlue {
+		t.Fatalf("reject source item = %d, want magic bean", got)
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("player weapon magic bean use produced extra frame %#x", ty)
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	save, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was not saved on logout")
+	}
+	carry0, ok := savedItemAt(save.Carry, 0)
+	if !ok || carry0.Index != itemMagicBeanBlue {
+		t.Fatalf("saved carry0 = %+v ok=%v, want unconsumed magic bean", carry0, ok)
+	}
+	equip6, ok := savedItemAt(save.Equip, weaponSlotR)
+	if !ok || equip6.Index != 900 || equip6.Eff1 != efSanc || equip6.EffV1 != 9 {
+		t.Fatalf("saved weapon = %+v ok=%v, want unpainted +9 weapon", equip6, ok)
+	}
+}
+
+func TestUseMagicBeanAllowsWeaponForModerators(t *testing.T) {
+	weapon := world.Item{Index: 900, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	addr, stop := startServerClockVol(t, magicBeanDBAt(world.Item{Index: itemMagicBeanBlue}, weapon, weaponSlotR, "moderator"), magicBeanVols(itemMagicBeanBlue))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useMagicBeanFrame(t, c, weaponSlotR)
+
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeRefineSuccess {
+		t.Fatalf("notice = %d, want RefineSuccess", code)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[0:2]); got != world.ItemPlaceEquip {
+		t.Fatalf("send item place = %d, want equip", got)
+	}
+	if got := le16(item[2:4]); got != weaponSlotR {
+		t.Fatalf("send item slot = %d, want weapon slot", got)
+	}
+	if got := le16(item[4:6]); got != 900 {
+		t.Fatalf("painted item index = %d, want weapon", got)
 	}
 	if item[6] != magicBeanPaintLo || item[7] != 9 {
 		t.Fatalf("effect0 = %d.%d, want paint %d preserving sanc value 9", item[6], item[7], magicBeanPaintLo)
