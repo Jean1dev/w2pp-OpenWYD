@@ -27,6 +27,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/binclient"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/dbclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
@@ -132,6 +133,7 @@ func run(logger *slog.Logger) error {
 	var itemVolatiles, itemPos, itemUnique, itemGrades, itemExtra map[int]int
 	var itemRanges map[int]int16
 	var combineFamilies map[protocol.Type]handler.CombineFamily
+	var odinCatalog combine.Catalog
 	var spells *content.SkillData
 	var heights *content.Grid
 	var sancRate *content.SancRate
@@ -146,7 +148,8 @@ func run(logger *slog.Logger) error {
 		itemGrades = items.Grades()
 		itemExtra = items.Extras()
 		itemRanges = items.Ranges()
-		combineFamilies = handler.DefaultCombineFamilies(handler.NewCombineCatalog(items, c.comp))
+		odinCatalog = handler.NewCombineCatalog(items, c.comp)
+		combineFamilies = handler.DefaultCombineFamilies(odinCatalog)
 		spells = c.skills
 		heights = c.heights
 		sancRate = c.sanc
@@ -235,6 +238,7 @@ func run(logger *slog.Logger) error {
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		CombineFamilies: combineFamilies,
+		OdinCatalog:     odinCatalog,
 		NpcConfig:       npcConfig,
 	})
 	w := world.New(world.Config{

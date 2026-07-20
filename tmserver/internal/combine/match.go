@@ -25,6 +25,9 @@ type Catalog struct {
 	Extra      map[int]int
 	Effects    map[int][]content.BaseEffect
 	AnctChance [3]int
+	// Pos maps item index → nPos (equip-slot class), needed by MatchOdin's
+	// "+12+" recipe gate.
+	Pos map[int]int
 }
 
 // MatchAnct is the GetMatchCombine port (GetFunc.cpp:76). It returns the recipe

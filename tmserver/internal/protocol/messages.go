@@ -647,11 +647,11 @@ func EncodeStandardParm3(parm1, parm2, parm3 int32) []byte {
 	return b
 }
 
-// MaxCombine is the number of input slots in a combine packet.
-//
-// UNVERIFIED: MAX_COMBINE is not documented; placeholder (game-rules.md §3 /
-// _MSG_CombineItem.cpp). The base Anct uses Item[0] (base) and Item[1] (jewel).
-const MaxCombine = 6
+// MaxCombine is the number of input slots in a combine packet: MAX_COMBINE
+// (Basedef.h:173). The base Anct recipe only uses Item[0]/Item[1], but the
+// Odin family's "+12+" recipe (GetMatchCombineOdin, GetFunc.cpp:551) reads up
+// to Item[6] — 7 of the 8 slots — so the full size is required for parity.
+const MaxCombine = 8
 
 // MsgCombineItemBody — MSG_CombineItem (C→S, 0x03A6 and the Item[]-based
 // variants), game-rules.md §3.1. An input i is active when Item[i].Index != 0;

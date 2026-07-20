@@ -57,6 +57,31 @@ func TestAccountLoginRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMsgCombineItemBodyRoundTrip locks in MaxCombine=8 (MAX_COMBINE,
+// Basedef.h:173): the Odin "+12+" recipe needs all 7 of Item[0..6], one more
+// than the base Anct recipe ever used.
+func TestMsgCombineItemBodyRoundTrip(t *testing.T) {
+	if MaxCombine != 8 {
+		t.Fatalf("MaxCombine = %d, want 8 (Basedef.h:173 MAX_COMBINE)", MaxCombine)
+	}
+	var in MsgCombineItemBody
+	for i := 0; i < MaxCombine; i++ {
+		in.Item[i] = WireItem{Index: int16(1000 + i)}
+		in.InvenPos[i] = uint8(i)
+	}
+	b := in.Encode()
+	if len(b) != MsgCombineItemBodySize {
+		t.Fatalf("Encode length = %d, want %d", len(b), MsgCombineItemBodySize)
+	}
+	var out MsgCombineItemBody
+	if err := out.Decode(b); err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if out != in {
+		t.Errorf("round-trip mismatch:\n got %+v\nwant %+v", out, in)
+	}
+}
+
 func TestMessageBodyShortInput(t *testing.T) {
 	var m MsgActionBody
 	if err := m.Decode(make([]byte, MsgActionBodySize-1)); err == nil {
