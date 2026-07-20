@@ -56,3 +56,14 @@ func CitySpawn(city int) (int16, int16) {
 	c := cities[city]
 	return c.spawnX + int16(rand.Intn(15)), c.spawnY + int16(rand.Intn(15))
 }
+
+// nonCombatNPC classifies service/town NPCs independently of the client-visible
+// Merchant byte. Some real city templates ship Merchant==0 (for example combine
+// statues and decorative town actors), so relying on Merchant alone makes them
+// combat targets. Hostile clan mobs inside/near city rectangles stay combat-capable.
+func nonCombatNPC(merchant, clan uint8, x, y int16) bool {
+	if merchant != 0 {
+		return true
+	}
+	return Village(x, y) >= 0 && !ClanHostile(0, clan)
+}

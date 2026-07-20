@@ -43,3 +43,31 @@ func TestCitySpawn(t *testing.T) {
 		t.Errorf("CitySpawn(4) should fall back to Armia, got village %d", Village(x, y))
 	}
 }
+
+func TestSpawnMobClassifiesTownNPCsAsNonCombat(t *testing.T) {
+	w := New(Config{GridDim: 4096}, slogDiscard(), nil, nil)
+
+	neutral := w.SpawnMob(genMobTemplate(3), 2086, 2093) // friendly city actor
+	if neutral < 0 {
+		t.Fatal("neutral town NPC did not spawn")
+	}
+	if e := w.Entity(neutral); e == nil || !e.NonCombatNPC {
+		t.Fatalf("neutral town NPC NonCombatNPC = %v, want true", e)
+	}
+
+	hostile := w.SpawnMob(genMobTemplate(1), 2087, 2093) // hostile mob inside a city rectangle
+	if hostile < 0 {
+		t.Fatal("hostile city mob did not spawn")
+	}
+	if e := w.Entity(hostile); e == nil || e.NonCombatNPC {
+		t.Fatalf("hostile city mob NonCombatNPC = %v, want false", e)
+	}
+
+	merchant := w.SpawnMob(genMerchantTemplate(1), 0, 0) // merchants are non-combat anywhere
+	if merchant < 0 {
+		t.Fatal("merchant NPC did not spawn")
+	}
+	if e := w.Entity(merchant); e == nil || !e.NonCombatNPC {
+		t.Fatalf("merchant NonCombatNPC = %v, want true", e)
+	}
+}

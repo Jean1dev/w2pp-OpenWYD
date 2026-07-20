@@ -210,9 +210,10 @@ type Entity struct {
 	// Template is the raw STRUCT_MOB bytes this mob was spawned from (boot template,
 	// shared by reference — no copy). Retained so the mob can be re-spawned at its
 	// SpawnX/SpawnY after it dies (world/respawn.go). nil for players.
-	Template []byte
-	Merchant uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
-	Grade    uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
+	Template     []byte
+	Merchant     uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
+	NonCombatNPC bool  // true for town/service NPCs protected from player damage
+	Grade        uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
 	Class       uint8    // character class (0=TK 1=FM 2=BM 3=HT); drives the visual model
 	AttackRun   uint8    // CurrentScore.AttackRun speed byte — mobs: template value (set at spawn); players: derived live (handler attackRunOf)

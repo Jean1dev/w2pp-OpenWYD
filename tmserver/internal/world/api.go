@@ -118,6 +118,7 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 		SegmentX: x, SegmentY: y,
 		WaitTicks: sp.SegWait[0],
 	}
+	e.NonCombatNPC = nonCombatNPC(e.Merchant, e.Clan, e.X, e.Y)
 	for i, r := range b.Resist {
 		e.Resist[i] = int16(r)
 	}
@@ -199,7 +200,7 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// Generator population accounting on death (DeleteMob decrements
 	// CurrentNumMob, Server.cpp:7825-7831, clamped at 0).
 	gen := w.GeneratorAt(int(e.GenIndex))
-	if removeType == 1 && e.Merchant == 0 && gen != nil {
+	if removeType == 1 && e.Merchant == 0 && !e.NonCombatNPC && gen != nil {
 		if gen.CurrentNumMob--; gen.CurrentNumMob < 0 {
 			gen.CurrentNumMob = 0
 		}
@@ -233,7 +234,7 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// givers) don't die, so only schedule monsters (Merchant==0) killed in
 	// combat (removeType 1). Summoned pets never respawn — they carry a
 	// Template too, but their lifecycle belongs to the summoner.
-	if removeType == 1 && e.Merchant == 0 && e.Template != nil && e.Summoner == 0 &&
+	if removeType == 1 && e.Merchant == 0 && !e.NonCombatNPC && e.Template != nil && e.Summoner == 0 &&
 		(gen == nil || gen.MinuteGenerate <= 0) {
 		w.respawnQueue = append(w.respawnQueue, respawnEntry{
 			spawn: MobSpawn{

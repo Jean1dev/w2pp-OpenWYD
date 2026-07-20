@@ -31,8 +31,9 @@ const (
 
 // Tick is the world's per-tick mob-AI hook (registered via World.SetTickHandler).
 // It runs inside the loop goroutine, so it mutates entities directly. Each live
-// monster (Merchant==0) acquires a nearby hostile player or mob as a target, then
-// chases and melees it. NPCs (shops/quest givers) and dead mobs are skipped.
+// monster acquires a nearby hostile player or mob as a target, then chases and
+// melees it. Non-combat NPCs (shops/quest givers/town services) and dead mobs are
+// skipped.
 //
 // UNVERIFIED / deferred (captura): real pathfinding (we step one Chebyshev
 // tile), roaming/segments/summons, and the player death/resurrection flow (a
@@ -54,8 +55,8 @@ func (d *Dispatcher) Tick(w *world.World) {
 	})
 
 	w.ForEachMob(func(id int, e *world.Entity) {
-		if e.Merchant != 0 || e.HP <= 0 {
-			return // shop/bank/quest NPCs don't fight; dead mobs do nothing
+		if !runsMobAI(e) || e.HP <= 0 {
+			return // town/service NPCs don't fight; dead mobs do nothing
 		}
 		if e.Summoner != 0 {
 			d.summonTick(w, id, e) // summoned pets follow their own AI (summon.go)
@@ -154,7 +155,7 @@ func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 		return
 	}
 	drag := func(mid int, me *world.Entity) {
-		if mid == id || me == nil || me.HP <= 0 || me.Merchant != 0 {
+		if mid == id || me == nil || me.HP <= 0 || !runsMobAI(me) {
 			return
 		}
 		if abs16(me.X-target.X) <= battleDragBox && abs16(me.Y-target.Y) <= battleDragBox {
@@ -170,6 +171,15 @@ func setGroupBattle(w *world.World, id int, e, target *world.Entity) {
 		}
 		drag(m, w.Entity(m))
 	}
+}
+
+func runsMobAI(e *world.Entity) bool {
+	if e == nil {
+		return false
+	}
+	// City guards are protected from player damage like other town NPCs, but they
+	// still police hostile mobs in town (guard-vs-mob parity).
+	return !e.NonCombatNPC || e.Clan == 7 || e.Clan == 8
 }
 
 func setBattle(w *world.World, id int, e, target *world.Entity) {
@@ -579,7 +589,7 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 		return false
 	}
 	if !world.IsPlayer(target.ID) {
-		if target.Merchant != 0 || target.Mode == world.MobEmpty {
+		if target.NonCombatNPC || target.Mode == world.MobEmpty {
 			return false
 		}
 		if e.Summoner != 0 {
