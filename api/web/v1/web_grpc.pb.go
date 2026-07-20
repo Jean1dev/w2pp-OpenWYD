@@ -988,6 +988,315 @@ var NpcAdminService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	MobTemplateAdminService_ListMobTemplates_FullMethodName      = "/web.v1.MobTemplateAdminService/ListMobTemplates"
+	MobTemplateAdminService_GetMobTemplateStat_FullMethodName    = "/web.v1.MobTemplateAdminService/GetMobTemplateStat"
+	MobTemplateAdminService_UpsertMobTemplateStat_FullMethodName = "/web.v1.MobTemplateAdminService/UpsertMobTemplateStat"
+	MobTemplateAdminService_SetMobTemplateEquip_FullMethodName   = "/web.v1.MobTemplateAdminService/SetMobTemplateEquip"
+	MobTemplateAdminService_DeleteMobTemplateStat_FullMethodName = "/web.v1.MobTemplateAdminService/DeleteMobTemplateStat"
+)
+
+// MobTemplateAdminServiceClient is the client API for MobTemplateAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// MobTemplateAdminService is the moderator-facing mob/NPC template STAT editing
+// surface (mob-template-editing-plan.md) — the equivalent-tool successor to the
+// legacy Win32 EDITAPPMOB. It is the sibling of NpcAdminService: that service
+// edits spawn position/visibility/shop for the DB-managed merchant subset; this
+// one edits the combat/attribute stats (Level/HP/MP/attributes/EXP/skills/
+// equip) of ANY npc/<template_name> file, monsters included. Same conventions:
+// every request carries moderator_id, re-authorized server-side against
+// account.role, and all writes are cold config in Postgres — the tmServer only
+// ever reads it, once at boot (no hot-reload for this feature, matching
+// EDITAPPMOB's own restart-to-apply behavior).
+type MobTemplateAdminServiceClient interface {
+	// ListMobTemplates returns every STRUCT_MOB template file found in the
+	// content tree (Release/TMsrv/run/npc/) — unlike NpcAdminService's
+	// ListMerchantTemplates, this is NOT filtered to merchants: monsters are the
+	// primary rebalancing use case for this tool.
+	ListMobTemplates(ctx context.Context, in *ListMobTemplatesRequest, opts ...grpc.CallOption) (*ListMobTemplatesResponse, error)
+	// GetMobTemplateStat returns the stat override for a template if one exists;
+	// otherwise it reads the raw template file's current values (read-through),
+	// so opening the editor for an untouched template shows real starting
+	// values instead of zeros.
+	GetMobTemplateStat(ctx context.Context, in *GetMobTemplateStatRequest, opts ...grpc.CallOption) (*GetMobTemplateStatResponse, error)
+	// UpsertMobTemplateStat creates or replaces the full stat override for a
+	// template_name.
+	UpsertMobTemplateStat(ctx context.Context, in *UpsertMobTemplateStatRequest, opts ...grpc.CallOption) (*UpsertMobTemplateStatResponse, error)
+	// SetMobTemplateEquip replaces a template's Equip[] slot overrides. Requires
+	// a stat override to already exist for template_name (same dependency as
+	// NpcAdminService.SetNpcShop on the NPC definition existing).
+	SetMobTemplateEquip(ctx context.Context, in *SetMobTemplateEquipRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// DeleteMobTemplateStat removes the override, reverting the template to its
+	// raw file defaults (never deletes the underlying file — Release/ is
+	// read-only in production).
+	DeleteMobTemplateStat(ctx context.Context, in *DeleteMobTemplateStatRequest, opts ...grpc.CallOption) (*AdminAck, error)
+}
+
+type mobTemplateAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMobTemplateAdminServiceClient(cc grpc.ClientConnInterface) MobTemplateAdminServiceClient {
+	return &mobTemplateAdminServiceClient{cc}
+}
+
+func (c *mobTemplateAdminServiceClient) ListMobTemplates(ctx context.Context, in *ListMobTemplatesRequest, opts ...grpc.CallOption) (*ListMobTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMobTemplatesResponse)
+	err := c.cc.Invoke(ctx, MobTemplateAdminService_ListMobTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mobTemplateAdminServiceClient) GetMobTemplateStat(ctx context.Context, in *GetMobTemplateStatRequest, opts ...grpc.CallOption) (*GetMobTemplateStatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMobTemplateStatResponse)
+	err := c.cc.Invoke(ctx, MobTemplateAdminService_GetMobTemplateStat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mobTemplateAdminServiceClient) UpsertMobTemplateStat(ctx context.Context, in *UpsertMobTemplateStatRequest, opts ...grpc.CallOption) (*UpsertMobTemplateStatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertMobTemplateStatResponse)
+	err := c.cc.Invoke(ctx, MobTemplateAdminService_UpsertMobTemplateStat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mobTemplateAdminServiceClient) SetMobTemplateEquip(ctx context.Context, in *SetMobTemplateEquipRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, MobTemplateAdminService_SetMobTemplateEquip_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mobTemplateAdminServiceClient) DeleteMobTemplateStat(ctx context.Context, in *DeleteMobTemplateStatRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, MobTemplateAdminService_DeleteMobTemplateStat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// MobTemplateAdminServiceServer is the server API for MobTemplateAdminService service.
+// All implementations must embed UnimplementedMobTemplateAdminServiceServer
+// for forward compatibility.
+//
+// MobTemplateAdminService is the moderator-facing mob/NPC template STAT editing
+// surface (mob-template-editing-plan.md) — the equivalent-tool successor to the
+// legacy Win32 EDITAPPMOB. It is the sibling of NpcAdminService: that service
+// edits spawn position/visibility/shop for the DB-managed merchant subset; this
+// one edits the combat/attribute stats (Level/HP/MP/attributes/EXP/skills/
+// equip) of ANY npc/<template_name> file, monsters included. Same conventions:
+// every request carries moderator_id, re-authorized server-side against
+// account.role, and all writes are cold config in Postgres — the tmServer only
+// ever reads it, once at boot (no hot-reload for this feature, matching
+// EDITAPPMOB's own restart-to-apply behavior).
+type MobTemplateAdminServiceServer interface {
+	// ListMobTemplates returns every STRUCT_MOB template file found in the
+	// content tree (Release/TMsrv/run/npc/) — unlike NpcAdminService's
+	// ListMerchantTemplates, this is NOT filtered to merchants: monsters are the
+	// primary rebalancing use case for this tool.
+	ListMobTemplates(context.Context, *ListMobTemplatesRequest) (*ListMobTemplatesResponse, error)
+	// GetMobTemplateStat returns the stat override for a template if one exists;
+	// otherwise it reads the raw template file's current values (read-through),
+	// so opening the editor for an untouched template shows real starting
+	// values instead of zeros.
+	GetMobTemplateStat(context.Context, *GetMobTemplateStatRequest) (*GetMobTemplateStatResponse, error)
+	// UpsertMobTemplateStat creates or replaces the full stat override for a
+	// template_name.
+	UpsertMobTemplateStat(context.Context, *UpsertMobTemplateStatRequest) (*UpsertMobTemplateStatResponse, error)
+	// SetMobTemplateEquip replaces a template's Equip[] slot overrides. Requires
+	// a stat override to already exist for template_name (same dependency as
+	// NpcAdminService.SetNpcShop on the NPC definition existing).
+	SetMobTemplateEquip(context.Context, *SetMobTemplateEquipRequest) (*AdminAck, error)
+	// DeleteMobTemplateStat removes the override, reverting the template to its
+	// raw file defaults (never deletes the underlying file — Release/ is
+	// read-only in production).
+	DeleteMobTemplateStat(context.Context, *DeleteMobTemplateStatRequest) (*AdminAck, error)
+	mustEmbedUnimplementedMobTemplateAdminServiceServer()
+}
+
+// UnimplementedMobTemplateAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedMobTemplateAdminServiceServer struct{}
+
+func (UnimplementedMobTemplateAdminServiceServer) ListMobTemplates(context.Context, *ListMobTemplatesRequest) (*ListMobTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMobTemplates not implemented")
+}
+func (UnimplementedMobTemplateAdminServiceServer) GetMobTemplateStat(context.Context, *GetMobTemplateStatRequest) (*GetMobTemplateStatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMobTemplateStat not implemented")
+}
+func (UnimplementedMobTemplateAdminServiceServer) UpsertMobTemplateStat(context.Context, *UpsertMobTemplateStatRequest) (*UpsertMobTemplateStatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertMobTemplateStat not implemented")
+}
+func (UnimplementedMobTemplateAdminServiceServer) SetMobTemplateEquip(context.Context, *SetMobTemplateEquipRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetMobTemplateEquip not implemented")
+}
+func (UnimplementedMobTemplateAdminServiceServer) DeleteMobTemplateStat(context.Context, *DeleteMobTemplateStatRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMobTemplateStat not implemented")
+}
+func (UnimplementedMobTemplateAdminServiceServer) mustEmbedUnimplementedMobTemplateAdminServiceServer() {
+}
+func (UnimplementedMobTemplateAdminServiceServer) testEmbeddedByValue() {}
+
+// UnsafeMobTemplateAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MobTemplateAdminServiceServer will
+// result in compilation errors.
+type UnsafeMobTemplateAdminServiceServer interface {
+	mustEmbedUnimplementedMobTemplateAdminServiceServer()
+}
+
+func RegisterMobTemplateAdminServiceServer(s grpc.ServiceRegistrar, srv MobTemplateAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedMobTemplateAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&MobTemplateAdminService_ServiceDesc, srv)
+}
+
+func _MobTemplateAdminService_ListMobTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMobTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MobTemplateAdminServiceServer).ListMobTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MobTemplateAdminService_ListMobTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MobTemplateAdminServiceServer).ListMobTemplates(ctx, req.(*ListMobTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MobTemplateAdminService_GetMobTemplateStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMobTemplateStatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MobTemplateAdminServiceServer).GetMobTemplateStat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MobTemplateAdminService_GetMobTemplateStat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MobTemplateAdminServiceServer).GetMobTemplateStat(ctx, req.(*GetMobTemplateStatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MobTemplateAdminService_UpsertMobTemplateStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertMobTemplateStatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MobTemplateAdminServiceServer).UpsertMobTemplateStat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MobTemplateAdminService_UpsertMobTemplateStat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MobTemplateAdminServiceServer).UpsertMobTemplateStat(ctx, req.(*UpsertMobTemplateStatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MobTemplateAdminService_SetMobTemplateEquip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetMobTemplateEquipRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MobTemplateAdminServiceServer).SetMobTemplateEquip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MobTemplateAdminService_SetMobTemplateEquip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MobTemplateAdminServiceServer).SetMobTemplateEquip(ctx, req.(*SetMobTemplateEquipRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MobTemplateAdminService_DeleteMobTemplateStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMobTemplateStatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MobTemplateAdminServiceServer).DeleteMobTemplateStat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MobTemplateAdminService_DeleteMobTemplateStat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MobTemplateAdminServiceServer).DeleteMobTemplateStat(ctx, req.(*DeleteMobTemplateStatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// MobTemplateAdminService_ServiceDesc is the grpc.ServiceDesc for MobTemplateAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MobTemplateAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.MobTemplateAdminService",
+	HandlerType: (*MobTemplateAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListMobTemplates",
+			Handler:    _MobTemplateAdminService_ListMobTemplates_Handler,
+		},
+		{
+			MethodName: "GetMobTemplateStat",
+			Handler:    _MobTemplateAdminService_GetMobTemplateStat_Handler,
+		},
+		{
+			MethodName: "UpsertMobTemplateStat",
+			Handler:    _MobTemplateAdminService_UpsertMobTemplateStat_Handler,
+		},
+		{
+			MethodName: "SetMobTemplateEquip",
+			Handler:    _MobTemplateAdminService_SetMobTemplateEquip_Handler,
+		},
+		{
+			MethodName: "DeleteMobTemplateStat",
+			Handler:    _MobTemplateAdminService_DeleteMobTemplateStat_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
 	DonateAdminService_ListShopItems_FullMethodName       = "/web.v1.DonateAdminService/ListShopItems"
 	DonateAdminService_UpsertShopItem_FullMethodName      = "/web.v1.DonateAdminService/UpsertShopItem"
 	DonateAdminService_SetShopItemEnabled_FullMethodName  = "/web.v1.DonateAdminService/SetShopItemEnabled"

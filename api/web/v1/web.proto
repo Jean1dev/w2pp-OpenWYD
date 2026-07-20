@@ -337,6 +337,143 @@ message ListMapZonesResponse {
   repeated MapZone zones = 2;
 }
 
+// MobTemplateAdminService is the moderator-facing mob/NPC template STAT editing
+// surface (mob-template-editing-plan.md) — the equivalent-tool successor to the
+// legacy Win32 EDITAPPMOB. It is the sibling of NpcAdminService: that service
+// edits spawn position/visibility/shop for the DB-managed merchant subset; this
+// one edits the combat/attribute stats (Level/HP/MP/attributes/EXP/skills/
+// equip) of ANY npc/<template_name> file, monsters included. Same conventions:
+// every request carries moderator_id, re-authorized server-side against
+// account.role, and all writes are cold config in Postgres — the tmServer only
+// ever reads it, once at boot (no hot-reload for this feature, matching
+// EDITAPPMOB's own restart-to-apply behavior).
+service MobTemplateAdminService {
+  // ListMobTemplates returns every STRUCT_MOB template file found in the
+  // content tree (Release/TMsrv/run/npc/) — unlike NpcAdminService's
+  // ListMerchantTemplates, this is NOT filtered to merchants: monsters are the
+  // primary rebalancing use case for this tool.
+  rpc ListMobTemplates(ListMobTemplatesRequest) returns (ListMobTemplatesResponse);
+  // GetMobTemplateStat returns the stat override for a template if one exists;
+  // otherwise it reads the raw template file's current values (read-through),
+  // so opening the editor for an untouched template shows real starting
+  // values instead of zeros.
+  rpc GetMobTemplateStat(GetMobTemplateStatRequest) returns (GetMobTemplateStatResponse);
+  // UpsertMobTemplateStat creates or replaces the full stat override for a
+  // template_name.
+  rpc UpsertMobTemplateStat(UpsertMobTemplateStatRequest) returns (UpsertMobTemplateStatResponse);
+  // SetMobTemplateEquip replaces a template's Equip[] slot overrides. Requires
+  // a stat override to already exist for template_name (same dependency as
+  // NpcAdminService.SetNpcShop on the NPC definition existing).
+  rpc SetMobTemplateEquip(SetMobTemplateEquipRequest) returns (AdminAck);
+  // DeleteMobTemplateStat removes the override, reverting the template to its
+  // raw file defaults (never deletes the underlying file — Release/ is
+  // read-only in production).
+  rpc DeleteMobTemplateStat(DeleteMobTemplateStatRequest) returns (AdminAck);
+}
+
+// MobTemplateFile is one STRUCT_MOB template found under Release/TMsrv/run/npc/,
+// unfiltered (see ListMobTemplates).
+message MobTemplateFile {
+  string template_name = 1; // exact value for Upsert/GetMobTemplateStat.template_name
+  string display_name = 2;  // the template's mob.Name, for the picker UI
+  int32 merchant = 3;       // CurrentScore.Merchant, informational
+}
+
+message ListMobTemplatesRequest { int64 moderator_id = 1; }
+message ListMobTemplatesResponse {
+  AdminResult result = 1;
+  repeated MobTemplateFile templates = 2;
+}
+
+// AdminMobTemplateEquipItem is one Equip[] slot override (0..15, MAX_EQUIP).
+message AdminMobTemplateEquipItem {
+  int32 slot = 1;
+  int32 item_index = 2;
+  int32 eff1 = 3;  int32 effv1 = 4;
+  int32 eff2 = 5;  int32 effv2 = 6;
+  int32 eff3 = 7;  int32 effv3 = 8;
+}
+
+// AdminMobTemplateStat is the full moderator-editable field surface of a mob
+// template — the fields the legacy EDITAPPMOB edited, minus Carry[] (already
+// AdminNpcShopItem) and DB-managed spawn position (already AdminNpc).
+// BaseScore/CurrentScore are not modeled separately: tmServer mirrors the same
+// value into both, matching EDITAPPMOB's own `CurrentScore = BaseScore` on
+// save.
+message AdminMobTemplateStat {
+  string template_name = 1;
+  // overridden is false when this is a read-through of the raw template
+  // file's current values (no saved override yet) — GetMobTemplateStat only.
+  bool overridden = 2;
+  string display_name = 3;  // "" keeps the template file's own name
+  int32 clan = 4;
+  int32 merchant = 5;  // STRUCT_MOB top-level Merchant — distinct from AdminNpc.merchant
+  int32 class = 6;
+  int32 coin = 7;
+  int64 exp = 8;
+  int32 spx = 9;
+  int32 spy = 10;
+  int32 level = 11;
+  int32 ac = 12;
+  int32 damage = 13;
+  int32 chaos_rate = 14;
+  int32 attack_run = 15;
+  int32 direction = 16;
+  int32 str = 17;
+  int32 intel = 18;  // "int" avoided (reserved in several target languages)
+  int32 dex = 19;
+  int32 con = 20;
+  int32 special1 = 21;
+  int32 special2 = 22;
+  int32 special3 = 23;
+  int32 special4 = 24;
+  int32 max_hp = 25;
+  int32 hp = 26;
+  int32 max_mp = 27;
+  int32 mp = 28;
+  int32 learned_skill = 29;
+  int32 score_bonus = 30;
+  int32 skill_bar1 = 31;
+  int32 skill_bar2 = 32;
+  int32 skill_bar3 = 33;
+  int32 skill_bar4 = 34;
+  int32 regen_hp = 35;
+  int32 regen_mp = 36;
+  int32 resist1 = 37;
+  int32 resist2 = 38;
+  int32 resist3 = 39;
+  int32 resist4 = 40;
+  repeated AdminMobTemplateEquipItem equip = 41;
+}
+
+message GetMobTemplateStatRequest {
+  int64 moderator_id = 1;
+  string template_name = 2;
+}
+message GetMobTemplateStatResponse {
+  AdminResult result = 1;
+  AdminMobTemplateStat stat = 2;
+}
+
+message UpsertMobTemplateStatRequest {
+  int64 moderator_id = 1;
+  AdminMobTemplateStat stat = 2;
+}
+message UpsertMobTemplateStatResponse {
+  AdminResult result = 1;
+}
+
+message SetMobTemplateEquipRequest {
+  int64 moderator_id = 1;
+  string template_name = 2;
+  repeated AdminMobTemplateEquipItem items = 3;
+}
+
+message DeleteMobTemplateStatRequest {
+  int64 moderator_id = 1;
+  string template_name = 2;
+}
+
 // DonateAdminService is the moderator-facing donate web-shop surface (issue #34):
 // CRUD over the donate_shop_item catalog plus the manual "credit donate to an
 // account" path (the seam the future payment webhook reuses). Like NpcAdminService

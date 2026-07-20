@@ -24,6 +24,10 @@ func (f *fakeNpcConfigAPI) ListNpcDefinitions(context.Context, *dbv1.ListNpcDefi
 	return f.list, nil
 }
 
+func (f *fakeNpcConfigAPI) ListMobTemplateStats(context.Context, *dbv1.ListMobTemplateStatsRequest, ...grpc.CallOption) (*dbv1.ListMobTemplateStatsResponse, error) {
+	return &dbv1.ListMobTemplateStatsResponse{}, nil
+}
+
 func TestNpcConfigSnapshotMapsDisplayName(t *testing.T) {
 	template := merchantTemplateBytes("Default")
 	src := &NpcConfig{

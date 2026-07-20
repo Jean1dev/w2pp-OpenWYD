@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/dbclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/mobstat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
@@ -98,6 +100,7 @@ func run(logger *slog.Logger) error {
 	msgBurst := flag.Int("msg-burst", 400, "per-connection message burst depth")
 	contentDir := flag.String("content", os.Getenv("W2PP_CONTENT"), "path to the Release/ content tree (empty = skip; validates rates/catalogs/maps at boot)")
 	npcEditing := flag.Bool("npc-editing", envBool("W2PP_NPC_EDITING", false), "enable the moderator NPC-editing overlay (npc-editing-plan.md); needs -dbserver and -content. OFF by default: turn it on only after `dbserver import-npcs` has seeded npc_definition, else DB-managed merchant NPCs would be skipped from NPCGener.txt with nothing to replace them")
+	mobStatEditing := flag.Bool("mob-stat-editing", envBool("W2PP_MOB_STAT_EDITING", false), "enable the moderator mob/NPC template stat overlay (mob-template-editing-plan.md, the equivalent-tool successor to the legacy EDITAPPMOB); needs -dbserver and -content. Applied ONCE at boot, like every other content load — a moderator edit needs a tmServer restart to take effect (EDITAPPMOB itself required a server restart too), independent of -npc-editing")
 	defStatusAddr := os.Getenv("W2PP_STATUS_ADDR")
 	if defStatusAddr == "" {
 		defStatusAddr = ":80"
@@ -119,7 +122,8 @@ func run(logger *slog.Logger) error {
 		"dbserver", addrOrNone(*dbAddr),
 		"binserver", addrOrNone(*binAddr),
 		"content", addrOrNone(*contentDir),
-		"npc_editing", *npcEditing)
+		"npc_editing", *npcEditing,
+		"mob_stat_editing", *mobStatEditing)
 
 	// When -content is set, load and validate the content tree up front so a
 	// missing/corrupt mount fails fast instead of surfacing mid-session. The
@@ -212,6 +216,31 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Moderator mob/NPC template stat overlay (mob-template-editing-plan.md, the
+	// equivalent-tool successor to the legacy EDITAPPMOB): the single switch is
+	// -mob-stat-editing (W2PP_MOB_STAT_EDITING), off by default. Unlike
+	// -npc-editing this applies to ANY npc/<template_name> file — monsters
+	// included, the tool's primary rebalancing use case — not just the
+	// DB-managed merchant subset, so it is deliberately independent of
+	// -npc-editing (its own flag, its own dependency check). Fetched ONCE here,
+	// synchronously, before any template gets loaded below: there is no
+	// hot-reload for this feature, matching EDITAPPMOB's own restart-to-apply
+	// behavior (it wrote the file; the server only read it at boot too).
+	var mobStatOverrides map[string]mobstat.Override
+	if *mobStatEditing {
+		if dbConn == nil || *contentDir == "" {
+			return fmt.Errorf("-mob-stat-editing requires both -dbserver (config source) and -content (mob templates)")
+		}
+		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		overrides, ferr := dbclient.NewMobStatSource(dbConn).Fetch(fetchCtx)
+		cancel()
+		if ferr != nil {
+			return fmt.Errorf("fetch mob template stat overrides: %w", ferr)
+		}
+		mobStatOverrides = overrides
+		logger.Info("mob template stat overlay enabled (moderator editing)", "overrides", len(mobStatOverrides))
+	}
+
 	// Moderator NPC-editing overlay (npc-editing-plan.md): the single switch is
 	// -npc-editing (W2PP_NPC_EDITING), off by default so an unseeded DB never makes
 	// the NPCGener.txt merchants vanish. When on, it MUST have a dbServer (the config
@@ -224,7 +253,14 @@ func run(logger *slog.Logger) error {
 			return fmt.Errorf("-npc-editing requires both -dbserver (config source) and -content (NPC templates)")
 		}
 		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
-			return content.LoadNPCTemplate(*contentDir, name)
+			b, terr := content.LoadNPCTemplate(*contentDir, name)
+			if terr != nil {
+				return nil, terr
+			}
+			if ov, ok := mobStatOverrides[name]; ok {
+				b = mobstat.Apply(b, ov)
+			}
+			return b, nil
 		}, logger)
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
@@ -273,7 +309,7 @@ func run(logger *slog.Logger) error {
 	// the DB overlay is active, merchant blocks are skipped here (owned by
 	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
-		spawnNPCs(w, *contentDir, npcConfig != nil, logger)
+		spawnNPCs(w, *contentDir, npcConfig != nil, mobStatOverrides, logger)
 		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
@@ -303,7 +339,7 @@ func run(logger *slog.Logger) error {
 // front so the world is playable immediately. This burns the LCG at boot (one
 // stream for all spawns, like the original's global rand()); there is no legacy
 // boot rand order to diverge from.
-func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logger) {
+func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides map[string]mobstat.Override, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
@@ -322,7 +358,12 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 		if !seen {
 			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
 				tmpl = b
-				if mb := protocol.ParseMobBasics(b); mb.Merchant == 0 && mb.Level >= 1 &&
+				// Apply the moderator stat override (if any) BEFORE the exp sanity
+				// check below, so a fix made via the web tool clears the warning too.
+				if ov, ok := mobStatOverrides[name]; ok {
+					tmpl = mobstat.Apply(tmpl, ov)
+				}
+				if mb := protocol.ParseMobBasics(tmpl); mb.Merchant == 0 && mb.Level >= 1 &&
 					(mb.Exp <= 0 || mb.Exp > maxSaneMobExp) {
 					logger.Warn("monster template has unbalanced Exp (run cmd/exptool)",
 						"npc", name, "level", mb.Level, "exp", mb.Exp)
