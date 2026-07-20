@@ -444,6 +444,7 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 		if e.HP <= 0 {
 			return
 		}
+		d.expireWandererBags(w, s, e, now)
 		// Expire the Divine buff when its wall-clock deadline passes (captura §B): drop
 		// the affect and push the (now lower) score + buff snapshot.
 		if e.DivineEnd > 0 && now >= e.DivineEnd && e.HasAffect(world.AffectDivine) {

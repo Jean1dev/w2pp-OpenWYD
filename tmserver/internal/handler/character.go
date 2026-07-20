@@ -698,12 +698,7 @@ func (d *Dispatcher) grantStarterCarry(carry *[world.MaxCarry]world.Item, class 
 
 // firstEmptyCarry returns the index of the first empty inventory slot, or -1.
 func firstEmptyCarry(carry *[world.MaxCarry]world.Item) int {
-	for i := range carry {
-		if carry[i].Empty() {
-			return i
-		}
-	}
-	return -1
+	return firstEmptyCarrySlot(carry[:], carryLimit(carry[:]))
 }
 
 // validCharName approximates BASE_CheckValidString.

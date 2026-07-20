@@ -128,6 +128,7 @@ const (
 	MsgPKInfo             Type = 0x0166 // 358  S→C PK/war state of a player (MSG_STANDARDPARM, Basedef.h:1954)
 	MsgPKMode             Type = 0x0399 // 921  C→S PlayerKiller toggle (K key; MSG_STANDARDPARM, Basedef.h:2164)
 	MsgSendItem           Type = 0x0182 // 386  update one slot
+	MsgUpdateCarry        Type = 0x0185 // 389  S→C full Carry[64] + Coin snapshot
 	MsgAccountSecureFail  Type = 0x0FDF // 4063 S→C PIN rejected (_MSG_AccountSecureFail)
 	MsgCNFAddParty        Type = 0x037D // 893  S→C party-list slot sync (MSG_CNFAddParty)
 	MsgUpdateEquip        Type = 0x036B // 875  S→C refresh visible equipment (_MSG_UpdateEquip, Basedef.h:2094)

@@ -92,7 +92,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 			continue
 		}
 		pos := int(body.InvenPos[i])
-		if pos < 0 || pos >= world.MaxCarry {
+		if !carrySlotAccessible(e, pos) {
 			d.removeTrade(w, s) // out of range → RemoveTrade (anti-cheat)
 			return
 		}
@@ -143,7 +143,7 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 		return
 	}
 	slot := int(p2)
-	if slot < 0 || slot >= world.MaxCarry {
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	it := e.Carry[slot]
@@ -160,7 +160,7 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 		return
 	}
 	catalyst := -1
-	for i := range e.Carry {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		if e.Carry[i].Index == 1774 {
 			catalyst = i
 			break

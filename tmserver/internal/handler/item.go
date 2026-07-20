@@ -55,7 +55,7 @@ func (d *Dispatcher) dropItem(w *world.World, s *world.Session, _ protocol.Heade
 		return // can't drop equipped directly; only CARRY in this batch
 	}
 	slot := int(body.SourPos)
-	if slot < 0 || slot >= world.MaxCarry {
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	item := e.Carry[slot]
@@ -116,10 +116,11 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 		return // special restriction
 	}
 
-	slot := w.AddToCarry(e, gi.Item)
-	if slot < 0 {
-		return // inventory full → leave on floor
+	slot := int(body.DestPos)
+	if !carrySlotAccessible(e, slot) || !e.Carry[slot].Empty() {
+		return // inventory full/locked/occupied → leave on floor
 	}
+	e.Carry[slot] = gi.Item
 	w.RemoveGroundItem(id) // atomic claim point
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
 }
@@ -146,7 +147,7 @@ func (d *Dispatcher) deleteItem(w *world.World, s *world.Session, _ protocol.Hea
 		return
 	}
 	slot := int(body.Slot)
-	if slot < 0 || slot >= world.MaxCarry-4 { // last 4 carry cells reserved
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	if e.Carry[slot].Empty() {
@@ -208,7 +209,7 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 	}
 	slot := int(body.Slot)
 	num := int(body.Num)
-	if slot < 0 || slot >= world.MaxCarry-4 {
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	if num <= 0 || num >= 120 {
@@ -224,10 +225,11 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 	}
 	nItem := *src
 	setItemAmount(&nItem, num)
-	dst := w.AddToCarry(e, nItem)
+	dst := firstEmptyAccessibleCarry(e)
 	if dst < 0 {
 		return // no free cell — leave the stack whole
 	}
+	e.Carry[dst] = nItem
 	setItemAmount(src, amount-num)
 	d.sendSlot(w, s, world.ItemPlaceCarry, dst, e.Carry[dst])
 	d.sendSlot(w, s, world.ItemPlaceCarry, slot, *src)
@@ -309,7 +311,11 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		return // consumed/equipped items come from the inventory
 	}
 	src := int(body.SourPos)
-	if src < 0 || src >= world.MaxCarry || e.Carry[src].Empty() {
+	if !carrySlotAccessible(e, src) || e.Carry[src].Empty() {
+		return
+	}
+	if e.Carry[src].Index == itemWandererBag {
+		d.useWandererBag(w, s, e, src)
 		return
 	}
 	if d.useQuest256Ticket(w, s, e, src) {
@@ -1854,8 +1860,8 @@ func (d *Dispatcher) shiftWeaponToRightHand(w *world.World, s *world.Session, e 
 
 // itemSlot returns a pointer to the live item slot for a place/slot pair, or nil
 // if the place is unknown or the slot is out of bounds. Carry moves are bounded by
-// MaxCarry-4 (the last 4 slots are reserved, as in _MSG_TradingItem.cpp). The
-// cargo slot is nil unless the account's warehouse is loaded.
+// the currently unlocked Carry range. The cargo slot is nil unless the account's
+// warehouse is loaded.
 func (d *Dispatcher) itemSlot(w *world.World, s *world.Session, e *world.Entity, place, slot int) *world.Item {
 	switch place {
 	case world.ItemPlaceEquip:
@@ -1864,7 +1870,7 @@ func (d *Dispatcher) itemSlot(w *world.World, s *world.Session, e *world.Entity,
 		}
 		return &e.Equip[slot]
 	case world.ItemPlaceCarry:
-		if slot < 0 || slot >= world.MaxCarry-4 {
+		if !carrySlotAccessible(e, slot) {
 			return nil
 		}
 		return &e.Carry[slot]

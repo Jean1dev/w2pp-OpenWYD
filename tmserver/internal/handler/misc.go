@@ -456,7 +456,8 @@ const (
 // A 697 counts as 1 unit, a 4131 as 10. The legacy case never checks confirm.
 func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Entity) {
 	soulSlot := -1
-	for i := 0; i < len(e.Carry)-1; i++ {
+	limit := activeCarryLimit(e)
+	for i := 0; i < limit-1; i++ {
 		if e.Carry[i].Index == soulItem1 && e.Carry[i+1].Index == soulItem2 {
 			soulSlot = i
 			break
@@ -467,7 +468,8 @@ func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Enti
 		return
 	}
 	units := 0
-	for _, it := range e.Carry {
+	for i := 0; i < limit; i++ {
+		it := e.Carry[i]
 		switch it.Index {
 		case sapphireUnit1:
 			units++
@@ -480,7 +482,7 @@ func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Enti
 		return
 	}
 	remaining := blackOracleCost
-	for i := range e.Carry {
+	for i := 0; i < limit; i++ {
 		if remaining <= 0 {
 			break
 		}
@@ -523,10 +525,12 @@ func (d *Dispatcher) compSephi(w *world.World, s *world.Session, e, npc *world.E
 		return
 	}
 	const pedraCount = 8
+	limit := activeCarryLimit(e)
 	slots := make([]int, 0, pedraCount)
 	for j := 0; j < pedraCount; j++ {
 		found := -1
-		for i, it := range e.Carry {
+		for i := 0; i < limit; i++ {
+			it := e.Carry[i]
 			if it.Index == int16(1744+j) {
 				found = i
 				break
@@ -671,7 +675,7 @@ func (d *Dispatcher) perzenExchange(w *world.World, s *world.Session, npc *world
 		return
 	}
 	slot := -1
-	for i := range e.Carry {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		if e.Carry[i].Index == input {
 			slot = i
 			break
