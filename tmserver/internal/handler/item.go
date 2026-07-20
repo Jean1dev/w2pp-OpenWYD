@@ -169,6 +169,8 @@ func isSplittable(index int16) bool {
 	return index >= 2390 && index <= 2419
 }
 
+const maxStackAmount = 120
+
 // setItemAmount writes n into the item's EF_AMOUNT effect slot (mirrors
 // BASE_SetItemAmount): reuse an existing EF_AMOUNT effect, else claim the first
 // empty effect slot. It is the inverse of itemAmount/consumeOneItem.
@@ -186,6 +188,76 @@ func setItemAmount(it *world.Item, n int) {
 			return
 		}
 	}
+}
+
+func tryMergeItemStacks(src, dst *world.Item) bool {
+	if !sameStackClass(*src, *dst) {
+		return false
+	}
+	srcAmount := itemAmount(*src)
+	dstAmount := itemAmount(*dst)
+	if srcAmount <= 0 || dstAmount <= 0 {
+		return true
+	}
+	if dstAmount >= maxStackAmount {
+		return true
+	}
+	if !canWriteItemAmount(*dst) {
+		return true
+	}
+	move := srcAmount
+	if space := maxStackAmount - dstAmount; move > space {
+		move = space
+	}
+	if move < srcAmount && !canWriteItemAmount(*src) {
+		return true
+	}
+	setItemAmount(dst, dstAmount+move)
+	if move == srcAmount {
+		*src = world.Item{}
+		return true
+	}
+	setItemAmount(src, srcAmount-move)
+	return true
+}
+
+func sameStackClass(a, b world.Item) bool {
+	if a.Empty() || b.Empty() || a.Index != b.Index || !isSplittable(a.Index) || a.ExpiresAt != b.ExpiresAt {
+		return false
+	}
+	ae, an := nonAmountEffects(a)
+	be, bn := nonAmountEffects(b)
+	if an != bn {
+		return false
+	}
+	for i := 0; i < an; i++ {
+		if ae[i] != be[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func canWriteItemAmount(it world.Item) bool {
+	for _, ef := range it.Effects {
+		if ef.Effect == 0 || ef.Effect == efAmount {
+			return true
+		}
+	}
+	return false
+}
+
+func nonAmountEffects(it world.Item) ([3]world.Effect, int) {
+	var out [3]world.Effect
+	n := 0
+	for _, ef := range it.Effects {
+		if ef.Effect == 0 || ef.Effect == efAmount {
+			continue
+		}
+		out[n] = ef
+		n++
+	}
+	return out, n
 }
 
 // splitItem handles _MSG_SplitItem (0x02E5, Basedef.h:2381): peel Num units off the
@@ -211,7 +283,7 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 	if slot < 0 || slot >= world.MaxCarry-4 {
 		return
 	}
-	if num <= 0 || num >= 120 {
+	if num <= 0 || num >= maxStackAmount {
 		return
 	}
 	src := &e.Carry[slot]
@@ -1801,6 +1873,9 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	if src == nil || dst == nil {
 		return
 	}
+	if srcPlace == dstPlace && srcSlot == dstSlot {
+		return
+	}
 	if src.Empty() && dst.Empty() {
 		return // nothing to move
 	}
@@ -1812,7 +1887,12 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	// UNVERIFIED: amount-stacking (arrows/potions) is not yet applied.
+	if srcPlace == world.ItemPlaceCarry && dstPlace == world.ItemPlaceCarry && tryMergeItemStacks(src, dst) {
+		w.Send(s, protocol.MsgTradingItem, payload) // echo the move
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+		return
+	}
 	*src, *dst = *dst, *src
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
