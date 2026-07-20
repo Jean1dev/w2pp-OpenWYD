@@ -100,4 +100,9 @@ func TestLoadNPCGeneratorsReal(t *testing.T) {
 	if len(gens) < 1000 {
 		t.Errorf("real NPCGener has %d generators, want many", len(gens))
 	}
+	for i, g := range gens {
+		if g.Leader == "Premium_Neil" || g.Follower == "Premium_Neil" {
+			t.Fatalf("real NPCGener contains Premium_Neil at generator %d: %+v", i, g)
+		}
+	}
 }
