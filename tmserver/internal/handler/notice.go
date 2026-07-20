@@ -60,6 +60,13 @@ const (
 	NoticeDuelLose             // you lost the duel
 	NoticeDuelDraw             // the duel ended in a draw (timeout)
 
+	// NoticeDuelInCity: neither this code nor the underlying rule is
+	// confirmed against a legacy capture — the issue #118 scope explicitly
+	// leaves "duelo só fora de cidade?" as an open question. Blocking duel
+	// request/accept while either side stands in a safe city is a best-effort
+	// guess pending real verification.
+	NoticeDuelInCity
+
 	// NoticeCantUseHere (_NN_Cant_Use_That_Here) is sent for consumables whose
 	// real _MSG_UseItem.cpp behavior depends on data absent from this repo, and
 	// for Gema Estelar / Portal Scroll zone gates (issues #135 and #140).

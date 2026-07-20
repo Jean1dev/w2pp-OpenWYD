@@ -33,8 +33,10 @@ var duelInviteTimeout = 30 * time.Second
 // decrements once every 5 ProcessRanking calls, itself gated to run every 4th
 // second (ProcessSecMinTimer.cpp:1575) — a real-time cadence we don't reproduce
 // 1:1. We run the countdown once per tick instead, giving a fixed, documented
-// cap. UNVERIFIED exact legacy wall-clock duration.
-const duelTicks = 121
+// cap. UNVERIFIED exact legacy wall-clock duration. A var (not const, mirrors
+// duelInviteTimeout) so tests can shrink it instead of waiting out the real
+// countdown.
+var duelTicks = 121
 
 // duelArena is the server-wide active duel (legacy RankingProgress/Ranking1/
 // Ranking2/RankingTime, Server.cpp — process-wide globals, not per-pair: only
@@ -103,6 +105,12 @@ func (d *Dispatcher) reqRankingRequest(w *world.World, s *world.Session, target 
 		d.notify(w, s, NoticeDenyWhisper)
 		return
 	}
+	// UNVERIFIED (issue #118): no legacy capture confirms a city restriction;
+	// this is a best-effort gate, not a confirmed parity rule.
+	if inSafeCity(w, s.Conn) || inSafeCity(w, target) {
+		d.notify(w, s, NoticeDuelInCity)
+		return
+	}
 	s.DuelTarget = target
 	s.DuelTargetExpiry = time.Now().Add(duelInviteTimeout).Unix()
 	// Forward the invite: Parm1 = the requester's own conn (so the target's
@@ -126,6 +134,12 @@ func (d *Dispatcher) reqRankingAccept(w *world.World, s *world.Session, requeste
 	if d.duel.active {
 		d.notify(w, s, NoticeDuelBattleInProgress)
 		d.notify(w, reqSess, NoticeDuelBattleInProgress)
+		return
+	}
+	// UNVERIFIED (issue #118): same best-effort city gate as the request path.
+	if inSafeCity(w, s.Conn) || inSafeCity(w, requester) {
+		d.notify(w, s, NoticeDuelInCity)
+		d.notify(w, reqSess, NoticeDuelInCity)
 		return
 	}
 	reqSess.DuelTarget = 0
