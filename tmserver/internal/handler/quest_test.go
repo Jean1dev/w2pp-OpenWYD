@@ -132,6 +132,403 @@ func startServerKing(t *testing.T, db *fakeDB) (string, func(), int) {
 	}, npcID
 }
 
+// questNPCTemplate builds a raw STRUCT_MOB for a generic _MSG_Quest NPC:
+// Merchant (+ EF_GRADE0 grade on Equip[0] when merchant==100) and Clan.
+func questNPCTemplate(name string, merchant, grade, clan uint8) []byte {
+	b := make([]byte, 816)
+	copy(b[0:16], name)
+	const cs = 92
+	b[cs+12] = merchant
+	b[cs+8] = clan
+	binary.LittleEndian.PutUint32(b[cs+24:], 100) // Hp (alive)
+	binary.LittleEndian.PutUint16(b[40:], 5)      // SPX
+	binary.LittleEndian.PutUint16(b[42:], 5)      // SPY
+	if merchant == 100 {
+		binary.LittleEndian.PutUint16(b[140:], 11) // Equip[0].index
+		b[140+2], b[140+3] = 100, grade            // Equip[0].eff0 = (EF_GRADE0, grade)
+	}
+	return b
+}
+
+// startServerQuestNPC is the clock harness with one quest NPC spawned at (5,5).
+func startServerQuestNPC(t *testing.T, db world.Persistence, tmpl []byte) (string, func(), int) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 16}, log, db, d.Handle)
+	npcID := w.SpawnMob(tmpl, 5, 5)
+	if npcID < 0 {
+		t.Fatal("failed to spawn quest NPC")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = w.Serve(ctx, ln); close(done) }()
+	return ln.Addr().String(), func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("server did not stop")
+		}
+	}, npcID
+}
+
+// baseMortalState is a level/class starting point for the new quest-NPC tests;
+// callers override Level/Carry/Equip as needed.
+func baseMortalState(level int) world.CharacterState {
+	return world.CharacterState{
+		Slot: 0, Name: "Hero", Level: level, X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, ClassMaster: classMasterMortal,
+	}
+}
+
+func TestCapaverdeTeleport(t *testing.T) {
+	tmpl := questNPCTemplate("Treinador_Aprendiz", 100, 14, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(120)
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	body := expectAction(t, c)
+	if !inRange(body.TargetX, 2245) || !inRange(body.TargetY, 1576) {
+		t.Fatalf("target = %d,%d, want around 2245,1576", body.TargetX, body.TargetY)
+	}
+}
+
+func TestCapaverdeTeleportWrongLevelNoop(t *testing.T) {
+	tmpl := questNPCTemplate("Treinador_Aprendiz", 100, 14, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(200)
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("wrong-level notice = %d, want NoticeReqNotMet", code)
+	}
+}
+
+func TestCapaverdeTrade(t *testing.T) {
+	tmpl := questNPCTemplate("Chefe_Treina.", 8, 0, 0)
+	db := newDB()
+	st := baseMortalState(120)
+	st.Equip[13] = world.Item{Index: 4080}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	itemA := expect(t, c, protocol.MsgSendItem)
+	itemB := expect(t, c, protocol.MsgSendItem)
+	cleared := map[uint16]uint16{
+		le16(itemA[2:4]): le16(itemA[4:6]),
+		le16(itemB[2:4]): le16(itemB[4:6]),
+	}
+	if idx, ok := cleared[13]; !ok || idx != 0 {
+		t.Fatalf("slot 13 (ticket) = idx %d ok=%v, want cleared", idx, ok)
+	}
+	if idx, ok := cleared[15]; !ok || idx != 4006 {
+		t.Fatalf("slot 15 (cape) = idx %d ok=%v, want green cape 4006", idx, ok)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+}
+
+func TestCapaverdeTradeMissingTicketNoop(t *testing.T) {
+	tmpl := questNPCTemplate("Chefe_Treina.", 8, 0, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(120) // no item in Equip[13]
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("missing-ticket notice = %d, want NoticeReqNotMet", code)
+	}
+}
+
+func TestCapaverdeTradeAlreadyHasCape(t *testing.T) {
+	tmpl := questNPCTemplate("Chefe_Treina.", 8, 0, 0)
+	db := newDB()
+	st := baseMortalState(120)
+	st.Equip[13] = world.Item{Index: 4080}
+	st.Equip[15] = world.Item{Index: 4006}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeAlreadyDone {
+		t.Fatalf("already-done notice = %d, want NoticeAlreadyDone", code)
+	}
+}
+
+func TestMolarGargulaTeleport(t *testing.T) {
+	tmpl := questNPCTemplate("Gargula_Molar", 100, 15, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(220)
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	body := expectAction(t, c)
+	if !inRange(body.TargetX, 817) || !inRange(body.TargetY, 4062) {
+		t.Fatalf("target = %d,%d, want around 817,4062", body.TargetX, body.TargetY)
+	}
+}
+
+func TestMolarGargulaWrongLevelNoop(t *testing.T) {
+	tmpl := questNPCTemplate("Gargula_Molar", 100, 15, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(50)
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("wrong-level notice = %d, want NoticeReqNotMet", code)
+	}
+}
+
+// TestAmuMisticoCompletesForPartyLeader: a Mortal party leader confirming the
+// quest sets the TerraMistica gate; a second attempt then rejects as already
+// done (there is no client-visible success signal to assert on directly — the
+// legacy case only SendClientMessages a text confirmation, UNVERIFIED wire
+// format — so completion is observed through the gate flipping).
+func TestAmuMisticoCompletesForPartyLeader(t *testing.T) {
+	tmpl := questNPCTemplate("Cap.Mercenario", 10, 0, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(100)
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr) // "tester", conn 1
+	defer c.Close()
+	c2 := enterWorldAs(t, addr, "tradeb") // conn 2
+	defer c2.Close()
+
+	reqPartyFrame(t, c, 1, 2)
+	if ty, _, ok := readMaybe(t, c2); !ok || ty != protocol.MsgSendReqParty {
+		t.Fatalf("invitee got %#x ok=%v, want SendReqParty", ty, ok)
+	}
+	acceptPartyFrame(t, c2, 1)
+	expect(t, c, protocol.MsgAcceptParty)
+	expect(t, c2, protocol.MsgAcceptParty)
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("first completion produced %#x; legacy has no wire confirmation", ty)
+	}
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("second attempt notice = %d, want NoticeReqNotMet (already done)", code)
+	}
+}
+
+func TestAmuMisticoSoloNoop(t *testing.T) {
+	tmpl := questNPCTemplate("Cap.Mercenario", 10, 0, 0)
+	db := newDB()
+	db.loadResult = baseMortalState(100)
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("solo notice = %d, want NoticeReqNotMet", code)
+	}
+}
+
+// TestBlackOracleMergesSoulItems: the source items sit in high carry slots
+// (10-12) so the reward — which lands in the first EMPTY slot after the
+// sources are cleared, same as legacy PutItem — unambiguously lands in slot 0
+// rather than reusing a just-cleared source slot.
+func TestBlackOracleMergesSoulItems(t *testing.T) {
+	tmpl := questNPCTemplate("Oraculo_Negro", 78, 0, 0)
+	db := newDB()
+	st := baseMortalState(300)
+	st.Carry[10] = world.Item{Index: 1740}
+	st.Carry[11] = world.Item{Index: 1741}
+	st.Carry[12] = world.Item{Index: 4131} // 10 sapphire units in one stack
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	got := map[uint16]uint16{}
+	for i := 0; i < 4; i++ { // slot10, slot11, sapphire slot12, reward slot0
+		item := expect(t, c, protocol.MsgSendItem)
+		got[le16(item[2:4])] = le16(item[4:6])
+	}
+	if idx, ok := got[10]; !ok || idx != 0 {
+		t.Fatalf("slot 10 (soul1) = idx %d ok=%v, want cleared", idx, ok)
+	}
+	if idx, ok := got[11]; !ok || idx != 0 {
+		t.Fatalf("slot 11 (soul2) = idx %d ok=%v, want cleared", idx, ok)
+	}
+	if idx, ok := got[12]; !ok || idx != 0 {
+		t.Fatalf("slot 12 (sapphire) = idx %d ok=%v, want cleared", idx, ok)
+	}
+	if idx, ok := got[0]; !ok || idx != idealStoneItem {
+		t.Fatalf("slot 0 (reward) = idx %d ok=%v, want Pedra Ideal %d", idx, ok, idealStoneItem)
+	}
+}
+
+func TestBlackOracleMissingSoulNoop(t *testing.T) {
+	tmpl := questNPCTemplate("Oraculo_Negro", 78, 0, 0)
+	db := newDB()
+	st := baseMortalState(300)
+	st.Carry[0] = world.Item{Index: 1740} // soul2 missing
+	st.Carry[1] = world.Item{Index: 4131}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("missing-soul notice = %d, want NoticeReqNotMet", code)
+	}
+}
+
+func TestCompSephiCraftsSephirotForClass(t *testing.T) {
+	tmpl := questNPCTemplate("Composicao_Sephi", 19, 0, 0)
+	// The template's Class field (offset 39 per STRUCT_MOB, same as world.Entity.Class)
+	// selects which of the 4 Sephirot the NPC crafts; leave at 0 (TransKnight → 1760).
+	db := newDB()
+	st := baseMortalState(300)
+	st.Coin = 30_000_000
+	for j := 0; j < 8; j++ {
+		st.Carry[j] = world.Item{Index: int16(1744 + j)}
+	}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	expect(t, c, protocol.MsgUpdateEtc) // coin deducted
+	got := map[uint16]uint16{}
+	for i := 0; i < 9; i++ { // 8 consumed Pedras + 1 reward
+		item := expect(t, c, protocol.MsgSendItem)
+		got[le16(item[2:4])] = le16(item[4:6])
+	}
+	for j := 0; j < 8; j++ {
+		if idx, ok := got[uint16(j)]; !ok || idx != 0 {
+			t.Fatalf("pedra slot %d = idx %d ok=%v, want cleared", j, idx, ok)
+		}
+	}
+	if idx, ok := got[8]; !ok || idx != archSephirotMin {
+		t.Fatalf("reward slot 8 = idx %d ok=%v, want Sephirot %d", idx, ok, archSephirotMin)
+	}
+}
+
+func TestCompSephiNotEnoughCoinNoop(t *testing.T) {
+	tmpl := questNPCTemplate("Composicao_Sephi", 19, 0, 0)
+	db := newDB()
+	st := baseMortalState(300)
+	st.Coin = 1_000 // short
+	for j := 0; j < 8; j++ {
+		st.Carry[j] = world.Item{Index: int16(1744 + j)}
+	}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+		t.Fatalf("short-coin notice = %d, want NoticeReqNotMet", code)
+	}
+}
+
+func TestCompSephiConfirmZeroIsAskOnly(t *testing.T) {
+	tmpl := questNPCTemplate("Composicao_Sephi", 19, 0, 0)
+	db := newDB()
+	st := baseMortalState(300)
+	st.Coin = 30_000_000
+	for j := 0; j < 8; j++ {
+		st.Carry[j] = world.Item{Index: int16(1744 + j)}
+	}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID) // confirm=0
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("confirm=0 produced %#x; want ask-only no-op", ty)
+	}
+}
+
+// TestKingArchRejectsClanMismatch: the King's faction gate rejects a Mortal
+// whose effective Clan doesn't match the King's, even with the right gear and
+// level (_MSG_Quest.cpp:696-741).
+func TestKingArchRejectsClanMismatch(t *testing.T) {
+	tmpl := questNPCTemplate("Rei_Harabard", 111, 0, 7) // King is Clan 7
+	db := newDB()
+	st := baseMortalState(299)
+	st.Equip[0] = world.Item{Index: 21}
+	st.Equip[10] = world.Item{Index: 1742}
+	st.Equip[11] = world.Item{Index: 1762}
+	st.Clan = 8 // player is Clan 8 — mismatch
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("clan mismatch produced %#x; want no-op", ty)
+	}
+}
+
+// TestKingArchRejectsMissingPedraIdeal: without item 1742 equipped in slot 10,
+// the Sephirot alone is not enough (_MSG_Quest.cpp:769).
+func TestKingArchRejectsMissingPedraIdeal(t *testing.T) {
+	tmpl := questNPCTemplate("Rei_Harabard", 111, 0, 0)
+	db := newDB()
+	st := baseMortalState(299)
+	st.Equip[0] = world.Item{Index: 21}
+	st.Equip[11] = world.Item{Index: 1762} // Sephirot present, Pedra Ideal missing
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("missing Pedra Ideal produced %#x; want no-op", ty)
+	}
+}
+
 func mestreGrifoTemplate() []byte {
 	if b, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Mestre_Grifo")); err == nil && len(b) == 816 {
 		return b

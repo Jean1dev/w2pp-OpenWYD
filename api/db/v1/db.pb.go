@@ -640,26 +640,27 @@ type Character struct {
 	// Skill/bonus state (skills front). skill_bonus is NOT carried: the tmServer
 	// re-derives it at login from level and the learned mask, exactly as the
 	// legacy BASE_GetBonusSkillPoint does on character load.
-	ScoreBonus      int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`                  // free attribute points
-	SpecialBonus    int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`            // free mastery points (incremental, +2/level)
-	LearnedSkill    int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`            // MOB.LearnedSkill bitmask
-	Magic           int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                              // CurrentScore.Magic
-	Special         []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                                   // BaseScore.Special[4] (allocated mastery)
-	SkillBar        []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`                 // MOB.SkillBar[4]
-	ShortSkill      []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"`           // CUser.ShortSkill[16] (client hotbar)
-	SecLearnedSkill int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"` // MobExtra.SecLearnedSkill
-	Soul            int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                // MobExtra.Soul
-	ClassMaster     int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`               // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
-	Citizen         int32    `protobuf:"varint,31,opt,name=citizen,proto3" json:"citizen,omitempty"`                                          // MobExtra.Citizen (city allegiance; 0 = none)
-	Fame            int32    `protobuf:"varint,32,opt,name=fame,proto3" json:"fame,omitempty"`                                                // MobExtra.Fame
-	SaveX           int32    `protobuf:"varint,33,opt,name=save_x,json=saveX,proto3" json:"save_x,omitempty"`                                 // STRUCT_MOB.SPX: Gema Estelar warp save-point
-	SaveY           int32    `protobuf:"varint,34,opt,name=save_y,json=saveY,proto3" json:"save_y,omitempty"`                                 // STRUCT_MOB.SPY: Gema Estelar warp save-point
-	CelestialLv40   int32    `protobuf:"varint,35,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`         // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
-	CelestialLv90   int32    `protobuf:"varint,36,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`         // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
-	CelestialCircle int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`   // QuestInfo.Circle (Cythera Arcana quest done)
-	GuildLevel      int32    `protobuf:"varint,38,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                  // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	ScoreBonus         int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`                           // free attribute points
+	SpecialBonus       int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`                     // free mastery points (incremental, +2/level)
+	LearnedSkill       int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`                     // MOB.LearnedSkill bitmask
+	Magic              int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                                       // CurrentScore.Magic
+	Special            []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                                            // BaseScore.Special[4] (allocated mastery)
+	SkillBar           []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`                          // MOB.SkillBar[4]
+	ShortSkill         []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"`                    // CUser.ShortSkill[16] (client hotbar)
+	SecLearnedSkill    int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"`          // MobExtra.SecLearnedSkill
+	Soul               int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                         // MobExtra.Soul
+	ClassMaster        int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`                        // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
+	Citizen            int32    `protobuf:"varint,31,opt,name=citizen,proto3" json:"citizen,omitempty"`                                                   // MobExtra.Citizen (city allegiance; 0 = none)
+	Fame               int32    `protobuf:"varint,32,opt,name=fame,proto3" json:"fame,omitempty"`                                                         // MobExtra.Fame
+	SaveX              int32    `protobuf:"varint,33,opt,name=save_x,json=saveX,proto3" json:"save_x,omitempty"`                                          // STRUCT_MOB.SPX: Gema Estelar warp save-point
+	SaveY              int32    `protobuf:"varint,34,opt,name=save_y,json=saveY,proto3" json:"save_y,omitempty"`                                          // STRUCT_MOB.SPY: Gema Estelar warp save-point
+	CelestialLv40      int32    `protobuf:"varint,35,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`                  // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelestialLv90      int32    `protobuf:"varint,36,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`                  // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelestialCircle    int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`            // QuestInfo.Circle (Cythera Arcana quest done)
+	GuildLevel         int32    `protobuf:"varint,38,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                           // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
+	MortalTerraMistica int32    `protobuf:"varint,39,opt,name=mortal_terra_mistica,json=mortalTerraMistica,proto3" json:"mortal_terra_mistica,omitempty"` // QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -954,6 +955,13 @@ func (x *Character) GetCelestialCircle() int32 {
 func (x *Character) GetGuildLevel() int32 {
 	if x != nil {
 		return x.GuildLevel
+	}
+	return 0
+}
+
+func (x *Character) GetMortalTerraMistica() int32 {
+	if x != nil {
+		return x.MortalTerraMistica
 	}
 	return 0
 }
@@ -4609,7 +4617,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x88\b\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xba\b\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -4652,7 +4660,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x0ecelestial_lv90\x18$ \x01(\x05R\rcelestialLv90\x12)\n" +
 	"\x10celestial_circle\x18% \x01(\x05R\x0fcelestialCircle\x12\x1f\n" +
 	"\vguild_level\x18& \x01(\x05R\n" +
-	"guildLevel\"\xcd\x01\n" +
+	"guildLevel\x120\n" +
+	"\x14mortal_terra_mistica\x18' \x01(\x05R\x12mortalTerraMistica\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

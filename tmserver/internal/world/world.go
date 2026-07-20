@@ -343,6 +343,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.Clan, cs.GuildID, cs.GuildLevel, cs.Soul, cs.Fame = e.Clan, e.Guild, e.GuildLevel, e.Soul, e.Fame
 	cs.ClassMaster = e.ClassMaster
 	cs.CelLv40, cs.CelLv90, cs.CelCircle = e.CelLv40, e.CelLv90, e.CelCircle
+	cs.TerraMistica = e.TerraMistica
 	cs.LastCity = e.LastCity
 	cs.SaveX, cs.SaveY = e.SaveX, e.SaveY
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
