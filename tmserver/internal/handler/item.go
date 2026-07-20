@@ -401,10 +401,6 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 		d.removeTrade(w, s)
 		return true
 	}
-	if s.QuestTicketTravel {
-		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
-		return true
-	}
 	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
 		d.notify(w, s, NoticeReqNotMet)
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
@@ -419,20 +415,15 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 	itemIdx := e.Carry[src].Index
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
-	s.QuestTicketTravel = true
-	d.log.Info("quest256 ticket travel started", "conn", s.Conn, "item", itemIdx, "level", e.Level, "quest_flag", step.flag)
-	w.Go(s, func() func(*world.World, *world.Session) {
-		time.Sleep(masterGriffTravelDelay)
-		return func(w *world.World, s *world.Session) {
-			s.QuestTicketTravel = false
-			e := w.Entity(s.Conn)
-			if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
-				return
-			}
-			d.teleportQuest256Step(w, s, e, step)
-			d.log.Info("quest256 ticket teleport", "conn", s.Conn, "item", itemIdx, "level", e.Level, "quest_flag", step.flag)
-		}
-	})
+	// Teleport immediately: _MSG_Quest.cpp's DoTeleport for these same tickets
+	// (COVEIRO/JARDINEIRO/KAIZEN/HIDRA/ELFOS, :332/:376/:420/:464/:508) is
+	// synchronous, and so are this file's other item-triggered teleports
+	// (usePortalScroll, useGemaEstelar). The 9.5s masterGriffTravelDelay this used
+	// to borrow is justified only for the real _MSG_MasterGriff opcode, which has
+	// a matching client-side travel animation; a bare right-click has none, so the
+	// delay just left the player staring at nothing for ~10s after the item vanished.
+	d.teleportQuest256Step(w, s, e, step)
+	d.log.Info("quest256 ticket teleport", "conn", s.Conn, "item", itemIdx, "level", e.Level, "quest_flag", step.flag)
 	return true
 }
 

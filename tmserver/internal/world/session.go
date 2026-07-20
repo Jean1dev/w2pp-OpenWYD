@@ -76,7 +76,6 @@ type Session struct {
 	ReqMp             int32           // CUser.ReqMp: server-owned MP target for regen/potions
 	CriticalProgress  uint16          // CUser.cProgress used by BASE_GetDoubleCritical
 	ShortSkill        [16]uint8       // client hotbar layout (CUser.CharShortSkill, _MSG_SetShortSkill)
-	QuestTicketTravel bool            // right-click Quest 256 ticket travel is pending; blocks double-use
 	LoginSpawnX       int16           // last server-injected login spawn, for movement diagnostics
 	LoginSpawnY       int16
 	LoginTick         uint32
