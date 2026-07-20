@@ -269,6 +269,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// Celestial quest gates (set by /destravar40/90 and /arcana; CheckGetLevel
 		// reads Lv40/Lv90 to unlock the 40/90 caps).
 		e.CelLv40, e.CelLv90, e.CelCircle = st.CelLv40, st.CelLv90, st.CelCircle
+		e.TerraMistica = st.TerraMistica
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned

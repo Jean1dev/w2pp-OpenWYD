@@ -177,6 +177,7 @@ message Character {
   int32 celestial_lv90 = 36;       // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
   int32 celestial_circle = 37;     // QuestInfo.Circle (Cythera Arcana quest done)
   int32 guild_level = 38;          // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
+  int32 mortal_terra_mistica = 39; // QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
 }
 
 message Item {
