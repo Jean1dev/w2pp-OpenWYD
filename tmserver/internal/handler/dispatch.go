@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
@@ -34,6 +35,12 @@ type Config struct {
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
 	// UNVERIFIED placeholders are installed (every recipe reports "no match").
 	CombineFamilies map[protocol.Type]CombineFamily
+
+	// OdinCatalog is the item metadata combineItemOdin needs (MatchOdin's Extra
+	// lookup, Plus12's nPos gate). NewCombineCatalog builds it the same way
+	// DefaultCombineFamilies does. When zero, every Odin recipe still matches by
+	// sIndex, but Composição de Sets/armas can't resolve a result item.
+	OdinCatalog combine.Catalog
 
 	// BaseMobs are the per-class STRUCT_MOB templates (class index → raw 816 bytes,
 	// content.LoadBaseMobs). Used to render a character on entering the world with
@@ -116,6 +123,7 @@ type Dispatcher struct {
 	routes          map[protocol.Type]handlerFunc
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
+	odinCatalog     combine.Catalog
 	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
 	summonMobs      [][]byte                     // BM evocation templates (summon id → STRUCT_MOB)
 	vineMob         []byte                       // Sephira Muro de Espinhos template
@@ -185,6 +193,7 @@ func New(cfg Config) *Dispatcher {
 		routes:          make(map[protocol.Type]handlerFunc),
 		fails:           make(map[string]int),
 		combineFamilies: cfg.CombineFamilies,
+		odinCatalog:     cfg.OdinCatalog,
 		baseMobs:        cfg.BaseMobs,
 		summonMobs:      cfg.SummonMobs,
 		vineMob:         cfg.VineMob,
@@ -277,6 +286,7 @@ func New(cfg Config) *Dispatcher {
 		d.routes[ty] = d.combineItem
 	}
 	d.routes[protocol.MsgCombineItemExtracao] = d.combineExtracao
+	d.routes[protocol.MsgCombineItemOdin] = d.combineItemOdin
 	// Batch 7 — party & guild.
 	d.routes[protocol.MsgSendReqParty] = d.sendReqParty
 	d.routes[protocol.MsgAcceptParty] = d.acceptParty

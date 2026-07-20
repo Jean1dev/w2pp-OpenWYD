@@ -277,7 +277,6 @@ const (
 	volWaterMLo, volWaterMHi = 21, 30   // Pergaminho da Água (M), _MSG_UseItem.cpp:1726
 	volWaterNLo, volWaterNHi = 131, 140 // Pergaminho da Água (N), _MSG_UseItem.cpp:1920
 	volWaterALo, volWaterAHi = 161, 170 // Pergaminho da Água (A), _MSG_UseItem.cpp:2025
-	volClasses               = 190      // Classes A-E, _MSG_UseItem.cpp:4959
 
 	// itemSeloDoGuerreiro and itemPedraMisteriosa carry no EF_VOLATILE in the
 	// catalog (BASE_GetItemAbility falls back to 0), so the legacy — and this
@@ -285,6 +284,14 @@ const (
 	itemSeloDoGuerreiro = 4146
 	itemPedraMisteriosa = 4148
 )
+
+// volClasses (Classes A-E, _MSG_UseItem.cpp:4959) is handled by useClasseItem
+// (classe.go), NOT rejectUnimplementedConsumable: unlike the water scrolls
+// above, its logic — the #pragma region Classe block, SetItemBonus2
+// (Server.cpp:2719-2861), and the four g_pBonusValue2..5 tables
+// (Basedef.cpp:353-529) — is fully present in Source/. The issue #135 fix
+// lumped it in with the genuinely-missing cases by mistake.
+const volClasses = 190
 
 // potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
 // The original defaults to 100 and exposes it to the runtime config (Server.cpp:647,
@@ -366,10 +373,11 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useChocolateDoAmor(w, s, e, src)
 	case vol == volCoracaoDoce:
 		d.useCoracaoDoce(w, s, e, src)
+	case vol == volClasses:
+		d.useClasseItem(w, s, e, body, src)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
 		vol >= volWaterNLo && vol <= volWaterNHi,
-		vol >= volWaterALo && vol <= volWaterAHi,
-		vol == volClasses:
+		vol >= volWaterALo && vol <= volWaterAHi:
 		// issue #135: real behavior needs data absent from Source/ (see the const
 		// block above) — reject honestly instead of no-op'ing, so the client never
 		// shows a consumption the next slot resync would revert.
@@ -429,11 +437,10 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 
 // rejectUnimplementedConsumable answers _MSG_UseItem for a consumable whose real
 // effect this fork can't implement with parity (issue #135: the water-scroll
-// dungeon coordinates, the Celestial-class swap, and the item-bonus reroll all
-// depend on data/algorithms that don't exist anywhere in the available Source/
-// tree). Unlike a silent no-op, this tells the client plainly that nothing
-// happened and re-syncs the slot, so it never shows a phantom consumption that a
-// later move/trade would "revert".
+// dungeon coordinates depend on data/algorithms that don't exist anywhere in
+// the available Source/ tree). Unlike a silent no-op, this tells the client
+// plainly that nothing happened and re-syncs the slot, so it never shows a
+// phantom consumption that a later move/trade would "revert".
 func (d *Dispatcher) rejectUnimplementedConsumable(w *world.World, s *world.Session, e *world.Entity, src int) {
 	d.notify(w, s, NoticeCantUseHere)
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
