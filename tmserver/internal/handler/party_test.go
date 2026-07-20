@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -10,10 +11,11 @@ import (
 
 func partyDB() *fakeDB {
 	db := newDB()
-	mk := func() world.CharacterState {
-		return world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 50}
+	mk := func(name string) world.CharacterState {
+		return world.CharacterState{Slot: 0, Name: name, X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 50}
 	}
-	db.loads = map[int64]world.CharacterState{7: mk(), 11: mk()}
+	db.accounts["third"] = &fakeAccount{id: 13, pass: "secret", chars: []world.CharSummary{{Slot: 0, Name: "HeroC", Class: 1, Level: 50}}}
+	db.loads = map[int64]world.CharacterState{7: mk("Hero"), 11: mk("HeroB"), 13: mk("HeroC")}
 	return db
 }
 
@@ -28,14 +30,57 @@ func guildDB() *fakeDB {
 
 func reqPartyFrame(t *testing.T, c net.Conn, partyID, target int) {
 	t.Helper()
-	body := protocol.MsgSendReqPartyBody{PartyID: int32(partyID), Target: int32(target)}
+	body := protocol.MsgSendReqPartyBody{PartyID: int16(partyID), Unk: int32(target)}
 	send(t, c, protocol.MsgSendReqParty, body.Encode())
 }
 
-func acceptPartyFrame(t *testing.T, c net.Conn, leaderID int) {
+func acceptPartyFrame(t *testing.T, c net.Conn, leaderID int, leaderName string) {
 	t.Helper()
-	body := protocol.MsgAcceptPartyBody{LeaderID: int32(leaderID)}
+	body := protocol.MsgAcceptPartyBody{LeaderID: int16(leaderID)}
+	copy(body.MobName[:], leaderName)
 	send(t, c, protocol.MsgAcceptParty, body.Encode())
+}
+
+func removePartyFrame(t *testing.T, c net.Conn, target int) {
+	t.Helper()
+	send(t, c, protocol.MsgRemoveParty, protocol.EncodeStandardParm(int32(target)))
+}
+
+func expectPartyFrame(t *testing.T, c net.Conn, want protocol.Type) []byte {
+	t.Helper()
+	ty, payload, ok := readMaybe(t, c)
+	if !ok || ty != want {
+		t.Fatalf("got %#x ok=%v, want %#x", ty, ok, want)
+	}
+	return payload
+}
+
+func expectCNFAddParty(t *testing.T, c net.Conn) protocol.MsgCNFAddPartyBody {
+	t.Helper()
+	payload := expectPartyFrame(t, c, protocol.MsgCNFAddParty)
+	if len(payload) != protocol.MsgCNFAddPartyBodySize {
+		t.Fatalf("CNFAddParty payload = %d, want %d", len(payload), protocol.MsgCNFAddPartyBodySize)
+	}
+	return protocol.MsgCNFAddPartyBody{
+		LeaderConn: protocolLe16(payload[0:2]),
+		PartyID:    protocolLe16(payload[8:10]),
+		Target:     protocolLe16(payload[26:28]),
+	}
+}
+
+func expectRemoveParty(t *testing.T, c net.Conn, connExit uint16) {
+	t.Helper()
+	payload := expectPartyFrame(t, c, protocol.MsgRemoveParty)
+	if len(payload) != protocol.MsgRemovePartyBodySize {
+		t.Fatalf("RemoveParty payload = %d, want %d", len(payload), protocol.MsgRemovePartyBodySize)
+	}
+	if got := protocolLe16(payload[0:2]); got != connExit {
+		t.Fatalf("RemoveParty Leaderconn = %d, want %d", got, connExit)
+	}
+}
+
+func protocolLe16(b []byte) uint16 {
+	return uint16(b[0]) | uint16(b[1])<<8
 }
 
 func TestPartyInviteAndAccept(t *testing.T) {
@@ -47,17 +92,23 @@ func TestPartyInviteAndAccept(t *testing.T) {
 	defer b.Close()
 
 	reqPartyFrame(t, a, 1, 2)
-	if ty, _, ok := readMaybe(t, b); !ok || ty != protocol.MsgSendReqParty {
-		t.Fatalf("invitee got %#x ok=%v, want SendReqParty", ty, ok)
+	payload := expectPartyFrame(t, b, protocol.MsgSendReqParty)
+	var invite protocol.MsgSendReqPartyBody
+	if err := invite.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if invite.PartyID != 1 || strings.TrimRight(string(invite.MobName[:]), "\x00") != "Hero" {
+		t.Fatalf("invite payload = %+v, want leader party/name", invite)
 	}
 
-	acceptPartyFrame(t, b, 1)
-	// Both members receive the party-list sync.
-	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgAcceptParty {
-		t.Errorf("leader got %#x ok=%v, want AcceptParty sync", ty, ok)
+	acceptPartyFrame(t, b, 1, "Hero")
+	leaderSlot := expectCNFAddParty(t, a)
+	if leaderSlot.LeaderConn != 1 || leaderSlot.PartyID != 1 {
+		t.Fatalf("leader first CNFAddParty = %+v, want leader slot", leaderSlot)
 	}
-	if ty, _, ok := readMaybe(t, b); !ok || ty != protocol.MsgAcceptParty {
-		t.Errorf("invitee got %#x ok=%v, want AcceptParty sync", ty, ok)
+	memberSlot := expectCNFAddParty(t, b)
+	if memberSlot.PartyID != 2 || memberSlot.Target != 52428 {
+		t.Fatalf("invitee first CNFAddParty = %+v, want member slot", memberSlot)
 	}
 }
 
@@ -71,12 +122,97 @@ func TestPartyAcceptWithoutInvite(t *testing.T) {
 	defer b.Close()
 
 	// B accepts a party it was never invited to → rejected, no sync.
-	acceptPartyFrame(t, b, 1)
+	acceptPartyFrame(t, b, 1, "Hero")
 	if ty, _, ok := readMaybe(t, b); ok {
 		t.Errorf("forged accept produced %#x; should be rejected (PARTYHACK)", ty)
 	}
 	if ty, _, ok := readMaybe(t, a); ok {
 		t.Errorf("leader received %#x for a forged accept; should be none", ty)
+	}
+}
+
+func TestPartyAddMemberFull(t *testing.T) {
+	leader := &world.Entity{}
+	for i := range leader.PartyList {
+		leader.PartyList[i] = i + 1
+	}
+	if _, ok := addMember(leader, 99); ok {
+		t.Fatal("addMember succeeded for a full party")
+	}
+	if hasMember(leader, 99) {
+		t.Fatal("full party mutated with the rejected member")
+	}
+}
+
+func TestPartyMemberLeave(t *testing.T) {
+	addr, stop, _ := startServerClock(t, partyDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	reqPartyFrame(t, a, 1, 2)
+	expectPartyFrame(t, b, protocol.MsgSendReqParty)
+	acceptPartyFrame(t, b, 1, "Hero")
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	removePartyFrame(t, b, 2)
+	expectRemoveParty(t, b, 0)
+	expectRemoveParty(t, a, 2)
+}
+
+func TestPartyLeaderKicksMember(t *testing.T) {
+	addr, stop, _ := startServerClock(t, partyDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	reqPartyFrame(t, a, 1, 2)
+	expectPartyFrame(t, b, protocol.MsgSendReqParty)
+	acceptPartyFrame(t, b, 1, "Hero")
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	removePartyFrame(t, a, 2)
+	expectRemoveParty(t, b, 0)
+	expectRemoveParty(t, a, 2)
+}
+
+func TestPartyLeaderLeavePromotesNextMember(t *testing.T) {
+	addr, stop, _ := startServerClock(t, partyDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+	c := enterWorldAs(t, addr, "third")
+	defer c.Close()
+
+	reqPartyFrame(t, a, 1, 2)
+	expectPartyFrame(t, b, protocol.MsgSendReqParty)
+	acceptPartyFrame(t, b, 1, "Hero")
+	drainRaw(t, a)
+	drainRaw(t, b)
+	reqPartyFrame(t, a, 1, 3)
+	expectPartyFrame(t, c, protocol.MsgSendReqParty)
+	acceptPartyFrame(t, c, 1, "Hero")
+	drainRaw(t, a)
+	drainRaw(t, b)
+	drainRaw(t, c)
+
+	removePartyFrame(t, a, 1)
+	expectRemoveParty(t, a, 0)
+	expectRemoveParty(t, b, 0)
+	expectRemoveParty(t, c, 0)
+	if slot := expectCNFAddParty(t, b); slot.LeaderConn != 2 || slot.PartyID != 2 {
+		t.Fatalf("promoted member first sync = %+v, want new leader slot", slot)
+	}
+	if slot := expectCNFAddParty(t, c); slot.PartyID != 3 {
+		t.Fatalf("remaining member first sync = %+v, want own slot", slot)
 	}
 }
 
