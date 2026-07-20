@@ -492,8 +492,7 @@ func TestMasterGriffWarpIDZeroDefaultsToFirstDestination(t *testing.T) {
 	}
 }
 
-func TestQuest256TicketTravelsAfterDelay(t *testing.T) {
-	withMasterGriffTravelDelay(t, 20*time.Millisecond)
+func TestQuest256TicketTravelsImmediately(t *testing.T) {
 	tests := []struct {
 		name  string
 		item  int16
@@ -536,33 +535,7 @@ func TestQuest256TicketTravelsAfterDelay(t *testing.T) {
 	}
 }
 
-func TestQuest256TicketDoesNotTeleportImmediately(t *testing.T) {
-	withMasterGriffTravelDelay(t, 500*time.Millisecond)
-	st := world.CharacterState{
-		Slot: 0, Name: "Hero", Level: 50, X: 2113, Y: 2079,
-		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
-	}
-	st.Carry[0] = world.Item{Index: 4038}
-	addr, stop, _ := startServerMestreGrifo(t, st, false)
-	defer stop()
-	c := enterWorld(t, addr)
-	defer c.Close()
-
-	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
-	send(t, c, protocol.MsgUseItem, body.Encode())
-	expect(t, c, protocol.MsgSendItem)
-	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
-		t.Fatalf("ticket teleported immediately with %#x; want delayed travel", ty)
-	}
-	time.Sleep(masterGriffTravelDelay + 50*time.Millisecond)
-	action := expectAction(t, c)
-	if !inRange(action.TargetX, 2398) || !inRange(action.TargetY, 2105) {
-		t.Fatalf("delayed ticket target = %d,%d, want Coveiro", action.TargetX, action.TargetY)
-	}
-}
-
 func TestQuest256TicketInvalidLevelDoesNotConsume(t *testing.T) {
-	withMasterGriffTravelDelay(t, 20*time.Millisecond)
 	st := world.CharacterState{
 		Slot: 0, Name: "Hero", Level: 38, X: 2113, Y: 2079,
 		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
@@ -587,13 +560,16 @@ func TestQuest256TicketInvalidLevelDoesNotConsume(t *testing.T) {
 	}
 }
 
-func TestQuest256TicketPendingBlocksDoubleUse(t *testing.T) {
-	withMasterGriffTravelDelay(t, 500*time.Millisecond)
+// TestQuest256TicketSecondUseOnEmptySlotIsNoop: with the ticket consumed
+// synchronously (no more pending-delay window), a second right-click lands on
+// an already-empty slot. useItem's top-of-function Empty() guard makes that a
+// clean no-op — no second consume, no second teleport.
+func TestQuest256TicketSecondUseOnEmptySlotIsNoop(t *testing.T) {
 	st := world.CharacterState{
 		Slot: 0, Name: "Hero", Level: 50, X: 2113, Y: 2079,
 		HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
 	}
-	st.Carry[0] = world.Item{Index: 4038, Effects: [3]world.Effect{{Effect: efAmount, Value: 2}}}
+	st.Carry[0] = world.Item{Index: 4038}
 	addr, stop, _ := startServerMestreGrifo(t, st, false)
 	defer stop()
 	c := enterWorld(t, addr)
@@ -602,21 +578,13 @@ func TestQuest256TicketPendingBlocksDoubleUse(t *testing.T) {
 	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
 	send(t, c, protocol.MsgUseItem, body.Encode())
 	first := expect(t, c, protocol.MsgSendItem)
-	if idx, amount := le16(first[4:6]), first[7]; idx != 4038 || amount != 1 {
-		t.Fatalf("first consume idx=%d amount=%d, want ticket amount 1", idx, amount)
+	if idx := le16(first[4:6]); idx != 0 {
+		t.Fatalf("first consume idx=%d, want slot cleared", idx)
 	}
-	send(t, c, protocol.MsgUseItem, body.Encode())
-	second := expect(t, c, protocol.MsgSendItem)
-	if idx, amount := le16(second[4:6]), second[7]; idx != 4038 || amount != 1 {
-		t.Fatalf("pending resync idx=%d amount=%d, want ticket still amount 1", idx, amount)
-	}
+	expectAction(t, c)
 
-	time.Sleep(masterGriffTravelDelay + 50*time.Millisecond)
-	action := expectAction(t, c)
-	if !inRange(action.TargetX, 2398) || !inRange(action.TargetY, 2105) {
-		t.Fatalf("pending ticket target = %d,%d, want Coveiro", action.TargetX, action.TargetY)
-	}
-	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgAction {
-		t.Fatalf("pending ticket queued a second teleport: %#x", ty)
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("second use on empty slot produced %#x; want no-op", ty)
 	}
 }
