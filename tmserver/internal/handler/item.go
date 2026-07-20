@@ -1078,6 +1078,10 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 		d.magicBeanReject(w, s, e, src, NoticeOnlyToEquips)
 		return
 	}
+	if magicBeanWeaponSlot(dstSlot) && s.AccessLevel < world.AccessModerator {
+		d.magicBeanReject(w, s, e, src, NoticeCantUseHere)
+		return
+	}
 	dst := d.itemSlot(w, s, e, int(body.DestType), dstSlot)
 	if dst == nil {
 		return
@@ -1122,6 +1126,10 @@ func (d *Dispatcher) useMagicBean(w *world.World, s *world.Session, e *world.Ent
 func (d *Dispatcher) magicBeanReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
 	d.notify(w, s, n)
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+func magicBeanWeaponSlot(slot int) bool {
+	return slot == weaponSlotR || slot == weaponSlotL
 }
 
 func magicBeanEffectSlot(it world.Item, remover bool) int {
