@@ -459,6 +459,8 @@ const (
 	NpcAdminService_DeleteNpc_FullMethodName             = "/web.v1.NpcAdminService/DeleteNpc"
 	NpcAdminService_ListMerchantTemplates_FullMethodName = "/web.v1.NpcAdminService/ListMerchantTemplates"
 	NpcAdminService_ListItemCatalog_FullMethodName       = "/web.v1.NpcAdminService/ListItemCatalog"
+	NpcAdminService_ListDropItems_FullMethodName         = "/web.v1.NpcAdminService/ListDropItems"
+	NpcAdminService_ListMobDrops_FullMethodName          = "/web.v1.NpcAdminService/ListMobDrops"
 	NpcAdminService_ListItemPrices_FullMethodName        = "/web.v1.NpcAdminService/ListItemPrices"
 	NpcAdminService_ListMapZones_FullMethodName          = "/web.v1.NpcAdminService/ListMapZones"
 )
@@ -498,6 +500,13 @@ type NpcAdminServiceClient interface {
 	// offer a searchable picker instead of a raw item_index typed by hand.
 	// Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
 	ListItemCatalog(ctx context.Context, in *ListItemCatalogRequest, opts ...grpc.CallOption) (*ListItemCatalogResponse, error)
+	// ListDropItems returns the DropTool-style item-centric report from the
+	// content tree: item -> mobs/slots that can drop it. This is read-only
+	// content metadata; the tmServer runtime still owns actual drop rolls.
+	ListDropItems(ctx context.Context, in *ListDropItemsRequest, opts ...grpc.CallOption) (*ListDropItemsResponse, error)
+	// ListMobDrops returns the DropTool-style mob-centric report from the
+	// content tree: mob template -> Carry[] drop slots.
+	ListMobDrops(ctx context.Context, in *ListMobDropsRequest, opts ...grpc.CallOption) (*ListMobDropsResponse, error)
 	// ListItemPrices returns every global item price override currently set
 	// (item_price table). An item absent from the list has no override — it
 	// uses the content catalog's base price.
@@ -606,6 +615,26 @@ func (c *npcAdminServiceClient) ListItemCatalog(ctx context.Context, in *ListIte
 	return out, nil
 }
 
+func (c *npcAdminServiceClient) ListDropItems(ctx context.Context, in *ListDropItemsRequest, opts ...grpc.CallOption) (*ListDropItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDropItemsResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListDropItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) ListMobDrops(ctx context.Context, in *ListMobDropsRequest, opts ...grpc.CallOption) (*ListMobDropsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMobDropsResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListMobDrops_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *npcAdminServiceClient) ListItemPrices(ctx context.Context, in *ListItemPricesRequest, opts ...grpc.CallOption) (*ListItemPricesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListItemPricesResponse)
@@ -661,6 +690,13 @@ type NpcAdminServiceServer interface {
 	// offer a searchable picker instead of a raw item_index typed by hand.
 	// Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
 	ListItemCatalog(context.Context, *ListItemCatalogRequest) (*ListItemCatalogResponse, error)
+	// ListDropItems returns the DropTool-style item-centric report from the
+	// content tree: item -> mobs/slots that can drop it. This is read-only
+	// content metadata; the tmServer runtime still owns actual drop rolls.
+	ListDropItems(context.Context, *ListDropItemsRequest) (*ListDropItemsResponse, error)
+	// ListMobDrops returns the DropTool-style mob-centric report from the
+	// content tree: mob template -> Carry[] drop slots.
+	ListMobDrops(context.Context, *ListMobDropsRequest) (*ListMobDropsResponse, error)
 	// ListItemPrices returns every global item price override currently set
 	// (item_price table). An item absent from the list has no override — it
 	// uses the content catalog's base price.
@@ -705,6 +741,12 @@ func (UnimplementedNpcAdminServiceServer) ListMerchantTemplates(context.Context,
 }
 func (UnimplementedNpcAdminServiceServer) ListItemCatalog(context.Context, *ListItemCatalogRequest) (*ListItemCatalogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListItemCatalog not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListDropItems(context.Context, *ListDropItemsRequest) (*ListDropItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDropItems not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListMobDrops(context.Context, *ListMobDropsRequest) (*ListMobDropsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMobDrops not implemented")
 }
 func (UnimplementedNpcAdminServiceServer) ListItemPrices(context.Context, *ListItemPricesRequest) (*ListItemPricesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListItemPrices not implemented")
@@ -895,6 +937,42 @@ func _NpcAdminService_ListItemCatalog_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcAdminService_ListDropItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDropItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListDropItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListDropItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListDropItems(ctx, req.(*ListDropItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_ListMobDrops_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMobDropsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListMobDrops(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListMobDrops_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListMobDrops(ctx, req.(*ListMobDropsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NpcAdminService_ListItemPrices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListItemPricesRequest)
 	if err := dec(in); err != nil {
@@ -973,6 +1051,14 @@ var NpcAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListItemCatalog",
 			Handler:    _NpcAdminService_ListItemCatalog_Handler,
+		},
+		{
+			MethodName: "ListDropItems",
+			Handler:    _NpcAdminService_ListDropItems_Handler,
+		},
+		{
+			MethodName: "ListMobDrops",
+			Handler:    _NpcAdminService_ListMobDrops_Handler,
 		},
 		{
 			MethodName: "ListItemPrices",

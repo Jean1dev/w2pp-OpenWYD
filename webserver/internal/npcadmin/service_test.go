@@ -7,6 +7,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
@@ -290,6 +291,93 @@ func TestListItemCatalogEmptyWhenUnset(t *testing.T) {
 	}
 	if len(items) != 0 {
 		t.Errorf("items = %+v, want empty", items)
+	}
+}
+
+func TestListDropItems(t *testing.T) {
+	catalog := droptool.Catalog{
+		Items: []droptool.ItemEntry{{Index: 1000, Name: "Adaga"}},
+		Mobs:  []droptool.MobEntry{{TemplateName: "Alpha", DisplayName: "Alpha", Level: 37}},
+		Drops: []droptool.DropEntry{{
+			TemplateName: "Alpha",
+			MobName:      "Alpha",
+			MobLevel:     37,
+			Slot:         0,
+			ItemIndex:    1000,
+			ItemName:     "Adaga",
+			RateDivisor:  900,
+		}},
+	}
+
+	s := New(newFake())
+	s.SetDropCatalog(catalog)
+
+	got, items, err := s.ListDropItems(context.Background(), 1, droptool.Filter{ItemQuery: "ada"})
+	if err != nil {
+		t.Fatalf("ListDropItems: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("result = %v, want OK", got)
+	}
+	if len(items) != 1 || items[0].ItemIndex != 1000 || len(items[0].Mobs) != 1 {
+		t.Fatalf("items = %+v, want one item drop entry", items)
+	}
+
+	if got, _, err := s.ListDropItems(context.Background(), 3, droptool.Filter{}); err != nil || got != Forbidden {
+		t.Errorf("player ListDropItems result = %v, err %v, want Forbidden, nil", got, err)
+	}
+}
+
+func TestListMobDrops(t *testing.T) {
+	catalog := droptool.Catalog{
+		Items: []droptool.ItemEntry{{Index: 1000, Name: "Adaga"}},
+		Mobs:  []droptool.MobEntry{{TemplateName: "Alpha", DisplayName: "Alpha", Level: 37}},
+		Drops: []droptool.DropEntry{{
+			TemplateName: "Alpha",
+			MobName:      "Alpha",
+			MobLevel:     37,
+			Slot:         0,
+			ItemIndex:    1000,
+			ItemName:     "Adaga",
+			RateDivisor:  900,
+		}},
+	}
+
+	s := New(newFake())
+	s.SetDropCatalog(catalog)
+
+	got, mobs, err := s.ListMobDrops(context.Background(), 1, droptool.Filter{MobQuery: "alp"})
+	if err != nil {
+		t.Fatalf("ListMobDrops: %v", err)
+	}
+	if got != OK {
+		t.Fatalf("result = %v, want OK", got)
+	}
+	if len(mobs) != 1 || mobs[0].TemplateName != "Alpha" || len(mobs[0].Items) != 1 {
+		t.Fatalf("mobs = %+v, want one mob drop entry", mobs)
+	}
+
+	if got, _, err := s.ListMobDrops(context.Background(), 3, droptool.Filter{}); err != nil || got != Forbidden {
+		t.Errorf("player ListMobDrops result = %v, err %v, want Forbidden, nil", got, err)
+	}
+}
+
+func TestDropCatalogEmptyWhenUnset(t *testing.T) {
+	s := New(newFake())
+	got, items, err := s.ListDropItems(context.Background(), 1, droptool.Filter{})
+	if err != nil || got != OK {
+		t.Fatalf("ListDropItems result = %v, err %v, want OK, nil", got, err)
+	}
+	if len(items) != 0 {
+		t.Errorf("items = %+v, want empty", items)
+	}
+
+	got, mobs, err := s.ListMobDrops(context.Background(), 1, droptool.Filter{})
+	if err != nil || got != OK {
+		t.Fatalf("ListMobDrops result = %v, err %v, want OK, nil", got, err)
+	}
+	if len(mobs) != 0 {
+		t.Errorf("mobs = %+v, want empty", mobs)
 	}
 }
 

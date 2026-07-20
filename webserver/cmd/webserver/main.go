@@ -30,6 +30,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/dailyreward"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donateshop"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donatetopup"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
@@ -98,6 +99,18 @@ func run(logger *slog.Logger) error {
 		} else {
 			logger.Info("scanned item catalog", "count", len(items))
 			npcAdmin.SetItems(items)
+		}
+
+		exclusions, err := droptool.LoadContentExclusions(*contentDir)
+		if err != nil {
+			logger.Warn("drop exclusion scan failed; continuing without exclusions", "content", *contentDir, "err", err)
+		}
+		drops, err := droptool.Scan(*contentDir, logger, droptool.Options{Exclusions: exclusions})
+		if err != nil {
+			logger.Warn("drop catalog scan failed; DropTool endpoints will be empty", "content", *contentDir, "err", err)
+		} else {
+			logger.Info("scanned drop catalog", "items", len(drops.Items), "mobs", len(drops.Mobs), "drops", len(drops.Drops))
+			npcAdmin.SetDropCatalog(drops)
 		}
 	}
 	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
