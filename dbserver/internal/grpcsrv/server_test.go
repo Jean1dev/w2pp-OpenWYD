@@ -413,7 +413,8 @@ func TestListCharacters(t *testing.T) {
 	fs := &fakeStore{
 		chars: map[int64][]domain.Character{
 			1: {
-				{Slot: 0, Name: "a", Class: 1, Level: 5, Exp: 10, GuildID: 7},
+				{Slot: 0, Name: "a", Class: 1, Level: 5, Exp: 10, GuildID: 7,
+					Equip: []domain.Item{{Slot: 1, Index: 1100, Eff1: 1, EffV1: 9}}},
 				{Slot: 1, Name: "b", Class: 2, Level: 6},
 			},
 		},
@@ -425,6 +426,9 @@ func TestListCharacters(t *testing.T) {
 	got := resp.GetCharacters()
 	if len(got) != 2 || got[0].GetName() != "a" || got[0].GetGuildId() != 7 || got[1].GetName() != "b" {
 		t.Fatalf("unexpected summaries: %+v", got)
+	}
+	if eq := got[0].GetEquip(); len(eq) != 1 || eq[0].GetSlot() != 1 || eq[0].GetIndex() != 1100 || eq[0].GetEffv1() != 9 {
+		t.Fatalf("equipment not mapped: %+v", got[0].GetEquip())
 	}
 }
 

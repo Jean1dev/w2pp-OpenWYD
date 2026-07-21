@@ -54,6 +54,7 @@ type CharSummary struct {
 	Int     int16
 	Dex     int16
 	Con     int16
+	Equip   [MaxEquip]Item
 }
 
 // LoginOutcome is the result of an account-login attempt. On success it also

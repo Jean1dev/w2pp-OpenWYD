@@ -75,7 +75,7 @@ func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.C
 	}
 	out := make([]world.CharSummary, 0, len(list.GetCharacters()))
 	for _, ch := range list.GetCharacters() {
-		out = append(out, world.CharSummary{
+		summary := world.CharSummary{
 			Slot:    int(ch.GetSlot()),
 			Name:    ch.GetName(),
 			Class:   int(ch.GetClass()),
@@ -91,7 +91,15 @@ func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.C
 			Int:     int16(ch.GetInt()),
 			Dex:     int16(ch.GetDex()),
 			Con:     int16(ch.GetCon()),
-		})
+		}
+		for _, it := range ch.GetEquip() {
+			slot := int(it.GetSlot())
+			if slot < 0 || slot >= world.MaxEquip {
+				continue
+			}
+			summary.Equip[slot] = itemFromProto(it)
+		}
+		out = append(out, summary)
 	}
 	return out, nil
 }
