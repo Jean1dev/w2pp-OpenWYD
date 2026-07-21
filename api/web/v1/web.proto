@@ -177,6 +177,13 @@ service NpcAdminService {
   // offer a searchable picker instead of a raw item_index typed by hand.
   // Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
   rpc ListItemCatalog(ListItemCatalogRequest) returns (ListItemCatalogResponse);
+  // ListDropItems returns the DropTool-style item-centric report from the
+  // content tree: item -> mobs/slots that can drop it. This is read-only
+  // content metadata; the tmServer runtime still owns actual drop rolls.
+  rpc ListDropItems(ListDropItemsRequest) returns (ListDropItemsResponse);
+  // ListMobDrops returns the DropTool-style mob-centric report from the
+  // content tree: mob template -> Carry[] drop slots.
+  rpc ListMobDrops(ListMobDropsRequest) returns (ListMobDropsResponse);
   // ListItemPrices returns every global item price override currently set
   // (item_price table). An item absent from the list has no override — it
   // uses the content catalog's base price.
@@ -308,6 +315,59 @@ message ListItemCatalogRequest { int64 moderator_id = 1; }
 message ListItemCatalogResponse {
   AdminResult result = 1;
   repeated ItemCatalogEntry items = 2;
+}
+
+message DropItemMob {
+  string template_name = 1; // Release/TMsrv/run/npc file name
+  string mob_name = 2;      // STRUCT_MOB.Name decoded as Latin-1
+  int32 mob_level = 3;      // STRUCT_MOB.CurrentScore.Level
+  int32 slot = 4;           // Carry[] slot; controls the base drop divisor
+  int32 rate_divisor = 5;   // g_pDropRate[slot]; larger means rarer
+}
+
+message DropItemEntry {
+  int32 item_index = 1;
+  string item_name = 2;
+  repeated DropItemMob mobs = 3;
+}
+
+message ListDropItemsRequest {
+  int64 moderator_id = 1;
+  int32 item_index = 2;               // 0 = no exact item filter
+  string item_query = 3;              // substring match on item name or index
+  string mob_query = 4;               // substring match on mob/template name
+  bool include_zero_drop_items = 5;   // include catalog items with no matching mobs
+}
+
+message ListDropItemsResponse {
+  AdminResult result = 1;
+  repeated DropItemEntry items = 2;
+}
+
+message MobDropItem {
+  int32 slot = 1;          // Carry[] slot; controls the base drop divisor
+  int32 item_index = 2;
+  string item_name = 3;
+  int32 rate_divisor = 4;  // g_pDropRate[slot]; larger means rarer
+}
+
+message MobDropEntry {
+  string template_name = 1; // Release/TMsrv/run/npc file name
+  string mob_name = 2;      // STRUCT_MOB.Name decoded as Latin-1
+  int32 mob_level = 3;      // STRUCT_MOB.CurrentScore.Level
+  repeated MobDropItem items = 4;
+}
+
+message ListMobDropsRequest {
+  int64 moderator_id = 1;
+  string mob_query = 2;   // substring match on mob/template name
+  int32 item_index = 3;   // 0 = no exact item filter
+  string item_query = 4;  // substring match on item name or index
+}
+
+message ListMobDropsResponse {
+  AdminResult result = 1;
+  repeated MobDropEntry mobs = 2;
 }
 
 // ItemPrice is a global per-item price override (item_price table); an item

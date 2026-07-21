@@ -8,6 +8,7 @@ import (
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
@@ -26,6 +27,8 @@ type NpcAdmin interface {
 	Delete(ctx context.Context, moderatorID, npcID int64) (npcadmin.Result, error)
 	ListMerchantTemplates(ctx context.Context, moderatorID int64) (npcadmin.Result, []npctemplates.Template, error)
 	ListItemCatalog(ctx context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error)
+	ListDropItems(ctx context.Context, moderatorID int64, filter droptool.Filter) (npcadmin.Result, []droptool.ItemDropEntry, error)
+	ListMobDrops(ctx context.Context, moderatorID int64, filter droptool.Filter) (npcadmin.Result, []droptool.MobDropEntry, error)
 	ListItemPrices(ctx context.Context, moderatorID int64) (npcadmin.Result, []domain.ItemPriceOverride, error)
 	ListMapZones(ctx context.Context, moderatorID int64) (npcadmin.Result, []mapzones.Zone, error)
 }
@@ -159,6 +162,74 @@ func (s *NpcAdminServer) ListItemCatalog(ctx context.Context, req *webv1.ListIte
 		out = append(out, &webv1.ItemCatalogEntry{ItemIndex: it.Index, Name: it.Name})
 	}
 	return &webv1.ListItemCatalogResponse{Result: resultToProto(res), Items: out}, nil
+}
+
+// ListDropItems returns the item-centric DropTool report for the moderator
+// panel.
+func (s *NpcAdminServer) ListDropItems(ctx context.Context, req *webv1.ListDropItemsRequest) (*webv1.ListDropItemsResponse, error) {
+	res, items, err := s.admin.ListDropItems(ctx, req.GetModeratorId(), droptool.Filter{
+		ItemIndex:            req.GetItemIndex(),
+		ItemQuery:            req.GetItemQuery(),
+		MobQuery:             req.GetMobQuery(),
+		IncludeZeroDropItems: req.GetIncludeZeroDropItems(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list drop items: %v", err)
+	}
+	out := make([]*webv1.DropItemEntry, 0, len(items))
+	for _, item := range items {
+		out = append(out, dropItemEntryToProto(item))
+	}
+	return &webv1.ListDropItemsResponse{Result: resultToProto(res), Items: out}, nil
+}
+
+func dropItemEntryToProto(item droptool.ItemDropEntry) *webv1.DropItemEntry {
+	mobs := make([]*webv1.DropItemMob, 0, len(item.Mobs))
+	for _, mob := range item.Mobs {
+		mobs = append(mobs, &webv1.DropItemMob{
+			TemplateName: mob.TemplateName,
+			MobName:      mob.MobName,
+			MobLevel:     mob.MobLevel,
+			Slot:         mob.Slot,
+			RateDivisor:  mob.RateDivisor,
+		})
+	}
+	return &webv1.DropItemEntry{ItemIndex: item.ItemIndex, ItemName: item.ItemName, Mobs: mobs}
+}
+
+// ListMobDrops returns the mob-centric DropTool report for the moderator panel.
+func (s *NpcAdminServer) ListMobDrops(ctx context.Context, req *webv1.ListMobDropsRequest) (*webv1.ListMobDropsResponse, error) {
+	res, mobs, err := s.admin.ListMobDrops(ctx, req.GetModeratorId(), droptool.Filter{
+		MobQuery:  req.GetMobQuery(),
+		ItemIndex: req.GetItemIndex(),
+		ItemQuery: req.GetItemQuery(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list mob drops: %v", err)
+	}
+	out := make([]*webv1.MobDropEntry, 0, len(mobs))
+	for _, mob := range mobs {
+		out = append(out, mobDropEntryToProto(mob))
+	}
+	return &webv1.ListMobDropsResponse{Result: resultToProto(res), Mobs: out}, nil
+}
+
+func mobDropEntryToProto(mob droptool.MobDropEntry) *webv1.MobDropEntry {
+	items := make([]*webv1.MobDropItem, 0, len(mob.Items))
+	for _, item := range mob.Items {
+		items = append(items, &webv1.MobDropItem{
+			Slot:        item.Slot,
+			ItemIndex:   item.ItemIndex,
+			ItemName:    item.ItemName,
+			RateDivisor: item.RateDivisor,
+		})
+	}
+	return &webv1.MobDropEntry{
+		TemplateName: mob.TemplateName,
+		MobName:      mob.MobName,
+		MobLevel:     mob.MobLevel,
+		Items:        items,
+	}
 }
 
 // ListItemPrices returns every global item price override for the moderator

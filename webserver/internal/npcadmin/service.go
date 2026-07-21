@@ -12,6 +12,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
@@ -56,9 +57,10 @@ const (
 
 // Service implements the moderator NPC-editing operations.
 type Service struct {
-	store     Store
-	templates []npctemplates.Template
-	items     []itemcatalog.Entry
+	store       Store
+	templates   []npctemplates.Template
+	items       []itemcatalog.Entry
+	dropCatalog droptool.Catalog
 }
 
 // New builds the service over the given store.
@@ -75,6 +77,11 @@ func (s *Service) SetTemplates(templates []npctemplates.Template) { s.templates 
 // when -content/W2PP_CONTENT wasn't configured, in which case
 // ListItemCatalog returns an empty list rather than failing.
 func (s *Service) SetItems(items []itemcatalog.Entry) { s.items = items }
+
+// SetDropCatalog installs the DropTool-equivalent catalog ListDropItems and
+// ListMobDrops serve. Called once at boot after scanning the content tree; left
+// as a zero-value catalog when -content/W2PP_CONTENT wasn't configured.
+func (s *Service) SetDropCatalog(catalog droptool.Catalog) { s.dropCatalog = catalog }
 
 // List returns every NPC definition, after authorizing the caller.
 func (s *Service) List(ctx context.Context, moderatorID int64) (Result, []domain.NPCDefinition, error) {
@@ -108,6 +115,24 @@ func (s *Service) ListItemCatalog(ctx context.Context, moderatorID int64) (Resul
 		return r, nil, err
 	}
 	return OK, s.items, nil
+}
+
+// ListDropItems returns the item-centric DropTool report scanned from the
+// content tree at boot, after authorizing the caller.
+func (s *Service) ListDropItems(ctx context.Context, moderatorID int64, filter droptool.Filter) (Result, []droptool.ItemDropEntry, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	return OK, s.dropCatalog.ListDropItems(filter), nil
+}
+
+// ListMobDrops returns the mob-centric DropTool report scanned from the content
+// tree at boot, after authorizing the caller.
+func (s *Service) ListMobDrops(ctx context.Context, moderatorID int64, filter droptool.Filter) (Result, []droptool.MobDropEntry, error) {
+	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
+		return r, nil, err
+	}
+	return OK, s.dropCatalog.ListMobDrops(filter), nil
 }
 
 // ListMapZones returns the fixed map_id label table (mapzones.All), after
