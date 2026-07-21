@@ -38,6 +38,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
@@ -133,36 +134,43 @@ func runImportNPCs(args []string, logger *slog.Logger) error {
 // buildNPCDefinitions parses NPCGener.txt and returns one domain.NPCDefinition
 // per MERCHANT spawn block (leader template Merchant != 0), with its shop stock
 // read from the template's Carry[]. The slug is stable across re-imports:
-// "<template>-<blockIndex>". A block whose leader template is missing or is not a
+// "<legacy-template>-<blockIndex>", while TemplateName is normalized to the
+// actual Linux file name. A block whose leader template is missing or is not a
 // merchant is skipped.
 func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDefinition, error) {
 	blocks, err := parseNPCGener(filepath.Join(contentDir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		return nil, err
 	}
-	templates := make(map[string]*savefmt.Mob)
-	load := func(name string) *savefmt.Mob {
+	type loadedTemplate struct {
+		mob  *savefmt.Mob
+		name string
+	}
+	templates := make(map[string]loadedTemplate)
+	load := func(name string) loadedTemplate {
 		if name == "" {
-			return nil
+			return loadedTemplate{}
 		}
 		if m, seen := templates[name]; seen {
 			return m
 		}
-		var m *savefmt.Mob
-		if b, terr := os.ReadFile(filepath.Join(contentDir, "TMsrv", "run", "npc", name)); terr == nil {
+		var out loadedTemplate
+		if b, res, terr := npctemplate.Load(contentDir, name); terr == nil {
 			if mob, derr := savefmt.DecodeMob(b); derr == nil {
-				m = &mob
+				out.mob = &mob
+				out.name = res.Name
 			} else {
 				logger.Warn("npc template decode failed", "name", name, "err", derr)
 			}
 		}
-		templates[name] = m
-		return m
+		templates[name] = out
+		return out
 	}
 
 	var out []domain.NPCDefinition
 	for i, b := range blocks {
-		mob := load(b.leader)
+		tmpl := load(b.leader)
+		mob := tmpl.mob
 		// The shop flag the tmServer honours is CurrentScore.Merchant (STRUCT_MOB
 		// offset 104), NOT the top-level Mob.Merchant (offset 17) — read the same
 		// field here so importer and runtime agree on what is a merchant.
@@ -171,7 +179,7 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 		}
 		def := domain.NPCDefinition{
 			Slug:         fmt.Sprintf("%s-%d", b.leader, i),
-			TemplateName: b.leader,
+			TemplateName: tmpl.name,
 			DisplayName:  cString(mob.Name[:]),
 			Enabled:      true,
 			PosX:         int32(b.startX),

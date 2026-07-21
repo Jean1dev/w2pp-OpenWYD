@@ -79,6 +79,58 @@ func TestSpawnNPCsWarnsMissingTemplates(t *testing.T) {
 	}
 }
 
+func TestSpawnNPCsResolvesLegacyTemplateNames(t *testing.T) {
+	dir := t.TempDir()
+	runDir := filepath.Join(dir, "TMsrv", "run")
+	npcDir := filepath.Join(runDir, "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const npcGener = `# [0]
+	Leader: Chefe_Treina.
+	MinGroup: 0
+	MaxGroup: 0
+	MaxNumMob: 1
+	StartX: 10
+	StartY: 10
+
+# [1]
+	Leader: Reiners
+	MinGroup: 0
+	MaxGroup: 0
+	MaxNumMob: 1
+	StartX: 12
+	StartY: 12
+`
+	if err := os.WriteFile(filepath.Join(runDir, "NPCGener.txt"), []byte(npcGener), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(npcDir, "Chefe_Treina"), testMobTemplate("Chefe_Treina."), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(npcDir, "reiners"), testMobTemplate("Reiners"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
+	spawnNPCs(w, dir, false, logger)
+
+	for i := 0; i < 2; i++ {
+		g := w.GeneratorAt(i)
+		if g == nil {
+			t.Fatalf("generator %d was not registered", i)
+		}
+		if g.CurrentNumMob != 1 {
+			t.Fatalf("generator %d CurrentNumMob = %d, want one spawned leader", i, g.CurrentNumMob)
+		}
+	}
+	if strings.Contains(logs.String(), "NPC templates missing") {
+		t.Fatalf("legacy aliases should not log missing templates:\n%s", logs.String())
+	}
+}
+
 func testMobTemplate(name string) []byte {
 	b := make([]byte, content.BaseMobSize)
 	copy(b[0:16], name)
