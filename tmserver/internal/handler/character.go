@@ -348,6 +348,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.logCNFCharacterLogin("template", s, st, loginX, loginY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
+		if e := w.Entity(s.Conn); e != nil {
+			d.refreshBabyMountSummon(w, s, e)
+		}
 		d.sendLoginAffects(w, s)
 		return
 	}
@@ -392,6 +395,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	d.logCNFCharacterLogin("fallback", s, st, loginX, loginY, body)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 	d.enterWorldView(w, s)
+	if e := w.Entity(s.Conn); e != nil {
+		d.refreshBabyMountSummon(w, s, e)
+	}
 	d.sendLoginAffects(w, s)
 }
 

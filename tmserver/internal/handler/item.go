@@ -524,6 +524,9 @@ func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
 	d.refreshEquip(w, s, e)                 // update the rendered gear
+	if dst == mountEquipSlot {
+		d.refreshBabyMountSummon(w, s, e)
+	}
 }
 
 func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Entity, src int) {
@@ -1834,6 +1837,9 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	// An equip/unequip changes the rendered gear: refresh the model everywhere.
 	if srcPlace == world.ItemPlaceEquip || dstPlace == world.ItemPlaceEquip {
 		d.refreshEquip(w, s, e)
+	}
+	if (srcPlace == world.ItemPlaceEquip && srcSlot == mountEquipSlot) || (dstPlace == world.ItemPlaceEquip && dstSlot == mountEquipSlot) {
+		d.refreshBabyMountSummon(w, s, e)
 	}
 }
 

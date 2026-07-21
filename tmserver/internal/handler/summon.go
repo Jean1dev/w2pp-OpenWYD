@@ -28,6 +28,18 @@ const affectSummonLife = 24
 // (Server.cpp:3193-3196). The 28..37 "permanent" mounts are out of scope.
 const summonLifeTicks = 20
 
+// Baby mounts (crias, item 2330..2359) are equipment-backed summons: while the
+// item is alive in Equip[14], MountProcess creates the corresponding BaseSummon
+// entry at sIndex-2320 and keeps it attached to the owner without a lifespan
+// affect (Server.cpp:4633-4676, GenerateSummon sItem branch).
+const (
+	babyMountLo        = 2330
+	babyMountHi        = 2360
+	babyMountSummonAdd = -2320
+	babyMountFaceLo    = 315
+	babyMountFaceHi    = 345
+)
+
 // summonFollowMax / summonTeleport / summonFollowMin shape the follow AI
 // (CMob.cpp:84-152): past 12 the pet warps to the owner, between 5 and 12 it
 // walks, at 4 or less it idles. summonLeash drops the pet's fight when the
@@ -119,10 +131,8 @@ func (d *Dispatcher) cellAvailable(w *world.World, x, y int16) bool {
 // caster, bound to it. Returns false when NOTHING was spawned (the cast then
 // refunds its mana, _MSG_Attack.cpp:830-834). Partial success is true.
 //
-// Not ported from the original: the party-wide mount face pre-scan (mount
-// recall path), and SendAddParty — the client's party frame doesn't list pets
-// yet; the summon still occupies a leader PartyList slot, which is what the
-// group-combat drag and the cleanup need.
+// The item-backed mount recall path uses refreshBabyMountSummon below; this
+// function stays on the spell/sItem==nil branch.
 func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.Entity, summonID, count int) bool {
 	if count <= 0 || summonID < 0 || summonID >= len(d.summonMobs) || summonID >= len(summonBonus) || d.summonMobs[summonID] == nil {
 		return false
@@ -208,6 +218,110 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		spawned++
 	}
 	return spawned > 0
+}
+
+func (d *Dispatcher) refreshBabyMountSummon(w *world.World, s *world.Session, e *world.Entity) {
+	d.removeBabyMountSummons(w, s.Conn, e)
+
+	mount := e.Equip[mountEquipSlot]
+	if !isBabyMount(mount) || mountHP(mount) <= 0 {
+		return
+	}
+	summonID := int(mount.Index) + babyMountSummonAdd
+	d.generateBabyMountSummon(w, s, e, summonID, mount)
+}
+
+func isBabyMount(it world.Item) bool {
+	return it.Index >= babyMountLo && it.Index < babyMountHi
+}
+
+func mountHP(it world.Item) int16 {
+	return int16(uint16(it.Effects[0].Effect) | uint16(it.Effects[0].Value)<<8)
+}
+
+func (d *Dispatcher) removeBabyMountSummons(w *world.World, ownerID int, owner *world.Entity) {
+	leaderID := owner.Leader
+	if leaderID == 0 {
+		leaderID = ownerID
+	}
+	leader := w.Entity(leaderID)
+	if leader == nil {
+		return
+	}
+	for _, memberID := range leader.PartyList {
+		if memberID < world.MaxUser {
+			continue
+		}
+		pet := w.Entity(memberID)
+		if pet == nil || pet.Summoner != ownerID {
+			continue
+		}
+		if pet.EquipVisual[0] >= babyMountFaceLo && pet.EquipVisual[0] < babyMountFaceHi {
+			w.DespawnMob(memberID, 3)
+		}
+	}
+}
+
+func (d *Dispatcher) generateBabyMountSummon(w *world.World, s *world.Session, e *world.Entity, summonID int, mount world.Item) bool {
+	if summonID < 0 || summonID >= len(d.summonMobs) || d.summonMobs[summonID] == nil {
+		return false
+	}
+	leaderID := e.Leader
+	if leaderID == 0 {
+		leaderID = s.Conn
+	}
+	leader := w.Entity(leaderID)
+	if leader == nil {
+		return false
+	}
+	slot := -1
+	for i := range leader.PartyList {
+		if leader.PartyList[i] == 0 {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		return false
+	}
+	x, y, ok := d.freeCellNear(w, e.X, e.Y)
+	if !ok {
+		return false
+	}
+	id := w.SpawnMobAt(world.MobSpawn{Template: d.summonMobs[summonID], X: x, Y: y, RouteType: 5, GenIndex: -1})
+	if id < 0 {
+		return false
+	}
+	mob := w.Entity(id)
+	mob.Name = strings.ReplaceAll(mob.Name, "_", " ") + "^"
+	mob.Level = e.Level
+	if mob.Level > level.MaxLevel {
+		mob.Level = level.MaxLevel
+	}
+	mob.Clan = summonClan
+	mob.Leader = leaderID
+	mob.Summoner = s.Conn
+	mountSanc := int32(mount.Effects[1].Effect)
+	if mountSanc > 100 {
+		mountSanc = 100
+	}
+	mob.Damage += 6 * mountSanc
+	hp := int32(mountHP(mount))
+	if mob.MaxHP > 0 && hp > mob.MaxHP {
+		hp = mob.MaxHP
+	}
+	mob.HP = hp
+	leader.PartyList[slot] = id
+	d.sendAddParty(w, leaderID, leaderID, 0)
+	d.sendSummonPartySlot(w, leaderID, id, slot+1)
+
+	body := protocol.EncodeCreateMobBody(createMobFrom(mob, 3))
+	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+		if w.MarkSeen(vs, id) {
+			w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
+		}
+	})
+	return true
 }
 
 func summonTemplateFace(template []byte) uint16 {
