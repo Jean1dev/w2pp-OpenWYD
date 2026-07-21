@@ -427,12 +427,8 @@ func (d *Dispatcher) amuMistico(w *world.World, s *world.Session, e *world.Entit
 	if confirm == 0 {
 		return
 	}
-	// e.Leader == s.Conn is this codebase's "I am the party leader" idiom
-	// (acceptParty sets a forming leader's own Leader to its own conn,
-	// party.go:84-91) — solo (Leader==0) and followers (Leader==otherConn)
-	// both fail this, matching the legacy "Leader must be 0 AND partycont>0"
-	// pair (a leader is only ever recorded this way once a real member joined).
-	if e.Leader != s.Conn {
+	// Legacy party leaders keep Leader==0; the non-solo proof is PartyList.
+	if e.Leader != 0 || partyMemberCount(e) == 0 {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}

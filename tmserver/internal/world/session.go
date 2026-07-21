@@ -338,8 +338,9 @@ type Entity struct {
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob/UpdateEquip
 	EquipAnct   [16]uint8  // refine/ancient glow overlay bytes paired with EquipVisual
 
-	// Party state (lote2-party-guilda-guerra.md). Leader is the leader's conn
-	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).
+	// Party state (lote2-party-guilda-guerra.md). Members point Leader at the
+	// leader conn; leaders keep Leader=0 and own the PartyList. LastReqParty is
+	// who last invited this entity (anti-forge gate).
 	Leader       int
 	LastReqParty int
 

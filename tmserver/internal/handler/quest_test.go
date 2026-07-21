@@ -328,9 +328,11 @@ func TestAmuMisticoCompletesForPartyLeader(t *testing.T) {
 	if ty, _, ok := readMaybe(t, c2); !ok || ty != protocol.MsgSendReqParty {
 		t.Fatalf("invitee got %#x ok=%v, want SendReqParty", ty, ok)
 	}
-	acceptPartyFrame(t, c2, 1)
-	expect(t, c, protocol.MsgAcceptParty)
-	expect(t, c2, protocol.MsgAcceptParty)
+	acceptPartyFrame(t, c2, 1, "Hero")
+	expect(t, c, protocol.MsgCNFAddParty)
+	expect(t, c2, protocol.MsgCNFAddParty)
+	drainRaw(t, c)
+	drainRaw(t, c2)
 
 	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
 	if ty, _, ok := readMaybe(t, c); ok {

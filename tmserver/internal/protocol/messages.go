@@ -497,44 +497,61 @@ func (m *MsgWhisperBody) Encode() []byte {
 	return b
 }
 
-// MsgSendReqPartyBody — MSG_SendReqParty (C→S, 0x037F): PartyID is the leader
-// (the sender), Target is the invited player (lote2-party-guilda-guerra.md).
-//
-// UNVERIFIED: exact field offsets not in §3.5; best-effort layout.
+// MsgSendReqPartyBody is MSG_SendReqParty (C↔S, 0x037F): PartyID is the leader
+// and Unk carries the invited player on the client request. This struct is
+// outside the legacy pack(1) blocks, so the int field keeps the MSVC x86 padding
+// after MobName (Basedef.h:2261-2279).
 type MsgSendReqPartyBody struct {
-	PartyID int32
-	Target  int32
-	MobName [16]byte
+	Class    uint8
+	PartyPos uint8
+	Level    uint16
+	MaxHP    uint16
+	HP       uint16
+	PartyID  int16
+	MobName  [16]byte
+	Unk      int32
+	Target   int16
 }
 
 // MsgSendReqPartyBodySize is the body length.
-const MsgSendReqPartyBodySize = 24
+const MsgSendReqPartyBodySize = 36
 
 // Decode parses an MSG_SendReqParty body.
 func (m *MsgSendReqPartyBody) Decode(b []byte) error {
 	if len(b) < MsgSendReqPartyBodySize {
 		return fmt.Errorf("protocol: MsgSendReqPartyBody.Decode: have %d, need %d", len(b), MsgSendReqPartyBodySize)
 	}
-	m.PartyID = int32(le.Uint32(b[0:4]))
-	m.Target = int32(le.Uint32(b[4:8]))
-	copy(m.MobName[:], b[8:24])
+	m.Class = b[0]
+	m.PartyPos = b[1]
+	m.Level = le.Uint16(b[2:4])
+	m.MaxHP = le.Uint16(b[4:6])
+	m.HP = le.Uint16(b[6:8])
+	m.PartyID = int16(le.Uint16(b[8:10]))
+	copy(m.MobName[:], b[10:26])
+	m.Unk = int32(le.Uint32(b[28:32]))
+	m.Target = int16(le.Uint16(b[32:34]))
 	return nil
 }
 
 // Encode writes the MSG_SendReqParty body into a new slice.
 func (m *MsgSendReqPartyBody) Encode() []byte {
 	b := make([]byte, MsgSendReqPartyBodySize)
-	le.PutUint32(b[0:4], uint32(m.PartyID))
-	le.PutUint32(b[4:8], uint32(m.Target))
-	copy(b[8:24], m.MobName[:])
+	b[0] = m.Class
+	b[1] = m.PartyPos
+	le.PutUint16(b[2:4], m.Level)
+	le.PutUint16(b[4:6], m.MaxHP)
+	le.PutUint16(b[6:8], m.HP)
+	le.PutUint16(b[8:10], uint16(m.PartyID))
+	copy(b[10:26], m.MobName[:])
+	le.PutUint32(b[28:32], uint32(m.Unk))
+	le.PutUint16(b[32:34], uint16(m.Target))
 	return b
 }
 
-// MsgAcceptPartyBody — MSG_AcceptParty (C→S, 0x03AB): LeaderID is who invited me.
-//
-// UNVERIFIED: exact field offsets not in §3.5; best-effort layout.
+// MsgAcceptPartyBody is MSG_AcceptParty (C↔S, 0x03AB): LeaderID is who invited
+// me. The natural-alignment tail padding keeps sizeof(MSG_AcceptParty)==32.
 type MsgAcceptPartyBody struct {
-	LeaderID int32
+	LeaderID int16
 	MobName  [16]byte
 }
 
@@ -546,16 +563,35 @@ func (m *MsgAcceptPartyBody) Decode(b []byte) error {
 	if len(b) < MsgAcceptPartyBodySize {
 		return fmt.Errorf("protocol: MsgAcceptPartyBody.Decode: have %d, need %d", len(b), MsgAcceptPartyBodySize)
 	}
-	m.LeaderID = int32(le.Uint32(b[0:4]))
-	copy(m.MobName[:], b[4:20])
+	m.LeaderID = int16(le.Uint16(b[0:2]))
+	copy(m.MobName[:], b[2:18])
 	return nil
 }
 
 // Encode writes the MSG_AcceptParty body into a new slice.
 func (m *MsgAcceptPartyBody) Encode() []byte {
 	b := make([]byte, MsgAcceptPartyBodySize)
-	le.PutUint32(b[0:4], uint32(m.LeaderID))
-	copy(b[4:20], m.MobName[:])
+	le.PutUint16(b[0:2], uint16(m.LeaderID))
+	copy(b[2:18], m.MobName[:])
+	return b
+}
+
+// MsgRemovePartyBody is MSG_RemoveParty (S→C, 0x037E), sent by legacy
+// SendRemoveParty. LeaderConn is 0 when clearing the recipient's whole party UI,
+// or the conn that left/was kicked when notifying remaining members.
+type MsgRemovePartyBody struct {
+	LeaderConn int16
+	Unk        int16
+}
+
+// MsgRemovePartyBodySize is sizeof(MSG_RemoveParty) minus the common header.
+const MsgRemovePartyBodySize = 4
+
+// Encode writes the MSG_RemoveParty body into a new slice.
+func (m *MsgRemovePartyBody) Encode() []byte {
+	b := make([]byte, MsgRemovePartyBodySize)
+	le.PutUint16(b[0:2], uint16(m.LeaderConn))
+	le.PutUint16(b[2:4], uint16(m.Unk))
 	return b
 }
 
