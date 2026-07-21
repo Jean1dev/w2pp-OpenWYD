@@ -228,7 +228,19 @@ const (
 // celestial-system-plan.md. Re-running after the flag is already set is idempotent.
 func (d *Dispatcher) destravarCelestial(w *world.World, s *world.Session, ninety bool) {
 	e := w.Entity(s.Conn)
-	if e == nil || e.ClassMaster != classMasterCelestial {
+	if e == nil {
+		return
+	}
+	d.destravarCelestialFor(w, s, e, ninety)
+}
+
+// destravarCelestialFor is destravarCelestial's body with the entity passed
+// explicitly, so other callers that already have one (e.g. combineOdin's
+// Destrave Lv40 recipe) don't need it registered in the world's connection
+// table — the same split useItem/useClasseItem and combineItemOdin/combineOdin
+// already use.
+func (d *Dispatcher) destravarCelestialFor(w *world.World, s *world.Session, e *world.Entity, ninety bool) {
+	if e.ClassMaster != classMasterCelestial {
 		d.log.Debug("destravar: not a celestial", "conn", s.Conn, "ninety", ninety)
 		return
 	}

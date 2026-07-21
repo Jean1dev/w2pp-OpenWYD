@@ -32,10 +32,13 @@ type CombineFamily struct {
 }
 
 // combineItemTypes are the Item[]-based combine variants sharing the engine.
+// MsgCombineItemOdin is NOT here — its recipes don't fit the generic
+// CombineFamily{Rate,Apply} shape, so it gets its own dedicated handler
+// (combine_odin.go) instead.
 var combineItemTypes = []protocol.Type{
 	protocol.MsgCombineItem, protocol.MsgCombineItemEhre, protocol.MsgCombineItemTiny,
 	protocol.MsgCombineItemShany, protocol.MsgCombineItemAilyn, protocol.MsgCombineItemAgatha,
-	protocol.MsgCombineItemOdin, protocol.MsgCombineItemLindy, protocol.MsgCombineItemAlquimia,
+	protocol.MsgCombineItemLindy, protocol.MsgCombineItemAlquimia,
 }
 
 // defaultCombineFamily is the UNVERIFIED placeholder used until the recipe/rate
@@ -63,6 +66,36 @@ func anctApply(items []world.Item) world.Item {
 	return result
 }
 
+// resolveComboInputs validates a combine packet's claimed inputs against the
+// live accessible carry slots (bounds + sameItem anti-cheat) — the skeleton every
+// Item[]-based combine variant shares, generic and Odin alike. It returns the
+// items and their carry slots still indexed by ORIGINAL combine-message
+// position (zero Item/slot where the client left that position empty), plus
+// the list of active positions in ascending order. ok is false once the
+// caller has already sent a response (RemoveTrade or _NN_Wrong_Combination)
+// and must return immediately without consuming anything.
+func (d *Dispatcher) resolveComboInputs(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgCombineItemBody) (items [protocol.MaxCombine]world.Item, slots [protocol.MaxCombine]int, active []int, ok bool) {
+	active = make([]int, 0, protocol.MaxCombine)
+	for i := 0; i < protocol.MaxCombine; i++ {
+		if body.Item[i].Index == 0 {
+			continue
+		}
+		pos := int(body.InvenPos[i])
+		if !carrySlotAccessible(e, pos) {
+			d.removeTrade(w, s) // out of range → RemoveTrade (anti-cheat)
+			return items, slots, active, false
+		}
+		if !sameItem(body.Item[i], e.Carry[pos]) {
+			w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid)) // changed/removed
+			return items, slots, active, false
+		}
+		items[i] = e.Carry[pos]
+		slots[i] = pos
+		active = append(active, i)
+	}
+	return items, slots, active, true
+}
+
 // combineItem is the shared engine handler for the Item[]-based variants. It
 // follows the original ORDER exactly: validate recipe FIRST (invalid ⇒ inputs
 // kept), then consume inputs, then roll — so a failed roll still consumes the
@@ -85,23 +118,15 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 		return
 	}
 
-	var items []world.Item
-	var slots []int
-	for i := 0; i < protocol.MaxCombine; i++ {
-		if body.Item[i].Index == 0 {
-			continue
-		}
-		pos := int(body.InvenPos[i])
-		if !carrySlotAccessible(e, pos) {
-			d.removeTrade(w, s) // out of range → RemoveTrade (anti-cheat)
-			return
-		}
-		if !sameItem(body.Item[i], e.Carry[pos]) {
-			w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid)) // changed/removed
-			return
-		}
-		items = append(items, e.Carry[pos])
-		slots = append(slots, pos)
+	byPos, slotByPos, active, ok := d.resolveComboInputs(w, s, e, body)
+	if !ok {
+		return
+	}
+	items := make([]world.Item, len(active))
+	slots := make([]int, len(active))
+	for i, pos := range active {
+		items[i] = byPos[pos]
+		slots[i] = slotByPos[pos]
 	}
 
 	rate := 0

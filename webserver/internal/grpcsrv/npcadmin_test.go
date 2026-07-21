@@ -7,6 +7,7 @@ import (
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
@@ -25,6 +26,15 @@ type fakeNpcAdmin struct {
 	listItemsRes npcadmin.Result
 	listItems    []itemcatalog.Entry
 	listItemsErr error
+
+	listDropItemsRes npcadmin.Result
+	listDropItems    []droptool.ItemDropEntry
+	listDropItemsErr error
+	lastDropFilter   droptool.Filter
+
+	listMobDropsRes npcadmin.Result
+	listMobDrops    []droptool.MobDropEntry
+	listMobDropsErr error
 
 	listPricesRes npcadmin.Result
 	listPrices    []domain.ItemPriceOverride
@@ -66,6 +76,16 @@ func (f *fakeNpcAdmin) ListMerchantTemplates(_ context.Context, moderatorID int6
 func (f *fakeNpcAdmin) ListItemCatalog(_ context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error) {
 	f.lastModeratorID = moderatorID
 	return f.listItemsRes, f.listItems, f.listItemsErr
+}
+func (f *fakeNpcAdmin) ListDropItems(_ context.Context, moderatorID int64, filter droptool.Filter) (npcadmin.Result, []droptool.ItemDropEntry, error) {
+	f.lastModeratorID = moderatorID
+	f.lastDropFilter = filter
+	return f.listDropItemsRes, f.listDropItems, f.listDropItemsErr
+}
+func (f *fakeNpcAdmin) ListMobDrops(_ context.Context, moderatorID int64, filter droptool.Filter) (npcadmin.Result, []droptool.MobDropEntry, error) {
+	f.lastModeratorID = moderatorID
+	f.lastDropFilter = filter
+	return f.listMobDropsRes, f.listMobDrops, f.listMobDropsErr
 }
 func (f *fakeNpcAdmin) ListItemPrices(_ context.Context, moderatorID int64) (npcadmin.Result, []domain.ItemPriceOverride, error) {
 	f.lastModeratorID = moderatorID
@@ -174,6 +194,135 @@ func TestListItemCatalogInfraError(t *testing.T) {
 	s := NewNpcAdmin(fake)
 
 	if _, err := s.ListItemCatalog(context.Background(), &webv1.ListItemCatalogRequest{}); err == nil {
+		t.Fatal("expected gRPC error on infra failure")
+	}
+}
+
+func TestListDropItemsMapping(t *testing.T) {
+	fake := &fakeNpcAdmin{
+		listDropItemsRes: npcadmin.OK,
+		listDropItems: []droptool.ItemDropEntry{{
+			ItemIndex: 1000,
+			ItemName:  "Adaga",
+			Mobs: []droptool.ItemDropMob{{
+				TemplateName: "Alpha",
+				MobName:      "Alpha",
+				MobLevel:     37,
+				Slot:         8,
+				RateDivisor:  4,
+			}},
+		}},
+	}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.ListDropItems(context.Background(), &webv1.ListDropItemsRequest{
+		ModeratorId:          7,
+		ItemIndex:            1000,
+		ItemQuery:            "ada",
+		MobQuery:             "alp",
+		IncludeZeroDropItems: true,
+	})
+	if err != nil {
+		t.Fatalf("ListDropItems: %v", err)
+	}
+	if fake.lastModeratorID != 7 {
+		t.Errorf("moderator id forwarded = %d, want 7", fake.lastModeratorID)
+	}
+	wantFilter := droptool.Filter{ItemIndex: 1000, ItemQuery: "ada", MobQuery: "alp", IncludeZeroDropItems: true}
+	if fake.lastDropFilter != wantFilter {
+		t.Errorf("filter = %+v, want %+v", fake.lastDropFilter, wantFilter)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_OK {
+		t.Fatalf("result = %v, want OK", resp.GetResult())
+	}
+	got := resp.GetItems()[0]
+	if got.GetItemIndex() != 1000 || got.GetItemName() != "Adaga" || got.GetMobs()[0].GetRateDivisor() != 4 {
+		t.Errorf("items[0] = %+v, want mapped drop item", got)
+	}
+}
+
+func TestListDropItemsForbidden(t *testing.T) {
+	fake := &fakeNpcAdmin{listDropItemsRes: npcadmin.Forbidden}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.ListDropItems(context.Background(), &webv1.ListDropItemsRequest{ModeratorId: 3})
+	if err != nil {
+		t.Fatalf("ListDropItems: %v", err)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_FORBIDDEN {
+		t.Errorf("result = %v, want FORBIDDEN", resp.GetResult())
+	}
+}
+
+func TestListDropItemsInfraError(t *testing.T) {
+	fake := &fakeNpcAdmin{listDropItemsErr: errors.New("scan failed")}
+	s := NewNpcAdmin(fake)
+
+	if _, err := s.ListDropItems(context.Background(), &webv1.ListDropItemsRequest{}); err == nil {
+		t.Fatal("expected gRPC error on infra failure")
+	}
+}
+
+func TestListMobDropsMapping(t *testing.T) {
+	fake := &fakeNpcAdmin{
+		listMobDropsRes: npcadmin.OK,
+		listMobDrops: []droptool.MobDropEntry{{
+			TemplateName: "Alpha",
+			MobName:      "Alpha",
+			MobLevel:     37,
+			Items: []droptool.MobDropItem{{
+				Slot:        8,
+				ItemIndex:   1000,
+				ItemName:    "Adaga",
+				RateDivisor: 4,
+			}},
+		}},
+	}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.ListMobDrops(context.Background(), &webv1.ListMobDropsRequest{
+		ModeratorId: 7,
+		MobQuery:    "alp",
+		ItemIndex:   1000,
+		ItemQuery:   "ada",
+	})
+	if err != nil {
+		t.Fatalf("ListMobDrops: %v", err)
+	}
+	if fake.lastModeratorID != 7 {
+		t.Errorf("moderator id forwarded = %d, want 7", fake.lastModeratorID)
+	}
+	wantFilter := droptool.Filter{MobQuery: "alp", ItemIndex: 1000, ItemQuery: "ada"}
+	if fake.lastDropFilter != wantFilter {
+		t.Errorf("filter = %+v, want %+v", fake.lastDropFilter, wantFilter)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_OK {
+		t.Fatalf("result = %v, want OK", resp.GetResult())
+	}
+	got := resp.GetMobs()[0]
+	if got.GetTemplateName() != "Alpha" || got.GetMobLevel() != 37 || got.GetItems()[0].GetItemName() != "Adaga" {
+		t.Errorf("mobs[0] = %+v, want mapped mob drops", got)
+	}
+}
+
+func TestListMobDropsForbidden(t *testing.T) {
+	fake := &fakeNpcAdmin{listMobDropsRes: npcadmin.Forbidden}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.ListMobDrops(context.Background(), &webv1.ListMobDropsRequest{ModeratorId: 3})
+	if err != nil {
+		t.Fatalf("ListMobDrops: %v", err)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_FORBIDDEN {
+		t.Errorf("result = %v, want FORBIDDEN", resp.GetResult())
+	}
+}
+
+func TestListMobDropsInfraError(t *testing.T) {
+	fake := &fakeNpcAdmin{listMobDropsErr: errors.New("scan failed")}
+	s := NewNpcAdmin(fake)
+
+	if _, err := s.ListMobDrops(context.Background(), &webv1.ListMobDropsRequest{}); err == nil {
 		t.Fatal("expected gRPC error on infra failure")
 	}
 }
