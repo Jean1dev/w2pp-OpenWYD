@@ -26,6 +26,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/attributemap"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/characters"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/dailyreward"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donateshop"
@@ -84,6 +85,7 @@ func run(logger *slog.Logger) error {
 	donate := donateshop.New(st)
 	dailyRwd := dailyreward.New(st)
 	topup := donatetopup.New(st)
+	attrMap := attributemap.New(st, *contentDir)
 	if *contentDir != "" {
 		templates, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -117,6 +119,7 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterCharacterWebServiceServer(srv, grpcsrv.NewCharacters(characters.New(st)))
 	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
+	webv1.RegisterAttributeMapAdminServiceServer(srv, grpcsrv.NewAttributeMapAdmin(attrMap))
 	webv1.RegisterDonateAdminServiceServer(srv, grpcsrv.NewDonateAdmin(donate))
 	webv1.RegisterDonateShopServiceServer(srv, grpcsrv.NewDonateShop(donate))
 	webv1.RegisterDailyRewardAdminServiceServer(srv, grpcsrv.NewDailyRewardAdmin(dailyRwd))

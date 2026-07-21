@@ -397,6 +397,97 @@ message ListMapZonesResponse {
   repeated MapZone zones = 2;
 }
 
+// AttributeMapAdminService is the moderator-facing replacement for the legacy
+// Source/Code/AttributeMap_Editor tool. It reads the binary
+// Release/TMsrv/run/AttributeMap.dat asset, applies bulk transformations, and
+// returns a new .dat payload for controlled operator replacement. It never
+// mutates live tmServer state; the game consumes AttributeMap.dat at boot.
+service AttributeMapAdminService {
+  // GetAttributeMapInfo returns dimensions, known attribute meanings, a value
+  // histogram, and the SHA-256 of the currently configured AttributeMap.dat.
+  rpc GetAttributeMapInfo(GetAttributeMapInfoRequest) returns (GetAttributeMapInfoResponse);
+  // TransformAttributeMap applies one bulk rule to AttributeMap.dat and returns
+  // the transformed binary as AttributeMap_New.dat. Source files are not
+  // overwritten by this RPC.
+  rpc TransformAttributeMap(TransformAttributeMapRequest) returns (TransformAttributeMapResponse);
+}
+
+message GetAttributeMapInfoRequest { int64 moderator_id = 1; }
+message GetAttributeMapInfoResponse {
+  AdminResult result = 1;
+  AttributeMapInfo info = 2;
+}
+
+message AttributeMapInfo {
+  int32 dim = 1;         // 1024 cells per side
+  int32 world_scale = 2; // one attribute cell covers a 4x4 world block
+  string sha256 = 3;
+  repeated AttributeMapValueCount histogram = 4;
+  repeated AttributeMapMeaning meanings = 5;
+}
+
+message AttributeMapValueCount {
+  int32 value = 1; // byte value, 0..255
+  int64 count = 2;
+}
+
+message AttributeMapMeaning {
+  int32 value = 1;       // exact value or bit mask
+  string name = 2;       // short UI label
+  string description = 3;
+  bool bit = 4;          // true when value is a bit mask
+}
+
+enum AttributeMapTransformOperation {
+  ATTRIBUTE_MAP_TRANSFORM_OPERATION_UNSPECIFIED = 0;
+  // Exact legacy AttributeMap_Editor rule:
+  // if value < 64 && value != 1 { value |= 64 }.
+  ATTRIBUTE_MAP_TRANSFORM_OPERATION_LEGACY_MARK_PVP_EXP_LOSS = 1;
+  ATTRIBUTE_MAP_TRANSFORM_OPERATION_ASSIGN_VALUE = 2;
+  ATTRIBUTE_MAP_TRANSFORM_OPERATION_SET_BITS = 3;
+  ATTRIBUTE_MAP_TRANSFORM_OPERATION_CLEAR_BITS = 4;
+  ATTRIBUTE_MAP_TRANSFORM_OPERATION_TOGGLE_BITS = 5;
+}
+
+// AttributeMapRect is an inclusive world-coordinate rectangle. Coordinates are
+// 0..4095; the service maps them to AttributeMap cells by x/4,y/4. Omit rect to
+// transform the full map.
+message AttributeMapRect {
+  int32 min_x = 1;
+  int32 min_y = 2;
+  int32 max_x = 3;
+  int32 max_y = 4;
+}
+
+// AttributeMapTransformFilter optionally restricts which cells inside the
+// rectangle are modified. With mask == 0 it matches exact_value. With mask != 0
+// it matches (value & mask) == (match_value & mask).
+message AttributeMapTransformFilter {
+  bool enabled = 1;
+  int32 exact_value = 2; // 0..255; usable because enabled carries presence
+  int32 mask = 3;        // 0..255
+  int32 match_value = 4; // 0..255
+}
+
+message TransformAttributeMapRequest {
+  int64 moderator_id = 1;
+  AttributeMapTransformOperation operation = 2;
+  int32 operand = 3; // assigned byte or bit mask, 0..255; ignored by legacy op
+  AttributeMapRect rect = 4;
+  AttributeMapTransformFilter filter = 5;
+}
+
+message TransformAttributeMapResponse {
+  AdminResult result = 1;
+  int32 changed_count = 2;
+  repeated AttributeMapValueCount before_histogram = 3;
+  repeated AttributeMapValueCount after_histogram = 4;
+  string original_sha256 = 5;
+  string new_sha256 = 6;
+  string filename = 7; // suggested download name: AttributeMap_New.dat
+  bytes data = 8;      // full transformed 1024x1024 binary
+}
+
 // DonateAdminService is the moderator-facing donate web-shop surface (issue #34):
 // CRUD over the donate_shop_item catalog plus the manual "credit donate to an
 // account" path (the seam the future payment webhook reuses). Like NpcAdminService

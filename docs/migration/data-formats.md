@@ -317,8 +317,10 @@ isolada; derivada de `STRUCT_ACCOUNTFILE` por `DBGetSelChar`): posições, nomes
 
 - O mundo é um grid único de **4096×4096** células. A `HeightMap` tem 1 byte por célula. A
   `AttributeMap` é **1/4 da resolução** em cada eixo (1024×1024) → **1 atributo por bloco 4×4** de
-  células de altura. **UNVERIFIED** a semântica bit-a-bit de cada byte de atributo (andável/água/
-  bloqueio) — extrair por inspeção/captura.
+  células de altura. Semântica parcial confirmada: `0` = PvE sem flag PvP, `1` = cidade/área
+  segura, bit `2` = bloqueio aplicado ao `HeightMap` por `BASE_ApplyAttribute`, bit `4` = não permite
+  marcar Gema, bit `64` = área PvP/perda de XP, bit `128` = newbie zone. Demais combinações ainda
+  exigem inspeção/captura antes de serem reinterpretadas.
 - `pHeightGrid` é usado direto pelo pathfinding `BASE_GetRoute(...)` (`CMob.cpp:931,983,1044,1239`).
 
 > **Migração:** manter os dois `.dat` como assets binários (não há ganho em "schematizar" um
@@ -485,7 +487,7 @@ Mapeamento de invariantes a preservar:
 | Múltiplas versões de arquivo | 4294 / 7500–7600 / `sizeof` | detectar por tamanho; mapear cada layout |
 | Case-sensitivity de nomes | `A/antonio` vs `ANTONIO` | normalizar para canônico (lowercase) |
 | Caminhos/drives hardcoded | `S:/export/...` (`CFileDB.cpp:2513`) | virar config (Fase 7) |
-| Semântica de `AttributeMap` UNVERIFIED | bits por byte não documentados | extrair por inspeção antes de reusar/regerar |
+| Semântica de `AttributeMap` parcial | bits/combinações fora dos valores confirmados acima ainda não documentados | preservar valores brutos e extrair por inspeção antes de reusar/regerar |
 
 > **Status da Fase 2: PARCIAL.** Layouts macro (conta, MOB, item, score, mapas) documentados com
 > evidência e **validados campo-a-campo** contra `Basedef.h`; regimes de alinhamento esclarecidos
@@ -493,4 +495,4 @@ Mapeamento de invariantes a preservar:
 > `STRUCT_QUEST`=56, **`STRUCT_ACCOUNTFILE`=7952** (premissa `time_t`=8; travar com `static_assert`,
 > §0.1). UNVERIFIED a confirmar via build/captura: `BASE_GetFirstKey`, a largura efetiva de `time_t`
 > no build, layout dos arquivos legados (4294 / 7500–7600), mapeamento coluna-a-coluna dos CSV e
-> semântica bit-a-bit da `AttributeMap`.
+> combinações/semânticas restantes da `AttributeMap`.
