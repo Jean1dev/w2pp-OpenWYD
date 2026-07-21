@@ -144,9 +144,13 @@ func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar 
 			MaxHp: c.MaxHp, Hp: c.Hp, MaxMp: c.MaxMp, Mp: c.Mp,
 			Str: c.Str, Int: c.Int, Dex: c.Dex, Con: c.Con,
 		}
-		// Preview the character's class with its starter equipment from the class
-		// BaseMob template (B4: otherwise the client draws the default TK model).
-		if tmpl, ok := d.baseMobs[c.Class]; ok && len(tmpl) == content.BaseMobSize {
+		// Preview the saved gear. Empty equipment falls back to the class BaseMob so
+		// fresh characters still render with the right class model on the select screen.
+		if !equipEmpty(c.Equip) {
+			for i := range c.Equip {
+				sc.Equip[i] = itemToSel(c.Equip[i])
+			}
+		} else if tmpl, ok := d.baseMobs[c.Class]; ok && len(tmpl) == content.BaseMobSize {
 			sc.Equip = protocol.MobEquip(tmpl)
 		}
 		out = append(out, sc)

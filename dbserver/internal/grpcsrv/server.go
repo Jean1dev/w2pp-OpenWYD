@@ -118,6 +118,7 @@ func (s *Server) ListCharacters(ctx context.Context, req *dbv1.ListCharactersReq
 			Int:     int32(ch.Int),
 			Dex:     int32(ch.Dex),
 			Con:     int32(ch.Con),
+			Equip:   itemsToProto(ch.Equip),
 		})
 	}
 	return &dbv1.ListCharactersResponse{Characters: out}, nil

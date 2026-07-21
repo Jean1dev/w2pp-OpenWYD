@@ -108,10 +108,10 @@ func (s *Store) SetBlockedByName(ctx context.Context, name string, blocked bool)
 }
 
 // ListCharacters returns the character-selection projection (slot, name, class,
-// level, exp, guild) for an account, ordered by slot.
+// score preview and equipped gear) for an account, ordered by slot.
 func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT slot, name, class, guild_id, level, exp, coin,
+		`SELECT id, slot, name, class, guild_id, level, exp, coin,
 		        max_hp, hp, max_mp, mp, str, int, dex, con
 		   FROM character WHERE account_id = $1 ORDER BY slot`, accountID)
 	if err != nil {
@@ -119,17 +119,29 @@ func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.C
 	}
 	defer rows.Close()
 
+	var charIDs []int64
 	var out []domain.Character
 	for rows.Next() {
+		var charID int64
 		var ch domain.Character
-		if err := rows.Scan(&ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp, &ch.Coin,
+		if err := rows.Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp, &ch.Coin,
 			&ch.MaxHp, &ch.Hp, &ch.MaxMp, &ch.Mp, &ch.Str, &ch.Int, &ch.Dex, &ch.Con); err != nil {
 			return nil, fmt.Errorf("store: scan character summary: %w", err)
 		}
+		charIDs = append(charIDs, charID)
 		out = append(out, ch)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: list characters: %w", err)
+	}
+	rows.Close()
+
+	for i, charID := range charIDs {
+		equip, err := s.loadItems(ctx, charID, "char_equip")
+		if err != nil {
+			return nil, fmt.Errorf("store: list character equipment: %w", err)
+		}
+		out[i].Equip = equip
 	}
 	return out, nil
 }

@@ -52,13 +52,17 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("AccountByName(ghost) = %v, want ErrNotFound", err)
 	}
 
-	// ListCharacters — the summary now carries the select-screen score preview.
+	// ListCharacters — the summary now carries the select-screen score preview
+	// and the persisted equipment used by the character-selection model.
 	list, err := s.ListCharacters(ctx, accID)
 	if err != nil || len(list) != 1 || list[0].Name != "Warrior" {
 		t.Fatalf("ListCharacters: %+v err=%v", list, err)
 	}
 	if c0 := list[0]; c0.Level != 40 || c0.Coin != 1000 || c0.MaxHp != 800 || c0.Str != 50 {
 		t.Fatalf("ListCharacters score preview: %+v", c0)
+	}
+	if c0 := list[0]; len(c0.Equip) != 1 || c0.Equip[0].Slot != 0 || c0.Equip[0].Index != 1100 || c0.Equip[0].EffV1 != 9 {
+		t.Fatalf("ListCharacters equipment preview: %+v", c0.Equip)
 	}
 
 	// LoadCharacter (with items + affects)

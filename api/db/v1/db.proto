@@ -123,6 +123,9 @@ message CharacterSummary {
   int32 int = 13;
   int32 dex = 14;
   int32 con = 15;
+  // Equipped items shown on the character-selection model. Empty slots are
+  // omitted; tmServer falls back to the class BaseMob only when none are present.
+  repeated Item equip = 16;
 }
 
 message ListCharactersResponse { repeated CharacterSummary characters = 1; }

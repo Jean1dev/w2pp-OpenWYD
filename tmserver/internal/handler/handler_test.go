@@ -543,6 +543,46 @@ func TestLoginOK(t *testing.T) {
 	}
 }
 
+func TestLoginSelectionUsesPersistedEquip(t *testing.T) {
+	db := newDB()
+	db.accounts["tester"].chars[0].Equip[1] = world.Item{
+		Index:   4321,
+		Effects: [3]world.Effect{{Effect: 1, Value: 9}},
+	}
+
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := dial(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgAccountLogin, loginBody("Tester", "secret", protocol.AppVersion))
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFAccountLogin {
+		t.Fatalf("response = %#x, want CNFAccountLogin", ty)
+	}
+	const equip1Off = 20 + 272 + 8 // sel@20 + Equip[0][1] @272 + one STRUCT_ITEM
+	if got := binary.LittleEndian.Uint16(payload[equip1Off : equip1Off+2]); got != 4321 {
+		t.Fatalf("slot-0 equip[1] = %d, want persisted item 4321", got)
+	}
+	if got := payload[equip1Off+3]; got != 9 {
+		t.Fatalf("slot-0 equip[1] EffV1 = %d, want 9", got)
+	}
+}
+
+func TestSelCharsFromFallsBackToBaseMobEquip(t *testing.T) {
+	tmpl := make([]byte, content.BaseMobSize)
+	binary.LittleEndian.PutUint16(tmpl[140+8:140+10], 2222)
+	d := &Dispatcher{baseMobs: map[int][]byte{1: tmpl}}
+
+	chars := d.selCharsFrom([]world.CharSummary{{Slot: 0, Name: "fresh", Class: 1}})
+	if len(chars) != 1 {
+		t.Fatalf("sel chars = %d, want 1", len(chars))
+	}
+	if got := chars[0].Equip[1].Index; got != 2222 {
+		t.Fatalf("fallback equip[1] = %d, want BaseMob item 2222", got)
+	}
+}
+
 func TestLoginSendsCargo(t *testing.T) {
 	db := newDB()
 	cargo := world.CargoState{Coin: 777}
