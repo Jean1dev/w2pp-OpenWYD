@@ -23,6 +23,30 @@ func autotradeDB(sellItem int16) *fakeDB {
 	return db
 }
 
+func autotradeViewDB(sellItem int16) *fakeDB {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7:  {Slot: 0, Name: "Seller", X: 2086, Y: 2093, HP: 1000, MaxHP: 1000, Coin: 1000},
+		11: {Slot: 0, Name: "Buyer", X: 2086, Y: 2130, HP: 1000, MaxHP: 1000, Coin: 1_000_000},
+	}
+	var cargo world.CargoState
+	cargo.Items[0] = world.Item{Index: sellItem}
+	db.accounts["tester"].cargo = cargo
+	return db
+}
+
+func createMobTradeFields(t *testing.T, payload []byte) (x, y int16, mobID int, title string) {
+	t.Helper()
+	if len(payload) != 240 {
+		t.Fatalf("CreateMobTrade body = %d bytes, want 240", len(payload))
+	}
+	x = int16(binary.LittleEndian.Uint16(payload[0:2]))
+	y = int16(binary.LittleEndian.Uint16(payload[2:4]))
+	mobID = int(binary.LittleEndian.Uint16(payload[4:6]))
+	title = cstr(payload[216:240])
+	return x, y, mobID, title
+}
+
 // openShopPayload builds a client MSG_SendAutoTrade selling Cargo[cargoPos] for
 // price in shop slot 0.
 func openShopPayload(title string, item int16, cargoPos int, price int32) []byte {
@@ -48,6 +72,37 @@ func reqBuyPayload(targetID, pos int, item int16, price, tax int32) []byte {
 		Item:     protocol.WireItem{Index: item},
 	}
 	return body.Encode()
+}
+
+func TestAutoTradeShopPoseWhenBuyerEntersView(t *testing.T) {
+	const sellItem = int16(1030)
+	const title = "Loja Longe"
+	addr, stop := startServerView(t, autotradeViewDB(sellItem), world.DefaultGridDim)
+	defer stop()
+	seller := enterWorldAs(t, addr, "tester") // conn 1, inside Armia at (2086,2093)
+	defer seller.Close()
+	buyer := enterWorldAs(t, addr, "tradeb") // conn 2, outside ViewRange at (2086,2130)
+	defer buyer.Close()
+	drainRaw(t, seller)
+	drainRaw(t, buyer)
+
+	send(t, seller, protocol.MsgSendAutoTrade, openShopPayload(title, sellItem, 0, 1000))
+	readUntil(t, seller, protocol.MsgSendAutoTrade)
+	if ty, _, ok := readMaybeRaw(t, buyer); ok {
+		t.Fatalf("out-of-view buyer got %#x after shop opened, want no shop pose yet", ty)
+	}
+
+	actionFrameXY(t, buyer, protocol.MsgAction, serverTime, 2086, 2130, 2086, 2100)
+	ty, payload, ok := readMaybeRaw(t, buyer)
+	if !ok || ty != protocol.MsgCreateMobTrade {
+		t.Fatalf("buyer entering view got %#x ok=%v, want CreateMobTrade", ty, ok)
+	}
+	if x, y, id, gotTitle := createMobTradeFields(t, payload); id != 1 || x != 2086 || y != 2093 || gotTitle != title {
+		t.Fatalf("shop pose = id %d at (%d,%d) title %q, want id 1 at (2086,2093) title %q", id, x, y, gotTitle, title)
+	}
+	if ty, _, ok = readMaybeRaw(t, buyer); !ok || ty != protocol.MsgPKInfo {
+		t.Fatalf("frame after shop pose = %#x ok=%v, want PKInfo", ty, ok)
+	}
 }
 
 func TestAutoTradeOpenBrowseBuy(t *testing.T) {

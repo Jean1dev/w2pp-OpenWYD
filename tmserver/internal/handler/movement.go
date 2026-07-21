@@ -271,10 +271,10 @@ func (d *Dispatcher) doTeleport(w *world.World, s *world.Session, x, y int16) {
 // noViewMob handles _MSG_NoViewMob (0x0369): the client asks to re-sync one
 // entity's visibility (Parm = target id). Port of _MSG_NoViewMob.cpp: a live
 // target within GetInView range (±NoViewRange, looser than the multicast
-// window) gets a full CreateMob snapshot + PKInfo; anything else — empty slot,
-// player not in play, or out of range — gets a RemoveMob. The nil-payload
-// CreateMob this used to send made the client rebuild the avatar from a
-// truncated body: the multiplayer "snap-back" bug.
+// window) gets a full CreateMob/CreateMobTrade snapshot + PKInfo; anything else
+// — empty slot, player not in play, or out of range — gets a RemoveMob. The
+// nil-payload CreateMob this used to send made the client rebuild the avatar
+// from a truncated body: the multiplayer "snap-back" bug.
 func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
 		return
@@ -293,8 +293,8 @@ func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Head
 	}
 	if inPlay && self != nil && chebyshev(self.X, self.Y, target.X, target.Y) <= world.NoViewRange {
 		w.MarkSeen(s, id)
-		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
-			protocol.EncodeCreateMobBody(createMobFrom(target, 1)))
+		ty, body := createMobViewPacket(w, target, 1)
+		w.SendTo(s, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 		if id < world.MaxUser {
 			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869).
 			w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(id)}, protocol.EncodeStandardParm(pkInfoParm(target)))

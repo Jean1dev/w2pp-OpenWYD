@@ -39,6 +39,7 @@ func (d *Dispatcher) moveMulticast(w *world.World, moverID int, oldX, oldY int16
 	if moverID < world.MaxUser {
 		moverSess = w.Session(moverID)
 	}
+	var moverCreateType protocol.Type
 	var moverBody []byte // lazily encoded once, only if someone gains sight
 
 	w.ForEachPlaying(moverID, func(s *world.Session, e *world.Entity) {
@@ -62,15 +63,15 @@ func (d *Dispatcher) moveMulticast(w *world.World, moverID int, oldX, oldY int16
 			}
 		case inNew:
 			if moverBody == nil {
-				moverBody = protocol.EncodeCreateMobBody(createMobFrom(mover, 0))
+				moverCreateType, moverBody = createMobViewPacket(w, mover, 0)
 			}
 			w.MarkSeen(s, moverID)
-			w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, moverBody)
+			w.SendTo(s, protocol.Header{Type: moverCreateType, ID: protocol.IDScene}, moverBody)
 			if moverSess != nil {
 				w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(moverID)}, protocol.EncodeStandardParm(pkInfoParm(mover)))
 				w.MarkSeen(moverSess, e.ID)
-				w.SendTo(moverSess, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
-					protocol.EncodeCreateMobBody(createMobFrom(e, 0)))
+				ty, body := createMobViewPacket(w, e, 0)
+				w.SendTo(moverSess, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 				w.SendTo(moverSess, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(e.ID)}, protocol.EncodeStandardParm(pkInfoParm(e)))
 			}
 			if payload != nil {

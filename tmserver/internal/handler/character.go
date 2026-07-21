@@ -471,8 +471,8 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 		// (B) the newcomer sees each player already in view
 		w.MarkSeen(s, ve.ID)
-		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
-			protocol.EncodeCreateMobBody(createMobFrom(ve, 0)))
+		ty, body := createMobViewPacket(w, ve, 0)
+		w.SendTo(s, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(pkInfoParm(ve)))
 	})
 	// (C) the newcomer sees the NPCs/monsters in view.
@@ -522,6 +522,21 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		IsPlayer: world.IsPlayer(e.ID),
 		PKPoint:  playerPKPoint(e),
 	}
+}
+
+// createMobViewPacket mirrors legacy SendCreateMob: a player with an open
+// personal shop must be revealed with MSG_CreateMobTrade, not the normal avatar
+// packet, so clients that enter view after the shop opened still see the stall.
+func createMobViewPacket(w *world.World, e *world.Entity, createType uint16) (protocol.Type, []byte) {
+	data := createMobFrom(e, createType)
+	if world.IsPlayer(e.ID) {
+		s := w.Session(e.ID)
+		if s != nil && s.Mode == world.UserPlay && s.TradeMode == 1 && s.AutoTrade != nil {
+			data.Con = 0 // GetCreateMobTrade parity: shop pose hides the Con field.
+			return protocol.MsgCreateMobTrade, protocol.EncodeCreateMobTradeBody(data, nil, s.AutoTrade.Title)
+		}
+	}
+	return protocol.MsgCreateMob, protocol.EncodeCreateMobBody(data)
 }
 
 // playerPKPoint is pkPoint(e) for a player, or 0 for a mob (mobs never carry PK
