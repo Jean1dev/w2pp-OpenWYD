@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 )
 
 // NPCGenerator is one spawn block of NPCGener.txt (CNPCGene.cpp ParseString):
@@ -142,15 +143,13 @@ func LoadNPCGenerators(path string) ([]NPCGenerator, error) {
 }
 
 // LoadNPCTemplate reads one mob template (Release/TMsrv/run/npc/<name>), a raw
-// 816-byte STRUCT_MOB. Templates are cached by the caller (many generators share
-// a name).
+// 816-byte STRUCT_MOB. Legacy NPCGener names are resolved with Windows-like path
+// compatibility (case-insensitive, trailing dots ignored). Templates are cached
+// by the caller (many generators share a name).
 func LoadNPCTemplate(dir, name string) ([]byte, error) {
-	b, err := os.ReadFile(filepath.Join(dir, "TMsrv", "run", "npc", name))
+	b, _, err := npctemplate.Load(dir, name)
 	if err != nil {
 		return nil, err
-	}
-	if len(b) != BaseMobSize {
-		return nil, fmt.Errorf("content: npc %s = %d bytes, want %d", name, len(b), BaseMobSize)
 	}
 	return b, nil
 }
