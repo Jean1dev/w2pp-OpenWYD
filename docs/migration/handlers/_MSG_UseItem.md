@@ -18,6 +18,8 @@
 - Equipar: move item `CARRY → EQUIP[slot]`, recalcula score (`BASE_GetCurrentScore`), valida
   requisitos (level/str/int/dex/con) do `STRUCT_ITEMLIST`.
 - Consumir (poção/scroll): aplica efeito/affect, decrementa stack.
+- Pergaminho do Retorno (`EF_VOLATILE=11`): chama recall para o spawn da última cidade e
+  decrementa stack.
 - Refinar: ajusta `sanc`/efeitos do item (ver tabelas `SancRate.txt`, Fase 4 §3.3).
 - Teleporte por scroll: usa `WarpID`/`GridX/Y`.
 

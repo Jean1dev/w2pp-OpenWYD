@@ -240,6 +240,7 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 const (
 	volHpMpPotion   = 1
 	volFairyDust    = 7
+	volRecallScroll = 11 // Pergaminho do Retorno: recalls to the last-city spawn
 	volGemaEstelar  = 12 // Gema Estelar: records the warp save-point
 	volPortalScroll = 13 // Pergaminho de Portal: teleports to the save-point
 	volVigor        = 58
@@ -302,8 +303,9 @@ const potionDelay = 100
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
 // classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
-// 0 = equip (CARRY → EQUIP); 12/13 = Gema Estelar/Portal (warp save-point, issue #140);
-// 64-66 = Poção Divina; other consumables are UNVERIFIED and not handled yet.
+// 0 = equip (CARRY → EQUIP); 11 = Retorno (recall); 12/13 = Gema Estelar/Portal
+// (warp save-point, issue #140); 64-66 = Poção Divina; other consumables are
+// UNVERIFIED and not handled yet.
 // Drag-and-drop between slots is a different message (tradingItem).
 func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
@@ -347,6 +349,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.refineItem(w, s, e, body, src, vol)
 	case vol == volHpMpPotion:
 		d.useHealPotion(w, s, e, src)
+	case vol == volRecallScroll:
+		d.useRecallScroll(w, s, e, src)
 	case vol == volGemaEstelar:
 		d.useGemaEstelar(w, s, e, src)
 	case vol == volPortalScroll:
@@ -574,6 +578,14 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 // tickets (Gema Estelar, Portal, and the two Pesadelo entry scrolls).
 func inPesadelo(x, y int16) bool {
 	return (x/128 == 9 && y/128 == 1) || (x/128 == 8 && y/128 == 2)
+}
+
+// useRecallScroll consumes a Pergaminho do Retorno (EF_VOLATILE 11): the legacy
+// handler calls DoRecall(conn) and then decrements the item (_MSG_UseItem.cpp:1344).
+func (d *Dispatcher) useRecallScroll(w *world.World, s *world.Session, e *world.Entity, src int) {
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.recall(w, s, e)
 }
 
 // useGemaEstelar consumes a Gema Estelar (EF_VOLATILE 12): records the player's
