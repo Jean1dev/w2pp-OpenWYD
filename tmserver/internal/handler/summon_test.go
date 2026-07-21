@@ -138,6 +138,177 @@ func collectPets(t *testing.T, c net.Conn, timeout time.Duration) map[int][]byte
 	return pets
 }
 
+func babyMountItem(index int16, hp uint16) world.Item {
+	it := world.Item{Index: index}
+	putShort(&it.Effects[0], hp)
+	it.Effects[1] = world.Effect{Effect: 5, Value: 10} // mount sanc/life bytes
+	it.Effects[2] = world.Effect{Effect: 30, Value: 1} // feed/kill bytes
+	return it
+}
+
+func babyMountDB(carry, equip world.Item) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, Level: 50,
+	}
+	st.Carry[0] = carry
+	st.Equip[mountEquipSlot] = equip
+	db.loadResult = st
+	return db
+}
+
+func babyMountSummons() [][]byte {
+	mobs := make([][]byte, 40)
+	mob := summonTemplate("Porco")
+	binary.LittleEndian.PutUint16(mob[140:], 315) // Equip[0] face; 315+(2330-2330)
+	mobs[10] = mob                                // MountProcess: 2330 - 2320
+	return mobs
+}
+
+func startServerBabyMount(t *testing.T, db world.Persistence) (string, func(), *atomic.Uint32) {
+	return startServerSummonWith(t, db, nil, babyMountSummons(), nil, 0, 0)
+}
+
+func expectPetRemove(t *testing.T, c net.Conn, petID int) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		h, _, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		if h.Type == protocol.MsgRemoveMob && int(h.ID) == petID {
+			return
+		}
+	}
+	t.Fatalf("no RemoveMob for baby mount pet %d", petID)
+}
+
+func TestBabyMountSpawnsOnEquip(t *testing.T) {
+	addr, stop, _ := startServerBabyMount(t, babyMountDB(babyMountItem(2330, 80), world.Item{}))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, mountEquipSlot, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	ue := expect(t, c, protocol.MsgUpdateEquip)
+	if got := le16(ue[mountEquipSlot*2:]); got != 2330 {
+		t.Fatalf("mount visual = %d, want baby mount item 2330", got)
+	}
+
+	pets := collectPets(t, c, time.Second)
+	if len(pets) != 1 {
+		t.Fatalf("baby mount pets = %d, want 1", len(pets))
+	}
+	for _, payload := range pets {
+		if name := cstr(payload[6:22]); name != "Porco^" {
+			t.Errorf("baby mount name = %q, want Porco^", name)
+		}
+		if face := le16(payload[22:24]); face != 315 {
+			t.Errorf("baby mount face = %d, want 315", face)
+		}
+		if createType := le16(payload[172:174]); createType&3 != 3 {
+			t.Errorf("baby mount CreateType = %#x, want summon appear bits", createType)
+		}
+		if hp := int32(le(payload[148:152])); hp != 80 {
+			t.Errorf("baby mount HP = %d, want item HP 80", hp)
+		}
+	}
+}
+
+func TestBabyMountDeadDoesNotSpawn(t *testing.T) {
+	addr, stop, _ := startServerBabyMount(t, babyMountDB(babyMountItem(2330, 0), world.Item{}))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, mountEquipSlot, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgUpdateEquip)
+
+	if pets := collectPets(t, c, 500*time.Millisecond); len(pets) != 0 {
+		t.Fatalf("dead baby mount spawned %d pet(s), want none", len(pets))
+	}
+}
+
+func TestBabyMountUnequipDespawnsPet(t *testing.T) {
+	addr, stop, _ := startServerBabyMount(t, babyMountDB(babyMountItem(2330, 80), world.Item{}))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, mountEquipSlot, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgUpdateEquip)
+	pets := collectPets(t, c, time.Second)
+	if len(pets) != 1 {
+		t.Fatalf("baby mount pets = %d, want 1", len(pets))
+	}
+	petID := 0
+	for id := range pets {
+		petID = id
+	}
+
+	tradeItemFrame(t, c, world.ItemPlaceEquip, mountEquipSlot, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgUpdateEquip)
+	expectPetRemove(t, c, petID)
+}
+
+func TestBabyMountDoesNotExpireLikeSkillSummon(t *testing.T) {
+	addr, stop, _ := startServerBabyMount(t, babyMountDB(babyMountItem(2330, 80), world.Item{}))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceEquip, mountEquipSlot, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgSendItem)
+	expect(t, c, protocol.MsgUpdateEquip)
+	pets := collectPets(t, c, time.Second)
+	if len(pets) != 1 {
+		t.Fatalf("baby mount pets = %d, want 1", len(pets))
+	}
+	petID := 0
+	for id := range pets {
+		petID = id
+	}
+
+	deadline := time.Now().Add(2500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		h, _, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		if h.Type == protocol.MsgRemoveMob && int(h.ID) == petID {
+			t.Fatalf("baby mount pet %d expired; item-backed summons must not use Type-24 lifespan", petID)
+		}
+	}
+}
+
+func TestBabyMountSpawnsOnLogin(t *testing.T) {
+	addr, stop, _ := startServerBabyMount(t, babyMountDB(world.Item{}, babyMountItem(2330, 80)))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	pets := collectPets(t, c, time.Second)
+	if len(pets) != 1 {
+		t.Fatalf("login baby mount pets = %d, want 1", len(pets))
+	}
+}
+
 // TestEvocationSpawnsScaledSummons is the happy path: Evocação 60 evokes two
 // Condors, each owner-scaled per pSummonBonus[0] — Damage 20 + Int·80% +
 // Evo·300% = 280, MaxHp 100 + Int·100% + Evo·400% = 440 — at the owner's level,

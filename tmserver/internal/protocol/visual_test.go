@@ -34,3 +34,14 @@ func TestVisualEquipAncientGlow(t *testing.T) {
 		t.Errorf("anct = %#x, want 113", anct)
 	}
 }
+
+func TestVisualEquipBabyMount(t *testing.T) {
+	it := SelItem{Index: 2330}
+	visual, anct := VisualEquip(it, visualMountSlot)
+	if visual != 2330 {
+		t.Errorf("baby mount visual = %d, want 2330", visual)
+	}
+	if anct != 0 {
+		t.Errorf("baby mount anct = %#x, want 0", anct)
+	}
+}
