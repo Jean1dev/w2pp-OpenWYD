@@ -84,7 +84,7 @@ func itemKeyID(it world.Item) int {
 // carryKeySlot returns the first carry slot holding an item whose EF_KEYID matches
 // key, or -1. Loop-only (reads Entity.Carry directly).
 func carryKeySlot(e *world.Entity, key int) int {
-	for i := range e.Carry {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		if !e.Carry[i].Empty() && itemKeyID(e.Carry[i]) == key {
 			return i
 		}

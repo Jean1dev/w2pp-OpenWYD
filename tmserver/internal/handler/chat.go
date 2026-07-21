@@ -289,12 +289,11 @@ func (d *Dispatcher) arcana(w *world.World, s *world.Session) {
 // SendItem update. If the inventory is full the grant is dropped (logged) — the flag
 // change still stands, matching the legacy PutItem best-effort behavior.
 func (d *Dispatcher) grantCarry(w *world.World, s *world.Session, e *world.Entity, index int16) {
-	for i := range e.Carry {
-		if e.Carry[i].Empty() {
-			e.Carry[i] = world.Item{Index: index}
-			w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
-			return
-		}
+	i := firstEmptyAccessibleCarry(e)
+	if i >= 0 {
+		e.Carry[i] = world.Item{Index: index}
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
+		return
 	}
 	d.log.Info("grantCarry: inventory full", "conn", s.Conn, "index", index)
 }

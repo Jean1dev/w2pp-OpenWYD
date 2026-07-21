@@ -72,6 +72,32 @@ func firstResultIndex(t *testing.T, payload []byte) int16 {
 	return int16(binary.LittleEndian.Uint16(payload[1:3]))
 }
 
+func TestTradeSlotsAccessibleRequiresUnlockedCarry(t *testing.T) {
+	e := &world.Entity{}
+	e.Carry[44] = world.Item{Index: 1100}
+	e.Carry[45] = world.Item{Index: 2200}
+
+	if tradeSlotsAccessible(e, []int{44}) {
+		t.Fatal("slot 44 was tradeable without a Wanderer Bag marker")
+	}
+
+	e.Carry[wandererBagSlot1] = world.Item{Index: itemWandererBag}
+	if !tradeSlotsAccessible(e, []int{44}) {
+		t.Fatal("slot 44 was not tradeable with one active Wanderer Bag marker")
+	}
+	if tradeSlotsAccessible(e, []int{45}) {
+		t.Fatal("slot 45 was tradeable with only one active Wanderer Bag marker")
+	}
+
+	e.Carry[wandererBagSlot2] = world.Item{Index: itemWandererBag}
+	if !tradeSlotsAccessible(e, []int{45}) {
+		t.Fatal("slot 45 was not tradeable with two active Wanderer Bag markers")
+	}
+	if tradeSlotsAccessible(e, []int{wandererBagSlot1}) {
+		t.Fatal("marker slot 60 must never be tradeable")
+	}
+}
+
 func TestTradeAtomicSwap(t *testing.T) {
 	addr, stop, _ := startServerClock(t, tradeDB())
 	defer stop()

@@ -95,6 +95,7 @@ func TestMessageTypeValues(t *testing.T) {
 		{"_MSG_PKInfo (Basedef.h:1954)", MsgPKInfo, 102 | flagGame2Client},
 		{"_MSG_PKMode (Basedef.h:2164)", MsgPKMode, 153 | flagGame2Client | flagClient2Game},
 		{"_MSG_SendItem (Basedef.h:2036)", MsgSendItem, 130 | flagGame2Client},
+		{"_MSG_UpdateCarry (Basedef.h:1813)", MsgUpdateCarry, 133 | flagGame2Client},
 		{"_MSG_CNFAddParty (Basedef.h:2246)", MsgCNFAddParty, 125 | flagGame2Client | flagClient2Game},
 		{"_MSG_UpdateEquip (Basedef.h:2094)", MsgUpdateEquip, 107 | flagGame2Client | flagClient2Game},
 		{"_MSG_REQShopList (Basedef.h:2153)", MsgREQShopList, 123 | flagClient2Game},

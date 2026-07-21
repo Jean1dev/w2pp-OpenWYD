@@ -182,11 +182,12 @@ func (d *Dispatcher) gmItem(w *world.World, s *world.Session, rest string) {
 	if e == nil {
 		return
 	}
-	slot := w.AddToCarry(e, world.Item{Index: int16(id)})
+	slot := firstEmptyAccessibleCarry(e)
 	if slot < 0 {
 		d.notify(w, s, NoticeNoEmptySlot)
 		return
 	}
+	e.Carry[slot] = world.Item{Index: int16(id)}
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
 	d.log.Info("gm item", "account", s.AccountName, "item", id, "slot", slot)
 }

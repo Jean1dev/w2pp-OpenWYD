@@ -67,7 +67,7 @@ func anctApply(items []world.Item) world.Item {
 }
 
 // resolveComboInputs validates a combine packet's claimed inputs against the
-// live carry slots (bounds + sameItem anti-cheat) — the skeleton every
+// live accessible carry slots (bounds + sameItem anti-cheat) — the skeleton every
 // Item[]-based combine variant shares, generic and Odin alike. It returns the
 // items and their carry slots still indexed by ORIGINAL combine-message
 // position (zero Item/slot where the client left that position empty), plus
@@ -81,7 +81,7 @@ func (d *Dispatcher) resolveComboInputs(w *world.World, s *world.Session, e *wor
 			continue
 		}
 		pos := int(body.InvenPos[i])
-		if pos < 0 || pos >= world.MaxCarry {
+		if !carrySlotAccessible(e, pos) {
 			d.removeTrade(w, s) // out of range → RemoveTrade (anti-cheat)
 			return items, slots, active, false
 		}
@@ -168,7 +168,7 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 		return
 	}
 	slot := int(p2)
-	if slot < 0 || slot >= world.MaxCarry {
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	it := e.Carry[slot]
@@ -185,7 +185,7 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 		return
 	}
 	catalyst := -1
-	for i := range e.Carry {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		if e.Carry[i].Index == 1774 {
 			catalyst = i
 			break
