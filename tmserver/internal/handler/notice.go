@@ -46,6 +46,7 @@ const (
 	NoticeRefineSuccess  // _NN_Refine_Success (176)
 	NoticeIncubated      // _NN_INCUBATED (253): the egg hatched into its mount
 	NoticeIncuWaitMore   // _NN_Incu_Wait_More (261): the egg's incubation timer
+	NoticeMountLevel     // _NN_Mount_Level (263): a cria gained one mount level
 
 	NoticeNoEmptySlot // _NN_NoEmptySlot
 	NoticeMaxBag      // _NN_MAX_BAG: both Bolsa do Andarilho slots are already active

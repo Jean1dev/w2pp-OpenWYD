@@ -171,6 +171,113 @@ func TestMobKilledClan4NoExp(t *testing.T) {
 	}
 }
 
+func TestApplyBabyMountKillGrowth(t *testing.T) {
+	mount := babyMountItem(2330, 80)
+	mount.Effects[1].Effect = 5
+	mount.Effects[2].Value = 1
+
+	changed, leveled := applyBabyMountKill(&mount, 6)
+	if !changed || leveled {
+		t.Fatalf("applyBabyMountKill changed/leveled = %v/%v, want true/false", changed, leveled)
+	}
+	if got := mount.Effects[2].Value; got != 2 {
+		t.Errorf("growth = %d, want 2", got)
+	}
+	if got := mount.Effects[1].Effect; got != 5 {
+		t.Errorf("level = %d, want unchanged 5", got)
+	}
+}
+
+func TestApplyBabyMountKillLevelUp(t *testing.T) {
+	mount := babyMountItem(2330, 80)
+	mount.Effects[1].Effect = 5
+	mount.Effects[2].Value = 29 // threshold for 2330 at level 5 is 30.
+
+	changed, leveled := applyBabyMountKill(&mount, 6)
+	if !changed || !leveled {
+		t.Fatalf("applyBabyMountKill changed/leveled = %v/%v, want true/true", changed, leveled)
+	}
+	if got := mount.Effects[1].Effect; got != 6 {
+		t.Errorf("level = %d, want 6", got)
+	}
+	if got := mount.Effects[2].Value; got != 1 {
+		t.Errorf("growth after level-up = %d, want 1", got)
+	}
+}
+
+func TestApplyBabyMountKillDefaultThreshold(t *testing.T) {
+	mount := babyMountItem(2336, 80)
+	mount.Effects[1].Effect = 5
+	mount.Effects[2].Value = 104 // default threshold is XP+100 = 105.
+
+	changed, leveled := applyBabyMountKill(&mount, 6)
+	if !changed || !leveled {
+		t.Fatalf("applyBabyMountKill changed/leveled = %v/%v, want true/true", changed, leveled)
+	}
+	if got := mount.Effects[1].Effect; got != 6 {
+		t.Errorf("level = %d, want 6", got)
+	}
+}
+
+func TestApplyBabyMountKillRejectsIneligible(t *testing.T) {
+	tests := []struct {
+		name     string
+		mount    world.Item
+		mobLevel int
+	}{
+		{name: "not mount", mount: babyMountItem(2329, 80), mobLevel: 6},
+		{name: "mob level too low", mount: babyMountItem(2330, 80), mobLevel: 5},
+		{name: "level cap", mount: func() world.Item {
+			it := babyMountItem(2330, 80)
+			it.Effects[1].Effect = 100
+			return it
+		}(), mobLevel: 101},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := tt.mount
+			changed, leveled := applyBabyMountKill(&tt.mount, tt.mobLevel)
+			if changed || leveled {
+				t.Fatalf("applyBabyMountKill changed/leveled = %v/%v, want false/false", changed, leveled)
+			}
+			if tt.mount != before {
+				t.Errorf("mount changed from %+v to %+v", before, tt.mount)
+			}
+		})
+	}
+}
+
+func TestBabyMountKillEligible(t *testing.T) {
+	killer := &world.Entity{
+		ID:          world.MaxUser,
+		Clan:        summonClan,
+		Summoner:    1,
+		EquipVisual: [world.MaxEquip]uint16{babyMountFaceLo},
+	}
+	mob := &world.Entity{ID: world.MaxUser + 1, Clan: 0}
+	if !babyMountKillEligible(killer, mob) {
+		t.Fatal("babyMountKillEligible = false, want true")
+	}
+
+	for _, tc := range []struct {
+		name string
+		k    *world.Entity
+		m    *world.Entity
+	}{
+		{"player killer", &world.Entity{ID: 1, Clan: summonClan, Summoner: 1, EquipVisual: killer.EquipVisual}, mob},
+		{"non summon clan", &world.Entity{ID: world.MaxUser, Clan: 0, Summoner: 1, EquipVisual: killer.EquipVisual}, mob},
+		{"non mount face", &world.Entity{ID: world.MaxUser, Clan: summonClan, Summoner: 1}, mob},
+		{"player victim", killer, &world.Entity{ID: 2, Clan: 0}},
+		{"summon victim", killer, &world.Entity{ID: world.MaxUser + 1, Clan: summonClan}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if babyMountKillEligible(tc.k, tc.m) {
+				t.Fatal("babyMountKillEligible = true, want false")
+			}
+		})
+	}
+}
+
 // startServerExpMob is a serving harness with one killable (1 HP) exp-bearing
 // monster next to the player spawn.
 func startServerExpMob(t *testing.T, persist world.Persistence, mob []byte) (string, func()) {

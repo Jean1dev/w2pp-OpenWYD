@@ -669,12 +669,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	if !world.IsPlayer(target.ID) {
 		if target.HP == 0 {
 			if e.Summoner != 0 {
-				if owner := w.Entity(e.Summoner); owner != nil {
-					d.mobKilled(w, owner, target)
-				} else {
-					sendDieAction(w, target)
-					w.DespawnMob(target.ID, 1)
-				}
+				d.mobKilled(w, e, target)
 			} else {
 				sendDieAction(w, target)
 				w.DespawnMob(target.ID, 1)
