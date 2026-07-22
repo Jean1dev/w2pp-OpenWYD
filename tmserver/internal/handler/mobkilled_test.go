@@ -196,7 +196,7 @@ func TestApplyWorldEventConfigUpdatesExpAndDropState(t *testing.T) {
 
 func TestMobKilledWorldEventDropIndexed(t *testing.T) {
 	d, w, killer := mobKilledWorld(t)
-	w.SetWorldEventConfig(world.WorldEventConfig{
+	w.SetWorldEventConfig(world.EventConfig{
 		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
 		StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
 		Indexed: true,
@@ -226,7 +226,7 @@ func TestMobKilledWorldEventDropFullCarryDoesNotAdvance(t *testing.T) {
 	for i := 0; i < baseCarrySlots; i++ {
 		killer.Carry[i] = world.Item{Index: int16(1000 + i)}
 	}
-	w.SetWorldEventConfig(world.WorldEventConfig{
+	w.SetWorldEventConfig(world.EventConfig{
 		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
 		StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
 		Indexed: true,
@@ -245,7 +245,7 @@ func TestMobKilledWorldEventDropFullCarryDoesNotAdvance(t *testing.T) {
 
 func TestMobKilledWorldEventDropExhaustedDoesNothing(t *testing.T) {
 	d, w, killer := mobKilledWorld(t)
-	w.SetWorldEventConfig(world.WorldEventConfig{
+	w.SetWorldEventConfig(world.EventConfig{
 		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
 		StartIndex: 100, CurrentIndex: 101, EndIndex: 101,
 		Indexed: true,
@@ -441,7 +441,7 @@ func TestKillWorldEventDropSendsCarrySlot(t *testing.T) {
 	binary.LittleEndian.PutUint32(mob[92+16:], 1)
 	binary.LittleEndian.PutUint32(mob[92+24:], 1)
 	addr, stop := startServerExpMob(t, skillCombatDB(0), mob, func(_ *Dispatcher, w *world.World) {
-		w.SetWorldEventConfig(world.WorldEventConfig{
+		w.SetWorldEventConfig(world.EventConfig{
 			Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
 			StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
 			Indexed: true,

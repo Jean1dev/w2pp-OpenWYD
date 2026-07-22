@@ -147,7 +147,7 @@ type World struct {
 	// worldEvent is the portal-managed global drop event state. Loop-owned; the
 	// dispatcher applies snapshots from dbServer and advances CurrentIndex on
 	// successful event drops.
-	worldEvent WorldEventConfig
+	worldEvent EventConfig
 
 	events    chan event
 	callbacks chan event // async handler results (World.Go / World.GoDetached); separate

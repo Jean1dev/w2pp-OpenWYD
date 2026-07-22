@@ -83,7 +83,7 @@ func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapsho
 	ev := snap.Event
 	d.expEvents.DoubleMode = ev.DoubleExpEnabled
 	d.expEvents.NewbieEvent = ev.NewbieEventEnabled
-	w.SetWorldEventConfig(world.WorldEventConfig{
+	w.SetWorldEventConfig(world.EventConfig{
 		Version: snap.Version, Enabled: ev.Enabled, ItemIndex: ev.ItemIndex, Rate: ev.Rate,
 		StartIndex: ev.StartIndex, CurrentIndex: ev.CurrentIndex, EndIndex: ev.EndIndex,
 		Indexed: ev.Indexed, NoticeEnabled: ev.NoticeEnabled,
@@ -133,7 +133,7 @@ func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity) {
 	d.persistWorldEventProgress(w, cfg)
 }
 
-func worldEventDropActive(cfg world.WorldEventConfig) bool {
+func worldEventDropActive(cfg world.EventConfig) bool {
 	return cfg.Enabled &&
 		cfg.ItemIndex > 0 &&
 		cfg.ItemIndex <= maxWorldEventItemIndex &&
@@ -143,7 +143,7 @@ func worldEventDropActive(cfg world.WorldEventConfig) bool {
 		cfg.CurrentIndex < cfg.EndIndex
 }
 
-func (d *Dispatcher) persistWorldEventProgress(w *world.World, cfg world.WorldEventConfig) {
+func (d *Dispatcher) persistWorldEventProgress(w *world.World, cfg world.EventConfig) {
 	if d.worldEventSource == nil {
 		return
 	}
