@@ -309,6 +309,87 @@ func TestBabyMountSpawnsOnLogin(t *testing.T) {
 	}
 }
 
+func TestBabyMountGrowsWhenPetKillsMob(t *testing.T) {
+	mount := babyMountItem(2330, 80)
+	mount.Effects[1].Effect = 5
+	mount.Effects[2].Value = 1
+	db := babyMountDB(world.Item{}, mount)
+
+	mob := make([]byte, 816)
+	copy(mob[0:16], "Rato")
+	mob[16] = 5 // hostile clan
+	const cs = 92
+	binary.LittleEndian.PutUint32(mob[cs+0:], 6) // higher than mount level 5
+	binary.LittleEndian.PutUint32(mob[cs+8:], 1)
+	binary.LittleEndian.PutUint32(mob[cs+16:], 1)
+	binary.LittleEndian.PutUint32(mob[cs+24:], 1)
+	binary.LittleEndian.PutUint16(mob[cs+34:], 99)
+
+	addr, stop, clock := startServerSummonWith(t, db, nil, babyMountSummons(), mob, 4, 3)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+	actionFrameAt(t, c, serverTime, 5, 5)
+
+	mobID := world.MaxUser
+	petID := -1
+	petStruck := false
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		clock.Add(300)
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		switch h.Type {
+		case protocol.MsgCreateMob:
+			if id, name, _, _, _ := petFromCreateMob(payload); strings.HasSuffix(name, "^") {
+				petID = id
+			}
+		case protocol.MsgAttack:
+			var b protocol.MsgAttackBody
+			if err := b.Decode(payload); err != nil {
+				continue
+			}
+			if petID >= 0 && int(b.AttackerID) == petID {
+				for _, dam := range b.Dam {
+					if int(dam.TargetID) == mobID {
+						petStruck = true
+					}
+				}
+			}
+		case protocol.MsgRemoveMob:
+			if int(h.ID) == mobID && petStruck {
+				send(t, c, protocol.MsgCharacterLogout, nil)
+				expect(t, c, protocol.MsgCNFCharacterLogout)
+				save, n := db.lastSavedChar()
+				if n == 0 {
+					t.Fatal("character was not saved on logout")
+				}
+				savedMount, ok := savedItemAt(save.Equip, mountEquipSlot)
+				if !ok {
+					t.Fatal("saved equip slot 14 is empty; want baby mount")
+				}
+				if savedMount.Eff2 != 5 {
+					t.Fatalf("saved mount level = %d, want 5", savedMount.Eff2)
+				}
+				if savedMount.EffV3 != 2 {
+					t.Fatalf("saved mount growth = %d, want 2 after pet kill", savedMount.EffV3)
+				}
+				return
+			}
+		}
+	}
+	switch {
+	case petID < 0:
+		t.Fatal("no baby mount pet was summoned")
+	case !petStruck:
+		t.Fatal("baby mount pet never attacked the monster")
+	default:
+		t.Fatal("monster never died to the baby mount pet")
+	}
+}
+
 // TestEvocationSpawnsScaledSummons is the happy path: Evocação 60 evokes two
 // Condors, each owner-scaled per pSummonBonus[0] — Damage 20 + Int·80% +
 // Evo·300% = 280, MaxHp 100 + Int·100% + Evo·400% = 440 — at the owner's level,
