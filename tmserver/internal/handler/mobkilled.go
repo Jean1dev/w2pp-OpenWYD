@@ -67,7 +67,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		d.grantExp(w, ks, reward, mob)
 	}
 
-	d.tryWorldEventDrop(w, reward, mob)
+	d.tryWorldEventDrop(w, reward)
 
 	// Item drop: each occupied loot slot rolls against its g_pDropRate odds.
 	for slot := range mob.Carry {

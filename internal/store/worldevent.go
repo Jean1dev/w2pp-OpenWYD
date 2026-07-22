@@ -40,6 +40,9 @@ func (s *Store) WorldEventConfig(ctx context.Context) (domain.WorldEventConfig, 
 // writing an audit row and bumping the config version in the same transaction.
 func (s *Store) UpsertWorldEventConfig(ctx context.Context, cfg domain.WorldEventConfig, moderatorID int64) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := lockWorldEventMeta(ctx, tx); err != nil {
+			return err
+		}
 		before, _ := fetchWorldEventConfigJSON(ctx, tx)
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO world_event_config (
@@ -76,15 +79,17 @@ func (s *Store) UpsertWorldEventConfig(ctx context.Context, cfg domain.WorldEven
 // from overwriting a newer portal edit; applied is false when the version changed.
 func (s *Store) UpdateWorldEventProgress(ctx context.Context, expectedVersion int64, currentIndex int32) (applied bool, err error) {
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
-		var version int64
-		if err := tx.QueryRow(ctx, `SELECT version FROM world_event_meta WHERE id = TRUE`).Scan(&version); err != nil {
-			return fmt.Errorf("store: world event progress version: %w", err)
-		}
-		if version != expectedVersion {
-			applied = false
-			return nil
-		}
-		ct, err := tx.Exec(ctx, `UPDATE world_event_config SET current_index = GREATEST(current_index, $1) WHERE id = TRUE`, currentIndex)
+		ct, err := tx.Exec(ctx, `
+			WITH matching_meta AS MATERIALIZED (
+				SELECT 1
+				  FROM world_event_meta
+				 WHERE id = TRUE AND version = $1
+				   FOR UPDATE
+			)
+			UPDATE world_event_config
+			   SET current_index = GREATEST(current_index, $2)
+			 WHERE id = TRUE
+			   AND EXISTS (SELECT 1 FROM matching_meta)`, expectedVersion, currentIndex)
 		if err != nil {
 			return fmt.Errorf("store: update world event progress: %w", err)
 		}
@@ -118,6 +123,16 @@ func fetchWorldEventConfigJSON(ctx context.Context, tx pgx.Tx) ([]byte, error) {
 		return nil, nil
 	}
 	return js, err
+}
+
+func lockWorldEventMeta(ctx context.Context, tx pgx.Tx) error {
+	// Portal edits and tmServer progress both take this lock before touching the
+	// config row, so expectedVersion cannot pass while a moderator edit is pending.
+	var version int64
+	if err := tx.QueryRow(ctx, `SELECT version FROM world_event_meta WHERE id = TRUE FOR UPDATE`).Scan(&version); err != nil {
+		return fmt.Errorf("store: lock world event meta: %w", err)
+	}
+	return nil
 }
 
 func auditWorldEventAndBump(ctx context.Context, tx pgx.Tx, moderatorID int64, action string, before, after []byte) error {

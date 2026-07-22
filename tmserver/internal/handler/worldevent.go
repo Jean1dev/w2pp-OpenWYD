@@ -91,7 +91,7 @@ func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapsho
 	d.worldEventVersion = snap.Version
 }
 
-func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward, mob *world.Entity) {
+func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity) {
 	cfg := w.WorldEventConfig()
 	if !worldEventDropActive(cfg) {
 		return
@@ -108,8 +108,18 @@ func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward, mob *world.Entity
 			{Effect: eventSerialRand, Value: uint8(w.Rand().Rand())},
 		}
 	}
-	if id := w.CreateGroundItem(item, mob.X, mob.Y); id < 0 {
-		d.log.Warn("world event drop lost: ground item table full", "item", cfg.ItemIndex, "serial", serial)
+	slot := firstEmptyAccessibleCarry(reward)
+	if slot < 0 {
+		conn := -1
+		if reward != nil {
+			conn = reward.ID
+		}
+		d.log.Warn("world event drop lost: carry full", "conn", conn, "item", cfg.ItemIndex, "serial", serial)
+		return
+	}
+	reward.Carry[slot] = item
+	if s := w.Session(reward.ID); s != nil {
+		d.sendSlot(w, s, world.ItemPlaceCarry, slot, item)
 	}
 	if cfg.NoticeEnabled {
 		noticeSerial := int32(0)
