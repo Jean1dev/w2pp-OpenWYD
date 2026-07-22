@@ -1419,3 +1419,198 @@ var NpcConfigService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	WorldEventConfigService_WorldEventConfigVersion_FullMethodName  = "/db.v1.WorldEventConfigService/WorldEventConfigVersion"
+	WorldEventConfigService_GetWorldEventConfig_FullMethodName      = "/db.v1.WorldEventConfigService/GetWorldEventConfig"
+	WorldEventConfigService_UpdateWorldEventProgress_FullMethodName = "/db.v1.WorldEventConfigService/UpdateWorldEventProgress"
+)
+
+// WorldEventConfigServiceClient is the client API for WorldEventConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// WorldEventConfigService serves portal-managed global world events to tmServer
+// (issue #116). tmServer reads the config and writes only the event-progress
+// counter; all moderator edits go through the web-api.
+type WorldEventConfigServiceClient interface {
+	// WorldEventConfigVersion returns the monotonic moderator config version.
+	WorldEventConfigVersion(ctx context.Context, in *WorldEventConfigVersionRequest, opts ...grpc.CallOption) (*WorldEventConfigVersionResponse, error)
+	// GetWorldEventConfig returns the full global event snapshot.
+	GetWorldEventConfig(ctx context.Context, in *GetWorldEventConfigRequest, opts ...grpc.CallOption) (*GetWorldEventConfigResponse, error)
+	// UpdateWorldEventProgress persists tmServer's current_index without bumping
+	// the config version. expected_version rejects stale tmServer snapshots.
+	UpdateWorldEventProgress(ctx context.Context, in *UpdateWorldEventProgressRequest, opts ...grpc.CallOption) (*UpdateWorldEventProgressResponse, error)
+}
+
+type worldEventConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewWorldEventConfigServiceClient(cc grpc.ClientConnInterface) WorldEventConfigServiceClient {
+	return &worldEventConfigServiceClient{cc}
+}
+
+func (c *worldEventConfigServiceClient) WorldEventConfigVersion(ctx context.Context, in *WorldEventConfigVersionRequest, opts ...grpc.CallOption) (*WorldEventConfigVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorldEventConfigVersionResponse)
+	err := c.cc.Invoke(ctx, WorldEventConfigService_WorldEventConfigVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *worldEventConfigServiceClient) GetWorldEventConfig(ctx context.Context, in *GetWorldEventConfigRequest, opts ...grpc.CallOption) (*GetWorldEventConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWorldEventConfigResponse)
+	err := c.cc.Invoke(ctx, WorldEventConfigService_GetWorldEventConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *worldEventConfigServiceClient) UpdateWorldEventProgress(ctx context.Context, in *UpdateWorldEventProgressRequest, opts ...grpc.CallOption) (*UpdateWorldEventProgressResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateWorldEventProgressResponse)
+	err := c.cc.Invoke(ctx, WorldEventConfigService_UpdateWorldEventProgress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// WorldEventConfigServiceServer is the server API for WorldEventConfigService service.
+// All implementations must embed UnimplementedWorldEventConfigServiceServer
+// for forward compatibility.
+//
+// WorldEventConfigService serves portal-managed global world events to tmServer
+// (issue #116). tmServer reads the config and writes only the event-progress
+// counter; all moderator edits go through the web-api.
+type WorldEventConfigServiceServer interface {
+	// WorldEventConfigVersion returns the monotonic moderator config version.
+	WorldEventConfigVersion(context.Context, *WorldEventConfigVersionRequest) (*WorldEventConfigVersionResponse, error)
+	// GetWorldEventConfig returns the full global event snapshot.
+	GetWorldEventConfig(context.Context, *GetWorldEventConfigRequest) (*GetWorldEventConfigResponse, error)
+	// UpdateWorldEventProgress persists tmServer's current_index without bumping
+	// the config version. expected_version rejects stale tmServer snapshots.
+	UpdateWorldEventProgress(context.Context, *UpdateWorldEventProgressRequest) (*UpdateWorldEventProgressResponse, error)
+	mustEmbedUnimplementedWorldEventConfigServiceServer()
+}
+
+// UnimplementedWorldEventConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedWorldEventConfigServiceServer struct{}
+
+func (UnimplementedWorldEventConfigServiceServer) WorldEventConfigVersion(context.Context, *WorldEventConfigVersionRequest) (*WorldEventConfigVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method WorldEventConfigVersion not implemented")
+}
+func (UnimplementedWorldEventConfigServiceServer) GetWorldEventConfig(context.Context, *GetWorldEventConfigRequest) (*GetWorldEventConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetWorldEventConfig not implemented")
+}
+func (UnimplementedWorldEventConfigServiceServer) UpdateWorldEventProgress(context.Context, *UpdateWorldEventProgressRequest) (*UpdateWorldEventProgressResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateWorldEventProgress not implemented")
+}
+func (UnimplementedWorldEventConfigServiceServer) mustEmbedUnimplementedWorldEventConfigServiceServer() {
+}
+func (UnimplementedWorldEventConfigServiceServer) testEmbeddedByValue() {}
+
+// UnsafeWorldEventConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to WorldEventConfigServiceServer will
+// result in compilation errors.
+type UnsafeWorldEventConfigServiceServer interface {
+	mustEmbedUnimplementedWorldEventConfigServiceServer()
+}
+
+func RegisterWorldEventConfigServiceServer(s grpc.ServiceRegistrar, srv WorldEventConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedWorldEventConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&WorldEventConfigService_ServiceDesc, srv)
+}
+
+func _WorldEventConfigService_WorldEventConfigVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorldEventConfigVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorldEventConfigServiceServer).WorldEventConfigVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorldEventConfigService_WorldEventConfigVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorldEventConfigServiceServer).WorldEventConfigVersion(ctx, req.(*WorldEventConfigVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorldEventConfigService_GetWorldEventConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWorldEventConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorldEventConfigServiceServer).GetWorldEventConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorldEventConfigService_GetWorldEventConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorldEventConfigServiceServer).GetWorldEventConfig(ctx, req.(*GetWorldEventConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorldEventConfigService_UpdateWorldEventProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWorldEventProgressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorldEventConfigServiceServer).UpdateWorldEventProgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorldEventConfigService_UpdateWorldEventProgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorldEventConfigServiceServer).UpdateWorldEventProgress(ctx, req.(*UpdateWorldEventProgressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// WorldEventConfigService_ServiceDesc is the grpc.ServiceDesc for WorldEventConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var WorldEventConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.WorldEventConfigService",
+	HandlerType: (*WorldEventConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "WorldEventConfigVersion",
+			Handler:    _WorldEventConfigService_WorldEventConfigVersion_Handler,
+		},
+		{
+			MethodName: "GetWorldEventConfig",
+			Handler:    _WorldEventConfigService_GetWorldEventConfig_Handler,
+		},
+		{
+			MethodName: "UpdateWorldEventProgress",
+			Handler:    _WorldEventConfigService_UpdateWorldEventProgress_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

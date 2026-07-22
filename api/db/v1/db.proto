@@ -484,3 +484,46 @@ message ItemPrice {
   int32 item_index = 1;
   int64 price = 2;
 }
+
+// WorldEventConfigService serves portal-managed global world events to tmServer
+// (issue #116). tmServer reads the config and writes only the event-progress
+// counter; all moderator edits go through the web-api.
+service WorldEventConfigService {
+  // WorldEventConfigVersion returns the monotonic moderator config version.
+  rpc WorldEventConfigVersion(WorldEventConfigVersionRequest) returns (WorldEventConfigVersionResponse);
+  // GetWorldEventConfig returns the full global event snapshot.
+  rpc GetWorldEventConfig(GetWorldEventConfigRequest) returns (GetWorldEventConfigResponse);
+  // UpdateWorldEventProgress persists tmServer's current_index without bumping
+  // the config version. expected_version rejects stale tmServer snapshots.
+  rpc UpdateWorldEventProgress(UpdateWorldEventProgressRequest) returns (UpdateWorldEventProgressResponse);
+}
+
+message WorldEventConfigVersionRequest {}
+message WorldEventConfigVersionResponse { int64 version = 1; }
+
+message GetWorldEventConfigRequest {}
+message GetWorldEventConfigResponse {
+  int64 version = 1;
+  WorldEventConfig config = 2;
+}
+
+message UpdateWorldEventProgressRequest {
+  int64 expected_version = 1;
+  int32 current_index = 2;
+}
+message UpdateWorldEventProgressResponse {
+  bool applied = 1;
+}
+
+message WorldEventConfig {
+  bool enabled = 1;
+  int32 item_index = 2;
+  int32 rate = 3;
+  int32 start_index = 4;
+  int32 current_index = 5;
+  int32 end_index = 6;
+  bool indexed = 7;
+  bool notice_enabled = 8;
+  bool double_exp_enabled = 9;
+  bool newbie_event_enabled = 10;
+}

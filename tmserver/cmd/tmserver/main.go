@@ -36,6 +36,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
 )
 
 func main() {
@@ -169,6 +170,7 @@ func run(logger *slog.Logger) error {
 	// connection is retained (dbConn) so the NPC-config overlay can share it.
 	var persist world.Persistence = world.NopPersistence{}
 	var dbConn *grpc.ClientConn
+	var worldEvents worldcfg.Source
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -177,6 +179,7 @@ func run(logger *slog.Logger) error {
 		defer func() { _ = conn.Close() }()
 		dbConn = conn
 		persist = dbclient.New(conn)
+		worldEvents = dbclient.NewWorldEventConfig(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -240,6 +243,7 @@ func run(logger *slog.Logger) error {
 		CombineFamilies: combineFamilies,
 		OdinCatalog:     odinCatalog,
 		NpcConfig:       npcConfig,
+		WorldEvents:     worldEvents,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -282,6 +286,9 @@ func run(logger *slog.Logger) error {
 	}
 	if npcConfig != nil {
 		dispatch.ApplyNPCConfigBoot(w)
+	}
+	if worldEvents != nil {
+		dispatch.ApplyWorldEventConfigBoot(w)
 	}
 	dispatch.ApplyGuildStateBoot(w)
 

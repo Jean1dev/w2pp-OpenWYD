@@ -397,6 +397,7 @@ func runServe(args []string, logger *slog.Logger) error {
 	st := store.New(pool)
 	dbv1.RegisterAccountServiceServer(srv, grpcsrv.New(st))
 	dbv1.RegisterNpcConfigServiceServer(srv, grpcsrv.NewNpcConfig(st))
+	dbv1.RegisterWorldEventConfigServiceServer(srv, grpcsrv.NewWorldEventConfig(st))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

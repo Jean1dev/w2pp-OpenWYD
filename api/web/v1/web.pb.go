@@ -5259,6 +5259,278 @@ func (x *DeleteRewardItemRequest) GetItemId() int64 {
 	return 0
 }
 
+type WorldEventConfig struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Enabled            bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	ItemIndex          int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Rate               int32                  `protobuf:"varint,3,opt,name=rate,proto3" json:"rate,omitempty"`
+	StartIndex         int32                  `protobuf:"varint,4,opt,name=start_index,json=startIndex,proto3" json:"start_index,omitempty"`
+	CurrentIndex       int32                  `protobuf:"varint,5,opt,name=current_index,json=currentIndex,proto3" json:"current_index,omitempty"`
+	EndIndex           int32                  `protobuf:"varint,6,opt,name=end_index,json=endIndex,proto3" json:"end_index,omitempty"`
+	Indexed            bool                   `protobuf:"varint,7,opt,name=indexed,proto3" json:"indexed,omitempty"`
+	NoticeEnabled      bool                   `protobuf:"varint,8,opt,name=notice_enabled,json=noticeEnabled,proto3" json:"notice_enabled,omitempty"`
+	DoubleExpEnabled   bool                   `protobuf:"varint,9,opt,name=double_exp_enabled,json=doubleExpEnabled,proto3" json:"double_exp_enabled,omitempty"`
+	NewbieEventEnabled bool                   `protobuf:"varint,10,opt,name=newbie_event_enabled,json=newbieEventEnabled,proto3" json:"newbie_event_enabled,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *WorldEventConfig) Reset() {
+	*x = WorldEventConfig{}
+	mi := &file_api_web_v1_web_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorldEventConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorldEventConfig) ProtoMessage() {}
+
+func (x *WorldEventConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorldEventConfig.ProtoReflect.Descriptor instead.
+func (*WorldEventConfig) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *WorldEventConfig) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *WorldEventConfig) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *WorldEventConfig) GetRate() int32 {
+	if x != nil {
+		return x.Rate
+	}
+	return 0
+}
+
+func (x *WorldEventConfig) GetStartIndex() int32 {
+	if x != nil {
+		return x.StartIndex
+	}
+	return 0
+}
+
+func (x *WorldEventConfig) GetCurrentIndex() int32 {
+	if x != nil {
+		return x.CurrentIndex
+	}
+	return 0
+}
+
+func (x *WorldEventConfig) GetEndIndex() int32 {
+	if x != nil {
+		return x.EndIndex
+	}
+	return 0
+}
+
+func (x *WorldEventConfig) GetIndexed() bool {
+	if x != nil {
+		return x.Indexed
+	}
+	return false
+}
+
+func (x *WorldEventConfig) GetNoticeEnabled() bool {
+	if x != nil {
+		return x.NoticeEnabled
+	}
+	return false
+}
+
+func (x *WorldEventConfig) GetDoubleExpEnabled() bool {
+	if x != nil {
+		return x.DoubleExpEnabled
+	}
+	return false
+}
+
+func (x *WorldEventConfig) GetNewbieEventEnabled() bool {
+	if x != nil {
+		return x.NewbieEventEnabled
+	}
+	return false
+}
+
+type GetWorldEventConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorldEventConfigRequest) Reset() {
+	*x = GetWorldEventConfigRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorldEventConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorldEventConfigRequest) ProtoMessage() {}
+
+func (x *GetWorldEventConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorldEventConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetWorldEventConfigRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *GetWorldEventConfigRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+type GetWorldEventConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	Version       int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	Config        *WorldEventConfig      `protobuf:"bytes,3,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorldEventConfigResponse) Reset() {
+	*x = GetWorldEventConfigResponse{}
+	mi := &file_api_web_v1_web_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorldEventConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorldEventConfigResponse) ProtoMessage() {}
+
+func (x *GetWorldEventConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorldEventConfigResponse.ProtoReflect.Descriptor instead.
+func (*GetWorldEventConfigResponse) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *GetWorldEventConfigResponse) GetResult() AdminResult {
+	if x != nil {
+		return x.Result
+	}
+	return AdminResult_ADMIN_RESULT_UNSPECIFIED
+}
+
+func (x *GetWorldEventConfigResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *GetWorldEventConfigResponse) GetConfig() *WorldEventConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type SetWorldEventConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	Config        *WorldEventConfig      `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetWorldEventConfigRequest) Reset() {
+	*x = SetWorldEventConfigRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetWorldEventConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetWorldEventConfigRequest) ProtoMessage() {}
+
+func (x *SetWorldEventConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetWorldEventConfigRequest.ProtoReflect.Descriptor instead.
+func (*SetWorldEventConfigRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *SetWorldEventConfigRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *SetWorldEventConfigRequest) GetConfig() *WorldEventConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
 type ListRewardsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -5267,7 +5539,7 @@ type ListRewardsRequest struct {
 
 func (x *ListRewardsRequest) Reset() {
 	*x = ListRewardsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[77]
+	mi := &file_api_web_v1_web_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5279,7 +5551,7 @@ func (x *ListRewardsRequest) String() string {
 func (*ListRewardsRequest) ProtoMessage() {}
 
 func (x *ListRewardsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[77]
+	mi := &file_api_web_v1_web_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5292,7 +5564,7 @@ func (x *ListRewardsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRewardsRequest.ProtoReflect.Descriptor instead.
 func (*ListRewardsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{77}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{81}
 }
 
 type ListRewardsResponse struct {
@@ -5304,7 +5576,7 @@ type ListRewardsResponse struct {
 
 func (x *ListRewardsResponse) Reset() {
 	*x = ListRewardsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[78]
+	mi := &file_api_web_v1_web_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5316,7 +5588,7 @@ func (x *ListRewardsResponse) String() string {
 func (*ListRewardsResponse) ProtoMessage() {}
 
 func (x *ListRewardsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[78]
+	mi := &file_api_web_v1_web_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5329,7 +5601,7 @@ func (x *ListRewardsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRewardsResponse.ProtoReflect.Descriptor instead.
 func (*ListRewardsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{78}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *ListRewardsResponse) GetItems() []*DailyRewardItem {
@@ -5348,7 +5620,7 @@ type GetClaimStatusRequest struct {
 
 func (x *GetClaimStatusRequest) Reset() {
 	*x = GetClaimStatusRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[79]
+	mi := &file_api_web_v1_web_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5360,7 +5632,7 @@ func (x *GetClaimStatusRequest) String() string {
 func (*GetClaimStatusRequest) ProtoMessage() {}
 
 func (x *GetClaimStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[79]
+	mi := &file_api_web_v1_web_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5373,7 +5645,7 @@ func (x *GetClaimStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClaimStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetClaimStatusRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{79}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *GetClaimStatusRequest) GetAccountId() int64 {
@@ -5394,7 +5666,7 @@ type GetClaimStatusResponse struct {
 
 func (x *GetClaimStatusResponse) Reset() {
 	*x = GetClaimStatusResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[80]
+	mi := &file_api_web_v1_web_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5406,7 +5678,7 @@ func (x *GetClaimStatusResponse) String() string {
 func (*GetClaimStatusResponse) ProtoMessage() {}
 
 func (x *GetClaimStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[80]
+	mi := &file_api_web_v1_web_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5419,7 +5691,7 @@ func (x *GetClaimStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClaimStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetClaimStatusResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{80}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *GetClaimStatusResponse) GetClaimedToday() bool {
@@ -5453,7 +5725,7 @@ type ClaimRequest struct {
 
 func (x *ClaimRequest) Reset() {
 	*x = ClaimRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[81]
+	mi := &file_api_web_v1_web_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5465,7 +5737,7 @@ func (x *ClaimRequest) String() string {
 func (*ClaimRequest) ProtoMessage() {}
 
 func (x *ClaimRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[81]
+	mi := &file_api_web_v1_web_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5478,7 +5750,7 @@ func (x *ClaimRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimRequest.ProtoReflect.Descriptor instead.
 func (*ClaimRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{81}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ClaimRequest) GetAccountId() int64 {
@@ -5504,7 +5776,7 @@ type ClaimResponse struct {
 
 func (x *ClaimResponse) Reset() {
 	*x = ClaimResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[82]
+	mi := &file_api_web_v1_web_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5516,7 +5788,7 @@ func (x *ClaimResponse) String() string {
 func (*ClaimResponse) ProtoMessage() {}
 
 func (x *ClaimResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[82]
+	mi := &file_api_web_v1_web_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5529,7 +5801,7 @@ func (x *ClaimResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimResponse.ProtoReflect.Descriptor instead.
 func (*ClaimResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{82}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *ClaimResponse) GetResult() ClaimResult {
@@ -5548,7 +5820,7 @@ type GetPayerProfileRequest struct {
 
 func (x *GetPayerProfileRequest) Reset() {
 	*x = GetPayerProfileRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[83]
+	mi := &file_api_web_v1_web_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5560,7 +5832,7 @@ func (x *GetPayerProfileRequest) String() string {
 func (*GetPayerProfileRequest) ProtoMessage() {}
 
 func (x *GetPayerProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[83]
+	mi := &file_api_web_v1_web_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5573,7 +5845,7 @@ func (x *GetPayerProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayerProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetPayerProfileRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{83}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *GetPayerProfileRequest) GetAccountId() int64 {
@@ -5594,7 +5866,7 @@ type GetPayerProfileResponse struct {
 
 func (x *GetPayerProfileResponse) Reset() {
 	*x = GetPayerProfileResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[84]
+	mi := &file_api_web_v1_web_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5606,7 +5878,7 @@ func (x *GetPayerProfileResponse) String() string {
 func (*GetPayerProfileResponse) ProtoMessage() {}
 
 func (x *GetPayerProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[84]
+	mi := &file_api_web_v1_web_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5619,7 +5891,7 @@ func (x *GetPayerProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayerProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetPayerProfileResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{84}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *GetPayerProfileResponse) GetFound() bool {
@@ -5654,7 +5926,7 @@ type SavePayerProfileRequest struct {
 
 func (x *SavePayerProfileRequest) Reset() {
 	*x = SavePayerProfileRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[85]
+	mi := &file_api_web_v1_web_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5666,7 +5938,7 @@ func (x *SavePayerProfileRequest) String() string {
 func (*SavePayerProfileRequest) ProtoMessage() {}
 
 func (x *SavePayerProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[85]
+	mi := &file_api_web_v1_web_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5679,7 +5951,7 @@ func (x *SavePayerProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavePayerProfileRequest.ProtoReflect.Descriptor instead.
 func (*SavePayerProfileRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{85}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *SavePayerProfileRequest) GetAccountId() int64 {
@@ -5712,7 +5984,7 @@ type SavePayerProfileResponse struct {
 
 func (x *SavePayerProfileResponse) Reset() {
 	*x = SavePayerProfileResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[86]
+	mi := &file_api_web_v1_web_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5724,7 +5996,7 @@ func (x *SavePayerProfileResponse) String() string {
 func (*SavePayerProfileResponse) ProtoMessage() {}
 
 func (x *SavePayerProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[86]
+	mi := &file_api_web_v1_web_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5737,7 +6009,7 @@ func (x *SavePayerProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavePayerProfileResponse.ProtoReflect.Descriptor instead.
 func (*SavePayerProfileResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{86}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *SavePayerProfileResponse) GetResult() AdminResult {
@@ -5760,7 +6032,7 @@ type CreateTopupOrderRequest struct {
 
 func (x *CreateTopupOrderRequest) Reset() {
 	*x = CreateTopupOrderRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[87]
+	mi := &file_api_web_v1_web_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5772,7 +6044,7 @@ func (x *CreateTopupOrderRequest) String() string {
 func (*CreateTopupOrderRequest) ProtoMessage() {}
 
 func (x *CreateTopupOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[87]
+	mi := &file_api_web_v1_web_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5785,7 +6057,7 @@ func (x *CreateTopupOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTopupOrderRequest.ProtoReflect.Descriptor instead.
 func (*CreateTopupOrderRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{87}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *CreateTopupOrderRequest) GetAccountId() int64 {
@@ -5833,7 +6105,7 @@ type CreateTopupOrderResponse struct {
 
 func (x *CreateTopupOrderResponse) Reset() {
 	*x = CreateTopupOrderResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[88]
+	mi := &file_api_web_v1_web_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5845,7 +6117,7 @@ func (x *CreateTopupOrderResponse) String() string {
 func (*CreateTopupOrderResponse) ProtoMessage() {}
 
 func (x *CreateTopupOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[88]
+	mi := &file_api_web_v1_web_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5858,7 +6130,7 @@ func (x *CreateTopupOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTopupOrderResponse.ProtoReflect.Descriptor instead.
 func (*CreateTopupOrderResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{88}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *CreateTopupOrderResponse) GetResult() AdminResult {
@@ -5884,7 +6156,7 @@ type ConfirmTopupOrderRequest struct {
 
 func (x *ConfirmTopupOrderRequest) Reset() {
 	*x = ConfirmTopupOrderRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[89]
+	mi := &file_api_web_v1_web_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5896,7 +6168,7 @@ func (x *ConfirmTopupOrderRequest) String() string {
 func (*ConfirmTopupOrderRequest) ProtoMessage() {}
 
 func (x *ConfirmTopupOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[89]
+	mi := &file_api_web_v1_web_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5909,7 +6181,7 @@ func (x *ConfirmTopupOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTopupOrderRequest.ProtoReflect.Descriptor instead.
 func (*ConfirmTopupOrderRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{89}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *ConfirmTopupOrderRequest) GetExternalReference() string {
@@ -5929,7 +6201,7 @@ type ConfirmTopupOrderResponse struct {
 
 func (x *ConfirmTopupOrderResponse) Reset() {
 	*x = ConfirmTopupOrderResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[90]
+	mi := &file_api_web_v1_web_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5941,7 +6213,7 @@ func (x *ConfirmTopupOrderResponse) String() string {
 func (*ConfirmTopupOrderResponse) ProtoMessage() {}
 
 func (x *ConfirmTopupOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[90]
+	mi := &file_api_web_v1_web_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5954,7 +6226,7 @@ func (x *ConfirmTopupOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTopupOrderResponse.ProtoReflect.Descriptor instead.
 func (*ConfirmTopupOrderResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{90}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ConfirmTopupOrderResponse) GetResult() TopupResult {
@@ -5981,7 +6253,7 @@ type GetTopupOrderRequest struct {
 
 func (x *GetTopupOrderRequest) Reset() {
 	*x = GetTopupOrderRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[91]
+	mi := &file_api_web_v1_web_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5993,7 +6265,7 @@ func (x *GetTopupOrderRequest) String() string {
 func (*GetTopupOrderRequest) ProtoMessage() {}
 
 func (x *GetTopupOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[91]
+	mi := &file_api_web_v1_web_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6006,7 +6278,7 @@ func (x *GetTopupOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopupOrderRequest.ProtoReflect.Descriptor instead.
 func (*GetTopupOrderRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{91}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *GetTopupOrderRequest) GetExternalReference() string {
@@ -6034,7 +6306,7 @@ type GetTopupOrderResponse struct {
 
 func (x *GetTopupOrderResponse) Reset() {
 	*x = GetTopupOrderResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[92]
+	mi := &file_api_web_v1_web_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6046,7 +6318,7 @@ func (x *GetTopupOrderResponse) String() string {
 func (*GetTopupOrderResponse) ProtoMessage() {}
 
 func (x *GetTopupOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[92]
+	mi := &file_api_web_v1_web_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6059,7 +6331,7 @@ func (x *GetTopupOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopupOrderResponse.ProtoReflect.Descriptor instead.
 func (*GetTopupOrderResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{92}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *GetTopupOrderResponse) GetStatus() TopupStatus {
@@ -6449,7 +6721,30 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\aenabled\x18\x03 \x01(\bR\aenabled\"U\n" +
 	"\x17DeleteRewardItemRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x17\n" +
-	"\aitem_id\x18\x02 \x01(\x03R\x06itemId\"\x14\n" +
+	"\aitem_id\x18\x02 \x01(\x03R\x06itemId\"\xe3\x02\n" +
+	"\x10WorldEventConfig\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x02 \x01(\x05R\titemIndex\x12\x12\n" +
+	"\x04rate\x18\x03 \x01(\x05R\x04rate\x12\x1f\n" +
+	"\vstart_index\x18\x04 \x01(\x05R\n" +
+	"startIndex\x12#\n" +
+	"\rcurrent_index\x18\x05 \x01(\x05R\fcurrentIndex\x12\x1b\n" +
+	"\tend_index\x18\x06 \x01(\x05R\bendIndex\x12\x18\n" +
+	"\aindexed\x18\a \x01(\bR\aindexed\x12%\n" +
+	"\x0enotice_enabled\x18\b \x01(\bR\rnoticeEnabled\x12,\n" +
+	"\x12double_exp_enabled\x18\t \x01(\bR\x10doubleExpEnabled\x120\n" +
+	"\x14newbie_event_enabled\x18\n" +
+	" \x01(\bR\x12newbieEventEnabled\"?\n" +
+	"\x1aGetWorldEventConfigRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"\x96\x01\n" +
+	"\x1bGetWorldEventConfigResponse\x12+\n" +
+	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion\x120\n" +
+	"\x06config\x18\x03 \x01(\v2\x18.web.v1.WorldEventConfigR\x06config\"q\n" +
+	"\x1aSetWorldEventConfigRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x120\n" +
+	"\x06config\x18\x02 \x01(\v2\x18.web.v1.WorldEventConfigR\x06config\"\x14\n" +
 	"\x12ListRewardsRequest\"D\n" +
 	"\x13ListRewardsResponse\x12-\n" +
 	"\x05items\x18\x01 \x03(\v2\x17.web.v1.DailyRewardItemR\x05items\"6\n" +
@@ -6589,7 +6884,10 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x0fListRewardItems\x12\x1e.web.v1.ListRewardItemsRequest\x1a\x1f.web.v1.ListRewardItemsResponse\x12U\n" +
 	"\x10UpsertRewardItem\x12\x1f.web.v1.UpsertRewardItemRequest\x1a .web.v1.UpsertRewardItemResponse\x12M\n" +
 	"\x14SetRewardItemEnabled\x12#.web.v1.SetRewardItemEnabledRequest\x1a\x10.web.v1.AdminAck\x12E\n" +
-	"\x10DeleteRewardItem\x12\x1f.web.v1.DeleteRewardItemRequest\x1a\x10.web.v1.AdminAck2\xe3\x01\n" +
+	"\x10DeleteRewardItem\x12\x1f.web.v1.DeleteRewardItemRequest\x1a\x10.web.v1.AdminAck2\xc5\x01\n" +
+	"\x16WorldEventAdminService\x12^\n" +
+	"\x13GetWorldEventConfig\x12\".web.v1.GetWorldEventConfigRequest\x1a#.web.v1.GetWorldEventConfigResponse\x12K\n" +
+	"\x13SetWorldEventConfig\x12\".web.v1.SetWorldEventConfigRequest\x1a\x10.web.v1.AdminAck2\xe3\x01\n" +
 	"\x12DailyRewardService\x12F\n" +
 	"\vListRewards\x12\x1a.web.v1.ListRewardsRequest\x1a\x1b.web.v1.ListRewardsResponse\x12O\n" +
 	"\x0eGetClaimStatus\x12\x1d.web.v1.GetClaimStatusRequest\x1a\x1e.web.v1.GetClaimStatusResponse\x124\n" +
@@ -6614,7 +6912,7 @@ func file_api_web_v1_web_proto_rawDescGZIP() []byte {
 }
 
 var file_api_web_v1_web_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 93)
+var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 97)
 var file_api_web_v1_web_proto_goTypes = []any{
 	(CreateResult)(0),                     // 0: web.v1.CreateResult
 	(AdminResult)(0),                      // 1: web.v1.AdminResult
@@ -6701,22 +6999,26 @@ var file_api_web_v1_web_proto_goTypes = []any{
 	(*UpsertRewardItemResponse)(nil),      // 82: web.v1.UpsertRewardItemResponse
 	(*SetRewardItemEnabledRequest)(nil),   // 83: web.v1.SetRewardItemEnabledRequest
 	(*DeleteRewardItemRequest)(nil),       // 84: web.v1.DeleteRewardItemRequest
-	(*ListRewardsRequest)(nil),            // 85: web.v1.ListRewardsRequest
-	(*ListRewardsResponse)(nil),           // 86: web.v1.ListRewardsResponse
-	(*GetClaimStatusRequest)(nil),         // 87: web.v1.GetClaimStatusRequest
-	(*GetClaimStatusResponse)(nil),        // 88: web.v1.GetClaimStatusResponse
-	(*ClaimRequest)(nil),                  // 89: web.v1.ClaimRequest
-	(*ClaimResponse)(nil),                 // 90: web.v1.ClaimResponse
-	(*GetPayerProfileRequest)(nil),        // 91: web.v1.GetPayerProfileRequest
-	(*GetPayerProfileResponse)(nil),       // 92: web.v1.GetPayerProfileResponse
-	(*SavePayerProfileRequest)(nil),       // 93: web.v1.SavePayerProfileRequest
-	(*SavePayerProfileResponse)(nil),      // 94: web.v1.SavePayerProfileResponse
-	(*CreateTopupOrderRequest)(nil),       // 95: web.v1.CreateTopupOrderRequest
-	(*CreateTopupOrderResponse)(nil),      // 96: web.v1.CreateTopupOrderResponse
-	(*ConfirmTopupOrderRequest)(nil),      // 97: web.v1.ConfirmTopupOrderRequest
-	(*ConfirmTopupOrderResponse)(nil),     // 98: web.v1.ConfirmTopupOrderResponse
-	(*GetTopupOrderRequest)(nil),          // 99: web.v1.GetTopupOrderRequest
-	(*GetTopupOrderResponse)(nil),         // 100: web.v1.GetTopupOrderResponse
+	(*WorldEventConfig)(nil),              // 85: web.v1.WorldEventConfig
+	(*GetWorldEventConfigRequest)(nil),    // 86: web.v1.GetWorldEventConfigRequest
+	(*GetWorldEventConfigResponse)(nil),   // 87: web.v1.GetWorldEventConfigResponse
+	(*SetWorldEventConfigRequest)(nil),    // 88: web.v1.SetWorldEventConfigRequest
+	(*ListRewardsRequest)(nil),            // 89: web.v1.ListRewardsRequest
+	(*ListRewardsResponse)(nil),           // 90: web.v1.ListRewardsResponse
+	(*GetClaimStatusRequest)(nil),         // 91: web.v1.GetClaimStatusRequest
+	(*GetClaimStatusResponse)(nil),        // 92: web.v1.GetClaimStatusResponse
+	(*ClaimRequest)(nil),                  // 93: web.v1.ClaimRequest
+	(*ClaimResponse)(nil),                 // 94: web.v1.ClaimResponse
+	(*GetPayerProfileRequest)(nil),        // 95: web.v1.GetPayerProfileRequest
+	(*GetPayerProfileResponse)(nil),       // 96: web.v1.GetPayerProfileResponse
+	(*SavePayerProfileRequest)(nil),       // 97: web.v1.SavePayerProfileRequest
+	(*SavePayerProfileResponse)(nil),      // 98: web.v1.SavePayerProfileResponse
+	(*CreateTopupOrderRequest)(nil),       // 99: web.v1.CreateTopupOrderRequest
+	(*CreateTopupOrderResponse)(nil),      // 100: web.v1.CreateTopupOrderResponse
+	(*ConfirmTopupOrderRequest)(nil),      // 101: web.v1.ConfirmTopupOrderRequest
+	(*ConfirmTopupOrderResponse)(nil),     // 102: web.v1.ConfirmTopupOrderResponse
+	(*GetTopupOrderRequest)(nil),          // 103: web.v1.GetTopupOrderRequest
+	(*GetTopupOrderResponse)(nil),         // 104: web.v1.GetTopupOrderResponse
 }
 var file_api_web_v1_web_proto_depIdxs = []int32{
 	0,   // 0: web.v1.CreateAccountResponse.result:type_name -> web.v1.CreateResult
@@ -6766,98 +7068,105 @@ var file_api_web_v1_web_proto_depIdxs = []int32{
 	78,  // 44: web.v1.ListRewardItemsResponse.items:type_name -> web.v1.DailyRewardItem
 	78,  // 45: web.v1.UpsertRewardItemRequest.item:type_name -> web.v1.DailyRewardItem
 	1,   // 46: web.v1.UpsertRewardItemResponse.result:type_name -> web.v1.AdminResult
-	78,  // 47: web.v1.ListRewardsResponse.items:type_name -> web.v1.DailyRewardItem
-	4,   // 48: web.v1.ClaimResponse.result:type_name -> web.v1.ClaimResult
-	1,   // 49: web.v1.SavePayerProfileResponse.result:type_name -> web.v1.AdminResult
-	5,   // 50: web.v1.CreateTopupOrderRequest.payment_method:type_name -> web.v1.PaymentMethod
-	1,   // 51: web.v1.CreateTopupOrderResponse.result:type_name -> web.v1.AdminResult
-	6,   // 52: web.v1.ConfirmTopupOrderResponse.result:type_name -> web.v1.TopupResult
-	7,   // 53: web.v1.GetTopupOrderResponse.status:type_name -> web.v1.TopupStatus
-	8,   // 54: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
-	10,  // 55: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
-	12,  // 56: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
-	15,  // 57: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
-	18,  // 58: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
-	24,  // 59: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
-	26,  // 60: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
-	28,  // 61: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
-	30,  // 62: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
-	31,  // 63: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
-	32,  // 64: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
-	33,  // 65: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
-	35,  // 66: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
-	38,  // 67: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
-	42,  // 68: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
-	46,  // 69: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
-	49,  // 70: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
-	52,  // 71: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
-	54,  // 72: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
-	61,  // 73: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
-	64,  // 74: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
-	66,  // 75: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
-	68,  // 76: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
-	69,  // 77: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
-	70,  // 78: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
-	72,  // 79: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
-	74,  // 80: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
-	76,  // 81: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
-	79,  // 82: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
-	81,  // 83: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
-	83,  // 84: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
-	84,  // 85: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
-	85,  // 86: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
-	87,  // 87: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
-	89,  // 88: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
-	91,  // 89: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
-	93,  // 90: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
-	95,  // 91: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
-	97,  // 92: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
-	99,  // 93: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
-	9,   // 94: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
-	11,  // 95: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
-	14,  // 96: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
-	17,  // 97: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
-	20,  // 98: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
-	25,  // 99: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
-	27,  // 100: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
-	29,  // 101: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
-	21,  // 102: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
-	21,  // 103: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
-	21,  // 104: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
-	21,  // 105: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
-	36,  // 106: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
-	39,  // 107: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
-	43,  // 108: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
-	47,  // 109: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
-	50,  // 110: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
-	53,  // 111: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
-	55,  // 112: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
-	62,  // 113: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
-	65,  // 114: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
-	67,  // 115: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
-	21,  // 116: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
-	21,  // 117: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
-	71,  // 118: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
-	73,  // 119: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
-	75,  // 120: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
-	77,  // 121: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
-	80,  // 122: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
-	82,  // 123: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
-	21,  // 124: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
-	21,  // 125: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
-	86,  // 126: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
-	88,  // 127: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
-	90,  // 128: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
-	92,  // 129: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
-	94,  // 130: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
-	96,  // 131: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
-	98,  // 132: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
-	100, // 133: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
-	94,  // [94:134] is the sub-list for method output_type
-	54,  // [54:94] is the sub-list for method input_type
-	54,  // [54:54] is the sub-list for extension type_name
-	54,  // [54:54] is the sub-list for extension extendee
-	0,   // [0:54] is the sub-list for field type_name
+	1,   // 47: web.v1.GetWorldEventConfigResponse.result:type_name -> web.v1.AdminResult
+	85,  // 48: web.v1.GetWorldEventConfigResponse.config:type_name -> web.v1.WorldEventConfig
+	85,  // 49: web.v1.SetWorldEventConfigRequest.config:type_name -> web.v1.WorldEventConfig
+	78,  // 50: web.v1.ListRewardsResponse.items:type_name -> web.v1.DailyRewardItem
+	4,   // 51: web.v1.ClaimResponse.result:type_name -> web.v1.ClaimResult
+	1,   // 52: web.v1.SavePayerProfileResponse.result:type_name -> web.v1.AdminResult
+	5,   // 53: web.v1.CreateTopupOrderRequest.payment_method:type_name -> web.v1.PaymentMethod
+	1,   // 54: web.v1.CreateTopupOrderResponse.result:type_name -> web.v1.AdminResult
+	6,   // 55: web.v1.ConfirmTopupOrderResponse.result:type_name -> web.v1.TopupResult
+	7,   // 56: web.v1.GetTopupOrderResponse.status:type_name -> web.v1.TopupStatus
+	8,   // 57: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
+	10,  // 58: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
+	12,  // 59: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
+	15,  // 60: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
+	18,  // 61: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
+	24,  // 62: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
+	26,  // 63: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
+	28,  // 64: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
+	30,  // 65: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
+	31,  // 66: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
+	32,  // 67: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
+	33,  // 68: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
+	35,  // 69: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
+	38,  // 70: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
+	42,  // 71: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
+	46,  // 72: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
+	49,  // 73: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
+	52,  // 74: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
+	54,  // 75: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
+	61,  // 76: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
+	64,  // 77: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
+	66,  // 78: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
+	68,  // 79: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
+	69,  // 80: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
+	70,  // 81: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
+	72,  // 82: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
+	74,  // 83: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
+	76,  // 84: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
+	79,  // 85: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
+	81,  // 86: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
+	83,  // 87: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
+	84,  // 88: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
+	86,  // 89: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
+	88,  // 90: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
+	89,  // 91: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
+	91,  // 92: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
+	93,  // 93: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
+	95,  // 94: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
+	97,  // 95: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
+	99,  // 96: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
+	101, // 97: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
+	103, // 98: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
+	9,   // 99: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
+	11,  // 100: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
+	14,  // 101: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
+	17,  // 102: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
+	20,  // 103: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
+	25,  // 104: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
+	27,  // 105: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
+	29,  // 106: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
+	21,  // 107: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
+	21,  // 108: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
+	21,  // 109: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
+	21,  // 110: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
+	36,  // 111: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
+	39,  // 112: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
+	43,  // 113: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
+	47,  // 114: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
+	50,  // 115: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
+	53,  // 116: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
+	55,  // 117: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
+	62,  // 118: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
+	65,  // 119: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
+	67,  // 120: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
+	21,  // 121: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
+	21,  // 122: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
+	71,  // 123: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
+	73,  // 124: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
+	75,  // 125: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
+	77,  // 126: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
+	80,  // 127: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
+	82,  // 128: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
+	21,  // 129: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
+	21,  // 130: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
+	87,  // 131: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
+	21,  // 132: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
+	90,  // 133: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
+	92,  // 134: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
+	94,  // 135: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
+	96,  // 136: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
+	98,  // 137: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
+	100, // 138: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
+	102, // 139: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
+	104, // 140: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
+	99,  // [99:141] is the sub-list for method output_type
+	57,  // [57:99] is the sub-list for method input_type
+	57,  // [57:57] is the sub-list for extension type_name
+	57,  // [57:57] is the sub-list for extension extendee
+	0,   // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_api_web_v1_web_proto_init() }
@@ -6871,9 +7180,9 @@ func file_api_web_v1_web_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_web_v1_web_proto_rawDesc), len(file_api_web_v1_web_proto_rawDesc)),
 			NumEnums:      8,
-			NumMessages:   93,
+			NumMessages:   97,
 			NumExtensions: 0,
-			NumServices:   10,
+			NumServices:   11,
 		},
 		GoTypes:           file_api_web_v1_web_proto_goTypes,
 		DependencyIndexes: file_api_web_v1_web_proto_depIdxs,

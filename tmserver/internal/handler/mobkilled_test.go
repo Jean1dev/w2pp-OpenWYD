@@ -13,6 +13,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
 )
 
 // TestAddClamp guards the per-level HP/MP accumulation against int32 overflow and
@@ -168,6 +169,74 @@ func TestMobKilledClan4NoExp(t *testing.T) {
 	d.mobKilled(w, killer, w.Entity(mobID))
 	if killer.Exp != 0 {
 		t.Errorf("killer.Exp = %d, want 0 for a clan-4 mob", killer.Exp)
+	}
+}
+
+func TestApplyWorldEventConfigUpdatesExpAndDropState(t *testing.T) {
+	d, w, _ := mobKilledWorld(t)
+	snap := worldcfg.Snapshot{
+		Version: 9,
+		Event: worldcfg.EventConfig{
+			Enabled: true, ItemIndex: 777, Rate: 10,
+			StartIndex: 100, CurrentIndex: 101, EndIndex: 200,
+			Indexed: true, NoticeEnabled: true,
+			DoubleExpEnabled: true, NewbieEventEnabled: true,
+		},
+	}
+
+	d.applyWorldEventConfig(w, snap)
+	if !d.expEvents.DoubleMode || !d.expEvents.NewbieEvent {
+		t.Fatalf("exp events = %+v, want double+newbie enabled", d.expEvents)
+	}
+	got := w.WorldEventConfig()
+	if got.Version != 9 || !got.Enabled || got.ItemIndex != 777 || got.CurrentIndex != 101 || !got.Indexed {
+		t.Errorf("world event config = %+v, want snapshot applied", got)
+	}
+}
+
+func TestMobKilledWorldEventDropIndexed(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	w.SetWorldEventConfig(world.WorldEventConfig{
+		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+		StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
+		Indexed: true,
+	})
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	if got := w.WorldEventConfig().CurrentIndex; got != 101 {
+		t.Fatalf("CurrentIndex = %d, want 101", got)
+	}
+	gi := w.GroundItemAt(6, 5)
+	if gi == nil {
+		t.Fatal("event drop was not placed on the ground")
+	}
+	if gi.Item.Index != 777 {
+		t.Fatalf("event item index = %d, want 777", gi.Item.Index)
+	}
+	want := [2]world.Effect{{Effect: eventSerialHi, Value: 0}, {Effect: eventSerialLo, Value: 100}}
+	if gi.Item.Effects[0] != want[0] || gi.Item.Effects[1] != want[1] || gi.Item.Effects[2].Effect != eventSerialRand {
+		t.Errorf("event effects = %+v, want serial hi/lo and rand effect", gi.Item.Effects)
+	}
+}
+
+func TestMobKilledWorldEventDropExhaustedDoesNothing(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	w.SetWorldEventConfig(world.WorldEventConfig{
+		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+		StartIndex: 100, CurrentIndex: 101, EndIndex: 101,
+		Indexed: true,
+	})
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	if gi := w.GroundItemAt(6, 5); gi != nil {
+		t.Fatalf("exhausted event placed ground item %+v", gi)
+	}
+	if got := w.WorldEventConfig().CurrentIndex; got != 101 {
+		t.Errorf("CurrentIndex = %d, want unchanged 101", got)
 	}
 }
 
