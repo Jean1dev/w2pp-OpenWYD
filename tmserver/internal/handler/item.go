@@ -307,26 +307,35 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 	d.sendSlot(w, s, world.ItemPlaceCarry, slot, *src)
 }
 
-// Divine consumable classes (EF_VOLATILE value): the Poção Divina of 7/15/30 days.
-// The buff (Affect 34) lasts these many days; the real deadline is Entity.DivineEnd.
+// Consumable classes (EF_VOLATILE value). Divine's Affect 34 uses Entity.DivineEnd
+// as the real deadline; the other timed buffs store their duration in Affect.Time.
 const (
-	volHpMpPotion   = 1
-	volFairyDust    = 7
-	volRecallScroll = 11 // Pergaminho do Retorno: recalls to the last-city spawn
-	volGemaEstelar  = 12 // Gema Estelar: records the warp save-point
-	volPortalScroll = 13 // Pergaminho de Portal: teleports to the save-point
-	volVigor        = 58
-	volFrango       = 63
-	volDivine7      = 64
-	volDivine30     = 66
-	volGemDiamond   = 180
-	volGemEmerald   = 181
-	volGemCoral     = 182
-	volGemGarnet    = 183
-	volSilverBar    = 185
-	volMagicBean    = 186
-	volPaint        = volMagicBean
-	volExpChest     = 198
+	volHpMpPotion    = 1
+	volFairyDust     = 7
+	volBuffKappa     = 10
+	volRecallScroll  = 11 // Pergaminho do Retorno: recalls to the last-city spawn
+	volGemaEstelar   = 12 // Gema Estelar: records the warp save-point
+	volPortalScroll  = 13 // Pergaminho de Portal: teleports to the save-point
+	volBuffCombat    = 52
+	volBuffMental    = 53
+	volBuffKappa30   = 55
+	volBuffCombat60  = 56
+	volBuffMental60  = 57
+	volVigor         = 58
+	volFrango        = 63
+	volDivine7       = 64
+	volDivine30      = 66
+	volGemDiamond    = 180
+	volGemEmerald    = 181
+	volGemCoral      = 182
+	volGemGarnet     = 183
+	volSilverBar     = 185
+	volMagicBean     = 186
+	volPaint         = volMagicBean
+	volExpChest      = 198
+	volBuffKappa20h  = 200
+	volBuffCombat20h = 201
+	volBuffMental20h = 202
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -376,8 +385,8 @@ const potionDelay = 100
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
 // classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
 // 0 = equip (CARRY → EQUIP); 11 = Retorno (recall); 12/13 = Gema Estelar/Portal
-// (warp save-point, issue #140); 64-66 = Poção Divina; other consumables are
-// UNVERIFIED and not handled yet.
+// (warp save-point, issue #140); 64-66 = Poção Divina. Unknown consumables are
+// rejected with a slot resync instead of silently no-op'ing.
 // Drag-and-drop between slots is a different message (tradingItem).
 func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
@@ -431,6 +440,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useSkillBook(w, s, e, src, vol)
 	case vol == volFairyDust:
 		d.useFairyDust(w, s, e, src)
+	case isLegacyBuffConsumableVol(vol):
+		d.useLegacyBuffConsumable(w, s, e, src, vol)
 	case vol == volExpChest:
 		d.useExpChest(w, s, e, src)
 	case vol >= volDivine7 && vol <= volDivine30:
@@ -465,7 +476,21 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		// shows a consumption the next slot resync would revert.
 		d.rejectUnimplementedConsumable(w, s, e, src)
 	default:
-		// UNVERIFIED consumable (scrolls/teleport/pet food/keys) — not handled yet.
+		// issue #204: do not silently no-op unknown consumables. The client may
+		// optimistically remove them, then the next slot resync (buy/move/save)
+		// appears to bring the item back.
+		d.rejectUnimplementedConsumable(w, s, e, src)
+	}
+}
+
+func isLegacyBuffConsumableVol(vol int) bool {
+	switch vol {
+	case volBuffKappa, volBuffKappa30, volBuffKappa20h,
+		volBuffCombat, volBuffCombat60, volBuffCombat20h,
+		volBuffMental, volBuffMental60, volBuffMental20h:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -579,6 +604,92 @@ func (d *Dispatcher) useSkillBook(w *world.World, s *world.Session, e *world.Ent
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendEtc(w, s, e)
 	d.log.Info("sephira book learned", "conn", s.Conn, "bit", vol-7)
+}
+
+const (
+	affectLegacyConsumableBuff = 4
+	legacyBuffKappa            = 1
+	legacyBuffCombat           = 2
+	legacyBuffMental           = 3
+	legacyBuffSephira          = 4
+	legacyBuffAntidote         = 5
+)
+
+func legacyBuffConsumableEffect(index int16) (value uint8, ticks uint32, ok bool) {
+	ticks = 80
+	switch index {
+	case 787, 3310, 3319:
+		value = legacyBuffKappa
+	case 1764, 3311, 3320:
+		value = legacyBuffCombat
+	case 1765, 3312, 3321:
+		value = legacyBuffMental
+	case 3361, 3362, 3363:
+		value = legacyBuffSephira
+	case 416:
+		value = legacyBuffAntidote
+	default:
+		return 0, 0, false
+	}
+
+	switch index {
+	case 3310:
+		ticks = affect1H / 2
+	case 3311, 3312:
+		ticks = affect1H
+	case 3319, 3320, 3321:
+		ticks = affect1H * 20
+	case 3361:
+		ticks = affect1H * 168
+	case 3362:
+		ticks = affect1H * 360
+	case 3363:
+		ticks = affect1H * 720
+	case 416:
+		ticks = affect1H / 2
+	}
+	return value, ticks, true
+}
+
+func legacyBuffConsumableSlot(e *world.Entity, value uint8) int {
+	for i := range e.Affect {
+		if e.Affect[i].Type == affectLegacyConsumableBuff && e.Affect[i].Value == value {
+			return i
+		}
+	}
+	for i := range e.Affect {
+		if e.Affect[i].Type == 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+// useLegacyBuffConsumable ports _MSG_UseItem.cpp:1215-1341: Kappa,
+// Combatente, Mental, Sephira and Antidoto share Affect type 4 and differ by
+// Value/Time. The slot lookup is narrower than GetEmptyAffect: only an existing
+// type-4 slot with the same Value may be refreshed.
+func (d *Dispatcher) useLegacyBuffConsumable(w *world.World, s *world.Session, e *world.Entity, src, vol int) {
+	itemIdx := e.Carry[src].Index
+	value, ticks, ok := legacyBuffConsumableEffect(itemIdx)
+	if !ok {
+		d.rejectUnimplementedConsumable(w, s, e, src)
+		return
+	}
+	slot := legacyBuffConsumableSlot(e, value)
+	if slot < 0 {
+		d.notify(w, s, NoticeCantEatMore)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	e.Affect[slot] = world.Affect{Type: affectLegacyConsumableBuff, Value: value, Time: ticks}
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendScore(w, s, e)
+	d.sendAffect(w, s, e)
+	d.log.Info("legacy buff consumable used", "conn", s.Conn, "item", itemIdx, "vol", vol, "value", value, "time", ticks)
 }
 
 // equipItem is the CARRY → EQUIP path of _MSG_UseItem (Vol==0 items).
