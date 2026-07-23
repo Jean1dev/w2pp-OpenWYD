@@ -1252,8 +1252,13 @@ func magicBeanSlotWritable(ef world.Effect, remover bool) bool {
 }
 
 // sendAffect pushes MSG_SendAffect (0x03B9): the full 32-slot buff snapshot, so the
-// client renders the buff icons/timers. The Divine slot's displayed Time is the
-// remaining seconds until DivineEnd (SendFunc.cpp:1901, captura §D).
+// client renders the buff icons/timers. Time is ticks of 8 real seconds for every
+// slot (affect1H=450, affect1D=10800); Divine's stored Affect.Time is only the
+// "infinite" display sentinel (divineAffectTime) — the real deadline is DivineEnd
+// (wall clock), so the displayed Time is recomputed here as the remaining seconds
+// ÷ 8. Sending the raw remaining seconds (or, once DivineEnd had passed, letting
+// the raw 2e9 sentinel fall through unconverted) showed a wildly inflated
+// duration — issue #202.
 func (d *Dispatcher) sendAffect(w *world.World, s *world.Session, e *world.Entity) {
 	now := time.Now().Unix()
 	var a [protocol.MaxAffect]protocol.AffectData
@@ -1263,8 +1268,11 @@ func (d *Dispatcher) sendAffect(w *world.World, s *world.Session, e *world.Entit
 			continue
 		}
 		ad := protocol.AffectData{Type: af.Type, Value: af.Value, Level: af.Level, Time: af.Time}
-		if af.Type == world.AffectDivine && e.DivineEnd > now {
-			ad.Time = uint32(e.DivineEnd - now)
+		if af.Type == world.AffectDivine && af.Time >= affectInfiniteTime {
+			ad.Time = 0
+			if remaining := e.DivineEnd - now; remaining > 0 {
+				ad.Time = uint32(remaining / 8)
+			}
 		}
 		a[i] = ad
 	}
