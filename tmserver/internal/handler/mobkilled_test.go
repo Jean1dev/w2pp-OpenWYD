@@ -13,6 +13,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
 )
 
 // TestAddClamp guards the per-level HP/MP accumulation against int32 overflow and
@@ -171,6 +172,96 @@ func TestMobKilledClan4NoExp(t *testing.T) {
 	}
 }
 
+func TestApplyWorldEventConfigUpdatesExpAndDropState(t *testing.T) {
+	d, w, _ := mobKilledWorld(t)
+	snap := worldcfg.Snapshot{
+		Version: 9,
+		Event: worldcfg.EventConfig{
+			Enabled: true, ItemIndex: 777, Rate: 10,
+			StartIndex: 100, CurrentIndex: 101, EndIndex: 200,
+			Indexed: true, NoticeEnabled: true,
+			DoubleExpEnabled: true, NewbieEventEnabled: true,
+		},
+	}
+
+	d.applyWorldEventConfig(w, snap)
+	if !d.expEvents.DoubleMode || !d.expEvents.NewbieEvent {
+		t.Fatalf("exp events = %+v, want double+newbie enabled", d.expEvents)
+	}
+	got := w.WorldEventConfig()
+	if got.Version != 9 || !got.Enabled || got.ItemIndex != 777 || got.CurrentIndex != 101 || !got.Indexed {
+		t.Errorf("world event config = %+v, want snapshot applied", got)
+	}
+}
+
+func TestMobKilledWorldEventDropIndexed(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	w.SetWorldEventConfig(world.EventConfig{
+		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+		StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
+		Indexed: true,
+	})
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	if got := w.WorldEventConfig().CurrentIndex; got != 101 {
+		t.Fatalf("CurrentIndex = %d, want 101", got)
+	}
+	if gi := w.GroundItemAt(6, 5); gi != nil {
+		t.Fatalf("event drop was placed on the ground: %+v", gi)
+	}
+	it := killer.Carry[0]
+	if it.Index != 777 {
+		t.Fatalf("event item index = %d, want 777 in carry slot 0", it.Index)
+	}
+	want := [2]world.Effect{{Effect: eventSerialHi, Value: 0}, {Effect: eventSerialLo, Value: 100}}
+	if it.Effects[0] != want[0] || it.Effects[1] != want[1] || it.Effects[2].Effect != eventSerialRand {
+		t.Errorf("event effects = %+v, want serial hi/lo and rand effect", it.Effects)
+	}
+}
+
+func TestMobKilledWorldEventDropFullCarryDoesNotAdvance(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	for i := 0; i < baseCarrySlots; i++ {
+		killer.Carry[i] = world.Item{Index: int16(1000 + i)}
+	}
+	w.SetWorldEventConfig(world.EventConfig{
+		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+		StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
+		Indexed: true,
+	})
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	if got := w.WorldEventConfig().CurrentIndex; got != 100 {
+		t.Fatalf("CurrentIndex = %d, want unchanged 100", got)
+	}
+	if gi := w.GroundItemAt(6, 5); gi != nil {
+		t.Fatalf("full carry event placed ground item %+v", gi)
+	}
+}
+
+func TestMobKilledWorldEventDropExhaustedDoesNothing(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	w.SetWorldEventConfig(world.EventConfig{
+		Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+		StartIndex: 100, CurrentIndex: 101, EndIndex: 101,
+		Indexed: true,
+	})
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	if gi := w.GroundItemAt(6, 5); gi != nil {
+		t.Fatalf("exhausted event placed ground item %+v", gi)
+	}
+	if got := w.WorldEventConfig().CurrentIndex; got != 101 {
+		t.Errorf("CurrentIndex = %d, want unchanged 101", got)
+	}
+}
+
 func TestApplyBabyMountKillGrowth(t *testing.T) {
 	mount := babyMountItem(2330, 80)
 	mount.Effects[1].Effect = 5
@@ -280,7 +371,7 @@ func TestBabyMountKillEligible(t *testing.T) {
 
 // startServerExpMob is a serving harness with one killable (1 HP) exp-bearing
 // monster next to the player spawn.
-func startServerExpMob(t *testing.T, persist world.Persistence, mob []byte) (string, func()) {
+func startServerExpMob(t *testing.T, persist world.Persistence, mob []byte, configure ...func(*Dispatcher, *world.World)) (string, func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -292,6 +383,9 @@ func startServerExpMob(t *testing.T, persist world.Persistence, mob []byte) (str
 	d := New(Config{Log: log})
 	w := world.New(world.Config{GridDim: 16, Now: clock.Load}, log, persist, d.Handle)
 	w.SpawnMob(mob, 6, 5) // adjacent to the player spawn (5,5)
+	for _, fn := range configure {
+		fn(d, w)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -340,4 +434,43 @@ func TestKillGrantsExpOverWire(t *testing.T) {
 		return
 	}
 	t.Fatal("never received the MsgAttack echo")
+}
+
+func TestKillWorldEventDropSendsCarrySlot(t *testing.T) {
+	mob := expMobTemplate(10, 1000, 0)
+	binary.LittleEndian.PutUint32(mob[92+16:], 1)
+	binary.LittleEndian.PutUint32(mob[92+24:], 1)
+	addr, stop := startServerExpMob(t, skillCombatDB(0), mob, func(_ *Dispatcher, w *world.World) {
+		w.SetWorldEventConfig(world.EventConfig{
+			Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+			StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
+			Indexed: true,
+		})
+	})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	skillAttackFrame(t, c, serverTime, world.MaxUser, -1, -2)
+
+	for i := 0; i < 12; i++ {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			t.Fatal("no MsgSendItem after world event drop")
+		}
+		if ty != protocol.MsgSendItem {
+			continue
+		}
+		if place, slot, idx := le16(payload[0:2]), le16(payload[2:4]), le16(payload[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 777 {
+			t.Fatalf("event SendItem = place %d slot %d index %d, want carry/0/777", place, slot, idx)
+		}
+		if payload[6] != eventSerialHi || payload[7] != 0 ||
+			payload[8] != eventSerialLo || payload[9] != 100 ||
+			payload[10] != eventSerialRand {
+			t.Fatalf("event SendItem effects = [%d:%d %d:%d %d:%d], want serial hi/lo/rand",
+				payload[6], payload[7], payload[8], payload[9], payload[10], payload[11])
+		}
+		return
+	}
+	t.Fatal("never received world event SendItem")
 }

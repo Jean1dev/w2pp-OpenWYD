@@ -2261,6 +2261,159 @@ var DailyRewardAdminService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	WorldEventAdminService_GetWorldEventConfig_FullMethodName = "/web.v1.WorldEventAdminService/GetWorldEventConfig"
+	WorldEventAdminService_SetWorldEventConfig_FullMethodName = "/web.v1.WorldEventAdminService/SetWorldEventConfig"
+)
+
+// WorldEventAdminServiceClient is the client API for WorldEventAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// WorldEventAdminService is the moderator-facing global event control surface
+// (issue #116). The portal writes this cold config; tmServer polls it through
+// dbServer and applies it inside the single-owner loop.
+type WorldEventAdminServiceClient interface {
+	// GetWorldEventConfig returns the current global event settings.
+	GetWorldEventConfig(ctx context.Context, in *GetWorldEventConfigRequest, opts ...grpc.CallOption) (*GetWorldEventConfigResponse, error)
+	// SetWorldEventConfig replaces the event settings.
+	SetWorldEventConfig(ctx context.Context, in *SetWorldEventConfigRequest, opts ...grpc.CallOption) (*AdminAck, error)
+}
+
+type worldEventAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewWorldEventAdminServiceClient(cc grpc.ClientConnInterface) WorldEventAdminServiceClient {
+	return &worldEventAdminServiceClient{cc}
+}
+
+func (c *worldEventAdminServiceClient) GetWorldEventConfig(ctx context.Context, in *GetWorldEventConfigRequest, opts ...grpc.CallOption) (*GetWorldEventConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWorldEventConfigResponse)
+	err := c.cc.Invoke(ctx, WorldEventAdminService_GetWorldEventConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *worldEventAdminServiceClient) SetWorldEventConfig(ctx context.Context, in *SetWorldEventConfigRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, WorldEventAdminService_SetWorldEventConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// WorldEventAdminServiceServer is the server API for WorldEventAdminService service.
+// All implementations must embed UnimplementedWorldEventAdminServiceServer
+// for forward compatibility.
+//
+// WorldEventAdminService is the moderator-facing global event control surface
+// (issue #116). The portal writes this cold config; tmServer polls it through
+// dbServer and applies it inside the single-owner loop.
+type WorldEventAdminServiceServer interface {
+	// GetWorldEventConfig returns the current global event settings.
+	GetWorldEventConfig(context.Context, *GetWorldEventConfigRequest) (*GetWorldEventConfigResponse, error)
+	// SetWorldEventConfig replaces the event settings.
+	SetWorldEventConfig(context.Context, *SetWorldEventConfigRequest) (*AdminAck, error)
+	mustEmbedUnimplementedWorldEventAdminServiceServer()
+}
+
+// UnimplementedWorldEventAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedWorldEventAdminServiceServer struct{}
+
+func (UnimplementedWorldEventAdminServiceServer) GetWorldEventConfig(context.Context, *GetWorldEventConfigRequest) (*GetWorldEventConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetWorldEventConfig not implemented")
+}
+func (UnimplementedWorldEventAdminServiceServer) SetWorldEventConfig(context.Context, *SetWorldEventConfigRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetWorldEventConfig not implemented")
+}
+func (UnimplementedWorldEventAdminServiceServer) mustEmbedUnimplementedWorldEventAdminServiceServer() {
+}
+func (UnimplementedWorldEventAdminServiceServer) testEmbeddedByValue() {}
+
+// UnsafeWorldEventAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to WorldEventAdminServiceServer will
+// result in compilation errors.
+type UnsafeWorldEventAdminServiceServer interface {
+	mustEmbedUnimplementedWorldEventAdminServiceServer()
+}
+
+func RegisterWorldEventAdminServiceServer(s grpc.ServiceRegistrar, srv WorldEventAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedWorldEventAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&WorldEventAdminService_ServiceDesc, srv)
+}
+
+func _WorldEventAdminService_GetWorldEventConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWorldEventConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorldEventAdminServiceServer).GetWorldEventConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorldEventAdminService_GetWorldEventConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorldEventAdminServiceServer).GetWorldEventConfig(ctx, req.(*GetWorldEventConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorldEventAdminService_SetWorldEventConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetWorldEventConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorldEventAdminServiceServer).SetWorldEventConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorldEventAdminService_SetWorldEventConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorldEventAdminServiceServer).SetWorldEventConfig(ctx, req.(*SetWorldEventConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// WorldEventAdminService_ServiceDesc is the grpc.ServiceDesc for WorldEventAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var WorldEventAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.WorldEventAdminService",
+	HandlerType: (*WorldEventAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetWorldEventConfig",
+			Handler:    _WorldEventAdminService_GetWorldEventConfig_Handler,
+		},
+		{
+			MethodName: "SetWorldEventConfig",
+			Handler:    _WorldEventAdminService_SetWorldEventConfig_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
 	DailyRewardService_ListRewards_FullMethodName    = "/web.v1.DailyRewardService/ListRewards"
 	DailyRewardService_GetClaimStatus_FullMethodName = "/web.v1.DailyRewardService/GetClaimStatus"
 	DailyRewardService_Claim_FullMethodName          = "/web.v1.DailyRewardService/Claim"

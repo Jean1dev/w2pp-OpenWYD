@@ -22,6 +22,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
 )
 
 // Config tunes the dispatcher. Zero values get sensible defaults.
@@ -109,6 +110,11 @@ type Config struct {
 	// When set, the dispatcher overlays DB-defined merchant NPCs on boot and polls
 	// for changes each tick (hot-reload). When nil, NPCs come only from NPCGener.txt.
 	NpcConfig npccfg.Source
+
+	// WorldEvents is the portal-managed global event config source (issue #116).
+	// When set, the dispatcher applies EXP/drop event settings at boot and polls
+	// for moderator edits. When nil, ExpEvents stays as the boot-time flags.
+	WorldEvents worldcfg.Source
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -163,6 +169,13 @@ type Dispatcher struct {
 	npcPolling     bool
 	npcPollTick    int
 
+	// Portal-managed world events (issue #116). worldEventSource is the dbServer
+	// read/progress bridge; the actual event state lives in world.World.
+	worldEventSource   worldcfg.Source
+	worldEventVersion  int64
+	worldEventPolling  bool
+	worldEventPollTick int
+
 	// playersX/Y are per-tick scratch snapshots of in-play player positions
 	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
 	playersX, playersY []int16
@@ -188,33 +201,34 @@ func New(cfg Config) *Dispatcher {
 		cfg.Now = time.Now
 	}
 	d := &Dispatcher{
-		cfg:             cfg,
-		log:             cfg.Log,
-		routes:          make(map[protocol.Type]handlerFunc),
-		fails:           make(map[string]int),
-		combineFamilies: cfg.CombineFamilies,
-		odinCatalog:     cfg.OdinCatalog,
-		baseMobs:        cfg.BaseMobs,
-		summonMobs:      cfg.SummonMobs,
-		vineMob:         cfg.VineMob,
-		itemPrices:      cfg.ItemPrices,
-		itemEffects:     cfg.ItemEffects,
-		itemReqs:        cfg.ItemReqs,
-		itemVolatiles:   cfg.ItemVolatiles,
-		itemPos:         cfg.ItemPos,
-		itemUnique:      cfg.ItemUnique,
-		itemGrades:      cfg.ItemGrades,
-		itemExtra:       cfg.ItemExtra,
-		sancRate:        cfg.SancRate,
-		expEvents:       cfg.ExpEvents,
-		spells:          cfg.Spells,
-		heights:         cfg.Heights,
-		now:             cfg.Now,
-		serverIndex:     cfg.ServerIndex,
-		guildWars:       make(map[uint16]uint16),
-		guildAllies:     make(map[uint16]uint16),
-		npcSource:       cfg.NpcConfig,
-		managedNPCs:     make(map[string]int),
+		cfg:              cfg,
+		log:              cfg.Log,
+		routes:           make(map[protocol.Type]handlerFunc),
+		fails:            make(map[string]int),
+		combineFamilies:  cfg.CombineFamilies,
+		odinCatalog:      cfg.OdinCatalog,
+		baseMobs:         cfg.BaseMobs,
+		summonMobs:       cfg.SummonMobs,
+		vineMob:          cfg.VineMob,
+		itemPrices:       cfg.ItemPrices,
+		itemEffects:      cfg.ItemEffects,
+		itemReqs:         cfg.ItemReqs,
+		itemVolatiles:    cfg.ItemVolatiles,
+		itemPos:          cfg.ItemPos,
+		itemUnique:       cfg.ItemUnique,
+		itemGrades:       cfg.ItemGrades,
+		itemExtra:        cfg.ItemExtra,
+		sancRate:         cfg.SancRate,
+		expEvents:        cfg.ExpEvents,
+		spells:           cfg.Spells,
+		heights:          cfg.Heights,
+		now:              cfg.Now,
+		serverIndex:      cfg.ServerIndex,
+		guildWars:        make(map[uint16]uint16),
+		guildAllies:      make(map[uint16]uint16),
+		npcSource:        cfg.NpcConfig,
+		managedNPCs:      make(map[string]int),
+		worldEventSource: cfg.WorldEvents,
 	}
 	for i := range d.guildZones {
 		d.guildZones[i].Zone = i

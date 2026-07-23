@@ -102,6 +102,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.respawnMobs(w)
 	d.generateMobs(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
+	d.pollWorldEventConfig(w)
 }
 
 type questArea struct {

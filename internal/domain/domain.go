@@ -223,6 +223,24 @@ type ItemPriceOverride struct {
 	Price     int64
 }
 
+// WorldEventConfig is the moderator-managed global event state (issue #116).
+// It is cold configuration owned by Postgres and materialized into the tmServer
+// loop through dbServer polling. CurrentIndex is live event progress: tmServer
+// advances it after a successful indexed/global event drop and persists it back
+// without treating that progress write as a moderator config change.
+type WorldEventConfig struct {
+	Enabled            bool
+	ItemIndex          int32
+	Rate               int32
+	StartIndex         int32
+	CurrentIndex       int32
+	EndIndex           int32
+	Indexed            bool
+	NoticeEnabled      bool
+	DoubleExpEnabled   bool
+	NewbieEventEnabled bool
+}
+
 // MobTemplateStat is a moderator-editable stat override for a raw STRUCT_MOB
 // mob/NPC template file (Release/TMsrv/run/npc/<TemplateName>) —
 // mob-template-editing-plan.md, the equivalent-tool successor to the legacy

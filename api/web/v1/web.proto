@@ -803,6 +803,41 @@ message DeleteRewardItemRequest {
   int64 item_id = 2;
 }
 
+// WorldEventAdminService is the moderator-facing global event control surface
+// (issue #116). The portal writes this cold config; tmServer polls it through
+// dbServer and applies it inside the single-owner loop.
+service WorldEventAdminService {
+  // GetWorldEventConfig returns the current global event settings.
+  rpc GetWorldEventConfig(GetWorldEventConfigRequest) returns (GetWorldEventConfigResponse);
+  // SetWorldEventConfig replaces the event settings.
+  rpc SetWorldEventConfig(SetWorldEventConfigRequest) returns (AdminAck);
+}
+
+message WorldEventConfig {
+  bool enabled = 1;
+  int32 item_index = 2;
+  int32 rate = 3;
+  int32 start_index = 4;
+  int32 current_index = 5;
+  int32 end_index = 6;
+  bool indexed = 7;
+  bool notice_enabled = 8;
+  bool double_exp_enabled = 9;
+  bool newbie_event_enabled = 10;
+}
+
+message GetWorldEventConfigRequest { int64 moderator_id = 1; }
+message GetWorldEventConfigResponse {
+  AdminResult result = 1;
+  int64 version = 2;
+  WorldEventConfig config = 3;
+}
+
+message SetWorldEventConfigRequest {
+  int64 moderator_id = 1;
+  WorldEventConfig config = 2;
+}
+
 // DailyRewardService is the player-facing daily reward surface the Next.js BFF
 // calls with the logged account_id from its httpOnly session (never
 // browser-supplied). A claim inserts a daily_reward_claim row for today's UTC

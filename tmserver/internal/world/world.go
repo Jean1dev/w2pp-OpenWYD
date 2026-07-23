@@ -144,6 +144,11 @@ type World struct {
 	// against. Loop-owned.
 	guilds map[uint16]GuildInfo
 
+	// worldEvent is the portal-managed global drop event state. Loop-owned; the
+	// dispatcher applies snapshots from dbServer and advances CurrentIndex on
+	// successful event drops.
+	worldEvent EventConfig
+
 	events    chan event
 	callbacks chan event // async handler results (World.Go / World.GoDetached); separate
 	// from events so a long mob-AI tick cannot block login/db callbacks on the main queue.

@@ -40,6 +40,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/ranking"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/worldevent"
 )
 
 func main() {
@@ -90,6 +91,7 @@ func run(logger *slog.Logger) error {
 	dailyRwd := dailyreward.New(st)
 	topup := donatetopup.New(st)
 	attrMap := attributemap.New(st, *contentDir)
+	worldEvents := worldevent.New(st)
 	if *contentDir != "" {
 		templates, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -141,6 +143,7 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterDailyRewardAdminServiceServer(srv, grpcsrv.NewDailyRewardAdmin(dailyRwd))
 	webv1.RegisterDailyRewardServiceServer(srv, grpcsrv.NewDailyReward(dailyRwd))
 	webv1.RegisterDonateTopupServiceServer(srv, grpcsrv.NewDonateTopup(topup))
+	webv1.RegisterWorldEventAdminServiceServer(srv, grpcsrv.NewWorldEventAdmin(worldEvents))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
