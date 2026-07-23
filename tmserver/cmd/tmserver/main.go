@@ -257,10 +257,7 @@ func run(logger *slog.Logger) error {
 			if terr != nil {
 				return nil, terr
 			}
-			if ov, ok := mobStatOverrides[name]; ok {
-				b = mobstat.Apply(b, ov)
-			}
-			return b, nil
+			return mobstat.ApplyOverride(b, name, mobStatOverrides), nil
 		}, logger)
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
@@ -357,12 +354,9 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		tmpl, seen := templates[name]
 		if !seen {
 			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
-				tmpl = b
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
-				if ov, ok := mobStatOverrides[name]; ok {
-					tmpl = mobstat.Apply(tmpl, ov)
-				}
+				tmpl = mobstat.ApplyOverride(b, name, mobStatOverrides)
 				if mb := protocol.ParseMobBasics(tmpl); mb.Merchant == 0 && mb.Level >= 1 &&
 					(mb.Exp <= 0 || mb.Exp > maxSaneMobExp) {
 					logger.Warn("monster template has unbalanced Exp (run cmd/exptool)",

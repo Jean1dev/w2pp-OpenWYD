@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobtemplates"
 )
@@ -50,9 +51,8 @@ const (
 	NotFound
 )
 
-// Equip has MAX_EQUIP slots (STRUCT_MOB.Equip[16]); maxEquipSlot bounds slot
-// validation.
-const maxEquipSlot = 15
+// maxEquipSlot bounds slot validation (STRUCT_MOB.Equip[savefmt.MaxEquip], 0-indexed).
+const maxEquipSlot = savefmt.MaxEquip - 1
 
 // Service implements the moderator mob-template-stat-editing operations.
 type Service struct {

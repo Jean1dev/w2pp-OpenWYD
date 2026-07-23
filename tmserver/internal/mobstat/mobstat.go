@@ -106,3 +106,14 @@ func Apply(template []byte, ov Override) []byte {
 
 	return savefmt.EncodeMob(mob)
 }
+
+// ApplyOverride applies overrides[name] to template if present, returning
+// template unchanged otherwise. Shared by the two places that resolve a
+// template by name at boot (spawnNPCs and dbclient.NewNpcConfig's
+// TemplateLoader) so the lookup-and-patch step isn't repeated at each call site.
+func ApplyOverride(template []byte, name string, overrides map[string]Override) []byte {
+	if ov, ok := overrides[name]; ok {
+		return Apply(template, ov)
+	}
+	return template
+}

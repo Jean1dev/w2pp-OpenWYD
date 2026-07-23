@@ -10,8 +10,7 @@
 // rebalancing use case this tool serves.
 //
 // STRUCT_MOB.Name is ISO-8859-1 (same source tree, same encoding as
-// itemcatalog's ItemList.csv and npctemplates) — see cString for the
-// transcoding.
+// itemcatalog's ItemList.csv) — see npctemplates.CString for the transcoding.
 package mobtemplates
 
 import (
@@ -22,6 +21,7 @@ import (
 	"sort"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
 
 // File is one STRUCT_MOB template file found under Release/TMsrv/run/npc/.
@@ -60,29 +60,11 @@ func Scan(contentDir string, logger *slog.Logger) ([]File, error) {
 		}
 		out = append(out, File{
 			TemplateName: name,
-			DisplayName:  cString(mob.Name[:]),
+			DisplayName:  npctemplates.CString(mob.Name[:]),
 			Merchant:     mob.CurrentScore.Merchant,
 		})
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].TemplateName < out[j].TemplateName })
 	return out, nil
-}
-
-// cString trims a fixed-size name field at the first NUL byte and converts it
-// from ISO-8859-1 to UTF-8 (each Latin-1 byte's value IS its Unicode code
-// point) — without this, accented names come out mojibake over gRPC/JSON,
-// same bug class as npctemplates.cString/itemcatalog.latin1ToUTF8.
-func cString(b []byte) string {
-	for i, c := range b {
-		if c == 0 {
-			b = b[:i]
-			break
-		}
-	}
-	runes := make([]rune, len(b))
-	for i, c := range b {
-		runes[i] = rune(c)
-	}
-	return string(runes)
 }

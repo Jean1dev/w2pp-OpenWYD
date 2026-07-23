@@ -3,7 +3,8 @@
 > Status: **IMPLEMENTADO** (backend + estruturas de dados; front-end Next.js fora de escopo,
 > mesma decisão de `npc-editing-plan.md`). Origem: issue #167 — "existe esse projeto na source
 > legado, identifique como ou se eh utilizado no nosso projeto migrado, e precisamos criar uma
-> ferramenta equivalente no nosso portal web".
+> ferramenta equivalente no nosso portal web". Guia de integração pro front-end (contrato gRPC,
+> exemplos de payload, semântica de UI): [`mob-template-editing-frontend.md`](./mob-template-editing-frontend.md).
 
 ## 1. O que é o "EditaPPMob" da issue
 
