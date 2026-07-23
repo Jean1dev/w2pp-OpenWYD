@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,6 +35,8 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobtemplateadmin"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobtemplates"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/ranking"
@@ -82,6 +85,7 @@ func run(logger *slog.Logger) error {
 	srv := grpc.NewServer(grpc.Creds(creds))
 	st := store.New(pool)
 	npcAdmin := npcadmin.New(st)
+	mobTemplateAdmin := mobtemplateadmin.New(st)
 	donate := donateshop.New(st)
 	dailyRwd := dailyreward.New(st)
 	topup := donatetopup.New(st)
@@ -103,6 +107,17 @@ func run(logger *slog.Logger) error {
 			npcAdmin.SetItems(items)
 		}
 
+		mobTemplates, err := mobtemplates.Scan(*contentDir, logger)
+		if err != nil {
+			logger.Warn("mob template scan failed; template picker will be empty", "content", *contentDir, "err", err)
+		} else {
+			logger.Info("scanned mob templates", "count", len(mobTemplates))
+			mobTemplateAdmin.SetTemplates(mobTemplates)
+		}
+		mobTemplateAdmin.SetTemplateReader(func(name string) ([]byte, error) {
+			return os.ReadFile(filepath.Join(*contentDir, "TMsrv", "run", "npc", name))
+		})
+
 		exclusions, err := droptool.LoadContentExclusions(*contentDir)
 		if err != nil {
 			logger.Warn("drop exclusion scan failed; continuing without exclusions", "content", *contentDir, "err", err)
@@ -119,6 +134,7 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterCharacterWebServiceServer(srv, grpcsrv.NewCharacters(characters.New(st)))
 	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
+	webv1.RegisterMobTemplateAdminServiceServer(srv, grpcsrv.NewMobTemplateAdmin(mobTemplateAdmin))
 	webv1.RegisterAttributeMapAdminServiceServer(srv, grpcsrv.NewAttributeMapAdmin(attrMap))
 	webv1.RegisterDonateAdminServiceServer(srv, grpcsrv.NewDonateAdmin(donate))
 	webv1.RegisterDonateShopServiceServer(srv, grpcsrv.NewDonateShop(donate))

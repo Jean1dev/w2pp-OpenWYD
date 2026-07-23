@@ -6,7 +6,7 @@
 // tree has legacy quest variants that the panel cannot use safely yet.
 //
 // STRUCT_MOB.Name is ISO-8859-1 (same source tree, same encoding as
-// itemcatalog's ItemList.csv) — see cString for the transcoding, needed here
+// itemcatalog's ItemList.csv) — see CString for the transcoding, needed here
 // too since DisplayName is surfaced to the moderator UI.
 package npctemplates
 
@@ -76,7 +76,7 @@ func Scan(contentDir string, logger *slog.Logger) ([]Template, error) {
 		}
 		out = append(out, Template{
 			TemplateName: name,
-			DisplayName:  cString(mob.Name[:]),
+			DisplayName:  CString(mob.Name[:]),
 			Merchant:     int16(mob.CurrentScore.Merchant),
 		})
 	}
@@ -109,11 +109,11 @@ func questGrade(mob savefmt.Mob) uint8 {
 	return 0
 }
 
-// cString trims a fixed-size name field at the first NUL byte and converts it
+// CString trims a fixed-size name field at the first NUL byte and converts it
 // from ISO-8859-1 to UTF-8 (each Latin-1 byte's value IS its Unicode code
 // point, by definition of that encoding) - without this, accented names come
 // out mojibake over gRPC/JSON, same bug class as itemcatalog.latin1ToUTF8.
-func cString(b []byte) string {
+func CString(b []byte) string {
 	for i, c := range b {
 		if c == 0 {
 			b = b[:i]

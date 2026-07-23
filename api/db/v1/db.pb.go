@@ -4586,6 +4586,551 @@ func (x *ItemPrice) GetPrice() int64 {
 	return 0
 }
 
+type ListMobTemplateStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMobTemplateStatsRequest) Reset() {
+	*x = ListMobTemplateStatsRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMobTemplateStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMobTemplateStatsRequest) ProtoMessage() {}
+
+func (x *ListMobTemplateStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMobTemplateStatsRequest.ProtoReflect.Descriptor instead.
+func (*ListMobTemplateStatsRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{72}
+}
+
+type ListMobTemplateStatsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Overrides     []*MobTemplateStat     `protobuf:"bytes,1,rep,name=overrides,proto3" json:"overrides,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMobTemplateStatsResponse) Reset() {
+	*x = ListMobTemplateStatsResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMobTemplateStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMobTemplateStatsResponse) ProtoMessage() {}
+
+func (x *ListMobTemplateStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMobTemplateStatsResponse.ProtoReflect.Descriptor instead.
+func (*ListMobTemplateStatsResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *ListMobTemplateStatsResponse) GetOverrides() []*MobTemplateStat {
+	if x != nil {
+		return x.Overrides
+	}
+	return nil
+}
+
+// MobTemplateEquipItem is one Equip[] slot override (0..15, MAX_EQUIP) for a
+// mob template. Same shape as NpcShopItem minus quantity (equip slots don't
+// stack).
+type MobTemplateEquipItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slot          int32                  `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	ItemIndex     int32                  `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Eff1          int32                  `protobuf:"varint,3,opt,name=eff1,proto3" json:"eff1,omitempty"`
+	Effv1         int32                  `protobuf:"varint,4,opt,name=effv1,proto3" json:"effv1,omitempty"`
+	Eff2          int32                  `protobuf:"varint,5,opt,name=eff2,proto3" json:"eff2,omitempty"`
+	Effv2         int32                  `protobuf:"varint,6,opt,name=effv2,proto3" json:"effv2,omitempty"`
+	Eff3          int32                  `protobuf:"varint,7,opt,name=eff3,proto3" json:"eff3,omitempty"`
+	Effv3         int32                  `protobuf:"varint,8,opt,name=effv3,proto3" json:"effv3,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MobTemplateEquipItem) Reset() {
+	*x = MobTemplateEquipItem{}
+	mi := &file_api_db_v1_db_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MobTemplateEquipItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MobTemplateEquipItem) ProtoMessage() {}
+
+func (x *MobTemplateEquipItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MobTemplateEquipItem.ProtoReflect.Descriptor instead.
+func (*MobTemplateEquipItem) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *MobTemplateEquipItem) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetEff1() int32 {
+	if x != nil {
+		return x.Eff1
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetEffv1() int32 {
+	if x != nil {
+		return x.Effv1
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetEff2() int32 {
+	if x != nil {
+		return x.Eff2
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetEffv2() int32 {
+	if x != nil {
+		return x.Effv2
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetEff3() int32 {
+	if x != nil {
+		return x.Eff3
+	}
+	return 0
+}
+
+func (x *MobTemplateEquipItem) GetEffv3() int32 {
+	if x != nil {
+		return x.Effv3
+	}
+	return 0
+}
+
+// MobTemplateStat is a moderator-edited stat override for a raw STRUCT_MOB
+// mob/NPC template file (mob-template-editing-plan.md) — the field surface
+// the legacy EDITAPPMOB tool edited, minus Carry[] (already NpcShopItem) and
+// DB-managed spawn position (already NpcDefinition). BaseScore/CurrentScore
+// are not modeled separately: tmServer mirrors the same value into both,
+// matching EDITAPPMOB's own `CurrentScore = BaseScore` on save.
+type MobTemplateStat struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	TemplateName  string                  `protobuf:"bytes,1,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DisplayName   string                  `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // "" keeps the template file's own name
+	Clan          int32                   `protobuf:"varint,3,opt,name=clan,proto3" json:"clan,omitempty"`
+	Merchant      int32                   `protobuf:"varint,4,opt,name=merchant,proto3" json:"merchant,omitempty"` // STRUCT_MOB top-level Merchant — distinct from NpcDefinition.merchant
+	Class         int32                   `protobuf:"varint,5,opt,name=class,proto3" json:"class,omitempty"`
+	Coin          int32                   `protobuf:"varint,6,opt,name=coin,proto3" json:"coin,omitempty"`
+	Exp           int64                   `protobuf:"varint,7,opt,name=exp,proto3" json:"exp,omitempty"`
+	Spx           int32                   `protobuf:"varint,8,opt,name=spx,proto3" json:"spx,omitempty"`
+	Spy           int32                   `protobuf:"varint,9,opt,name=spy,proto3" json:"spy,omitempty"`
+	Level         int32                   `protobuf:"varint,10,opt,name=level,proto3" json:"level,omitempty"`
+	Ac            int32                   `protobuf:"varint,11,opt,name=ac,proto3" json:"ac,omitempty"`
+	Damage        int32                   `protobuf:"varint,12,opt,name=damage,proto3" json:"damage,omitempty"`
+	ChaosRate     int32                   `protobuf:"varint,13,opt,name=chaos_rate,json=chaosRate,proto3" json:"chaos_rate,omitempty"`
+	AttackRun     int32                   `protobuf:"varint,14,opt,name=attack_run,json=attackRun,proto3" json:"attack_run,omitempty"`
+	Direction     int32                   `protobuf:"varint,15,opt,name=direction,proto3" json:"direction,omitempty"`
+	Str           int32                   `protobuf:"varint,16,opt,name=str,proto3" json:"str,omitempty"`
+	Intel         int32                   `protobuf:"varint,17,opt,name=intel,proto3" json:"intel,omitempty"` // "int" avoided (reserved in several target languages)
+	Dex           int32                   `protobuf:"varint,18,opt,name=dex,proto3" json:"dex,omitempty"`
+	Con           int32                   `protobuf:"varint,19,opt,name=con,proto3" json:"con,omitempty"`
+	Special1      int32                   `protobuf:"varint,20,opt,name=special1,proto3" json:"special1,omitempty"`
+	Special2      int32                   `protobuf:"varint,21,opt,name=special2,proto3" json:"special2,omitempty"`
+	Special3      int32                   `protobuf:"varint,22,opt,name=special3,proto3" json:"special3,omitempty"`
+	Special4      int32                   `protobuf:"varint,23,opt,name=special4,proto3" json:"special4,omitempty"`
+	MaxHp         int32                   `protobuf:"varint,24,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
+	Hp            int32                   `protobuf:"varint,25,opt,name=hp,proto3" json:"hp,omitempty"`
+	MaxMp         int32                   `protobuf:"varint,26,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
+	Mp            int32                   `protobuf:"varint,27,opt,name=mp,proto3" json:"mp,omitempty"`
+	LearnedSkill  int32                   `protobuf:"varint,28,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`
+	ScoreBonus    int32                   `protobuf:"varint,29,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`
+	SkillBar1     int32                   `protobuf:"varint,30,opt,name=skill_bar1,json=skillBar1,proto3" json:"skill_bar1,omitempty"`
+	SkillBar2     int32                   `protobuf:"varint,31,opt,name=skill_bar2,json=skillBar2,proto3" json:"skill_bar2,omitempty"`
+	SkillBar3     int32                   `protobuf:"varint,32,opt,name=skill_bar3,json=skillBar3,proto3" json:"skill_bar3,omitempty"`
+	SkillBar4     int32                   `protobuf:"varint,33,opt,name=skill_bar4,json=skillBar4,proto3" json:"skill_bar4,omitempty"`
+	RegenHp       int32                   `protobuf:"varint,34,opt,name=regen_hp,json=regenHp,proto3" json:"regen_hp,omitempty"`
+	RegenMp       int32                   `protobuf:"varint,35,opt,name=regen_mp,json=regenMp,proto3" json:"regen_mp,omitempty"`
+	Resist1       int32                   `protobuf:"varint,36,opt,name=resist1,proto3" json:"resist1,omitempty"`
+	Resist2       int32                   `protobuf:"varint,37,opt,name=resist2,proto3" json:"resist2,omitempty"`
+	Resist3       int32                   `protobuf:"varint,38,opt,name=resist3,proto3" json:"resist3,omitempty"`
+	Resist4       int32                   `protobuf:"varint,39,opt,name=resist4,proto3" json:"resist4,omitempty"`
+	Equip         []*MobTemplateEquipItem `protobuf:"bytes,40,rep,name=equip,proto3" json:"equip,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MobTemplateStat) Reset() {
+	*x = MobTemplateStat{}
+	mi := &file_api_db_v1_db_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MobTemplateStat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MobTemplateStat) ProtoMessage() {}
+
+func (x *MobTemplateStat) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MobTemplateStat.ProtoReflect.Descriptor instead.
+func (*MobTemplateStat) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *MobTemplateStat) GetTemplateName() string {
+	if x != nil {
+		return x.TemplateName
+	}
+	return ""
+}
+
+func (x *MobTemplateStat) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *MobTemplateStat) GetClan() int32 {
+	if x != nil {
+		return x.Clan
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetMerchant() int32 {
+	if x != nil {
+		return x.Merchant
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetClass() int32 {
+	if x != nil {
+		return x.Class
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetCoin() int32 {
+	if x != nil {
+		return x.Coin
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetExp() int64 {
+	if x != nil {
+		return x.Exp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSpx() int32 {
+	if x != nil {
+		return x.Spx
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSpy() int32 {
+	if x != nil {
+		return x.Spy
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetLevel() int32 {
+	if x != nil {
+		return x.Level
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetAc() int32 {
+	if x != nil {
+		return x.Ac
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetDamage() int32 {
+	if x != nil {
+		return x.Damage
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetChaosRate() int32 {
+	if x != nil {
+		return x.ChaosRate
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetAttackRun() int32 {
+	if x != nil {
+		return x.AttackRun
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetDirection() int32 {
+	if x != nil {
+		return x.Direction
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetStr() int32 {
+	if x != nil {
+		return x.Str
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetIntel() int32 {
+	if x != nil {
+		return x.Intel
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetDex() int32 {
+	if x != nil {
+		return x.Dex
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetCon() int32 {
+	if x != nil {
+		return x.Con
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSpecial1() int32 {
+	if x != nil {
+		return x.Special1
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSpecial2() int32 {
+	if x != nil {
+		return x.Special2
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSpecial3() int32 {
+	if x != nil {
+		return x.Special3
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSpecial4() int32 {
+	if x != nil {
+		return x.Special4
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetMaxHp() int32 {
+	if x != nil {
+		return x.MaxHp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetHp() int32 {
+	if x != nil {
+		return x.Hp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetMaxMp() int32 {
+	if x != nil {
+		return x.MaxMp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetMp() int32 {
+	if x != nil {
+		return x.Mp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetLearnedSkill() int32 {
+	if x != nil {
+		return x.LearnedSkill
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetScoreBonus() int32 {
+	if x != nil {
+		return x.ScoreBonus
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSkillBar1() int32 {
+	if x != nil {
+		return x.SkillBar1
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSkillBar2() int32 {
+	if x != nil {
+		return x.SkillBar2
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSkillBar3() int32 {
+	if x != nil {
+		return x.SkillBar3
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetSkillBar4() int32 {
+	if x != nil {
+		return x.SkillBar4
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetRegenHp() int32 {
+	if x != nil {
+		return x.RegenHp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetRegenMp() int32 {
+	if x != nil {
+		return x.RegenMp
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetResist1() int32 {
+	if x != nil {
+		return x.Resist1
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetResist2() int32 {
+	if x != nil {
+		return x.Resist2
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetResist3() int32 {
+	if x != nil {
+		return x.Resist3
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetResist4() int32 {
+	if x != nil {
+		return x.Resist4
+	}
+	return 0
+}
+
+func (x *MobTemplateStat) GetEquip() []*MobTemplateEquipItem {
+	if x != nil {
+		return x.Equip
+	}
+	return nil
+}
+
 var File_api_db_v1_db_proto protoreflect.FileDescriptor
 
 const file_api_db_v1_db_proto_rawDesc = "" +
@@ -4928,7 +5473,69 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\tItemPrice\x12\x1d\n" +
 	"\n" +
 	"item_index\x18\x01 \x01(\x05R\titemIndex\x12\x14\n" +
-	"\x05price\x18\x02 \x01(\x03R\x05price*\xb8\x01\n" +
+	"\x05price\x18\x02 \x01(\x03R\x05price\"\x1d\n" +
+	"\x1bListMobTemplateStatsRequest\"T\n" +
+	"\x1cListMobTemplateStatsResponse\x124\n" +
+	"\toverrides\x18\x01 \x03(\v2\x16.db.v1.MobTemplateStatR\toverrides\"\xc7\x01\n" +
+	"\x14MobTemplateEquipItem\x12\x12\n" +
+	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x02 \x01(\x05R\titemIndex\x12\x12\n" +
+	"\x04eff1\x18\x03 \x01(\x05R\x04eff1\x12\x14\n" +
+	"\x05effv1\x18\x04 \x01(\x05R\x05effv1\x12\x12\n" +
+	"\x04eff2\x18\x05 \x01(\x05R\x04eff2\x12\x14\n" +
+	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
+	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
+	"\x05effv3\x18\b \x01(\x05R\x05effv3\"\xa0\b\n" +
+	"\x0fMobTemplateStat\x12#\n" +
+	"\rtemplate_name\x18\x01 \x01(\tR\ftemplateName\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x12\n" +
+	"\x04clan\x18\x03 \x01(\x05R\x04clan\x12\x1a\n" +
+	"\bmerchant\x18\x04 \x01(\x05R\bmerchant\x12\x14\n" +
+	"\x05class\x18\x05 \x01(\x05R\x05class\x12\x12\n" +
+	"\x04coin\x18\x06 \x01(\x05R\x04coin\x12\x10\n" +
+	"\x03exp\x18\a \x01(\x03R\x03exp\x12\x10\n" +
+	"\x03spx\x18\b \x01(\x05R\x03spx\x12\x10\n" +
+	"\x03spy\x18\t \x01(\x05R\x03spy\x12\x14\n" +
+	"\x05level\x18\n" +
+	" \x01(\x05R\x05level\x12\x0e\n" +
+	"\x02ac\x18\v \x01(\x05R\x02ac\x12\x16\n" +
+	"\x06damage\x18\f \x01(\x05R\x06damage\x12\x1d\n" +
+	"\n" +
+	"chaos_rate\x18\r \x01(\x05R\tchaosRate\x12\x1d\n" +
+	"\n" +
+	"attack_run\x18\x0e \x01(\x05R\tattackRun\x12\x1c\n" +
+	"\tdirection\x18\x0f \x01(\x05R\tdirection\x12\x10\n" +
+	"\x03str\x18\x10 \x01(\x05R\x03str\x12\x14\n" +
+	"\x05intel\x18\x11 \x01(\x05R\x05intel\x12\x10\n" +
+	"\x03dex\x18\x12 \x01(\x05R\x03dex\x12\x10\n" +
+	"\x03con\x18\x13 \x01(\x05R\x03con\x12\x1a\n" +
+	"\bspecial1\x18\x14 \x01(\x05R\bspecial1\x12\x1a\n" +
+	"\bspecial2\x18\x15 \x01(\x05R\bspecial2\x12\x1a\n" +
+	"\bspecial3\x18\x16 \x01(\x05R\bspecial3\x12\x1a\n" +
+	"\bspecial4\x18\x17 \x01(\x05R\bspecial4\x12\x15\n" +
+	"\x06max_hp\x18\x18 \x01(\x05R\x05maxHp\x12\x0e\n" +
+	"\x02hp\x18\x19 \x01(\x05R\x02hp\x12\x15\n" +
+	"\x06max_mp\x18\x1a \x01(\x05R\x05maxMp\x12\x0e\n" +
+	"\x02mp\x18\x1b \x01(\x05R\x02mp\x12#\n" +
+	"\rlearned_skill\x18\x1c \x01(\x05R\flearnedSkill\x12\x1f\n" +
+	"\vscore_bonus\x18\x1d \x01(\x05R\n" +
+	"scoreBonus\x12\x1d\n" +
+	"\n" +
+	"skill_bar1\x18\x1e \x01(\x05R\tskillBar1\x12\x1d\n" +
+	"\n" +
+	"skill_bar2\x18\x1f \x01(\x05R\tskillBar2\x12\x1d\n" +
+	"\n" +
+	"skill_bar3\x18  \x01(\x05R\tskillBar3\x12\x1d\n" +
+	"\n" +
+	"skill_bar4\x18! \x01(\x05R\tskillBar4\x12\x19\n" +
+	"\bregen_hp\x18\" \x01(\x05R\aregenHp\x12\x19\n" +
+	"\bregen_mp\x18# \x01(\x05R\aregenMp\x12\x18\n" +
+	"\aresist1\x18$ \x01(\x05R\aresist1\x12\x18\n" +
+	"\aresist2\x18% \x01(\x05R\aresist2\x12\x18\n" +
+	"\aresist3\x18& \x01(\x05R\aresist3\x12\x18\n" +
+	"\aresist4\x18' \x01(\x05R\aresist4\x121\n" +
+	"\x05equip\x18( \x03(\v2\x1b.db.v1.MobTemplateEquipItemR\x05equip*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOGIN_RESULT_OK\x10\x01\x12\x1b\n" +
@@ -4977,10 +5584,11 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x13LoadGuildTowerState\x12!.db.v1.LoadGuildTowerStateRequest\x1a\".db.v1.LoadGuildTowerStateResponse\x12\\\n" +
 	"\x13SaveGuildTowerState\x12!.db.v1.SaveGuildTowerStateRequest\x1a\".db.v1.SaveGuildTowerStateResponse\x12_\n" +
 	"\x14LoadCastleQuestState\x12\".db.v1.LoadCastleQuestStateRequest\x1a#.db.v1.LoadCastleQuestStateResponse\x12_\n" +
-	"\x14SaveCastleQuestState\x12\".db.v1.SaveCastleQuestStateRequest\x1a#.db.v1.SaveCastleQuestStateResponse2\xc2\x01\n" +
+	"\x14SaveCastleQuestState\x12\".db.v1.SaveCastleQuestStateRequest\x1a#.db.v1.SaveCastleQuestStateResponse2\xa3\x02\n" +
 	"\x10NpcConfigService\x12S\n" +
 	"\x10NpcConfigVersion\x12\x1e.db.v1.NpcConfigVersionRequest\x1a\x1f.db.v1.NpcConfigVersionResponse\x12Y\n" +
-	"\x12ListNpcDefinitions\x12 .db.v1.ListNpcDefinitionsRequest\x1a!.db.v1.ListNpcDefinitionsResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
+	"\x12ListNpcDefinitions\x12 .db.v1.ListNpcDefinitionsRequest\x1a!.db.v1.ListNpcDefinitionsResponse\x12_\n" +
+	"\x14ListMobTemplateStats\x12\".db.v1.ListMobTemplateStatsRequest\x1a#.db.v1.ListMobTemplateStatsResponseB1Z/github.com/jeanluca/w2pp-openwyd/api/db/v1;dbv1b\x06proto3"
 
 var (
 	file_api_db_v1_db_proto_rawDescOnce sync.Once
@@ -4995,7 +5603,7 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 }
 
 var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_api_db_v1_db_proto_goTypes = []any{
 	(LoginResult)(0),                       // 0: db.v1.LoginResult
 	(PinResult)(0),                         // 1: db.v1.PinResult
@@ -5072,6 +5680,10 @@ var file_api_db_v1_db_proto_goTypes = []any{
 	(*NpcShopItem)(nil),                    // 72: db.v1.NpcShopItem
 	(*NpcDefinition)(nil),                  // 73: db.v1.NpcDefinition
 	(*ItemPrice)(nil),                      // 74: db.v1.ItemPrice
+	(*ListMobTemplateStatsRequest)(nil),    // 75: db.v1.ListMobTemplateStatsRequest
+	(*ListMobTemplateStatsResponse)(nil),   // 76: db.v1.ListMobTemplateStatsResponse
+	(*MobTemplateEquipItem)(nil),           // 77: db.v1.MobTemplateEquipItem
+	(*MobTemplateStat)(nil),                // 78: db.v1.MobTemplateStat
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
@@ -5102,73 +5714,77 @@ var file_api_db_v1_db_proto_depIdxs = []int32{
 	73, // 25: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
 	74, // 26: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
 	72, // 27: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
-	3,  // 28: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	5,  // 29: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	8,  // 30: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	13, // 31: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	15, // 32: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	17, // 33: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
-	19, // 34: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	21, // 35: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
-	23, // 36: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
-	25, // 37: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
-	27, // 38: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
-	30, // 39: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
-	32, // 40: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
-	33, // 41: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
-	35, // 42: db.v1.AccountService.RecordDuelResult:input_type -> db.v1.RecordDuelResultRequest
-	39, // 43: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
-	41, // 44: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
-	43, // 45: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
-	44, // 46: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
-	46, // 47: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
-	47, // 48: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
-	49, // 49: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
-	51, // 50: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
-	54, // 51: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
-	56, // 52: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
-	59, // 53: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
-	61, // 54: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
-	64, // 55: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
-	66, // 56: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
-	68, // 57: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
-	70, // 58: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
-	4,  // 59: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	7,  // 60: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	12, // 61: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	14, // 62: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	16, // 63: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	18, // 64: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
-	20, // 65: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	22, // 66: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
-	24, // 67: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
-	26, // 68: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
-	28, // 69: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
-	31, // 70: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
-	28, // 71: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
-	34, // 72: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
-	36, // 73: db.v1.AccountService.RecordDuelResult:output_type -> db.v1.RecordDuelResultResponse
-	40, // 74: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
-	42, // 75: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
-	42, // 76: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
-	45, // 77: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
-	42, // 78: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
-	48, // 79: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
-	50, // 80: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
-	52, // 81: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
-	55, // 82: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
-	57, // 83: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
-	60, // 84: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
-	62, // 85: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
-	65, // 86: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
-	67, // 87: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
-	69, // 88: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
-	71, // 89: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
-	59, // [59:90] is the sub-list for method output_type
-	28, // [28:59] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	78, // 28: db.v1.ListMobTemplateStatsResponse.overrides:type_name -> db.v1.MobTemplateStat
+	77, // 29: db.v1.MobTemplateStat.equip:type_name -> db.v1.MobTemplateEquipItem
+	3,  // 30: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	5,  // 31: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	8,  // 32: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	13, // 33: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	15, // 34: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	17, // 35: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
+	19, // 36: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	21, // 37: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
+	23, // 38: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
+	25, // 39: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	27, // 40: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	30, // 41: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
+	32, // 42: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
+	33, // 43: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
+	35, // 44: db.v1.AccountService.RecordDuelResult:input_type -> db.v1.RecordDuelResultRequest
+	39, // 45: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
+	41, // 46: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
+	43, // 47: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
+	44, // 48: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
+	46, // 49: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
+	47, // 50: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
+	49, // 51: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
+	51, // 52: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
+	54, // 53: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
+	56, // 54: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
+	59, // 55: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
+	61, // 56: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
+	64, // 57: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
+	66, // 58: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
+	68, // 59: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
+	70, // 60: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
+	75, // 61: db.v1.NpcConfigService.ListMobTemplateStats:input_type -> db.v1.ListMobTemplateStatsRequest
+	4,  // 62: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	7,  // 63: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	12, // 64: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	14, // 65: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	16, // 66: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	18, // 67: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
+	20, // 68: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	22, // 69: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
+	24, // 70: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
+	26, // 71: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	28, // 72: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	31, // 73: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
+	28, // 74: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
+	34, // 75: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
+	36, // 76: db.v1.AccountService.RecordDuelResult:output_type -> db.v1.RecordDuelResultResponse
+	40, // 77: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
+	42, // 78: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
+	42, // 79: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
+	45, // 80: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
+	42, // 81: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
+	48, // 82: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
+	50, // 83: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
+	52, // 84: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
+	55, // 85: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
+	57, // 86: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
+	60, // 87: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
+	62, // 88: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
+	65, // 89: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
+	67, // 90: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
+	69, // 91: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
+	71, // 92: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
+	76, // 93: db.v1.NpcConfigService.ListMobTemplateStats:output_type -> db.v1.ListMobTemplateStatsResponse
+	62, // [62:94] is the sub-list for method output_type
+	30, // [30:62] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }
@@ -5182,7 +5798,7 @@ func file_api_db_v1_db_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   72,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

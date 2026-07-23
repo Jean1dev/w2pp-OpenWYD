@@ -441,6 +441,15 @@ service NpcConfigService {
   rpc NpcConfigVersion(NpcConfigVersionRequest) returns (NpcConfigVersionResponse);
   // ListNpcDefinitions returns the full definition snapshot + global price overrides.
   rpc ListNpcDefinitions(ListNpcDefinitionsRequest) returns (ListNpcDefinitionsResponse);
+  // ListMobTemplateStats returns every moderator-edited mob/NPC template stat
+  // override (mob-template-editing-plan.md, the equivalent-tool successor to
+  // the legacy EDITAPPMOB). Deliberately independent of NpcDefinition/
+  // ListNpcDefinitions: a stat override applies to ANY npc/<template_name>
+  // file (monsters included), not just the DB-managed merchant subset, and
+  // is applied by tmServer only once at boot — no version field, because
+  // there is no hot-reload for this feature (EDITAPPMOB itself required a
+  // server restart too).
+  rpc ListMobTemplateStats(ListMobTemplateStatsRequest) returns (ListMobTemplateStatsResponse);
 }
 
 message NpcConfigVersionRequest {}
@@ -483,4 +492,69 @@ message NpcDefinition {
 message ItemPrice {
   int32 item_index = 1;
   int64 price = 2;
+}
+
+message ListMobTemplateStatsRequest {}
+message ListMobTemplateStatsResponse {
+  repeated MobTemplateStat overrides = 1;
+}
+
+// MobTemplateEquipItem is one Equip[] slot override (0..15, MAX_EQUIP) for a
+// mob template. Same shape as NpcShopItem minus quantity (equip slots don't
+// stack).
+message MobTemplateEquipItem {
+  int32 slot = 1;
+  int32 item_index = 2;
+  int32 eff1 = 3;  int32 effv1 = 4;
+  int32 eff2 = 5;  int32 effv2 = 6;
+  int32 eff3 = 7;  int32 effv3 = 8;
+}
+
+// MobTemplateStat is a moderator-edited stat override for a raw STRUCT_MOB
+// mob/NPC template file (mob-template-editing-plan.md) — the field surface
+// the legacy EDITAPPMOB tool edited, minus Carry[] (already NpcShopItem) and
+// DB-managed spawn position (already NpcDefinition). BaseScore/CurrentScore
+// are not modeled separately: tmServer mirrors the same value into both,
+// matching EDITAPPMOB's own `CurrentScore = BaseScore` on save.
+message MobTemplateStat {
+  string template_name = 1;
+  string display_name = 2;  // "" keeps the template file's own name
+  int32 clan = 3;
+  int32 merchant = 4;  // STRUCT_MOB top-level Merchant — distinct from NpcDefinition.merchant
+  int32 class = 5;
+  int32 coin = 6;
+  int64 exp = 7;
+  int32 spx = 8;
+  int32 spy = 9;
+  int32 level = 10;
+  int32 ac = 11;
+  int32 damage = 12;
+  int32 chaos_rate = 13;
+  int32 attack_run = 14;
+  int32 direction = 15;
+  int32 str = 16;
+  int32 intel = 17;  // "int" avoided (reserved in several target languages)
+  int32 dex = 18;
+  int32 con = 19;
+  int32 special1 = 20;
+  int32 special2 = 21;
+  int32 special3 = 22;
+  int32 special4 = 23;
+  int32 max_hp = 24;
+  int32 hp = 25;
+  int32 max_mp = 26;
+  int32 mp = 27;
+  int32 learned_skill = 28;
+  int32 score_bonus = 29;
+  int32 skill_bar1 = 30;
+  int32 skill_bar2 = 31;
+  int32 skill_bar3 = 32;
+  int32 skill_bar4 = 33;
+  int32 regen_hp = 34;
+  int32 regen_mp = 35;
+  int32 resist1 = 36;
+  int32 resist2 = 37;
+  int32 resist3 = 38;
+  int32 resist4 = 39;
+  repeated MobTemplateEquipItem equip = 40;
 }
