@@ -17,37 +17,54 @@ const (
 	motionLevelUpParm = 3
 )
 
-// mobKilled runs the death rewards for a mob slain by a player (game-rules.md
-// §1-2, MobKilled.cpp). This batch implements the exact drop rolls (gold §2.1 and
-// per-slot item §2.2 using the real g_pDropRate table). The mob's Carry is its
-// loot table.
+// babyMountLevelCap is the mount-growth ceiling from MobKilled.cpp:296.
+const (
+	babyMountGrowthHi = 2390
+	babyMountLevelCap = 100
+)
+
+// mobKilled runs the death rewards for a mob slain by a player or a player's
+// summon (game-rules.md §1-2, MobKilled.cpp). This batch implements the exact
+// drop rolls (gold §2.1 and per-slot item §2.2 using the real g_pDropRate table).
+// The mob's Carry is its loot table.
 //
 // UNVERIFIED / deferred: party EXP distribution (the unreliable g_EmptyMob/UNK
 // divisors) and the _MSG_CNFMobKill kill confirmation.
 func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
-	// The killer is a player, so its entity id equals its connection slot; the
-	// session is needed for both the gold and the level-up packets (nil if the
-	// killer just disconnected).
-	ks := w.Session(killer.ID)
+	reward := killer
+	if killer.Summoner != 0 {
+		d.growBabyMountOnKill(w, killer, mob)
+		owner := w.Entity(killer.Summoner)
+		mode, ok := w.SessionMode(killer.Summoner)
+		if owner == nil || !world.IsPlayer(owner.ID) || !ok || mode != world.UserPlay {
+			sendDieAction(w, mob)
+			w.DespawnMob(mob.ID, 1)
+			return
+		}
+		reward = owner
+	}
+	// The reward target is a player, so its entity id equals its connection slot;
+	// the session is needed for gold/level-up packets (nil if it disconnected).
+	ks := w.Session(reward.ID)
 
-	// Gold drop → killer's coin (clamped). The new total is pushed to the killer's
+	// Gold drop → reward target's coin (clamped). The new total is pushed to the target's
 	// client (MSG_UpdateEtc); otherwise the gain isn't visible until relog.
 	if gold := loot.GoldDrop(w.Rand(), int(mob.Level), int(mob.Coin)); gold > 0 {
-		killer.Coin += int32(gold)
-		if killer.Coin > coinCap {
-			killer.Coin = coinCap
+		reward.Coin += int32(gold)
+		if reward.Coin > coinCap {
+			reward.Coin = coinCap
 		}
 		if ks != nil {
-			d.sendEtc(w, ks, killer)
+			d.sendEtc(w, ks, reward)
 		}
 	}
 
-	// Experience → killer (solo). The raw total reaches the client via the attack
+	// Experience → rewarder (solo). The raw total reaches the client via the attack
 	// handler's MSG_Attack echo (CurrentExp); grantExp also applies any level-ups.
 	// Clan 4 mobs never award EXP: the legacy wraps the whole distribution in
 	// `MOB.Clan != 4` (MobKilled.cpp:402); gold and drops sit outside that gate.
 	if mob.Clan != 4 {
-		d.grantExp(w, ks, killer, mob)
+		d.grantExp(w, ks, reward, mob)
 	}
 
 	// Item drop: each occupied loot slot rolls against its g_pDropRate odds.
@@ -69,6 +86,81 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// free its grid cell + entity slot, so the corpse disappears and it can't be
 	// retargeted. Without this the client keeps rendering the dead mob.
 	w.DespawnMob(mob.ID, 1)
+}
+
+func (d *Dispatcher) growBabyMountOnKill(w *world.World, killer, mob *world.Entity) {
+	if !babyMountKillEligible(killer, mob) {
+		return
+	}
+	owner := w.Entity(killer.Summoner)
+	if owner == nil {
+		return
+	}
+	if m, ok := w.SessionMode(owner.ID); !ok || m != world.UserPlay {
+		return
+	}
+	mount := &owner.Equip[mountEquipSlot]
+	changed, leveled := applyBabyMountKill(mount, int(mob.Level))
+	if !changed {
+		return
+	}
+	if s := w.Session(owner.ID); s != nil {
+		if leveled {
+			d.notify(w, s, NoticeMountLevel)
+		}
+		d.sendSlot(w, s, world.ItemPlaceEquip, mountEquipSlot, *mount)
+	}
+}
+
+func babyMountKillEligible(killer, mob *world.Entity) bool {
+	return killer != nil &&
+		mob != nil &&
+		killer.ID >= world.MaxUser &&
+		killer.Clan == summonClan &&
+		killer.Summoner > 0 &&
+		killer.Summoner < world.MaxUser &&
+		killer.EquipVisual[0] >= babyMountFaceLo &&
+		killer.EquipVisual[0] <= babyMountFaceHi &&
+		!world.IsPlayer(mob.ID) &&
+		mob.Clan != summonClan
+}
+
+func applyBabyMountKill(mount *world.Item, mobLevel int) (changed, leveled bool) {
+	if mount == nil || mount.Index < babyMountLo || mount.Index >= babyMountGrowthHi {
+		return false, false
+	}
+	xp := mount.Effects[1].Effect
+	if int(xp) >= mobLevel || xp >= babyMountLevelCap {
+		return false, false
+	}
+	growth := mount.Effects[2].Value + 1
+	if growth < babyMountGrowthThreshold(*mount) {
+		mount.Effects[2].Value = growth
+		return true, false
+	}
+	mount.Effects[2].Value = 1
+	mount.Effects[1].Effect = xp + 1
+	return true, true
+}
+
+func babyMountGrowthThreshold(mount world.Item) uint8 {
+	xp := mount.Effects[1].Effect
+	switch mount.Index {
+	case 2330:
+		return xp + 25
+	case 2331:
+		return xp + 35
+	case 2332:
+		return xp + 45
+	case 2333:
+		return xp + 55
+	case 2334:
+		return xp + 65
+	case 2335:
+		return xp + 75
+	default:
+		return xp + 100
+	}
 }
 
 func sendDieAction(w *world.World, mob *world.Entity) {

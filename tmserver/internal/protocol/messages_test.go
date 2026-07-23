@@ -19,6 +19,9 @@ func TestMessageBodySizes(t *testing.T) {
 		{"DeleteCharacter", MsgDeleteCharacterBodySize, 44},
 		{"CharacterLogin", MsgCharacterLoginBodySize, 20},
 		{"Action", MsgActionBodySize, 52},
+		{"SendReqParty", MsgSendReqPartyBodySize, 48},
+		{"AcceptParty", MsgAcceptPartyBodySize, 32},
+		{"RemoveParty", MsgRemovePartyBodySize, 16},
 		{"CNFAddParty", MsgCNFAddPartyBodySize, 40},
 	}
 	for _, tt := range tests {
@@ -49,6 +52,31 @@ func TestAccountLoginRoundTrip(t *testing.T) {
 	}
 
 	var out MsgAccountLoginBody
+	if err := out.Decode(b); err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if out != in {
+		t.Errorf("round-trip mismatch:\n got %+v\nwant %+v", out, in)
+	}
+}
+
+// TestMsgCombineItemBodyRoundTrip locks in MaxCombine=8 (MAX_COMBINE,
+// Basedef.h:173): the Odin "+12+" recipe needs all 7 of Item[0..6], one more
+// than the base Anct recipe ever used.
+func TestMsgCombineItemBodyRoundTrip(t *testing.T) {
+	if MaxCombine != 8 {
+		t.Fatalf("MaxCombine = %d, want 8 (Basedef.h:173 MAX_COMBINE)", MaxCombine)
+	}
+	var in MsgCombineItemBody
+	for i := 0; i < MaxCombine; i++ {
+		in.Item[i] = WireItem{Index: int16(1000 + i)}
+		in.InvenPos[i] = uint8(i)
+	}
+	b := in.Encode()
+	if len(b) != MsgCombineItemBodySize {
+		t.Fatalf("Encode length = %d, want %d", len(b), MsgCombineItemBodySize)
+	}
+	var out MsgCombineItemBody
 	if err := out.Decode(b); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
@@ -95,6 +123,61 @@ func TestSimpleBodyRoundTrips(t *testing.T) {
 		}
 		if out != in {
 			t.Errorf("got %+v want %+v", out, in)
+		}
+	})
+}
+
+func TestPartyBodyLayouts(t *testing.T) {
+	t.Run("SendReqParty", func(t *testing.T) {
+		in := MsgSendReqPartyBody{Class: 3, PartyPos: 0, Level: 50, MaxHP: 1000, HP: 900, PartyID: 1, Unk: 2, Target: 7}
+		copy(in.MobName[:], "Leader")
+		b := in.Encode()
+		if len(b) != MsgSendReqPartyBodySize {
+			t.Fatalf("SendReqParty body = %d, want %d", len(b), MsgSendReqPartyBodySize)
+		}
+		if b[0] != 3 || le.Uint16(b[8:10]) != 1 || le.Uint32(b[28:32]) != 2 || le.Uint16(b[32:34]) != 7 {
+			t.Fatalf("SendReqParty offsets not encoded as legacy layout: %v", b)
+		}
+		if got := strings.TrimRight(string(b[10:26]), "\x00"); got != "Leader" {
+			t.Fatalf("MobName = %q, want Leader", got)
+		}
+		var out MsgSendReqPartyBody
+		if err := out.Decode(b); err != nil {
+			t.Fatal(err)
+		}
+		if out != in {
+			t.Fatalf("round-trip got %+v want %+v", out, in)
+		}
+	})
+	t.Run("AcceptParty", func(t *testing.T) {
+		in := MsgAcceptPartyBody{LeaderID: 1}
+		copy(in.MobName[:], "Leader")
+		b := in.Encode()
+		if len(b) != MsgAcceptPartyBodySize {
+			t.Fatalf("AcceptParty body = %d, want %d", len(b), MsgAcceptPartyBodySize)
+		}
+		if le.Uint16(b[0:2]) != 1 {
+			t.Fatalf("LeaderID offset = %d, want 1", le.Uint16(b[0:2]))
+		}
+		if got := strings.TrimRight(string(b[2:18]), "\x00"); got != "Leader" {
+			t.Fatalf("MobName = %q, want Leader", got)
+		}
+		var out MsgAcceptPartyBody
+		if err := out.Decode(b); err != nil {
+			t.Fatal(err)
+		}
+		if out != in {
+			t.Fatalf("round-trip got %+v want %+v", out, in)
+		}
+	})
+	t.Run("RemoveParty", func(t *testing.T) {
+		in := MsgRemovePartyBody{LeaderConn: 2}
+		b := in.Encode()
+		if len(b) != MsgRemovePartyBodySize {
+			t.Fatalf("RemoveParty body = %d, want %d", len(b), MsgRemovePartyBodySize)
+		}
+		if le.Uint16(b[0:2]) != 2 || le.Uint16(b[2:4]) != 0 {
+			t.Fatalf("RemoveParty offsets not encoded as legacy layout: %v", b)
 		}
 	})
 }

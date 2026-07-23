@@ -129,6 +129,106 @@ func TestSplitItemNoFreeSlot(t *testing.T) {
 	}
 }
 
+func TestTradingItemMergeStacksFull(t *testing.T) {
+	addr, stop, _ := startServerClock(t, carryDB(amountItem(2400, 5), amountItem(2400, 10)))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	_, srcSlot, srcIdx, _ := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	_, dstSlot, dstIdx, dstAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+
+	if srcSlot != 0 || srcIdx != 0 {
+		t.Errorf("source after full merge slot=%d idx=%d, want slot 0 cleared", srcSlot, srcIdx)
+	}
+	if dstSlot != 1 || dstIdx != 2400 || dstAmt != 15 {
+		t.Errorf("dest after full merge slot=%d idx=%d amt=%d, want slot 1 idx 2400 amt 15", dstSlot, dstIdx, dstAmt)
+	}
+}
+
+func TestTradingItemMergeStacksCapsAt120(t *testing.T) {
+	addr, stop, _ := startServerClock(t, carryDB(amountItem(2400, 50), amountItem(2400, 90)))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	_, srcSlot, srcIdx, srcAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	_, dstSlot, dstIdx, dstAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+
+	if srcSlot != 0 || srcIdx != 2400 || srcAmt != 20 {
+		t.Errorf("source after capped merge slot=%d idx=%d amt=%d, want slot 0 idx 2400 amt 20", srcSlot, srcIdx, srcAmt)
+	}
+	if dstSlot != 1 || dstIdx != 2400 || dstAmt != 120 {
+		t.Errorf("dest after capped merge slot=%d idx=%d amt=%d, want slot 1 idx 2400 amt 120", dstSlot, dstIdx, dstAmt)
+	}
+}
+
+func TestTradingItemMergeStacksFullDestinationNoSwap(t *testing.T) {
+	addr, stop, _ := startServerClock(t, carryDB(amountItem(2400, 5), amountItem(2400, 120)))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	_, srcSlot, srcIdx, srcAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	_, dstSlot, dstIdx, dstAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+
+	if srcSlot != 0 || srcIdx != 2400 || srcAmt != 5 {
+		t.Errorf("source with full destination slot=%d idx=%d amt=%d, want unchanged slot 0 idx 2400 amt 5", srcSlot, srcIdx, srcAmt)
+	}
+	if dstSlot != 1 || dstIdx != 2400 || dstAmt != 120 {
+		t.Errorf("full destination slot=%d idx=%d amt=%d, want unchanged slot 1 idx 2400 amt 120", dstSlot, dstIdx, dstAmt)
+	}
+}
+
+func TestTradingItemMergeStacksFallsBackToSwap(t *testing.T) {
+	tests := []struct {
+		name string
+		src  world.Item
+		dst  world.Item
+	}{
+		{"different index", amountItem(2400, 5), amountItem(2401, 10)},
+		{"non splittable", amountItem(1100, 5), amountItem(1100, 10)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			addr, stop, _ := startServerClock(t, carryDB(tc.src, tc.dst))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+			expect(t, c, protocol.MsgTradingItem)
+			_, srcSlot, srcIdx, srcAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+			_, dstSlot, dstIdx, dstAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+
+			if srcSlot != 0 || srcIdx != int(tc.dst.Index) || srcAmt != itemAmount(tc.dst) {
+				t.Errorf("source after fallback slot=%d idx=%d amt=%d, want slot 0 idx %d amt %d", srcSlot, srcIdx, srcAmt, tc.dst.Index, itemAmount(tc.dst))
+			}
+			if dstSlot != 1 || dstIdx != int(tc.src.Index) || dstAmt != itemAmount(tc.src) {
+				t.Errorf("dest after fallback slot=%d idx=%d amt=%d, want slot 1 idx %d amt %d", dstSlot, dstIdx, dstAmt, tc.src.Index, itemAmount(tc.src))
+			}
+		})
+	}
+}
+
+func TestTradingItemSameSlotNoop(t *testing.T) {
+	addr, stop, _ := startServerClock(t, carryDB(amountItem(2400, 10)))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 0, 0)
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("same-slot move produced %#x, want silence", ty)
+	}
+}
+
 func TestIsSplittable(t *testing.T) {
 	for _, idx := range []int16{412, 413, 414, 416, 419, 420, 2390, 2400, 2419} {
 		if !isSplittable(idx) {

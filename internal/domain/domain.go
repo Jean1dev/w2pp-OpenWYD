@@ -71,6 +71,7 @@ type Character struct {
 	CelLv40         uint8 // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
 	CelLv90         uint8 // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
 	CelCircle       uint8 // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
+	TerraMistica    uint8 // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
 	Soul            uint8 // MobExtra.Soul
 	Fame            int32 // MobExtra.Fame
 	SkillBar        [4]uint8

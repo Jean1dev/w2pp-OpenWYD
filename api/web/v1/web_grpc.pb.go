@@ -459,6 +459,8 @@ const (
 	NpcAdminService_DeleteNpc_FullMethodName             = "/web.v1.NpcAdminService/DeleteNpc"
 	NpcAdminService_ListMerchantTemplates_FullMethodName = "/web.v1.NpcAdminService/ListMerchantTemplates"
 	NpcAdminService_ListItemCatalog_FullMethodName       = "/web.v1.NpcAdminService/ListItemCatalog"
+	NpcAdminService_ListDropItems_FullMethodName         = "/web.v1.NpcAdminService/ListDropItems"
+	NpcAdminService_ListMobDrops_FullMethodName          = "/web.v1.NpcAdminService/ListMobDrops"
 	NpcAdminService_ListItemPrices_FullMethodName        = "/web.v1.NpcAdminService/ListItemPrices"
 	NpcAdminService_ListMapZones_FullMethodName          = "/web.v1.NpcAdminService/ListMapZones"
 )
@@ -498,6 +500,13 @@ type NpcAdminServiceClient interface {
 	// offer a searchable picker instead of a raw item_index typed by hand.
 	// Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
 	ListItemCatalog(ctx context.Context, in *ListItemCatalogRequest, opts ...grpc.CallOption) (*ListItemCatalogResponse, error)
+	// ListDropItems returns the DropTool-style item-centric report from the
+	// content tree: item -> mobs/slots that can drop it. This is read-only
+	// content metadata; the tmServer runtime still owns actual drop rolls.
+	ListDropItems(ctx context.Context, in *ListDropItemsRequest, opts ...grpc.CallOption) (*ListDropItemsResponse, error)
+	// ListMobDrops returns the DropTool-style mob-centric report from the
+	// content tree: mob template -> Carry[] drop slots.
+	ListMobDrops(ctx context.Context, in *ListMobDropsRequest, opts ...grpc.CallOption) (*ListMobDropsResponse, error)
 	// ListItemPrices returns every global item price override currently set
 	// (item_price table). An item absent from the list has no override — it
 	// uses the content catalog's base price.
@@ -606,6 +615,26 @@ func (c *npcAdminServiceClient) ListItemCatalog(ctx context.Context, in *ListIte
 	return out, nil
 }
 
+func (c *npcAdminServiceClient) ListDropItems(ctx context.Context, in *ListDropItemsRequest, opts ...grpc.CallOption) (*ListDropItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDropItemsResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListDropItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcAdminServiceClient) ListMobDrops(ctx context.Context, in *ListMobDropsRequest, opts ...grpc.CallOption) (*ListMobDropsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMobDropsResponse)
+	err := c.cc.Invoke(ctx, NpcAdminService_ListMobDrops_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *npcAdminServiceClient) ListItemPrices(ctx context.Context, in *ListItemPricesRequest, opts ...grpc.CallOption) (*ListItemPricesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListItemPricesResponse)
@@ -661,6 +690,13 @@ type NpcAdminServiceServer interface {
 	// offer a searchable picker instead of a raw item_index typed by hand.
 	// Scanned once at web-api boot from -content/W2PP_CONTENT; empty when unset.
 	ListItemCatalog(context.Context, *ListItemCatalogRequest) (*ListItemCatalogResponse, error)
+	// ListDropItems returns the DropTool-style item-centric report from the
+	// content tree: item -> mobs/slots that can drop it. This is read-only
+	// content metadata; the tmServer runtime still owns actual drop rolls.
+	ListDropItems(context.Context, *ListDropItemsRequest) (*ListDropItemsResponse, error)
+	// ListMobDrops returns the DropTool-style mob-centric report from the
+	// content tree: mob template -> Carry[] drop slots.
+	ListMobDrops(context.Context, *ListMobDropsRequest) (*ListMobDropsResponse, error)
 	// ListItemPrices returns every global item price override currently set
 	// (item_price table). An item absent from the list has no override — it
 	// uses the content catalog's base price.
@@ -705,6 +741,12 @@ func (UnimplementedNpcAdminServiceServer) ListMerchantTemplates(context.Context,
 }
 func (UnimplementedNpcAdminServiceServer) ListItemCatalog(context.Context, *ListItemCatalogRequest) (*ListItemCatalogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListItemCatalog not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListDropItems(context.Context, *ListDropItemsRequest) (*ListDropItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDropItems not implemented")
+}
+func (UnimplementedNpcAdminServiceServer) ListMobDrops(context.Context, *ListMobDropsRequest) (*ListMobDropsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMobDrops not implemented")
 }
 func (UnimplementedNpcAdminServiceServer) ListItemPrices(context.Context, *ListItemPricesRequest) (*ListItemPricesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListItemPrices not implemented")
@@ -895,6 +937,42 @@ func _NpcAdminService_ListItemCatalog_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcAdminService_ListDropItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDropItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListDropItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListDropItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListDropItems(ctx, req.(*ListDropItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcAdminService_ListMobDrops_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMobDropsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcAdminServiceServer).ListMobDrops(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcAdminService_ListMobDrops_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcAdminServiceServer).ListMobDrops(ctx, req.(*ListMobDropsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NpcAdminService_ListItemPrices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListItemPricesRequest)
 	if err := dec(in); err != nil {
@@ -973,6 +1051,14 @@ var NpcAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListItemCatalog",
 			Handler:    _NpcAdminService_ListItemCatalog_Handler,
+		},
+		{
+			MethodName: "ListDropItems",
+			Handler:    _NpcAdminService_ListDropItems_Handler,
+		},
+		{
+			MethodName: "ListMobDrops",
+			Handler:    _NpcAdminService_ListMobDrops_Handler,
 		},
 		{
 			MethodName: "ListItemPrices",
@@ -1290,6 +1376,169 @@ var MobTemplateAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteMobTemplateStat",
 			Handler:    _MobTemplateAdminService_DeleteMobTemplateStat_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
+	AttributeMapAdminService_GetAttributeMapInfo_FullMethodName   = "/web.v1.AttributeMapAdminService/GetAttributeMapInfo"
+	AttributeMapAdminService_TransformAttributeMap_FullMethodName = "/web.v1.AttributeMapAdminService/TransformAttributeMap"
+)
+
+// AttributeMapAdminServiceClient is the client API for AttributeMapAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// AttributeMapAdminService is the moderator-facing replacement for the legacy
+// Source/Code/AttributeMap_Editor tool. It reads the binary
+// Release/TMsrv/run/AttributeMap.dat asset, applies bulk transformations, and
+// returns a new .dat payload for controlled operator replacement. It never
+// mutates live tmServer state; the game consumes AttributeMap.dat at boot.
+type AttributeMapAdminServiceClient interface {
+	// GetAttributeMapInfo returns dimensions, known attribute meanings, a value
+	// histogram, and the SHA-256 of the currently configured AttributeMap.dat.
+	GetAttributeMapInfo(ctx context.Context, in *GetAttributeMapInfoRequest, opts ...grpc.CallOption) (*GetAttributeMapInfoResponse, error)
+	// TransformAttributeMap applies one bulk rule to AttributeMap.dat and returns
+	// the transformed binary as AttributeMap_New.dat. Source files are not
+	// overwritten by this RPC.
+	TransformAttributeMap(ctx context.Context, in *TransformAttributeMapRequest, opts ...grpc.CallOption) (*TransformAttributeMapResponse, error)
+}
+
+type attributeMapAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAttributeMapAdminServiceClient(cc grpc.ClientConnInterface) AttributeMapAdminServiceClient {
+	return &attributeMapAdminServiceClient{cc}
+}
+
+func (c *attributeMapAdminServiceClient) GetAttributeMapInfo(ctx context.Context, in *GetAttributeMapInfoRequest, opts ...grpc.CallOption) (*GetAttributeMapInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAttributeMapInfoResponse)
+	err := c.cc.Invoke(ctx, AttributeMapAdminService_GetAttributeMapInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *attributeMapAdminServiceClient) TransformAttributeMap(ctx context.Context, in *TransformAttributeMapRequest, opts ...grpc.CallOption) (*TransformAttributeMapResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransformAttributeMapResponse)
+	err := c.cc.Invoke(ctx, AttributeMapAdminService_TransformAttributeMap_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AttributeMapAdminServiceServer is the server API for AttributeMapAdminService service.
+// All implementations must embed UnimplementedAttributeMapAdminServiceServer
+// for forward compatibility.
+//
+// AttributeMapAdminService is the moderator-facing replacement for the legacy
+// Source/Code/AttributeMap_Editor tool. It reads the binary
+// Release/TMsrv/run/AttributeMap.dat asset, applies bulk transformations, and
+// returns a new .dat payload for controlled operator replacement. It never
+// mutates live tmServer state; the game consumes AttributeMap.dat at boot.
+type AttributeMapAdminServiceServer interface {
+	// GetAttributeMapInfo returns dimensions, known attribute meanings, a value
+	// histogram, and the SHA-256 of the currently configured AttributeMap.dat.
+	GetAttributeMapInfo(context.Context, *GetAttributeMapInfoRequest) (*GetAttributeMapInfoResponse, error)
+	// TransformAttributeMap applies one bulk rule to AttributeMap.dat and returns
+	// the transformed binary as AttributeMap_New.dat. Source files are not
+	// overwritten by this RPC.
+	TransformAttributeMap(context.Context, *TransformAttributeMapRequest) (*TransformAttributeMapResponse, error)
+	mustEmbedUnimplementedAttributeMapAdminServiceServer()
+}
+
+// UnimplementedAttributeMapAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAttributeMapAdminServiceServer struct{}
+
+func (UnimplementedAttributeMapAdminServiceServer) GetAttributeMapInfo(context.Context, *GetAttributeMapInfoRequest) (*GetAttributeMapInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAttributeMapInfo not implemented")
+}
+func (UnimplementedAttributeMapAdminServiceServer) TransformAttributeMap(context.Context, *TransformAttributeMapRequest) (*TransformAttributeMapResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TransformAttributeMap not implemented")
+}
+func (UnimplementedAttributeMapAdminServiceServer) mustEmbedUnimplementedAttributeMapAdminServiceServer() {
+}
+func (UnimplementedAttributeMapAdminServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAttributeMapAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AttributeMapAdminServiceServer will
+// result in compilation errors.
+type UnsafeAttributeMapAdminServiceServer interface {
+	mustEmbedUnimplementedAttributeMapAdminServiceServer()
+}
+
+func RegisterAttributeMapAdminServiceServer(s grpc.ServiceRegistrar, srv AttributeMapAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedAttributeMapAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AttributeMapAdminService_ServiceDesc, srv)
+}
+
+func _AttributeMapAdminService_GetAttributeMapInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAttributeMapInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AttributeMapAdminServiceServer).GetAttributeMapInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AttributeMapAdminService_GetAttributeMapInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AttributeMapAdminServiceServer).GetAttributeMapInfo(ctx, req.(*GetAttributeMapInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AttributeMapAdminService_TransformAttributeMap_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransformAttributeMapRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AttributeMapAdminServiceServer).TransformAttributeMap(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AttributeMapAdminService_TransformAttributeMap_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AttributeMapAdminServiceServer).TransformAttributeMap(ctx, req.(*TransformAttributeMapRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AttributeMapAdminService_ServiceDesc is the grpc.ServiceDesc for AttributeMapAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AttributeMapAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.AttributeMapAdminService",
+	HandlerType: (*AttributeMapAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetAttributeMapInfo",
+			Handler:    _AttributeMapAdminService_GetAttributeMapInfo_Handler,
+		},
+		{
+			MethodName: "TransformAttributeMap",
+			Handler:    _AttributeMapAdminService_TransformAttributeMap_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

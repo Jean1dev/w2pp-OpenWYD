@@ -108,10 +108,10 @@ func (s *Store) SetBlockedByName(ctx context.Context, name string, blocked bool)
 }
 
 // ListCharacters returns the character-selection projection (slot, name, class,
-// level, exp, guild) for an account, ordered by slot.
+// score preview and equipped gear) for an account, ordered by slot.
 func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT slot, name, class, guild_id, level, exp, coin,
+		`SELECT id, slot, name, class, guild_id, level, exp, coin,
 		        max_hp, hp, max_mp, mp, str, int, dex, con
 		   FROM character WHERE account_id = $1 ORDER BY slot`, accountID)
 	if err != nil {
@@ -119,17 +119,29 @@ func (s *Store) ListCharacters(ctx context.Context, accountID int64) ([]domain.C
 	}
 	defer rows.Close()
 
+	var charIDs []int64
 	var out []domain.Character
 	for rows.Next() {
+		var charID int64
 		var ch domain.Character
-		if err := rows.Scan(&ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp, &ch.Coin,
+		if err := rows.Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.GuildID, &ch.Level, &ch.Exp, &ch.Coin,
 			&ch.MaxHp, &ch.Hp, &ch.MaxMp, &ch.Mp, &ch.Str, &ch.Int, &ch.Dex, &ch.Con); err != nil {
 			return nil, fmt.Errorf("store: scan character summary: %w", err)
 		}
+		charIDs = append(charIDs, charID)
 		out = append(out, ch)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: list characters: %w", err)
+	}
+	rows.Close()
+
+	for i, charID := range charIDs {
+		equip, err := s.loadItems(ctx, charID, "char_equip")
+		if err != nil {
+			return nil, fmt.Errorf("store: list character equipment: %w", err)
+		}
+		out[i].Equip = equip
 	}
 	return out, nil
 }
@@ -146,7 +158,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       max_hp, max_mp, hp, mp, critical, regen_hp, regen_mp,
 		       resist_fire, resist_ice, resist_thunder, resist_magic,
 		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
-		       celestial_lv40, celestial_lv90, celestial_circle,
+		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica,
 		       skill_bar, short_skill, special
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
@@ -154,7 +166,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ScoreBonus, &ch.SpecialBonus, &ch.SkillBonus, &ch.MaxHp, &ch.MaxMp, &ch.Hp, &ch.Mp,
 			&ch.Critical, &ch.RegenHP, &ch.RegenMP, &ch.ResistFire, &ch.ResistIce, &ch.ResistThunder,
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
-			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &skillBar, &shortSkill, &special)
+			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &skillBar, &shortSkill, &special)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -335,7 +347,8 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 // Gema Estelar warp save-point (save_x/y), the skill state the world now
 // simulates (score_bonus, special_bonus, learned_skill, sec_learned_skill, soul,
 // fame, special, skill_bar, short_skill), and the tier state (class_master + the
-// celestial quest gates celestial_lv40/90/circle). Everything else (class,
+// celestial quest gates celestial_lv40/90/circle + the terra_mistica gate).
+// Everything else (class,
 // regen/resist, magic, citizen) is left UNTOUCHED so an in-game save never wipes
 // imported data the world does not simulate.
 // skill_bonus is also untouched: the tmServer re-derives it at login
@@ -355,7 +368,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			mp=$16, max_mp=$17,
 			score_bonus=$18, special_bonus=$19, learned_skill=$20, sec_learned_skill=$21, soul=$22, fame=$23,
 			special=$24, skill_bar=$25, short_skill=$26, save_x=$27, save_y=$28,
-			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32
+			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32, terra_mistica=$33
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -365,7 +378,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.Fame,
 		ch.Special[:], byteArrToInt16Arr(ch.SkillBar[:]), byteArrToInt16Arr(ch.ShortSkill[:]),
 		ch.SaveX, ch.SaveY,
-		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle,
+		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

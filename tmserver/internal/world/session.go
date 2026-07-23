@@ -228,9 +228,13 @@ type Entity struct {
 	// CelLv40/CelLv90 unlock the Celestial level 40/90 caps (CheckGetLevel gate,
 	// CMob.cpp:1107); CelCircle marks the Cythera Arcana quest done (/arcana). Persisted.
 	CelLv40, CelLv90, CelCircle uint8
-	Soul                        uint8 // MobExtra.Soul; 0 means no modeled soul
-	Fame                        int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
-	QuestFlag                   uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// TerraMistica is MobExtra.QuestInfo.Mortal.TerraMistica (_MSG_Quest.cpp
+	// AMU_MISTICO, issue #139): set once the party quest is completed, so the
+	// NPC won't hand it out twice. Persisted.
+	TerraMistica uint8
+	Soul         uint8 // MobExtra.Soul; 0 means no modeled soul
+	Fame         int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
+	QuestFlag    uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
 	// hits, but it does NOT by itself blink the nickname.
@@ -334,8 +338,9 @@ type Entity struct {
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob/UpdateEquip
 	EquipAnct   [16]uint8  // refine/ancient glow overlay bytes paired with EquipVisual
 
-	// Party state (lote2-party-guilda-guerra.md). Leader is the leader's conn
-	// (0 = solo); LastReqParty is who last invited this entity (anti-forge gate).
+	// Party state (lote2-party-guilda-guerra.md). Members point Leader at the
+	// leader conn; leaders keep Leader=0 and own the PartyList. LastReqParty is
+	// who last invited this entity (anti-forge gate).
 	Leader       int
 	LastReqParty int
 

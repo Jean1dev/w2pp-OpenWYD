@@ -75,7 +75,7 @@ func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.C
 	}
 	out := make([]world.CharSummary, 0, len(list.GetCharacters()))
 	for _, ch := range list.GetCharacters() {
-		out = append(out, world.CharSummary{
+		summary := world.CharSummary{
 			Slot:    int(ch.GetSlot()),
 			Name:    ch.GetName(),
 			Class:   int(ch.GetClass()),
@@ -91,7 +91,15 @@ func (c *Client) ListCharacters(ctx context.Context, accountID int64) ([]world.C
 			Int:     int16(ch.GetInt()),
 			Dex:     int16(ch.GetDex()),
 			Con:     int16(ch.GetCon()),
-		})
+		}
+		for _, it := range ch.GetEquip() {
+			slot := int(it.GetSlot())
+			if slot < 0 || slot >= world.MaxEquip {
+				continue
+			}
+			summary.Equip[slot] = itemFromProto(it)
+		}
+		out = append(out, summary)
 	}
 	return out, nil
 }
@@ -601,33 +609,34 @@ func castleQuestStateFromProto(st *dbv1.CastleQuestState) world.CastleQuestState
 // until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4).
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
-		Slot:        int(c.GetSlot()),
-		Name:        c.GetName(),
-		Class:       int(c.GetClass()),
-		Level:       int(c.GetLevel()),
-		Exp:         c.GetExp(),
-		HP:          c.GetHp(),
-		MaxHP:       c.GetMaxHp(),
-		MP:          c.GetMp(),
-		MaxMP:       c.GetMaxMp(),
-		Coin:        c.GetCoin(),
-		Clan:        uint8(c.GetClan()),
-		GuildID:     uint16(c.GetGuildId()),
-		GuildLevel:  uint8(c.GetGuildLevel()),
-		Citizen:     uint8(c.GetCitizen()),
-		ClassMaster: uint8(c.GetClassMaster()),
-		CelLv40:     uint8(c.GetCelestialLv40()),
-		CelLv90:     uint8(c.GetCelestialLv90()),
-		CelCircle:   uint8(c.GetCelestialCircle()),
-		Soul:        uint8(c.GetSoul()),
-		Fame:        c.GetFame(),
-		Str:         int16(c.GetStr()),
-		Int:         int16(c.GetInt()),
-		Dex:         int16(c.GetDex()),
-		Con:         int16(c.GetCon()),
-		LastCity:    int16(c.GetLastCity()),
-		SaveX:       int16(c.GetSaveX()),
-		SaveY:       int16(c.GetSaveY()),
+		Slot:         int(c.GetSlot()),
+		Name:         c.GetName(),
+		Class:        int(c.GetClass()),
+		Level:        int(c.GetLevel()),
+		Exp:          c.GetExp(),
+		HP:           c.GetHp(),
+		MaxHP:        c.GetMaxHp(),
+		MP:           c.GetMp(),
+		MaxMP:        c.GetMaxMp(),
+		Coin:         c.GetCoin(),
+		Clan:         uint8(c.GetClan()),
+		GuildID:      uint16(c.GetGuildId()),
+		GuildLevel:   uint8(c.GetGuildLevel()),
+		Citizen:      uint8(c.GetCitizen()),
+		ClassMaster:  uint8(c.GetClassMaster()),
+		CelLv40:      uint8(c.GetCelestialLv40()),
+		CelLv90:      uint8(c.GetCelestialLv90()),
+		CelCircle:    uint8(c.GetCelestialCircle()),
+		TerraMistica: uint8(c.GetMortalTerraMistica()),
+		Soul:         uint8(c.GetSoul()),
+		Fame:         c.GetFame(),
+		Str:          int16(c.GetStr()),
+		Int:          int16(c.GetInt()),
+		Dex:          int16(c.GetDex()),
+		Con:          int16(c.GetCon()),
+		LastCity:     int16(c.GetLastCity()),
+		SaveX:        int16(c.GetSaveX()),
+		SaveY:        int16(c.GetSaveY()),
 
 		ScoreBonus:      uint16(c.GetScoreBonus()),
 		SpecialBonus:    uint16(c.GetSpecialBonus()),

@@ -444,6 +444,7 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 		if e.HP <= 0 {
 			return
 		}
+		d.expireWandererBags(w, s, e, now)
 		// Expire the Divine buff when its wall-clock deadline passes (captura §B): drop
 		// the affect and push the (now lower) score + buff snapshot.
 		if e.DivineEnd > 0 && now >= e.DivineEnd && e.HasAffect(world.AffectDivine) {
@@ -668,12 +669,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	if !world.IsPlayer(target.ID) {
 		if target.HP == 0 {
 			if e.Summoner != 0 {
-				if owner := w.Entity(e.Summoner); owner != nil {
-					d.mobKilled(w, owner, target)
-				} else {
-					sendDieAction(w, target)
-					w.DespawnMob(target.ID, 1)
-				}
+				d.mobKilled(w, e, target)
 			} else {
 				sendDieAction(w, target)
 				w.DespawnMob(target.ID, 1)

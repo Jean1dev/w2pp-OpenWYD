@@ -64,7 +64,7 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	if npc == nil || npc.Merchant == 0 || e == nil {
 		return
 	}
-	if npcPos < 0 || npcPos >= world.MaxCarry || myPos < 0 || myPos >= world.MaxCarry {
+	if npcPos < 0 || npcPos >= world.MaxCarry || !carrySlotAccessible(e, myPos) {
 		return
 	}
 	item := npc.Carry[npcPos]
@@ -129,7 +129,7 @@ func (d *Dispatcher) sell(w *world.World, s *world.Session, _ protocol.Header, p
 	if npc == nil || npc.Merchant == 0 || e == nil || myType != 1 {
 		return // only inventory (Carry) sell supported this pass
 	}
-	if myPos < 0 || myPos >= world.MaxCarry || e.Carry[myPos].Index == 0 {
+	if !carrySlotAccessible(e, myPos) || e.Carry[myPos].Index == 0 {
 		return
 	}
 	price := d.itemPrices[int(e.Carry[myPos].Index)]

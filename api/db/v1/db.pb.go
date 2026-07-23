@@ -369,15 +369,18 @@ type CharacterSummary struct {
 	Exp     int64                  `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
 	GuildId uint32                 `protobuf:"varint,6,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
 	// Score preview shown on the character-selection screen (STRUCT_SELCHAR).
-	Coin          int32 `protobuf:"varint,7,opt,name=coin,proto3" json:"coin,omitempty"`
-	MaxHp         int32 `protobuf:"varint,8,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
-	Hp            int32 `protobuf:"varint,9,opt,name=hp,proto3" json:"hp,omitempty"`
-	MaxMp         int32 `protobuf:"varint,10,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
-	Mp            int32 `protobuf:"varint,11,opt,name=mp,proto3" json:"mp,omitempty"`
-	Str           int32 `protobuf:"varint,12,opt,name=str,proto3" json:"str,omitempty"`
-	Int           int32 `protobuf:"varint,13,opt,name=int,proto3" json:"int,omitempty"`
-	Dex           int32 `protobuf:"varint,14,opt,name=dex,proto3" json:"dex,omitempty"`
-	Con           int32 `protobuf:"varint,15,opt,name=con,proto3" json:"con,omitempty"`
+	Coin  int32 `protobuf:"varint,7,opt,name=coin,proto3" json:"coin,omitempty"`
+	MaxHp int32 `protobuf:"varint,8,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
+	Hp    int32 `protobuf:"varint,9,opt,name=hp,proto3" json:"hp,omitempty"`
+	MaxMp int32 `protobuf:"varint,10,opt,name=max_mp,json=maxMp,proto3" json:"max_mp,omitempty"`
+	Mp    int32 `protobuf:"varint,11,opt,name=mp,proto3" json:"mp,omitempty"`
+	Str   int32 `protobuf:"varint,12,opt,name=str,proto3" json:"str,omitempty"`
+	Int   int32 `protobuf:"varint,13,opt,name=int,proto3" json:"int,omitempty"`
+	Dex   int32 `protobuf:"varint,14,opt,name=dex,proto3" json:"dex,omitempty"`
+	Con   int32 `protobuf:"varint,15,opt,name=con,proto3" json:"con,omitempty"`
+	// Equipped items shown on the character-selection model. Empty slots are
+	// omitted; tmServer falls back to the class BaseMob only when none are present.
+	Equip         []*Item `protobuf:"bytes,16,rep,name=equip,proto3" json:"equip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -517,6 +520,13 @@ func (x *CharacterSummary) GetCon() int32 {
 	return 0
 }
 
+func (x *CharacterSummary) GetEquip() []*Item {
+	if x != nil {
+		return x.Equip
+	}
+	return nil
+}
+
 type ListCharactersResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Characters    []*CharacterSummary    `protobuf:"bytes,1,rep,name=characters,proto3" json:"characters,omitempty"`
@@ -640,26 +650,27 @@ type Character struct {
 	// Skill/bonus state (skills front). skill_bonus is NOT carried: the tmServer
 	// re-derives it at login from level and the learned mask, exactly as the
 	// legacy BASE_GetBonusSkillPoint does on character load.
-	ScoreBonus      int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`                  // free attribute points
-	SpecialBonus    int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`            // free mastery points (incremental, +2/level)
-	LearnedSkill    int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`            // MOB.LearnedSkill bitmask
-	Magic           int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                              // CurrentScore.Magic
-	Special         []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                                   // BaseScore.Special[4] (allocated mastery)
-	SkillBar        []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`                 // MOB.SkillBar[4]
-	ShortSkill      []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"`           // CUser.ShortSkill[16] (client hotbar)
-	SecLearnedSkill int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"` // MobExtra.SecLearnedSkill
-	Soul            int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                // MobExtra.Soul
-	ClassMaster     int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`               // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
-	Citizen         int32    `protobuf:"varint,31,opt,name=citizen,proto3" json:"citizen,omitempty"`                                          // MobExtra.Citizen (city allegiance; 0 = none)
-	Fame            int32    `protobuf:"varint,32,opt,name=fame,proto3" json:"fame,omitempty"`                                                // MobExtra.Fame
-	SaveX           int32    `protobuf:"varint,33,opt,name=save_x,json=saveX,proto3" json:"save_x,omitempty"`                                 // STRUCT_MOB.SPX: Gema Estelar warp save-point
-	SaveY           int32    `protobuf:"varint,34,opt,name=save_y,json=saveY,proto3" json:"save_y,omitempty"`                                 // STRUCT_MOB.SPY: Gema Estelar warp save-point
-	CelestialLv40   int32    `protobuf:"varint,35,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`         // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
-	CelestialLv90   int32    `protobuf:"varint,36,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`         // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
-	CelestialCircle int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`   // QuestInfo.Circle (Cythera Arcana quest done)
-	GuildLevel      int32    `protobuf:"varint,38,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                  // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	ScoreBonus         int32    `protobuf:"varint,21,opt,name=score_bonus,json=scoreBonus,proto3" json:"score_bonus,omitempty"`                           // free attribute points
+	SpecialBonus       int32    `protobuf:"varint,22,opt,name=special_bonus,json=specialBonus,proto3" json:"special_bonus,omitempty"`                     // free mastery points (incremental, +2/level)
+	LearnedSkill       int32    `protobuf:"varint,23,opt,name=learned_skill,json=learnedSkill,proto3" json:"learned_skill,omitempty"`                     // MOB.LearnedSkill bitmask
+	Magic              int64    `protobuf:"varint,24,opt,name=magic,proto3" json:"magic,omitempty"`                                                       // CurrentScore.Magic
+	Special            []int32  `protobuf:"varint,25,rep,packed,name=special,proto3" json:"special,omitempty"`                                            // BaseScore.Special[4] (allocated mastery)
+	SkillBar           []uint32 `protobuf:"varint,26,rep,packed,name=skill_bar,json=skillBar,proto3" json:"skill_bar,omitempty"`                          // MOB.SkillBar[4]
+	ShortSkill         []uint32 `protobuf:"varint,27,rep,packed,name=short_skill,json=shortSkill,proto3" json:"short_skill,omitempty"`                    // CUser.ShortSkill[16] (client hotbar)
+	SecLearnedSkill    int32    `protobuf:"varint,28,opt,name=sec_learned_skill,json=secLearnedSkill,proto3" json:"sec_learned_skill,omitempty"`          // MobExtra.SecLearnedSkill
+	Soul               int32    `protobuf:"varint,29,opt,name=soul,proto3" json:"soul,omitempty"`                                                         // MobExtra.Soul
+	ClassMaster        int32    `protobuf:"varint,30,opt,name=class_master,json=classMaster,proto3" json:"class_master,omitempty"`                        // MobExtra.ClassMaster (MORTAL=2, ARCH=1)
+	Citizen            int32    `protobuf:"varint,31,opt,name=citizen,proto3" json:"citizen,omitempty"`                                                   // MobExtra.Citizen (city allegiance; 0 = none)
+	Fame               int32    `protobuf:"varint,32,opt,name=fame,proto3" json:"fame,omitempty"`                                                         // MobExtra.Fame
+	SaveX              int32    `protobuf:"varint,33,opt,name=save_x,json=saveX,proto3" json:"save_x,omitempty"`                                          // STRUCT_MOB.SPX: Gema Estelar warp save-point
+	SaveY              int32    `protobuf:"varint,34,opt,name=save_y,json=saveY,proto3" json:"save_y,omitempty"`                                          // STRUCT_MOB.SPY: Gema Estelar warp save-point
+	CelestialLv40      int32    `protobuf:"varint,35,opt,name=celestial_lv40,json=celestialLv40,proto3" json:"celestial_lv40,omitempty"`                  // QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelestialLv90      int32    `protobuf:"varint,36,opt,name=celestial_lv90,json=celestialLv90,proto3" json:"celestial_lv90,omitempty"`                  // QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelestialCircle    int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`            // QuestInfo.Circle (Cythera Arcana quest done)
+	GuildLevel         int32    `protobuf:"varint,38,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                           // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
+	MortalTerraMistica int32    `protobuf:"varint,39,opt,name=mortal_terra_mistica,json=mortalTerraMistica,proto3" json:"mortal_terra_mistica,omitempty"` // QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -954,6 +965,13 @@ func (x *Character) GetCelestialCircle() int32 {
 func (x *Character) GetGuildLevel() int32 {
 	if x != nil {
 		return x.GuildLevel
+	}
+	return 0
+}
+
+func (x *Character) GetMortalTerraMistica() int32 {
+	if x != nil {
+		return x.MortalTerraMistica
 	}
 	return 0
 }
@@ -5129,7 +5147,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x04role\x18\x03 \x01(\tR\x04role\"6\n" +
 	"\x15ListCharactersRequest\x12\x1d\n" +
 	"\n" +
-	"account_id\x18\x01 \x01(\x03R\taccountId\"\xbd\x02\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\"\xe0\x02\n" +
 	"\x10CharacterSummary\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -5146,7 +5164,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x03str\x18\f \x01(\x05R\x03str\x12\x10\n" +
 	"\x03int\x18\r \x01(\x05R\x03int\x12\x10\n" +
 	"\x03dex\x18\x0e \x01(\x05R\x03dex\x12\x10\n" +
-	"\x03con\x18\x0f \x01(\x05R\x03con\"Q\n" +
+	"\x03con\x18\x0f \x01(\x05R\x03con\x12!\n" +
+	"\x05equip\x18\x10 \x03(\v2\v.db.v1.ItemR\x05equip\"Q\n" +
 	"\x16ListCharactersResponse\x127\n" +
 	"\n" +
 	"characters\x18\x01 \x03(\v2\x17.db.v1.CharacterSummaryR\n" +
@@ -5154,7 +5173,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x88\b\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xba\b\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -5197,7 +5216,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x0ecelestial_lv90\x18$ \x01(\x05R\rcelestialLv90\x12)\n" +
 	"\x10celestial_circle\x18% \x01(\x05R\x0fcelestialCircle\x12\x1f\n" +
 	"\vguild_level\x18& \x01(\x05R\n" +
-	"guildLevel\"\xcd\x01\n" +
+	"guildLevel\x120\n" +
+	"\x14mortal_terra_mistica\x18' \x01(\x05R\x12mortalTerraMistica\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
@@ -5667,103 +5687,104 @@ var file_api_db_v1_db_proto_goTypes = []any{
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
-	6,  // 1: db.v1.ListCharactersResponse.characters:type_name -> db.v1.CharacterSummary
-	10, // 2: db.v1.Character.equip:type_name -> db.v1.Item
-	10, // 3: db.v1.Character.carry:type_name -> db.v1.Item
-	11, // 4: db.v1.Character.affects:type_name -> db.v1.Affect
-	9,  // 5: db.v1.LoadCharacterResponse.character:type_name -> db.v1.Character
-	9,  // 6: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
-	1,  // 7: db.v1.VerifyPinResponse.result:type_name -> db.v1.PinResult
-	10, // 8: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
-	10, // 9: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
-	10, // 10: db.v1.Delivery.item:type_name -> db.v1.Item
-	29, // 11: db.v1.ListPendingDeliveriesResponse.deliveries:type_name -> db.v1.Delivery
-	10, // 12: db.v1.SaveCargoWithDeliveriesRequest.items:type_name -> db.v1.Item
-	2,  // 13: db.v1.GuildRelation.kind:type_name -> db.v1.GuildRelationKind
-	37, // 14: db.v1.CreateGuildResponse.guild:type_name -> db.v1.Guild
-	2,  // 15: db.v1.SetGuildRelationRequest.kind:type_name -> db.v1.GuildRelationKind
-	37, // 16: db.v1.ListGuildsResponse.guilds:type_name -> db.v1.Guild
-	38, // 17: db.v1.ListGuildRelationsResponse.relations:type_name -> db.v1.GuildRelation
-	53, // 18: db.v1.LoadGuildZonesResponse.zones:type_name -> db.v1.GuildZone
-	53, // 19: db.v1.SaveGuildZoneRequest.zone:type_name -> db.v1.GuildZone
-	58, // 20: db.v1.LoadGuildTowerStateResponse.state:type_name -> db.v1.GuildTowerState
-	58, // 21: db.v1.SaveGuildTowerStateRequest.state:type_name -> db.v1.GuildTowerState
-	63, // 22: db.v1.LoadCastleQuestStateResponse.state:type_name -> db.v1.CastleQuestState
-	63, // 23: db.v1.SaveCastleQuestStateRequest.state:type_name -> db.v1.CastleQuestState
-	73, // 24: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
-	74, // 25: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
-	72, // 26: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
-	78, // 27: db.v1.ListMobTemplateStatsResponse.overrides:type_name -> db.v1.MobTemplateStat
-	77, // 28: db.v1.MobTemplateStat.equip:type_name -> db.v1.MobTemplateEquipItem
-	3,  // 29: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	5,  // 30: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	8,  // 31: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	13, // 32: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	15, // 33: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	17, // 34: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
-	19, // 35: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	21, // 36: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
-	23, // 37: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
-	25, // 38: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
-	27, // 39: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
-	30, // 40: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
-	32, // 41: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
-	33, // 42: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
-	35, // 43: db.v1.AccountService.RecordDuelResult:input_type -> db.v1.RecordDuelResultRequest
-	39, // 44: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
-	41, // 45: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
-	43, // 46: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
-	44, // 47: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
-	46, // 48: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
-	47, // 49: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
-	49, // 50: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
-	51, // 51: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
-	54, // 52: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
-	56, // 53: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
-	59, // 54: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
-	61, // 55: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
-	64, // 56: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
-	66, // 57: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
-	68, // 58: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
-	70, // 59: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
-	75, // 60: db.v1.NpcConfigService.ListMobTemplateStats:input_type -> db.v1.ListMobTemplateStatsRequest
-	4,  // 61: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	7,  // 62: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	12, // 63: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	14, // 64: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	16, // 65: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	18, // 66: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
-	20, // 67: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	22, // 68: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
-	24, // 69: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
-	26, // 70: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
-	28, // 71: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
-	31, // 72: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
-	28, // 73: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
-	34, // 74: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
-	36, // 75: db.v1.AccountService.RecordDuelResult:output_type -> db.v1.RecordDuelResultResponse
-	40, // 76: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
-	42, // 77: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
-	42, // 78: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
-	45, // 79: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
-	42, // 80: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
-	48, // 81: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
-	50, // 82: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
-	52, // 83: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
-	55, // 84: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
-	57, // 85: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
-	60, // 86: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
-	62, // 87: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
-	65, // 88: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
-	67, // 89: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
-	69, // 90: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
-	71, // 91: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
-	76, // 92: db.v1.NpcConfigService.ListMobTemplateStats:output_type -> db.v1.ListMobTemplateStatsResponse
-	61, // [61:93] is the sub-list for method output_type
-	29, // [29:61] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	10, // 1: db.v1.CharacterSummary.equip:type_name -> db.v1.Item
+	6,  // 2: db.v1.ListCharactersResponse.characters:type_name -> db.v1.CharacterSummary
+	10, // 3: db.v1.Character.equip:type_name -> db.v1.Item
+	10, // 4: db.v1.Character.carry:type_name -> db.v1.Item
+	11, // 5: db.v1.Character.affects:type_name -> db.v1.Affect
+	9,  // 6: db.v1.LoadCharacterResponse.character:type_name -> db.v1.Character
+	9,  // 7: db.v1.SaveCharacterRequest.character:type_name -> db.v1.Character
+	1,  // 8: db.v1.VerifyPinResponse.result:type_name -> db.v1.PinResult
+	10, // 9: db.v1.LoadCargoResponse.items:type_name -> db.v1.Item
+	10, // 10: db.v1.SaveCargoRequest.items:type_name -> db.v1.Item
+	10, // 11: db.v1.Delivery.item:type_name -> db.v1.Item
+	29, // 12: db.v1.ListPendingDeliveriesResponse.deliveries:type_name -> db.v1.Delivery
+	10, // 13: db.v1.SaveCargoWithDeliveriesRequest.items:type_name -> db.v1.Item
+	2,  // 14: db.v1.GuildRelation.kind:type_name -> db.v1.GuildRelationKind
+	37, // 15: db.v1.CreateGuildResponse.guild:type_name -> db.v1.Guild
+	2,  // 16: db.v1.SetGuildRelationRequest.kind:type_name -> db.v1.GuildRelationKind
+	37, // 17: db.v1.ListGuildsResponse.guilds:type_name -> db.v1.Guild
+	38, // 18: db.v1.ListGuildRelationsResponse.relations:type_name -> db.v1.GuildRelation
+	53, // 19: db.v1.LoadGuildZonesResponse.zones:type_name -> db.v1.GuildZone
+	53, // 20: db.v1.SaveGuildZoneRequest.zone:type_name -> db.v1.GuildZone
+	58, // 21: db.v1.LoadGuildTowerStateResponse.state:type_name -> db.v1.GuildTowerState
+	58, // 22: db.v1.SaveGuildTowerStateRequest.state:type_name -> db.v1.GuildTowerState
+	63, // 23: db.v1.LoadCastleQuestStateResponse.state:type_name -> db.v1.CastleQuestState
+	63, // 24: db.v1.SaveCastleQuestStateRequest.state:type_name -> db.v1.CastleQuestState
+	73, // 25: db.v1.ListNpcDefinitionsResponse.definitions:type_name -> db.v1.NpcDefinition
+	74, // 26: db.v1.ListNpcDefinitionsResponse.price_overrides:type_name -> db.v1.ItemPrice
+	72, // 27: db.v1.NpcDefinition.shop:type_name -> db.v1.NpcShopItem
+	78, // 28: db.v1.ListMobTemplateStatsResponse.overrides:type_name -> db.v1.MobTemplateStat
+	77, // 29: db.v1.MobTemplateStat.equip:type_name -> db.v1.MobTemplateEquipItem
+	3,  // 30: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	5,  // 31: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	8,  // 32: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	13, // 33: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	15, // 34: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	17, // 35: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
+	19, // 36: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	21, // 37: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
+	23, // 38: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
+	25, // 39: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	27, // 40: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	30, // 41: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
+	32, // 42: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
+	33, // 43: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
+	35, // 44: db.v1.AccountService.RecordDuelResult:input_type -> db.v1.RecordDuelResultRequest
+	39, // 45: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
+	41, // 46: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
+	43, // 47: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
+	44, // 48: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
+	46, // 49: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
+	47, // 50: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
+	49, // 51: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
+	51, // 52: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
+	54, // 53: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
+	56, // 54: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
+	59, // 55: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
+	61, // 56: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
+	64, // 57: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
+	66, // 58: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
+	68, // 59: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
+	70, // 60: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
+	75, // 61: db.v1.NpcConfigService.ListMobTemplateStats:input_type -> db.v1.ListMobTemplateStatsRequest
+	4,  // 62: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	7,  // 63: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	12, // 64: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	14, // 65: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	16, // 66: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	18, // 67: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
+	20, // 68: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	22, // 69: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
+	24, // 70: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
+	26, // 71: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	28, // 72: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	31, // 73: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
+	28, // 74: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
+	34, // 75: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
+	36, // 76: db.v1.AccountService.RecordDuelResult:output_type -> db.v1.RecordDuelResultResponse
+	40, // 77: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
+	42, // 78: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
+	42, // 79: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
+	45, // 80: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
+	42, // 81: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
+	48, // 82: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
+	50, // 83: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
+	52, // 84: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
+	55, // 85: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
+	57, // 86: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
+	60, // 87: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
+	62, // 88: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
+	65, // 89: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
+	67, // 90: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
+	69, // 91: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
+	71, // 92: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
+	76, // 93: db.v1.NpcConfigService.ListMobTemplateStats:output_type -> db.v1.ListMobTemplateStatsResponse
+	62, // [62:94] is the sub-list for method output_type
+	30, // [30:62] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }

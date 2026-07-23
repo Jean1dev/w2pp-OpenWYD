@@ -269,6 +269,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// Celestial quest gates (set by /destravar40/90 and /arcana; CheckGetLevel
 		// reads Lv40/Lv90 to unlock the 40/90 caps).
 		e.CelLv40, e.CelLv90, e.CelCircle = st.CelLv40, st.CelLv90, st.CelCircle
+		e.TerraMistica = st.TerraMistica
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned
@@ -347,6 +348,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.logCNFCharacterLogin("template", s, st, loginX, loginY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
+		if e := w.Entity(s.Conn); e != nil {
+			d.refreshBabyMountSummon(w, s, e)
+		}
 		d.sendLoginAffects(w, s)
 		return
 	}
@@ -391,6 +395,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	d.logCNFCharacterLogin("fallback", s, st, loginX, loginY, body)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 	d.enterWorldView(w, s)
+	if e := w.Entity(s.Conn); e != nil {
+		d.refreshBabyMountSummon(w, s, e)
+	}
 	d.sendLoginAffects(w, s)
 }
 
@@ -464,8 +471,8 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 		// (B) the newcomer sees each player already in view
 		w.MarkSeen(s, ve.ID)
-		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
-			protocol.EncodeCreateMobBody(createMobFrom(ve, 0)))
+		ty, body := createMobViewPacket(w, ve, 0)
+		w.SendTo(s, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(pkInfoParm(ve)))
 	})
 	// (C) the newcomer sees the NPCs/monsters in view.
@@ -515,6 +522,21 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		IsPlayer: world.IsPlayer(e.ID),
 		PKPoint:  playerPKPoint(e),
 	}
+}
+
+// createMobViewPacket mirrors legacy SendCreateMob: a player with an open
+// personal shop must be revealed with MSG_CreateMobTrade, not the normal avatar
+// packet, so clients that enter view after the shop opened still see the stall.
+func createMobViewPacket(w *world.World, e *world.Entity, createType uint16) (protocol.Type, []byte) {
+	data := createMobFrom(e, createType)
+	if world.IsPlayer(e.ID) {
+		s := w.Session(e.ID)
+		if s != nil && s.Mode == world.UserPlay && s.TradeMode == 1 && s.AutoTrade != nil {
+			data.Con = 0 // GetCreateMobTrade parity: shop pose hides the Con field.
+			return protocol.MsgCreateMobTrade, protocol.EncodeCreateMobTradeBody(data, nil, s.AutoTrade.Title)
+		}
+	}
+	return protocol.MsgCreateMob, protocol.EncodeCreateMobBody(data)
 }
 
 // playerPKPoint is pkPoint(e) for a player, or 0 for a mob (mobs never carry PK
@@ -697,12 +719,7 @@ func (d *Dispatcher) grantStarterCarry(carry *[world.MaxCarry]world.Item, class 
 
 // firstEmptyCarry returns the index of the first empty inventory slot, or -1.
 func firstEmptyCarry(carry *[world.MaxCarry]world.Item) int {
-	for i := range carry {
-		if carry[i].Empty() {
-			return i
-		}
-	}
-	return -1
+	return firstEmptyCarrySlot(carry[:], carryLimit(carry[:]))
 }
 
 // validCharName approximates BASE_CheckValidString.

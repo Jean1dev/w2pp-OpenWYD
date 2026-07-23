@@ -28,3 +28,24 @@ func Roll(r Rand, rate int) (value int, success bool) {
 	}
 	return v, v <= rate
 }
+
+// Odin roll constants (_MSG_CombineItemOdin.cpp:124-129): a distinct fold
+// from the base Roll — rand()%199, then values over 100 drop by 99. NOT the
+// same distribution as Roll's 115/-15 fold; the two must not be confused.
+const (
+	OdinRollModulo    = 199
+	OdinFlattenAbove  = 100
+	OdinFlattenAmount = 99
+)
+
+// RollOdin performs the Odin family's luck roll (_MSG_CombineItemOdin.cpp:125-129).
+// Unlike Roll, the caller compares the result against a recipe-specific rate
+// itself (each Odin branch computes its own threshold), so this only returns
+// the folded value.
+func RollOdin(r Rand) int {
+	v := r.Intn(OdinRollModulo)
+	if v > OdinFlattenAbove {
+		v -= OdinFlattenAmount
+	}
+	return v
+}

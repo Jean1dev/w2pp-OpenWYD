@@ -46,8 +46,10 @@ const (
 	NoticeRefineSuccess  // _NN_Refine_Success (176)
 	NoticeIncubated      // _NN_INCUBATED (253): the egg hatched into its mount
 	NoticeIncuWaitMore   // _NN_Incu_Wait_More (261): the egg's incubation timer
+	NoticeMountLevel     // _NN_Mount_Level (263): a cria gained one mount level
 
 	NoticeNoEmptySlot // _NN_NoEmptySlot
+	NoticeMaxBag      // _NN_MAX_BAG: both Bolsa do Andarilho slots are already active
 
 	NoticeNoKey // _NN_No_Key: a locked gate needs a key the player doesn't hold
 
@@ -83,6 +85,10 @@ const (
 	NoticeCantGetMore2G  // _NN_Cant_get_more_than_2G: seller would exceed the 2G cap
 	NoticeNoSpaceToTrade // _NN_You_Have_No_Space_To_Trade: buyer inventory full
 	NoticeItemSold       // _NN_ItemSold: an item left the seller's shop
+
+	// NoticeAlreadyDone (_NN_Youve_Done_It_Already) — a one-shot quest hand-in
+	// (e.g. CAPAVERDE_TRADE) was already completed.
+	NoticeAlreadyDone
 )
 
 // notify sends a client notification.

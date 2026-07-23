@@ -294,10 +294,10 @@ func (d *Dispatcher) closeAutoTrade(w *world.World, s *world.Session) {
 	w.BroadcastInView(s.Conn, protocol.MsgCreateMob, body)
 }
 
-// firstFreeTradeSlot returns the first empty Carry slot in the tradeable region
-// [0, MaxCarry-4) (_MSG_ReqBuy.cpp:105), or -1 if it is full.
+// firstFreeTradeSlot returns the first empty Carry slot in the currently unlocked
+// tradeable region, or -1 if it is full.
 func firstFreeTradeSlot(e *world.Entity) int {
-	for i := 0; i < maxTradeSlot; i++ {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		if e.Carry[i].Empty() {
 			return i
 		}

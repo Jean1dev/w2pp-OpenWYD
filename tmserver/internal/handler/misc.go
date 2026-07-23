@@ -162,8 +162,43 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.mestreGrifo(w, s, e, npc)
 		return
 	}
+	// CAPAVERDE_TELEPORT (Merchant 100, EF_GRADE0 14): apprentice-arena teleport
+	// (issue #139, _MSG_Quest.cpp:2168).
+	if npc.Merchant == 100 && npc.Grade == 14 {
+		d.capaverdeTeleport(w, s, e)
+		return
+	}
+	// MOLARGARGULA (Merchant 100, EF_GRADE0 15): _MSG_Quest.cpp:2236.
+	if npc.Merchant == 100 && npc.Grade == 15 {
+		d.molarGargula(w, s, e)
+		return
+	}
+	// CAPAVERDE_TRADE (Merchant 8, "Chefe_Treina."): green-cape hand-in
+	// (issue #139, _MSG_Quest.cpp:2189).
+	if npc.Merchant == 8 {
+		d.capaverdeTrade(w, s, e)
+		return
+	}
+	// AMU_MISTICO (Merchant 10, "Cap.Mercenario"): Terra Mistica party quest
+	// (_MSG_Quest.cpp:254).
+	if npc.Merchant == 10 {
+		d.amuMistico(w, s, e, int(confirm))
+		return
+	}
+	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra Ideal
+	// (_MSG_Quest.cpp:2257).
+	if npc.Merchant == 78 {
+		d.blackOracle(w, s, e)
+		return
+	}
+	// COMP_SEPHI (Merchant 19): crafts the class Sephirot from 8 Pedras + coin
+	// (_MSG_Quest.cpp:2103).
+	if npc.Merchant == 19 {
+		d.compSephi(w, s, e, npc, int(confirm))
+		return
+	}
 	if isKingQuestNPC(npc) {
-		d.kingArch(w, s, e, int(confirm))
+		d.kingArch(w, s, e, npc, int(confirm))
 		return
 	}
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
@@ -172,10 +207,13 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 const (
 	kingQuestMerchant = 111
 
-	idealStoneEquipSlot = 10
-	sephirotEquipSlot   = 11
-	archSephirotMin     = 1760
-	archSephirotMax     = 1763
+	idealStoneItem       = 1742
+	idealStoneEquipSlot  = 10
+	sephirotEquipSlot    = 11
+	archSephirotMin      = 1760
+	archSephirotMax      = 1763
+	capeEquipSlot        = 15
+	pedraIdealsCraftCoin = 30_000_000
 )
 
 func isKingQuestNPC(npc *world.Entity) bool {
@@ -188,11 +226,45 @@ func isKingQuestNPC(npc *world.Entity) bool {
 	return npc.Merchant == kingQuestMerchant || npc.Merchant == 14 || npc.Merchant == 15
 }
 
-func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e *world.Entity, confirm int) {
+// kingClanFromCape derives the player's effective Clan for the King's faction
+// gate: certain capes override the wearer's guild Clan to 7 or 8 regardless of
+// their actual clan (_MSG_Quest.cpp:704-726). CapeMode (the cape-reward
+// branches further down the legacy case) is out of scope here — only the Clan
+// override matters for the Arch gate.
+func kingClanFromCape(clan uint8, capeIndex int16) uint8 {
+	switch capeIndex {
+	case 543, 545, 734, 736, 3191, 3194, 3197:
+		return 7
+	case 544, 546, 735, 737, 3192, 3195, 3198:
+		return 8
+	default:
+		return clan
+	}
+}
+
+// kingArch handles the KING npcMode's Arch-creation path (_MSG_Quest.cpp:694-867).
+// Ported: the Clan/cape faction gate (:696-741), the confirm==0 ask leg
+// (:762-767, without the Sapphire-price text — UNVERIFIED wire format), and the
+// Equip[10]==1742 (Pedra Ideal) + Equip[11]∈[1760,1763] (Sephirot) + Mortal/level
+// gate (:769, :842-866). NOT ported: the elemental-essence branch (:769-840,
+// items 5334-5337 — consumes them into item 5338 and destroys the King gear
+// INSTEAD of creating Arch) and the CapeMode/Sapphire/Celestial cape-reforge
+// branches (:869-1124) — neither is what issue #139 reports broken, and a
+// player carrying the 4 essence items alongside 1742/1760-1763 will get Arch
+// creation here rather than the legacy "blessing" side-effect, an accepted
+// simplification.
+func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
+	clan := kingClanFromCape(e.Clan, e.Equip[capeEquipSlot].Index)
+	if clan != 0 && clan != npc.Clan {
+		return
+	}
 	if confirm == 0 {
 		return
 	}
 	if e.ClassMaster != classMasterMortal || e.Level < 299 {
+		return
+	}
+	if e.Equip[idealStoneEquipSlot].Index != idealStoneItem {
 		return
 	}
 	sephirot := int(e.Equip[sephirotEquipSlot].Index)
@@ -276,6 +348,214 @@ func (d *Dispatcher) completeKingArch(w *world.World, s *world.Session, archSlot
 				protocol.EncodeStandardParm(int32(archSlot)))
 		})
 	})
+}
+
+const (
+	capaverdeMinLevel = 99
+	capaverdeMaxLevel = 150
+
+	capaverdeTicketEquipSlot = 13
+	capaverdeTicketItem      = 4080
+	greenCapeItem            = 4006
+)
+
+// capaverdeTeleport handles CAPAVERDE_TELEPORT (Merchant 100, EF_GRADE0 14):
+// the apprentice-arena teleport step of the green-cape chain
+// (_MSG_Quest.cpp:2168-2186). No item is consumed and the legacy case never
+// checks confirm.
+func (d *Dispatcher) capaverdeTeleport(w *world.World, s *world.Session, e *world.Entity) {
+	if e.ClassMaster != classMasterMortal || e.Level < capaverdeMinLevel || e.Level >= capaverdeMaxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	d.doTeleport(w, s, 2245+int16(w.Rand().Intn(5)-3), 1576+int16(w.Rand().Intn(5)-3))
+}
+
+// capaverdeTrade handles CAPAVERDE_TRADE (Merchant 8, "Chefe_Treina."): the
+// green-cape hand-in (_MSG_Quest.cpp:2189-2234). Requires item 4080 equipped
+// in slot 13 (the apprentice graduation token) and no cape already equipped;
+// consumes the token and grants the green cape (item 4006) into the cape
+// slot. The legacy case never checks confirm.
+func (d *Dispatcher) capaverdeTrade(w *world.World, s *world.Session, e *world.Entity) {
+	if e.ClassMaster != classMasterMortal || e.Level < capaverdeMinLevel || e.Level >= capaverdeMaxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	if e.Equip[capaverdeTicketEquipSlot].Index != capaverdeTicketItem {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	if e.Equip[capeEquipSlot].Index != 0 {
+		d.notify(w, s, NoticeAlreadyDone)
+		return
+	}
+	e.Equip[capaverdeTicketEquipSlot] = world.Item{}
+	e.Equip[capeEquipSlot] = world.Item{Index: greenCapeItem}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, capaverdeTicketEquipSlot, itemToSel(e.Equip[capaverdeTicketEquipSlot])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, capeEquipSlot, itemToSel(e.Equip[capeEquipSlot])))
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	d.log.Info("capaverde trade complete", "conn", s.Conn, "name", e.Name)
+}
+
+const (
+	molarGargulaMinLevel = 199
+	molarGargulaMaxLevel = 254
+)
+
+// molarGargula handles MOLARGARGULA (Merchant 100, EF_GRADE0 15):
+// _MSG_Quest.cpp:2236-2255. No item, no persisted flag, no confirm gate — a
+// pure level/class-gated teleport.
+func (d *Dispatcher) molarGargula(w *world.World, s *world.Session, e *world.Entity) {
+	if e.ClassMaster != classMasterMortal || e.Level < molarGargulaMinLevel || e.Level >= molarGargulaMaxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	d.doTeleport(w, s, 817+int16(w.Rand().Intn(5)-3), 4062+int16(w.Rand().Intn(5)-3))
+}
+
+// amuMistico handles AMU_MISTICO (Merchant 10, "Cap.Mercenario"): the Terra
+// Mistica party quest (_MSG_Quest.cpp:254-292). Requires ClassMaster Mortal,
+// the quest not already done, and the caller to be the leader of a non-solo
+// party. confirm==0 is a pure ask in the legacy case (SendSay only, no state
+// change) — mirrored here as a no-op, matching kingArch's ask leg.
+func (d *Dispatcher) amuMistico(w *world.World, s *world.Session, e *world.Entity, confirm int) {
+	if e.TerraMistica != 0 || e.ClassMaster != classMasterMortal {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	if confirm == 0 {
+		return
+	}
+	// Legacy party leaders keep Leader==0; the non-solo proof is PartyList.
+	if e.Leader != 0 || partyMemberCount(e) == 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	e.TerraMistica = 1
+	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
+	d.log.Info("terra mistica complete", "conn", s.Conn, "name", e.Name)
+}
+
+const (
+	soulItem1        = 1740
+	soulItem2        = 1741
+	sapphireUnit1    = 697  // 1 sapphire unit
+	sapphireUnit10   = 4131 // 10 sapphire units
+	blackOracleCost  = 10   // sapphire units required
+	pedraIdealReward = idealStoneItem
+)
+
+// blackOracle handles BLACKORACLE (Merchant 78): merges the two soul items
+// (1740 immediately followed by 1741 in Carry) plus 10 sapphire units into the
+// Pedra Ideal (item 1742) the King later requires (_MSG_Quest.cpp:2257-2334).
+// A 697 counts as 1 unit, a 4131 as 10. The legacy case never checks confirm.
+func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Entity) {
+	soulSlot := -1
+	limit := activeCarryLimit(e)
+	for i := 0; i < limit-1; i++ {
+		if e.Carry[i].Index == soulItem1 && e.Carry[i+1].Index == soulItem2 {
+			soulSlot = i
+			break
+		}
+	}
+	if soulSlot < 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	units := 0
+	for i := 0; i < limit; i++ {
+		it := e.Carry[i]
+		switch it.Index {
+		case sapphireUnit1:
+			units++
+		case sapphireUnit10:
+			units += 10
+		}
+	}
+	if units < blackOracleCost {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	remaining := blackOracleCost
+	for i := 0; i < limit; i++ {
+		if remaining <= 0 {
+			break
+		}
+		switch e.Carry[i].Index {
+		case sapphireUnit1:
+			e.Carry[i] = world.Item{}
+			w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
+			remaining--
+		case sapphireUnit10:
+			e.Carry[i] = world.Item{}
+			w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
+			if remaining -= 10; remaining < 0 {
+				remaining = 0
+			}
+		}
+	}
+	e.Carry[soulSlot] = world.Item{}
+	e.Carry[soulSlot+1] = world.Item{}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, soulSlot, itemToSel(e.Carry[soulSlot])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, soulSlot+1, itemToSel(e.Carry[soulSlot+1])))
+
+	slot := firstEmptyCarry(&e.Carry)
+	if slot < 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	e.Carry[slot] = world.Item{Index: pedraIdealReward}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
+	d.log.Info("black oracle soul merge", "conn", s.Conn, "name", e.Name)
+}
+
+const compSephiCoinCost = pedraIdealsCraftCoin
+
+// compSephi handles COMP_SEPHI (Merchant 19): crafts the class Sephirot
+// (item 1759+npc.Class, i.e. 1760-1763) from 8 "Pedras" (items 1744-1751, one
+// each) plus 30,000,000 coin (_MSG_Quest.cpp:2103-2166). confirm==0 is a pure
+// ask in the legacy case (SendSay only) — mirrored as a no-op.
+func (d *Dispatcher) compSephi(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
+	if confirm == 0 {
+		return
+	}
+	const pedraCount = 8
+	limit := activeCarryLimit(e)
+	slots := make([]int, 0, pedraCount)
+	for j := 0; j < pedraCount; j++ {
+		found := -1
+		for i := 0; i < limit; i++ {
+			it := e.Carry[i]
+			if it.Index == int16(1744+j) {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			d.notify(w, s, NoticeReqNotMet)
+			return
+		}
+		slots = append(slots, found)
+	}
+	if e.Coin < compSephiCoinCost {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	slot := firstEmptyCarry(&e.Carry)
+	if slot < 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	e.Coin -= compSephiCoinCost
+	d.sendEtc(w, s, e)
+	for _, i := range slots {
+		e.Carry[i] = world.Item{}
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
+	}
+	e.Carry[slot] = world.Item{Index: archSephirotMin + int16(npc.Class)}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
+	d.log.Info("sephirot created", "conn", s.Conn, "name", e.Name, "class", npc.Class)
 }
 
 type quest256Step struct {
@@ -391,7 +671,7 @@ func (d *Dispatcher) perzenExchange(w *world.World, s *world.Session, npc *world
 		return
 	}
 	slot := -1
-	for i := range e.Carry {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		if e.Carry[i].Index == input {
 			slot = i
 			break

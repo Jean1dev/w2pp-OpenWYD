@@ -55,7 +55,7 @@ func (d *Dispatcher) dropItem(w *world.World, s *world.Session, _ protocol.Heade
 		return // can't drop equipped directly; only CARRY in this batch
 	}
 	slot := int(body.SourPos)
-	if slot < 0 || slot >= world.MaxCarry {
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	item := e.Carry[slot]
@@ -116,10 +116,11 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 		return // special restriction
 	}
 
-	slot := w.AddToCarry(e, gi.Item)
-	if slot < 0 {
-		return // inventory full → leave on floor
+	slot := int(body.DestPos)
+	if !carrySlotAccessible(e, slot) || !e.Carry[slot].Empty() {
+		return // inventory full/locked/occupied → leave on floor
 	}
+	e.Carry[slot] = gi.Item
 	w.RemoveGroundItem(id) // atomic claim point
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
 }
@@ -146,7 +147,7 @@ func (d *Dispatcher) deleteItem(w *world.World, s *world.Session, _ protocol.Hea
 		return
 	}
 	slot := int(body.Slot)
-	if slot < 0 || slot >= world.MaxCarry-4 { // last 4 carry cells reserved
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
 	if e.Carry[slot].Empty() {
@@ -169,6 +170,8 @@ func isSplittable(index int16) bool {
 	return index >= 2390 && index <= 2419
 }
 
+const maxStackAmount = 120
+
 // setItemAmount writes n into the item's EF_AMOUNT effect slot (mirrors
 // BASE_SetItemAmount): reuse an existing EF_AMOUNT effect, else claim the first
 // empty effect slot. It is the inverse of itemAmount/consumeOneItem.
@@ -186,6 +189,76 @@ func setItemAmount(it *world.Item, n int) {
 			return
 		}
 	}
+}
+
+func tryMergeItemStacks(src, dst *world.Item) bool {
+	if !sameStackClass(*src, *dst) {
+		return false
+	}
+	srcAmount := itemAmount(*src)
+	dstAmount := itemAmount(*dst)
+	if srcAmount <= 0 || dstAmount <= 0 {
+		return true
+	}
+	if dstAmount >= maxStackAmount {
+		return true
+	}
+	if !canWriteItemAmount(*dst) {
+		return true
+	}
+	move := srcAmount
+	if space := maxStackAmount - dstAmount; move > space {
+		move = space
+	}
+	if move < srcAmount && !canWriteItemAmount(*src) {
+		return true
+	}
+	setItemAmount(dst, dstAmount+move)
+	if move == srcAmount {
+		*src = world.Item{}
+		return true
+	}
+	setItemAmount(src, srcAmount-move)
+	return true
+}
+
+func sameStackClass(a, b world.Item) bool {
+	if a.Empty() || b.Empty() || a.Index != b.Index || !isSplittable(a.Index) || a.ExpiresAt != b.ExpiresAt {
+		return false
+	}
+	ae, an := nonAmountEffects(a)
+	be, bn := nonAmountEffects(b)
+	if an != bn {
+		return false
+	}
+	for i := 0; i < an; i++ {
+		if ae[i] != be[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func canWriteItemAmount(it world.Item) bool {
+	for _, ef := range it.Effects {
+		if ef.Effect == 0 || ef.Effect == efAmount {
+			return true
+		}
+	}
+	return false
+}
+
+func nonAmountEffects(it world.Item) ([3]world.Effect, int) {
+	var out [3]world.Effect
+	n := 0
+	for _, ef := range it.Effects {
+		if ef.Effect == 0 || ef.Effect == efAmount {
+			continue
+		}
+		out[n] = ef
+		n++
+	}
+	return out, n
 }
 
 // splitItem handles _MSG_SplitItem (0x02E5, Basedef.h:2381): peel Num units off the
@@ -208,10 +281,10 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 	}
 	slot := int(body.Slot)
 	num := int(body.Num)
-	if slot < 0 || slot >= world.MaxCarry-4 {
+	if !carrySlotAccessible(e, slot) {
 		return
 	}
-	if num <= 0 || num >= 120 {
+	if num <= 0 || num >= maxStackAmount {
 		return
 	}
 	src := &e.Carry[slot]
@@ -224,10 +297,11 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 	}
 	nItem := *src
 	setItemAmount(&nItem, num)
-	dst := w.AddToCarry(e, nItem)
+	dst := firstEmptyAccessibleCarry(e)
 	if dst < 0 {
 		return // no free cell — leave the stack whole
 	}
+	e.Carry[dst] = nItem
 	setItemAmount(src, amount-num)
 	d.sendSlot(w, s, world.ItemPlaceCarry, dst, e.Carry[dst])
 	d.sendSlot(w, s, world.ItemPlaceCarry, slot, *src)
@@ -238,6 +312,7 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 const (
 	volHpMpPotion   = 1
 	volFairyDust    = 7
+	volRecallScroll = 11 // Pergaminho do Retorno: recalls to the last-city spawn
 	volGemaEstelar  = 12 // Gema Estelar: records the warp save-point
 	volPortalScroll = 13 // Pergaminho de Portal: teleports to the save-point
 	volVigor        = 58
@@ -277,7 +352,6 @@ const (
 	volWaterMLo, volWaterMHi = 21, 30   // Pergaminho da Água (M), _MSG_UseItem.cpp:1726
 	volWaterNLo, volWaterNHi = 131, 140 // Pergaminho da Água (N), _MSG_UseItem.cpp:1920
 	volWaterALo, volWaterAHi = 161, 170 // Pergaminho da Água (A), _MSG_UseItem.cpp:2025
-	volClasses               = 190      // Classes A-E, _MSG_UseItem.cpp:4959
 
 	// itemSeloDoGuerreiro and itemPedraMisteriosa carry no EF_VOLATILE in the
 	// catalog (BASE_GetItemAbility falls back to 0), so the legacy — and this
@@ -286,6 +360,14 @@ const (
 	itemPedraMisteriosa = 4148
 )
 
+// volClasses (Classes A-E, _MSG_UseItem.cpp:4959) is handled by useClasseItem
+// (classe.go), NOT rejectUnimplementedConsumable: unlike the water scrolls
+// above, its logic — the #pragma region Classe block, SetItemBonus2
+// (Server.cpp:2719-2861), and the four g_pBonusValue2..5 tables
+// (Basedef.cpp:353-529) — is fully present in Source/. The issue #135 fix
+// lumped it in with the genuinely-missing cases by mistake.
+const volClasses = 190
+
 // potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
 // The original defaults to 100 and exposes it to the runtime config (Server.cpp:647,
 // :1463); we take the default — a config knob can follow if it's ever tuned.
@@ -293,8 +375,9 @@ const potionDelay = 100
 
 // useItem handles _MSG_UseItem (0x0373), handlers/_MSG_UseItem.md. The action is
 // classified by the source item's EF_VOLATILE value (BASE_GetItemAbility, captura §B):
-// 0 = equip (CARRY → EQUIP); 12/13 = Gema Estelar/Portal (warp save-point, issue #140);
-// 64-66 = Poção Divina; other consumables are UNVERIFIED and not handled yet.
+// 0 = equip (CARRY → EQUIP); 11 = Retorno (recall); 12/13 = Gema Estelar/Portal
+// (warp save-point, issue #140); 64-66 = Poção Divina; other consumables are
+// UNVERIFIED and not handled yet.
 // Drag-and-drop between slots is a different message (tradingItem).
 func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
@@ -309,7 +392,11 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		return // consumed/equipped items come from the inventory
 	}
 	src := int(body.SourPos)
-	if src < 0 || src >= world.MaxCarry || e.Carry[src].Empty() {
+	if !carrySlotAccessible(e, src) || e.Carry[src].Empty() {
+		return
+	}
+	if e.Carry[src].Index == itemWandererBag {
+		d.useWandererBag(w, s, e, src)
 		return
 	}
 	if d.useQuest256Ticket(w, s, e, src) {
@@ -334,6 +421,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.refineItem(w, s, e, body, src, vol)
 	case vol == volHpMpPotion:
 		d.useHealPotion(w, s, e, src)
+	case vol == volRecallScroll:
+		d.useRecallScroll(w, s, e, src)
 	case vol == volGemaEstelar:
 		d.useGemaEstelar(w, s, e, src)
 	case vol == volPortalScroll:
@@ -366,10 +455,11 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useChocolateDoAmor(w, s, e, src)
 	case vol == volCoracaoDoce:
 		d.useCoracaoDoce(w, s, e, src)
+	case vol == volClasses:
+		d.useClasseItem(w, s, e, body, src)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
 		vol >= volWaterNLo && vol <= volWaterNHi,
-		vol >= volWaterALo && vol <= volWaterAHi,
-		vol == volClasses:
+		vol >= volWaterALo && vol <= volWaterAHi:
 		// issue #135: real behavior needs data absent from Source/ (see the const
 		// block above) — reject honestly instead of no-op'ing, so the client never
 		// shows a consumption the next slot resync would revert.
@@ -429,11 +519,10 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 
 // rejectUnimplementedConsumable answers _MSG_UseItem for a consumable whose real
 // effect this fork can't implement with parity (issue #135: the water-scroll
-// dungeon coordinates, the Celestial-class swap, and the item-bonus reroll all
-// depend on data/algorithms that don't exist anywhere in the available Source/
-// tree). Unlike a silent no-op, this tells the client plainly that nothing
-// happened and re-syncs the slot, so it never shows a phantom consumption that a
-// later move/trade would "revert".
+// dungeon coordinates depend on data/algorithms that don't exist anywhere in
+// the available Source/ tree). Unlike a silent no-op, this tells the client
+// plainly that nothing happened and re-syncs the slot, so it never shows a
+// phantom consumption that a later move/trade would "revert".
 func (d *Dispatcher) rejectUnimplementedConsumable(w *world.World, s *world.Session, e *world.Entity, src int) {
 	d.notify(w, s, NoticeCantUseHere)
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
@@ -511,6 +600,9 @@ func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity
 	e.Carry[src], e.Equip[dst] = e.Equip[dst], e.Carry[src]
 	w.Send(s, protocol.MsgUseItem, payload) // echo result
 	d.refreshEquip(w, s, e)                 // update the rendered gear
+	if dst == mountEquipSlot {
+		d.refreshBabyMountSummon(w, s, e)
+	}
 }
 
 func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Entity, src int) {
@@ -561,6 +653,14 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 // tickets (Gema Estelar, Portal, and the two Pesadelo entry scrolls).
 func inPesadelo(x, y int16) bool {
 	return (x/128 == 9 && y/128 == 1) || (x/128 == 8 && y/128 == 2)
+}
+
+// useRecallScroll consumes a Pergaminho do Retorno (EF_VOLATILE 11): the legacy
+// handler calls DoRecall(conn) and then decrements the item (_MSG_UseItem.cpp:1344).
+func (d *Dispatcher) useRecallScroll(w *world.World, s *world.Session, e *world.Entity, src int) {
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.recall(w, s, e)
 }
 
 // useGemaEstelar consumes a Gema Estelar (EF_VOLATILE 12): records the player's
@@ -1801,6 +1901,9 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	if src == nil || dst == nil {
 		return
 	}
+	if srcPlace == dstPlace && srcSlot == dstSlot {
+		return
+	}
 	if src.Empty() && dst.Empty() {
 		return // nothing to move
 	}
@@ -1812,7 +1915,12 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	// UNVERIFIED: amount-stacking (arrows/potions) is not yet applied.
+	if srcPlace == world.ItemPlaceCarry && dstPlace == world.ItemPlaceCarry && tryMergeItemStacks(src, dst) {
+		w.Send(s, protocol.MsgTradingItem, payload) // echo the move
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
+		return
+	}
 	*src, *dst = *dst, *src
 	w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
@@ -1821,6 +1929,9 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 	// An equip/unequip changes the rendered gear: refresh the model everywhere.
 	if srcPlace == world.ItemPlaceEquip || dstPlace == world.ItemPlaceEquip {
 		d.refreshEquip(w, s, e)
+	}
+	if (srcPlace == world.ItemPlaceEquip && srcSlot == mountEquipSlot) || (dstPlace == world.ItemPlaceEquip && dstSlot == mountEquipSlot) {
+		d.refreshBabyMountSummon(w, s, e)
 	}
 }
 
@@ -1854,8 +1965,8 @@ func (d *Dispatcher) shiftWeaponToRightHand(w *world.World, s *world.Session, e 
 
 // itemSlot returns a pointer to the live item slot for a place/slot pair, or nil
 // if the place is unknown or the slot is out of bounds. Carry moves are bounded by
-// MaxCarry-4 (the last 4 slots are reserved, as in _MSG_TradingItem.cpp). The
-// cargo slot is nil unless the account's warehouse is loaded.
+// the currently unlocked Carry range. The cargo slot is nil unless the account's
+// warehouse is loaded.
 func (d *Dispatcher) itemSlot(w *world.World, s *world.Session, e *world.Entity, place, slot int) *world.Item {
 	switch place {
 	case world.ItemPlaceEquip:
@@ -1864,7 +1975,7 @@ func (d *Dispatcher) itemSlot(w *world.World, s *world.Session, e *world.Entity,
 		}
 		return &e.Equip[slot]
 	case world.ItemPlaceCarry:
-		if slot < 0 || slot >= world.MaxCarry-4 {
+		if !carrySlotAccessible(e, slot) {
 			return nil
 		}
 		return &e.Carry[slot]

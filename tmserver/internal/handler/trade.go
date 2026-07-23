@@ -7,8 +7,9 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// maxTradeSlot bounds an offered InvenPos: [0, MAX_CARRY-4) (lote2-trade-autotrade.md).
-const maxTradeSlot = world.MaxCarry - 4
+// maxTradeSlot is the absolute upper bound for normal player carry slots. The
+// per-character active limit may be lower when Bolsa do Andarilho is inactive.
+const maxTradeSlot = maxUnlockedCarry
 
 // trade handles _MSG_Trade (0x0383): validate the offer and confirm; when BOTH
 // sides have confirmed a matching trade, perform the atomic swap. Any validation
@@ -43,7 +44,7 @@ func (d *Dispatcher) trade(w *world.World, s *world.Session, _ protocol.Header, 
 			continue
 		}
 		pos := int(body.InvenPos[i])
-		if pos < 0 || pos >= maxTradeSlot || !sameItem(body.Item[i], e.Carry[pos]) {
+		if pos < 0 || pos >= maxTradeSlot || !carrySlotAccessible(e, pos) || !sameItem(body.Item[i], e.Carry[pos]) {
 			d.removeTrade(w, s) // bounds or item changed during confirm
 			return
 		}
@@ -73,6 +74,10 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 		d.removeTrade(w, a)
 		return
 	}
+	if !tradeSlotsAccessible(ea, a.Trade.Slots) || !tradeSlotsAccessible(eb, b.Trade.Slots) {
+		d.removeTrade(w, a)
+		return
+	}
 
 	aItems := takeItems(ea, a.Trade.Slots)
 	bItems := takeItems(eb, b.Trade.Slots)
@@ -83,10 +88,14 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 		return
 	}
 	for _, it := range aItems {
-		w.AddToCarry(eb, it)
+		if dst := firstEmptyAccessibleCarry(eb); dst >= 0 {
+			eb.Carry[dst] = it
+		}
 	}
 	for _, it := range bItems {
-		w.AddToCarry(ea, it)
+		if dst := firstEmptyAccessibleCarry(ea); dst >= 0 {
+			ea.Carry[dst] = it
+		}
 	}
 	ea.Coin += b.Trade.Money - a.Trade.Money
 	eb.Coin += a.Trade.Money - b.Trade.Money
@@ -156,13 +165,16 @@ func sameItem(wi protocol.WireItem, it world.Item) bool {
 }
 
 func freeCarry(e *world.Entity) int {
-	n := 0
-	for i := range e.Carry {
-		if e.Carry[i].Empty() {
-			n++
+	return freeAccessibleCarry(e)
+}
+
+func tradeSlotsAccessible(e *world.Entity, slots []int) bool {
+	for _, sl := range slots {
+		if sl < 0 || sl >= maxTradeSlot || !carrySlotAccessible(e, sl) || e.Carry[sl].Empty() {
+			return false
 		}
 	}
-	return n
+	return true
 }
 
 // takeItems removes the items at the given carry slots, returning them aligned to

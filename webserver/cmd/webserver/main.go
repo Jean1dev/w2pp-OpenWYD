@@ -27,10 +27,12 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/attributemap"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/characters"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/dailyreward"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donateshop"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donatetopup"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobtemplateadmin"
@@ -87,6 +89,7 @@ func run(logger *slog.Logger) error {
 	donate := donateshop.New(st)
 	dailyRwd := dailyreward.New(st)
 	topup := donatetopup.New(st)
+	attrMap := attributemap.New(st, *contentDir)
 	if *contentDir != "" {
 		templates, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -114,12 +117,25 @@ func run(logger *slog.Logger) error {
 		mobTemplateAdmin.SetTemplateReader(func(name string) ([]byte, error) {
 			return os.ReadFile(filepath.Join(*contentDir, "TMsrv", "run", "npc", name))
 		})
+
+		exclusions, err := droptool.LoadContentExclusions(*contentDir)
+		if err != nil {
+			logger.Warn("drop exclusion scan failed; continuing without exclusions", "content", *contentDir, "err", err)
+		}
+		drops, err := droptool.Scan(*contentDir, logger, droptool.Options{Exclusions: exclusions})
+		if err != nil {
+			logger.Warn("drop catalog scan failed; DropTool endpoints will be empty", "content", *contentDir, "err", err)
+		} else {
+			logger.Info("scanned drop catalog", "items", len(drops.Items), "mobs", len(drops.Mobs), "drops", len(drops.Drops))
+			npcAdmin.SetDropCatalog(drops)
+		}
 	}
 	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
 	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterCharacterWebServiceServer(srv, grpcsrv.NewCharacters(characters.New(st)))
 	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
 	webv1.RegisterMobTemplateAdminServiceServer(srv, grpcsrv.NewMobTemplateAdmin(mobTemplateAdmin))
+	webv1.RegisterAttributeMapAdminServiceServer(srv, grpcsrv.NewAttributeMapAdmin(attrMap))
 	webv1.RegisterDonateAdminServiceServer(srv, grpcsrv.NewDonateAdmin(donate))
 	webv1.RegisterDonateShopServiceServer(srv, grpcsrv.NewDonateShop(donate))
 	webv1.RegisterDailyRewardAdminServiceServer(srv, grpcsrv.NewDailyRewardAdmin(dailyRwd))

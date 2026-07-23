@@ -228,7 +228,19 @@ const (
 // celestial-system-plan.md. Re-running after the flag is already set is idempotent.
 func (d *Dispatcher) destravarCelestial(w *world.World, s *world.Session, ninety bool) {
 	e := w.Entity(s.Conn)
-	if e == nil || e.ClassMaster != classMasterCelestial {
+	if e == nil {
+		return
+	}
+	d.destravarCelestialFor(w, s, e, ninety)
+}
+
+// destravarCelestialFor is destravarCelestial's body with the entity passed
+// explicitly, so other callers that already have one (e.g. combineOdin's
+// Destrave Lv40 recipe) don't need it registered in the world's connection
+// table — the same split useItem/useClasseItem and combineItemOdin/combineOdin
+// already use.
+func (d *Dispatcher) destravarCelestialFor(w *world.World, s *world.Session, e *world.Entity, ninety bool) {
+	if e.ClassMaster != classMasterCelestial {
 		d.log.Debug("destravar: not a celestial", "conn", s.Conn, "ninety", ninety)
 		return
 	}
@@ -277,12 +289,11 @@ func (d *Dispatcher) arcana(w *world.World, s *world.Session) {
 // SendItem update. If the inventory is full the grant is dropped (logged) — the flag
 // change still stands, matching the legacy PutItem best-effort behavior.
 func (d *Dispatcher) grantCarry(w *world.World, s *world.Session, e *world.Entity, index int16) {
-	for i := range e.Carry {
-		if e.Carry[i].Empty() {
-			e.Carry[i] = world.Item{Index: index}
-			w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
-			return
-		}
+	i := firstEmptyAccessibleCarry(e)
+	if i >= 0 {
+		e.Carry[i] = world.Item{Index: index}
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
+		return
 	}
 	d.log.Info("grantCarry: inventory full", "conn", s.Conn, "index", index)
 }

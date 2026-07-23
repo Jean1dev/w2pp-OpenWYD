@@ -54,6 +54,7 @@ type CharSummary struct {
 	Int     int16
 	Dex     int16
 	Con     int16
+	Equip   [MaxEquip]Item
 }
 
 // LoginOutcome is the result of an account-login attempt. On success it also
@@ -101,41 +102,42 @@ type Delivery struct {
 // _MSG_CNFCharacterLogin is UNVERIFIED (its SELCHAR/snapshot layout is not fully
 // documented) and completed once captured.
 type CharacterState struct {
-	Slot        int
-	Name        string
-	Class       int
-	Level       int
-	Exp         int64
-	X           int16
-	Y           int16
-	LastCity    int16 // last city (0..3); login spawn = that city's default area
-	SaveX       int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX), 0 = never set
-	SaveY       int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY), 0 = never set
-	HP          int32
-	MaxHP       int32
-	MP          int32
-	MaxMP       int32
-	Damage      int32 // CurrentScore.Damage
-	AC          int32 // CurrentScore.Ac
-	Master      int   // weapon mastery
-	Critical    uint8
-	Coin        int32
-	Clan        uint8
-	GuildID     uint16
-	GuildLevel  uint8
-	Citizen     uint8 // MobExtra.Citizen; city allegiance and guild creation metadata
-	ClassMaster uint8
-	CelLv40     uint8 // QuestInfo.Celestial.Lv40 gate
-	CelLv90     uint8 // QuestInfo.Celestial.Lv90 gate
-	CelCircle   uint8 // QuestInfo.Circle (Arcana quest done)
-	Soul        uint8
-	Fame        int32 // MobExtra.Fame
-	Str         int16
-	Int         int16
-	Dex         int16
-	Con         int16
-	ScoreBonus  uint16
-	DivineEnd   int64 // Unix-seconds deadline of the Divine buff (0 = none)
+	Slot         int
+	Name         string
+	Class        int
+	Level        int
+	Exp          int64
+	X            int16
+	Y            int16
+	LastCity     int16 // last city (0..3); login spawn = that city's default area
+	SaveX        int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX), 0 = never set
+	SaveY        int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY), 0 = never set
+	HP           int32
+	MaxHP        int32
+	MP           int32
+	MaxMP        int32
+	Damage       int32 // CurrentScore.Damage
+	AC           int32 // CurrentScore.Ac
+	Master       int   // weapon mastery
+	Critical     uint8
+	Coin         int32
+	Clan         uint8
+	GuildID      uint16
+	GuildLevel   uint8
+	Citizen      uint8 // MobExtra.Citizen; city allegiance and guild creation metadata
+	ClassMaster  uint8
+	CelLv40      uint8 // QuestInfo.Celestial.Lv40 gate
+	CelLv90      uint8 // QuestInfo.Celestial.Lv90 gate
+	CelCircle    uint8 // QuestInfo.Circle (Arcana quest done)
+	TerraMistica uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
+	Soul         uint8
+	Fame         int32 // MobExtra.Fame
+	Str          int16
+	Int          int16
+	Dex          int16
+	Con          int16
+	ScoreBonus   uint16
+	DivineEnd    int64 // Unix-seconds deadline of the Divine buff (0 = none)
 
 	// Skill state (skills front). SkillBonus is not loaded from the DB — the
 	// login path re-derives it from Level and LearnedSkill, as the legacy
@@ -209,14 +211,15 @@ type CharacterSave struct {
 	Fame            int32
 	// Tier state persisted by the in-game save (world-owned): ClassMaster carries
 	// tier transformations; CelLv40/CelLv90/CelCircle are the celestial quest gates.
-	ClassMaster uint8
-	CelLv40     uint8
-	CelLv90     uint8
-	CelCircle   uint8
-	BaseSpecial [4]int16
-	SkillBar    [4]uint8
-	ShortSkill  [16]uint8
-	Affects     []Affect // active buff slots (minus Divine — see DivineEnd)
+	ClassMaster  uint8
+	CelLv40      uint8
+	CelLv90      uint8
+	CelCircle    uint8
+	TerraMistica uint8
+	BaseSpecial  [4]int16
+	SkillBar     [4]uint8
+	ShortSkill   [16]uint8
+	Affects      []Affect // active buff slots (minus Divine — see DivineEnd)
 
 	Carry []SavedItem
 	Equip []SavedItem

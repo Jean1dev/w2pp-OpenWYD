@@ -77,6 +77,27 @@ func TestRemoveMobBodyLayout(t *testing.T) {
 	}
 }
 
+func TestUpdateCarryBodyLayout(t *testing.T) {
+	var carry [64]SelItem
+	carry[0] = SelItem{Index: 3467}
+	carry[61] = SelItem{Index: 1100}
+	b := EncodeUpdateCarryBody(carry, 12345)
+
+	if len(b) != updateCarrySize-HeaderSize { // 528 - 12 = 516
+		t.Fatalf("UpdateCarry body = %d, want %d", len(b), updateCarrySize-HeaderSize)
+	}
+	if got := binary.LittleEndian.Uint16(b[0:2]); got != 3467 {
+		t.Errorf("carry[0] = %d, want 3467", got)
+	}
+	off := 61 * ItemSize
+	if got := binary.LittleEndian.Uint16(b[off : off+2]); got != 1100 {
+		t.Errorf("carry[61] = %d, want 1100", got)
+	}
+	if got := int32(binary.LittleEndian.Uint32(b[64*ItemSize:])); got != 12345 {
+		t.Errorf("coin = %d, want 12345", got)
+	}
+}
+
 func TestShopListBodyLayout(t *testing.T) {
 	var list [maxShopList]SelItem
 	list[0] = SelItem{Index: 831}

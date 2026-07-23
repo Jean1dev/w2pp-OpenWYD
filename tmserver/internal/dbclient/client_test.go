@@ -147,7 +147,8 @@ func TestAccountLoginMapping(t *testing.T) {
 	api := &fakeAPI{
 		loginResp: &dbv1.AccountLoginResponse{Result: dbv1.LoginResult_LOGIN_RESULT_OK, AccountId: 1},
 		listResp: &dbv1.ListCharactersResponse{Characters: []*dbv1.CharacterSummary{
-			{Slot: 0, Name: "hero", Class: 2, Level: 10, GuildId: 5, Coin: 12345, MaxHp: 800, Hp: 750, Str: 60},
+			{Slot: 0, Name: "hero", Class: 2, Level: 10, GuildId: 5, Coin: 12345, MaxHp: 800, Hp: 750, Str: 60,
+				Equip: []*dbv1.Item{{Slot: 1, Index: 1100, Eff1: 1, Effv1: 9}}},
 		}},
 		cargoResp: &dbv1.LoadCargoResponse{CargoCoin: 4200, Items: []*dbv1.Item{
 			{Slot: 2, Index: 999, Eff1: 1, Effv1: 7},
@@ -166,6 +167,9 @@ func TestAccountLoginMapping(t *testing.T) {
 	// The select-screen score preview (gold, HP, attributes) is carried too.
 	if c0 := out.Characters[0]; c0.Coin != 12345 || c0.MaxHp != 800 || c0.Hp != 750 || c0.Str != 60 {
 		t.Fatalf("character score not mapped: %+v", c0)
+	}
+	if c0 := out.Characters[0]; c0.Equip[1].Index != 1100 || c0.Equip[1].Effects[0].Value != 9 {
+		t.Fatalf("character equip not mapped: %+v", c0.Equip[1])
 	}
 	// Cargo is fetched in the same login round-trip and mapped positionally.
 	if out.Cargo.AccountID != 1 || out.Cargo.Coin != 4200 || out.Cargo.Items[2].Index != 999 {

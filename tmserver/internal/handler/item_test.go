@@ -2115,10 +2115,90 @@ func startServerClockVolGrid(t *testing.T, persist world.Persistence, vols map[i
 	}
 }
 
+func recallScrollDB(lastCity int16, hp, mp int32, carry ...world.Item) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{
+		Slot: 0, Name: "Hero", X: 5, Y: 5, LastCity: lastCity,
+		HP: hp, MaxHP: 1000, MP: mp, MaxMP: 500,
+	}
+	for i, it := range carry {
+		if i >= len(st.Carry) {
+			break
+		}
+		st.Carry[i] = it
+	}
+	db.loadResult = st
+	return db
+}
+
 func useItemFrame(t *testing.T, c net.Conn, slot int) {
 	t.Helper()
 	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: int32(slot)}
 	send(t, c, protocol.MsgUseItem, body.Encode())
+}
+
+// TestUseRecallScrollConsumesAndRecalls ports _MSG_UseItem.cpp's "Retorno" block:
+// EF_VOLATILE 11 calls DoRecall and consumes one Pergaminho_Retorno.
+func TestUseRecallScrollConsumesAndRecalls(t *testing.T) {
+	const recall = 410
+	db := recallScrollDB(2, 321, 123, world.Item{Index: recall})
+	addr, stop := startServerClockVolGrid(t, db, map[int]int{recall: volRecallScroll}, 2600)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[4:6]); got != 0 {
+		t.Errorf("recall slot = %d, want empty after use", got)
+	}
+	action := expectAction(t, c)
+	if action.PosX != 5 || action.PosY != 5 || action.Effect != 1 {
+		t.Errorf("recall action origin/effect = (%d,%d)/%d, want (5,5)/1", action.PosX, action.PosY, action.Effect)
+	}
+	if city := world.Village(action.TargetX, action.TargetY); city != 2 {
+		t.Fatalf("recall target = (%d,%d) in city %d, want last city 2", action.TargetX, action.TargetY, city)
+	}
+	if ty, _, ok := readMaybe(t, c); ok && ty == protocol.MsgSetHpMp {
+		t.Fatal("recall scroll sent SetHpMp, want no HP/MP bar mutation")
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	save, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was not saved on logout")
+	}
+	if save.HP != 321 || save.MP != 123 {
+		t.Fatalf("saved HP/MP = %d/%d, want unchanged 321/123", save.HP, save.MP)
+	}
+	if _, ok := savedItemAt(save.Carry, 0); ok {
+		t.Fatal("saved carry slot 0 still has recall scroll, want consumed")
+	}
+}
+
+// TestUseRecallScrollStack decrements EF_AMOUNT on the 10x return scroll and still
+// recalls to the character's last-city spawn.
+func TestUseRecallScrollStack(t *testing.T) {
+	const recall10x = 411
+	db := recallScrollDB(1, 1000, 500, world.Item{Index: recall10x, Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}})
+	addr, stop := startServerClockVolGrid(t, db, map[int]int{recall10x: volRecallScroll}, 2700)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	item := expect(t, c, protocol.MsgSendItem)
+	if got := le16(item[4:6]); got != recall10x {
+		t.Fatalf("carry slot 0 item = %d, want stacked recall scroll", got)
+	}
+	if item[6] != efAmount || item[7] != 9 {
+		t.Errorf("effect0 = %d.%d, want %d.9", item[6], item[7], efAmount)
+	}
+	action := expectAction(t, c)
+	if city := world.Village(action.TargetX, action.TargetY); city != 1 {
+		t.Fatalf("recall target = (%d,%d) in city %d, want last city 1", action.TargetX, action.TargetY, city)
+	}
 }
 
 // TestUseGemaEstelarThenPortalRoundTrip: saving at the current position, then
