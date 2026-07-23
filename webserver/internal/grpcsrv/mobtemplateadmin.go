@@ -2,6 +2,7 @@ package grpcsrv
 
 import (
 	"context"
+	"math"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -66,6 +67,9 @@ func (s *MobTemplateAdminServer) GetMobTemplateStat(ctx context.Context, req *we
 
 // UpsertMobTemplateStat creates or replaces the full stat override for a template.
 func (s *MobTemplateAdminServer) UpsertMobTemplateStat(ctx context.Context, req *webv1.UpsertMobTemplateStatRequest) (*webv1.UpsertMobTemplateStatResponse, error) {
+	if !mobTemplateStatInRange(req.GetStat()) {
+		return &webv1.UpsertMobTemplateStatResponse{Result: webv1.AdminResult_ADMIN_RESULT_INVALID}, nil
+	}
 	st := protoToMobTemplateStat(req.GetStat())
 	res, err := s.admin.Upsert(ctx, req.GetModeratorId(), st)
 	if err != nil {
@@ -124,6 +128,30 @@ func adminMobTemplateStatToProto(st domain.MobTemplateStat, overridden bool) *we
 		Resist3: int32(st.Resist[2]), Resist4: int32(st.Resist[3]),
 		Equip: equip,
 	}
+}
+
+// mobTemplateStatInRange checks every AdminMobTemplateStat field against the
+// real STRUCT_MOB wire type it narrows into (protoToMobTemplateStat and, for
+// spx/spy/str/intel/dex/con/special*, tmserver/internal/dbclient downstream),
+// so an out-of-range value (e.g. clan=300, resist=200) is rejected here
+// instead of silently truncating/wrapping past this boundary.
+func mobTemplateStatInRange(p *webv1.AdminMobTemplateStat) bool {
+	if p == nil {
+		return false
+	}
+	u8 := func(v int32) bool { return v >= 0 && v <= math.MaxUint8 }
+	i8 := func(v int32) bool { return v >= math.MinInt8 && v <= math.MaxInt8 }
+	i16 := func(v int32) bool { return v >= math.MinInt16 && v <= math.MaxInt16 }
+	u16 := func(v int32) bool { return v >= 0 && v <= math.MaxUint16 }
+	return u8(p.GetClan()) && u8(p.GetMerchant()) && u8(p.GetClass()) &&
+		i16(p.GetSpx()) && i16(p.GetSpy()) &&
+		u8(p.GetChaosRate()) && u8(p.GetAttackRun()) && u8(p.GetDirection()) &&
+		i16(p.GetStr()) && i16(p.GetIntel()) && i16(p.GetDex()) && i16(p.GetCon()) &&
+		i16(p.GetSpecial1()) && i16(p.GetSpecial2()) && i16(p.GetSpecial3()) && i16(p.GetSpecial4()) &&
+		u16(p.GetScoreBonus()) &&
+		u8(p.GetSkillBar1()) && u8(p.GetSkillBar2()) && u8(p.GetSkillBar3()) && u8(p.GetSkillBar4()) &&
+		u16(p.GetRegenHp()) && u16(p.GetRegenMp()) &&
+		i8(p.GetResist1()) && i8(p.GetResist2()) && i8(p.GetResist3()) && i8(p.GetResist4())
 }
 
 func protoToMobTemplateStat(p *webv1.AdminMobTemplateStat) domain.MobTemplateStat {

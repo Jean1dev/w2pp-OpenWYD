@@ -96,9 +96,11 @@ func (s *Store) GetMobTemplateStat(ctx context.Context, templateName string) (do
 }
 
 // UpsertMobTemplateStat inserts a new override or replaces the existing one
-// for the same template_name. Equip slots are managed separately via
-// SetMobTemplateEquip. Bumps the config version and writes an audit row in
-// one transaction.
+// for the same template_name, including its Equip[] slots (st.Equip fully
+// replaces whatever was stored — same authoritative semantics as
+// SetMobTemplateEquip, which remains available for equip-only edits from the
+// dedicated equipment grid). Bumps the config version and writes an audit row
+// in one transaction.
 func (s *Store) UpsertMobTemplateStat(ctx context.Context, st domain.MobTemplateStat, moderatorID int64) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		before, _ := fetchMobTemplateStatJSON(ctx, tx, st.TemplateName)
@@ -157,6 +159,9 @@ func (s *Store) UpsertMobTemplateStat(ctx context.Context, st domain.MobTemplate
 		if err != nil {
 			return fmt.Errorf("store: upsert mob template stat %q: %w", st.TemplateName, err)
 		}
+		if err := replaceMobTemplateEquip(ctx, tx, st.TemplateName, st.Equip); err != nil {
+			return err
+		}
 		action := "update_template_stat"
 		if before == nil {
 			action = "create_template_stat"
@@ -176,21 +181,33 @@ func (s *Store) SetMobTemplateEquip(ctx context.Context, templateName string, it
 			return err
 		}
 		before, _ := fetchMobTemplateEquipJSON(ctx, tx, templateName)
-		if _, err := tx.Exec(ctx, `DELETE FROM mob_template_equip WHERE template_name = $1`, templateName); err != nil {
-			return fmt.Errorf("store: clear mob template equip %q: %w", templateName, err)
-		}
-		for _, it := range items {
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO mob_template_equip (template_name, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-				templateName, it.Slot, it.ItemIndex, it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
-			); err != nil {
-				return fmt.Errorf("store: insert mob template equip (%q slot %d): %w", templateName, it.Slot, err)
-			}
+		if err := replaceMobTemplateEquip(ctx, tx, templateName, items); err != nil {
+			return err
 		}
 		after, _ := fetchMobTemplateEquipJSON(ctx, tx, templateName)
 		return auditAndBump(ctx, tx, nil, moderatorID, "set_template_equip", before, after)
 	})
+}
+
+// replaceMobTemplateEquip deletes and reinserts a template's Equip[] slot
+// overrides in one go — shared by UpsertMobTemplateStat (whole-object save,
+// AdminMobTemplateStat.equip included) and SetMobTemplateEquip (the
+// equip-only grid editor), so both write paths persist the same way instead
+// of one of them silently dropping the field.
+func replaceMobTemplateEquip(ctx context.Context, tx pgx.Tx, templateName string, items []domain.MobTemplateEquipItem) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM mob_template_equip WHERE template_name = $1`, templateName); err != nil {
+		return fmt.Errorf("store: clear mob template equip %q: %w", templateName, err)
+	}
+	for _, it := range items {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO mob_template_equip (template_name, slot, item_index, eff1, effv1, eff2, effv2, eff3, effv3)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			templateName, it.Slot, it.ItemIndex, it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
+		); err != nil {
+			return fmt.Errorf("store: insert mob template equip (%q slot %d): %w", templateName, it.Slot, err)
+		}
+	}
+	return nil
 }
 
 // DeleteMobTemplateStat removes an override (its equip slots cascade),

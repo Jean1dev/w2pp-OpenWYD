@@ -350,26 +350,37 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	// (10M, MobKilled.cpp:1284) means the content tree wasn't restamped with
 	// cmd/exptool — players would gain nothing from those kills (issue #43).
 	const maxSaneMobExp = 10_000_000
-	templates := make(map[string][]byte)
-	load := func(name string) []byte {
+	// loadedTemplate keeps the raw (pre-override) Merchant classification
+	// alongside the override-applied bytes: rawMerchant drives the
+	// DB-managed-merchant skip below, so a moderator's stat override (which
+	// is documented as informational-only for STRUCT_MOB.Merchant, see
+	// mob-template-editing-frontend.md §6.3) can't turn a monster into a
+	// "merchant" that vanishes from NPCGener.txt, or vice versa.
+	type loadedTemplate struct {
+		bytes       []byte
+		rawMerchant uint8
+	}
+	templates := make(map[string]loadedTemplate)
+	load := func(name string) loadedTemplate {
 		if name == "" {
-			return nil
+			return loadedTemplate{}
 		}
-		tmpl, seen := templates[name]
+		t, seen := templates[name]
 		if !seen {
 			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
+				t.rawMerchant = protocol.ParseMobBasics(b).Merchant
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
-				tmpl = mobstat.ApplyOverride(b, name, mobStatOverrides)
-				if mb := protocol.ParseMobBasics(tmpl); mb.Merchant == 0 && mb.Level >= 1 &&
+				t.bytes = mobstat.ApplyOverride(b, name, mobStatOverrides)
+				if mb := protocol.ParseMobBasics(t.bytes); mb.Merchant == 0 && mb.Level >= 1 &&
 					(mb.Exp <= 0 || mb.Exp > maxSaneMobExp) {
 					logger.Warn("monster template has unbalanced Exp (run cmd/exptool)",
 						"npc", name, "level", mb.Level, "exp", mb.Exp)
 				}
 			}
-			templates[name] = tmpl
+			templates[name] = t
 		}
-		return tmpl
+		return t
 	}
 
 	wgens := make([]*world.Generator, len(gens))
@@ -379,7 +390,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	missingFollowerNames := make(map[string]struct{})
 	for i, g := range gens {
 		leader := load(g.Leader)
-		if leader == nil {
+		if leader.bytes == nil {
 			missingLeaderBlocks++
 			if g.Leader != "" {
 				missingLeaderNames[g.Leader] = struct{}{}
@@ -389,12 +400,15 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		// When DB-managed NPC config is active, merchant blocks are owned by
 		// npc_definition (materialized by the dispatcher overlay), so skip them here
 		// to avoid double-spawning. Monsters / non-shop NPCs stay on NPCGener.txt.
-		if skipMerchants && protocol.ParseMobBasics(leader).Merchant != 0 {
+		// Uses the RAW (pre-override) classification — a moderator's stat
+		// override must not flip a block between "spawn from NPCGener.txt"
+		// and "owned by npc_definition".
+		if skipMerchants && leader.rawMerchant != 0 {
 			skipped++
 			continue
 		}
 		follower := load(g.Follower)
-		if g.Follower != "" && follower == nil {
+		if g.Follower != "" && follower.bytes == nil {
 			missingFollowerBlocks++
 			missingFollowerNames[g.Follower] = struct{}{}
 		}
@@ -407,8 +421,8 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			Formation:      g.Formation,
 			SegX:           g.SegX,
 			SegY:           g.SegY,
-			LeaderTmpl:     leader,
-			FollowerTmpl:   follower,
+			LeaderTmpl:     leader.bytes,
+			FollowerTmpl:   follower.bytes,
 			FightAction:    g.FightAction,
 			DieAction:      g.DieAction,
 		}

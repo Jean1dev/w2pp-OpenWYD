@@ -117,12 +117,15 @@ func (s *Service) Get(ctx context.Context, moderatorID int64, templateName strin
 	return OK, st, false, nil
 }
 
-// Upsert creates or replaces the full stat override for a template_name.
+// Upsert creates or replaces the full stat override for a template_name,
+// including st.Equip (the store now persists it in the same write — see
+// store.UpsertMobTemplateStat), so it needs the same slot validation SetEquip
+// applies; otherwise this path could write equip data SetEquip would reject.
 func (s *Service) Upsert(ctx context.Context, moderatorID int64, st domain.MobTemplateStat) (Result, error) {
 	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
 		return r, err
 	}
-	if st.TemplateName == "" {
+	if st.TemplateName == "" || !validEquip(st.Equip) {
 		return Invalid, nil
 	}
 	if err := s.store.UpsertMobTemplateStat(ctx, st, moderatorID); err != nil {
@@ -137,15 +140,25 @@ func (s *Service) SetEquip(ctx context.Context, moderatorID int64, templateName 
 	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
 		return r, err
 	}
-	seen := make(map[int16]bool, len(items))
-	for _, it := range items {
-		if it.Slot < 0 || it.Slot > maxEquipSlot || it.ItemIndex <= 0 || seen[it.Slot] {
-			return Invalid, nil
-		}
-		seen[it.Slot] = true
+	if !validEquip(items) {
+		return Invalid, nil
 	}
 	err := s.store.SetMobTemplateEquip(ctx, templateName, items, moderatorID)
 	return classifyWrite(err, "set equip")
+}
+
+// validEquip checks Equip[] slot bounds, positive item indices and no
+// duplicate slots — shared by Upsert and SetEquip so both write paths
+// enforce the same rule.
+func validEquip(items []domain.MobTemplateEquipItem) bool {
+	seen := make(map[int16]bool, len(items))
+	for _, it := range items {
+		if it.Slot < 0 || it.Slot > maxEquipSlot || it.ItemIndex <= 0 || seen[it.Slot] {
+			return false
+		}
+		seen[it.Slot] = true
+	}
+	return true
 }
 
 // Delete removes the override, reverting the template to its raw file
