@@ -1382,6 +1382,113 @@ func TestUseFrangoAssado(t *testing.T) {
 	}
 }
 
+func TestUseLegacyBuffConsumables(t *testing.T) {
+	cases := []struct {
+		name      string
+		item      int16
+		vol       int
+		wantValue uint8
+		wantTime  uint32
+	}{
+		{"kappa", 787, volBuffKappa, legacyBuffKappa, 80},
+		{"kappa 30m", 3310, volBuffKappa30, legacyBuffKappa, affect1H / 2},
+		{"kappa 20h", 3319, volBuffKappa20h, legacyBuffKappa, affect1H * 20},
+		{"combat", 1764, volBuffCombat, legacyBuffCombat, 80},
+		{"combat 60m", 3311, volBuffCombat60, legacyBuffCombat, affect1H},
+		{"combat 20h", 3320, volBuffCombat20h, legacyBuffCombat, affect1H * 20},
+		{"mental", 1765, volBuffMental, legacyBuffMental, 80},
+		{"mental 60m", 3312, volBuffMental60, legacyBuffMental, affect1H},
+		{"mental 20h", 3321, volBuffMental20h, legacyBuffMental, affect1H * 20},
+		{"sephira 7d", 3361, volBuffMental20h, legacyBuffSephira, affect1H * 168},
+		{"sephira 15d", 3362, volBuffMental20h, legacyBuffSephira, affect1H * 360},
+		{"sephira 30d", 3363, volBuffMental20h, legacyBuffSephira, affect1H * 720},
+		{"antidote", 416, volBuffKappa, legacyBuffAntidote, affect1H / 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newDB()
+			st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+			st.Carry[0] = world.Item{Index: tc.item, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+			db.loadResult = st
+			addr, stop := startServerClockVol(t, db, map[int]int{int(tc.item): tc.vol})
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+			send(t, c, protocol.MsgUseItem, body.Encode())
+
+			item := expect(t, c, protocol.MsgSendItem)
+			if le16(item[4:6]) != uint16(tc.item) || item[6] != efAmount || item[7] != 4 {
+				t.Fatalf("after use item = %d effects (%d,%d), want %d (%d,4)", le16(item[4:6]), item[6], item[7], tc.item, efAmount)
+			}
+			expect(t, c, protocol.MsgUpdateScore)
+			affect := expect(t, c, protocol.MsgSendAffect)
+			if affect[0] != affectLegacyConsumableBuff || affect[1] != tc.wantValue {
+				t.Errorf("affect = type %d value %d, want type %d value %d", affect[0], affect[1], affectLegacyConsumableBuff, tc.wantValue)
+			}
+			if got := binary.LittleEndian.Uint32(affect[4:8]); got != tc.wantTime {
+				t.Errorf("affect time = %d, want %d", got, tc.wantTime)
+			}
+		})
+	}
+}
+
+func TestUseLegacyBuffConsumableFullAffectsDoesNotConsume(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 3310, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	st.Affects = make([]world.Affect, world.MaxAffect)
+	for i := range st.Affects {
+		st.Affects[i] = world.Affect{Type: uint8(50 + i), Time: 100}
+	}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{3310: volBuffKappa30})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+	for {
+		if _, _, ok := readMaybe(t, c); !ok {
+			break
+		}
+	}
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	notice := expect(t, c, protocol.MsgMessageBoxOk)
+	if noticeCode(t, notice) != NoticeCantEatMore {
+		t.Errorf("notice = %d, want NoticeCantEatMore", noticeCode(t, notice))
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[4:6]) != 3310 || item[6] != efAmount || item[7] != 5 {
+		t.Errorf("rejected item = %d effects (%d,%d), want 3310 (%d,5)", le16(item[4:6]), item[6], item[7], efAmount)
+	}
+}
+
+func TestUseUnknownVolatileRejectedAndResynced(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 496, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{496: 60})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	notice := expect(t, c, protocol.MsgMessageBoxOk)
+	if noticeCode(t, notice) != NoticeCantUseHere {
+		t.Errorf("notice = %d, want NoticeCantUseHere", noticeCode(t, notice))
+	}
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[4:6]) != 496 || item[6] != efAmount || item[7] != 5 {
+		t.Errorf("resynced item = %d effects (%d,%d), want 496 (%d,5)", le16(item[4:6]), item[6], item[7], efAmount)
+	}
+}
+
 // TestUseCoracaoDoce is the issue #135 regression for the Vol-205 consumable:
 // it grants Velocidade (Affect 2) + Defesa (Affect 11) and actually decrements
 // the stack (previously a no-op, since Vol 205 had no useItem case).

@@ -23,12 +23,17 @@ func shopDB(coin int32) *fakeDB {
 
 func startServerShop(t *testing.T, persist world.Persistence, prices map[int]int32) (string, func()) {
 	t.Helper()
+	return startServerShopItems(t, persist, prices, nil)
+}
+
+func startServerShopItems(t *testing.T, persist world.Persistence, prices map[int]int32, vols map[int]int) (string, func()) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log, ItemPrices: prices})
+	d := New(Config{Log: log, ItemPrices: prices, ItemVolatiles: vols})
 	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
 
 	tmpl := make([]byte, 816)
@@ -142,6 +147,36 @@ func TestBuyOccupiedSlotResync(t *testing.T) {
 	}
 	if ty, _, ok := readMaybe(t, c); ok {
 		t.Errorf("occupied-slot buy also produced %#x; should only re-sync", ty)
+	}
+}
+
+func TestBuyAfterConsumableUseResyncsReducedStack(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Coin: 1234}
+	st.Carry[0] = world.Item{Index: 3310, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	db.loadResult = st
+	addr, stop := startServerShopItems(t, db, map[int]int32{1100: 0}, map[int]int{3310: volBuffKappa30})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	used := expect(t, c, protocol.MsgSendItem)
+	if le16(used[4:6]) != 3310 || used[6] != efAmount || used[7] != 4 {
+		t.Fatalf("after use item = %d effects (%d,%d), want 3310 (%d,4)", le16(used[4:6]), used[6], used[7], efAmount)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	expect(t, c, protocol.MsgSendAffect)
+
+	buyFrame(t, c, shopNPCID, 0, 0)
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[2:4]) != 0 || le16(item[4:6]) != 3310 || item[6] != efAmount || item[7] != 4 {
+		t.Errorf("shop resync item slot=%d index=%d effects (%d,%d), want slot 0 item 3310 (%d,4)",
+			le16(item[2:4]), le16(item[4:6]), item[6], item[7], efAmount)
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("occupied-slot buy after use also produced %#x; should only re-sync", ty)
 	}
 }
 
