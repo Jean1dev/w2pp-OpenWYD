@@ -793,6 +793,35 @@ func TestDivineAffectBonus(t *testing.T) {
 	}
 }
 
+// TestSendAffectDivineTicksNotRawSeconds is the issue #202 regression: a Poção
+// Divina's displayed remaining time must reach the client as ticks-of-8s, like
+// every other buff (affect1H=450/h, affect1D=10800/day) — sendAffect used to send
+// the raw DivineEnd-now seconds difference instead, inflating the displayed
+// duration 8x (and, once DivineEnd had passed, letting the raw 2e9 "infinite"
+// sentinel leak through unconverted, showing a wildly garbled duration).
+func TestSendAffectDivineTicksNotRawSeconds(t *testing.T) {
+	db := newDB()
+	const remainingSeconds = 10 * 86400 // a 10-day-remaining Divine buff
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Divine", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+		DivineEnd: time.Now().Unix() + remainingSeconds,
+	}
+	addr, stop := startServerClockVol(t, db, nil)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	affect := expect(t, c, protocol.MsgSendAffect)
+	if affect[0] != world.AffectDivine {
+		t.Fatalf("slot 0 affect type = %d, want %d (Divine)", affect[0], world.AffectDivine)
+	}
+	ticks := int64(binary.LittleEndian.Uint32(affect[4:8]))
+	if diff := ticks*8 - remainingSeconds; diff < -16 || diff > 16 {
+		t.Errorf("divine affect Time = %d ticks (%ds of 8s-ticks), want ~%ds remaining (diff %ds) — "+
+			"raw seconds or the infinite sentinel leaked onto the wire", ticks, ticks*8, remainingSeconds, diff)
+	}
+}
+
 // TestVigorAffectBonus verifies Poção de Vigor (Affect 35) adds +10% MaxHp/MaxMp.
 func TestVigorAffectBonus(t *testing.T) {
 	e := &world.Entity{BaseMaxHP: 1000, BaseMaxMP: 500}

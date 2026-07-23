@@ -44,6 +44,8 @@ func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
 			npc_definition,
 			item_price,
 			npc_config_meta,
+			mob_template_equip,
+			mob_template_stat,
 			affect,
 			item,
 			character_pvp_stats,

@@ -255,6 +255,15 @@ func DecodeMob(b []byte) (Mob, error) {
 	return decodeMob(b), nil
 }
 
+// EncodeMob serializes m into a standalone 816-byte STRUCT_MOB blob — the
+// counterpart to DecodeMob, used to write a moderator-edited NPC/mob template
+// back to raw bytes (e.g. tmserver's template-stat overlay).
+func EncodeMob(m Mob) []byte {
+	b := make([]byte, MobSize)
+	encodeMob(b, m)
+	return b
+}
+
 // --- STRUCT_ACCOUNTFILE (7952) ---
 
 // Decode parses a current-format (7952-byte) account blob. It returns an error

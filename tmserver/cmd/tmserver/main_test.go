@@ -47,7 +47,7 @@ func TestSpawnNPCsWarnsMissingTemplates(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
-	spawnNPCs(w, dir, false, logger)
+	spawnNPCs(w, dir, false, nil, logger)
 
 	if g := w.GeneratorAt(0); g != nil {
 		t.Fatalf("missing leader generator = %#v, want skipped nil slot", g)
@@ -115,7 +115,7 @@ func TestSpawnNPCsResolvesLegacyTemplateNames(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
-	spawnNPCs(w, dir, false, logger)
+	spawnNPCs(w, dir, false, nil, logger)
 
 	for i := 0; i < 2; i++ {
 		g := w.GeneratorAt(i)

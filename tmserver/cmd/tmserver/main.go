@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/dbclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/handler"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/mobstat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
@@ -100,6 +102,7 @@ func run(logger *slog.Logger) error {
 	msgBurst := flag.Int("msg-burst", 400, "per-connection message burst depth")
 	contentDir := flag.String("content", os.Getenv("W2PP_CONTENT"), "path to the Release/ content tree (empty = skip; validates rates/catalogs/maps at boot)")
 	npcEditing := flag.Bool("npc-editing", envBool("W2PP_NPC_EDITING", false), "enable the moderator NPC-editing overlay (npc-editing-plan.md); needs -dbserver and -content. OFF by default: turn it on only after `dbserver import-npcs` has seeded npc_definition, else DB-managed merchant NPCs would be skipped from NPCGener.txt with nothing to replace them")
+	mobStatEditing := flag.Bool("mob-stat-editing", envBool("W2PP_MOB_STAT_EDITING", false), "enable the moderator mob/NPC template stat overlay (mob-template-editing-plan.md, the equivalent-tool successor to the legacy EDITAPPMOB); needs -dbserver and -content. Applied ONCE at boot, like every other content load — a moderator edit needs a tmServer restart to take effect (EDITAPPMOB itself required a server restart too), independent of -npc-editing")
 	defStatusAddr := os.Getenv("W2PP_STATUS_ADDR")
 	if defStatusAddr == "" {
 		defStatusAddr = ":80"
@@ -121,7 +124,8 @@ func run(logger *slog.Logger) error {
 		"dbserver", addrOrNone(*dbAddr),
 		"binserver", addrOrNone(*binAddr),
 		"content", addrOrNone(*contentDir),
-		"npc_editing", *npcEditing)
+		"npc_editing", *npcEditing,
+		"mob_stat_editing", *mobStatEditing)
 
 	// When -content is set, load and validate the content tree up front so a
 	// missing/corrupt mount fails fast instead of surfacing mid-session. The
@@ -218,6 +222,31 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Moderator mob/NPC template stat overlay (mob-template-editing-plan.md, the
+	// equivalent-tool successor to the legacy EDITAPPMOB): the single switch is
+	// -mob-stat-editing (W2PP_MOB_STAT_EDITING), off by default. Unlike
+	// -npc-editing this applies to ANY npc/<template_name> file — monsters
+	// included, the tool's primary rebalancing use case — not just the
+	// DB-managed merchant subset, so it is deliberately independent of
+	// -npc-editing (its own flag, its own dependency check). Fetched ONCE here,
+	// synchronously, before any template gets loaded below: there is no
+	// hot-reload for this feature, matching EDITAPPMOB's own restart-to-apply
+	// behavior (it wrote the file; the server only read it at boot too).
+	var mobStatOverrides map[string]mobstat.Override
+	if *mobStatEditing {
+		if dbConn == nil || *contentDir == "" {
+			return fmt.Errorf("-mob-stat-editing requires both -dbserver (config source) and -content (mob templates)")
+		}
+		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		overrides, ferr := dbclient.NewMobStatSource(dbConn).Fetch(fetchCtx)
+		cancel()
+		if ferr != nil {
+			return fmt.Errorf("fetch mob template stat overrides: %w", ferr)
+		}
+		mobStatOverrides = overrides
+		logger.Info("mob template stat overlay enabled (moderator editing)", "overrides", len(mobStatOverrides))
+	}
+
 	// Moderator NPC-editing overlay (npc-editing-plan.md): the single switch is
 	// -npc-editing (W2PP_NPC_EDITING), off by default so an unseeded DB never makes
 	// the NPCGener.txt merchants vanish. When on, it MUST have a dbServer (the config
@@ -230,7 +259,11 @@ func run(logger *slog.Logger) error {
 			return fmt.Errorf("-npc-editing requires both -dbserver (config source) and -content (NPC templates)")
 		}
 		npcConfig = dbclient.NewNpcConfig(dbConn, func(name string) ([]byte, error) {
-			return content.LoadNPCTemplate(*contentDir, name)
+			b, terr := content.LoadNPCTemplate(*contentDir, name)
+			if terr != nil {
+				return nil, terr
+			}
+			return mobstat.ApplyOverride(b, name, mobStatOverrides), nil
 		}, logger)
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
@@ -281,7 +314,7 @@ func run(logger *slog.Logger) error {
 	// the DB overlay is active, merchant blocks are skipped here (owned by
 	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
-		spawnNPCs(w, *contentDir, npcConfig != nil, logger)
+		spawnNPCs(w, *contentDir, npcConfig != nil, mobStatOverrides, logger)
 		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
@@ -314,7 +347,7 @@ func run(logger *slog.Logger) error {
 // front so the world is playable immediately. This burns the LCG at boot (one
 // stream for all spawns, like the original's global rand()); there is no legacy
 // boot rand order to diverge from.
-func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logger) {
+func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides map[string]mobstat.Override, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
@@ -324,24 +357,37 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 	// (10M, MobKilled.cpp:1284) means the content tree wasn't restamped with
 	// cmd/exptool — players would gain nothing from those kills (issue #43).
 	const maxSaneMobExp = 10_000_000
-	templates := make(map[string][]byte)
-	load := func(name string) []byte {
+	// loadedTemplate keeps the raw (pre-override) Merchant classification
+	// alongside the override-applied bytes: rawMerchant drives the
+	// DB-managed-merchant skip below, so a moderator's stat override (which
+	// is documented as informational-only for STRUCT_MOB.Merchant, see
+	// mob-template-editing-frontend.md §6.3) can't turn a monster into a
+	// "merchant" that vanishes from NPCGener.txt, or vice versa.
+	type loadedTemplate struct {
+		bytes       []byte
+		rawMerchant uint8
+	}
+	templates := make(map[string]loadedTemplate)
+	load := func(name string) loadedTemplate {
 		if name == "" {
-			return nil
+			return loadedTemplate{}
 		}
-		tmpl, seen := templates[name]
+		t, seen := templates[name]
 		if !seen {
 			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
-				tmpl = b
-				if mb := protocol.ParseMobBasics(b); mb.Merchant == 0 && mb.Level >= 1 &&
+				t.rawMerchant = protocol.ParseMobBasics(b).Merchant
+				// Apply the moderator stat override (if any) BEFORE the exp sanity
+				// check below, so a fix made via the web tool clears the warning too.
+				t.bytes = mobstat.ApplyOverride(b, name, mobStatOverrides)
+				if mb := protocol.ParseMobBasics(t.bytes); mb.Merchant == 0 && mb.Level >= 1 &&
 					(mb.Exp <= 0 || mb.Exp > maxSaneMobExp) {
 					logger.Warn("monster template has unbalanced Exp (run cmd/exptool)",
 						"npc", name, "level", mb.Level, "exp", mb.Exp)
 				}
 			}
-			templates[name] = tmpl
+			templates[name] = t
 		}
-		return tmpl
+		return t
 	}
 
 	wgens := make([]*world.Generator, len(gens))
@@ -351,7 +397,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 	missingFollowerNames := make(map[string]struct{})
 	for i, g := range gens {
 		leader := load(g.Leader)
-		if leader == nil {
+		if leader.bytes == nil {
 			missingLeaderBlocks++
 			if g.Leader != "" {
 				missingLeaderNames[g.Leader] = struct{}{}
@@ -361,12 +407,15 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 		// When DB-managed NPC config is active, merchant blocks are owned by
 		// npc_definition (materialized by the dispatcher overlay), so skip them here
 		// to avoid double-spawning. Monsters / non-shop NPCs stay on NPCGener.txt.
-		if skipMerchants && protocol.ParseMobBasics(leader).Merchant != 0 {
+		// Uses the RAW (pre-override) classification — a moderator's stat
+		// override must not flip a block between "spawn from NPCGener.txt"
+		// and "owned by npc_definition".
+		if skipMerchants && leader.rawMerchant != 0 {
 			skipped++
 			continue
 		}
 		follower := load(g.Follower)
-		if g.Follower != "" && follower == nil {
+		if g.Follower != "" && follower.bytes == nil {
 			missingFollowerBlocks++
 			missingFollowerNames[g.Follower] = struct{}{}
 		}
@@ -379,8 +428,8 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, logger *slog.Logg
 			Formation:      g.Formation,
 			SegX:           g.SegX,
 			SegY:           g.SegY,
-			LeaderTmpl:     leader,
-			FollowerTmpl:   follower,
+			LeaderTmpl:     leader.bytes,
+			FollowerTmpl:   follower.bytes,
 			FightAction:    g.FightAction,
 			DieAction:      g.DieAction,
 		}

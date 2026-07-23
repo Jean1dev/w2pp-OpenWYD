@@ -241,6 +241,60 @@ type WorldEventConfig struct {
 	NewbieEventEnabled bool
 }
 
+// MobTemplateStat is a moderator-editable stat override for a raw STRUCT_MOB
+// mob/NPC template file (Release/TMsrv/run/npc/<TemplateName>) —
+// mob-template-editing-plan.md, the equivalent-tool successor to the legacy
+// EDITAPPMOB. It covers every field EDITAPPMOB edits except Carry[] (already
+// npc_shop_item) and DB-managed spawn position (already NPCDefinition).
+// BaseScore and CurrentScore are not modeled separately: tmServer mirrors the
+// same values into both, matching EDITAPPMOB's own `CurrentScore = BaseScore`
+// on save. Absence of a row means the raw template bytes are used unchanged.
+type MobTemplateStat struct {
+	TemplateName string
+	DisplayName  string // "" keeps the template file's own name
+	Clan         uint8
+	Merchant     uint8 // STRUCT_MOB top-level Merchant — distinct from NPCDefinition.Merchant
+	Class        uint8
+	Coin         int32
+	Exp          int64
+	SPX, SPY     int32
+	Level        int32
+	AC           int32
+	Damage       int32
+	ChaosRate    uint8
+	AttackRun    uint8
+	Direction    uint8
+	Str          int16
+	Int          int16
+	Dex          int16
+	Con          int16
+	Special      [4]int16
+	MaxHp        int32
+	Hp           int32
+	MaxMp        int32
+	Mp           int32
+	LearnedSkill int32
+	ScoreBonus   uint16
+	SkillBar     [4]uint8
+	RegenHP      uint16
+	RegenMP      uint16
+	Resist       [4]int8
+	Equip        []MobTemplateEquipItem
+}
+
+// MobTemplateEquipItem is one Equip[] slot override for a mob template
+// (0..15), same shape as NPCShopItem minus Quantity (equip slots don't stack).
+type MobTemplateEquipItem struct {
+	Slot      int16
+	ItemIndex int32
+	Eff1      uint8
+	EffV1     uint8
+	Eff2      uint8
+	EffV2     uint8
+	Eff3      uint8
+	EffV3     uint8
+}
+
 // DonateShopItem is one moderator-managed offer in the donate web shop (issue
 // #34): an item (index + up to three effect/value pairs) sold for Price units of
 // the account's donate balance. It is cold config owned by Postgres — the

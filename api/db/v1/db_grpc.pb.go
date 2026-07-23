@@ -1265,8 +1265,9 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	NpcConfigService_NpcConfigVersion_FullMethodName   = "/db.v1.NpcConfigService/NpcConfigVersion"
-	NpcConfigService_ListNpcDefinitions_FullMethodName = "/db.v1.NpcConfigService/ListNpcDefinitions"
+	NpcConfigService_NpcConfigVersion_FullMethodName     = "/db.v1.NpcConfigService/NpcConfigVersion"
+	NpcConfigService_ListNpcDefinitions_FullMethodName   = "/db.v1.NpcConfigService/ListNpcDefinitions"
+	NpcConfigService_ListMobTemplateStats_FullMethodName = "/db.v1.NpcConfigService/ListMobTemplateStats"
 )
 
 // NpcConfigServiceClient is the client API for NpcConfigService service.
@@ -1283,6 +1284,15 @@ type NpcConfigServiceClient interface {
 	NpcConfigVersion(ctx context.Context, in *NpcConfigVersionRequest, opts ...grpc.CallOption) (*NpcConfigVersionResponse, error)
 	// ListNpcDefinitions returns the full definition snapshot + global price overrides.
 	ListNpcDefinitions(ctx context.Context, in *ListNpcDefinitionsRequest, opts ...grpc.CallOption) (*ListNpcDefinitionsResponse, error)
+	// ListMobTemplateStats returns every moderator-edited mob/NPC template stat
+	// override (mob-template-editing-plan.md, the equivalent-tool successor to
+	// the legacy EDITAPPMOB). Deliberately independent of NpcDefinition/
+	// ListNpcDefinitions: a stat override applies to ANY npc/<template_name>
+	// file (monsters included), not just the DB-managed merchant subset, and
+	// is applied by tmServer only once at boot — no version field, because
+	// there is no hot-reload for this feature (EDITAPPMOB itself required a
+	// server restart too).
+	ListMobTemplateStats(ctx context.Context, in *ListMobTemplateStatsRequest, opts ...grpc.CallOption) (*ListMobTemplateStatsResponse, error)
 }
 
 type npcConfigServiceClient struct {
@@ -1313,6 +1323,16 @@ func (c *npcConfigServiceClient) ListNpcDefinitions(ctx context.Context, in *Lis
 	return out, nil
 }
 
+func (c *npcConfigServiceClient) ListMobTemplateStats(ctx context.Context, in *ListMobTemplateStatsRequest, opts ...grpc.CallOption) (*ListMobTemplateStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMobTemplateStatsResponse)
+	err := c.cc.Invoke(ctx, NpcConfigService_ListMobTemplateStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NpcConfigServiceServer is the server API for NpcConfigService service.
 // All implementations must embed UnimplementedNpcConfigServiceServer
 // for forward compatibility.
@@ -1327,6 +1347,15 @@ type NpcConfigServiceServer interface {
 	NpcConfigVersion(context.Context, *NpcConfigVersionRequest) (*NpcConfigVersionResponse, error)
 	// ListNpcDefinitions returns the full definition snapshot + global price overrides.
 	ListNpcDefinitions(context.Context, *ListNpcDefinitionsRequest) (*ListNpcDefinitionsResponse, error)
+	// ListMobTemplateStats returns every moderator-edited mob/NPC template stat
+	// override (mob-template-editing-plan.md, the equivalent-tool successor to
+	// the legacy EDITAPPMOB). Deliberately independent of NpcDefinition/
+	// ListNpcDefinitions: a stat override applies to ANY npc/<template_name>
+	// file (monsters included), not just the DB-managed merchant subset, and
+	// is applied by tmServer only once at boot — no version field, because
+	// there is no hot-reload for this feature (EDITAPPMOB itself required a
+	// server restart too).
+	ListMobTemplateStats(context.Context, *ListMobTemplateStatsRequest) (*ListMobTemplateStatsResponse, error)
 	mustEmbedUnimplementedNpcConfigServiceServer()
 }
 
@@ -1342,6 +1371,9 @@ func (UnimplementedNpcConfigServiceServer) NpcConfigVersion(context.Context, *Np
 }
 func (UnimplementedNpcConfigServiceServer) ListNpcDefinitions(context.Context, *ListNpcDefinitionsRequest) (*ListNpcDefinitionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListNpcDefinitions not implemented")
+}
+func (UnimplementedNpcConfigServiceServer) ListMobTemplateStats(context.Context, *ListMobTemplateStatsRequest) (*ListMobTemplateStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMobTemplateStats not implemented")
 }
 func (UnimplementedNpcConfigServiceServer) mustEmbedUnimplementedNpcConfigServiceServer() {}
 func (UnimplementedNpcConfigServiceServer) testEmbeddedByValue()                          {}
@@ -1400,6 +1432,24 @@ func _NpcConfigService_ListNpcDefinitions_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcConfigService_ListMobTemplateStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMobTemplateStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcConfigServiceServer).ListMobTemplateStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcConfigService_ListMobTemplateStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcConfigServiceServer).ListMobTemplateStats(ctx, req.(*ListMobTemplateStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NpcConfigService_ServiceDesc is the grpc.ServiceDesc for NpcConfigService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1414,6 +1464,10 @@ var NpcConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListNpcDefinitions",
 			Handler:    _NpcConfigService_ListNpcDefinitions_Handler,
+		},
+		{
+			MethodName: "ListMobTemplateStats",
+			Handler:    _NpcConfigService_ListMobTemplateStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
