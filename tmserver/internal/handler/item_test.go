@@ -318,6 +318,94 @@ func TestUseItemEquip(t *testing.T) {
 	}
 }
 
+func territorioDB(item int16, classMaster uint8) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster}
+	st.Carry[0] = world.Item{Index: item}
+	db.loadResult = st
+	return db
+}
+
+// TestUseEntradaTerritorio covers the Vol-188 "Entrada do Território" (LAN)
+// tickets (issue #203, _MSG_UseItem.cpp:4202-4236): the right class tier teleports
+// into the matching Lan_N/M/A coords (center ± [-3,+1] per axis) and consumes one;
+// the wrong tier is rejected with a slot resync and no teleport.
+func TestUseEntradaTerritorio(t *testing.T) {
+	tests := []struct {
+		name         string
+		item         int16
+		classMaster  uint8
+		wantTeleport bool
+		wantX, wantY int16
+	}{
+		{"normal_mortal", 4111, classMasterMortal, true, 3639, 3639},
+		{"medio_mortal", 4112, classMasterMortal, true, 3782, 3527},
+		{"avancado_celestial", 4113, classMasterCelestial, true, 3911, 3655},
+		{"avancado_mortal_rejected", 4113, classMasterMortal, false, 0, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db := territorioDB(tc.item, tc.classMaster)
+			addr, stop := startServerClockVol(t, db, map[int]int{int(tc.item): volEntradaTerritorio})
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+			send(t, c, protocol.MsgUseItem, body.Encode())
+
+			var sawTeleport, sawConsume, sawKeep bool
+			var gotX, gotY int16
+			for {
+				ty, payload, ok := readMaybe(t, c)
+				if !ok {
+					break
+				}
+				switch ty {
+				case protocol.MsgAction:
+					var ab protocol.MsgActionBody
+					if err := ab.Decode(payload); err != nil {
+						t.Fatalf("decode action: %v", err)
+					}
+					if ab.Effect == 1 {
+						sawTeleport = true
+						gotX, gotY = ab.TargetX, ab.TargetY
+					}
+				case protocol.MsgSendItem:
+					if int(le16(payload[0:2])) != world.ItemPlaceCarry || int(le16(payload[2:4])) != 0 {
+						continue
+					}
+					switch int16(le16(payload[4:6])) {
+					case 0:
+						sawConsume = true
+					case tc.item:
+						sawKeep = true
+					}
+				}
+			}
+
+			if tc.wantTeleport {
+				if !sawTeleport {
+					t.Fatal("expected teleport jump, got none")
+				}
+				if gotX < tc.wantX-3 || gotX > tc.wantX+1 || gotY < tc.wantY-3 || gotY > tc.wantY+1 {
+					t.Errorf("teleport to (%d,%d), want ~(%d,%d) ±[-3,+1]", gotX, gotY, tc.wantX, tc.wantY)
+				}
+				if !sawConsume {
+					t.Error("ticket not consumed")
+				}
+			} else {
+				if sawTeleport {
+					t.Error("rejected ticket teleported the player")
+				}
+				if !sawKeep {
+					t.Error("rejected ticket: expected slot resync keeping the item")
+				}
+			}
+		})
+	}
+}
+
 const (
 	itemMagicBeanBlue    = 3407
 	itemMagicBeanLight   = 3416

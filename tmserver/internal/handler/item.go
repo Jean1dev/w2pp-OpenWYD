@@ -310,32 +310,33 @@ func (d *Dispatcher) splitItem(w *world.World, s *world.Session, _ protocol.Head
 // Consumable classes (EF_VOLATILE value). Divine's Affect 34 uses Entity.DivineEnd
 // as the real deadline; the other timed buffs store their duration in Affect.Time.
 const (
-	volHpMpPotion    = 1
-	volFairyDust     = 7
-	volBuffKappa     = 10
-	volRecallScroll  = 11 // Pergaminho do Retorno: recalls to the last-city spawn
-	volGemaEstelar   = 12 // Gema Estelar: records the warp save-point
-	volPortalScroll  = 13 // Pergaminho de Portal: teleports to the save-point
-	volBuffCombat    = 52
-	volBuffMental    = 53
-	volBuffKappa30   = 55
-	volBuffCombat60  = 56
-	volBuffMental60  = 57
-	volVigor         = 58
-	volFrango        = 63
-	volDivine7       = 64
-	volDivine30      = 66
-	volGemDiamond    = 180
-	volGemEmerald    = 181
-	volGemCoral      = 182
-	volGemGarnet     = 183
-	volSilverBar     = 185
-	volMagicBean     = 186
-	volPaint         = volMagicBean
-	volExpChest      = 198
-	volBuffKappa20h  = 200
-	volBuffCombat20h = 201
-	volBuffMental20h = 202
+	volHpMpPotion        = 1
+	volFairyDust         = 7
+	volBuffKappa         = 10
+	volRecallScroll      = 11 // Pergaminho do Retorno: recalls to the last-city spawn
+	volGemaEstelar       = 12 // Gema Estelar: records the warp save-point
+	volPortalScroll      = 13 // Pergaminho de Portal: teleports to the save-point
+	volBuffCombat        = 52
+	volBuffMental        = 53
+	volBuffKappa30       = 55
+	volBuffCombat60      = 56
+	volBuffMental60      = 57
+	volVigor             = 58
+	volFrango            = 63
+	volDivine7           = 64
+	volDivine30          = 66
+	volGemDiamond        = 180
+	volGemEmerald        = 181
+	volGemCoral          = 182
+	volGemGarnet         = 183
+	volSilverBar         = 185
+	volMagicBean         = 186
+	volPaint             = volMagicBean
+	volEntradaTerritorio = 188 // Entrada do Território (LAN) ticket (_MSG_UseItem.cpp:4202)
+	volExpChest          = 198
+	volBuffKappa20h      = 200
+	volBuffCombat20h     = 201
+	volBuffMental20h     = 202
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
 	affect1D          = 10800
@@ -367,6 +368,11 @@ const (
 	// dispatcher — identify them by sIndex instead (_MSG_UseItem.cpp:3184,3325).
 	itemSeloDoGuerreiro = 4146
 	itemPedraMisteriosa = 4148
+
+	// Entrada do Território (LAN) tickets — three tiers sharing EF_VOLATILE 188,
+	// distinguished by sIndex: (N)=4111, (M)=4112, (A)=4113. Tier = sIndex - base
+	// (_MSG_UseItem.cpp:4204).
+	itemEntradaTerritorioBase = 4111
 )
 
 // volClasses (Classes A-E, _MSG_UseItem.cpp:4959) is handled by useClasseItem
@@ -468,6 +474,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useCoracaoDoce(w, s, e, src)
 	case vol == volClasses:
 		d.useClasseItem(w, s, e, body, src)
+	case vol == volEntradaTerritorio:
+		d.useEntradaTerritorio(w, s, e, src)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
 		vol >= volWaterNLo && vol <= volWaterNHi,
 		vol >= volWaterALo && vol <= volWaterAHi:
@@ -812,6 +820,56 @@ func (d *Dispatcher) usePortalScroll(w *world.World, s *world.Session, e *world.
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.doTeleport(w, s, e.SaveX, e.SaveY)
+}
+
+// useEntradaTerritorio consumes an "Entrada do Território" (LAN) ticket
+// (EF_VOLATILE 188) and teleports the player into the matching Lan_N/M/A region,
+// porting _MSG_UseItem.cpp:4202-4236. The tier is the item's sIndex minus the
+// (N) base (4111→0, 4112→1, 4113→2); each tier lands at a fixed coordinate on
+// map 0 with a rand()%5-3 spread per axis, inside the region bounds declared in
+// Release/TMsrv/run/Regions.txt:45-47 (Lan_N/M/A).
+//
+// The gate matches legacy exactly — class tier only, no citizenship check: tiers
+// N/M (0,1) require ClassMaster Arch or Mortal; tier A (>=2) requires a celestial
+// tier. On a class mismatch the legacy code re-sends the slot and returns without
+// consuming; we do the same (plus a NoticeReqNotMet, as the other ticket handlers
+// do). In practice only N/M fire today: no character reaches a celestial
+// ClassMaster until the deferred celestial evolution system lands
+// (docs/migration/celestial-system-plan.md), but the (A) gate is ported faithfully
+// so it works automatically once that exists.
+func (d *Dispatcher) useEntradaTerritorio(w *world.World, s *world.Session, e *world.Entity, src int) {
+	territorio := int(e.Carry[src].Index) - itemEntradaTerritorioBase
+
+	reject := func() {
+		d.notify(w, s, NoticeReqNotMet)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	}
+	if territorio <= 1 {
+		if e.ClassMaster != classMasterArch && e.ClassMaster != classMasterMortal {
+			reject()
+			return
+		}
+	} else if e.ClassMaster != classMasterCelestial && e.ClassMaster != classMasterCelestialCS && e.ClassMaster != classMasterSCelestial {
+		reject()
+		return
+	}
+
+	var bx, by int16
+	switch territorio {
+	case 0:
+		bx, by = 3639, 3639
+	case 1:
+		bx, by = 3782, 3527
+	default:
+		bx, by = 3911, 3655
+	}
+	// rand()%5 - 3 per axis, X then Y, to preserve the legacy call order/spread.
+	x := bx + int16(w.Rand().Intn(5)) - 3
+	y := by + int16(w.Rand().Intn(5)) - 3
+
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.doTeleport(w, s, x, y)
 }
 
 // useHealPotion consumes an HP/MP potion (EF_VOLATILE 1), porting
