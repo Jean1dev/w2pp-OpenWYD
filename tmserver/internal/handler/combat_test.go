@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -207,6 +208,115 @@ func TestAttackPlayerWithPKModeSetsGuilty(t *testing.T) {
 	}
 	if !sawAttack {
 		t.Error("no MsgAttack broadcast to target")
+	}
+}
+
+// TestAttackMarksBothSidesGuilty is the issue #210 behavior change: legacy sets
+// Guilty on BOTH SetGuilty(conn,8) and SetGuilty(idx,8) (_MSG_Attack.cpp "PK -
+// War - Miss"), not just the attacker — the prior Go model only ever touched the
+// attacker's flat GuiltyUntil timer. Both combatants' /cp must read chaotic
+// (-75) after the hit lands.
+func TestAttackMarksBothSidesGuilty(t *testing.T) {
+	addr, stop, _ := startServerClock(t, combatDB())
+	defer stop()
+
+	attacker := enterWorld(t, addr) // conn 1
+	defer attacker.Close()
+	target := enterWorld(t, addr) // conn 2
+	defer target.Close()
+
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
+	attackFrame(t, attacker, serverTime, 2, 0)
+	if ty, _, ok := readMaybe(t, attacker); !ok || ty != protocol.MsgAttack {
+		t.Fatalf("attacker got %#x ok=%v, want MsgAttack echo", ty, ok)
+	}
+	for i := 0; i < 2; i++ {
+		if _, _, ok := readMaybe(t, target); !ok {
+			break
+		}
+	}
+
+	want := "Pontos Caos atual: -75"
+	whisperFrame(t, attacker, "cp", "")
+	if text, ok := readChaosPointsText(t, attacker); !ok || !strings.HasPrefix(text, want) {
+		t.Errorf("attacker /cp = %q ok=%v, want prefix %q", text, ok, want)
+	}
+	whisperFrame(t, target, "cp", "")
+	if text, ok := readChaosPointsText(t, target); !ok || !strings.HasPrefix(text, want) {
+		t.Errorf("victim /cp = %q ok=%v, want prefix %q", text, ok, want)
+	}
+}
+
+// pkGateDB gives two distinct accounts (matching newDB's "tester"=7/"tradeb"=11)
+// different starting PKPoint values, so a test can put one side below and the
+// other above the pointPK<=10 damage-block threshold.
+func pkGateDB(attackerPKPoint, targetPKPoint uint8) *fakeDB {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7:  {Slot: 0, Name: "Chaotic", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Damage: 200, AC: 40, PKPoint: attackerPKPoint},
+		11: {Slot: 0, Name: "Clean", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Damage: 200, AC: 40, PKPoint: targetPKPoint},
+	}
+	return db
+}
+
+// TestAttackBlockedWhenAttackerTooChaotic is the _MSG_Attack.cpp "PK - War -
+// Miss" can't-kill gate (issue #210): an attacker with PKPoint<=10 (raw byte,
+// not the -75 display value) cannot damage a comparatively clean target
+// (PKPoint>10) at all — the hit resolves with Dam=0 and a chat notice, no
+// Guilty is set on either side.
+func TestAttackBlockedWhenAttackerTooChaotic(t *testing.T) {
+	addr, stop, _ := startServerClock(t, pkGateDB(5, 75))
+	defer stop()
+
+	attacker := enterWorldAs(t, addr, "tester") // conn 1, PKPoint=5 (very chaotic)
+	defer attacker.Close()
+	target := enterWorldAs(t, addr, "tradeb") // conn 2, PKPoint=75 (clean)
+	defer target.Close()
+
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
+	attackFrame(t, attacker, serverTime, 2, 0)
+
+	if ty, _, ok := readMaybe(t, attacker); !ok || ty != protocol.MsgMessageChat {
+		t.Fatalf("attacker got %#x ok=%v, want the cant-kill MessageChat", ty, ok)
+	}
+	ty, payload, ok := readMaybe(t, target)
+	if !ok || ty != protocol.MsgAttack {
+		t.Fatalf("target got %#x ok=%v, want MsgAttack broadcast", ty, ok)
+	}
+	var got protocol.MsgAttackBody
+	if err := got.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Dam) != 1 || got.Dam[0].Damage != 0 {
+		t.Errorf("Dam = %+v, want damage 0 (blocked: attacker PKPoint<=10 vs clean target)", got.Dam)
+	}
+}
+
+// TestAttackAllowedWhenBothChaotic verifies the can't-kill gate does NOT fire
+// between two already-chaotic players (SummonerPointPK<=10): legacy only blocks
+// when the VICTIM is still comparatively clean.
+func TestAttackAllowedWhenBothChaotic(t *testing.T) {
+	addr, stop, _ := startServerClock(t, pkGateDB(5, 5))
+	defer stop()
+
+	attacker := enterWorldAs(t, addr, "tester") // conn 1, PKPoint=5
+	defer attacker.Close()
+	target := enterWorldAs(t, addr, "tradeb") // conn 2, PKPoint=5
+	defer target.Close()
+
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
+	attackFrame(t, attacker, serverTime, 2, 0)
+
+	ty, payload, ok := readMaybe(t, target)
+	if !ok || ty != protocol.MsgAttack {
+		t.Fatalf("target got %#x ok=%v, want MsgAttack broadcast", ty, ok)
+	}
+	var got protocol.MsgAttackBody
+	if err := got.Decode(payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Dam) != 1 || got.Dam[0].Damage <= 0 {
+		t.Errorf("Dam = %+v, want a landed hit (victim already chaotic, gate must not fire)", got.Dam)
 	}
 }
 

@@ -34,6 +34,7 @@ func TestLiveQueries(t *testing.T) {
 			Slot: 0, Name: "Warrior", Class: 1, Level: 40, Exp: 5000, Coin: 1000,
 			Str: 50, Int: 10, Dex: 20, Con: 30, Hp: 800, MaxHp: 800, Mp: 200, MaxMp: 200,
 			ClassMaster: 2, SaveX: 2096, SaveY: 2096,
+			PKPoint: 130, Guilty: 3, CurKill: 5, TotKill: 20, // issue #210
 			Equip:   []domain.Item{{Slot: 0, Index: 1100, Eff1: 1, EffV1: 9}},
 			Carry:   []domain.Item{{Slot: 5, Index: 2200, ExpiresAt: 1893456000}}, // a timed mount
 			Affects: []domain.Affect{{Type: 3, Value: 1, Level: 2, Time: 99}},
@@ -82,6 +83,10 @@ func TestLiveQueries(t *testing.T) {
 	if len(ch.Carry) != 1 || len(ch.Affects) != 1 {
 		t.Fatalf("LoadCharacter items/affects: carry=%d affect=%d", len(ch.Carry), len(ch.Affects))
 	}
+	if ch.PKPoint != 130 || ch.Guilty != 3 || ch.CurKill != 5 || ch.TotKill != 20 {
+		t.Fatalf("PK/karma state not loaded: pk_point=%d guilty=%d cur_kill=%d tot_kill=%d",
+			ch.PKPoint, ch.Guilty, ch.CurKill, ch.TotKill)
+	}
 
 	// SaveCharacter (partial: level/exp/coin/hp/mp + replace carry) — mirrors a
 	// level-up, which raises level + max_hp/max_mp.
@@ -101,6 +106,11 @@ func TestLiveQueries(t *testing.T) {
 	ch.ClassMaster = 3 // Mortal → Celestial
 	ch.CelLv40 = 1
 	ch.CelCircle = 1
+	// A PvP kill landed mid-session: karma state changed (issue #210).
+	ch.PKPoint = 68
+	ch.Guilty = 0
+	ch.CurKill = 6
+	ch.TotKill = 21
 	if err := s.SaveCharacter(ctx, accID, ch); err != nil {
 		t.Fatalf("SaveCharacter: %v", err)
 	}
@@ -124,6 +134,10 @@ func TestLiveQueries(t *testing.T) {
 	}
 	if len(reloaded.Carry) != 1 || reloaded.Carry[0].Index != 3300 {
 		t.Fatalf("carry not replaced: %+v", reloaded.Carry)
+	}
+	if reloaded.PKPoint != 68 || reloaded.Guilty != 0 || reloaded.CurKill != 6 || reloaded.TotKill != 21 {
+		t.Fatalf("PK/karma state not persisted by SaveCharacter: pk_point=%d guilty=%d cur_kill=%d tot_kill=%d",
+			reloaded.PKPoint, reloaded.Guilty, reloaded.CurKill, reloaded.TotKill)
 	}
 
 	// CreateArchCharacter chooses the first free slot and allows the legacy
@@ -149,9 +163,15 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("DeleteCharacter(arch): %v", err)
 	}
 
-	// CreateCharacter + DeleteCharacter
+	// CreateCharacter + DeleteCharacter. PKPoint is left at the Go zero value —
+	// insertCharacter must default it to neutral (75), not persist 0/chaos
+	// (issue #210: CreateCharacter/CreateArchCharacter's explicit column list
+	// would otherwise override the DB column's own DEFAULT 75).
 	if _, err := s.CreateCharacter(ctx, accID, domain.Character{Slot: 1, Name: "Mage", Class: 3}); err != nil {
 		t.Fatalf("CreateCharacter: %v", err)
+	}
+	if mage, err := s.LoadCharacter(ctx, accID, 1); err != nil || mage.PKPoint != 75 {
+		t.Fatalf("CreateCharacter PKPoint = %d err=%v, want 75 (neutral default)", mage.PKPoint, err)
 	}
 	if err := s.DeleteCharacter(ctx, accID, 1); err != nil {
 		t.Fatalf("DeleteCharacter: %v", err)

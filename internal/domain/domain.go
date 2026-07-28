@@ -65,15 +65,19 @@ type Character struct {
 	Magic           uint32
 	SaveX           int16
 	SaveY           int16
-	LastCity        int16 // last city (0..3); login spawn = that city's default area
-	Citizen         uint8 // MobExtra.Citizen
-	ClassMaster     uint8 // MobExtra.ClassMaster
-	CelLv40         uint8 // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
-	CelLv90         uint8 // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
-	CelCircle       uint8 // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
-	TerraMistica    uint8 // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
-	Soul            uint8 // MobExtra.Soul
-	Fame            int32 // MobExtra.Fame
+	LastCity        int16  // last city (0..3); login spawn = that city's default area
+	Citizen         uint8  // MobExtra.Citizen
+	ClassMaster     uint8  // MobExtra.ClassMaster
+	CelLv40         uint8  // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelLv90         uint8  // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelCircle       uint8  // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
+	TerraMistica    uint8  // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
+	Soul            uint8  // MobExtra.Soul
+	Fame            int32  // MobExtra.Fame
+	PKPoint         uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
+	Guilty          uint8  // KILL_MARK slot: PvP "red nick" decay counter
+	CurKill         uint8  // current PvP kill streak (MobName[13])
+	TotKill         uint16 // lifetime PvP kills (MobName[14..15])
 	SkillBar        [4]uint8
 	ShortSkill      [16]uint8
 	Equip           []Item // owner_kind = char_equip

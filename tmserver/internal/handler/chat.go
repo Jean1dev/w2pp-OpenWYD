@@ -325,9 +325,8 @@ func (d *Dispatcher) playUnlockEmote(w *world.World, s *world.Session) {
 
 // showChaosPoints handles the /cp command: reports the player's current chaos
 // points (_MSG_MessageWhisper.cpp:33-39, _DN_Show_Chao = "Pontos Caos atual: %d").
-// GetPKPoint(conn)-75 maps to pkPoint(e)-75 in our binary PK model (pkmode.go):
-// 0 when clean, -75 while guilty — an approximation of the legacy decaying
-// counter, consistent with the rest of the ported PK/nick-color system.
+// GetPKPoint(conn)-75 maps to pkPoint(e)-75, now the real persisted PKPoint/
+// Guilty counters (issue #210), not an approximation.
 func (d *Dispatcher) showChaosPoints(w *world.World, s *world.Session) {
 	e := w.Entity(s.Conn)
 	if e == nil {
@@ -335,8 +334,30 @@ func (d *Dispatcher) showChaosPoints(w *world.World, s *world.Session) {
 	}
 	chaos := int(pkPoint(e)) - 75
 	msg := fmt.Sprintf("Pontos Caos atual: %d", chaos)
-	payload := append([]byte(msg), 0)
+	d.sendChatText(w, s, msg)
+}
+
+// sendChatText sends a raw MsgMessageChat line to s only — the SendClientMessage
+// family of legacy notices (_DN_Show_Chao, _DN_CantKillUser, _DD_PKPointPlus/
+// Minus, _DN_lose_D_exp, …), as opposed to the dialog-box Notice family
+// (notice.go).
+func (d *Dispatcher) sendChatText(w *world.World, s *world.Session, text string) {
+	payload := append([]byte(text), 0)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(s.Conn)}, payload)
+}
+
+// notifyPKPointDelta formats the _DD_PKPointPlus/_DD_PKPointMinus chat line:
+// the player's new displayed Chaos Points (PKPoint-75) plus the signed change
+// that just happened. Exact legacy string-table text isn't available in this
+// source tree (Language.h only has numeric #define indices), so this matches
+// the tone/format of the existing _DN_Show_Chao line above.
+func notifyPKPointDelta(newPKPoint uint8, delta int) string {
+	sign := "+"
+	if delta < 0 {
+		sign = "-"
+		delta = -delta
+	}
+	return fmt.Sprintf("Pontos Caos atual: %d (%s%d)", int(newPKPoint)-75, sign, delta)
 }
 
 // showNick handles the /nick <jogador> command (issue #131): replies to the

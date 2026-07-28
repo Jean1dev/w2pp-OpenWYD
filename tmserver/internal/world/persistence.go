@@ -132,12 +132,19 @@ type CharacterState struct {
 	TerraMistica uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
 	Soul         uint8
 	Fame         int32 // MobExtra.Fame
-	Str          int16
-	Int          int16
-	Dex          int16
-	Con          int16
-	ScoreBonus   uint16
-	DivineEnd    int64 // Unix-seconds deadline of the Divine buff (0 = none)
+	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
+	// means "never persisted" (SetPKPoint never legitimately writes 0) — the login
+	// path treats that as neutral (75), the same convention as ClassMaster == 0.
+	PKPoint    uint8
+	Guilty     uint8
+	CurKill    uint8
+	TotKill    uint16
+	Str        int16
+	Int        int16
+	Dex        int16
+	Con        int16
+	ScoreBonus uint16
+	DivineEnd  int64 // Unix-seconds deadline of the Divine buff (0 = none)
 
 	// Skill state (skills front). SkillBonus is not loaded from the DB — the
 	// login path re-derives it from Level and LearnedSkill, as the legacy
@@ -216,10 +223,15 @@ type CharacterSave struct {
 	CelLv90      uint8
 	CelCircle    uint8
 	TerraMistica uint8
-	BaseSpecial  [4]int16
-	SkillBar     [4]uint8
-	ShortSkill   [16]uint8
-	Affects      []Affect // active buff slots (minus Divine — see DivineEnd)
+	// PK/karma state (issue #210) — see CharacterState for field meanings.
+	PKPoint     uint8
+	Guilty      uint8
+	CurKill     uint8
+	TotKill     uint16
+	BaseSpecial [4]int16
+	SkillBar    [4]uint8
+	ShortSkill  [16]uint8
+	Affects     []Affect // active buff slots (minus Divine — see DivineEnd)
 
 	Carry []SavedItem
 	Equip []SavedItem

@@ -359,6 +359,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.ScoreBonus, cs.SpecialBonus = e.ScoreBonus, e.SpecialBonus
 	cs.LearnedSkill, cs.SecLearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.SecLearnedSkill, e.BaseSpecial
 	cs.SkillBar, cs.ShortSkill = e.SkillBar, s.ShortSkill
+	cs.PKPoint, cs.Guilty, cs.CurKill, cs.TotKill = e.PKPoint, e.Guilty, e.CurKill, e.TotKill
 	for _, a := range e.Affect {
 		// Divine persists separately as the wall-clock DivineEnd; empty slots drop.
 		if a.Type == 0 || a.Type == AffectDivine {

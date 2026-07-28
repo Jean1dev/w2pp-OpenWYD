@@ -266,6 +266,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		if e.ClassMaster == 0 {
 			e.ClassMaster = classMasterMortal
 		}
+		// PK/karma state (issue #210). PKPoint == 0 means "never persisted"
+		// (SetPKPoint never legitimately writes 0; the DB column defaults to 75)
+		// — pre-migration rows and zero-valued test fixtures both read back 0, so
+		// treat that as neutral, the same convention as ClassMaster == 0 above.
+		e.PKPoint, e.Guilty, e.CurKill, e.TotKill = st.PKPoint, st.Guilty, st.CurKill, st.TotKill
+		if e.PKPoint == 0 {
+			e.PKPoint = pkPointNeutral
+		}
 		// Celestial quest gates (set by /destravar40/90 and /arcana; CheckGetLevel
 		// reads Lv40/Lv90 to unlock the 40/90 caps).
 		e.CelLv40, e.CelLv90, e.CelCircle = st.CelLv40, st.CelLv90, st.CelCircle
@@ -517,10 +525,13 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		Equip:      e.EquipVisual,
 		AnctCode:   e.EquipAnct,
 		CreateType: createType,
-		// Players pack PKPoint into MobName[12] to color the nick (75 neutral/white,
-		// 0 chaos/red); mobs send a raw name with no PK coloring.
+		// Players pack PKPoint/CurKill/TotKill into MobName[12..15] to color the nick
+		// (75 neutral/white, 0 chaos/red) and show the kill-streak bytes (issue #210);
+		// mobs send a raw name with no PK coloring.
 		IsPlayer: world.IsPlayer(e.ID),
 		PKPoint:  playerPKPoint(e),
+		CurKill:  e.CurKill,
+		TotKill:  e.TotKill,
 	}
 }
 

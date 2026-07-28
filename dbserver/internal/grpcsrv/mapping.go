@@ -64,6 +64,10 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		CelestialLv90:      int32(ch.CelLv90),
 		CelestialCircle:    int32(ch.CelCircle),
 		MortalTerraMistica: int32(ch.TerraMistica),
+		PkPoint:            int32(ch.PKPoint),
+		Guilty:             int32(ch.Guilty),
+		CurKill:            int32(ch.CurKill),
+		TotKill:            uint32(ch.TotKill),
 	}
 }
 
@@ -129,6 +133,10 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		CelLv90:         uint8(c.GetCelestialLv90()),
 		CelCircle:       uint8(c.GetCelestialCircle()),
 		TerraMistica:    uint8(c.GetMortalTerraMistica()),
+		PKPoint:         uint8(c.GetPkPoint()),
+		Guilty:          uint8(c.GetGuilty()),
+		CurKill:         uint8(c.GetCurKill()),
+		TotKill:         uint16(c.GetTotKill()),
 	}
 }
 
