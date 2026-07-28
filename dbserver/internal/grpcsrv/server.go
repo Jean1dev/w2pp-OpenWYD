@@ -62,6 +62,12 @@ const (
 	classMasterArch   = 1
 	classMasterMortal = 2
 	maxClass          = 4
+	// pkPointNeutral is the clean/neutral value of the legacy PKPoint byte
+	// (GetFunc.cpp, 75 = neutral; issue #210). A freshly created character must
+	// start here explicitly: CreateCharacter's column list is explicit, so the Go
+	// zero value (0 = maximally chaotic) would otherwise win over the DB
+	// column's DEFAULT.
+	pkPointNeutral = 75
 )
 
 // New builds an AccountService over the given store.
@@ -403,6 +409,7 @@ func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterR
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
 		Coin:  1000000,           // starting gold (so the shop is usable)
 		SaveX: 2096, SaveY: 2096, // matches the BaseMob template spawn
+		PKPoint: pkPointNeutral, // Pontos Caos: a fresh character starts clean (issue #210)
 	}
 	id, err := s.store.CreateCharacter(ctx, req.GetAccountId(), ch)
 	if isUniqueViolation(err) {
@@ -431,6 +438,7 @@ func (s *Server) CreateArchCharacter(ctx context.Context, req *dbv1.CreateArchCh
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
 		Coin:  1000000,
 		SaveX: 2096, SaveY: 2096,
+		PKPoint: pkPointNeutral, // Pontos Caos: a fresh character starts clean (issue #210)
 		Equip: []domain.Item{{
 			Slot:  0,
 			Index: int16(req.GetMortalFace() + 5 + int32(class)),

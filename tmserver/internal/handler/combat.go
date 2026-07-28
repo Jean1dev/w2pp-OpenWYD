@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/binary"
-	"time"
+	"fmt"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -179,6 +179,15 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			writeDamage(payload, i, 0)
 			continue
 		}
+		// A maximally-chaotic attacker cannot damage a comparatively clean target
+		// (_MSG_Attack.cpp "PK - War - Miss": pointPK<=10 && SummonerPointPK>10 ⇒
+		// dam=0 + _DN_CantKillUser). Compares the raw PKPoint byte, not the -75
+		// display value. No geography here either, for the same reason as above.
+		if pvpHit && combatHit && !d.dueling(s.Conn, tid) && int(e.PKPoint) <= 10 && int(target.PKPoint) > 10 {
+			d.sendChatText(w, s, fmt.Sprintf("Voce nao pode atacar este jogador (Pontos Caos: %d)", int(e.PKPoint)-75))
+			writeDamage(payload, i, 0)
+			continue
+		}
 
 		var dmg int
 		if skillHit {
@@ -245,17 +254,14 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			}
 			d.applyOnHitAffects(w, e, target, tid)
 			d.applyHpAbs(w, s, e, dmg)
-			if pvpHit && combatHit && !d.dueling(s.Conn, tid) {
-				// Landing a PvP hit starts (or refreshes) the chaotic red-blink
-				// timer, independent of whether it's already running. On the 0→1
-				// transition, re-broadcast the PK state so the attacker's nick turns
-				// red (MobName[12]=0) for itself and everyone in view. A duel hit
-				// must never mark PK (issue #118 acceptance criteria).
-				wasGuilty := pkGuilty(e)
-				e.GuiltyUntil = time.Now().Add(pkGuiltyDuration).Unix()
-				if !wasGuilty {
-					d.broadcastPKState(w, s, e)
-				}
+			// Landing a PvP hit against a comparatively clean target (PKPoint>10)
+			// marks BOTH sides Guilty (_MSG_Attack.cpp: SetGuilty(conn,8);
+			// SetGuilty(idx,8)) — re-broadcasting whichever side's nick wasn't
+			// already red. A duel hit must never mark PK (issue #118 acceptance
+			// criteria).
+			if pvpHit && combatHit && !d.dueling(s.Conn, tid) && int(target.PKPoint) > 10 {
+				d.markGuilty(w, s, e)
+				d.markGuilty(w, w.Session(tid), target)
 			}
 		} else if dmg < 0 && cast.isSkill && cast.spell.InstanceType == 6 {
 			// Heal: a negative Dam is the healed amount; clamp to the target's max.
@@ -283,6 +289,11 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				// EnemyList propagation; summon.go).
 				d.commandSummons(w, s.Conn, target)
 			}
+		} else if pvpHit && target.HP == 0 && !d.dueling(s.Conn, tid) {
+			// Duel eliminations are handled by the duel-arena sweep (duel.go), not
+			// as a chaos-relevant PvP kill — a duel death must not grant/cost PKPoint
+			// or EXP (same exclusion as the Guilty-set gate above).
+			d.pvpKilled(w, e, target)
 		}
 		writeDamage(payload, i, int32(dmg))
 	}

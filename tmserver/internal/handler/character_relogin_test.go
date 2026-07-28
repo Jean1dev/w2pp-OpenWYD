@@ -160,6 +160,78 @@ func TestSkillStatePersistsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestPKPointStateRoundTrips is the issue #210 persistence check: a character's
+// chaos/karma state (PKPoint/Guilty/CurKill/TotKill) survives save→reload
+// unchanged when nothing in the session touches it.
+func TestPKPointStateRoundTrips(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 50,
+		PKPoint: 130, Guilty: 3, CurKill: 5, TotKill: 20,
+	}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	for {
+		if ty, _ := read(t, c); ty == protocol.MsgCNFCharacterLogout {
+			break
+		}
+	}
+
+	save, n := db.lastSavedChar()
+	if n != 1 {
+		t.Fatalf("saves = %d, want 1", n)
+	}
+	if save.PKPoint != 130 {
+		t.Errorf("save.PKPoint = %d, want 130 (unchanged round-trip)", save.PKPoint)
+	}
+	if save.Guilty != 3 {
+		t.Errorf("save.Guilty = %d, want 3", save.Guilty)
+	}
+	if save.CurKill != 5 {
+		t.Errorf("save.CurKill = %d, want 5", save.CurKill)
+	}
+	if save.TotKill != 20 {
+		t.Errorf("save.TotKill = %d, want 20", save.TotKill)
+	}
+}
+
+// TestPKPointZeroDefaultsToNeutral covers the normalization guard in
+// completeCharacterLogin: PKPoint == 0 means "never persisted" (pre-migration
+// rows and zero-valued test fixtures alike — SetPKPoint never legitimately
+// writes 0), so login must default it to neutral (75), and that corrected
+// value must be what gets saved back, not the raw 0.
+func TestPKPointZeroDefaultsToNeutral(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 50,
+		// PKPoint/Guilty/CurKill/TotKill left at their Go zero value, simulating a
+		// pre-migration row.
+	}
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	for {
+		if ty, _ := read(t, c); ty == protocol.MsgCNFCharacterLogout {
+			break
+		}
+	}
+
+	save, n := db.lastSavedChar()
+	if n != 1 {
+		t.Fatalf("saves = %d, want 1", n)
+	}
+	if save.PKPoint != pkPointNeutral {
+		t.Errorf("save.PKPoint = %d, want %d (login must default PKPoint==0 to neutral)", save.PKPoint, pkPointNeutral)
+	}
+}
+
 func hasSavedAffect(affects []world.Affect, typ uint8) bool {
 	for _, a := range affects {
 		if a.Type == typ {

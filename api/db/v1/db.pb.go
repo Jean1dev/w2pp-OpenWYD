@@ -669,8 +669,13 @@ type Character struct {
 	CelestialCircle    int32    `protobuf:"varint,37,opt,name=celestial_circle,json=celestialCircle,proto3" json:"celestial_circle,omitempty"`            // QuestInfo.Circle (Cythera Arcana quest done)
 	GuildLevel         int32    `protobuf:"varint,38,opt,name=guild_level,json=guildLevel,proto3" json:"guild_level,omitempty"`                           // MOB.GuildLevel: 0 member, 6..8 sub, 9 leader
 	MortalTerraMistica int32    `protobuf:"varint,39,opt,name=mortal_terra_mistica,json=mortalTerraMistica,proto3" json:"mortal_terra_mistica,omitempty"` // QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210).
+	PkPoint       int32  `protobuf:"varint,40,opt,name=pk_point,json=pkPoint,proto3" json:"pk_point,omitempty"` // chaos/karma counter, 75 = neutral
+	Guilty        int32  `protobuf:"varint,41,opt,name=guilty,proto3" json:"guilty,omitempty"`                  // PvP "red nick" decay counter
+	CurKill       int32  `protobuf:"varint,42,opt,name=cur_kill,json=curKill,proto3" json:"cur_kill,omitempty"` // current PvP kill streak
+	TotKill       uint32 `protobuf:"varint,43,opt,name=tot_kill,json=totKill,proto3" json:"tot_kill,omitempty"` // lifetime PvP kills
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -972,6 +977,34 @@ func (x *Character) GetGuildLevel() int32 {
 func (x *Character) GetMortalTerraMistica() int32 {
 	if x != nil {
 		return x.MortalTerraMistica
+	}
+	return 0
+}
+
+func (x *Character) GetPkPoint() int32 {
+	if x != nil {
+		return x.PkPoint
+	}
+	return 0
+}
+
+func (x *Character) GetGuilty() int32 {
+	if x != nil {
+		return x.Guilty
+	}
+	return 0
+}
+
+func (x *Character) GetCurKill() int32 {
+	if x != nil {
+		return x.CurKill
+	}
+	return 0
+}
+
+func (x *Character) GetTotKill() uint32 {
+	if x != nil {
+		return x.TotKill
 	}
 	return 0
 }
@@ -5553,7 +5586,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xba\b\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xa3\t\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -5597,7 +5630,11 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x10celestial_circle\x18% \x01(\x05R\x0fcelestialCircle\x12\x1f\n" +
 	"\vguild_level\x18& \x01(\x05R\n" +
 	"guildLevel\x120\n" +
-	"\x14mortal_terra_mistica\x18' \x01(\x05R\x12mortalTerraMistica\"\xcd\x01\n" +
+	"\x14mortal_terra_mistica\x18' \x01(\x05R\x12mortalTerraMistica\x12\x19\n" +
+	"\bpk_point\x18( \x01(\x05R\apkPoint\x12\x16\n" +
+	"\x06guilty\x18) \x01(\x05R\x06guilty\x12\x19\n" +
+	"\bcur_kill\x18* \x01(\x05R\acurKill\x12\x19\n" +
+	"\btot_kill\x18+ \x01(\rR\atotKill\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

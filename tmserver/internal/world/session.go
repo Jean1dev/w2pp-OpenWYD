@@ -237,13 +237,29 @@ type Entity struct {
 	QuestFlag    uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
-	// hits, but it does NOT by itself blink the nickname.
-	// GuiltyUntil is the wall-clock deadline (Unix seconds) of the "chaotic" state
-	// set when a PvP hit actually lands (refreshed on every hit); the nickname
-	// blinks red while now < GuiltyUntil and reverts once it decays with no further
-	// PvP (handler.pkGuiltyDuration). Neither is persisted (session-only).
-	PKMode      bool
-	GuiltyUntil int64
+	// hits, but it does NOT by itself blink the nickname. Session-only, not persisted.
+	PKMode bool
+
+	// PKPoint is the legacy PKPoint byte (GetFunc.cpp GetPKPoint/SetPKPoint, the
+	// hidden KILL_MARK carry slot): the chaos/karma counter, clamped [1,150] on
+	// write, 75 = neutral. The wire/display value is PKPoint-75 (range [-74,+75],
+	// the /cp command). Drives the nick color via handler.pkPoint (MobName[12],
+	// GetFunc.cpp GetCreateMob): chaos = PKPoint unless Guilty > 0, in which case
+	// chaos = 0 (red/blinking). Persisted.
+	PKPoint uint8
+	// Guilty is the legacy Guilty byte (same KILL_MARK slot, clamped [0,50] on
+	// write): set to 8 on landing (or receiving) a PvP hit outside a duel
+	// (_MSG_Attack.cpp "PK - War - Miss"), decremented by 1 roughly every 8s while
+	// connected (RegenMob, Server.cpp). Guilty > 0 forces the nick red regardless
+	// of PKPoint. Persisted (a player who logs out mid-decay must resume, not reset).
+	Guilty uint8
+	// CurKill/TotKill are the legacy kill-streak counters (GetCurKill/GetTotKill,
+	// same KILL_MARK slot): CurKill is the current uninterrupted PvP kill streak
+	// (reset to 0 on death, MobName[13]); TotKill is the lifetime PvP kill count
+	// (MobName[14..15] LE). Cosmetic (packed into every MSG_CreateMob so other
+	// clients can render them) — no gameplay effect modeled. Persisted.
+	CurKill uint8
+	TotKill uint16
 
 	Str        int16 // CurrentScore attributes (base + equipment, kept live by refreshScore)
 	Int        int16
