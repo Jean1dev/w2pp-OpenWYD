@@ -208,6 +208,56 @@ func TestBaseEffectsCritical(t *testing.T) {
 	}
 }
 
+// TestBaseEffectsResist: EF_RESIST1..4/EF_RESISTALL are score stats too (CMob.cpp:640-643
+// derives MOB.Resist[0..3] from them), not ignored ones — missing from efName is what left
+// every immunity/resist item granting nothing (issue #211).
+func TestBaseEffectsResist(t *testing.T) {
+	// Real rows: Bolsa_Perfumada (ItemList.csv:1009, EF_RESISTALL) and Orb_de_Fogo
+	// (ItemList.csv:1013, EF_RESIST1).
+	const rows = "599,Bolsa_Perfumada,319.0,0.0.0.0.0,0,50000,1024,0,0,EF_CLASS,255,EF_RESISTALL,5\n" +
+		"601,Orb_de_Fogo,63.0,37.0.0.0.0,0,30000,1024,0,0,EF_CLASS,255,EF_RESIST1,3,EF_RESIST2,0,EF_RESIST3,0,EF_RESIST4,0,EF_ITEMLEVEL,1\n"
+	l, err := parseItemList(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eff := l.BaseEffects()
+	for _, tc := range []struct {
+		idx  int
+		eff  uint8
+		want int16
+	}{{599, 54, 5}, {601, 49, 3}} {
+		var got int16
+		var found bool
+		for _, e := range eff[tc.idx] {
+			if e.Eff == tc.eff {
+				got, found = e.Val, true
+			}
+		}
+		if !found || got != tc.want {
+			t.Errorf("BaseEffects()[%d] EF(%d) = %d (found=%v), want %d", tc.idx, tc.eff, got, found, tc.want)
+		}
+	}
+
+	// The real catalog must actually carry resist — the parser silently dropping it is
+	// what issue #211 was. Guards against the effects disappearing from efName again.
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	var withResist int
+	for _, effs := range full.BaseEffects() {
+		for _, e := range effs {
+			if e.Eff >= 49 && e.Eff <= 52 || e.Eff == 54 {
+				withResist++
+				break
+			}
+		}
+	}
+	if withResist < 20 {
+		t.Errorf("real catalog items carrying EF_RESIST1..4/EF_RESISTALL = %d, want >= 20", withResist)
+	}
+}
+
 // TestBaseEffectsNoSanc: quest/trophy stones (Almas, Pedras, Sephirot) are
 // equippable but carry no EF_VOLATILE, so nothing stopped the dust-refine
 // handler from planting an EF_SANC pair into them (issue #133). ItemList.csv

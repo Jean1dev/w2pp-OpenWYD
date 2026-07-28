@@ -275,12 +275,12 @@ type Entity struct {
 	BaseStr, BaseInt, BaseDex, BaseCon int16
 	BaseAC, BaseDamage                 int32
 	BaseMaxHP, BaseMaxMP               int32
-	// BaseMagic/BaseParry/BaseResist: the equipment-free Magic/Parry(evasion)/Resist,
-	// the mount-bonus counterparts of the Base* fields above. Same policy — derived on
-	// login (current − equipment) and re-added by refreshScore, never persisted.
-	BaseMagic  int16
-	BaseParry  int
-	BaseResist [4]int16
+	// BaseMagic: the equipment-free Magic, the mount-bonus counterpart of the Base* fields
+	// above. Same policy — derived on login (current − equipment) and re-added by
+	// refreshScore. Unlike Magic, Parry (evasion) and Resist have NO base term: neither is
+	// persisted, so refreshScore derives them entirely from current equipment every call
+	// instead (see its doc comment — issue #211 bug 3).
+	BaseMagic int16
 
 	// HpAddPct/MpAddPct: EF_HPADD/EF_MPADD percent bonus from equipment (e.g. +10 =
 	// +10%). Cached by refreshScore and applied at READ time (effective max HP/MP),

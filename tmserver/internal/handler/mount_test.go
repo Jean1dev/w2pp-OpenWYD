@@ -99,13 +99,14 @@ func TestMountEquipScore(t *testing.T) {
 	}
 }
 
-// TestMountScoreRoundTrip: a mount already equipped at login round-trips — deriveBaseScore
-// then refreshScore reproduces the loaded CurrentScore exactly (no double count).
+// TestMountScoreRoundTrip: a mount already equipped at login round-trips. Damage/Magic
+// have a real BaseDamage/BaseMagic term (persisted, so pre-seeding them here matters);
+// Parry/Resist have NO base term at all (issue #211 bug 3) — they are derived entirely
+// from the current equip bonus on every refresh, so they come out right regardless of
+// whatever a fresh Entity starts with, which is exactly what avoids the login zero-out.
 func TestMountScoreRoundTrip(t *testing.T) {
 	d := New(Config{})
 	e := &world.Entity{ID: 1, Level: 50, Damage: 955, Magic: 60}
-	e.Resist = [4]int16{32, 32, 32, 32}
-	e.Parry = 80
 	e.Equip[0] = world.Item{Index: 11}
 	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
 	d.deriveBaseScore(e)
