@@ -226,17 +226,23 @@ func isKingQuestNPC(npc *world.Entity) bool {
 	return npc.Merchant == kingQuestMerchant || npc.Merchant == 14 || npc.Merchant == 15
 }
 
-// kingClanFromCape derives the player's effective Clan for the King's faction
-// gate: certain capes override the wearer's guild Clan to 7 or 8 regardless of
-// their actual clan (_MSG_Quest.cpp:704-726). CapeMode (the cape-reward
+// The two kingdom Clan values (REINO_BLUE / REINO_RED, Source/Code/Basedef.h:235-236).
+const (
+	clanHekalotia = 7 // REINO_BLUE
+	clanAkelonia  = 8 // REINO_RED
+)
+
+// kingClanFromCape derives the player's effective Clan from their cape: certain
+// capes override the wearer's guild Clan to 7 or 8 regardless of their actual
+// clan (_MSG_Quest.cpp:704-726, Basedef.cpp:3212-3247). CapeMode (the cape-reward
 // branches further down the legacy case) is out of scope here — only the Clan
-// override matters for the Arch gate.
+// override matters, for the King's Arch gate and the /reino routing.
 func kingClanFromCape(clan uint8, capeIndex int16) uint8 {
 	switch capeIndex {
 	case 543, 545, 734, 736, 3191, 3194, 3197:
-		return 7
+		return clanHekalotia
 	case 544, 546, 735, 737, 3192, 3195, 3198:
-		return 8
+		return clanAkelonia
 	default:
 		return clan
 	}

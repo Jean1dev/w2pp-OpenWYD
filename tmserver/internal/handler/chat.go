@@ -88,12 +88,20 @@ var teleportCmds = map[string][2]int16{
 const reinoCapeSlot = 15
 
 // capaBrancaDoMonstroIndex is ItemList.csv #550 "Capa_Branca_do_Monstro" — the neutral
-// cape the /reino command (issue #127) treats as equivalent to no cape at all.
+// white cape. Like every other non-kingdom cape it routes /reino to the neutral
+// destination (issue #208); it is named here because it is the cape players mean by
+// "capa branca".
 const capaBrancaDoMonstroIndex = 550
 
-// reinoDest is the /reino destination (issue #127): the kingdom-city neighborhood,
-// the same area as the existing /arch teleport ({1706,1723}).
-var reinoDest = [2]int16{1702, 1728}
+// /reino destinations (issue #208). A kingdom-aligned cape sends the player to their
+// own king — the same tiles as the /blue and /red commands in teleportCmds — while any
+// neutral cape (none at all, the Capa Branca do Monstro #550, the Manto do Aprendiz
+// "capa verde" #4006, …) lands in the kingdom city.
+var (
+	reinoDestNeutral   = [2]int16{1706, 1724}
+	reinoDestHekalotia = [2]int16{1745, 1573} // Clan 7 (blue), same tile as /blue
+	reinoDestAkelonia  = [2]int16{1744, 1880} // Clan 8 (red), same tile as /red
+)
 
 // runCommand executes a chat slash command delivered as a whisper whose target name is
 // the command. Returns true when name was a command (handled); false to fall through to
@@ -171,22 +179,31 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 	return false
 }
 
-// teleportReino handles the /reino command (issue #127): teleports players with no
-// cape equipped, or the neutral Capa Branca do Monstro (#550), to the kingdom city.
-// Not among the 55 legacy command regions enumerated from _MSG_MessageWhisper.cpp
-// (docs/migration/handlers) — a new addition, not a ported one. Players wearing any
-// other (kingdom-aligned) cape are notified instead of being teleported.
+// teleportReino handles the /reino command: it routes the player by the kingdom their
+// cape belongs to (issue #208). A Hekalotia (blue) cape goes to Hekalotia's king, an
+// Akelonia (red) one to Akelonia's king, and anything else — no cape, capa branca,
+// capa verde, any other neutral cape — to the kingdom city. Nobody is refused.
+//
+// The command itself is not among the 55 legacy command regions enumerated from
+// _MSG_MessageWhisper.cpp (docs/migration/handlers) — a new addition (issue #127), not
+// a ported one. The Clan routing mirrors the legacy /kingdom (_MSG_MessageWhisper.cpp:868-881)
+// but lands on the king tiles instead of the legacy kingdom-city ones.
 func (d *Dispatcher) teleportReino(w *world.World, s *world.Session) {
 	e := w.Entity(s.Conn)
 	if e == nil {
 		return
 	}
-	cape := e.Equip[reinoCapeSlot]
-	if !cape.Empty() && cape.Index != capaBrancaDoMonstroIndex {
-		d.notify(w, s, NoticeReinoCapeRequired)
-		return
+	// Clan 0 is passed on purpose: only the cape decides the destination. e.Clan can
+	// already be 7/8 from the guild/DB while the player wears no cape at all, and a
+	// capeless player belongs to the neutral destination.
+	dest := reinoDestNeutral
+	switch kingClanFromCape(0, e.Equip[reinoCapeSlot].Index) {
+	case clanHekalotia:
+		dest = reinoDestHekalotia
+	case clanAkelonia:
+		dest = reinoDestAkelonia
 	}
-	d.doTeleport(w, s, reinoDest[0]+int16(w.Rand().Intn(3)), reinoDest[1]+int16(w.Rand().Intn(3)))
+	d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
 }
 
 // clearBuffs removes every active buff/debuff (the /buffs command), recomputes the score
