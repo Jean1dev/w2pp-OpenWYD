@@ -78,64 +78,52 @@ func TestCommandNoatunTeleport(t *testing.T) {
 	}
 }
 
-// TestCommandReinoNoCape verifies /reino teleports a character with no cape equipped
-// (issue #127).
-func TestCommandReinoNoCape(t *testing.T) {
-	addr, stop, _ := startServerClock(t, chatDB())
-	defer stop()
-	a := enterWorldAs(t, addr, "tester")
-	defer a.Close()
+// TestCommandReino verifies /reino routes by the cape's kingdom (issue #208): a
+// Hekalotia/Akelonia cape lands on that kingdom's king, every neutral cape (including
+// none at all) on the kingdom city. No cape is refused any more.
+func TestCommandReino(t *testing.T) {
+	tests := []struct {
+		name  string
+		cape  int16
+		wantX int16
+		wantY int16
+	}{
+		{"no cape", 0, reinoDestNeutral[0], reinoDestNeutral[1]},
+		{"capa branca", capaBrancaDoMonstroIndex, reinoDestNeutral[0], reinoDestNeutral[1]},
+		{"capa verde", greenCapeItem, reinoDestNeutral[0], reinoDestNeutral[1]},
+		{"hekalotia base", 545, reinoDestHekalotia[0], reinoDestHekalotia[1]},
+		{"hekalotia elite", 3191, reinoDestHekalotia[0], reinoDestHekalotia[1]},
+		{"akelonia base", 546, reinoDestAkelonia[0], reinoDestAkelonia[1]},
+		{"akelonia elite", 3192, reinoDestAkelonia[0], reinoDestAkelonia[1]},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newDB()
+			db.loads = map[int64]world.CharacterState{
+				7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+					Equip: [world.MaxEquip]world.Item{reinoCapeSlot: {Index: tc.cape}}},
+			}
+			addr, stop, _ := startServerClock(t, db)
+			defer stop()
+			a := enterWorldAs(t, addr, "tester")
+			defer a.Close()
 
-	whisperFrame(t, a, "reino", "")
-	ty, payload, ok := readMaybe(t, a)
-	if !ok || ty != protocol.MsgAction {
-		t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
-	}
-	var body protocol.MsgActionBody
-	if err := body.Decode(payload); err != nil {
-		t.Fatalf("decode MsgAction: %v", err)
-	}
-	if body.TargetX < 1702 || body.TargetX > 1704 || body.TargetY < 1728 || body.TargetY > 1730 {
-		t.Errorf("/reino target = %d,%d, want within 1702..1704,1728..1730", body.TargetX, body.TargetY)
-	}
-}
-
-// TestCommandReinoWhiteCape verifies /reino also teleports a character wearing the
-// neutral Capa Branca do Monstro (#550).
-func TestCommandReinoWhiteCape(t *testing.T) {
-	db := newDB()
-	db.loads = map[int64]world.CharacterState{
-		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
-			Equip: [world.MaxEquip]world.Item{15: {Index: capaBrancaDoMonstroIndex}}},
-	}
-	addr, stop, _ := startServerClock(t, db)
-	defer stop()
-	a := enterWorldAs(t, addr, "tester")
-	defer a.Close()
-
-	whisperFrame(t, a, "reino", "")
-	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgAction {
-		t.Errorf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
-	}
-}
-
-// TestCommandReinoBlocked verifies /reino refuses (and notifies) a character wearing
-// any other (kingdom-aligned) cape.
-func TestCommandReinoBlocked(t *testing.T) {
-	db := newDB()
-	db.loads = map[int64]world.CharacterState{
-		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
-			Equip: [world.MaxEquip]world.Item{15: {Index: 543}}},
-	}
-	addr, stop, _ := startServerClock(t, db)
-	defer stop()
-	a := enterWorldAs(t, addr, "tester")
-	defer a.Close()
-
-	whisperFrame(t, a, "reino", "")
-	ty, payload, ok := readMaybe(t, a)
-	if !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeReinoCapeRequired {
-		t.Errorf("got %#x ok=%v, want MsgMessageBoxOk/NoticeReinoCapeRequired", ty, ok)
+			whisperFrame(t, a, "reino", "")
+			ty, payload, ok := readMaybe(t, a)
+			if !ok || ty != protocol.MsgAction {
+				t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+			}
+			var body protocol.MsgActionBody
+			if err := body.Decode(payload); err != nil {
+				t.Fatalf("decode MsgAction: %v", err)
+			}
+			// doTeleport spreads the destination by rand%3 on each axis.
+			if body.TargetX < tc.wantX || body.TargetX > tc.wantX+2 ||
+				body.TargetY < tc.wantY || body.TargetY > tc.wantY+2 {
+				t.Errorf("/reino target = %d,%d, want within %d..%d,%d..%d",
+					body.TargetX, body.TargetY, tc.wantX, tc.wantX+2, tc.wantY, tc.wantY+2)
+			}
+		})
 	}
 }
 

@@ -77,7 +77,11 @@ const (
 	// Gema Estelar / Portal Scroll (_MSG_UseItem.cpp Vol 12/13, issue #140).
 	NoticeSetWarp // _NN_Set_Warp (186): warp save-point recorded
 
-	NoticeReinoCapeRequired // /reino (issue #127): cape must be empty or Capa Branca do Monstro (#550)
+	// NoticeReinoCapeRequired was the /reino cape gate (issue #127). Obsolete since
+	// issue #208: /reino now routes every cape to a destination instead of refusing
+	// kingdom capes, so nothing sends this code. Kept so the iota codes below it —
+	// which the client and the handler tests match on — do not shift.
+	NoticeReinoCapeRequired
 
 	// Personal shop / autotrade (issue #115, _MSG_SendAutoTrade.cpp / _MSG_ReqBuy.cpp).
 	NoticeOnlyVillage    // _NN_OnlyVillage: a shop can only open inside a village
