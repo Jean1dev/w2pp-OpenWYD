@@ -20,17 +20,26 @@ func TestMeetsEquipReq(t *testing.T) {
 		900: {Lvl: 100, Str: 50}, // a heavy sword
 	}})
 	sword := world.Item{Index: 900}
-	if d.meetsEquipReq(&world.Entity{Level: 99, Str: 60}, sword) {
+	if d.meetsEquipReq(&world.Entity{ClassMaster: classMasterMortal, Level: 99, Str: 60}, sword) {
 		t.Error("equip allowed below the level requirement")
 	}
-	if d.meetsEquipReq(&world.Entity{Level: 100, Str: 49}, sword) {
+	if d.meetsEquipReq(&world.Entity{ClassMaster: classMasterMortal, Level: 100, Str: 49}, sword) {
 		t.Error("equip allowed below the str requirement")
 	}
-	if !d.meetsEquipReq(&world.Entity{Level: 100, Str: 50}, sword) {
+	if !d.meetsEquipReq(&world.Entity{ClassMaster: classMasterMortal, Level: 100, Str: 50}, sword) {
 		t.Error("equip rejected when requirements are met")
 	}
-	if !d.meetsEquipReq(&world.Entity{}, world.Item{Index: 1}) {
+	if !d.meetsEquipReq(&world.Entity{ClassMaster: classMasterMortal}, world.Item{Index: 1}) {
 		t.Error("an item with no catalog requirement must always pass")
+	}
+	// Basedef.cpp:5024-5028 (BASE_CanEquip): the level/attribute requirement only
+	// gates MORTAL — Arch and Celestial characters bypass it outright, even far
+	// below the item's requirement (issue #209).
+	if !d.meetsEquipReq(&world.Entity{ClassMaster: classMasterArch, Level: 1, Str: 1}, sword) {
+		t.Error("arch character blocked by an equip requirement it should bypass")
+	}
+	if !d.meetsEquipReq(&world.Entity{ClassMaster: classMasterCelestial, Level: 1, Str: 1}, sword) {
+		t.Error("celestial character blocked by an equip requirement it should bypass")
 	}
 }
 

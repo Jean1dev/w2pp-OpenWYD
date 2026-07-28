@@ -1469,7 +1469,16 @@ func (d *Dispatcher) canEquipSlot(idx int16, dst int) bool {
 // (level + Str/Int/Dex/Con, STRUCT_ITEMLIST Req*). It is checked against the live
 // CurrentScore (attributes including other equipped gear), as the original does.
 // Items absent from the requirement catalog (or with no requirement) always pass.
+//
+// The requirement only gates MORTAL characters (Basedef.cpp:5024-5028,
+// BASE_CanEquip): for any other ClassMaster tier (ARCH, CELESTIAL*) the legacy
+// code forces Lvl/Str/Int/Dex/Con to 0 before comparing, an outright bypass —
+// not a different level basis. Arch characters created via kingArch would
+// otherwise fail these checks at their fresh, low post-creation level (issue #209).
 func (d *Dispatcher) meetsEquipReq(e *world.Entity, it world.Item) bool {
+	if e.ClassMaster != classMasterMortal {
+		return true
+	}
 	r, ok := d.itemReqs[int(it.Index)]
 	if !ok {
 		return true
