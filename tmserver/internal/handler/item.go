@@ -1551,7 +1551,12 @@ const (
 	efSanc      = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
 	efHpAdd     = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
 	efMpAdd     = 46 // EF_MPADD: % bonus to MaxMp
+	efResist1   = 49 // EF_RESIST1..4: per-type resist/immunity, see itemResist
+	efResist2   = 50
+	efResist3   = 51
+	efResist4   = 52
 	efAcAdd     = 53 // EF_ACADD: extra AC — FLAT (summed with EF_AC), captura §E
+	efResistAll = 54 // EF_RESISTALL: folds into all four EF_RESISTi — see itemResist
 	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
 	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
 	efMpAdd2    = 70
@@ -1663,6 +1668,32 @@ func (d *Dispatcher) itemCritical(it world.Item) int32 {
 	return v * int32(sanc+10) / 10
 }
 
+// resistEffects maps resist index [0..3] to its EF_RESISTn id (CMob.cpp:640-643 assigns
+// MOB.Resist[0..3] from EF_RESIST1..4 in that literal order).
+var resistEffects = [4]uint8{efResist1, efResist2, efResist3, efResist4}
+
+// itemResist is BASE_GetItemAbility(item, EF_RESISTn) (Basedef.cpp:1830-1858): the flat
+// catalog+instance sum for the queried resist index, PLUS any EF_RESISTALL folded in from
+// the same item (catalog+instance), THEN the refine multiplier (sanc+10)/10 — EF_RESIST1-4
+// is not in BASE_GetItemAbility's exemption list, so it scales like EF_CRITICAL, not like
+// the flat AC/Damage model (the item.go:1640-1647 TODO scope call doesn't apply here: there
+// is no already-live flat-resist baseline to preserve, since resist items granted nothing
+// before this — issue #211).
+func (d *Dispatcher) itemResist(it world.Item, i int) int32 {
+	if it.Empty() {
+		return 0
+	}
+	v := int32(d.itemAbility(it, resistEffects[i])) + int32(d.itemAbility(it, efResistAll))
+	if v == 0 {
+		return 0
+	}
+	sanc := itemSanc(it)
+	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
+		sanc = 10
+	}
+	return v * int32(sanc+10) / 10
+}
+
 // weaponDamage is GetCurrentScore's WeaponDamage (CMob.cpp:756-789): the stronger
 // weapon hand at full damage plus the weaker at half (dual-wield), plus a +40 refine
 // threshold per weapon hand at sanc>=9 (captura §E). It is a SEPARATE field from
@@ -1711,6 +1742,9 @@ type equipBonus struct {
 	// effects. magicRaw is the pre-scaling EF_MAGIC sum (see mountMagicScore); resist
 	// applies to all four resistances. damage already folds into the field above.
 	magicRaw, parry, resist int32
+	// itemResist is the per-type EF_RESIST1..4/EF_RESISTALL sum from ordinary equipment
+	// (see itemResist), refine-scaled — distinct from the flat mount broadcast above.
+	itemResist [4]int32
 }
 
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
@@ -1778,6 +1812,9 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		// the refine multiplier are item-wide) — after the mount slot's early return,
 		// which matches BASE_GetItemAbility returning no crit for mounts.
 		b.criticalRaw += d.itemCritical(it)
+		for i := range b.itemResist {
+			b.itemResist[i] += d.itemResist(it, i)
+		}
 		weaponSlot := slot == weaponSlotR || slot == weaponSlotL
 		nUnique := d.itemUnique[int(it.Index)]
 		dmgJewel := nUnique >= 41 && nUnique <= 50
@@ -1815,14 +1852,12 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
-	// Mount bonuses (Magic/Parry/Resist): same subtraction as the fields above so the
-	// loaded CurrentScore round-trips. Players persist no Parry/Resist (loaded 0), so
-	// their base is 0 until a mount is equipped.
+	// Magic (mount bonus): same subtraction as the fields above so the loaded
+	// CurrentScore round-trips.
 	e.BaseMagic = e.Magic - int16(mountMagicScore(b.magicRaw))
-	e.BaseParry = e.Parry - int(b.parry)
-	for i := range e.BaseResist {
-		e.BaseResist[i] = e.Resist[i] - int16(b.resist)
-	}
+	// Parry/Resist have NO base term at all — see refreshScore's comment: unlike Magic,
+	// they are never persisted, so a subtract-then-add "Base" here would net to zero for
+	// a character who logs in already equipped (issue #211 bug 3).
 }
 
 // refreshScore recomputes the live CurrentScore = BaseScore + FLAT equipment, after any
@@ -1857,16 +1892,21 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	// (The low clamp is belt-and-braces: no catalog row carries negative crit, but a
 	// bare uint8 conversion would wrap one into a near-guaranteed crit.)
 	e.Critical = uint8(min(max(b.criticalRaw/4, 0), 255))
-	// Mount bonuses: Magic gets the (sum+1)/4 scaling, Parry (evasion) and each Resist
-	// are flat, with Resist capped at the legacy ceiling (CMob.cpp:640-643,692). Mounts
-	// live only in a player's Equip[14]; mobs carry their Magic/Parry/Resist straight
-	// from their template (world.SpawnMob) and never derive a BaseScore, so recomputing
-	// them here would zero those template values — guard to players.
+	// Mount bonuses: Magic gets the (sum+1)/4 scaling and keeps a BaseMagic term since it
+	// IS persisted. Parry (evasion) and each Resist are derived ENTIRELY from equipment on
+	// every refresh, like Critical above — there is no BaseParry/BaseResist, because
+	// neither is persisted (world.CharacterState omits them), so a character logging in
+	// already equipped would otherwise always compute Base = 0 − equip, then
+	// Current = Base + equip = 0 regardless of gear (issue #211 bug 3). Resist is capped
+	// at the legacy ceiling (CMob.cpp:640-643,692). Mounts live only in a player's
+	// Equip[14]; mobs carry their Magic/Parry/Resist straight from their template
+	// (world.SpawnMob) and never derive a BaseScore, so recomputing them here would zero
+	// those template values — guard to players.
 	if world.IsPlayer(e.ID) {
 		e.Magic = e.BaseMagic + int16(mountMagicScore(b.magicRaw))
-		e.Parry = e.BaseParry + int(b.parry)
+		e.Parry = int(b.parry)
 		for i := range e.Resist {
-			e.Resist[i] = clampResist(e.BaseResist[i] + int16(b.resist))
+			e.Resist[i] = clampResist(int16(b.resist) + int16(b.itemResist[i]))
 		}
 	}
 	d.applyAffectScore(e)
