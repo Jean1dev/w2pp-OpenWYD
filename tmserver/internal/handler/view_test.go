@@ -213,6 +213,35 @@ func TestMoveViewDelta(t *testing.T) {
 	}
 }
 
+func TestCreateMobCarriesAffectIconsOnReveal(t *testing.T) {
+	db := viewDeltaDB()
+	heroB := db.loads[11]
+	heroB.Affects = []world.Affect{{Type: 31, Time: 7}}
+	db.loads[11] = heroB
+	addr, stop := startServerView(t, db, 64)
+	defer stop()
+
+	a := enterWorld(t, addr) // conn 1 at (5,5)
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb") // conn 2 at (5,45), already carrying affect 31
+	defer b.Close()
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	actionFrameXY(t, b, protocol.MsgAction, serverTime, 5, 45, 5, 21)
+
+	ty, payload, ok := readMaybeRaw(t, a)
+	if !ok || ty != protocol.MsgCreateMob {
+		t.Fatalf("A frame = %#x ok=%v, want CreateMob(B)", ty, ok)
+	}
+	if _, _, id := createMobFields(t, payload); id != 2 {
+		t.Fatalf("A sees mob id %d, want 2", id)
+	}
+	if got, want := binary.LittleEndian.Uint16(payload[54:]), protocol.PackAffect(protocol.AffectData{Type: 31, Time: 7}); got != want {
+		t.Fatalf("CreateMob Affect[0] = %#x, want %#x", got, want)
+	}
+}
+
 func TestPlayersCrossingViewOnMovement(t *testing.T) {
 	addr, stop := startServerView(t, viewDeltaDB(), 64)
 	defer stop()

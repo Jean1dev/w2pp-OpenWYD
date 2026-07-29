@@ -504,7 +504,7 @@ func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
 // EquipVisual/EquipAnct, set at login/spawn from the relevant STRUCT_MOB data.
 // createType: 0 normal, 2 "just entered".
 func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
-	return protocol.CreateMobData{
+	d := protocol.CreateMobData{
 		MobID:           e.ID,
 		Name:            e.Name,
 		PosX:            e.X,
@@ -533,6 +533,16 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		CurKill:  e.CurKill,
 		TotKill:  e.TotKill,
 	}
+	for i := range e.Affect {
+		if e.Affect[i].Type == 0 {
+			continue
+		}
+		d.Affect[i] = protocol.PackAffect(protocol.AffectData{
+			Type: e.Affect[i].Type,
+			Time: e.Affect[i].Time,
+		})
+	}
+	return d
 }
 
 // createMobViewPacket mirrors legacy SendCreateMob: a player with an open

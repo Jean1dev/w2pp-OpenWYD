@@ -13,8 +13,9 @@ const (
 )
 
 // CreateMobData is the subset of MSG_CreateMob needed to render an entity in
-// view. Equip holds VISUAL item codes (u16[16]); AnctCode holds the matching
-// refine/ancient glow overlay bytes. 0 = empty/no overlay.
+// view. Equip holds VISUAL item codes (u16[16]); Affect holds the packed
+// GetAffect icon/visual slots; AnctCode holds the matching refine/ancient glow
+// overlay bytes. 0 = empty/no overlay.
 type CreateMobData struct {
 	MobID                int
 	Name                 string
@@ -29,6 +30,7 @@ type CreateMobData struct {
 	Direction            uint8
 	CreateType           uint16 // 0 normal, 2 "just entered"
 	Equip                [16]uint16
+	Affect               [MaxAffect]uint16
 	AnctCode             [16]uint8
 	// IsPlayer selects the MobName encoding: players (id < MAX_USER) pack PK data
 	// into MobName[12..15]; mobs/NPCs send the full 16-byte name raw (their names
@@ -98,6 +100,9 @@ func EncodeCreateMobBody(d CreateMobData) []byte {
 	}
 	for i := 0; i < 16; i++ { // Equip[16] @abs34 → body22
 		le.PutUint16(b[22+i*2:], d.Equip[i])
+	}
+	for i := 0; i < MaxAffect; i++ { // Affect[32] @abs66 → body54
+		le.PutUint16(b[54+i*2:], d.Affect[i])
 	}
 	le.PutUint16(b[118:], d.Guild)      // Guild @abs130 → body118
 	b[120] = d.GuildMemberType          // GuildMemberType @abs132 → body120

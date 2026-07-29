@@ -16,6 +16,8 @@ func TestCreateMobBodyLayout(t *testing.T) {
 		Merchant: 1, AttackRun: 82, CreateType: 2,
 	}
 	d.Equip[0] = 831
+	d.Affect[0] = PackAffect(AffectData{Type: 31, Time: 7})
+	d.Affect[31] = PackAffect(AffectData{Type: 34, Time: 3000000})
 	d.AnctCode[0] = 43
 	b := EncodeCreateMobBody(d)
 
@@ -31,6 +33,15 @@ func TestCreateMobBodyLayout(t *testing.T) {
 	}
 	if got := le.Uint16(b[22:]); got != 831 { // Equip[0] @abs34 → body22
 		t.Errorf("Equip[0] = %d, want 831", got)
+	}
+	if got := le.Uint16(b[54:]); got != (31<<8)|7 { // Affect[0] @abs66 → body54
+		t.Errorf("Affect[0] = %#x, want %#x", got, (31<<8)|7)
+	}
+	if got := le.Uint16(b[54+31*2:]); got != (34<<8)|uint16(2550000&0xFF) {
+		t.Errorf("Affect[31] = %#x, want clamped time byte", got)
+	}
+	if got := le.Uint16(b[118:]); got != 7 { // Guild @abs130 → body118
+		t.Errorf("Guild = %d, want 7", got)
 	}
 	if b[124+12] != 1 { // Score.Merchant @abs148 → body124+12 (name-visible NPC flag)
 		t.Errorf("Score.Merchant = %d, want 1", b[124+12])
