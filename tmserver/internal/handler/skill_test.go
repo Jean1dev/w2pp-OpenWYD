@@ -323,13 +323,21 @@ func TestMeleeWithNegativeSkillIndex(t *testing.T) {
 }
 
 func startServerSkills(t *testing.T, persist world.Persistence) (string, func()) {
+	return startServerSkillsWithConfig(t, persist, Config{Spells: testSpells()})
+}
+
+func startServerSkillsWithConfig(t *testing.T, persist world.Persistence, cfg Config) (string, func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log, Spells: testSpells()})
+	cfg.Log = log
+	if cfg.Spells == nil {
+		cfg.Spells = testSpells()
+	}
+	d := New(cfg)
 	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -470,6 +478,41 @@ func TestLearnSkill(t *testing.T) {
 	send(t, c, protocol.MsgApplyBonus, learnBody(5007))
 	if ty, p, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeLearnPrereq {
 		t.Errorf("got %#x/%d, want prereq notice", ty, noticeCode(t, p))
+	}
+}
+
+func TestLearnSkillUsesSpecialAllFromEquippedItems(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Hero", Class: 0, X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+		Level:       10,
+		BaseSpecial: [4]int16{0, 5, 5, 5},
+		Equip: [world.MaxEquip]world.Item{
+			1: {Index: 700, Effects: [3]world.Effect{{Effect: efSpecialAll, Value: 5}}},
+		},
+	}
+	addr, stop := startServerSkillsWithConfig(t, db, Config{
+		Spells:   testSpells(),
+		ItemReqs: map[int]content.ItemReq{5001: {Int: 10, Dex: 10, Con: 10}},
+	})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgApplyBonus, learnBody(5001))
+	ty, p, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgUpdateScore {
+		t.Fatalf("got %#x ok=%v, want UpdateScore", ty, ok)
+	}
+	if s1, s2, s3 := lend.Uint16(p[42:]), lend.Uint16(p[44:]), lend.Uint16(p[46:]); s1 != 10 || s2 != 10 || s3 != 10 {
+		t.Fatalf("UpdateScore.Special[1..3] = %d/%d/%d, want 10/10/10", s1, s2, s3)
+	}
+	ty, p, ok = readMaybe(t, c)
+	if !ok || ty != protocol.MsgUpdateEtc {
+		t.Fatalf("got %#x ok=%v, want UpdateEtc", ty, ok)
+	}
+	if learn := int64(lend.Uint64(p[12:])); learn != 1<<1 {
+		t.Errorf("UpdateEtc.Learn = %#x, want bit1", learn)
 	}
 }
 

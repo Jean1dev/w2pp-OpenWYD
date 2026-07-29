@@ -789,6 +789,20 @@ func TestEquipBonusDivines(t *testing.T) {
 	}
 }
 
+func TestEquipBonusSpecialAll(t *testing.T) {
+	d := New(Config{})
+	e := &world.Entity{}
+	e.Equip[0] = world.Item{Index: 700, Effects: [3]world.Effect{
+		{Effect: efSpecialAll, Value: 5},
+	}}
+
+	b := d.equipBonus(e)
+	want := [4]int16{0, 5, 5, 5}
+	if b.special != want {
+		t.Errorf("special = %v, want %v", b.special, want)
+	}
+}
+
 // TestEquipBonusDamageAddGate confirms EF_DAMAGEADD is ignored on a NON-jewel item
 // (nUnique outside [41,50]) — only damage jewels contribute it (captura §B/E).
 func TestEquipBonusDamageAddGate(t *testing.T) {
@@ -1078,6 +1092,31 @@ func TestRefreshScoreSpecial(t *testing.T) {
 	}
 	if e.Special[1] != 15 {
 		t.Errorf("Special[1] = %d, want 15", e.Special[1])
+	}
+}
+
+func TestRefreshScoreSpecialAll(t *testing.T) {
+	d := New(Config{})
+	e := &world.Entity{
+		ID:          1,
+		BaseSpecial: [4]int16{0, 10, 20, 30},
+		Special:     [4]int16{0, 15, 25, 35},
+		Str:         80, AC: 120, MaxHP: 1000, HP: 1000,
+	}
+	e.Equip[0] = world.Item{Index: 700, Effects: [3]world.Effect{
+		{Effect: efSpecialAll, Value: 5},
+	}}
+	d.deriveBaseScore(e)
+	d.refreshScore(e)
+	d.refreshScore(e)
+
+	wantBase := [4]int16{0, 10, 20, 30}
+	want := [4]int16{0, 15, 25, 35}
+	if e.BaseSpecial != wantBase {
+		t.Errorf("BaseSpecial = %v, want %v", e.BaseSpecial, wantBase)
+	}
+	if e.Special != want {
+		t.Errorf("Special = %v, want %v", e.Special, want)
 	}
 }
 
