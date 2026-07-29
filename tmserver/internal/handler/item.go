@@ -1534,36 +1534,37 @@ func (d *Dispatcher) refreshEquip(w *world.World, s *world.Session, e *world.Ent
 
 // Item-effect type bytes (ItemEffect.h) summed into the CurrentScore.
 const (
-	efDamage    = 2
-	efAc        = 3
-	efHp        = 4
-	efMp        = 5
-	efStr       = 7
-	efInt       = 8
-	efDex       = 9
-	efCon       = 10
-	efSpecial1  = 11 // EF_SPECIAL1..4 → CurrentScore.Special[0..3]
-	efSpecial2  = 12
-	efSpecial3  = 13
-	efSpecial4  = 14
-	efWType     = 21 // EF_WTYPE: weapon animation/type, used by Huntress RSV gates
-	efCritical  = 42 // EF_CRITICAL: crit source; summed over equip then /4 (Basedef.cpp:3209)
-	efSanc      = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
-	efHpAdd     = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
-	efMpAdd     = 46 // EF_MPADD: % bonus to MaxMp
-	efResist1   = 49 // EF_RESIST1..4: per-type resist/immunity, see itemResist
-	efResist2   = 50
-	efResist3   = 51
-	efResist4   = 52
-	efAcAdd     = 53 // EF_ACADD: extra AC — FLAT (summed with EF_AC), captura §E
-	efResistAll = 54 // EF_RESISTALL: folds into all four EF_RESISTi — see itemResist
-	efDamageAdd = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
-	efHpAdd2    = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
-	efMpAdd2    = 70
-	efCritical2 = 71 // EF_CRITICAL2: enchanted crit — SUPERSEDES EF_CRITICAL on the same item
-	efItemLevel = 87
-	efMobType   = 112
-	efRunSpeed  = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
+	efDamage     = 2
+	efAc         = 3
+	efHp         = 4
+	efMp         = 5
+	efStr        = 7
+	efInt        = 8
+	efDex        = 9
+	efCon        = 10
+	efSpecial1   = 11 // EF_SPECIAL1..4 → CurrentScore.Special[0..3]
+	efSpecial2   = 12
+	efSpecial3   = 13
+	efSpecial4   = 14
+	efSpecialAll = 74 // EF_SPECIALALL → CurrentScore.Special[1..3], "Aprendizagem de Skill"
+	efWType      = 21 // EF_WTYPE: weapon animation/type, used by Huntress RSV gates
+	efCritical   = 42 // EF_CRITICAL: crit source; summed over equip then /4 (Basedef.cpp:3209)
+	efSanc       = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
+	efHpAdd      = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
+	efMpAdd      = 46 // EF_MPADD: % bonus to MaxMp
+	efResist1    = 49 // EF_RESIST1..4: per-type resist/immunity, see itemResist
+	efResist2    = 50
+	efResist3    = 51
+	efResist4    = 52
+	efAcAdd      = 53 // EF_ACADD: extra AC — FLAT (summed with EF_AC), captura §E
+	efResistAll  = 54 // EF_RESISTALL: folds into all four EF_RESISTi — see itemResist
+	efDamageAdd  = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
+	efHpAdd2     = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
+	efMpAdd2     = 70
+	efCritical2  = 71 // EF_CRITICAL2: enchanted crit — SUPERSEDES EF_CRITICAL on the same item
+	efItemLevel  = 87
+	efMobType    = 112
+	efRunSpeed   = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
 
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
 	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
@@ -1769,6 +1770,10 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			b.special[2] += int16(val)
 		case efSpecial4:
 			b.special[3] += int16(val)
+		case efSpecialAll:
+			for i := 1; i <= 3; i++ {
+				b.special[i] += int16(val)
+			}
 		case efAc, efAcAdd: // EF_AC (refined value already in the effect) + EF_ACADD, both FLAT
 			b.ac += val
 		case efDamage:

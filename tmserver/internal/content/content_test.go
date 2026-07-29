@@ -153,6 +153,24 @@ func TestBaseEffects(t *testing.T) {
 	}
 }
 
+func TestBaseEffectsSpecialAll(t *testing.T) {
+	const row = "700,Anel_Aprendizagem,0.0,0.0.0.0.0,0,0,1024,0,0,EF_CLASS,255,EF_SPECIALALL,18"
+	l, err := parseItemList(strings.NewReader(row))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got int16
+	var found bool
+	for _, e := range l.BaseEffects()[700] {
+		if e.Eff == 74 {
+			got, found = e.Val, true
+		}
+	}
+	if !found || got != 18 {
+		t.Errorf("BaseEffects()[700] EF_SPECIALALL = %d (found=%v), want 18", got, found)
+	}
+}
+
 // TestBaseEffectsCritical: EF_CRITICAL/EF_CRITICAL2 are score stats (Basedef.cpp:3209
 // derives MOB.Critical from them), not the visual effects they were once filed as —
 // dropping them here is what left crit gear worth nothing (issue #102). Most crit in the
