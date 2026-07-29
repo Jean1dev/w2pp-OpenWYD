@@ -283,6 +283,58 @@ func TestHuntressSkill85ChargesGoldBut86DoesNot(t *testing.T) {
 	}
 }
 
+func TestHuntressSkill86DoesNotDamageSelf(t *testing.T) {
+	addr, stop := startServerCustomSpells(t, huntressSkill86DB(), huntressSkill86Spells())
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	got := attackEchoBody(t, c, serverTime, 1, 86, damSkill)
+	if got.Dam[0].Damage != 0 {
+		t.Fatalf("self-target skill 86 damage = %d, want 0", got.Dam[0].Damage)
+	}
+	if got.CurrentHp != 1000 {
+		t.Fatalf("self-target skill 86 CurrentHp = %d, want unchanged 1000", got.CurrentHp)
+	}
+	if got.CurrentMp != 475 {
+		t.Fatalf("self-target skill 86 CurrentMp = %d, want 475 after mana spend", got.CurrentMp)
+	}
+}
+
+func TestHuntressSkill86StillDamagesEnemy(t *testing.T) {
+	addr, stop := startServerCustomSpells(t, huntressSkill86DB(), huntressSkill86Spells())
+	defer stop()
+	attacker := enterWorld(t, addr)
+	defer attacker.Close()
+	target := enterWorld(t, addr)
+	defer target.Close()
+
+	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
+	got := attackEchoBody(t, attacker, serverTime, 2, 86, damSkill)
+	if got.Dam[0].Damage <= 0 {
+		t.Fatalf("enemy-target skill 86 damage = %d, want > 0", got.Dam[0].Damage)
+	}
+	if got.CurrentHp != 1000 {
+		t.Fatalf("enemy-target skill 86 CurrentHp = %d, want caster unchanged at 1000", got.CurrentHp)
+	}
+}
+
+func huntressSkill86Spells() *content.SkillData {
+	return content.NewSkillData([]content.Spell{
+		{Index: 86, ManaSpent: 25, InstanceType: 1, InstanceValue: 35, Aggressive: 1, MaxTarget: 0, Name: "Escudo_Dourado"},
+	})
+}
+
+func huntressSkill86DB() *fakeDB {
+	db := newDB()
+	db.loadResult = world.CharacterState{
+		Slot: 0, Name: "Huntress", Class: 3, X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, MP: 500, MaxMP: 500,
+		Level: 50, Str: 100, Damage: 200, LearnedSkill: 1 << (86 % content.MaxSkill),
+	}
+	return db
+}
+
 func TestHuntressForceDamageApplication(t *testing.T) {
 	attacker := &world.Entity{AffForceMobDamage: 25, AffForceDamage: 40}
 	mob := &world.Entity{ID: world.MaxUser}
@@ -493,6 +545,11 @@ func targetMobWithClan(name string, clan, merchant byte, hp uint32) []byte {
 
 func attackEchoDamage(t *testing.T, c net.Conn, tick uint32, targetID, skillnum int, claim int32) int32 {
 	t.Helper()
+	return attackEchoBody(t, c, tick, targetID, skillnum, claim).Dam[0].Damage
+}
+
+func attackEchoBody(t *testing.T, c net.Conn, tick uint32, targetID, skillnum int, claim int32) protocol.MsgAttackBody {
+	t.Helper()
 	skillAttackFrame(t, c, tick, targetID, skillnum, claim)
 	ty, payload, ok := readMaybe(t, c)
 	if !ok || ty != protocol.MsgAttack {
@@ -505,7 +562,7 @@ func attackEchoDamage(t *testing.T, c net.Conn, tick uint32, targetID, skillnum 
 	if len(got.Dam) != 1 {
 		t.Fatalf("Dam = %+v, want one entry", got.Dam)
 	}
-	return got.Dam[0].Damage
+	return got
 }
 
 // castEchoDamage casts skillnum (claim -1) at targetID and returns the resolved

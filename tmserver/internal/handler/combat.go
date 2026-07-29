@@ -197,6 +197,12 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			}
 			dmg = d.resolveSkillHit(w, e, target, tid, skillnum, cast)
 			skipGenericAffect := d.applySkillSpecial(w, s, e, target, tid, skillnum, cast, &body, &dmg)
+			// The client can self-target aggressive skill rows through the hotbar.
+			// Do not turn those rows into damage against the caster; explicit HP
+			// costs, such as Julgamento Divino, are handled in applySkillSpecial.
+			if dmg > 0 && tid == s.Conn && cast.spell.Aggressive != 0 && skillnum != 30 {
+				dmg = 0
+			}
 			if dmg > 0 && tid != s.Conn {
 				if miss := combat.ResolveParry(w.Rand(), skillnum, d.parryRate(e, target), target.Rsv&world.RsvBlock != 0); miss != 0 {
 					dmg = miss
