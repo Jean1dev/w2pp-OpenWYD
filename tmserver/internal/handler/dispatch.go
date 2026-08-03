@@ -214,6 +214,8 @@ const worldEventRNGSeed uint32 = 116
 type worldEventState struct {
 	weather      int32 // CurrentWeather, 0/1/2 (Server.cpp:688)
 	forceWeather int32 // ForceWeather; -1 = automatic rolls (Server.cpp:637)
+	kingdom1     uint8 // Kingdom1Clear, delayed throne-room wipe state
+	kingdom2     uint8 // Kingdom2Clear, delayed throne-room wipe state
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.

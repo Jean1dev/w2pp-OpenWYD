@@ -271,10 +271,6 @@ func (d *Dispatcher) concludeDuelDraw(w *world.World) {
 	}
 }
 
-// duelBox is an inclusive x/y bounding box, matching the SendDamage/
-// SendEnvEffect box arguments in ProcessRanking.
-type duelBox struct{ x1, y1, x2, y2 int16 }
-
 // duelWallEffect is the legacy EnvEffect id used for every closing-wall visual
 // call in ProcessRanking (Server.cpp: `SendEnvEffect(..., 32, 0)`, repeated for
 // every stage/quadrant). EffectParm is always 0.
