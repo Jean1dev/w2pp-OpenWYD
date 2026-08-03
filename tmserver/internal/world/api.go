@@ -165,6 +165,9 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 			},
 		}
 	}
+	// Spawn-time newbie handicap, applied last so it sees the final HP — the
+	// legacy does the same, right after CurrentScore.Hp = MaxHp (Server.cpp:3326).
+	w.applyNewbieHandicap(e)
 	w.entities[id] = e
 	w.grid.SetMob(int(x), int(y), uint16(id))
 	w.mobCount++

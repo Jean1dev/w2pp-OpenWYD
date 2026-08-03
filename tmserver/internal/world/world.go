@@ -149,6 +149,11 @@ type World struct {
 	// successful event drops.
 	worldEvent EventConfig
 
+	// newbieEvent mirrors the legacy NewbieEventServer flag (Server.cpp:617).
+	// The world itself only needs it for the spawn-time HP handicap; the EXP
+	// side lives in the dispatcher's ExpEvents. Loop-owned.
+	newbieEvent bool
+
 	events    chan event
 	callbacks chan event // async handler results (World.Go / World.GoDetached); separate
 	// from events so a long mob-AI tick cannot block login/db callbacks on the main queue.

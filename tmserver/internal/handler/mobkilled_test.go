@@ -188,6 +188,9 @@ func TestApplyWorldEventConfigUpdatesExpAndDropState(t *testing.T) {
 	if !d.expEvents.DoubleMode || !d.expEvents.NewbieEvent {
 		t.Fatalf("exp events = %+v, want double+newbie enabled", d.expEvents)
 	}
+	if !w.NewbieEvent() {
+		t.Fatal("world newbie spawn handicap was not enabled")
+	}
 	got := w.WorldEventConfig()
 	if got.Version != 9 || !got.Enabled || got.ItemIndex != 777 || got.CurrentIndex != 101 || !got.Indexed {
 		t.Errorf("world event config = %+v, want snapshot applied", got)
