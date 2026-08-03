@@ -579,8 +579,10 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		Magic:   int(effectiveMagic(e)),
 		Special: cast.special,
 	}
-	// UNVERIFIED: CurrentWeather is not modeled (weather 0 = neutral).
-	raw := combat.SkillBaseDamage(skillnum, sp, caster, 0, int(d.weaponDamage(e)))
+	// CurrentWeather scales InstanceType 2/3/5 output (_MSG_Attack.cpp:520,594,972
+	// → BASE_GetSkillDamage). Weather 0 is neutral, so this is a no-op until a
+	// roll or a GM override moves it (weather.go).
+	raw := combat.SkillBaseDamage(skillnum, sp, caster, int(d.currentWeather()), int(d.weaponDamage(e)))
 
 	switch {
 	case sp.InstanceType >= 1 && sp.InstanceType <= 5:

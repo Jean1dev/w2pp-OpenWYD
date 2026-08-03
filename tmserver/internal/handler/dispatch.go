@@ -21,8 +21,10 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldevents"
 )
 
 // Config tunes the dispatcher. Zero values get sensible defaults.
@@ -184,6 +186,34 @@ type Dispatcher struct {
 	// RankingProgress/Ranking1/Ranking2/RankingTime are process-wide globals, not
 	// per-pair — only one duel occupies the arena at a time.
 	duel duelArena
+
+	// events is the timer-driven world-event state (issue #116): weather, the
+	// tower war window, the kingdom clear-area delay. Like every legacy
+	// equivalent in Server.cpp these are process-wide globals, so one instance
+	// per server. Loop-only.
+	events worldEventState
+
+	// eventRNG is a DEDICATED MSVC stream for world-event rolls. The legacy draws
+	// them from the single global rand(), but that stream is the one our
+	// drop/refine/critical goldens pin the call order of (refine_test.go,
+	// loot_test.go, combat_test.go): a per-minute weather draw on it would
+	// invalidate every one of them. Documented parity deviation, issue #116.
+	//
+	// Typed as the interface (not *rng.MSVC) so tests can substitute a scripted
+	// or counting generator; production always holds an MSVC.
+	eventRNG worldevents.Rand
+}
+
+// worldEventRNGSeed seeds eventRNG. It is NOT a legacy value — the original has
+// no srand() at all (rng package doc) — it exists only to keep world-event
+// draws off the world's parity stream.
+const worldEventRNGSeed uint32 = 116
+
+// worldEventState is the loop-owned runtime state of the timer-driven world
+// events. Each field names the legacy global it ports.
+type worldEventState struct {
+	weather      int32 // CurrentWeather, 0/1/2 (Server.cpp:688)
+	forceWeather int32 // ForceWeather; -1 = automatic rolls (Server.cpp:637)
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -229,6 +259,8 @@ func New(cfg Config) *Dispatcher {
 		npcSource:        cfg.NpcConfig,
 		managedNPCs:      make(map[string]int),
 		worldEventSource: cfg.WorldEvents,
+		eventRNG:         rng.NewSeeded(worldEventRNGSeed),
+		events:           worldEventState{forceWeather: weatherAuto},
 	}
 	for i := range d.guildZones {
 		d.guildZones[i].Zone = i

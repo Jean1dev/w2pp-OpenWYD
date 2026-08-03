@@ -352,7 +352,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			}
 			carry[i] = itemToSel(st.Carry[i])
 		}
-		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, loginX, loginY, saveX, saveY, s.Slot, s.Conn, 0, shortSkill, skill, loginPKPoint)
+		// Weather rides the login snapshot rather than a separate packet, exactly
+		// as the legacy does (sm.Weather = CurrentWeather, ProcessDBMessage.cpp:834).
+		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, loginX, loginY, saveX, saveY, s.Slot, s.Conn, uint16(d.currentWeather()), shortSkill, skill, loginPKPoint)
 		d.logCNFCharacterLogin("template", s, st, loginX, loginY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
@@ -399,7 +401,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			},
 		}
 	}
-	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, 0, loginX, loginY, m, shortSkill)
+	body := protocol.EncodeCNFCharacterLoginBody(s.Slot, s.Conn, uint16(d.currentWeather()), loginX, loginY, m, shortSkill)
 	d.logCNFCharacterLogin("fallback", s, st, loginX, loginY, body)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 	d.enterWorldView(w, s)

@@ -673,6 +673,23 @@ func EncodeEnvEffect(x1, y1, x2, y2, effect, effectParm int16) []byte {
 	return b
 }
 
+// MsgUpdateWeatherBodySize is the MSG_UpdateWeather payload: a single int32
+// CurrentWeather (Basedef.h:2167-2173), so 16 bytes on the wire with the header.
+const MsgUpdateWeatherBodySize = 4
+
+// EncodeUpdateWeather builds a MSG_UpdateWeather body. The legacy broadcasts it
+// to every USER_PLAY connection with HEADER.ID = ESCENE_FIELD, not per grid
+// (SendWeather, SendFunc.cpp:1669-1696).
+//
+// Note the width mismatch is legacy, not a bug here: this packet carries an
+// int32, while the same value rides MSG_CNFCharacterLogin as an unsigned short
+// (Basedef.h:1682-1695). Only 0/1/2 are ever sent, so both are equivalent.
+func EncodeUpdateWeather(weather int32) []byte {
+	b := make([]byte, MsgUpdateWeatherBodySize)
+	le.PutUint32(b, uint32(weather))
+	return b
+}
+
 // EncodeStandardParm3 builds a three-int32 signal body, used by SendWarInfo
 // (Guild, castle clan, ally/war target).
 func EncodeStandardParm3(parm1, parm2, parm3 int32) []byte {

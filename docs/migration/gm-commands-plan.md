@@ -64,5 +64,8 @@ criterion.
   `notice` ships as a `[GM]`-prefixed chat line for now (`notice.go §UNVERIFIED`).
 - `setlevel` only levels **up** (reuses `applyMortalLevelUps`); a downlevel would
   need to unwind the derived score — out of scope.
-- Later batches from `Comandos GM.txt` (events, guild/castle war, rates, weather,
+- `weather` (`/gm weather <0|1|2|auto>`) shipped with issue #116 (`handler/weather.go`):
+  it ports the legacy `/weather` (`imple.cpp:1122-1129`) but validates the value and adds
+  the `auto` reset the original lacked.
+- Later batches from `Comandos GM.txt` (events, guild/castle war, rates,
   mute/snoop) and the binServer ban migration are separate tasks.
