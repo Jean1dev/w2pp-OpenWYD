@@ -74,6 +74,11 @@ type BaseEffect struct {
 // BASE_GetMobAbility), so leaving them off this whitelist silently dropped every
 // immunity/resist item's effect at parse time — the items looked correct in the catalog
 // but granted nothing on the character.
+//
+// EF_MAGIC/EF_MAGICADD (ItemEffect.h:117,124-125) are the same bug class again (issue #223):
+// Basedef.cpp:3194-3195 derives the caster's Magic score from BASE_GetMobAbility(EF_MAGIC)+
+// BASE_GetMobAbility(EF_MAGICADD), so an "Ataque Mágico" item's bonus was silently dropped at
+// parse time — the item looked correct in the catalog but granted no extra magic damage.
 var efName = map[string]uint8{
 	"EF_DAMAGE": 2, "EF_AC": 3, "EF_HP": 4, "EF_MP": 5,
 	"EF_STR": 7, "EF_INT": 8, "EF_DEX": 9, "EF_CON": 10,
@@ -82,7 +87,8 @@ var efName = map[string]uint8{
 	"EF_POS":        17, "EF_WTYPE": 21, "EF_CRITICAL": 42, "EF_SANC": 43,
 	"EF_HPADD": 45, "EF_MPADD": 46,
 	"EF_RESIST1": 49, "EF_RESIST2": 50, "EF_RESIST3": 51, "EF_RESIST4": 52, "EF_ACADD": 53, "EF_RESISTALL": 54,
-	"EF_DAMAGEADD": 67, "EF_HPADD2": 69, "EF_MPADD2": 70, "EF_CRITICAL2": 71,
+	"EF_MAGIC": 60,
+	"EF_DAMAGEADD": 67, "EF_MAGICADD": 68, "EF_HPADD2": 69, "EF_MPADD2": 70, "EF_CRITICAL2": 71,
 	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
 	// Refine gates (_MSG_UseItem.cpp dust path): EF_NOSANC marks an item that can
 	// never be refined; the two incubation effects drive the mount-egg branch.

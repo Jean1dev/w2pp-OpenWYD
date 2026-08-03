@@ -1558,7 +1558,9 @@ const (
 	efResist4    = 52
 	efAcAdd      = 53 // EF_ACADD: extra AC — FLAT (summed with EF_AC), captura §E
 	efResistAll  = 54 // EF_RESISTALL: folds into all four EF_RESISTi — see itemResist
+	efMagic      = 60 // EF_MAGIC: flat magic-attack — excluded on the off-hand weapon slot only (Basedef.cpp:2447)
 	efDamageAdd  = 67 // EF_DAMAGEADD: extra flat damage — only counts for jewels (nUnique 41-50)
+	efMagicAdd   = 68 // EF_MAGICADD: extra flat magic-attack — jewel-gated like EF_DAMAGEADD (Basedef.cpp:1699-1703)
 	efHpAdd2     = 69 // EF_HPADD2/EF_MPADD2: also fold into the HPADD%/MPADD% multiplier
 	efMpAdd2     = 70
 	efCritical2  = 71 // EF_CRITICAL2: enchanted crit — SUPERSEDES EF_CRITICAL on the same item
@@ -1739,9 +1741,12 @@ type equipBonus struct {
 	// criticalRaw is the pre-/4 EF_CRITICAL sum over the equipment
 	// (BASE_GetMobAbility(EF_CRITICAL), Basedef.cpp:3209) — see itemCritical.
 	criticalRaw int32
-	// Mount (Equip[14]) contributions, from the g_pMountBonus tables rather than item
-	// effects. magicRaw is the pre-scaling EF_MAGIC sum (see mountMagicScore); resist
-	// applies to all four resistances. damage already folds into the field above.
+	// magicRaw is the pre-scaling EF_MAGIC+EF_MAGICADD sum (see mountMagicScore) over ALL
+	// equipment: the mount slot's g_pMountBonus-derived contribution (Equip[14], not
+	// generic item effects) PLUS ordinary gear's flat EF_MAGIC/EF_MAGICADD, folded in by
+	// the add closure below — Basedef.cpp:3194-3195 sums both across every slot before
+	// applying the single (x+1)/4 scaling. parry/resist remain mount-only broadcasts
+	// (Equip[14]); damage already folds into the field above.
 	magicRaw, parry, resist int32
 	// itemResist is the per-type EF_RESIST1..4/EF_RESISTALL sum from ordinary equipment
 	// (see itemResist), refine-scaled — distinct from the flat mount broadcast above.
@@ -1751,8 +1756,10 @@ type equipBonus struct {
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	var b equipBonus
 	// add folds one effect/value pair into the bonus. weaponSlot excludes weapon-hand
-	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD to the damage-jewel items (nUnique 41-50).
-	add := func(eff uint8, val int32, weaponSlot, dmgJewel bool) {
+	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD/EF_MAGICADD to the jewel items (nUnique
+	// 41-50); offHand excludes EF_MAGIC on the off-hand weapon slot only (Basedef.cpp:
+	// 2447 — unlike EF_DAMAGE, the right-hand weapon still counts toward magic).
+	add := func(eff uint8, val int32, weaponSlot, dmgJewel, offHand bool) {
 		switch eff {
 		case efStr:
 			b.str += int16(val)
@@ -1783,6 +1790,14 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		case efDamageAdd:
 			if dmgJewel { // only jewels (nUnique 41-50) contribute EF_DAMAGEADD
 				b.damage += val
+			}
+		case efMagic:
+			if !offHand { // BASE_GetMobAbility excludes only the off-hand weapon slot
+				b.magicRaw += val
+			}
+		case efMagicAdd:
+			if dmgJewel { // only jewels (nUnique 41-50) contribute EF_MAGICADD
+				b.magicRaw += val
 			}
 		case efHp:
 			b.maxHP += val
@@ -1821,13 +1836,14 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			b.itemResist[i] += d.itemResist(it, i)
 		}
 		weaponSlot := slot == weaponSlotR || slot == weaponSlotL
+		offHand := slot == weaponSlotL
 		nUnique := d.itemUnique[int(it.Index)]
 		dmgJewel := nUnique >= 41 && nUnique <= 50
 		for _, be := range d.itemEffects[int(it.Index)] { // catalog base effects
-			add(be.Eff, int32(be.Val), weaponSlot, dmgJewel)
+			add(be.Eff, int32(be.Val), weaponSlot, dmgJewel, offHand)
 		}
 		for _, ef := range it.Effects { // per-item instance refines/divines
-			add(ef.Effect, int32(ef.Value), weaponSlot, dmgJewel)
+			add(ef.Effect, int32(ef.Value), weaponSlot, dmgJewel, offHand)
 		}
 		// Refine (+9) threshold: defense pieces gain +25 AC (weapons' +40 is in
 		// weaponDamage). captura §E.
@@ -1857,8 +1873,8 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
-	// Magic (mount bonus): same subtraction as the fields above so the loaded
-	// CurrentScore round-trips.
+	// Magic (mount bonus + ordinary equipment's EF_MAGIC/EF_MAGICADD): same subtraction
+	// as the fields above so the loaded CurrentScore round-trips.
 	e.BaseMagic = e.Magic - int16(mountMagicScore(b.magicRaw))
 	// Parry/Resist have NO base term at all — see refreshScore's comment: unlike Magic,
 	// they are never persisted, so a subtract-then-add "Base" here would net to zero for
@@ -1897,9 +1913,10 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	// (The low clamp is belt-and-braces: no catalog row carries negative crit, but a
 	// bare uint8 conversion would wrap one into a near-guaranteed crit.)
 	e.Critical = uint8(min(max(b.criticalRaw/4, 0), 255))
-	// Mount bonuses: Magic gets the (sum+1)/4 scaling and keeps a BaseMagic term since it
-	// IS persisted. Parry (evasion) and each Resist are derived ENTIRELY from equipment on
-	// every refresh, like Critical above — there is no BaseParry/BaseResist, because
+	// Magic gets the (sum+1)/4 scaling over mount + ordinary-equipment magic combined
+	// (equipBonus.magicRaw) and keeps a BaseMagic term since it IS persisted. Parry
+	// (evasion) and each Resist are derived ENTIRELY from equipment on every refresh,
+	// like Critical above — there is no BaseParry/BaseResist, because
 	// neither is persisted (world.CharacterState omits them), so a character logging in
 	// already equipped would otherwise always compute Base = 0 − equip, then
 	// Current = Base + equip = 0 regardless of gear (issue #211 bug 3). Resist is capped
