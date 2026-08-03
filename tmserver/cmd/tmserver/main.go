@@ -195,6 +195,7 @@ func run(logger *slog.Logger) error {
 	var baseMobs map[int][]byte
 	var summonMobs [][]byte
 	var vineMob []byte
+	var castleQuests []content.CastleQuest
 	if *contentDir != "" {
 		statusFile = filepath.Join(*contentDir, "Common", "serv00.htm")
 		if bm, err := content.LoadBaseMobs(*contentDir); err != nil {
@@ -219,6 +220,12 @@ func run(logger *slog.Logger) error {
 		} else {
 			vineMob = vm
 			logger.Info("vine template loaded")
+		}
+		if cq, err := content.LoadCastleQuests(filepath.Join(*contentDir, "Common", "Settings", "CastleQuest.txt")); err != nil {
+			logger.Warn("castle quests not loaded (Castle/Zakum disabled)", "err", err)
+		} else {
+			castleQuests = cq
+			logger.Info("castle quests loaded", "count", len(castleQuests))
 		}
 	}
 
@@ -277,6 +284,7 @@ func run(logger *slog.Logger) error {
 		OdinCatalog:     odinCatalog,
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
+		CastleQuests:    castleQuests,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,

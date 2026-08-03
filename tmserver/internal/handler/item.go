@@ -567,6 +567,10 @@ const efAmount = 61
 // a locked gate opens only when a carried item's EF_KEYID equals the gate's (gate.go).
 const efKeyID = 39
 
+// efQuest is EF_QUEST (ItemEffect.h:115), used to bind Castle/Zakum inner keys
+// to the currently active quest level.
+const efQuest = 58
+
 func itemAmount(it world.Item) int {
 	for _, ef := range it.Effects {
 		if ef.Effect == efAmount {

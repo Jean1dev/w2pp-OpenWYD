@@ -94,6 +94,10 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 		w.AddCrackError(s, 1, 100)
 		return
 	}
+	if !d.castleMoveAllowed(s.Conn, body.TargetX, body.TargetY) {
+		d.doTeleport(w, s, e.X, e.Y)
+		return
+	}
 
 	// No-op move: legacy only processes when the destination differs from the
 	// current (destination-authoritative) position.

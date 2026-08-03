@@ -118,6 +118,9 @@ func (d *Dispatcher) applyGuildStateSnapshot(w *world.World, snap guildStateSnap
 		ok = false
 	} else {
 		d.castleState = snap.castle
+		if snap.castle.TimeLeft > 0 || snap.castle.Clear || snap.castle.LeaderName != "" {
+			d.events.castle.Restore(int(snap.castle.Level), snap.castle.TimeLeft, snap.castle.Clear)
+		}
 	}
 	d.guildStateLoad = ok
 }

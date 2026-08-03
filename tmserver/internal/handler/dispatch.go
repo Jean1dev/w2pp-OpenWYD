@@ -117,6 +117,10 @@ type Config struct {
 	// When set, the dispatcher applies EXP/drop event settings at boot and polls
 	// for moderator edits. When nil, ExpEvents stays as the boot-time flags.
 	WorldEvents worldcfg.Source
+
+	// CastleQuests is the optional CastleQuest.txt table. Empty keeps the
+	// best-effort Castle/Zakum port disabled.
+	CastleQuests []content.CastleQuest
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -156,8 +160,10 @@ type Dispatcher struct {
 	guildAllies     map[uint16]uint16            // directed guild -> current ally target
 	towerState      world.GuildTowerState        // loop-owned GTorre ownership cache
 	castleState     world.CastleQuestState       // loop-owned Castle/Zakum state cache
-	guildStateLoad  bool                         // guild persistence boot snapshot has been applied
-	guildStateBusy  bool                         // one guild-state load in flight
+	castleQuests    []content.CastleQuest
+	castleParty     [world.MaxParty + 1]int
+	guildStateLoad  bool // guild persistence boot snapshot has been applied
+	guildStateBusy  bool // one guild-state load in flight
 
 	// NPC-config overlay (npc-editing-plan.md). All loop-only. baseItemPrices is the
 	// immutable content catalog; itemPrices is the effective map (base + global
@@ -218,6 +224,7 @@ type worldEventState struct {
 	kingdom2     uint8 // Kingdom2Clear, delayed throne-room wipe state
 	tower        worldevents.Tower
 	towerOwner   uint16
+	castle       worldevents.Castle
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -263,6 +270,7 @@ func New(cfg Config) *Dispatcher {
 		npcSource:        cfg.NpcConfig,
 		managedNPCs:      make(map[string]int),
 		worldEventSource: cfg.WorldEvents,
+		castleQuests:     cfg.CastleQuests,
 		eventRNG:         rng.NewSeeded(worldEventRNGSeed),
 		events:           worldEventState{forceWeather: weatherAuto},
 	}
