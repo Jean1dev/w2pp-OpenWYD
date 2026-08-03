@@ -120,9 +120,10 @@ func mountBonusFor(it world.Item) (mountAttrBonus, bool) {
 	return mountAttrBonus{}, false
 }
 
-// mountMagicScore turns the accumulated raw EF_MAGIC sum into the CurrentScore.Magic
-// addend: magic = (sum + 1) / 4 (Basedef.cpp:3194-3195). Zero when there is no equip
-// magic. Mounts are currently the only equipment feeding this in the Go model.
+// mountMagicScore turns the accumulated raw EF_MAGIC+EF_MAGICADD sum (mount bonus plus
+// ordinary equipment's flat magic-attack, see equipBonus.magicRaw) into the
+// CurrentScore.Magic addend: magic = (sum + 1) / 4 (Basedef.cpp:3194-3195). Zero when
+// there is no equip magic.
 func mountMagicScore(raw int32) int32 {
 	if raw <= 0 {
 		return 0

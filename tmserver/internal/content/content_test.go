@@ -276,6 +276,57 @@ func TestBaseEffectsResist(t *testing.T) {
 	}
 }
 
+// TestBaseEffectsMagic: EF_MAGIC/EF_MAGICADD are score stats too (Basedef.cpp:3194-3195
+// derives the caster's Magic from BASE_GetMobAbility(EF_MAGIC)+BASE_GetMobAbility(EF_MAGICADD)),
+// not ignored ones — missing from efName is what left every "Ataque Mágico" item granting
+// nothing (issue #223).
+func TestBaseEffectsMagic(t *testing.T) {
+	// Real rows: Bracelete_de_Hecate (ItemList.csv:871, EF_MAGIC,6) and Colar_Mágico
+	// (ItemList.csv:1075, EF_MAGIC,22).
+	const rows = "514,Bracelete_de_Hecate,96.0,132.0.0.0.0,0,73000,256,0,0,EF_CLASS,255,EF_MAGIC,6,EF_ITEMLEVEL,2\n" +
+		"642,Colar_Magico,2.6,306.0.0.0.0,0,125000,256,0,0,EF_CLASS,255,EF_MAGIC,22,EF_ITEMLEVEL,5\n"
+	l, err := parseItemList(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eff := l.BaseEffects()
+	for _, tc := range []struct {
+		idx  int
+		eff  uint8
+		want int16
+	}{{514, 60, 6}, {642, 60, 22}} {
+		var got int16
+		var found bool
+		for _, e := range eff[tc.idx] {
+			if e.Eff == tc.eff {
+				got, found = e.Val, true
+			}
+		}
+		if !found || got != tc.want {
+			t.Errorf("BaseEffects()[%d] EF(%d) = %d (found=%v), want %d", tc.idx, tc.eff, got, found, tc.want)
+		}
+	}
+
+	// The real catalog must actually carry magic — the parser silently dropping it is
+	// what issue #223 was. Guards against the effect disappearing from efName again.
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	var withMagic int
+	for _, effs := range full.BaseEffects() {
+		for _, e := range effs {
+			if e.Eff == 60 || e.Eff == 68 {
+				withMagic++
+				break
+			}
+		}
+	}
+	if withMagic < 20 {
+		t.Errorf("real catalog items carrying EF_MAGIC/EF_MAGICADD = %d, want >= 20", withMagic)
+	}
+}
+
 // TestBaseEffectsNoSanc: quest/trophy stones (Almas, Pedras, Sephirot) are
 // equippable but carry no EF_VOLATILE, so nothing stopped the dust-refine
 // handler from planting an EF_SANC pair into them (issue #133). ItemList.csv
