@@ -1,14 +1,21 @@
 # Plano: Sistema de Evolução Celestial (Mortal→Arch→Celestial→Sub) + /destravar40/90 + /arcana
 
-> Status (jul/2026, issue #117 fase 1): **Fases 1–3 IMPLEMENTADAS.** Persistência de
-> `class_master` + `QuestInfo.Celestial.{Lv40,Lv90,Circle}` (migração `0012`, todo o caminho
-> save/load), level-up Celestial por tier com os gates 39→40 / 89→90 (`handler.applyLevelUps`
-> genérico, curva `nextLevel2`), e os comandos `/destravar40` `/destravar90` `/arcana`
-> (`handler/chat.go`). **Pendências:** (a) a curva `g_pNextLevel_2` roda contra um **placeholder
-> sintético** — capturar os valores reais (`docs/migration/prompts/agent-prompt-celestial-curve.md`);
-> (b) **Fase 4 (transformação Mortal→Celestial via NPC Evoluções)** continua aberta — sem ela não
-> há caminho in-game para virar Celestial, então o teste end-to-end de `/destravar` no cliente real
-> depende dela.
+> Status (ago/2026, issue #222): **Fases 1–3 IMPLEMENTADAS**, mais o gatilho de criação
+> Arch→Celestial (parte da Fase 4). Persistência de `class_master` +
+> `QuestInfo.Celestial.{Lv40,Lv90,Circle}` (migração `0012`, todo o caminho save/load),
+> level-up Celestial por tier com os gates 39→40 / 89→90 (`handler.applyLevelUps` genérico,
+> curva `nextLevel2`), os comandos `/destravar40` `/destravar90` `/arcana` (`handler/chat.go`),
+> e agora a transformação Arch→Celestial: clicar com o botão direito na Pedra Ideal (item
+> 1742) com um Arch no nível máximo (399) vira Celestial nível 1 (`handler.useIdealStone`,
+> `item.go`) — distinto do fluxo `kingArch` (equipar o mesmo item + visitar o Rei), que segue
+> cobrindo só Mortal→Arch. **Pendências:** (a) a curva `g_pNextLevel_2` roda contra um
+> **placeholder sintético** — capturar os valores reais
+> (`docs/migration/prompts/agent-prompt-celestial-curve.md`); (b) o restante da **Fase 4**
+> segue aberto e sem confirmação de captura: o "NPC Evoluções"/poeira que nivela
+> Mortal/Arch/Celestial/Sub-Celestial, os três resets do Sub-Celestial, e se a transformação
+> real também reseta atributos/skills (o gatilho por item acima só reseta Level/Exp — o mínimo
+> tecnicamente necessário, já que o teto Celestial de nível, `MaxCLevel=199`, é menor que o
+> teto Arch, 399).
 >
 > Correção ao plano original abaixo: a **lógica** (`CheckGetLevel`, `QuestInfo`, os comandos) ESTÁ
 > na fonte local (`Source/Code/`), só os **valores** de `g_pNextLevel_2` faltam — a Fase 0 encolheu
