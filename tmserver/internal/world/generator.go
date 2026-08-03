@@ -61,6 +61,35 @@ func (w *World) GeneratorAt(idx int) *Generator {
 	return w.generators[idx]
 }
 
+// SpawnGeneratorLeader spawns exactly one generator leader at its first
+// waypoint without consuming RNG. Scripted world events use this instead of
+// GenerateMob so they cannot perturb the combat/drop parity stream.
+func (w *World) SpawnGeneratorLeader(idx int) int {
+	g := w.GeneratorAt(idx)
+	if g == nil || g.LeaderTmpl == nil {
+		return -1
+	}
+	x, y := g.SegX[0], g.SegY[0]
+	if x == 0 {
+		for i := range g.SegX {
+			if g.SegX[i] != 0 {
+				x, y = g.SegX[i], g.SegY[i]
+				break
+			}
+		}
+	}
+	if x == 0 {
+		return -1
+	}
+	x, y, ok := w.emptyCellNear(x, y)
+	if !ok {
+		return -1
+	}
+	sp := MobSpawn{Template: g.LeaderTmpl, X: x, Y: y, RouteType: g.RouteType, GenIndex: int16(idx)}
+	sp.SegX, sp.SegY, sp.SegWait = g.SegX, g.SegY, g.SegWait
+	return w.SpawnMobAt(sp)
+}
+
 // GenerateMob spawns one group (leader + rolled followers) from generator idx —
 // the port of GenerateMob (Server.cpp:3442-3810). Returns the spawned ids (the
 // leader first) so the caller can reveal them to in-view players. Loop-only.

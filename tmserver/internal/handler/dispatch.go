@@ -216,6 +216,8 @@ type worldEventState struct {
 	forceWeather int32 // ForceWeather; -1 = automatic rolls (Server.cpp:637)
 	kingdom1     uint8 // Kingdom1Clear, delayed throne-room wipe state
 	kingdom2     uint8 // Kingdom2Clear, delayed throne-room wipe state
+	tower        worldevents.Tower
+	towerOwner   uint16
 }
 
 // New builds a Dispatcher with the batch-1 routes registered.
@@ -264,6 +266,7 @@ func New(cfg Config) *Dispatcher {
 		eventRNG:         rng.NewSeeded(worldEventRNGSeed),
 		events:           worldEventState{forceWeather: weatherAuto},
 	}
+	d.events.tower = worldevents.NewTower(20)
 	for i := range d.guildZones {
 		d.guildZones[i].Zone = i
 	}

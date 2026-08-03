@@ -158,6 +158,10 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			writeDamage(payload, i, 0)
 			continue
 		}
+		if !d.towerAttackAllowed(e, target) {
+			writeDamage(payload, i, 0)
+			continue
+		}
 		// Dead targets can only be hit by the resurrection skills (31/99)
 		// (_MSG_Attack.cpp:333).
 		if target.HP <= 0 && skillnum != 31 && skillnum != combat.ResurrectSkill {
@@ -175,7 +179,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// keys off an attribute-map PK bit on the ATTACKER tile plus war-state
 		// bypasses, and the coarse city rectangles caused issue #67 by zeroing
 		// PvP damage near every spawn point.
-		if pvpHit && combatHit && !e.PKMode && !d.dueling(s.Conn, tid) {
+		if pvpHit && combatHit && !e.PKMode && !d.dueling(s.Conn, tid) && !d.towerPvP(e, target) {
 			writeDamage(payload, i, 0)
 			continue
 		}

@@ -44,6 +44,9 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		}
 		reward = owner
 	}
+	if d.towerKilled(w, reward, mob) {
+		return
+	}
 	// The reward target is a player, so its entity id equals its connection slot;
 	// the session is needed for gold/level-up packets (nil if it disconnected).
 	ks := w.Session(reward.ID)

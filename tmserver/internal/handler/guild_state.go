@@ -10,11 +10,13 @@ import (
 const guildStateFetchTimeout = 5 * time.Second
 
 type guildStateSnapshot struct {
+	guilds    []world.GuildRecord
 	zones     []world.GuildZone
 	relations []world.GuildRelation
 	tower     world.GuildTowerState
 	castle    world.CastleQuestState
 
+	guildsErr    error
 	zonesErr     error
 	relationsErr error
 	towerErr     error
@@ -32,7 +34,7 @@ func (d *Dispatcher) ApplyGuildStateBoot(w *world.World) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), guildStateFetchTimeout)
 	defer cancel()
-	d.applyGuildStateSnapshot(loadGuildStateSnapshot(ctx, p))
+	d.applyGuildStateSnapshot(w, loadGuildStateSnapshot(ctx, p))
 	if d.guildStateLoad {
 		d.log.Info("guild state applied at boot")
 	}
@@ -53,13 +55,14 @@ func (d *Dispatcher) ensureGuildStateLoaded(w *world.World) {
 		defer cancel()
 		snap := loadGuildStateSnapshot(ctx, p)
 		return func(*world.World) {
-			d.applyGuildStateSnapshot(snap)
+			d.applyGuildStateSnapshot(w, snap)
 		}
 	})
 }
 
 func loadGuildStateSnapshot(ctx context.Context, p world.Persistence) guildStateSnapshot {
 	var snap guildStateSnapshot
+	snap.guilds, snap.guildsErr = p.ListGuilds(ctx)
 	snap.zones, snap.zonesErr = p.LoadGuildZones(ctx)
 	snap.relations, snap.relationsErr = p.ListGuildRelations(ctx)
 	snap.tower, snap.towerErr = p.LoadGuildTowerState(ctx)
@@ -67,9 +70,18 @@ func loadGuildStateSnapshot(ctx context.Context, p world.Persistence) guildState
 	return snap
 }
 
-func (d *Dispatcher) applyGuildStateSnapshot(snap guildStateSnapshot) {
+func (d *Dispatcher) applyGuildStateSnapshot(w *world.World, snap guildStateSnapshot) {
 	d.guildStateBusy = false
 	ok := true
+	if snap.guildsErr != nil {
+		d.log.Warn("guild registry boot load failed", "err", snap.guildsErr)
+		ok = false
+	} else {
+		for _, guild := range snap.guilds {
+			w.SetGuildName(guild.ID, guild.Name)
+			w.SetGuildFame(guild.ID, guild.Fame)
+		}
+	}
 	if snap.zonesErr != nil {
 		d.log.Warn("guild zones boot load failed", "err", snap.zonesErr)
 		ok = false
@@ -99,6 +111,7 @@ func (d *Dispatcher) applyGuildStateSnapshot(snap guildStateSnapshot) {
 		ok = false
 	} else {
 		d.towerState = snap.tower
+		d.events.towerOwner = snap.tower.OwnerGuild
 	}
 	if snap.castleErr != nil {
 		d.log.Warn("castle quest boot load failed", "err", snap.castleErr)
