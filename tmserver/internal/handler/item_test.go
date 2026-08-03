@@ -415,6 +415,119 @@ func TestUseEntradaTerritorio(t *testing.T) {
 	}
 }
 
+// idealStoneDB builds a fakeDB for a character holding a Pedra Ideal (item 1742) in
+// carry slot 0, at the given tier/level (issue #222).
+func idealStoneDB(classMaster uint8, lvl int) *fakeDB {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster, Level: lvl}
+	st.Carry[0] = world.Item{Index: idealStoneItem}
+	db.loadResult = st
+	return db
+}
+
+// TestUseIdealStoneCreatesCelestial covers the Arch→Celestial transformation
+// (issue #222): an Arch at the tier cap (level.MaxLevel) right-clicking the Pedra
+// Ideal becomes a Celestial at level 1, with the item consumed and the celestial
+// quest gates reset, and the change persists.
+func TestUseIdealStoneCreatesCelestial(t *testing.T) {
+	db := idealStoneDB(classMasterArch, int(level.MaxLevel))
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	expect(t, c, protocol.MsgSendItem)        // Pedra Ideal removed from carry
+	expect(t, c, protocol.MsgCombineComplete) // unlock signal
+	expect(t, c, protocol.MsgMotion)          // unlock emote
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	char, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was never saved")
+	}
+	if char.ClassMaster != classMasterCelestial {
+		t.Errorf("saved ClassMaster = %d, want %d (celestial)", char.ClassMaster, classMasterCelestial)
+	}
+	if char.Level != 1 {
+		t.Errorf("saved Level = %d, want 1 (reset)", char.Level)
+	}
+	if char.Exp != 0 {
+		t.Errorf("saved Exp = %d, want 0 (reset)", char.Exp)
+	}
+	if char.CelLv40 != 0 || char.CelLv90 != 0 || char.CelCircle != 0 {
+		t.Errorf("saved celestial gates = %d/%d/%d, want all 0 (fresh)", char.CelLv40, char.CelLv90, char.CelCircle)
+	}
+	if hasItem(char.Carry, idealStoneItem) {
+		t.Error("saved carry still has the Pedra Ideal; want consumed")
+	}
+}
+
+// TestUseIdealStoneRequiresMaxArchLevel verifies an Arch below the tier cap is
+// rejected: no tier change, the item stays put, and the client gets a slot resync
+// instead of the unlock signals.
+func TestUseIdealStoneRequiresMaxArchLevel(t *testing.T) {
+	db := idealStoneDB(classMasterArch, int(level.MaxLevel)-1)
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawResync := false
+	for {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		if ty == protocol.MsgCombineComplete || ty == protocol.MsgMotion {
+			t.Fatalf("got %#x for a below-level Arch; want no unlock signal", ty)
+		}
+		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == idealStoneItem {
+			sawResync = true
+		}
+	}
+	if !sawResync {
+		t.Error("expected a slot resync keeping the Pedra Ideal")
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	char, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was never saved")
+	}
+	if char.ClassMaster != classMasterArch {
+		t.Errorf("saved ClassMaster = %d, want %d (unchanged, still arch)", char.ClassMaster, classMasterArch)
+	}
+}
+
+// TestUseIdealStoneMortalStillEquips is a regression guard: a Mortal carrying the
+// Pedra Ideal must still fall through to the normal equip path (the kingArch
+// Mortal→Arch flow needs it equipped in slot 10), unaffected by the new Arch-only
+// self-use interception.
+func TestUseIdealStoneMortalStillEquips(t *testing.T) {
+	db := idealStoneDB(classMasterMortal, 100)
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{
+		SourType: world.ItemPlaceCarry, SourPos: 0,
+		DestType: world.ItemPlaceEquip, DestPos: idealStoneEquipSlot,
+	}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgUseItem {
+		t.Errorf("mortal equip got %#x ok=%v, want UseItem echo (equip path)", ty, ok)
+	}
+}
+
 const (
 	itemMagicBeanBlue    = 3407
 	itemMagicBeanLight   = 3416

@@ -417,6 +417,14 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	if d.useQuest256Ticket(w, s, e, src) {
 		return
 	}
+	// Pedra Ideal (1742) right-clicked by an Arch (issue #222): the Arch→Celestial
+	// transformation. ClassMaster==Mortal falls through unchanged to the vol==0
+	// equip path below — that's the unrelated kingArch flow (equip + visit the
+	// King), which must keep working.
+	if e.Carry[src].Index == idealStoneItem && e.ClassMaster == classMasterArch {
+		d.useIdealStone(w, s, e, src)
+		return
+	}
 	// Selo do Guerreiro and Pedra Misteriosa have no EF_VOLATILE, so d.itemVolatiles
 	// defaults to 0 for them — check sIndex first so they don't fall into the vol==0
 	// equip path (canEquipSlot would just silently reject them, the same "phantom
@@ -1326,6 +1334,45 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 
 	consumeOneItem(&e.Carry[src])
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+// celestialArchLevelReq is the Arch level required to use the Pedra Ideal for the
+// Arch→Celestial transformation (issue #222): mirrors kingArch's own near-max-level
+// gate for Mortal→Arch (Level>=299 there); Arch's own cap is level.MaxLevel (399).
+const celestialArchLevelReq = level.MaxLevel
+
+// useIdealStone handles the Arch→Celestial transformation triggered by right-clicking
+// the Pedra Ideal (item 1742, issue #222). This is a distinct self-use path from
+// kingArch's equip-and-visit-the-King Mortal→Arch flow, which reuses the same item —
+// the in-game tooltip instructs "clique na pedra com o botão direito do mouse" and only
+// applies once the character is already Arch (the caller in useItem gates on that).
+//
+// Level/Exp reset to the Celestial curve's start: Celestial's level cap
+// (level.MaxCLevel=199) is lower than Arch's (level.MaxLevel=399), so carrying the Arch
+// level over would leave the character permanently over-cap. The Celestial quest gates
+// (CelLv40/CelLv90/CelCircle) reset too, so a freshly-made Celestial unlocks level
+// 40/90 the normal way via /destravar40/90. Attribute points, HP/MP, and skills are
+// left untouched — no capture data confirms the legacy resets those as well
+// (docs/migration/celestial-system-plan.md), so this fork doesn't invent it.
+func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if e.Level < celestialArchLevelReq {
+		d.notify(w, s, NoticeReqNotMet)
+		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		return
+	}
+	e.ClassMaster = classMasterCelestial
+	e.Level = 1
+	e.Exp = 0
+	e.CelLv40, e.CelLv90, e.CelCircle = 0, 0, 0
+	consumeOneItem(&e.Carry[src])
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	d.sendEtc(w, s, e)
+	w.Send(s, protocol.MsgCombineComplete, parmPayload(celestialUnlockParm))
+	d.playUnlockEmote(w, s)
+	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
+	d.log.Info("celestial created", "conn", s.Conn, "name", e.Name)
 }
 
 const (
