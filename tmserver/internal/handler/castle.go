@@ -46,9 +46,7 @@ func (d *Dispatcher) openCastleQuest(w *world.World, _ *world.Session, entrant *
 	d.events.castle.Open(level, q.QuestTime)
 	d.castleParty = [world.MaxParty + 1]int{}
 	d.castleParty[world.MaxParty] = leader.ID
-	for i, id := range leader.PartyList {
-		d.castleParty[i] = id
-	}
+	copy(d.castleParty[:], leader.PartyList[:])
 	body := protocol.EncodeStandardParm(q.QuestTime)
 	for _, conn := range d.castleParty {
 		if s := w.Session(conn); s != nil && s.Mode == world.UserPlay {
@@ -177,8 +175,8 @@ func (d *Dispatcher) rewardCastlePlayer(w *world.World, e *world.Entity, q conte
 	}
 }
 
-func (d *Dispatcher) persistCastle(w *world.World, level int32, timeLeft int32, clear bool, leader string) {
-	state := world.CastleQuestState{Level: level, TimeLeft: timeLeft, Clear: clear, LeaderName: leader}
+func (d *Dispatcher) persistCastle(w *world.World, level int32, timeLeft int32, cleared bool, leader string) {
+	state := world.CastleQuestState{Level: level, TimeLeft: timeLeft, Clear: cleared, LeaderName: leader}
 	d.castleState = state
 	p := w.Persistence()
 	if p == nil {

@@ -86,7 +86,7 @@ func (d *Dispatcher) gmWeather(w *world.World, s *world.Session, rest string) {
 	case "auto":
 		d.events.forceWeather = weatherAuto
 		d.log.Info("gm weather: automatic rolls resumed", "account", s.AccountName)
-		d.sendChatText(w, s, "clima: automatico")
+		d.sendChatText(w, s, "clima: automático")
 		return
 	}
 	n, err := strconv.Atoi(arg)

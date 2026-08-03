@@ -15,9 +15,9 @@ func (c *Castle) Open(level int, questTime int32) {
 }
 
 // Restore rehydrates a persisted active quest snapshot.
-func (c *Castle) Restore(level int, timeLeft int32, clear bool) {
+func (c *Castle) Restore(level int, timeLeft int32, cleared bool) {
 	c.active, c.level, c.timeLeft, c.secondOdd = true, level, timeLeft, false
-	if clear {
+	if cleared {
 		c.clear = 1
 	} else {
 		c.clear = 0
