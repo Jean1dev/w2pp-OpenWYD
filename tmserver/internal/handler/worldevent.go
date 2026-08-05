@@ -82,7 +82,7 @@ func (d *Dispatcher) pollWorldEventConfig(w *world.World) {
 func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapshot) {
 	ev := snap.Event
 	d.expEvents.DoubleMode = ev.DoubleExpEnabled
-	d.expEvents.NewbieEvent = ev.NewbieEventEnabled
+	d.setNewbieEvent(w, ev.NewbieEventEnabled)
 	w.SetWorldEventConfig(world.EventConfig{
 		Version: snap.Version, Enabled: ev.Enabled, ItemIndex: ev.ItemIndex, Rate: ev.Rate,
 		StartIndex: ev.StartIndex, CurrentIndex: ev.CurrentIndex, EndIndex: ev.EndIndex,

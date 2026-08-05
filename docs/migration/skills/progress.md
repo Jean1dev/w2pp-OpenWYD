@@ -34,7 +34,10 @@ Itens fechados:
   nao capturados, preservando a regressao B12.
 - `Aggressive` segue aplicado na aterrissagem de affect/tick contra aliados/guild/leader; a fonte
   local nao usa `TargetType` para outras decisoes server-side em `_MSG_Attack`.
-- `CurrentWeather` permanece 0, documentado no codigo, porque nenhuma captura provou ciclo/valores.
+- `CurrentWeather` deixou de ser 0 fixo na issue #116: o roll do minuto e o broadcast
+  `_MSG_UpdateWeather` estao em `worldevents/weather.go` + `handler/weather.go`, e
+  `handler/combat.go` alimenta `combat.SkillBaseDamage` com o valor vivo. O que cada valor 0/1/2
+  renderiza no cliente segue UNVERIFIED (nao ha captura).
 
 Testes de fechamento:
 - `go test ./tmserver/internal/combat ./tmserver/internal/protocol ./tmserver/internal/world ./tmserver/internal/handler`

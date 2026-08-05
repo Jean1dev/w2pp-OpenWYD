@@ -158,6 +158,10 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			writeDamage(payload, i, 0)
 			continue
 		}
+		if !d.towerAttackAllowed(e, target) {
+			writeDamage(payload, i, 0)
+			continue
+		}
 		// Dead targets can only be hit by the resurrection skills (31/99)
 		// (_MSG_Attack.cpp:333).
 		if target.HP <= 0 && skillnum != 31 && skillnum != combat.ResurrectSkill {
@@ -175,7 +179,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// keys off an attribute-map PK bit on the ATTACKER tile plus war-state
 		// bypasses, and the coarse city rectangles caused issue #67 by zeroing
 		// PvP damage near every spawn point.
-		if pvpHit && combatHit && !e.PKMode && !d.dueling(s.Conn, tid) {
+		if pvpHit && combatHit && !e.PKMode && !d.dueling(s.Conn, tid) && !d.towerPvP(e, target) {
 			writeDamage(payload, i, 0)
 			continue
 		}
@@ -579,8 +583,10 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		Magic:   int(effectiveMagic(e)),
 		Special: cast.special,
 	}
-	// UNVERIFIED: CurrentWeather is not modeled (weather 0 = neutral).
-	raw := combat.SkillBaseDamage(skillnum, sp, caster, 0, int(d.weaponDamage(e)))
+	// CurrentWeather scales InstanceType 2/3/5 output (_MSG_Attack.cpp:520,594,972
+	// → BASE_GetSkillDamage). Weather 0 is neutral, so this is a no-op until a
+	// roll or a GM override moves it (weather.go).
+	raw := combat.SkillBaseDamage(skillnum, sp, caster, int(d.currentWeather()), int(d.weaponDamage(e)))
 
 	switch {
 	case sp.InstanceType >= 1 && sp.InstanceType <= 5:

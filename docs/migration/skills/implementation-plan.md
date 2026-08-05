@@ -14,7 +14,11 @@ Mudancas esperadas:
 - Modelar `ReqHp`/`ReqMp` como alvos server-side: inicializar em login, descontar cast de `CurrentScore.Mp` e `ReqMp`, aplicar clamp `Req>=atual`, e enviar `MSG_SetHpMp` (`0x0181`) quando faltar MP.
 - Validar `TargetType`, `Range`, `MaxTarget`, party e agressividade sem rejeitar melee por campos nao verificados.
 - Preservar cadencia server-side de 800 ms por `ClientTick`; nao usar `Delay` do CSV como cooldown de rejeicao no servidor.
-- Implementar `CurrentWeather` se a captura confirmar ciclo/valores; ate la manter weather 0 documentado.
+- ~~Implementar `CurrentWeather` se a captura confirmar ciclo/valores; ate la manter weather 0 documentado.~~
+  FEITO na issue #116: `worldevents/weather.go` (roll do minuto) + `handler/weather.go` (broadcast
+  `_MSG_UpdateWeather` 0x018B, override GM). `handler/combat.go` passa o clima vivo para
+  `combat.SkillBaseDamage`. Os *valores* 0/1/2 vem do legado; o que cada um renderiza no cliente
+  segue UNVERIFIED.
 
 Arquivos provaveis: `tmserver/internal/combat`, `tmserver/internal/handler/combat.go`, `tmserver/internal/protocol`, testes de handler/combat.
 

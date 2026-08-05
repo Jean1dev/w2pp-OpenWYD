@@ -122,21 +122,23 @@ func TestGateBadRequest(t *testing.T) {
 }
 
 func TestItemKeyID(t *testing.T) {
-	if got := itemKeyID(keyItem(500, 7)); got != 7 {
-		t.Errorf("itemKeyID = %d, want 7", got)
+	d := New(Config{})
+	if got := d.itemAbility(keyItem(500, 7), efKeyID); got != 7 {
+		t.Errorf("EF_KEYID = %d, want 7", got)
 	}
-	if got := itemKeyID(world.Item{Index: 500}); got != 0 {
-		t.Errorf("itemKeyID(no EF_KEYID) = %d, want 0", got)
+	if got := d.itemAbility(world.Item{Index: 500}, efKeyID); got != 0 {
+		t.Errorf("EF_KEYID(no EF_KEYID) = %d, want 0", got)
 	}
 }
 
 func TestCarryKeySlot(t *testing.T) {
+	d := New(Config{})
 	e := &world.Entity{}
 	e.Carry[3] = keyItem(500, 7)
-	if got := carryKeySlot(e, 7); got != 3 {
+	if got := d.carryKeySlot(e, 7, -1); got != 3 {
 		t.Errorf("carryKeySlot = %d, want 3", got)
 	}
-	if got := carryKeySlot(e, 9); got != -1 {
+	if got := d.carryKeySlot(e, 9, -1); got != -1 {
 		t.Errorf("carryKeySlot(missing) = %d, want -1", got)
 	}
 }

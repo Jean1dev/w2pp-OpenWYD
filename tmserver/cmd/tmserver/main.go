@@ -195,6 +195,7 @@ func run(logger *slog.Logger) error {
 	var baseMobs map[int][]byte
 	var summonMobs [][]byte
 	var vineMob []byte
+	var castleQuests []content.CastleQuest
 	if *contentDir != "" {
 		statusFile = filepath.Join(*contentDir, "Common", "serv00.htm")
 		if bm, err := content.LoadBaseMobs(*contentDir); err != nil {
@@ -219,6 +220,12 @@ func run(logger *slog.Logger) error {
 		} else {
 			vineMob = vm
 			logger.Info("vine template loaded")
+		}
+		if cq, err := content.LoadCastleQuests(filepath.Join(*contentDir, "Common", "Settings", "CastleQuest.txt")); err != nil {
+			logger.Warn("castle quests not loaded (Castle/Zakum disabled)", "err", err)
+		} else {
+			castleQuests = cq
+			logger.Info("castle quests loaded", "count", len(castleQuests))
 		}
 	}
 
@@ -268,6 +275,13 @@ func run(logger *slog.Logger) error {
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
 
+	// Seed the world-event RNG from the wall clock so the weather sequence differs
+	// between boots (handler.worldEventRNGSeed explains why the fixed seed is only
+	// for tests). Zero means "use the fixed seed", so keep it out of range.
+	eventSeed := uint32(time.Now().UnixNano())
+	if eventSeed == 0 {
+		eventSeed = 1
+	}
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
@@ -277,6 +291,8 @@ func run(logger *slog.Logger) error {
 		OdinCatalog:     odinCatalog,
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
+		CastleQuests:    castleQuests,
+		EventRNGSeed:    eventSeed,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -288,6 +304,11 @@ func run(logger *slog.Logger) error {
 	}, logger, persist, dispatch.Handle)
 	// Mob-AI pulse: monsters acquire/chase/melee nearby players each tick (mobai.go).
 	w.SetTickHandler(world.DefaultMobTick, dispatch.Tick)
+	// The newbie flag has two owners: the dispatcher's ExpEvents (the EXP bonus)
+	// and the world (the sub-120 spawn HP handicap). Set here, BEFORE spawnNPCs
+	// below, so the boot population is handicapped too — the portal config may
+	// override it later via ApplyWorldEventConfigBoot.
+	w.SetNewbieEvent(*newbieEvent)
 
 	// Billing gate: real binServer adapter when -binserver is set, else allow-all.
 	if *binAddr != "" {

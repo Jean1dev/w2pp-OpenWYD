@@ -12,11 +12,9 @@ import (
 // server re-broadcasts the request to everyone in view so their client reflects the
 // open gate (the legacy GridMulticast).
 //
-// Deferred (documented, not built): the castle-gate path (CCastleZakum::
-// OpenCastleGate) needs castle/RvR state that isn't modeled, and the periodic
-// re-lock (ProcessSecMinTimer) / GM lock commands (imple.cpp) that would put a gate
-// back into STATE_LOCKED. Seeded gates therefore start (and stay) open until those
-// land, so the key path is only reachable for a gate a future system has locked.
+// Castle gates delegate to the Castle/Zakum runtime. Periodic generic re-locking
+// and GM lock commands remain deferred; a successfully opened gate stays open
+// until restart or an event reset.
 // The wire↔client gate-id correspondence is UNVERIFIED without a capture; ids are
 // assigned in InitItem.csv order to match the legacy CreateItem sequence.
 func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
@@ -44,17 +42,28 @@ func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Hea
 	}
 
 	// Key gate: only when the gate is (or is being set) locked AND it carries a key
-	// requirement. A seeded gate has no baked effects, so gateKey is 0 and this is
-	// skipped — parity with BASE_GetItemAbility over an all-zero STRUCT_ITEM.
+	// requirement. itemAbility includes catalog base effects because static gates
+	// usually carry EF_KEYID in ItemList rather than in their instance slots.
+	castleLevel := -1
 	if g.State == world.StateLocked || body.State == world.StateLocked {
-		if gateKey := itemKeyID(g.Item); gateKey != 0 {
-			slot := carryKeySlot(e, gateKey)
+		if gateKey := d.itemAbility(g.Item, efKeyID); gateKey != 0 {
+			slot := d.carryKeySlot(e, gateKey, -1)
+			if gateKey >= 11 && gateKey <= 14 {
+				level, _, _ := d.events.castle.State()
+				slot = d.carryKeySlot(e, gateKey, level)
+			}
 			if slot < 0 {
 				// sIndex 773 opens silently without a key message (legacy quirk).
 				if g.Item.Index != 773 {
 					d.notify(w, s, NoticeNoKey)
 				}
 				return
+			}
+			if gateKey == 10 {
+				castleLevel = itemQuestID(e.Carry[slot])
+				if castleLevel < 0 || castleLevel >= len(d.castleQuests) {
+					return
+				}
 			}
 			e.Carry[slot] = world.Item{} // consume the key
 			d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
@@ -72,21 +81,33 @@ func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Hea
 		w.SendTo(os, protocol.Header{Type: protocol.MsgUpdateItem, ID: protocol.IDScene}, payload)
 	})
 	d.log.Info("gate opened", "conn", s.Conn, "gate", id, "x", g.X, "y", g.Y)
+	if castleLevel >= 0 {
+		d.openCastleQuest(w, s, e, castleLevel)
+	}
 }
 
-// itemKeyID returns the item's EF_KEYID value (0 when absent) — the Go analog of
-// BASE_GetItemAbility(item, EF_KEYID) over the instance effects. A key/gate carries
-// a single EF_KEYID, so the summed itemInstanceAbility equals that value.
-func itemKeyID(it world.Item) int {
-	return itemInstanceAbility(it, efKeyID)
-}
-
-// carryKeySlot returns the first carry slot holding an item whose EF_KEYID matches
-// key, or -1. Loop-only (reads Entity.Carry directly).
-func carryKeySlot(e *world.Entity, key int) int {
+// carryKeySlot returns the first carry slot holding a key whose EF_KEYID matches
+// key, or -1. questLevel < 0 accepts any such key; questLevel >= 0 additionally
+// requires the item's EF_QUEST stamp to name that castle quest level, which is
+// what keeps a level-2 castle key from opening the level-3 gate. Loop-only
+// (reads Entity.Carry directly).
+func (d *Dispatcher) carryKeySlot(e *world.Entity, key, questLevel int) int {
 	for i := 0; i < activeCarryLimit(e); i++ {
-		if !e.Carry[i].Empty() && itemKeyID(e.Carry[i]) == key {
+		it := e.Carry[i]
+		if it.Empty() || d.itemAbility(it, efKeyID) != key {
+			continue
+		}
+		if questLevel < 0 || itemQuestID(it) == questLevel {
 			return i
+		}
+	}
+	return -1
+}
+
+func itemQuestID(it world.Item) int {
+	for _, effect := range it.Effects {
+		if effect.Effect == efQuest {
+			return int(effect.Value)
 		}
 	}
 	return -1

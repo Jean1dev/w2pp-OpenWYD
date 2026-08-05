@@ -99,8 +99,15 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.sweepGuilty(w)
 	d.sweepDuelInvites(w)
 	d.sweepDuelArena(w)
+	d.tickKingdomRvR(w)
+	d.tickTowerWar(w)
+	d.tickCastle(w)
 	d.respawnMobs(w)
 	d.generateMobs(w)
+	// World events (issue #116). tickWeather sits after generateMobs so this
+	// reads in the legacy ProcessMinTimer order: generators first
+	// (ProcessSecMinTimer.cpp:2720-2789), then the weather roll (:2791).
+	d.tickWeather(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
 	d.pollWorldEventConfig(w)
 }

@@ -89,6 +89,28 @@ func TestGenerateMobGroup(t *testing.T) {
 	}
 }
 
+func TestSpawnGeneratorLeaderUsesExactWaypointWithoutGroup(t *testing.T) {
+	w := New(Config{GridDim: 64}, slogDiscard(), nil, nil)
+	g := &Generator{
+		MinGroup: 4, MaxGroup: 9, MaxNumMob: 10,
+		SegX: [5]int16{20}, SegY: [5]int16{21}, SegRange: [5]int16{10},
+		LeaderTmpl: genMobTemplate(1), FollowerTmpl: genMobTemplate(1),
+	}
+	w.RegisterGenerators([]*Generator{g})
+
+	id := w.SpawnGeneratorLeader(0)
+	if id < 0 {
+		t.Fatal("SpawnGeneratorLeader failed")
+	}
+	e := w.Entity(id)
+	if e.X != 20 || e.Y != 21 || e.SegListX[0] != 20 || e.SegListY[0] != 21 {
+		t.Fatalf("leader position/waypoint = %d,%d / %d,%d, want exact 20,21", e.X, e.Y, e.SegListX[0], e.SegListY[0])
+	}
+	if g.CurrentNumMob != 1 {
+		t.Fatalf("CurrentNumMob = %d, want leader only", g.CurrentNumMob)
+	}
+}
+
 func TestGenerateMobFormationFourOffsetsFollowers(t *testing.T) {
 	w := New(Config{GridDim: 64}, slogDiscard(), nil, nil)
 	g := &Generator{

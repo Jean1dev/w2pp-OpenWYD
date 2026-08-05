@@ -316,6 +316,7 @@ Principais (lista completa no Apêndice B). Produzidas por `SendFunc.cpp`/handle
 | 369 / 0x0171 | `_MSG_CNFGetItem` | | confirma pegar item |
 | 373 / 0x0175 | `_MSG_CNFDropItem` | `MSG_CNFDropItem` | confirma drop |
 | 385 / 0x0181 | `_MSG_SetHpMp` | `MSG_SetHpMp` | HP/MP |
+| 395 / 0x018B | `_MSG_UpdateWeather` | `MSG_UpdateWeather` (int CurrentWeather) | troca de clima; broadcast global com `ID = ESCENE_FIELD` (`SendWeather`, `SendFunc.cpp:1669`). No login o valor viaja dentro de `MSG_CNFCharacterLogin.Weather`, não neste pacote (`ProcessDBMessage.cpp:834`) |
 | 822 / 0x0336 | `_MSG_UpdateScore` | (score) | atributos/score |
 | 380 / 0x017C | `_MSG_ShopList` | `MSG_ShopList` | lista da loja NPC |
 | 899 / 0x0383 | `_MSG_Trade` | `MSG_Trade` | estado do trade |

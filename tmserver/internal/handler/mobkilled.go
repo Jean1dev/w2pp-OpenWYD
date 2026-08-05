@@ -31,6 +31,7 @@ const (
 // UNVERIFIED / deferred: party EXP distribution (the unreliable g_EmptyMob/UNK
 // divisors) and the _MSG_CNFMobKill kill confirmation.
 func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
+	d.kingdomKingKilled(w, mob)
 	reward := killer
 	if killer.Summoner != 0 {
 		d.growBabyMountOnKill(w, killer, mob)
@@ -43,6 +44,10 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		}
 		reward = owner
 	}
+	if d.towerKilled(w, reward, mob) {
+		return
+	}
+	d.castleBossKilled(w, reward, mob)
 	// The reward target is a player, so its entity id equals its connection slot;
 	// the session is needed for gold/level-up packets (nil if it disconnected).
 	ks := w.Session(reward.ID)
@@ -78,6 +83,9 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		// UNVERIFIED: killer.DropBonus (item/event bonus) → 0 placeholder.
 		rate := loot.EffectiveDropRate(slot, 0, int(mob.Level))
 		if loot.Drops(w.Rand(), rate) {
+			if d.castleKeyDrop(w, reward, it) {
+				continue
+			}
 			w.CreateGroundItem(it, mob.X, mob.Y)
 		}
 	}
