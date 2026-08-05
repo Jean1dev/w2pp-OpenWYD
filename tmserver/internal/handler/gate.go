@@ -86,24 +86,11 @@ func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Hea
 	}
 }
 
-func carryCastleKeySlot(e *world.Entity, key, level int) int {
-	if level < 0 {
-		return -1
-	}
-	for i := 0; i < activeCarryLimit(e); i++ {
-		it := e.Carry[i]
-		if it.Empty() || itemKeyID(it) != key {
-			continue
-		}
-		for _, effect := range it.Effects {
-			if effect.Effect == efQuest && int(effect.Value) == level {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
+// carryKeySlot returns the first carry slot holding a key whose EF_KEYID matches
+// key, or -1. questLevel < 0 accepts any such key; questLevel >= 0 additionally
+// requires the item's EF_QUEST stamp to name that castle quest level, which is
+// what keeps a level-2 castle key from opening the level-3 gate. Loop-only
+// (reads Entity.Carry directly).
 func (d *Dispatcher) carryKeySlot(e *world.Entity, key, questLevel int) int {
 	for i := 0; i < activeCarryLimit(e); i++ {
 		it := e.Carry[i]
@@ -121,24 +108,6 @@ func itemQuestID(it world.Item) int {
 	for _, effect := range it.Effects {
 		if effect.Effect == efQuest {
 			return int(effect.Value)
-		}
-	}
-	return -1
-}
-
-// itemKeyID returns the item's EF_KEYID value (0 when absent) — the Go analog of
-// BASE_GetItemAbility(item, EF_KEYID) over the instance effects. A key/gate carries
-// a single EF_KEYID, so the summed itemInstanceAbility equals that value.
-func itemKeyID(it world.Item) int {
-	return itemInstanceAbility(it, efKeyID)
-}
-
-// carryKeySlot returns the first carry slot holding an item whose EF_KEYID matches
-// key, or -1. Loop-only (reads Entity.Carry directly).
-func carryKeySlot(e *world.Entity, key int) int {
-	for i := 0; i < activeCarryLimit(e); i++ {
-		if !e.Carry[i].Empty() && itemKeyID(e.Carry[i]) == key {
-			return i
 		}
 	}
 	return -1

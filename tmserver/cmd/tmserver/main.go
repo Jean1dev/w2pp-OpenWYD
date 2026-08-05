@@ -275,6 +275,13 @@ func run(logger *slog.Logger) error {
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
 
+	// Seed the world-event RNG from the wall clock so the weather sequence differs
+	// between boots (handler.worldEventRNGSeed explains why the fixed seed is only
+	// for tests). Zero means "use the fixed seed", so keep it out of range.
+	eventSeed := uint32(time.Now().UnixNano())
+	if eventSeed == 0 {
+		eventSeed = 1
+	}
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
@@ -285,6 +292,7 @@ func run(logger *slog.Logger) error {
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
 		CastleQuests:    castleQuests,
+		EventRNGSeed:    eventSeed,
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,

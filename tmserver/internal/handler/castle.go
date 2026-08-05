@@ -24,8 +24,10 @@ func (d *Dispatcher) openCastleQuest(w *world.World, _ *world.Session, entrant *
 	if level < 0 || level >= len(d.castleQuests) {
 		return
 	}
-	active, _, _ := d.events.castle.State()
-	if active >= 0 {
+	// State reports the level of the running quest, or -1 when idle: a castle
+	// already in progress refuses a second entrance.
+	activeLevel, _, _ := d.events.castle.State()
+	if activeLevel >= 0 {
 		return
 	}
 	q := d.castleQuests[level]

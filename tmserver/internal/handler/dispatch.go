@@ -121,6 +121,12 @@ type Config struct {
 	// CastleQuests is the optional CastleQuest.txt table. Empty keeps the
 	// best-effort Castle/Zakum port disabled.
 	CastleQuests []content.CastleQuest
+
+	// EventRNGSeed seeds the dedicated world-event stream (see Dispatcher.eventRNG).
+	// Zero keeps the fixed worldEventRNGSeed, which is what tests want; main.go
+	// passes the wall clock so the weather sequence is not replayed identically
+	// after every restart.
+	EventRNGSeed uint32
 }
 
 type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, payload []byte)
@@ -210,9 +216,16 @@ type Dispatcher struct {
 	eventRNG worldevents.Rand
 }
 
-// worldEventRNGSeed seeds eventRNG. It is NOT a legacy value — the original has
-// no srand() at all (rng package doc) — it exists only to keep world-event
-// draws off the world's parity stream.
+// worldEventRNGSeed is the fallback seed for eventRNG, used when Config leaves
+// EventRNGSeed zero (tests). It is NOT a legacy value — the original has no
+// srand() at all (rng package doc) — it exists only to keep world-event draws
+// off the world's parity stream.
+//
+// Production overrides it from the wall clock: the legacy weather rolls share
+// the global rand(), whose state every player's drops and criticals advance, so
+// they never actually repeat across restarts. Our dedicated stream has no such
+// churn, and a fixed seed would replay the same weather sequence at the same
+// ticks on every boot.
 const worldEventRNGSeed uint32 = 116
 
 // worldEventState is the loop-owned runtime state of the timer-driven world
@@ -240,6 +253,9 @@ func New(cfg Config) *Dispatcher {
 	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
+	}
+	if cfg.EventRNGSeed == 0 {
+		cfg.EventRNGSeed = worldEventRNGSeed
 	}
 	d := &Dispatcher{
 		cfg:              cfg,
@@ -271,7 +287,7 @@ func New(cfg Config) *Dispatcher {
 		managedNPCs:      make(map[string]int),
 		worldEventSource: cfg.WorldEvents,
 		castleQuests:     cfg.CastleQuests,
-		eventRNG:         rng.NewSeeded(worldEventRNGSeed),
+		eventRNG:         rng.NewSeeded(cfg.EventRNGSeed),
 		events:           worldEventState{forceWeather: weatherAuto},
 	}
 	d.events.tower = worldevents.NewTower(20)

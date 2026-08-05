@@ -36,12 +36,13 @@ func TestCastleOpenSpawnAndBossReward(t *testing.T) {
 }
 
 func TestCarryCastleKeyRequiresQuestStamp(t *testing.T) {
+	d := New(Config{})
 	e := &world.Entity{}
 	e.Carry[0] = world.Item{Index: 1, Effects: [3]world.Effect{{Effect: efKeyID, Value: 11}, {Effect: efQuest, Value: 2}}}
-	if got := carryCastleKeySlot(e, 11, 2); got != 0 {
+	if got := d.carryKeySlot(e, 11, 2); got != 0 {
 		t.Fatalf("matching key slot = %d, want 0", got)
 	}
-	if got := carryCastleKeySlot(e, 11, 3); got != -1 {
+	if got := d.carryKeySlot(e, 11, 3); got != -1 {
 		t.Fatalf("wrong-quest key slot = %d, want -1", got)
 	}
 }
