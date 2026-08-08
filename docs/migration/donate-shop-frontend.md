@@ -86,9 +86,17 @@ Liga/desliga a oferta na vitrine.
 Remove a oferta.
 
 ### `CreditDonateBalance(moderator_id, account_id, amount, reason) → { result, new_balance }`
-**Adiciona `amount` de donate à conta `account_id`** (crédito manual/administrativo — é a mesma porta
-que o gateway de pagamento vai usar no futuro). `amount` deve ser > 0. `reason` fica no audit trail.
-`new_balance` só vem em `OK`. Conta inexistente → `ADMIN_RESULT_NOT_FOUND`.
+**Adiciona `amount` de donate à conta `account_id`** (crédito manual/administrativo). `amount` deve
+ser > 0. `reason` fica no audit trail. `new_balance` só vem em `OK`. Conta inexistente →
+`ADMIN_RESULT_NOT_FOUND`.
+
+> O gateway de pagamento **não** passa por aqui: ele tem seu próprio caminho idempotente em
+> `DonateTopupService.ConfirmTopupOrder`. Este RPC é a cortesia/compensação manual.
+>
+> Cada crédito vira uma linha `credit_balance` em `donate_shop_audit`, hoje legível via
+> `DonateRevenueAdminService.ListDonateSpend` — onde o **moderador aparece como `actor`** e a conta
+> creditada como `subject` (a coluna `account_id` da auditoria guarda o moderador, não o beneficiado).
+> Ver [`docs/integrations/faturamento-nextjs.md`](../integrations/faturamento-nextjs.md).
 
 `AdminAck` = `{ AdminResult result }`.
 
@@ -169,7 +177,10 @@ export async function upsertOffer(item: DonateShopItemInput) {
 
 ## 9. Fora de escopo (não existe endpoint ainda)
 
-- **Gateway de pagamento / compra real de donate**: por enquanto o saldo só é creditado por
-  `CreditDonateBalance` (moderador). O webhook de pagamento futuro chamará a mesma lógica.
+- ~~**Gateway de pagamento / compra real de donate**~~ — **já existe**: `DonateTopupService`
+  (`api/web/v1/web.proto`, migração `0010_donate_topup`) cobre o ciclo PIX completo
+  (`CreateTopupOrder` → `ConfirmTopupOrder` idempotente → `GetTopupOrder`). `CreditDonateBalance`
+  continua sendo o crédito **manual** de moderador. Para os relatórios de receita sobre esses
+  pedidos, ver [`docs/integrations/faturamento-nextjs.md`](../integrations/faturamento-nextjs.md).
 - **Entrega instantânea para quem já está online** (só há dreno no login).
 - **Mercado P2P / consignação de item pelo jogador** (feature separada — ver `web-platform-plan.md`).

@@ -963,3 +963,261 @@ message GetTopupOrderResponse {
   int32 credits = 2;
   int64 new_balance = 3; // account balance when PAID; 0 otherwise
 }
+
+// DonateRevenueAdminService is the read-only revenue reporting surface behind the
+// painel de faturamento. It answers "how much money came in this month, who paid,
+// and where did the donate go", over data that has been persisted since
+// 0008_donate_shop and 0010_donate_topup but had no read path until now.
+//
+// It is NOT bin.v1.BillingService: that is the login entitlement gate and, per
+// web-platform-plan.md, explicitly not the cash wallet. This service reads
+// donate_topup_order (real money), donate_shop_audit (wallet movements),
+// account and donate_payer_profile.
+//
+// Like every *AdminService here, request field 1 is the caller's account id,
+// re-authorized server-side against account.role ('moderator' or 'admin'). It
+// writes NOTHING — not even an audit row — so it never interacts with the
+// tmServer's single-owner loop.
+//
+// Money vs credits: *_cents is real BRL in integer cents; credits/*_credits is
+// the in-game donate wallet unit. They are different units and must never be
+// summed. Revenue is recognized on confirmed_at, never created_at: an order is
+// only money once the gateway settled it.
+//
+// Time: every instant is int64 Unix SECONDS, matching db.v1's expires_at /
+// updated_at_unix; web.v1 pulls in no google.protobuf well-known types and this
+// service does not introduce that dependency. 0 means absent, so a PENDING order
+// reports confirmed_at_unix = 0.
+//
+// Bucketing timezone: day/week/month buckets close in America/Sao_Paulo, so the
+// panel agrees with a Brazilian bank statement. The instants on the wire are
+// still absolute. See docs/integrations/faturamento-nextjs.md.
+service DonateRevenueAdminService {
+  // GetRevenueSummary returns the KPI header plus an optional gap-filled series.
+  rpc GetRevenueSummary(GetRevenueSummaryRequest) returns (GetRevenueSummaryResponse);
+  // ListTopupOrders is the paginated order table with the buyer identity already
+  // joined in, so the BFF never fans out one account lookup per row.
+  rpc ListTopupOrders(ListTopupOrdersRequest) returns (ListTopupOrdersResponse);
+  // ListTopBuyers ranks accounts by revenue inside the window and carries the
+  // all-time (LTV) aggregate alongside. Drill-down is ListTopupOrders or
+  // ListDonateSpend with account_id set; there is no per-account RPC.
+  rpc ListTopBuyers(ListTopBuyersRequest) returns (ListTopBuyersResponse);
+  // ListDonateSpend is the donate wallet ledger over donate_shop_audit. It
+  // normalizes that table's asymmetry: for action='purchase' the audit's
+  // account_id column is the BUYER, but for action='credit_balance' it is the
+  // MODERATOR and the credited account lives in after->>'account_id'. Each row
+  // therefore reports subject (whose wallet moved) and actor (who caused it).
+  rpc ListDonateSpend(ListDonateSpendRequest) returns (ListDonateSpendResponse);
+  // SearchAccounts resolves a login prefix to account ids so the panel's filter
+  // box and the top-buyer drill-down can work from a name the operator typed.
+  rpc SearchAccounts(SearchAccountsRequest) returns (SearchAccountsResponse);
+}
+
+// RevenueWindow is the half-open [from_unix, to_unix) interval that scopes every
+// read on this service. Both 0 = the last 30 days ending now; only to_unix 0 =
+// now. The server rejects from >= to and any window wider than 366 days, and
+// always resolves the window to a concrete bounded range before it reaches SQL.
+message RevenueWindow {
+  int64 from_unix = 1; // inclusive, Unix seconds; 0 = to_unix minus 30 days
+  int64 to_unix   = 2; // exclusive, Unix seconds; 0 = now
+}
+
+// RevenueBucket is the time-series granularity. UNSPECIFIED skips the series
+// entirely — the cheapest call, for a header-only refresh. An unrecognized value
+// degrades to UNSPECIFIED rather than failing, so a newer portal cannot break an
+// older server.
+enum RevenueBucket {
+  REVENUE_BUCKET_UNSPECIFIED = 0;
+  REVENUE_BUCKET_DAY = 1;
+  REVENUE_BUCKET_WEEK = 2;  // date_trunc('week') — ISO week, starts on MONDAY
+  REVENUE_BUCKET_MONTH = 3;
+}
+
+// DonateLedgerAction filters the donate_shop_audit read. UNSPECIFIED returns both
+// movement kinds; the catalog CRUD actions ('create'/'update'/'delete'/
+// 'set_enabled') are never returned — they move no wallet.
+enum DonateLedgerAction {
+  DONATE_LEDGER_ACTION_UNSPECIFIED = 0;
+  DONATE_LEDGER_ACTION_PURCHASE = 1; // donate_shop_audit.action = 'purchase'
+  DONATE_LEDGER_ACTION_CREDIT   = 2; // donate_shop_audit.action = 'credit_balance'
+}
+
+// RevenueTotals is the KPI header. The first block is real money recognized on
+// confirmed_at; the second is orders CREATED in the window (any status), the
+// conversion denominator; the third is donate wallet flow, in CREDITS, not money.
+message RevenueTotals {
+  int64 paid_orders     = 1;
+  int64 gross_cents     = 2; // serialize as string in public JSON
+  int64 credits_sold    = 3;
+  int64 distinct_buyers = 4;
+
+  int64 created_orders  = 5; // created in the window, any status
+  int64 pending_orders  = 6; // created in the window and still PENDING today
+  int64 pending_cents   = 7; // string in public JSON; NOT revenue, never add to gross_cents
+
+  int64 shop_purchases  = 8;  // donate_shop_audit rows with action='purchase'
+  int64 credits_spent   = 9;  // sum of after->>'price' over those rows
+  int64 manual_credits  = 10; // rows with action='credit_balance' (moderator grants)
+  int64 credits_granted = 11; // sum of after->>'amount' over those rows
+}
+
+// RevenueByMethod breaks recognized revenue down by gateway. Repeated rather than
+// fixed pix_/card_ fields so adding a PaymentMethod never changes this message.
+message RevenueByMethod {
+  PaymentMethod payment_method = 1;
+  int64 paid_orders = 2;
+  int64 gross_cents = 3; // serialize as string in public JSON
+}
+
+// RevenuePoint is one bucket of the series. Buckets with no orders ARE returned
+// with zeroes, so the chart axis is continuous and the front-end never gap-fills.
+message RevenuePoint {
+  int64 bucket_start_unix = 1; // instant the bucket opens (America/Sao_Paulo boundary)
+  int64 paid_orders       = 2;
+  int64 gross_cents       = 3; // serialize as string in public JSON
+  int64 credits_sold      = 4;
+  int64 distinct_buyers   = 5;
+}
+
+message GetRevenueSummaryRequest {
+  int64 moderator_id = 1;
+  RevenueWindow window = 2;
+  RevenueBucket bucket = 3;
+  int64 account_id = 4; // 0 = all accounts; set for the per-account drill-down
+}
+message GetRevenueSummaryResponse {
+  AdminResult result = 1;
+  RevenueTotals totals = 2;
+  repeated RevenueByMethod by_method = 3;
+  repeated RevenuePoint series = 4; // empty when bucket is UNSPECIFIED
+  int64 from_unix = 5; // the window the server actually applied, after defaults
+  int64 to_unix   = 6; // echo it back so the UI can label the period truthfully
+}
+
+// TopupOrderRow is one row of the order table, with the buyer identity resolved
+// server-side in the same SQL (a JOIN, never N+1 lookups from the BFF).
+message TopupOrderRow {
+  int64  id = 1;                 // serialize as string in public JSON
+  string external_reference = 2; // the portal UUID — the reconciliation key
+  int64  account_id = 3;         // serialize as string in public JSON
+  string account_name = 4;       // account.name (canonical lowercase login)
+  string account_email = 5;
+  string payer_name = 6;         // donate_payer_profile; empty when never filled
+  // ALWAYS masked (***.456.789-**). The raw 11 digits never leave the web-api:
+  // 'moderator' is a coarse role and a revenue report has no use for the full
+  // number — a chargeback is reconciled by external_reference.
+  string payer_cpf_masked = 7;
+  int32  credits = 8;
+  int64  amount_cents = 9;       // serialize as string in public JSON
+  PaymentMethod payment_method = 10;
+  // ALWAYS empty today: CreateTopupOrder never writes donate_topup_order.provider.
+  // Do not build UI on it.
+  string provider = 11;
+  TopupStatus status = 12;
+  int64  created_at_unix = 13;
+  int64  confirmed_at_unix = 14; // 0 while PENDING
+}
+
+message ListTopupOrdersRequest {
+  int64 moderator_id = 1;
+  RevenueWindow window = 2;
+  // status also picks the date column the window filters on: PAID filters and
+  // orders by confirmed_at (revenue recognition); anything else uses created_at.
+  TopupStatus status = 3;           // UNSPECIFIED = any status
+  PaymentMethod payment_method = 4; // UNSPECIFIED = any method
+  int64 account_id = 5;             // 0 = all accounts
+  int32 limit = 6;                  // default 50, max 100
+  int32 offset = 7;                 // negative values are treated as 0
+}
+message ListTopupOrdersResponse {
+  AdminResult result = 1;
+  repeated TopupOrderRow orders = 2;
+  int32 total_count = 3;
+  int64 from_unix = 4;
+  int64 to_unix   = 5;
+}
+
+// TopBuyerRow carries both the window aggregate (what the panel ranks on) and the
+// all-time aggregate (the LTV), because "who spent most this month" and "who is
+// worth most overall" are different questions and the panel shows both.
+message TopBuyerRow {
+  int64  account_id = 1; // serialize as string in public JSON
+  string account_name = 2;
+  string account_email = 3;
+  int64  window_paid_orders   = 4;
+  int64  window_gross_cents   = 5; // string in public JSON; the ranking key
+  int64  lifetime_paid_orders = 6;
+  int64  lifetime_gross_cents = 7; // string in public JSON; the LTV
+  int64  lifetime_credits     = 8;
+  int64  first_paid_at_unix   = 9;  // all-time, not window-scoped
+  int64  last_paid_at_unix    = 10; // all-time, not window-scoped
+  int32  donate_balance       = 11; // current wallet — point-in-time, not a window value
+}
+message ListTopBuyersRequest {
+  int64 moderator_id = 1;
+  RevenueWindow window = 2;
+  int32 limit = 3;  // default 50, max 100
+  int32 offset = 4; // negative values are treated as 0
+}
+message ListTopBuyersResponse {
+  AdminResult result = 1;
+  repeated TopBuyerRow buyers = 2;
+  int32 total_count = 3; // distinct accounts that paid inside the window
+  int64 from_unix = 4;
+  int64 to_unix   = 5;
+}
+
+// DonateLedgerRow is one donate wallet movement. credits_delta is SIGNED so the
+// column sums to a meaningful net: negative for a purchase (debit), positive for
+// a moderator credit. It is in donate credits, never money.
+message DonateLedgerRow {
+  int64  id = 1; // donate_shop_audit.id; string in public JSON
+  DonateLedgerAction action = 2;
+  int64  created_at_unix = 3;
+  int64  subject_account_id = 4; // whose wallet moved; string in public JSON
+  string subject_account_name = 5;
+  int64  actor_account_id = 6;   // == subject on a purchase, the MODERATOR on a credit
+  string actor_account_name = 7;
+  int64  credits_delta = 8;      // signed: -price on purchase, +amount on credit
+  int64  balance_after = 9;      // wallet balance recorded at the time
+  int64  shop_item_id = 10;      // 0 for credit_balance; string in public JSON
+  // Empty when the offer was deleted since the purchase (shop_item_id is
+  // deliberately not an FK, so history survives). Fall back to shop_item_id.
+  string shop_item_title = 11;
+  string reason = 12; // credit_balance only; the moderator's note
+}
+message ListDonateSpendRequest {
+  int64 moderator_id = 1;
+  RevenueWindow window = 2;
+  DonateLedgerAction action = 3; // UNSPECIFIED = both movement kinds
+  int64 account_id = 4;          // matched against the SUBJECT, not the raw audit column
+  int32 limit = 5;               // default 50, max 100
+  int32 offset = 6;              // negative values are treated as 0
+}
+message ListDonateSpendResponse {
+  AdminResult result = 1;
+  repeated DonateLedgerRow entries = 2;
+  int32 total_count = 3;
+  int64 from_unix = 4;
+  int64 to_unix   = 5;
+}
+
+// AccountSummary is the minimum identity the panel needs to turn a typed login
+// into an account_id filter. It exposes no credentials.
+message AccountSummary {
+  int64  id = 1; // serialize as string in public JSON
+  string name = 2;
+  string email = 3;
+  int32  donate_balance = 4;
+  string role = 5; // 'player' | 'moderator' | 'admin'
+  bool   is_blocked = 6;
+}
+message SearchAccountsRequest {
+  int64  moderator_id = 1;
+  string name_prefix = 2; // canonicalized to lowercase server-side; minimum 2 chars
+  int32  limit = 3;       // default 20, max 50
+}
+message SearchAccountsResponse {
+  AdminResult result = 1;
+  repeated AccountSummary accounts = 2;
+}

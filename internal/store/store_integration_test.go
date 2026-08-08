@@ -33,6 +33,10 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// resetTestSchema drops every table any migration creates, so a re-run starts
+// from an empty database. It must list them ALL: `DROP TABLE account CASCADE`
+// drops dependent *constraints*, not dependent *tables*, so a table omitted here
+// survives and the next Migrate fails with 42P07 (relation already exists).
 func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
 	_, _ = pool.Exec(ctx, `
 		DROP TABLE IF EXISTS
@@ -50,6 +54,14 @@ func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
 			item,
 			character_pvp_stats,
 			character,
+			castle_quest_state,
+			guild_tower_state,
+			guild_zone,
+			guild_relation,
+			guild_member,
+			guild,
+			donate_topup_order,
+			donate_payer_profile,
 			account,
 			donate_shop_audit,
 			donate_shop_item,

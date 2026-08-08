@@ -30,6 +30,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/attributemap"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/characters"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/dailyreward"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donaterevenue"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donateshop"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donatetopup"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
@@ -90,6 +91,7 @@ func run(logger *slog.Logger) error {
 	donate := donateshop.New(st)
 	dailyRwd := dailyreward.New(st)
 	topup := donatetopup.New(st)
+	revenue := donaterevenue.New(st)
 	attrMap := attributemap.New(st, *contentDir)
 	worldEvents := worldevent.New(st)
 	if *contentDir != "" {
@@ -143,6 +145,7 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterDailyRewardAdminServiceServer(srv, grpcsrv.NewDailyRewardAdmin(dailyRwd))
 	webv1.RegisterDailyRewardServiceServer(srv, grpcsrv.NewDailyReward(dailyRwd))
 	webv1.RegisterDonateTopupServiceServer(srv, grpcsrv.NewDonateTopup(topup))
+	webv1.RegisterDonateRevenueAdminServiceServer(srv, grpcsrv.NewDonateRevenue(revenue))
 	webv1.RegisterWorldEventAdminServiceServer(srv, grpcsrv.NewWorldEventAdmin(worldEvents))
 
 	ln, err := net.Listen("tcp", *addr)
