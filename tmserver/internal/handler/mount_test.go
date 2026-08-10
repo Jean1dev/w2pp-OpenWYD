@@ -106,13 +106,14 @@ func TestMountEquipScore(t *testing.T) {
 // whatever a fresh Entity starts with, which is exactly what avoids the login zero-out.
 func TestMountScoreRoundTrip(t *testing.T) {
 	d := New(Config{})
-	e := &world.Entity{ID: 1, Level: 50, Damage: 955, Magic: 60}
+	e := &world.Entity{ID: 1, ClassMaster: classMasterMortal, Level: 50, Damage: 955, Magic: 60}
 	e.Equip[0] = world.Item{Index: 11}
 	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
-	if e.Damage != 955 || e.Magic != 60 || e.Parry != 80 {
-		t.Errorf("round-trip = Damage %d Magic %d Parry %d, want 955/60/80", e.Damage, e.Magic, e.Parry)
+	wantDamage := baseDamageChar + e.Level + 750
+	if e.Damage != wantDamage || e.Magic != 60 || e.Parry != 80 {
+		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/60/80", e.Damage, e.Magic, e.Parry, wantDamage)
 	}
 	for i := range e.Resist {
 		if e.Resist[i] != 32 {

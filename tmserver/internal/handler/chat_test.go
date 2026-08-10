@@ -523,7 +523,8 @@ func TestApplyBonusScore(t *testing.T) {
 	if !ok || ty != protocol.MsgUpdateScore {
 		t.Errorf("got %#x ok=%v, want UpdateScore second", ty, ok)
 	}
-	if dmg := scoreDamage(payload); dmg != 69 {
-		t.Errorf("UpdateScore Damage = %d, want 69 after +1 STR (11→12)", dmg)
+	want := baseDamageChar + 12/2 + 10/3 + 10
+	if dmg := scoreDamage(payload); dmg != int32(want) {
+		t.Errorf("UpdateScore Damage = %d, want %d after +1 STR (11→12)", dmg, want)
 	}
 }

@@ -605,8 +605,11 @@ func castleQuestStateFromProto(st *dbv1.CastleQuestState) world.CastleQuestState
 //
 // UNVERIFIED: the contract (api/db/v1 Character) does not carry the world-entry
 // spawn tile (CharacterState.X/Y, distinct from the Gema Estelar SaveX/SaveY
-// below) or the derived combat scores (Damage/AC/Master), so those stay zero
-// until the full STRUCT_MOB snapshot is captured (PROGRESS Fase 4).
+// below) or Master, so those stay zero until the full STRUCT_MOB snapshot is
+// captured (PROGRESS Fase 4). Damage and AC are also absent from the contract,
+// but the tmServer no longer depends on them: handler.deriveBaseScore rebuilds
+// their BaseScore from the legacy creation/level-up rules instead of subtracting
+// the equipment from a score that was never stored (issue #232).
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
 		Slot:         int(c.GetSlot()),

@@ -1200,8 +1200,8 @@ func TestRefreshScoreSpecial(t *testing.T) {
 	if e.Str != 80 {
 		t.Errorf("Str = %d, want 80 (round-trip stable)", e.Str)
 	}
-	if e.AC != 120 {
-		t.Errorf("AC = %d, want 120 (round-trip stable)", e.AC)
+	if want := playerBaseAC(e); e.AC != want {
+		t.Errorf("AC = %d, want rebuilt base %d", e.AC, want)
 	}
 	if e.Special[1] != 15 {
 		t.Errorf("Special[1] = %d, want 15", e.Special[1])

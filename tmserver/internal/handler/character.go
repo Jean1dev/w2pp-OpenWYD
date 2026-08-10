@@ -256,7 +256,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.MP, e.MaxMP = st.MP, st.MaxMP
 		// Critical is a save-side cache only: refreshScore below re-derives it from the
 		// equipment (Basedef.cpp:3209), so the stored value never survives login.
-		e.Damage, e.AC, e.Master, e.Critical = st.Damage, st.AC, st.Master, st.Critical
+		// Damage and AC are NOT read from the state at all: the DB contract carries
+		// neither, so st.Damage/st.AC are always 0 — deriveBaseScore reconstructs
+		// their base from the legacy rules and refreshScore fills the live fields
+		// (issue #232).
+		e.Master, e.Critical = st.Master, st.Critical
 		e.Level, e.Coin, e.Exp = int32(st.Level), st.Coin, st.Exp
 		e.Clan, e.Guild, e.GuildLevel, e.Citizen, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.Citizen, st.ClassMaster, st.Soul
 		e.Fame = st.Fame

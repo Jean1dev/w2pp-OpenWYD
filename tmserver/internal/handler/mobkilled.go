@@ -240,6 +240,9 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 		// equip).
 		e.BaseMaxHP = addClamp(e.BaseMaxHP, level.IncHP(e.Class), level.MaxHPCap)
 		e.BaseMaxMP = addClamp(e.BaseMaxMP, level.IncMP(e.Class), level.MaxMPCap)
+		// +1 AC per level for every tier (CMob.cpp:1133,1145,1150). This keeps the
+		// live value right for the rest of the session; playerBaseAC rebuilds the
+		// same total from the (now higher) level on the next login.
 		e.BaseAC++
 		// SkillBonus +3/level (+4 from 200) and SpecialBonus +2/level are Mortal/Arch
 		// grants only; Celestial tiers grant AC + attribute points and nothing else
