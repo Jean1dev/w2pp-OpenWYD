@@ -216,6 +216,36 @@ func TestPartyLeaderLeavePromotesNextMember(t *testing.T) {
 	}
 }
 
+// TestPartyMemberLogoutLeavesParty: the port never ran the legacy
+// RemoveParty(conn) on logout (_MSG_CharacterLogout.cpp:23), so the leaver stayed
+// a ghost slot in the leader's PartyList — which made the leader read as "already
+// partied" forever and unable to accept any later invite (isInParty).
+func TestPartyMemberLogoutLeavesParty(t *testing.T) {
+	addr, stop, _ := startServerClock(t, partyDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+	c := enterWorldAs(t, addr, "third")
+	defer c.Close()
+
+	reqPartyFrame(t, a, 1, 2)
+	expectPartyFrame(t, b, protocol.MsgSendReqParty)
+	acceptPartyFrame(t, b, 1, "Hero")
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	send(t, b, protocol.MsgCharacterLogout, nil)
+	expectRemoveParty(t, a, 2)
+
+	// The ex-leader is party-free again, so a fresh invite reaches it.
+	drainRaw(t, a)
+	drainRaw(t, c)
+	reqPartyFrame(t, c, 3, 1)
+	expectPartyFrame(t, a, protocol.MsgSendReqParty)
+}
+
 func TestGuildInvite(t *testing.T) {
 	addr, stop, _ := startServerClock(t, guildDB())
 	defer stop()

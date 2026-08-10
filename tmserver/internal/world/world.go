@@ -165,6 +165,10 @@ type World struct {
 	onTick       func(*World)
 	tickInterval time.Duration
 
+	// onSessionEnd is the teardown hook (party unlink), run inside the loop just
+	// before a session's slot is freed; see event.go. nil disables it.
+	onSessionEnd func(*World, *Session)
+
 	// respawnQueue holds dead monsters awaiting respawn, drained by SpawnDueRespawns
 	// from the tick (world/respawn.go). Loop-owned.
 	respawnQueue []respawnEntry

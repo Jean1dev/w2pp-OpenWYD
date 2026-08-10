@@ -40,6 +40,38 @@ Evidencia usa os codigos definidos em `README.md`.
 - Dano BM usa a mesma formula de caster da Foema: `Int/30 + Int/3 + Level + base + 2*Special`, Magic multiplier e 5/4.
 - Summons usam `InstanceType 11`, `InstanceValue 1..8`, `pSummonBonus` local, `Special[2]` para quantidade/escalonamento, `PartyList` para limite e `MSG_CNFAddParty` para UI.
 - Transformacoes usam affect type 16, valores 1..5, `pTransBonus`, learned bits 17/19/21 para flat adds de Lobo/Urso/Astaroth, mesh 22/23/24/25/32, critical e attack/run speed.
+
+### Ciclo de vida do pet (issue #234)
+
+O `PartyList` do lider **e** o unico registro de pets: `generateSummon` conta por ele e
+`commandSummons` acha os pets por ele. Logo todo caminho que zera slot de party tem de matar o pet
+que estava ali, senao ele sobrevive fora de qualquer lista — e a proxima evocacao conta zero e
+empilha um novo conjunto (o bug relatado em #234).
+
+Quem remove pet, e por que:
+
+| Gatilho | Onde | Evidencia |
+|---|---|---|
+| membro sai / e expulso | `handler/party.go` `leaveParty`/`kickPartyMember` → `despawnSummonsOf(leader, conn)` | `Server.cpp:8185-8190` |
+| lider sai (party dissolvida) e **BM solo** clicando sair | `leaderLeaveParty` → `despawnSummonsOf(leader, 0)` | `Server.cpp:8237-8243` |
+| logout / desconexao | `Dispatcher.SessionEnd` (`characterLogout` + `world.SetSessionEndHandler`) | `_MSG_CharacterLogout.cpp:23`, `Server.cpp:7654` |
+| dono morto / fora de `USER_PLAY` | `summonTick` | `ProcessSecMinTimer.cpp:2381` |
+| pet fora do `PartyList` do seu lider (rede de seguranca) | `summonTick` + `petIsListed` | `CMob.cpp:118-124` |
+| fim do affect type 24 | `summonTick` | `Server.cpp:5843` |
+| montaria bebe desequipada/morta | `removeBabyMountSummons` | `Server.cpp:4650-4665` |
+
+Duas notas de paridade:
+
+- **Divergencia deliberada:** ao dissolver a party o Go mata os pets de **todos** os membros. O
+  legado deleta apenas os do lider e so zera `Summoner` nos demais (`Server.cpp:8242`), contando com
+  a varredura global do affect 24 (`Server.cpp:5843`) para recolher o resto. Aqui a contagem de vida
+  roda dentro de `summonTick`, que exige `Summoner != 0` (`mobai.go:61`), entao copiar essa linha
+  vazaria mobs sem dono para sempre.
+- `DespawnMob` so envia `MSG_RemoveMob`; a linha de party do pet precisa de `MSG_RemoveParty`
+  explicito (no legado vem de graca via `DeleteMob → RemoveParty`, `Server.cpp:7840`).
+
+O orcamento de pets e **da party inteira**, nao por jogador: `generateSummon` conta todo pet no
+`PartyList` do lider, de quem for (`Server.cpp:2991-2997`).
 - O score derivado de transform fica em caches de affect/read-time, nao no score persistido.
 
 ## Lacunas e riscos
@@ -53,4 +85,7 @@ Evidencia usa os codigos definidos em `README.md`.
 - `TestEtherealFlameBurnsPlayerMP`, `TestBeastAuraTickUsesSkill52`.
 - `TestSummonCount`, `TestEvocationSpawnsScaledSummons`, `TestEvocationSendsAddPartyForSummon`, `TestEvocationDoesNotDuplicateExistingSummon`.
 - `TestSummonExpires`, `TestSummonGoneAfterRelogin`, `TestSummonAssistsAgainstMob`.
+- Issue #234: `TestSoloSummonDespawnsOnRemoveParty`, `TestEvocationAfterLeavingPartyStaysCapped`,
+  `TestSummonDespawnsWhenOwnerLeavesParty`, `TestSummonDespawnsWhenKicked`,
+  `TestSummonDespawnsOnPartyDisband`, `TestSummonPartySlotClearedOnDespawn`.
 - `TestApplyTransformScore`, `TestTransformCastBroadcastsMesh`, `TestTransformExpiryRevertsMesh`.

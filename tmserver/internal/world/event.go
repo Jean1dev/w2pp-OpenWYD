@@ -138,11 +138,22 @@ func (e disconnectEvent) apply(w *World) {
 	w.removeSession(e.s)
 }
 
+// SetSessionEndHandler registers the session-teardown hook (party unlink). Like
+// the tick handler it runs INSIDE the loop goroutine and may mutate world state
+// directly; it sees the session and its entity still live. Call before Run.
+func (w *World) SetSessionEndHandler(fn func(*World, *Session)) { w.onSessionEnd = fn }
+
 // removeSession tears down a session and frees its slot. It only acts if the
 // slot still holds this exact session (guards against a reused slot). Loop-only.
 func (w *World) removeSession(s *Session) {
 	if s == nil || w.sessions[s.Conn] != s {
 		return
+	}
+	// Shared-state teardown (the party bond and its summons) while the session and
+	// its entity are still addressable — the legacy calls RemoveParty from CloseUser
+	// for the same reason (Server.cpp:7654).
+	if w.onSessionEnd != nil {
+		w.onSessionEnd(w, s)
 	}
 	// S→C post-mortem first, while the slot still identifies the session: what
 	// the client was sent last is the key evidence for a client-side freeze
