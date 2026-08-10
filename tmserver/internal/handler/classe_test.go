@@ -15,17 +15,21 @@ const (
 	itemClasseA  = 4016 // tier 1
 	itemClasseE  = 4020 // tier 5
 	itemClasseAP = 4021 // tier 1, "(P)" variant
+	itemClasseD  = 4019 // tier 4 (ItemList.csv:5665)
+	itemClasseDP = 4024 // tier 4, "(P)" variant (ItemList.csv:5675)
 
 	itemHelmT1   = 6001 // nPos 2
 	itemChestT1  = 6002 // nPos 4
 	itemGloveT1  = 6003 // nPos 16
 	itemBootT1   = 6004 // nPos 32
 	itemWeaponT1 = 6005 // nPos 1 (uncovered by SetItemBonus2)
+	itemChestT4  = 6006 // nPos 4, EF_ITEMLEVEL 4 — stands in for Armadura_Aeon (1479)
 )
 
 func classeCatalog() (map[int]int, map[int][]content.BaseEffect) {
 	pos := map[int]int{
-		itemHelmT1: nPosHelmForTest, itemChestT1: 4, itemGloveT1: 16, itemBootT1: 32, itemWeaponT1: 1,
+		itemHelmT1: nPosHelmForTest, itemChestT1: 4, itemGloveT1: 16, itemBootT1: 32,
+		itemWeaponT1: 1, itemChestT4: 4,
 	}
 	effects := map[int][]content.BaseEffect{
 		itemHelmT1:   {{Eff: efItemLevel, Val: 1}},
@@ -33,6 +37,7 @@ func classeCatalog() (map[int]int, map[int][]content.BaseEffect) {
 		itemGloveT1:  {{Eff: efItemLevel, Val: 1}},
 		itemBootT1:   {{Eff: efItemLevel, Val: 1}},
 		itemWeaponT1: {{Eff: efItemLevel, Val: 1}},
+		itemChestT4:  {{Eff: efItemLevel, Val: 4}},
 	}
 	return pos, effects
 }
@@ -53,6 +58,7 @@ func newClasseFixture(t *testing.T, pos map[int]int, effects map[int][]content.B
 		Log: slog.New(slog.DiscardHandler),
 		ItemVolatiles: map[int]int{
 			itemClasseA: volClasses, itemClasseE: volClasses, itemClasseAP: volClasses,
+			itemClasseD: volClasses, itemClasseDP: volClasses,
 		},
 		ItemPos:     pos,
 		ItemEffects: effects,
@@ -65,17 +71,18 @@ func newClasseFixture(t *testing.T, pos map[int]int, effects map[int][]content.B
 	}
 }
 
-// use drags the classe item in carry slot 0 onto the item in carry slot 1.
+// use drags the classe item in carry slot 0 onto the item in carry slot 1 —
+// the only destination the legacy accepts (_MSG_UseItem.cpp:4970).
 func (f *classeFixture) use(classe int16) {
 	f.e.Carry[0] = world.Item{Index: classe}
 	body := protocol.MsgUseItemBody{
 		SourType: world.ItemPlaceCarry, SourPos: 0,
-		DestType: world.ItemPlaceEquip, DestPos: 1,
+		DestType: world.ItemPlaceCarry, DestPos: 1,
 	}
 	f.d.useClasseItem(f.w, f.s, f.e, body, 0)
 }
 
-func (f *classeFixture) target() world.Item { return f.e.Equip[1] }
+func (f *classeFixture) target() world.Item { return f.e.Carry[1] }
 
 func TestClasseTier(t *testing.T) {
 	cases := []struct {
@@ -95,7 +102,7 @@ func TestClasseTier(t *testing.T) {
 func TestClasseBonusHelmRerollsSancAndEffects(t *testing.T) {
 	pos, effects := classeCatalog()
 	f := newClasseFixture(t, pos, effects)
-	f.e.Equip[1] = world.Item{Index: itemHelmT1}
+	f.e.Carry[1] = world.Item{Index: itemHelmT1}
 
 	f.use(itemClasseA)
 
@@ -117,16 +124,54 @@ func TestClasseBonusHelmRerollsSancAndEffects(t *testing.T) {
 // classeSancCapForTest avoids importing the unexported refine.classeSancCap.
 const classeSancCapForTest = 6
 
-func TestClasseUncoveredSlotConsumesButDoesNothing(t *testing.T) {
+// TestClasseDRerollsTier4Set is the issue #228 regression: a Classe D (plain and
+// "(P)") applied to a tier-4 set piece in the inventory must reroll it.
+func TestClasseDRerollsTier4Set(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		classe int16
+	}{
+		{"Classe_D", itemClasseD},
+		{"Classe_D(P)", itemClasseDP},
+	} {
+		classe := c.classe
+		t.Run(c.name, func(t *testing.T) {
+			pos, effects := classeCatalog()
+			f := newClasseFixture(t, pos, effects)
+			f.e.Carry[1] = world.Item{Index: itemChestT4}
+
+			f.use(classe)
+
+			if !f.e.Carry[0].Empty() {
+				t.Errorf("classe %d not consumed: %+v", classe, f.e.Carry[0])
+			}
+			got := f.target()
+			if got.Index != itemChestT4 {
+				t.Fatalf("target replaced: %+v", got)
+			}
+			if got.Effects[0].Effect != efSanc {
+				t.Errorf("Effects[0] = %+v, want EF_SANC", got.Effects[0])
+			}
+			if got.Effects[1].Effect == 0 || got.Effects[2].Effect == 0 {
+				t.Errorf("bonus adds not rolled: %+v", got.Effects)
+			}
+		})
+	}
+}
+
+// TestClasseUncoveredSlotRefusesAndKeepsItem covers the deliberate deviation
+// from SetItemBonus2 (Lista de bugs.txt:6): an nPos the reroll tables don't
+// cover must not silently eat the Classe item.
+func TestClasseUncoveredSlotRefusesAndKeepsItem(t *testing.T) {
 	pos, effects := classeCatalog()
 	f := newClasseFixture(t, pos, effects)
-	f.e.Equip[1] = world.Item{Index: itemWeaponT1}
+	f.e.Carry[1] = world.Item{Index: itemWeaponT1}
 	before := f.target()
 
 	f.use(itemClasseA)
 
-	if !f.e.Carry[0].Empty() {
-		t.Errorf("classe item not consumed: %+v", f.e.Carry[0])
+	if f.e.Carry[0].Empty() {
+		t.Error("classe item consumed on an uncovered nPos")
 	}
 	if got := f.target(); got != before {
 		t.Errorf("uncovered nPos was mutated: %+v -> %+v", before, got)
@@ -142,38 +187,40 @@ func TestClasseGates(t *testing.T) {
 	mobTypeGated[itemChestT1] = append(append([]content.BaseEffect{}, effects[itemChestT1]...), content.BaseEffect{Eff: efMobType, Val: 1})
 
 	cases := []struct {
-		name     string
-		classe   int16
-		target   world.Item
-		effects  map[int][]content.BaseEffect
-		wantSame bool // target unchanged, item still consumed
+		name    string
+		classe  int16
+		target  world.Item
+		effects map[int][]content.BaseEffect
 	}{
 		{
-			name:     "tier mismatch is rejected",
-			classe:   itemClasseE,                    // tier 5
-			target:   world.Item{Index: itemChestT1}, // catalog tier 1
-			effects:  effects,
-			wantSame: true,
+			name:    "tier mismatch is rejected",
+			classe:  itemClasseE,                    // tier 5
+			target:  world.Item{Index: itemChestT1}, // catalog tier 1
+			effects: effects,
 		},
 		{
-			name:     "sanc >= +10 is rejected",
-			classe:   itemClasseA,
-			target:   world.Item{Index: itemChestT1, Effects: [3]world.Effect{{Effect: efSanc, Value: 230}}}, // level 10
-			effects:  effects,
-			wantSame: true,
+			name:    "Classe A on a tier-4 piece is rejected",
+			classe:  itemClasseA,                    // tier 1
+			target:  world.Item{Index: itemChestT4}, // catalog tier 4
+			effects: effects,
 		},
 		{
-			name:     "EF_MOBTYPE outside {0,2} is rejected",
-			classe:   itemClasseA,
-			target:   world.Item{Index: itemChestT1},
-			effects:  mobTypeGated,
-			wantSame: true,
+			name:    "sanc >= +10 is rejected",
+			classe:  itemClasseA,
+			target:  world.Item{Index: itemChestT1, Effects: [3]world.Effect{{Effect: efSanc, Value: 230}}}, // level 10
+			effects: effects,
+		},
+		{
+			name:    "EF_MOBTYPE outside {0,2} is rejected",
+			classe:  itemClasseA,
+			target:  world.Item{Index: itemChestT1},
+			effects: mobTypeGated,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f := newClasseFixture(t, pos, c.effects)
-			f.e.Equip[1] = c.target
+			f.e.Carry[1] = c.target
 			f.use(c.classe)
 			if got := f.target(); got != c.target {
 				t.Errorf("target mutated on a gate failure: %+v -> %+v", c.target, got)
@@ -187,23 +234,25 @@ func TestClasseGates(t *testing.T) {
 	}
 }
 
-func TestClasseRejectsCarryDestination(t *testing.T) {
+// TestClasseRejectsEquipDestination pins the legacy polarity: the target has to
+// be in the inventory, never worn (_MSG_UseItem.cpp:4970, issue #228).
+func TestClasseRejectsEquipDestination(t *testing.T) {
 	pos, effects := classeCatalog()
 	f := newClasseFixture(t, pos, effects)
-	f.e.Carry[1] = world.Item{Index: itemChestT1}
+	f.e.Equip[1] = world.Item{Index: itemChestT1}
 	f.e.Carry[0] = world.Item{Index: itemClasseA}
 
 	body := protocol.MsgUseItemBody{
 		SourType: world.ItemPlaceCarry, SourPos: 0,
-		DestType: world.ItemPlaceCarry, DestPos: 1,
+		DestType: world.ItemPlaceEquip, DestPos: 1,
 	}
 	f.d.useClasseItem(f.w, f.s, f.e, body, 0)
 
 	if f.e.Carry[0].Empty() {
-		t.Error("classe item consumed despite a non-Equip destination")
+		t.Error("classe item consumed despite an equipped destination")
 	}
-	if f.e.Carry[1].Index != itemChestT1 {
-		t.Errorf("carry target mutated: %+v", f.e.Carry[1])
+	if f.e.Equip[1] != (world.Item{Index: itemChestT1}) {
+		t.Errorf("equipped target mutated: %+v", f.e.Equip[1])
 	}
 }
 
@@ -218,7 +267,7 @@ func TestClasseBootDamageClamp(t *testing.T) {
 	clamped[itemBootT1] = append(append([]content.BaseEffect{}, effects[itemBootT1]...), content.BaseEffect{Eff: efDamage, Val: 20})
 
 	f := newClasseFixture(t, pos, clamped)
-	f.e.Equip[1] = world.Item{Index: itemBootT1}
+	f.e.Carry[1] = world.Item{Index: itemBootT1}
 
 	f.use(itemClasseA)
 
@@ -237,12 +286,12 @@ func TestClasseBootDamageClamp(t *testing.T) {
 func TestClasseConsumesOneUnitFromStack(t *testing.T) {
 	pos, effects := classeCatalog()
 	f := newClasseFixture(t, pos, effects)
-	f.e.Equip[1] = world.Item{Index: itemChestT1}
+	f.e.Carry[1] = world.Item{Index: itemChestT1}
 	f.e.Carry[0] = world.Item{Index: itemClasseA, Effects: [3]world.Effect{{Effect: efAmount, Value: 3}}}
 
 	body := protocol.MsgUseItemBody{
 		SourType: world.ItemPlaceCarry, SourPos: 0,
-		DestType: world.ItemPlaceEquip, DestPos: 1,
+		DestType: world.ItemPlaceCarry, DestPos: 1,
 	}
 	f.d.useClasseItem(f.w, f.s, f.e, body, 0)
 
