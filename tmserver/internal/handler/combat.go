@@ -611,7 +611,7 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		dmg := combat.SkillDamage(w.Rand(), raw, def, cast.master)
 		var resist [4]int16
 		for k := range resist {
-			resist[k] = target.Resist[k] + target.AffResist[k]
+			resist[k] = effectiveResist(target, k)
 		}
 		return combat.SkillResistScale(dmg, sp.InstanceType, resist, world.IsPlayer(tid))
 	case sp.InstanceType == 6:

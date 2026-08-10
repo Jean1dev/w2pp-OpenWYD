@@ -2069,7 +2069,7 @@ func (d *Dispatcher) computeScore(e *world.Entity) protocol.ScoreData {
 		})
 	}
 	for i := range sc.Resist {
-		sc.Resist[i] = int8(e.Resist[i] + e.AffResist[i])
+		sc.Resist[i] = int8(effectiveResist(e, i))
 	}
 	return sc
 }

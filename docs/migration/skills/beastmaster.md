@@ -15,7 +15,7 @@ Evidencia usa os codigos definidos em `README.md`.
 | 50 | Som_das_Fadas | 1 | dano | 1 | 20 | 69 | 4/115 | - | dano elemental type 4 base 115 | IMPLEMENTED | CSV+CAST+DMG |
 | 51 | Enfraquecer | 1 | debuff | 3 | 35 | 45 | 0/0 | A10/10/1 | debuff de dano type 10 | IMPLEMENTED | CSV+AFF+SCORE |
 | 52 | Furia_de_Gaia | 1 | dano | 1 | 25 | 75 | 4/220 | - | dano elemental type 4 base 220 | IMPLEMENTED | CSV+CAST+DMG |
-| 53 | Proteção_Elemental | 1 | buff | 0 | 105 | 78 | 0/0 | A25/10/150 | resist elemental type 25 | IMPLEMENTED | CSV+AFF+SCORE |
+| 53 | Proteção_Elemental | 1 | buff | 0 | 105 | 78 | 0/0 | A25/10/150 | resist type 25 nos indices 0/1/3 (Fogo/Gelo/Trovao) — diverge do legado, issue #233 | IMPLEMENTED | CSV+AFF+SCORE |
 | 54 | Aura_Bestial | 1 | buff | 0 | 128 | 90 | 0/0 | T23/160 | tick 23 dispara Furia de Gaia sintetica | IMPLEMENTED | CSV+CAST+AFF+LEGACY |
 | 55 | Espírito_Vingador | 1 | dano | 6 | 160 | 239 | 4/180 | - | dano elemental type 4 base 180 | IMPLEMENTED | CSV+CAST+DMG |
 | 56 | Evocar_Condor | 2 | summon | 0 | 30 | 33 | 11/1 | - | evoca summon value 1, count/party/vida | IMPLEMENTED | CSV+SUMMON+LEGACY |
@@ -41,6 +41,20 @@ Evidencia usa os codigos definidos em `README.md`.
 - Summons usam `InstanceType 11`, `InstanceValue 1..8`, `pSummonBonus` local, `Special[2]` para quantidade/escalonamento, `PartyList` para limite e `MSG_CNFAddParty` para UI.
 - Transformacoes usam affect type 16, valores 1..5, `pTransBonus`, learned bits 17/19/21 para flat adds de Lobo/Urso/Astaroth, mesh 22/23/24/25/32, critical e attack/run speed.
 - O score derivado de transform fica em caches de affect/read-time, nao no score persistido.
+
+## Divergencias deliberadas
+
+- `Proteção_Elemental` (53) buffa os indices `Resist[0]`, `[1]` e `[3]` — Fogo, Gelo e Trovao —
+  pulando `[2]` (Sagrado). O legado (`Basedef.cpp:4239`) soma em locais chamados `Fogo/Trovao/Gelo`,
+  mas esses locais estao trocados na origem (`Basedef.cpp:3919` liga `Sagrado←Resist[0]`,
+  `Trovao←[1]`, `Fogo←[2]`, `Gelo←[3]`), entao os indices que ele realmente toca sao `1/2/3`:
+  buffa Sagrado e deixa o Fogo de fora. A ordem real dos elementos vem do conteudo —
+  `Orb_de_Fogo` carrega `EF_RESIST1` e `Orb_Sagrada` carrega `EF_RESIST3`
+  (`Release/Common/ItemList.csv:1013,1019`), e `EF_RESIST1..4` mapeiam para `Resist[0..3]`
+  (`Source/Code/TMSrv/CMob.cpp:640-643`) → `[0]`=Fogo, `[1]`=Gelo, `[2]`=Sagrado, `[3]`=Trovao.
+  Reportado na issue #233 (print do cliente: Fogo parado em 0, os outros tres em +27 com mastery
+  Elemental 255). Mesmo espirito da divergencia de `affectTimeDivisor` ÷8 da issue #92.
+  Testes: `TestElementalProtectionResists`.
 
 ## Lacunas e riscos
 

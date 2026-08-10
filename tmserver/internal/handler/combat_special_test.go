@@ -805,3 +805,32 @@ func TestConsumeIllusionRejectsUnlearned(t *testing.T) {
 		t.Fatalf("CrackError = %d, want 1", s.CrackError)
 	}
 }
+
+// TestSkillResistMitigationClampedAtCeiling proves resolveSkillHit feeds the
+// CLAMPED resist to SkillResistScale. Stacking Proteção Elemental on gear that
+// already sits at the cap must not mitigate further: the legacy clamps inside
+// BASE_GetCurrentScore, so its combat path never sees a resist above 100
+// (Basedef.cpp:4737-4767). Both runs use a fresh world, and rng.New() is
+// deterministic (state=1), so the underlying damage roll is identical.
+func TestSkillResistMitigationClampedAtCeiling(t *testing.T) {
+	damageWith := func(aff int16) int {
+		d := New(Config{})
+		w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+		caster := &world.Entity{ID: 1, Class: 3, Str: 100}
+		target := &world.Entity{ID: 2}
+		target.Resist[0] = resistCap
+		target.AffResist[0] = aff
+		cast := castInfo{isSkill: true, spell: content.Spell{InstanceType: 1}}
+		return d.resolveSkillHit(w, caster, target, target.ID, 1, cast)
+	}
+
+	capped, buffed := damageWith(0), damageWith(27)
+
+	if capped <= 0 {
+		t.Fatalf("baseline damage = %d, want > 0 (test would prove nothing)", capped)
+	}
+	if buffed != capped {
+		t.Errorf("damage with a buff over capped resist = %d, want %d (resist must clamp at %d)",
+			buffed, capped, resistCap)
+	}
+}

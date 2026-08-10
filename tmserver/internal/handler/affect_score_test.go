@@ -281,3 +281,81 @@ func TestPoisonTickKeepsReqHpAtFloor(t *testing.T) {
 		t.Fatalf("poison delta/HP/ReqHp = %d/%d/%d, want -199/1/1", delta, e.HP, s.ReqHp)
 	}
 }
+
+// TestElementalProtectionResists pins BM 53 (Proteção Elemental, affect 25) on
+// both axes issue #233 got wrong: the amount, and WHICH resists move. Index 2 is
+// holy (Orb_Sagrada = EF_RESIST3 → Resist[2], ItemList.csv:1019 + CMob.cpp:642)
+// and must stay flat — the legacy buffed it instead of fire because its Buff Loop
+// locals are misnamed (Basedef.cpp:3919); see the case 25 comment.
+func TestElementalProtectionResists(t *testing.T) {
+	tests := []struct {
+		name  string
+		level uint16
+		want  [4]int16
+	}{
+		// (10 + 255/4)/10 = 7, plus the +20 mastery-cap bonus. This is the exact
+		// +27 the issue #233 screenshot shows on a 255/255 Elemental BeastMaster.
+		{"mastery 255 adds 7+20", 255, [4]int16{27, 27, 0, 27}},
+		// (10 + 100/4)/10 = 3, no cap bonus.
+		{"mastery 100 adds 3", 100, [4]int16{3, 3, 0, 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &world.Entity{}
+			e.Affect[0] = world.Affect{Type: 25, Value: 10, Level: tt.level}
+
+			applyAffectScore(e)
+
+			if e.AffResist != tt.want {
+				t.Errorf("AffResist = %v, want %v (index 2 = holy must stay 0)", e.AffResist, tt.want)
+			}
+		})
+	}
+}
+
+// TestEffectiveResistClamps covers the legacy's final 0..100 bound on base+buff
+// (Basedef.cpp:4737-4767), which clampResist alone does not reach: it only bounds
+// the equipment share.
+func TestEffectiveResistClamps(t *testing.T) {
+	tests := []struct {
+		name      string
+		base, aff int16
+		want      int16
+	}{
+		{"passes through untouched", 40, 27, 67},
+		{"buff on capped gear stops at 100", resistCap, 27, resistCap},
+		{"debuff cannot go below zero", 10, -40, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &world.Entity{}
+			e.Resist[0], e.AffResist[0] = tt.base, tt.aff
+
+			if got := effectiveResist(e, 0); got != tt.want {
+				t.Errorf("effectiveResist = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestComputeScoreClampsResist guards the wire specifically: MSG_UpdateScore
+// carries Resist as int8, so an unclamped sum wraps NEGATIVE past 127 and the
+// client renders a nonsense resistance. Capped gear plus Proteção Elemental
+// (+27) plus a Jóia de Resistência (+25) reaches 152 — comfortably over the
+// wrap — so this fails loudly if the clamp is ever dropped.
+func TestComputeScoreClampsResist(t *testing.T) {
+	d := New(Config{})
+	e := &world.Entity{ID: 1}
+	e.Resist[0] = resistCap
+	e.Affect[0] = world.Affect{Type: 25, Value: 10, Level: 255}
+	e.Affect[1] = world.Affect{Type: 8, Level: 1 << 1}
+
+	applyAffectScore(e)
+
+	if e.AffResist[0] != 52 { // 27 + 25: the raw sum must exceed int8 range
+		t.Fatalf("AffResist[0] = %d, want 52 (test needs an overflowing sum)", e.AffResist[0])
+	}
+	if got := d.computeScore(e).Resist[0]; got != int8(resistCap) {
+		t.Errorf("score Resist[0] = %d, want %d", got, resistCap)
+	}
+}

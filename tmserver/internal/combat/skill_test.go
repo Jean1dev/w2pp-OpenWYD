@@ -144,10 +144,11 @@ func TestSkillResistScale(t *testing.T) {
 		})
 	}
 
-	// Affect-boosted resist: the handler feeds resolveSkillHit's summed array
-	// (target.Resist[k] + target.AffResist[k]) into this function, so a resist
-	// buff must raise mitigation. Build the array from base + affect components
-	// rather than a literal to lock that contract (combat.go resolveSkillHit).
+	// Affect-boosted resist: the handler feeds resolveSkillHit's resolved array
+	// (handler.effectiveResist = base + affect, clamped 0..100) into this
+	// function, so a resist buff must raise mitigation. Build the array from base
+	// + affect components rather than a literal to lock that contract (combat.go
+	// resolveSkillHit). The 0..100 ceiling belongs to the caller, not here.
 	t.Run("resist raised by affect mitigates more", func(t *testing.T) {
 		const base, affResist = int16(40), int16(30)
 		boosted := [4]int16{0, base + affResist, 0, 0} // type 3 → index 1
