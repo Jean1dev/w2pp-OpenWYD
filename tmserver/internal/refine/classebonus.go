@@ -103,6 +103,12 @@ func ClasseBonus(dest *world.Item, nPos int, roll func(int) int, itemAbility fun
 		return false
 	}
 
+	// The table index is drawn BEFORE any sanc roll: every branch of
+	// SetItemBonus2 opens with `int _rand = rand()%N;` and only then touches
+	// stEffect[0] (Server.cpp:2723-2726 and its three siblings). Keeping that
+	// order is what makes a captured rand() sequence reproduce byte-for-byte.
+	row := table[roll(len(table))]
+
 	if dest.Effects[0].Effect == classeSancEffect {
 		lvl := Level(*dest)
 		if lvl < classeSancCap {
@@ -116,7 +122,6 @@ func ClasseBonus(dest *world.Item, nPos int, roll func(int) int, itemAbility fun
 		dest.Effects[0] = world.Effect{Effect: classeSancEffect, Value: uint8(roll(2))}
 	}
 
-	row := table[roll(len(table))]
 	dest.Effects[1] = world.Effect{Effect: uint8(row[0]), Value: uint8(row[1])}
 	dest.Effects[2] = world.Effect{Effect: uint8(row[2]), Value: uint8(row[3])}
 
