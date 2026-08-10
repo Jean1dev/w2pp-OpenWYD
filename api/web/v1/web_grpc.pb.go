@@ -2892,3 +2892,342 @@ var DonateTopupService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/web/v1/web.proto",
 }
+
+const (
+	DonateRevenueAdminService_GetRevenueSummary_FullMethodName = "/web.v1.DonateRevenueAdminService/GetRevenueSummary"
+	DonateRevenueAdminService_ListTopupOrders_FullMethodName   = "/web.v1.DonateRevenueAdminService/ListTopupOrders"
+	DonateRevenueAdminService_ListTopBuyers_FullMethodName     = "/web.v1.DonateRevenueAdminService/ListTopBuyers"
+	DonateRevenueAdminService_ListDonateSpend_FullMethodName   = "/web.v1.DonateRevenueAdminService/ListDonateSpend"
+	DonateRevenueAdminService_SearchAccounts_FullMethodName    = "/web.v1.DonateRevenueAdminService/SearchAccounts"
+)
+
+// DonateRevenueAdminServiceClient is the client API for DonateRevenueAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DonateRevenueAdminService is the read-only revenue reporting surface behind the
+// painel de faturamento. It answers "how much money came in this month, who paid,
+// and where did the donate go", over data that has been persisted since
+// 0008_donate_shop and 0010_donate_topup but had no read path until now.
+//
+// It is NOT bin.v1.BillingService: that is the login entitlement gate and, per
+// web-platform-plan.md, explicitly not the cash wallet. This service reads
+// donate_topup_order (real money), donate_shop_audit (wallet movements),
+// account and donate_payer_profile.
+//
+// Like every *AdminService here, request field 1 is the caller's account id,
+// re-authorized server-side against account.role ('moderator' or 'admin'). It
+// writes NOTHING — not even an audit row — so it never interacts with the
+// tmServer's single-owner loop.
+//
+// Money vs credits: *_cents is real BRL in integer cents; credits/*_credits is
+// the in-game donate wallet unit. They are different units and must never be
+// summed. Revenue is recognized on confirmed_at, never created_at: an order is
+// only money once the gateway settled it.
+//
+// Time: every instant is int64 Unix SECONDS, matching db.v1's expires_at /
+// updated_at_unix; web.v1 pulls in no google.protobuf well-known types and this
+// service does not introduce that dependency. 0 means absent, so a PENDING order
+// reports confirmed_at_unix = 0.
+//
+// Bucketing timezone: day/week/month buckets close in America/Sao_Paulo, so the
+// panel agrees with a Brazilian bank statement. The instants on the wire are
+// still absolute. See docs/integrations/faturamento-nextjs.md.
+type DonateRevenueAdminServiceClient interface {
+	// GetRevenueSummary returns the KPI header plus an optional gap-filled series.
+	GetRevenueSummary(ctx context.Context, in *GetRevenueSummaryRequest, opts ...grpc.CallOption) (*GetRevenueSummaryResponse, error)
+	// ListTopupOrders is the paginated order table with the buyer identity already
+	// joined in, so the BFF never fans out one account lookup per row.
+	ListTopupOrders(ctx context.Context, in *ListTopupOrdersRequest, opts ...grpc.CallOption) (*ListTopupOrdersResponse, error)
+	// ListTopBuyers ranks accounts by revenue inside the window and carries the
+	// all-time (LTV) aggregate alongside. Drill-down is ListTopupOrders or
+	// ListDonateSpend with account_id set; there is no per-account RPC.
+	ListTopBuyers(ctx context.Context, in *ListTopBuyersRequest, opts ...grpc.CallOption) (*ListTopBuyersResponse, error)
+	// ListDonateSpend is the donate wallet ledger over donate_shop_audit. It
+	// normalizes that table's asymmetry: for action='purchase' the audit's
+	// account_id column is the BUYER, but for action='credit_balance' it is the
+	// MODERATOR and the credited account lives in after->>'account_id'. Each row
+	// therefore reports subject (whose wallet moved) and actor (who caused it).
+	ListDonateSpend(ctx context.Context, in *ListDonateSpendRequest, opts ...grpc.CallOption) (*ListDonateSpendResponse, error)
+	// SearchAccounts resolves a login prefix to account ids so the panel's filter
+	// box and the top-buyer drill-down can work from a name the operator typed.
+	SearchAccounts(ctx context.Context, in *SearchAccountsRequest, opts ...grpc.CallOption) (*SearchAccountsResponse, error)
+}
+
+type donateRevenueAdminServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDonateRevenueAdminServiceClient(cc grpc.ClientConnInterface) DonateRevenueAdminServiceClient {
+	return &donateRevenueAdminServiceClient{cc}
+}
+
+func (c *donateRevenueAdminServiceClient) GetRevenueSummary(ctx context.Context, in *GetRevenueSummaryRequest, opts ...grpc.CallOption) (*GetRevenueSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRevenueSummaryResponse)
+	err := c.cc.Invoke(ctx, DonateRevenueAdminService_GetRevenueSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateRevenueAdminServiceClient) ListTopupOrders(ctx context.Context, in *ListTopupOrdersRequest, opts ...grpc.CallOption) (*ListTopupOrdersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTopupOrdersResponse)
+	err := c.cc.Invoke(ctx, DonateRevenueAdminService_ListTopupOrders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateRevenueAdminServiceClient) ListTopBuyers(ctx context.Context, in *ListTopBuyersRequest, opts ...grpc.CallOption) (*ListTopBuyersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTopBuyersResponse)
+	err := c.cc.Invoke(ctx, DonateRevenueAdminService_ListTopBuyers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateRevenueAdminServiceClient) ListDonateSpend(ctx context.Context, in *ListDonateSpendRequest, opts ...grpc.CallOption) (*ListDonateSpendResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDonateSpendResponse)
+	err := c.cc.Invoke(ctx, DonateRevenueAdminService_ListDonateSpend_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *donateRevenueAdminServiceClient) SearchAccounts(ctx context.Context, in *SearchAccountsRequest, opts ...grpc.CallOption) (*SearchAccountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchAccountsResponse)
+	err := c.cc.Invoke(ctx, DonateRevenueAdminService_SearchAccounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DonateRevenueAdminServiceServer is the server API for DonateRevenueAdminService service.
+// All implementations must embed UnimplementedDonateRevenueAdminServiceServer
+// for forward compatibility.
+//
+// DonateRevenueAdminService is the read-only revenue reporting surface behind the
+// painel de faturamento. It answers "how much money came in this month, who paid,
+// and where did the donate go", over data that has been persisted since
+// 0008_donate_shop and 0010_donate_topup but had no read path until now.
+//
+// It is NOT bin.v1.BillingService: that is the login entitlement gate and, per
+// web-platform-plan.md, explicitly not the cash wallet. This service reads
+// donate_topup_order (real money), donate_shop_audit (wallet movements),
+// account and donate_payer_profile.
+//
+// Like every *AdminService here, request field 1 is the caller's account id,
+// re-authorized server-side against account.role ('moderator' or 'admin'). It
+// writes NOTHING — not even an audit row — so it never interacts with the
+// tmServer's single-owner loop.
+//
+// Money vs credits: *_cents is real BRL in integer cents; credits/*_credits is
+// the in-game donate wallet unit. They are different units and must never be
+// summed. Revenue is recognized on confirmed_at, never created_at: an order is
+// only money once the gateway settled it.
+//
+// Time: every instant is int64 Unix SECONDS, matching db.v1's expires_at /
+// updated_at_unix; web.v1 pulls in no google.protobuf well-known types and this
+// service does not introduce that dependency. 0 means absent, so a PENDING order
+// reports confirmed_at_unix = 0.
+//
+// Bucketing timezone: day/week/month buckets close in America/Sao_Paulo, so the
+// panel agrees with a Brazilian bank statement. The instants on the wire are
+// still absolute. See docs/integrations/faturamento-nextjs.md.
+type DonateRevenueAdminServiceServer interface {
+	// GetRevenueSummary returns the KPI header plus an optional gap-filled series.
+	GetRevenueSummary(context.Context, *GetRevenueSummaryRequest) (*GetRevenueSummaryResponse, error)
+	// ListTopupOrders is the paginated order table with the buyer identity already
+	// joined in, so the BFF never fans out one account lookup per row.
+	ListTopupOrders(context.Context, *ListTopupOrdersRequest) (*ListTopupOrdersResponse, error)
+	// ListTopBuyers ranks accounts by revenue inside the window and carries the
+	// all-time (LTV) aggregate alongside. Drill-down is ListTopupOrders or
+	// ListDonateSpend with account_id set; there is no per-account RPC.
+	ListTopBuyers(context.Context, *ListTopBuyersRequest) (*ListTopBuyersResponse, error)
+	// ListDonateSpend is the donate wallet ledger over donate_shop_audit. It
+	// normalizes that table's asymmetry: for action='purchase' the audit's
+	// account_id column is the BUYER, but for action='credit_balance' it is the
+	// MODERATOR and the credited account lives in after->>'account_id'. Each row
+	// therefore reports subject (whose wallet moved) and actor (who caused it).
+	ListDonateSpend(context.Context, *ListDonateSpendRequest) (*ListDonateSpendResponse, error)
+	// SearchAccounts resolves a login prefix to account ids so the panel's filter
+	// box and the top-buyer drill-down can work from a name the operator typed.
+	SearchAccounts(context.Context, *SearchAccountsRequest) (*SearchAccountsResponse, error)
+	mustEmbedUnimplementedDonateRevenueAdminServiceServer()
+}
+
+// UnimplementedDonateRevenueAdminServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDonateRevenueAdminServiceServer struct{}
+
+func (UnimplementedDonateRevenueAdminServiceServer) GetRevenueSummary(context.Context, *GetRevenueSummaryRequest) (*GetRevenueSummaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRevenueSummary not implemented")
+}
+func (UnimplementedDonateRevenueAdminServiceServer) ListTopupOrders(context.Context, *ListTopupOrdersRequest) (*ListTopupOrdersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTopupOrders not implemented")
+}
+func (UnimplementedDonateRevenueAdminServiceServer) ListTopBuyers(context.Context, *ListTopBuyersRequest) (*ListTopBuyersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTopBuyers not implemented")
+}
+func (UnimplementedDonateRevenueAdminServiceServer) ListDonateSpend(context.Context, *ListDonateSpendRequest) (*ListDonateSpendResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDonateSpend not implemented")
+}
+func (UnimplementedDonateRevenueAdminServiceServer) SearchAccounts(context.Context, *SearchAccountsRequest) (*SearchAccountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchAccounts not implemented")
+}
+func (UnimplementedDonateRevenueAdminServiceServer) mustEmbedUnimplementedDonateRevenueAdminServiceServer() {
+}
+func (UnimplementedDonateRevenueAdminServiceServer) testEmbeddedByValue() {}
+
+// UnsafeDonateRevenueAdminServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DonateRevenueAdminServiceServer will
+// result in compilation errors.
+type UnsafeDonateRevenueAdminServiceServer interface {
+	mustEmbedUnimplementedDonateRevenueAdminServiceServer()
+}
+
+func RegisterDonateRevenueAdminServiceServer(s grpc.ServiceRegistrar, srv DonateRevenueAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedDonateRevenueAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DonateRevenueAdminService_ServiceDesc, srv)
+}
+
+func _DonateRevenueAdminService_GetRevenueSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRevenueSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateRevenueAdminServiceServer).GetRevenueSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateRevenueAdminService_GetRevenueSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateRevenueAdminServiceServer).GetRevenueSummary(ctx, req.(*GetRevenueSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateRevenueAdminService_ListTopupOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTopupOrdersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateRevenueAdminServiceServer).ListTopupOrders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateRevenueAdminService_ListTopupOrders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateRevenueAdminServiceServer).ListTopupOrders(ctx, req.(*ListTopupOrdersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateRevenueAdminService_ListTopBuyers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTopBuyersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateRevenueAdminServiceServer).ListTopBuyers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateRevenueAdminService_ListTopBuyers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateRevenueAdminServiceServer).ListTopBuyers(ctx, req.(*ListTopBuyersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateRevenueAdminService_ListDonateSpend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDonateSpendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateRevenueAdminServiceServer).ListDonateSpend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateRevenueAdminService_ListDonateSpend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateRevenueAdminServiceServer).ListDonateSpend(ctx, req.(*ListDonateSpendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DonateRevenueAdminService_SearchAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchAccountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DonateRevenueAdminServiceServer).SearchAccounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DonateRevenueAdminService_SearchAccounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DonateRevenueAdminServiceServer).SearchAccounts(ctx, req.(*SearchAccountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DonateRevenueAdminService_ServiceDesc is the grpc.ServiceDesc for DonateRevenueAdminService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DonateRevenueAdminService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.DonateRevenueAdminService",
+	HandlerType: (*DonateRevenueAdminServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetRevenueSummary",
+			Handler:    _DonateRevenueAdminService_GetRevenueSummary_Handler,
+		},
+		{
+			MethodName: "ListTopupOrders",
+			Handler:    _DonateRevenueAdminService_ListTopupOrders_Handler,
+		},
+		{
+			MethodName: "ListTopBuyers",
+			Handler:    _DonateRevenueAdminService_ListTopBuyers_Handler,
+		},
+		{
+			MethodName: "ListDonateSpend",
+			Handler:    _DonateRevenueAdminService_ListDonateSpend_Handler,
+		},
+		{
+			MethodName: "SearchAccounts",
+			Handler:    _DonateRevenueAdminService_SearchAccounts_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}

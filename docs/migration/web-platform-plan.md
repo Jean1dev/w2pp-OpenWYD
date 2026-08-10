@@ -119,7 +119,8 @@ reaproveitar o protocolo legado para a web.
 | Login web | web-api valida hash → cookie de sessão | separado do login do jogo |
 | Ranking | web-api → SELECT read-only no Postgres | dado de char online fica levemente atrasado — aceitável |
 | Ver perfil/personagem | idem, read-only | |
-| Comprar cash | gateway → webhook → web-api credita `donate_balance` + `delivery_queue` | `donate_balance` é coluna por-conta (`account`); ver gotcha abaixo |
+| Comprar cash | gateway → webhook → web-api credita `donate_balance` + `delivery_queue` | implementado via `DonateTopupService` (PIX, migração `0010`); `donate_balance` é coluna por-conta (`account`); ver gotcha abaixo |
+| Relatório de faturamento | web-api lê `donate_topup_order`/`donate_shop_audit` (read-only) | `DonateRevenueAdminService`; ver [faturamento-nextjs.md](../integrations/faturamento-nextjs.md) |
 | Recompensa diária | web-api → `delivery_queue` + `daily_reward_claim` ("resgatou hoje") | implementado, issue #35 |
 | Loja-web | consignação in-game + entrega via `delivery_queue` | ver seção ⚠️ acima |
 
@@ -134,6 +135,12 @@ padrão** (`AllowAllBilling` sem `-binserver`), **sem persistência** (map em me
 
 Decisão: **manter o binServer como o serviço de _entitlement/acesso_** (premium/assinatura/ban
 administrativo). Ele **NÃO** é a carteira de cash — cash = `donate_balance` no Postgres.
+
+> **Se você chegou aqui procurando "faturamento"/"billing" no sentido de receita, é o outro lado.**
+> A superfície de relatório da carteira é `web.v1.DonateRevenueAdminService`
+> (`donate_topup_order` + `donate_shop_audit` + `account`), documentada em
+> [`docs/integrations/faturamento-nextjs.md`](../integrations/faturamento-nextjs.md).
+> `bin.v1.BillingService` só responde "esta conta pode logar?".
 
 Upgrades necessários antes de servir a web:
 1. **Persistência** — tabela própria `billing_entitlement(account_id, status, expires_at)` (não

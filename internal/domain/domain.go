@@ -5,6 +5,8 @@
 // normalized into slices; empty item slots (sIndex==0) are dropped.
 package domain
 
+import "time"
+
 // Account is one migrated account with its characters and shared cargo.
 //
 // Secrets are stored ONLY as hashes: PassHash, PinHash and BlockPassHash are
@@ -361,4 +363,126 @@ type TopupOrder struct {
 	AmountCents       int64
 	PaymentMethod     int16
 	Status            int16
+}
+
+// --- painel de faturamento read models (web.v1.DonateRevenueAdminService) ---
+//
+// These are READ projections only. TopupOrder above stays the write-path input
+// for CreateTopupOrder: created_at/confirmed_at are set by Postgres and provider
+// is written by nothing, so carrying them there would be three fields that lie.
+//
+// Two units appear below and they NEVER mix. *Cents is real money in integer BRL
+// cents (never a float). Credits/*Credits is the in-game donate wallet unit,
+// whose exchange rate is a property of each individual order.
+//
+// Revenue is recognized on ConfirmedAt, not CreatedAt: an order is only money
+// once the gateway settled it and ConfirmTopupOrder flipped it to PAID.
+
+// TopupOrderRow is one donate_topup_order joined with its buyer's account and
+// payer profile — the moderation table's row. PayerCPF holds the raw 11 digits
+// as stored; the service masks it before it reaches the wire.
+type TopupOrderRow struct {
+	ID                int64
+	ExternalReference string
+	AccountID         int64
+	AccountName       string
+	AccountEmail      string
+	PayerName         string
+	PayerCPF          string
+	Credits           int32
+	AmountCents       int64
+	PaymentMethod     int16
+	Provider          string // always "" today: CreateTopupOrder never writes it
+	Status            int16
+	CreatedAt         time.Time
+	ConfirmedAt       *time.Time // nil while PENDING
+}
+
+// RevenueTotals is the money KPI header. Paid* are recognized on confirmed_at;
+// Created/Pending* are scoped by created_at instead, because they measure funnel
+// volume rather than revenue. PendingCents is NOT revenue and must never be
+// added to GrossCents.
+type RevenueTotals struct {
+	PaidOrders     int64
+	GrossCents     int64
+	CreditsSold    int64
+	DistinctBuyers int64
+	CreatedOrders  int64
+	PendingOrders  int64
+	PendingCents   int64
+}
+
+// RevenueByMethod is recognized revenue split by payment gateway.
+type RevenueByMethod struct {
+	PaymentMethod int16
+	PaidOrders    int64
+	GrossCents    int64
+}
+
+// RevenuePoint is one bucket of the revenue time series. BucketStart is the
+// instant the bucket opens; empty buckets are present with zeroed counters, so
+// callers never do date math to fill gaps.
+type RevenuePoint struct {
+	BucketStart    time.Time
+	PaidOrders     int64
+	GrossCents     int64
+	CreditsSold    int64
+	DistinctBuyers int64
+}
+
+// TopBuyer ranks one account by revenue inside a window alongside its all-time
+// aggregate. The Lifetime* fields ignore the window on purpose — that is what
+// makes them an LTV.
+type TopBuyer struct {
+	AccountID          int64
+	AccountName        string
+	AccountEmail       string
+	WindowPaidOrders   int64
+	WindowGrossCents   int64
+	LifetimePaidOrders int64
+	LifetimeGrossCents int64
+	LifetimeCredits    int64
+	FirstPaidAt        time.Time
+	LastPaidAt         time.Time
+	DonateBalance      int32 // current wallet: point-in-time, not a window value
+}
+
+// DonateLedgerEntry is one donate wallet movement read from donate_shop_audit.
+// Subject is whose balance moved; Actor is who caused it. They differ only for
+// 'credit_balance', where the actor is the granting moderator and the subject
+// lives in the audit JSON (internal/store/donate.go:207). CreditsDelta is
+// SIGNED — negative on a purchase, positive on a credit — so the column sums to
+// a meaningful net.
+type DonateLedgerEntry struct {
+	ID                 int64
+	Action             string // "purchase" | "credit_balance"
+	CreatedAt          time.Time
+	SubjectAccountID   int64
+	SubjectAccountName string
+	ActorAccountID     int64
+	ActorAccountName   string
+	CreditsDelta       int64
+	BalanceAfter       int64
+	ShopItemID         int64  // 0 for credit_balance
+	ShopItemTitle      string // "" when the offer was deleted since the purchase
+	Reason             string // credit_balance only: the moderator's note
+}
+
+// DonateLedgerTotals aggregates the wallet movements in a window, in credits.
+type DonateLedgerTotals struct {
+	ShopPurchases  int64
+	CreditsSpent   int64
+	ManualCredits  int64
+	CreditsGranted int64
+}
+
+// AccountSummary is the identity projection the panel's account picker needs to
+// turn a typed login into an account_id filter. It exposes no credentials.
+type AccountSummary struct {
+	ID            int64
+	Name          string
+	Email         string
+	DonateBalance int32
+	Role          string
+	IsBlocked     bool
 }
