@@ -524,7 +524,7 @@ func TestApplyBonusScore(t *testing.T) {
 		t.Errorf("got %#x ok=%v, want UpdateScore second", ty, ok)
 	}
 	want := baseDamageChar + 12/2 + 10/3 + 10
-	if dmg := scoreDamage(payload); dmg != int32(want) {
+	if dmg := scoreDamage(payload); dmg != want {
 		t.Errorf("UpdateScore Damage = %d, want %d after +1 STR (11→12)", dmg, want)
 	}
 }
