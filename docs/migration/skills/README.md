@@ -7,7 +7,8 @@ precisa de implementacao, captura Windows ou golden cases no cliente real.
 ## Metodologia
 
 - Fonte de catalogo: `Release/Common/SkillData.csv`, arquivo ISO-8859, lido com nomes decodificados em Latin-1.
-- Loader auditado: `tmserver/internal/content/skilldata.go:79-132`, que usa o indice da coluna 0, ignora linhas fora de `[0,248)`, consome 20 inteiros e divide `AffectTime` por 8 (`affectTimeDivisor`). O legado (`Basedef.cpp:6708`) divide por 4; a issue #92 dobrou o divisor para reduzir pela metade as duracoes de buff, que estavam longas demais (ate ~100 min com mastery maxima).
+- Loader auditado: `tmserver/internal/content/skilldata.go`, que usa o indice da coluna 0, ignora linhas fora de `[0,248)`, consome 20 inteiros e divide `AffectTime` por 4 (`affectTimeDivisor`), igual ao legado (`Basedef.cpp:6708`). O loader e **fiel**: nao ha tuning aqui.
+- Duracao de buff (issue #229): o tuning vive em **um unico lugar**, `world.AffectDuration`, aplicado quando um **cast** instala o affect (`SetAffect`/`SetTick`). Defaults do tmServer: `ScalePct` 15, piso 60 s (so para affects **nao agressivos**), teto 10 min — flags `-affect-scale-pct` / `-affect-min-seconds` / `-affect-max-minutes`. Zero value = formula legada exata, que e o que os testes de paridade exercitam. A issue #92 tinha tentado o mesmo objetivo dobrando o divisor do loader para 8; isso mexia so na base (o multiplicador de mastery `(100+Special)/100`, ate 5x, e quem domina) e, por ser divisao inteira no load, truncava a cauda curta da tabela alem do pretendido (issue #236). Ver `ingame-bugs.md` B14.
 - Divisao por classe: TK `0..23`, FM `24..47`, BM `48..71`, HT `72..95`, Sephira/shared `96+`.
 - Arvore: `(index % 24) / 8 + 1`.
 - Status e evidencias foram cruzados com `tmserver/internal/combat`, `tmserver/internal/handler`, `tmserver/internal/world`, `tmserver/internal/protocol`, `Source/Code`, `Source/Buff Loop.txt` e os testes existentes.

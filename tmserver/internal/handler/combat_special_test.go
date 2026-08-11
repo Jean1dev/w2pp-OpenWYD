@@ -834,3 +834,96 @@ func TestSkillResistMitigationClampedAtCeiling(t *testing.T) {
 			buffed, capped, resistCap)
 	}
 }
+
+// prodAffectDuration mirrors the tmServer defaults (cmd/tmserver/main.go):
+// 15% of the legacy duration, floored at 60s for friendly affects, capped at
+// 10 min. Kept here so the end-to-end curve is asserted against the SHIPPED
+// numbers, not against whatever a test happens to configure.
+var prodAffectDuration = world.AffectDuration{
+	ScalePct: 15,
+	MinTicks: AffectTicksFromSeconds(60),
+	MaxTicks: AffectTicksFromMinutes(10),
+}
+
+// TestCastBuffDurationCurve is the regression the three previous attempts at
+// issue #229 were missing: an explicit, end-to-end statement of how long a cast
+// buff is allowed to last, in the minutes the player reads off the buff bar.
+//
+// Skill 43 (Escudo Mágico) carries raw AffectTime 600 → 150 after the legacy ÷4,
+// like every other long buff in SkillData.csv. Skill 85 (Escudo Dourado, the
+// affect-31 row) carries raw 30 → 7 and stands for the short tail that the
+// issue #92 ÷8 truncated (issue #236).
+func TestCastBuffDurationCurve(t *testing.T) {
+	spells := content.NewSkillData([]content.Spell{
+		{Index: 43, AffectType: 11, AffectValue: 5, AffectTime: 150, MaxTarget: 1},
+		{Index: 85, AffectType: 31, AffectValue: 150, AffectTime: 7, MaxTarget: 1},
+	})
+	tests := []struct {
+		name     string
+		skill    int
+		special  int
+		wantSecs int
+	}{
+		// Before this fix the same character sat at 10 min → 51 min; the #229
+		// screenshot (Foema Nv 400) measured 33 min at special ≈ 226.
+		{"long buff, no mastery", 43, 0, 176},    // 2m56
+		{"long buff, special 100", 43, 100, 360}, // 6m00
+		{"long buff, special 226", 43, 226, 584}, // 9m44
+		{"long buff, special 255", 43, 255, 600}, // capped at 10m
+		{"long buff, special 400", 43, 400, 600}, // capped at 10m
+		// The short tail is floored instead of scaled into uselessness.
+		{"short buff, no mastery", 85, 0, 64},
+		{"short buff, special 400", 85, 400, 64},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := New(Config{Spells: spells, AffectDuration: prodAffectDuration})
+			w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+			caster := &world.Entity{ID: 1}
+			target := &world.Entity{ID: 2}
+			sp, _ := spells.Get(tt.skill)
+
+			d.applyCastAffect(w, caster, target, target.ID,
+				castInfo{isSkill: true, spell: sp, special: tt.special})
+
+			got := int(target.Affect[0].Time) * affectTickPeriod
+			if got != tt.wantSecs {
+				t.Errorf("skill %d at special %d lasts %ds (%dm%02ds), want %ds (%dm%02ds)",
+					tt.skill, tt.special, got, got/60, got%60,
+					tt.wantSecs, tt.wantSecs/60, tt.wantSecs%60)
+			}
+		})
+	}
+}
+
+// TestCastBuffDurationLeavesItemAffects asserts the scope line the issue #229
+// screenshot made visible: the same buff bar showed 7d/29d cash jewels and a 1h
+// item buff next to the skill buffs. Those are installed straight into
+// Entity.Affect with their own intentional durations and must never be caught by
+// the cast tuning.
+func TestCastBuffDurationLeavesItemAffects(t *testing.T) {
+	spells := content.NewSkillData([]content.Spell{
+		{Index: 43, AffectType: 11, AffectValue: 5, AffectTime: 150, MaxTarget: 1},
+	})
+	d := New(Config{Spells: spells, AffectDuration: prodAffectDuration})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	caster := &world.Entity{ID: 1}
+	target := &world.Entity{ID: 2}
+	target.Affect[0] = world.Affect{Type: 8, Level: 1 << 1, Time: affect1D * 7} // 7-day cash jewel
+	target.Affect[1] = world.Affect{Type: 35, Time: affect1H}                   // 1h Vigor
+	sp, _ := spells.Get(43)
+
+	d.applyCastAffect(w, caster, target, target.ID,
+		castInfo{isSkill: true, spell: sp, special: 400})
+
+	if got := target.Affect[0].Time; got != affect1D*7 {
+		t.Errorf("cash jewel Time = %d, want %d (untouched)", got, affect1D*7)
+	}
+	if got := target.Affect[1].Time; got != affect1H {
+		t.Errorf("Vigor Time = %d, want %d (untouched)", got, affect1H)
+	}
+	// The cast landed in the next free slot and IS tuned.
+	if got := target.Affect[2].Time; got != uint32(AffectTicksFromMinutes(10)) {
+		t.Errorf("cast affect Time = %d ticks, want the 10min cap", got)
+	}
+}

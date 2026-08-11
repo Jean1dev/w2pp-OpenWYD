@@ -85,7 +85,7 @@ O orcamento de pets e **da party inteira**, nao por jogador: `generateSummon` co
   (`Release/Common/ItemList.csv:1013,1019`), e `EF_RESIST1..4` mapeiam para `Resist[0..3]`
   (`Source/Code/TMSrv/CMob.cpp:640-643`) → `[0]`=Fogo, `[1]`=Gelo, `[2]`=Sagrado, `[3]`=Trovao.
   Reportado na issue #233 (print do cliente: Fogo parado em 0, os outros tres em +27 com mastery
-  Elemental 255). Mesmo espirito da divergencia de `affectTimeDivisor` ÷8 da issue #92.
+  Elemental 255). Mesmo espirito da divergencia de duracao de buff em `world.AffectDuration` (issue #229).
   Testes: `TestElementalProtectionResists`.
 
 ## Lacunas e riscos
