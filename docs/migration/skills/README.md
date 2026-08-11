@@ -7,7 +7,8 @@ precisa de implementacao, captura Windows ou golden cases no cliente real.
 ## Metodologia
 
 - Fonte de catalogo: `Release/Common/SkillData.csv`, arquivo ISO-8859, lido com nomes decodificados em Latin-1.
-- Loader auditado: `tmserver/internal/content/skilldata.go:79-132`, que usa o indice da coluna 0, ignora linhas fora de `[0,248)`, consome 20 inteiros e divide `AffectTime` por 8 (`affectTimeDivisor`). O legado (`Basedef.cpp:6708`) divide por 4; a issue #92 dobrou o divisor para reduzir pela metade as duracoes de buff, que estavam longas demais (ate ~100 min com mastery maxima).
+- Loader auditado: `tmserver/internal/content/skilldata.go`, que usa o indice da coluna 0, ignora linhas fora de `[0,248)`, consome 20 inteiros e escala `AffectTime` em `affectTimeFor`. O legado (`Basedef.cpp:6708`) divide por 4; a issue #92 dobrou o divisor para 8 (`affectTimeDivisor`) e reduziu pela metade as duracoes de buff, que estavam longas demais (ate ~100 min com mastery maxima).
+- Excecao por skill (`affectTimeDivisorOverrides`): a issue #92 mirava as 27 linhas de `AffectTime` bruto 600, mas o ÷8 uniforme tambem atingiu a cauda curta da tabela, onde a divisao inteira custa mais que a metade pretendida. **Skill 85 (Escudo Dourado, affect 31)** tem bruto 30 e caia de 7 para 3 (−57%), o que a issue #236 reportou como duracao curta demais; ela volta ao ÷4 legado. As demais linhas seguem no ÷8.
 - Divisao por classe: TK `0..23`, FM `24..47`, BM `48..71`, HT `72..95`, Sephira/shared `96+`.
 - Arvore: `(index % 24) / 8 + 1`.
 - Status e evidencias foram cruzados com `tmserver/internal/combat`, `tmserver/internal/handler`, `tmserver/internal/world`, `tmserver/internal/protocol`, `Source/Code`, `Source/Buff Loop.txt` e os testes existentes.

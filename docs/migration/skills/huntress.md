@@ -42,6 +42,7 @@ Evidencia usa os codigos definidos em `README.md`.
 - `AffectType` 19/21/26/27/28/29/30/31/36/37/38 tem efeito de score, RSV ou dano.
 - `Skillnum==79` usa branch legado proprio: base 180% do dano, depois `BASE_GetDamage` e divisao por 2.
 - `Skillnum==85` e `Explosão_Etérea`, mas aplica o affect 31 chamado "Escudo Dourado"; o bloco legado cobra gold `100*Level` antes do gasto de MP. `Skillnum==86` e `Escudo_Dourado` e nao tem custo especial de gold.
+- Duracao do affect 31 (issue #236): a skill 85 esta em `affectTimeDivisorOverrides` e mantem o ÷4 legado, logo `AffectTime` = 7 (bruto 30) e nao 3. `SetAffect` guarda `(7+1)*(100+Special)/100` ticks de 8 s → **64 s sem mastery e 5m20 no teto `Special` 400**; com o ÷8 uniforme eram 32 s / 2m40. Ver `TestEscudoDouradoAffectDuration`.
 
 ## Lacunas e riscos
 
@@ -55,3 +56,4 @@ Evidencia usa os codigos definidos em `README.md`.
 - Ilusao via movimento/Action3, MP e learned bit.
 - Imunidade, Meditacao, Evasao, Frost, Drain, ForceDamage, Soul e Invisibilidade atualizando score/RSV.
 - Skill 85 cobrando gold `100*Level` e aplicando affect 31; skill 86 sem custo especial de gold.
+- Duracao do affect 31 da skill 85 em `Special` 0/100/400 (8/16/40 ticks = 64 s/128 s/320 s).

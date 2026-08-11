@@ -411,6 +411,10 @@ func TestLoadSkillData(t *testing.T) {
 			Aggressive: 1, MaxTarget: 13, AffectResist: 3, Name: "Giro_da_F\xfaria"}},
 		{5, Spell{Index: 5, SkillPoint: 81, ManaSpent: 53, TickType: 17, TickValue: 75,
 			AffectTime: 75, MaxTarget: 1, Name: "Aura_da_Vida"}},
+		// Escudo Dourado (affect 31) — raw AffectTime 30 kept on the legacy ÷4
+		// by affectTimeDivisorOverrides (issue #236), so 7 rather than 3.
+		{85, Spell{Index: 85, SkillPoint: 90, ManaSpent: 120, Delay: 5, AffectType: 31,
+			AffectValue: 150, AffectTime: 7, MaxTarget: 1, Name: "Explos\xe3o_Et\xe9rea"}},
 	}
 	for _, tt := range tests {
 		got, ok := s.Get(tt.index)
@@ -453,6 +457,32 @@ func TestParseSkillDataDividesAffectTime(t *testing.T) {
 	}
 	if got.Name != "MySkill" {
 		t.Errorf("Name = %q, want MySkill", got.Name)
+	}
+}
+
+// TestParseSkillDataAffectTimeOverride pins the per-skill divisor opt-out
+// (issue #236): skill 85 (Escudo Dourado, affect 31) keeps the legacy ÷4 so its
+// already-short raw 30 is not truncated 7 → 3 by the uniform ÷8 of issue #92,
+// while every other row still takes the ÷8. Same synthetic row shape as above.
+func TestParseSkillDataAffectTimeOverride(t *testing.T) {
+	const (
+		shield = "85,90,0,120,5,0,0,0,0,0,31,150,30,anim.a,anim.b,0,0,0,1,0,0,0,Explosao_Eterea"
+		other  = "84,90,0,120,5,0,0,0,0,0,31,150,30,anim.a,anim.b,0,0,0,1,0,0,0,Outra"
+	)
+	s, err := parseSkillData(strings.NewReader(shield + "\n" + other))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.Get(85)
+	if !ok {
+		t.Fatal("skill 85 missing after parse")
+	}
+	if got.AffectTime != 7 {
+		t.Errorf("skill 85 AffectTime = %d, want 7 (30÷4, legacy divisor)", got.AffectTime)
+	}
+	// The override is per-skill: an identical row at another index keeps ÷8.
+	if got, ok := s.Get(84); !ok || got.AffectTime != 3 {
+		t.Errorf("skill 84 AffectTime = %d (ok=%v), want 3 (30÷8)", got.AffectTime, ok)
 	}
 }
 
