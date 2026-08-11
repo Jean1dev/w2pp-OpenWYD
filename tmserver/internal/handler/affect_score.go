@@ -20,7 +20,7 @@ const maxLegacyDamage int32 = 1_000_000_000
 // 11/12/21/24/31 (AC), 13
 // (critical armor: −10% MaxHP; its damage/DAMAGEMULTI parts included), 14
 // (CON/HP), 15 (Special, cap 400 at read), 16 (BM transform → transform.go),
-// 19/26/28/36 (Rsv flags), 25 (elemental resists), 27 (weapon-gated Frost),
+// 19/26/28/36 (Rsv flags), 25 (fire/ice/thunder resists), 27 (weapon-gated Frost),
 // 29 (Soul attribute multiplier), 30/37 (ForceMobDamage/ForceDamage), 38/42
 // (HP↔MP swap), 39 (Baú de XP → AffExpBonus). Deferred (need systems we don't
 // model yet): 17/20/22 (periodic — handled by the tick engine), 34/35
@@ -158,12 +158,23 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			e.AffDamageMultiPct += level/10 + value
 		case 24: // fortify: +AC/4 + value (over the flat AC)
 			e.AffAC += e.AC/4 + value
-		case 25: // elemental resists (fire/thunder/ice; not holy)
+		case 25: // Proteção Elemental: the three elements, never holy.
 			add := int16((value + level/4) / 10)
 			if level >= 255 {
 				add += 20
 			}
-			for k := 1; k < 4; k++ {
+			// DELIBERATE DIVERGENCE FROM THE LEGACY (issue #233). Basedef.cpp:4239
+			// adds to locals named Fogo/Trovao/Gelo, but those locals are misnamed
+			// (Basedef.cpp:3919 binds Sagrado←Resist[0], Trovao←[1], Fogo←[2],
+			// Gelo←[3]), so the indices it actually touches are 1/2/3 — leaving the
+			// real fire resist (Resist[0]) untouched and buffing holy instead. The
+			// true element order comes from the content: Orb_de_Fogo carries
+			// EF_RESIST1 and Orb_Sagrada EF_RESIST3 (ItemList.csv:1013,1019), and
+			// EF_RESIST1..4 map to Resist[0..3] (CMob.cpp:640-643) — so [0]=fire,
+			// [1]=ice, [2]=holy, [3]=thunder. We buff the three real elements and
+			// skip holy, which is not elemental. Same spirit as the ÷8 affectTime
+			// divergence of issue #92 (content/skilldata.go).
+			for _, k := range [3]int{0, 1, 3} {
 				e.AffResist[k] += add
 			}
 		case 26:
@@ -302,6 +313,16 @@ func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
 // effectiveMagic is the caster power the client/skill damage see: the flat Magic
 // plus the +20% Jóia do Poder buff (affect 8 bit 5, cached in AffMagic).
 func effectiveMagic(e *world.Entity) int32 { return int32(e.Magic) + e.AffMagic }
+
+// effectiveResist is the live resistance of element i (0 fire, 1 ice, 2 holy,
+// 3 thunder). The legacy clamps each resist to 0..100 at the END of
+// BASE_GetCurrentScore, after the Buff Loop has moved them (Basedef.cpp:4737-4767)
+// — clampResist alone only bounds the equipment share, so a buff stacked on top of
+// capped gear would otherwise escape the ceiling (and overflow the int8 the wire
+// carries) while a resist debuff would drive mitigation below the legacy floor.
+func effectiveResist(e *world.Entity, i int) int16 {
+	return min(max(e.Resist[i]+e.AffResist[i], 0), resistCap)
+}
 
 func effectiveCritical(e *world.Entity) uint8 {
 	v := int(e.Critical) + int(e.AffCritical) + int(skillCriticalBonus(e))
