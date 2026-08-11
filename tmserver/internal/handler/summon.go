@@ -244,21 +244,55 @@ func (d *Dispatcher) removeBabyMountSummons(w *world.World, ownerID int, owner *
 	if leaderID == 0 {
 		leaderID = ownerID
 	}
+	d.despawnSummons(w, leaderID, func(pet *world.Entity) bool {
+		return pet.Summoner == ownerID &&
+			pet.EquipVisual[0] >= babyMountFaceLo && pet.EquipVisual[0] < babyMountFaceHi
+	})
+}
+
+// despawnSummonsOf removes every summon parked in leaderID's PartyList that
+// belongs to ownerID; ownerID == 0 means all of them (the party dissolved).
+// This is the DeleteMob sweep inside RemoveParty (Server.cpp:8185-8190 when a
+// member leaves, Server.cpp:8237-8243 when the leader does) — without it the
+// pets outlive the party bond that held them (issue #234).
+func (d *Dispatcher) despawnSummonsOf(w *world.World, leaderID, ownerID int) {
+	d.despawnSummons(w, leaderID, func(pet *world.Entity) bool {
+		// Summoner 0 is a stray mob sitting in a player's party slot; the legacy
+		// reaps those on any leave too (Server.cpp:8188-8190).
+		return ownerID == 0 || pet.Summoner == ownerID || pet.Summoner == 0
+	})
+}
+
+// despawnSummons is the shared walk of a leader's pet slots: match selects which
+// pets go. The ids and the packet recipients are snapshotted first because
+// DespawnMob frees the slot as it goes (world/api.go:215-223).
+func (d *Dispatcher) despawnSummons(w *world.World, leaderID int, match func(*world.Entity) bool) {
 	leader := w.Entity(leaderID)
 	if leader == nil {
 		return
 	}
+	var doomed []int
+	recipients := []int{leaderID}
 	for _, memberID := range leader.PartyList {
-		if memberID < world.MaxUser {
+		if memberID <= 0 {
 			continue
 		}
-		pet := w.Entity(memberID)
-		if pet == nil || pet.Summoner != ownerID {
+		if world.IsPlayer(memberID) {
+			recipients = append(recipients, memberID)
 			continue
 		}
-		if pet.EquipVisual[0] >= babyMountFaceLo && pet.EquipVisual[0] < babyMountFaceHi {
-			w.DespawnMob(memberID, 3)
+		if pet := w.Entity(memberID); pet != nil && match(pet) {
+			doomed = append(doomed, memberID)
 		}
+	}
+	for _, id := range doomed {
+		// DespawnMob only sends MsgRemoveMob, so the party row has to be dropped
+		// explicitly or the client keeps the pet slot (legacy gets this from
+		// DeleteMob → RemoveParty, Server.cpp:7840).
+		for _, recipientID := range recipients {
+			d.sendRemoveParty(w, recipientID, id)
+		}
+		w.DespawnMob(id, 3)
 	}
 }
 
@@ -348,6 +382,16 @@ func (d *Dispatcher) sendSummonPartySlot(w *world.World, leaderID, summonID, slo
 	}
 }
 
+// petIsListed reports whether the pet still holds a slot in its leader's
+// PartyList — the only registry summons have (generateSummon, commandSummons).
+func petIsListed(w *world.World, id int, e *world.Entity) bool {
+	leader := w.Entity(e.Leader)
+	if leader == nil {
+		return false
+	}
+	return hasMember(leader, id)
+}
+
 // summonTick replaces the regular mob AI for a summoned pet (the RouteType-5
 // branch of StandingByProcessor, CMob.cpp:84-152): despawn when the owner is
 // gone, tick the lifespan, fight the owner's fight within the leash, otherwise
@@ -359,6 +403,13 @@ func (d *Dispatcher) summonTick(w *world.World, id int, e *world.Entity) {
 		if m, ok := w.SessionMode(e.Summoner); !ok || m != world.UserPlay {
 			ownerGone = true // logout / back to char select / disconnect
 		}
+	}
+	if !ownerGone && !petIsListed(w, id, e) {
+		// Belt and braces: a pet whose party slot is gone has no owner bond left,
+		// and nothing else would ever reap it (its lifespan ticks right here). The
+		// legacy bails the same way when a summon's leader is cleared
+		// (CMob.cpp:118-124). Keeps any future PartyList reset from leaking pets.
+		ownerGone = true
 	}
 	if ownerGone {
 		// The legacy clears summons via its timers on death/logout

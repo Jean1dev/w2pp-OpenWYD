@@ -81,6 +81,13 @@ func startServerSummon(t *testing.T, db world.Persistence, mob []byte, mobX, mob
 }
 
 func startServerSummonWith(t *testing.T, db world.Persistence, spells *content.SkillData, summonMobs [][]byte, mob []byte, mobX, mobY int16) (string, func(), *atomic.Uint32) {
+	return startServerSummonTick(t, db, spells, summonMobs, mob, mobX, mobY, 10*time.Millisecond)
+}
+
+// startServerSummonTick is startServerSummonWith with the AI-tick period exposed:
+// the summon lifespan is 20 ticks of affectTickPeriod, so a slow tick keeps a pet
+// alive for the whole test and isolates what the handlers do from what expiry does.
+func startServerSummonTick(t *testing.T, db world.Persistence, spells *content.SkillData, summonMobs [][]byte, mob []byte, mobX, mobY int16, tick time.Duration) (string, func(), *atomic.Uint32) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -94,7 +101,8 @@ func startServerSummonWith(t *testing.T, db world.Persistence, spells *content.S
 	if mob != nil {
 		w.SpawnMobAt(world.MobSpawn{Template: mob, X: mobX, Y: mobY, GenIndex: -1})
 	}
-	w.SetTickHandler(10*time.Millisecond, d.Tick)
+	w.SetTickHandler(tick, d.Tick)
+	w.SetSessionEndHandler(d.SessionEnd)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -182,7 +190,7 @@ func expectPetRemove(t *testing.T, c net.Conn, petID int) {
 			return
 		}
 	}
-	t.Fatalf("no RemoveMob for baby mount pet %d", petID)
+	t.Fatalf("no RemoveMob for pet %d", petID)
 }
 
 func TestBabyMountSpawnsOnEquip(t *testing.T) {
@@ -574,6 +582,210 @@ func TestSummonGoneAfterRelogin(t *testing.T) {
 	if pets := collectPets(t, c, 500*time.Millisecond); len(pets) != 0 {
 		t.Fatalf("pets after relogin = %d, want 0 (owner-gone cleanup)", len(pets))
 	}
+}
+
+// --- issue #234: summons must not outlive the party bond that holds them ---
+
+// trackPets folds the pet lifecycle frames arriving over timeout into live: a pet
+// CreateMob adds an id, a RemoveMob (HEADER.ID) drops it. What remains in live is
+// what the client still has on screen.
+func trackPets(t *testing.T, c net.Conn, timeout time.Duration, live map[int]bool) map[int]bool {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		switch h.Type {
+		case protocol.MsgCreateMob:
+			if id, name, _, _, _ := petFromCreateMob(payload); strings.HasSuffix(name, "^") {
+				live[id] = true
+			}
+		case protocol.MsgRemoveMob:
+			delete(live, int(h.ID))
+		}
+	}
+	return live
+}
+
+// summonPartySrv is a summon-capable server whose AI tick is slower than any
+// assert window, so a pet can only vanish because a party handler removed it
+// synchronously — never through the lifespan countdown or summonTick's orphan
+// reaper, which would otherwise mask a missing sweep.
+func summonPartySrv(t *testing.T, db world.Persistence) (string, func()) {
+	t.Helper()
+	addr, stop, _ := startServerSummonTick(t, db, evokeSpell(),
+		[][]byte{summonTemplate("Condor")}, nil, 0, 0, 5*time.Second)
+	return addr, stop
+}
+
+// summonPartyDB gives the leader (account 7) Evocação 30 → 1 pet and the member
+// (account 11) 60 → 2. The pet budget is shared party-wide — generateSummon counts
+// EVERY pet in the leader's PartyList, whoever evoked it (Server.cpp:2991-2997) —
+// so the member needs the larger allowance to fit one pet of its own alongside
+// the leader's.
+func summonPartyDB() *fakeDB {
+	db := summonDB(30)
+	member := db.loadResult
+	member.BaseSpecial[2] = 60
+	db.loads = map[int64]world.CharacterState{7: db.loadResult, 11: member}
+	return db
+}
+
+// evokeOne casts Evocar Condor from conn and returns the single pet's id.
+func evokeOne(t *testing.T, c net.Conn, conn int) int {
+	t.Helper()
+	skillAttackFrame(t, c, serverTime, conn, 56, damSkill)
+	pets := collectPets(t, c, 400*time.Millisecond)
+	if len(pets) != 1 {
+		t.Fatalf("conn %d evoked %d pets, want 1", conn, len(pets))
+	}
+	for id := range pets {
+		return id
+	}
+	return 0
+}
+
+// TestSoloSummonDespawnsOnRemoveParty is the issue-234 repro. A BM holding pets
+// has Leader == 0 with the pets in its OWN PartyList, so the leave button routes
+// to leaderLeaveParty — which used to zero the list and orphan them.
+func TestSoloSummonDespawnsOnRemoveParty(t *testing.T) {
+	addr, stop := summonPartySrv(t, summonDB(30))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	pet := evokeOne(t, c, 1)
+	removePartyFrame(t, c, 1)
+	// The 5s tick puts expiry (20 decrements, one per 8 ticks) ~13min out, so this
+	// RemoveMob can only be the leave.
+	expectPetRemove(t, c, pet)
+}
+
+// TestEvocationAfterLeavingPartyStaysCapped is the second half of the report
+// ("...e fazer novas evocações"): the orphans used to be invisible to
+// generateSummon's head count, so a re-cast stacked a whole new set on top.
+func TestEvocationAfterLeavingPartyStaysCapped(t *testing.T) {
+	addr, stop := summonPartySrv(t, summonDB(30))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	live := map[int]bool{evokeOne(t, c, 1): true}
+	removePartyFrame(t, c, 1)
+	trackPets(t, c, 400*time.Millisecond, live)
+	if len(live) != 0 {
+		t.Fatalf("pets alive after leaving = %v, want none", live)
+	}
+	skillAttackFrame(t, c, serverTime+1000, 1, 56, damSkill)
+	trackPets(t, c, 400*time.Millisecond, live)
+	if len(live) != 1 {
+		t.Fatalf("pets alive after re-evoking = %d (%v), want 1 — evocations stacked", len(live), live)
+	}
+}
+
+// partyWithPets: A (conn 1) leads, B (conn 2) joins, each evokes one pet. The
+// returned ids are both visible to A, whose stream the asserts read.
+func partyWithPets(t *testing.T, addr string) (a, b net.Conn, petA, petB int) {
+	t.Helper()
+	a = enterWorldAs(t, addr, "tester")
+	b = enterWorldAs(t, addr, "tradeb")
+	reqPartyFrame(t, a, 1, 2)
+	expectPartyFrame(t, b, protocol.MsgSendReqParty)
+	acceptPartyFrame(t, b, 1, "Beast")
+	drainRaw(t, a)
+	drainRaw(t, b)
+
+	petA = evokeOne(t, a, 1)
+	drainRaw(t, b)
+	skillAttackFrame(t, b, serverTime, 2, 56, damSkill)
+	pets := collectPets(t, a, 400*time.Millisecond) // A sees the member's pet appear
+	if len(pets) != 1 {
+		t.Fatalf("member evoked %d pets as seen by the leader, want 1", len(pets))
+	}
+	for id := range pets {
+		petB = id
+	}
+	drainRaw(t, b)
+	return a, b, petA, petB
+}
+
+// TestSummonDespawnsWhenOwnerLeavesParty: a member's pets sit in the LEADER's
+// PartyList, so leaving must take them along — and only them (Server.cpp:8185).
+func TestSummonDespawnsWhenOwnerLeavesParty(t *testing.T) {
+	addr, stop := summonPartySrv(t, summonPartyDB())
+	defer stop()
+	a, b, petA, petB := partyWithPets(t, addr)
+	defer a.Close()
+	defer b.Close()
+
+	removePartyFrame(t, b, 2)
+	live := trackPets(t, a, 600*time.Millisecond, map[int]bool{petA: true, petB: true})
+	if live[petB] {
+		t.Errorf("leaver's pet %d survived the party leave", petB)
+	}
+	if !live[petA] {
+		t.Errorf("leader's own pet %d was removed; only the leaver's should go", petA)
+	}
+}
+
+// TestSummonDespawnsWhenKicked is the kick side of the same sweep.
+func TestSummonDespawnsWhenKicked(t *testing.T) {
+	addr, stop := summonPartySrv(t, summonPartyDB())
+	defer stop()
+	a, b, petA, petB := partyWithPets(t, addr)
+	defer a.Close()
+	defer b.Close()
+
+	removePartyFrame(t, a, 2) // leader kicks the member
+	live := trackPets(t, a, 600*time.Millisecond, map[int]bool{petA: true, petB: true})
+	if live[petB] {
+		t.Errorf("kicked member's pet %d survived", petB)
+	}
+	if !live[petA] {
+		t.Errorf("leader's own pet %d was removed by the kick", petA)
+	}
+}
+
+// TestSummonDespawnsOnPartyDisband: dissolving takes every pet in the list, not
+// just the leader's — the deliberate divergence from Server.cpp:8242, which only
+// zeroes Summoner and would leak ownerless mobs here (party.go leaderLeaveParty).
+func TestSummonDespawnsOnPartyDisband(t *testing.T) {
+	addr, stop := summonPartySrv(t, summonPartyDB())
+	defer stop()
+	a, b, petA, petB := partyWithPets(t, addr)
+	defer a.Close()
+	defer b.Close()
+
+	removePartyFrame(t, a, 1) // leader leaves → party dissolves
+	live := trackPets(t, a, 600*time.Millisecond, map[int]bool{petA: true, petB: true})
+	if len(live) != 0 {
+		t.Fatalf("pets alive after the party dissolved = %v, want none", live)
+	}
+}
+
+// TestSummonPartySlotClearedOnDespawn: DespawnMob only sends RemoveMob, so the
+// sweep has to drop the pet's party row too or the client keeps the slot.
+func TestSummonPartySlotClearedOnDespawn(t *testing.T) {
+	addr, stop := summonPartySrv(t, summonDB(30))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	pet := evokeOne(t, c, 1)
+	removePartyFrame(t, c, 1)
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		if h.Type == protocol.MsgRemoveParty && int(protocolLe16(payload[0:2])) == pet {
+			return
+		}
+	}
+	t.Fatalf("no RemoveParty row for pet %d; the client keeps a ghost party slot", pet)
 }
 
 // TestSummonAssistsAgainstMob: a monster fight near the owner pulls the pet in

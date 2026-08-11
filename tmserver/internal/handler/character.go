@@ -578,6 +578,11 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 	if s.Mode != world.UserPlay {
 		return
 	}
+	// Leave the party (and reap this character's summons) first, while the session
+	// is still UserPlay — sendRemoveParty/sendAddParty only reach UserPlay
+	// recipients (_MSG_CharacterLogout.cpp:23 calls RemoveParty for the same
+	// reason). The disconnect-time hook is a no-op after this.
+	d.SessionEnd(w, s)
 	// Despawn this entity for in-view players (back to character selection).
 	body := protocol.EncodeRemoveMobBody(2)
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {

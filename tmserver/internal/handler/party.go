@@ -122,6 +122,27 @@ func (d *Dispatcher) removeParty(w *world.World, s *world.Session, _ protocol.He
 	d.kickPartyMember(w, s.Conn, target)
 }
 
+// SessionEnd unlinks a leaving connection from its party. It ports the
+// RemoveParty(conn) the legacy runs on logout and on socket teardown
+// (_MSG_CharacterLogout.cpp:23, CloseUser → Server.cpp:7654), which the port
+// was missing: the leaver stayed a ghost in the leader's PartyList, so that
+// leader read as "already partied" forever (isInParty) and a reused conn slot
+// inherited the rows. Registered with world.SetSessionEndHandler and also called
+// from characterLogout. Idempotent — the second run finds an empty party.
+func (d *Dispatcher) SessionEnd(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil || !isInParty(e) {
+		return // nothing to unlink; don't push a party packet at a partyless client
+	}
+	if e.Leader != 0 {
+		d.leaveParty(w, s.Conn)
+		return
+	}
+	// Leaders (and solo pet holders) dissolve; leaderLeaveParty promotes the next
+	// member and resyncs, like the synthetic AcceptParty at Server.cpp:8246-8260.
+	d.leaderLeaveParty(w, s.Conn)
+}
+
 func (d *Dispatcher) reqPartyBody(e *world.Entity, partyID int) protocol.MsgSendReqPartyBody {
 	body := protocol.MsgSendReqPartyBody{
 		Class:    e.Class,
@@ -163,6 +184,11 @@ func (d *Dispatcher) leaveParty(w *world.World, conn int) {
 		return
 	}
 	leaderConn := e.Leader
+	// A member's summons occupy slots in the LEADER's PartyList (summon.go:205),
+	// so cutting the bond without reaping them leaves them alive and untracked —
+	// the next evocation then counts zero pets and spawns a whole new set (#234).
+	d.despawnSummonsOf(w, leaderConn, conn)
+	d.despawnSummonsOf(w, conn, 0)
 	e.Leader = 0
 	e.PartyList = [world.MaxParty]int{}
 	d.sendRemoveParty(w, conn, 0)
@@ -184,6 +210,8 @@ func (d *Dispatcher) kickPartyMember(w *world.World, leaderConn, conn int) {
 	if e == nil || le == nil || e.Leader != leaderConn {
 		return
 	}
+	d.despawnSummonsOf(w, leaderConn, conn) // same reaping as leaveParty (#234)
+	d.despawnSummonsOf(w, conn, 0)
 	e.Leader = 0
 	e.PartyList = [world.MaxParty]int{}
 	removeMember(le, conn)
@@ -201,6 +229,13 @@ func (d *Dispatcher) leaderLeaveParty(w *world.World, leaderConn int) {
 	if le == nil {
 		return
 	}
+	// Every summon in the list goes, whoever evoked it. The legacy only deletes
+	// the leaver's own and merely zeroes Summoner on the rest (Server.cpp:8237-8243),
+	// relying on its global Type-24 sweep to reap them; here the lifespan ticks
+	// inside summonTick, which is gated on Summoner != 0 (mobai.go:61), so copying
+	// that would leak permanent ownerless mobs. This branch is also the solo-BM
+	// path — a pet holder has Leader == 0, so RemoveParty lands here (#234).
+	d.despawnSummonsOf(w, leaderConn, 0)
 	members := partyMembers(le)
 	le.PartyList = [world.MaxParty]int{}
 	for _, memberID := range members {

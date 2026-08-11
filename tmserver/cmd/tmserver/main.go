@@ -304,6 +304,9 @@ func run(logger *slog.Logger) error {
 	}, logger, persist, dispatch.Handle)
 	// Mob-AI pulse: monsters acquire/chase/melee nearby players each tick (mobai.go).
 	w.SetTickHandler(world.DefaultMobTick, dispatch.Tick)
+	// Party teardown on disconnect: unlink the party bond and reap the summons
+	// before the slot is freed (party.go SessionEnd).
+	w.SetSessionEndHandler(dispatch.SessionEnd)
 	// The newbie flag has two owners: the dispatcher's ExpEvents (the EXP bonus)
 	// and the world (the sub-120 spawn HP handicap). Set here, BEFORE spawnNPCs
 	// below, so the boot population is handicapped too — the portal config may

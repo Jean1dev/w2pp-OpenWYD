@@ -33,6 +33,19 @@
 - **Efeitos:** se eu sou líder (`Leader`) → `RemoveParty(conn)` (dissolve/saída do líder); senão
   `RemoveParty(target)`.
 - **Risco:** semântica líder-vs-membro embutida; documentar `RemoveParty` (em `Server.cpp`).
+- **Limpeza de summons (issue #234):** `RemoveParty` **deleta os pets** que ocupam slots da
+  `PartyList` — os do membro que sai (`Server.cpp:8185-8190`) e os do líder ao dissolver
+  (`Server.cpp:8237-8243`). O Go faz isso em `despawnSummonsOf` (`handler/summon.go`), chamado pelos
+  três caminhos de `party.go`. Sem isso o pet sobrevive fora de qualquer lista e a próxima evocação
+  empilha um conjunto novo. Ao dissolver, o Go mata os pets de **todos** os membros — divergência
+  deliberada, ver `docs/migration/skills/beastmaster.md` (ciclo de vida do pet).
+  Um **BM solo com pets tem `Leader == 0`**, então o botão de sair cai no caminho do líder: é a
+  reprodução mais curta do bug.
+- **Logout/desconexão:** o legado chama `RemoveParty(conn)` também em `_MSG_CharacterLogout.cpp:23`
+  e em `CloseUser` (`Server.cpp:7654`). No Go isso é `Dispatcher.SessionEnd`, chamado por
+  `characterLogout` e registrado em `world.SetSessionEndHandler` (rodado por `removeSession` antes de
+  liberar o slot). Faltando isso, quem saía ficava fantasma na `PartyList` do líder, e o líder virava
+  "já em party" para sempre (`isInParty`) — além de um slot de conn reutilizado herdar as linhas.
 
 ## `_MSG_InviteGuild` (0x03D5) — convidar para guilda
 - **Gatilho/struct:** `MSG_STANDARDPARM2` (`Parm1=TargetID`, `Parm2=InviteType` 0..3).
