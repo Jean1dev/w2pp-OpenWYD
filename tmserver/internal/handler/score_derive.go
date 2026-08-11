@@ -13,6 +13,27 @@ const (
 	classMasterSCelestial  = 5
 )
 
+const (
+	baseDamageMortalArch int32 = 5
+	baseDamageCelestial  int32 = 0
+)
+
+// playerBaseDamage reconstructs the equipment-free BaseScore.Damage omitted by
+// api/db/v1.Character. Mortal and Arch characters inherit 5 from the four
+// BaseMob templates (DBSrv/CFileDB.cpp:981-993,1552-1577); the Pedra Ideal
+// conversion explicitly resets it to 0 (_MSG_UseItem.cpp:3137), which also
+// applies to the subsequent Celestial tiers.
+func playerBaseDamage(e *world.Entity) int32 {
+	switch e.ClassMaster {
+	case classMasterCelestial, classMasterCelestialCS, classMasterSCelestial:
+		return baseDamageCelestial
+	default:
+		// ClassMaster 0 is the pre-persistence compatibility value and is treated
+		// as Mortal by completeCharacterLogin.
+		return baseDamageMortalArch
+	}
+}
+
 type weaponCoef struct {
 	nUnique int
 	dexK    float64
@@ -176,6 +197,10 @@ func skillDerivedACBonus(e *world.Entity, flatAC int32) int32 {
 	return bonus
 }
 
+func (d *Dispatcher) derivedDamageTotal(e *world.Entity, withAffectSpecial bool) int32 {
+	return d.derivedDamageBeforeAffects(e) + attributeDamageBonus(e, withAffectSpecial)
+}
+
 func invertSkillACBonus(e *world.Entity, ac int32) int32 {
 	if e.Class == 0 && e.LearnedSkill&(1<<15) != 0 {
 		return ac * 10 / 11
@@ -184,8 +209,4 @@ func invertSkillACBonus(e *world.Entity, ac int32) int32 {
 		return ac - (int32(e.Special[3])/3 + 10)
 	}
 	return ac
-}
-
-func (d *Dispatcher) derivedDamageTotal(e *world.Entity, withAffectSpecial bool) int32 {
-	return d.derivedDamageBeforeAffects(e) + attributeDamageBonus(e, withAffectSpecial)
 }

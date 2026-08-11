@@ -47,18 +47,62 @@ func TestAttributeDamageBonus(t *testing.T) {
 func TestRefreshScoreAttributeDamage(t *testing.T) {
 	d := New(Config{})
 	e := testPlayerEntity()
-	flat := int32(80)
-	e.Damage = flat + attributeDamageBonus(e, false)
+	// Production gRPC loads leave Damage at zero because api/db/v1.Character
+	// does not carry it. The score must be reconstructed from the legacy base.
+	e.Damage = 0
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
-	if e.Damage != flat+attributeDamageBonus(e, true) {
-		t.Fatalf("round-trip Damage = %d, want %d", e.Damage, flat+attributeDamageBonus(e, true))
+	if want := baseDamageMortalArch + attributeDamageBonus(e, true); e.Damage != want {
+		t.Fatalf("derived Damage = %d, want %d", e.Damage, want)
 	}
 	dmgBefore := e.Damage
 	e.BaseStr += 10
 	d.refreshScore(e)
 	if e.Damage-dmgBefore != 5 {
 		t.Errorf("Damage delta after +10 STR = %d, want 5", e.Damage-dmgBefore)
+	}
+}
+
+func TestPlayerBaseDamageByTier(t *testing.T) {
+	tests := []struct {
+		name        string
+		classMaster uint8
+		want        int32
+	}{
+		{"legacy_zero_is_mortal", 0, baseDamageMortalArch},
+		{"mortal", classMasterMortal, baseDamageMortalArch},
+		{"arch", classMasterArch, baseDamageMortalArch},
+		{"celestial", classMasterCelestial, baseDamageCelestial},
+		{"celestial_cs", classMasterCelestialCS, baseDamageCelestial},
+		{"sub_celestial", classMasterSCelestial, baseDamageCelestial},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &world.Entity{ClassMaster: tt.classMaster}
+			if got := playerBaseDamage(e); got != tt.want {
+				t.Fatalf("playerBaseDamage = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPhysicalDamageSurvivesUnequip(t *testing.T) {
+	d := New(Config{})
+	e := testPlayerEntity()
+	e.Damage = 0 // real characterStateFromProto result
+	e.Equip[1] = world.Item{Index: 700, Effects: [3]world.Effect{{Effect: efDamage, Value: 90}}}
+
+	d.deriveBaseScore(e)
+	d.refreshScore(e)
+	baseAndAttributes := baseDamageMortalArch + attributeDamageBonus(e, true)
+	if want := baseAndAttributes + 90; e.Damage != want {
+		t.Fatalf("equipped Damage = %d, want %d", e.Damage, want)
+	}
+
+	e.Equip[1] = world.Item{}
+	d.refreshScore(e)
+	if e.Damage != baseAndAttributes {
+		t.Fatalf("unequipped Damage = %d, want %d", e.Damage, baseAndAttributes)
 	}
 }
 
@@ -120,15 +164,13 @@ func TestHuntressShadowProtectionUsesTreeThree(t *testing.T) {
 
 func TestApplyBonusScoreIncreasesDamage(t *testing.T) {
 	db := newDB()
-	flat := int32(50)
 	e := testPlayerEntity()
 	e.BaseStr, e.Str = 20, 20
-	e.Damage = flat + attributeDamageBonus(e, false)
 	db.loadResult = world.CharacterState{
 		Slot: 0, Name: "Hero", Class: 0, ClassMaster: classMasterMortal, X: 5, Y: 5,
 		HP: 500, MaxHP: 500, MP: 200, MaxMP: 200,
 		Level: 10, Str: 20, Dex: 15, Con: 10, AC: 50,
-		Damage:     flat + attributeDamageBonus(e, false),
+		Damage:     0, // production DB contract omits the derived combat score
 		ScoreBonus: 10,
 		Equip:      [world.MaxEquip]world.Item{{Index: 11}},
 	}
@@ -147,7 +189,7 @@ func TestApplyBonusScoreIncreasesDamage(t *testing.T) {
 		t.Fatalf("got %#x ok=%v, want UpdateScore second", ty, ok)
 	}
 	dmg := scoreDamage(payload)
-	minWant := flat + attributeDamageBonus(&world.Entity{
+	minWant := baseDamageMortalArch + attributeDamageBonus(&world.Entity{
 		ID: 1, Class: 0, ClassMaster: classMasterMortal,
 		Level: 10, Str: 21, Dex: 15,
 		Equip: [world.MaxEquip]world.Item{{Index: 11}},

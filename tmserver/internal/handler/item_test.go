@@ -439,7 +439,17 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
 	send(t, c, protocol.MsgUseItem, body.Encode())
 
-	expect(t, c, protocol.MsgSendItem)        // Pedra Ideal removed from carry
+	expect(t, c, protocol.MsgSendItem) // Pedra Ideal removed from carry
+	ty, payload, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgUpdateScore {
+		t.Fatalf("got %#x ok=%v, want UpdateScore after Celestial conversion", ty, ok)
+	}
+	// The fixture has zero STR/DEX/Special and no damage-bearing gear. A fresh
+	// Celestial therefore has only its level term (1+MAX_LEVEL); the Mortal/Arch
+	// BaseScore.Damage=5 must have been reset before this score was emitted.
+	if want := level.MaxLevel + 1; scoreDamage(payload) != want {
+		t.Errorf("Celestial Damage = %d, want %d (zero base + level term)", scoreDamage(payload), want)
+	}
 	expect(t, c, protocol.MsgCombineComplete) // unlock signal
 	expect(t, c, protocol.MsgMotion)          // unlock emote
 

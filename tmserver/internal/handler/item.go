@@ -1368,6 +1368,9 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 	e.Level = 1
 	e.Exp = 0
 	e.CelLv40, e.CelLv90, e.CelCircle = 0, 0, 0
+	// _MSG_UseItem.cpp:3137 resets BaseScore.Damage during this conversion.
+	// Do it before refreshScore so the current session matches the next login.
+	e.BaseDamage = playerBaseDamage(e)
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.refreshScore(e)
@@ -1908,11 +1911,10 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	return b
 }
 
-// deriveBaseScore captures the equipment-free BaseScore from the loaded
-// CurrentScore (called once on login): base = current − equipBonus − derived
-// combat bonuses (attribute/class-weapon damage, skill AC). WeaponDamage is not
-// in the loaded CurrentScore, so it is not subtracted. After this, refreshScore
-// reproduces the loaded CurrentScore exactly until gear changes.
+// deriveBaseScore captures the equipment-free BaseScore on login. Persisted
+// CurrentScore fields recover their base by subtracting equipment. Damage is
+// reconstructed when the DB contract's omitted value arrives as zero; non-zero
+// snapshots retain the subtraction path. WeaponDamage remains separate.
 func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	b := d.equipBonus(e)
 	e.BaseStr = e.Str - b.str
@@ -1921,7 +1923,14 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseCon = e.Con - b.con
 	flatAC := invertSkillACBonus(e, e.AC-b.ac)
 	e.BaseAC = flatAC
-	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
+	if e.Damage == 0 {
+		// api/db/v1.Character omits Damage, so production relational loads take
+		// this path. A non-zero value can still come from a complete snapshot or
+		// an in-memory entity and must keep the normal subtraction semantics.
+		e.BaseDamage = playerBaseDamage(e)
+	} else {
+		e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
+	}
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 	// Magic (mount bonus + ordinary equipment's EF_MAGIC/EF_MAGICADD): same subtraction
