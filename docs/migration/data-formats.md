@@ -256,6 +256,101 @@ Fase 1) daria 805 bytes e desalinharia o arquivo — ver §0.1. O `sizeof` do `S
 **completo** ainda depende de `STRUCT_MOBEXTRA`/`STRUCT_QUEST` e deve ser travado por `static_assert`
 no build de referência (§0.1).
 
+### 1.4.1. `STRUCT_MOB` legado de 756 bytes (e a variante de 920) — templates de `npc/`
+
+**Status: VERIFICADO por amostra** (revertido dos assets reais e cross-validado par a par; o
+`Basedef.h` da versão antiga **não** está em `Source/`, então não há citação de fonte C++ para o
+layout em si). Issue #244.
+
+`Release/TMsrv/run/npc/` **não é homogêneo**. Censo reproduzível
+(`go run ./tmserver/cmd/exptool -inventory -npc Release/TMsrv/run/npc`):
+
+| tamanho | arquivos | natureza |
+|---------|----------|----------|
+| 816 | 1769 | `STRUCT_MOB` canônico de §1.4 |
+| 756 | 207 | `STRUCT_MOB` **legado legítimo** (layout abaixo) |
+| 920 | 15 | registro de 756 B + 164 B de lixo de heap |
+
+Os 222 arquivos não-canônicos são conteúdo customizado (`@*`, `[BOSS]_*`, lojas `Armas[D]`,
+`Pocoes`, `Runas`, `XTS_Store`, `NPC_1..13`, `NPC_I..VII`, `Noel_I..V`…) e **nenhum deles é
+referenciado pelo `NPCGener.txt`** — os 620 nomes de `Leader`/`Follower` resolvem 100% para arquivos
+de 816 B. Por isso o caminho de spawn nunca perdeu nada; quem perdia eram os *scanners* de diretório
+(painel de moderação, DropTool) que rejeitavam o arquivo inteiro.
+
+**Diferenças em relação a §1.4** — sem `Quest`, `Exp` de 32 bits, `STRUCT_SCORE` compacto de 28 B,
+sem `Magic`, e `RegenHP`/`RegenMP` de 8 bits. Como não há membro de 64 bits, a struct alinha em 4 e
+fecha em 756 sem padding final:
+
+| off | campo | tipo (756) | equivalente em 816 |
+|-----|-------|------------|--------------------|
+| 0 | `MobName[16]` | `char` | 0 |
+| 16 | `Clan` | `uchar` | 16 |
+| 17 | `Merchant` | `uchar` | 17 |
+| 18 | `Guild` | `ushort` | 18 |
+| 20 | `Class` | `uchar` | 20 |
+| 22 | `Rsv` | `ushort` | 22 |
+| — | `Quest` | *(ausente)* | 24 (+3 de padding) |
+| 24 | `Coin` | `int` | 28 |
+| 28 | `Exp` | **`long` (4 B)** | 32 (`long long`, 8 B) |
+| 32 / 34 | `SPX` / `SPY` | `short` | 40 / 42 |
+| 36 | `BaseScore` | `STRUCT_SCORE` **28 B** | 44 (48 B) |
+| 64 | `CurrentScore` | `STRUCT_SCORE` **28 B** | 92 (48 B) |
+| 92 | `Equip[16]` | `STRUCT_ITEM` (8 B, igual) | 140 |
+| 220 | `Carry[64]` | `STRUCT_ITEM` (8 B, igual) | 268 |
+| 732 | `LearnedSkill` | `long` | 780 |
+| — | `Magic` | *(ausente)* | 784 |
+| 736 / 738 / 740 | `ScoreBonus` / `SpecialBonus` / `SkillBonus` | `ushort` | 788 / 790 / 792 |
+| 742 / 743 | `Critical` / `SaveMana` | `uchar` | 794 / 795 |
+| 744 | `SkillBar[4]` | `uchar` | 796 |
+| 748 | `GuildLevel` (+1 de padding) | `uchar` | 800 (+1) |
+| 750 / 751 | `RegenHP` / `RegenMP` | **`uchar`** | 802 / 804 (`ushort`) |
+| 752 | `Resist[4]` | `char` | 806 |
+| 756 | *(fim, sem padding)* | | 816 (6 B de padding) |
+
+`STRUCT_SCORE` compacto — **28 bytes**:
+
+| off | campo | tipo (28 B) | tipo (48 B) | off em 48 B |
+|-----|-------|-------------|-------------|-------------|
+| 0 / 2 / 4 | `Level` / `Ac` / `Damage` | `ushort` | `int` | 0 / 4 / 8 |
+| 6 / 7 | `Merchant` / `AttackRun` | `uchar` | `uchar` | 12 / 13 |
+| — | `Direction`, `ChaosRate` | *(ausentes)* | `uchar` | 14 / 15 |
+| 8 | `MaxHp` | `int` | `int` | 16 |
+| — | `MaxMp` | *(ausente)* | `int` | 20 |
+| 12 | `Hp` | `int` | `int` | 24 |
+| — | `Mp` | *(ausente)* | `int` | 28 |
+| 16 / 18 / 20 / 22 | `Str` / `Int` / `Dex` / `Con` | `short` | `short` | 32 / 34 / 36 / 38 |
+| 24 | `Special[4]` | **`char`** | `short` | 40 |
+
+Fechamento aritmético: `8 (header) + 2×20 (scores) + 12 (tail) = 60 = 816 − 756`.
+
+**Evidência.** 41 arquivos legados têm um gêmeo canônico de mesmo nome (`@Gargula`/`Gargula`,
+`@Tauron`/`Tauron`, …). Lendo cada par pelos **dois mapas de offset diferentes**, os campos que um
+rebalanceamento não toca concordam: `Class` 100%, `ScoreBonus` 95%, `Critical`/`SaveMana` 98%,
+`Special` 90%, `AttackRun` 93% — enquanto exatamente os campos rebalanceados divergem (`Level` 20%,
+`Con` 17%, `Damage` 46%). `@Gargula` e `Gargula` batem em `ScoreBonus=27` e `Resist={0,0,0,10}`;
+`@Tauron` e `Tauron` batem em `Special={255,7,255,7}` e `RegenHP/RegenMP=30/9` — **este último é o
+que prova a largura de 8 bits**: lido como `ushort`, o par vira `0/2334`.
+
+**A variante de 920 bytes** é o mesmo registro de 756 seguido de 164 bytes de lixo não-inicializado
+(ponteiros de heap repetidos, diferentes entre arquivos) — alguma ferramenta legada gravou o `sizeof`
+de uma struct maior sem zerar. Um único decoder atende as duas: descarta-se o excedente.
+
+**Como o código trata isso.** `savefmt.DetectMobVersion` roteia por tamanho (espelhando
+`savefmt.DetectVersion` de §1.2 para os arquivos de conta), `savefmt.DecodeMobAny` decodifica
+qualquer layout, e `savefmt.NormalizeMob` **alarga para o blob canônico de 816 B**. Todo carregamento
+passa por `npctemplate.Load`, que normaliza — nenhum slice de tamanho variante chega ao runtime,
+porque `protocol.ParseMobBasics` e `EncodeCNFCharacterLoginRaw` indexam o layout de 816 diretamente.
+A conversão 756→816 é **lossless** (só alargamento; os campos ausentes ficam em 0, que é o que os
+arquivos de 816 já trazem em `MaxMp`/`Mp`). A conversão inversa não existe e não é necessária: nada
+reescreve template no caminho de leitura. A exceção deliberada é o `cmd/exptool`, que só regrava
+`Exp` in-place em arquivos de 816 B e reporta os legados em `Result.SkippedVariant` — regravar um
+registro de 756 mudaria o tamanho de um asset versionado.
+
+Precedente legado: `Source/Code/TMSrv/Server.cpp:7763` (`ReadMob`) faz `_read(sizeof(STRUCT_MOB))`
+**sem checar tamanho**, ou seja, o servidor original também teria interpretado esses arquivos errado
+— coerente com nenhum deles estar no `NPCGener.txt`; já `Source/Code/DropTool/main.cpp:158` filtra
+explicitamente `fsize == sizeof(STRUCT_MOB)`, isto é, a ferramenta original **também** os pulava.
+
 ### 1.5. Structs auxiliares
 
 `STRUCT_ITEM` (`Basedef.h:500-522`) — **8 bytes**:

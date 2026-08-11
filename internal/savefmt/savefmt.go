@@ -33,6 +33,54 @@ const (
 	AccountFileSize = 7952 // STRUCT_ACCOUNTFILE    (Basedef.h:1085-1108)
 )
 
+// Sizes of the legacy standalone STRUCT_MOB template variants found in
+// Release/TMsrv/run/npc/ (data-formats.md §1.4.1). These are NOT alternative
+// sizes for the modelled struct — MobSize stays 816 — they are older layouts
+// routed by DetectMobVersion and widened to MobSize by NormalizeMob.
+const (
+	ScoreSizeLegacy756     = 28  // compact STRUCT_SCORE of the 756-byte layout
+	MobSizeLegacy756       = 756 // pre-expansion STRUCT_MOB
+	MobSizeLegacy756Padded = 920 // 756-byte record + 164 B of uninitialized junk
+)
+
+// Field offsets within the 756-byte legacy STRUCT_MOB (data-formats.md §1.4.1).
+// Reverse-engineered from the shipped assets and cross-validated against the
+// 816-byte file of the same mob across all 41 legacy/canonical name pairs in
+// Release/TMsrv/run/npc: Class agrees 100%, ScoreBonus 95%, Critical/SaveMana
+// 98% and Special 90%, while only the fields a rebalance touches (Level, Con,
+// Damage) diverge.
+//
+// Relative to the current layout this one has no Quest byte, a 32-bit Exp, a
+// 28-byte STRUCT_SCORE, no Magic, and 8-bit RegenHP/RegenMP. The whole struct
+// aligns to 4 (no int64 member), so it closes at 756 with no trailing padding —
+// 8 (header) + 2*20 (scores) + 12 (tail) = 60 = MobSize - MobSizeLegacy756.
+const (
+	offL756Clan         = 16
+	offL756Merchant     = 17
+	offL756Guild        = 18
+	offL756Class        = 20
+	offL756Rsv          = 22
+	offL756Coin         = 24
+	offL756Exp          = 28 // long (4 bytes) — 816 widened this to 8
+	offL756SPX          = 32
+	offL756SPY          = 34
+	offL756BaseScore    = 36
+	offL756CurrentScore = 64
+	offL756Equip        = 92
+	offL756Carry        = 220
+	offL756LearnedSkill = 732
+	offL756ScoreBonus   = 736 // 816 inserts Magic (uint32) before this
+	offL756SpecialBonus = 738
+	offL756SkillBonus   = 740
+	offL756Critical     = 742
+	offL756SaveMana     = 743
+	offL756SkillBar     = 744
+	offL756GuildLevel   = 748 // 1 byte of padding follows, as at 816's offset 801
+	offL756RegenHP      = 750 // uchar — 816 widened RegenHP/RegenMP to uint16
+	offL756RegenMP      = 751
+	offL756Resist       = 752 // int8[4]; struct closes at 756 with no trailing pad
+)
+
 // Array bounds (Basedef.h).
 const (
 	MobPerAccount  = 4   // MOB_PER_ACCOUNT

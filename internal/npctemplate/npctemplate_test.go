@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
 func TestResolveExactName(t *testing.T) {
@@ -70,8 +72,41 @@ func TestLoadRejectsWrongSize(t *testing.T) {
 	dir := makeNPCDir(t)
 	writeTemplate(t, dir, "Broken", Size-1)
 
-	if _, _, err := Load(dir, "Broken"); err == nil || !strings.Contains(err.Error(), "want 816") {
+	if _, _, err := Load(dir, "Broken"); err == nil || !strings.Contains(err.Error(), "not a known STRUCT_MOB layout") {
 		t.Fatalf("Load err = %v, want size error", err)
+	}
+}
+
+// TestLoadNormalizesLegacyLayouts is the loader contract that keeps the legacy
+// 756/920-byte templates out of the runtime: whatever the file size, callers
+// get one canonical Size-byte blob plus the layout it came from.
+func TestLoadNormalizesLegacyLayouts(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+		want savefmt.MobVersion
+	}{
+		{"Canonical", Size, savefmt.MobVersionCurrent},
+		{"Legacy", savefmt.MobSizeLegacy756, savefmt.MobVersionLegacy756},
+		{"LegacyPadded", savefmt.MobSizeLegacy756Padded, savefmt.MobVersionLegacy756Padded},
+	}
+	dir := makeNPCDir(t)
+	for _, tt := range tests {
+		writeTemplate(t, dir, tt.name, tt.size)
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, res, err := Load(dir, tt.name)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if len(b) != Size {
+				t.Errorf("len = %d, want %d", len(b), Size)
+			}
+			if res.Version != tt.want {
+				t.Errorf("Version = %v, want %v", res.Version, tt.want)
+			}
+		})
 	}
 }
 
