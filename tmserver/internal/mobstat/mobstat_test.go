@@ -122,11 +122,46 @@ func TestApplyOverwritesDisplayName(t *testing.T) {
 }
 
 // TestApplyReturnsInputUnchangedForCorruptTemplate checks a template that
-// fails to decode (wrong size) is returned as-is rather than panicking.
+// fails to decode (not a STRUCT_MOB in any layout) is returned as-is rather
+// than panicking.
 func TestApplyReturnsInputUnchangedForCorruptTemplate(t *testing.T) {
 	bad := []byte{1, 2, 3}
 	out := Apply(bad, Override{Level: 99})
 	if len(out) != 3 {
 		t.Fatalf("Apply(corrupt) length = %d, want 3 (unchanged)", len(out))
+	}
+}
+
+// TestApplyUpgradesLegacyTemplates covers issue #244's silent-no-op: a legacy
+// 756/920-byte template used to fail DecodeMob and be returned untouched, so a
+// moderator's override simply did nothing. It must now come back as a
+// canonical MobSize blob with the override applied.
+func TestApplyUpgradesLegacyTemplates(t *testing.T) {
+	for _, size := range []int{savefmt.MobSizeLegacy756, savefmt.MobSizeLegacy756Padded} {
+		tmpl := make([]byte, size)
+		copy(tmpl[0:16], "Legacy")
+		// CurrentScore.Level in the legacy layout: score at 64, Level at +0.
+		tmpl[64] = 50
+
+		out := Apply(tmpl, Override{Level: 99, MaxHp: 1234, Hp: 1234, Merchant: 1})
+		if len(out) != savefmt.MobSize {
+			t.Fatalf("size %d: Apply length = %d, want %d", size, len(out), savefmt.MobSize)
+		}
+		mob, err := savefmt.DecodeMob(out)
+		if err != nil {
+			t.Fatalf("size %d: DecodeMob: %v", size, err)
+		}
+		if mob.CurrentScore.Level != 99 || mob.BaseScore.Level != 99 {
+			t.Errorf("size %d: Level = %d/%d, want 99 in both scores",
+				size, mob.BaseScore.Level, mob.CurrentScore.Level)
+		}
+		if mob.CurrentScore.MaxHp != 1234 || mob.Merchant != 1 {
+			t.Errorf("size %d: MaxHp/Merchant = %d/%d, want 1234/1",
+				size, mob.CurrentScore.MaxHp, mob.Merchant)
+		}
+		// The template's own name survives when the override does not set one.
+		if got := string(mob.Name[:6]); got != "Legacy" {
+			t.Errorf("size %d: Name = %q, want Legacy", size, got)
+		}
 	}
 }

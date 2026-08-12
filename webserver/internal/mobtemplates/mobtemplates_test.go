@@ -17,6 +17,15 @@ func mobBytes(name string, merchant byte) []byte {
 	return b
 }
 
+// legacyMobBytes builds a 756-byte legacy template (data-formats.md §1.4.1),
+// where CurrentScore sits at 64 and its Merchant byte at 64+6.
+func legacyMobBytes(name string, merchant byte, size int) []byte {
+	b := make([]byte, size)
+	copy(b[0:16], name)
+	b[64+6] = merchant
+	return b
+}
+
 func TestScanReturnsEveryTemplateUnfiltered(t *testing.T) {
 	dir := t.TempDir()
 	npcDir := filepath.Join(dir, "TMsrv", "run", "npc")
@@ -30,16 +39,22 @@ func TestScanReturnsEveryTemplateUnfiltered(t *testing.T) {
 	}
 	write("SomeMonster", mobBytes("Monster", 0))
 	write("HekalMerchant", mobBytes("Hekal", 1))
-	write("Broken", []byte{1, 2, 3}) // wrong size, must be skipped, not fatal
+	// The legacy layouts the shipped content mixes in must be picked up too —
+	// they used to be dropped with a per-file WARN (issue #244).
+	write("LegacyShop", legacyMobBytes("Armas", 1, savefmt.MobSizeLegacy756))
+	write("PaddedShop", legacyMobBytes("Padded", 2, savefmt.MobSizeLegacy756Padded))
+	write("Broken", []byte{1, 2, 3}) // not a template at all: counted, not fatal
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	got, err := Scan(dir, logger)
+	got, stats, err := Scan(dir, logger)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
 
 	want := []File{
 		{TemplateName: "HekalMerchant", DisplayName: "Hekal", Merchant: 1},
+		{TemplateName: "LegacyShop", DisplayName: "Armas", Merchant: 1},
+		{TemplateName: "PaddedShop", DisplayName: "Padded", Merchant: 2},
 		{TemplateName: "SomeMonster", DisplayName: "Monster", Merchant: 0},
 	}
 	if len(got) != len(want) {
@@ -50,11 +65,15 @@ func TestScanReturnsEveryTemplateUnfiltered(t *testing.T) {
 			t.Errorf("templates[%d] = %+v, want %+v", i, got[i], want[i])
 		}
 	}
+	if stats.Total() != 5 || stats.Current816 != 2 || stats.Legacy756 != 1 ||
+		stats.Legacy756Padded != 1 || stats.Rejected != 1 {
+		t.Errorf("stats = %+v, want 5 total / 2 current / 1 legacy / 1 padded / 1 rejected", stats)
+	}
 }
 
 func TestScanMissingDirErrors(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if _, err := Scan(t.TempDir(), logger); err == nil {
+	if _, _, err := Scan(t.TempDir(), logger); err == nil {
 		t.Fatal("expected an error for a content dir with no TMsrv/run/npc")
 	}
 }
@@ -73,7 +92,7 @@ func TestScanDecodesLatin1Names(t *testing.T) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	got, err := Scan(dir, logger)
+	got, _, err := Scan(dir, logger)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}

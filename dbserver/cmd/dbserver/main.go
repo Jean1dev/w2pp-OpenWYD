@@ -147,6 +147,10 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 		name string
 	}
 	templates := make(map[string]loadedTemplate)
+	// npctemplate.Load widens the legacy 756/920-byte layouts to the canonical
+	// 816 (data-formats.md §1.4.1), so DecodeMob below always sees a modelled
+	// blob; stats records which layout each referenced template came from.
+	var stats npctemplate.ScanStats
 	load := func(name string) loadedTemplate {
 		if name == "" {
 			return loadedTemplate{}
@@ -155,13 +159,19 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 			return m
 		}
 		var out loadedTemplate
-		if b, res, terr := npctemplate.Load(contentDir, name); terr == nil {
-			if mob, derr := savefmt.DecodeMob(b); derr == nil {
-				out.mob = &mob
-				out.name = res.Name
-			} else {
-				logger.Warn("npc template decode failed", "name", name, "err", derr)
-			}
+		b, res, terr := npctemplate.Load(contentDir, name)
+		if terr != nil {
+			logger.Warn("npc template load failed", "name", name, "err", terr)
+			stats.CountUnreadable()
+			templates[name] = out
+			return out
+		}
+		stats.Count(res.Version)
+		if mob, derr := savefmt.DecodeMob(b); derr == nil {
+			out.mob = &mob
+			out.name = res.Name
+		} else {
+			logger.Warn("npc template decode failed", "name", name, "err", derr)
 		}
 		templates[name] = out
 		return out
@@ -209,6 +219,7 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 		}
 		out = append(out, def)
 	}
+	logger.Info("npc template catalog", "layouts", stats)
 	return out, nil
 }
 

@@ -26,6 +26,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/binclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
@@ -392,13 +393,24 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		rawMerchant uint8
 	}
 	templates := make(map[string]loadedTemplate)
+	// stats records the on-disk layout of every referenced template so the boot
+	// log says how much of the catalog needed widening from the legacy 756/920
+	// forms, and how many blocks lost their template and why (issue #244 — the
+	// load error used to be discarded here, leaving a rejected template visible
+	// only as a name in the "NPC templates missing" sample).
+	var stats npctemplate.ScanStats
 	load := func(name string) loadedTemplate {
 		if name == "" {
 			return loadedTemplate{}
 		}
 		t, seen := templates[name]
 		if !seen {
-			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
+			b, res, terr := npctemplate.Load(dir, name)
+			if terr != nil {
+				logger.Warn("npc template load failed", "npc", name, "err", terr)
+				stats.CountUnreadable()
+			} else {
+				stats.Count(res.Version)
 				t.rawMerchant = protocol.ParseMobBasics(b).Merchant
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
@@ -480,6 +492,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			"missing_follower_templates", len(missingFollowerNames),
 			"missing_follower_sample", sampleNames(missingFollowerNames, 10))
 	}
+	logger.Info("npc template catalog", "layouts", stats)
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
 		"merchant_blocks_skipped", skipped)
 }

@@ -29,10 +29,12 @@ type Store interface {
 	DeleteMobTemplateStat(ctx context.Context, templateName string, moderatorID int64) error
 }
 
-// TemplateReader resolves a template_name to its raw 816-byte STRUCT_MOB
-// bytes, read from the content tree. Used by Get's read-through fallback when
-// no override exists yet, so opening the editor shows the file's real current
-// values instead of zeros. nil when -content/W2PP_CONTENT wasn't configured.
+// TemplateReader resolves a template_name to its raw STRUCT_MOB bytes, read
+// verbatim from the content tree — any layout savefmt knows, including the
+// legacy 756/920-byte ones (data-formats.md §1.4.1). Used by Get's read-through
+// fallback when no override exists yet, so opening the editor shows the file's
+// real current values instead of zeros. nil when -content/W2PP_CONTENT wasn't
+// configured.
 type TemplateReader func(templateName string) ([]byte, error)
 
 // Result is the business outcome of an admin operation. Only infra failures

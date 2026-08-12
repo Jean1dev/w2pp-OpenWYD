@@ -7,12 +7,13 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
-// statFromRawTemplate decodes a raw 816-byte STRUCT_MOB (Get's read-through
-// fallback) into the same field shape as a stat override, reading the
-// template's CurrentScore (BaseScore mirrors it on a freshly-loaded template,
-// same as EDITAPPMOB's own ReadMob).
+// statFromRawTemplate decodes a raw STRUCT_MOB (Get's read-through fallback)
+// into the same field shape as a stat override, reading the template's
+// CurrentScore (BaseScore mirrors it on a freshly-loaded template, same as
+// EDITAPPMOB's own ReadMob). Any layout savefmt knows is accepted, so the
+// legacy 756/920-byte templates are editable too (data-formats.md §1.4.1).
 func statFromRawTemplate(templateName string, raw []byte) (domain.MobTemplateStat, error) {
-	mob, err := savefmt.DecodeMob(raw)
+	mob, _, err := savefmt.DecodeMobAny(raw)
 	if err != nil {
 		return domain.MobTemplateStat{}, fmt.Errorf("mobtemplateadmin: decode %q: %w", templateName, err)
 	}
