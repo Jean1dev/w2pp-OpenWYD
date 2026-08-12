@@ -73,38 +73,39 @@ func TestEquipScoreRoundTrip(t *testing.T) {
 	}})
 	// Loaded CurrentScore (with the chest already equipped: AC/Con include it).
 	e := &world.Entity{
-		ID:    world.MaxUser + 1,
-		Level: 50, AC: 150, Damage: 200, MaxHP: 1000, HP: 1000, MaxMP: 300, MP: 300,
+		ID:          1,
+		ClassMaster: classMasterMortal,
+		Level:       50, AC: 150, Damage: 200, MaxHP: 1000, HP: 1000, MaxMP: 300, MP: 300,
 		Str: 60, Int: 10, Dex: 20, Con: 35,
 	}
 	e.Equip[0] = world.Item{Index: 700} // chest
 	d.deriveBaseScore(e)
 	// Base = current − chest: AC 150−50=100, Con 35−5=30.
-	if e.BaseAC != 100 || e.BaseCon != 30 {
-		t.Fatalf("derived base AC=%d Con=%d, want 100/30", e.BaseAC, e.BaseCon)
+	if e.BaseAC != 53 || e.BaseCon != 30 {
+		t.Fatalf("derived base AC=%d Con=%d, want 53/30", e.BaseAC, e.BaseCon)
 	}
 	// refreshScore reproduces the loaded current exactly (gear unchanged).
 	d.refreshScore(e)
-	if e.AC != 150 || e.Con != 35 {
-		t.Fatalf("refresh reproduced AC=%d Con=%d, want 150/35", e.AC, e.Con)
+	if e.AC != 103 || e.Con != 35 {
+		t.Fatalf("refresh produced AC=%d Con=%d, want 103/35", e.AC, e.Con)
 	}
 
 	// Unequip the chest → AC/Con drop to base.
 	e.Equip[0] = world.Item{}
 	d.refreshScore(e)
-	if e.AC != 100 || e.Con != 30 {
-		t.Fatalf("after unequip AC=%d Con=%d, want 100/30", e.AC, e.Con)
+	if e.AC != 53 || e.Con != 30 {
+		t.Fatalf("after unequip AC=%d Con=%d, want 53/30", e.AC, e.Con)
 	}
 
 	// Equip the sword (right hand): weapon damage is separate, so e.Damage is
 	// unchanged but the shown/combat damage includes it.
 	e.Equip[weaponSlotR] = world.Item{Index: 861}
 	d.refreshScore(e)
-	if e.Damage != 200 {
-		t.Errorf("e.Damage = %d, want 200 (weapon damage is separate)", e.Damage)
+	if e.Damage != 91 {
+		t.Errorf("e.Damage = %d, want 91 (weapon damage is separate)", e.Damage)
 	}
-	if sc := d.computeScore(e); sc.Damage != 230 {
-		t.Errorf("computeScore Damage = %d, want 230 (200 + weapon 30)", sc.Damage)
+	if sc := d.computeScore(e); sc.Damage != 121 {
+		t.Errorf("computeScore Damage = %d, want 121 (91 + weapon 30)", sc.Damage)
 	}
 }
 

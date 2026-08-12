@@ -20,7 +20,7 @@ import (
 func duelDB() *fakeDB {
 	db := newDB()
 	db.loads = map[int64]world.CharacterState{
-		7:  {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Damage: 500, AC: 0},
+		7:  {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMasterMortal, Str: 1000},
 		11: {Slot: 0, Name: "HeroB", X: 5, Y: 5, HP: 50, MaxHP: 50, Damage: 0, AC: 0},
 	}
 	return db

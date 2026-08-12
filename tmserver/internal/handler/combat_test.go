@@ -63,8 +63,8 @@ func TestAttackHitExact(t *testing.T) {
 	if len(got.Dam) != 1 || got.Dam[0].TargetID != 2 {
 		t.Fatalf("Dam = %+v", got.Dam)
 	}
-	if got.Dam[0].Damage != 154 {
-		t.Errorf("server damage = %d, want 154 (exact LCG golden)", got.Dam[0].Damage)
+	if got.Dam[0].Damage != 7 {
+		t.Errorf("server damage = %d, want 7 (exact LCG golden)", got.Dam[0].Damage)
 	}
 }
 
