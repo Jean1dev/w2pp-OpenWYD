@@ -493,6 +493,20 @@ message NpcDefinition {
   int32 route_type = 9;
   int32 merchant = 10;
   repeated NpcShopItem shop = 11;
+  string origin = 12;
+  int32 generator_index = 13;
+  string follower_template = 14;
+  int32 minute_generate = 15;
+  int32 min_group = 16;
+  int32 max_group = 17;
+  int32 max_num_mob = 18;
+  int32 formation = 19;
+  repeated int32 seg_x = 20;
+  repeated int32 seg_y = 21;
+  repeated int32 seg_range = 22;
+  repeated int32 seg_wait = 23;
+  repeated string fight_action = 24;
+  repeated string die_action = 25;
 }
 
 message ItemPrice {

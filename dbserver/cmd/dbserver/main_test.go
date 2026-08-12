@@ -10,6 +10,41 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
+func TestBuildNPCDefinitionsRealCatalog(t *testing.T) {
+	contentDir := filepath.Join("..", "..", "..", "Release")
+	if _, err := os.Stat(contentDir); err != nil {
+		t.Skip("Release content unavailable")
+	}
+	defs, err := buildNPCDefinitions(contentDir, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(defs) != 548 {
+		t.Fatalf("merchant generator definitions = %d, want 548", len(defs))
+	}
+	want := map[string]struct {
+		index    int32
+		merchant int16
+		x, y     int32
+	}{
+		"Jeffi-290": {290, 12, 1112, 290}, "Jeffi-987": {987, 12, 2517, 1727},
+		"Kibita-3811": {3811, 74, 2135, 2104},
+	}
+	for _, d := range defs {
+		w, ok := want[d.Slug]
+		if !ok {
+			continue
+		}
+		if d.GeneratorIndex != w.index || d.Merchant != w.merchant || d.PosX != w.x || d.PosY != w.y {
+			t.Errorf("%s = index %d merchant %d (%d,%d), want %+v", d.Slug, d.GeneratorIndex, d.Merchant, d.PosX, d.PosY, w)
+		}
+		delete(want, d.Slug)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing expected definitions: %v", want)
+	}
+}
+
 func TestBuildNPCDefinitionsNormalizesLegacyTemplateNames(t *testing.T) {
 	dir := t.TempDir()
 	runDir := filepath.Join(dir, "TMsrv", "run")

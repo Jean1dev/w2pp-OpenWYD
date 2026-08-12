@@ -188,15 +188,25 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 			continue // missing template, or a monster / non-shop NPC (stays in NPCGener.txt)
 		}
 		def := domain.NPCDefinition{
-			Slug:         fmt.Sprintf("%s-%d", b.leader, i),
-			TemplateName: tmpl.name,
-			DisplayName:  cString(mob.Name[:]),
-			Enabled:      true,
-			PosX:         int32(b.startX),
-			PosY:         int32(b.startY),
-			RouteType:    int16(b.routeType),
-			Merchant:     int16(mob.CurrentScore.Merchant),
+			Slug:             fmt.Sprintf("%s-%d", b.leader, i),
+			TemplateName:     tmpl.name,
+			DisplayName:      cString(mob.Name[:]),
+			Enabled:          true,
+			PosX:             int32(b.startX),
+			PosY:             int32(b.startY),
+			RouteType:        int16(b.routeType),
+			Merchant:         int16(mob.CurrentScore.Merchant),
+			Origin:           "content",
+			GeneratorIndex:   int32(i),
+			FollowerTemplate: b.follower,
+			MinuteGenerate:   int32(b.minuteGenerate), MinGroup: int32(b.minGroup),
+			MaxGroup: int32(b.maxGroup), MaxNumMob: int32(b.maxNumMob), Formation: int16(b.formation),
 		}
+		for j := 0; j < 5; j++ {
+			def.SegX[j], def.SegY[j] = int32(b.segX[j]), int32(b.segY[j])
+			def.SegRange[j], def.SegWait[j] = int32(b.segRange[j]), int32(b.segWait[j])
+		}
+		def.FightAction, def.DieAction = b.fightAction, b.dieAction
 		// Slot is the MSG_ShopList display index (0..26); it maps to the real Carry
 		// slot via shopCarrySlot (3 tabs of 9). Reading Carry directly would miss
 		// tabs 2/3 (Carry[27..35],[54..62]) — the same mapping the tmServer writes
@@ -244,9 +254,12 @@ func shopQuantity(effects *[3]savefmt.Effect) int16 {
 // npcGenerBlock is the subset of an NPCGener.txt spawn block the importer needs:
 // the leader template name, the Start waypoint (spawn point) and the route type.
 type npcGenerBlock struct {
-	leader         string
-	startX, startY int
-	routeType      int
+	leader, follower                                         string
+	startX, startY                                           int
+	routeType                                                int
+	minuteGenerate, minGroup, maxGroup, maxNumMob, formation int
+	segX, segY, segRange, segWait                            [5]int
+	fightAction, dieAction                                   [4]string
 }
 
 // parseNPCGener reads NPCGener.txt. Blocks begin with '#'; lines are "Key:\tvalue";
@@ -276,7 +289,7 @@ func parseNPCGener(path string) ([]npcGenerBlock, error) {
 		}
 		if strings.HasPrefix(line, "#") {
 			flush()
-			cur = &npcGenerBlock{}
+			cur = &npcGenerBlock{minGroup: 1}
 			continue
 		}
 		if cur == nil {
@@ -290,12 +303,58 @@ func parseNPCGener(path string) ([]npcGenerBlock, error) {
 		switch key {
 		case "Leader":
 			cur.leader = val
+		case "Follower":
+			if val != "0" {
+				cur.follower = val
+			}
+		case "MinuteGenerate":
+			cur.minuteGenerate = atoiSafe(val)
+		case "MinGroup":
+			cur.minGroup = atoiSafe(val)
+		case "MaxGroup":
+			cur.maxGroup = atoiSafe(val)
+		case "MaxNumMob":
+			cur.maxNumMob = atoiSafe(val)
+		case "Formation":
+			cur.formation = atoiSafe(val)
 		case "StartX":
 			cur.startX = atoiSafe(val)
+			cur.segX[0] = cur.startX
 		case "StartY":
 			cur.startY = atoiSafe(val)
+			cur.segY[0] = cur.startY
+		case "StartRange":
+			cur.segRange[0] = atoiSafe(val)
+		case "StartWait":
+			cur.segWait[0] = atoiSafe(val)
+		case "DestX":
+			cur.segX[4] = atoiSafe(val)
+		case "DestY":
+			cur.segY[4] = atoiSafe(val)
+		case "DestRange":
+			cur.segRange[4] = atoiSafe(val)
+		case "DestWait":
+			cur.segWait[4] = atoiSafe(val)
 		case "RouteType":
 			cur.routeType = atoiSafe(val)
+		case "FightAction":
+			addGeneratorAction(&cur.fightAction, val)
+		case "DieAction":
+			addGeneratorAction(&cur.dieAction, val)
+		default:
+			for n := 1; n <= 3; n++ {
+				prefix := "Segment" + strconv.Itoa(n)
+				switch key {
+				case prefix + "X":
+					cur.segX[n] = atoiSafe(val)
+				case prefix + "Y":
+					cur.segY[n] = atoiSafe(val)
+				case prefix + "Range":
+					cur.segRange[n] = atoiSafe(val)
+				case prefix + "Wait":
+					cur.segWait[n] = atoiSafe(val)
+				}
+			}
 		}
 	}
 	flush()
@@ -303,6 +362,15 @@ func parseNPCGener(path string) ([]npcGenerBlock, error) {
 		return nil, fmt.Errorf("import-npcs: scan NPCGener: %w", err)
 	}
 	return out, nil
+}
+
+func addGeneratorAction(dst *[4]string, value string) {
+	for i := range dst {
+		if dst[i] == "" {
+			dst[i] = value
+			return
+		}
+	}
 }
 
 // cString trims a fixed-size C string field at its first NUL.
@@ -381,6 +449,7 @@ func runServe(args []string, logger *slog.Logger) error {
 	tlsCert := fs.String("tls-cert", os.Getenv("W2PP_TLS_CERT"), "server certificate (PEM)")
 	tlsKey := fs.String("tls-key", os.Getenv("W2PP_TLS_KEY"), "server private key (PEM)")
 	tlsCA := fs.String("tls-ca", os.Getenv("W2PP_TLS_CA"), "client CA (PEM) for mTLS")
+	contentDir := fs.String("content", envOr("W2PP_CONTENT", "/Release"), "content root used to reconcile the complete NPC generator catalog")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -398,6 +467,20 @@ func runServe(args []string, logger *slog.Logger) error {
 	defer pool.Close()
 	if err := store.Migrate(ctx, pool); err != nil {
 		return err
+	}
+	if *contentDir != "" {
+		defs, buildErr := buildNPCDefinitions(*contentDir, logger)
+		if buildErr != nil {
+			return fmt.Errorf("build NPC generator catalog: %w", buildErr)
+		}
+		if len(defs) == 0 {
+			return fmt.Errorf("NPC generator catalog is empty")
+		}
+		seeded, seedErr := store.New(pool).SeedNPCDefinitions(ctx, defs)
+		if seedErr != nil {
+			return fmt.Errorf("reconcile NPC generator catalog: %w", seedErr)
+		}
+		logger.Info("NPC generator catalog reconciled", "expected", len(defs), "processed", seeded)
 	}
 
 	creds, err := secure.ServerCreds(secure.Config{CertFile: *tlsCert, KeyFile: *tlsKey, CAFile: *tlsCA})

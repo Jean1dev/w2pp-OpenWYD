@@ -343,7 +343,9 @@ func run(logger *slog.Logger) error {
 		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
-		dispatch.ApplyNPCConfigBoot(w)
+		if err := dispatch.ApplyNPCConfigBoot(w); err != nil {
+			return err
+		}
 	}
 	if worldEvents != nil {
 		dispatch.ApplyWorldEventConfigBoot(w)
@@ -427,6 +429,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	}
 
 	wgens := make([]*world.Generator, len(gens))
+	dbOwned := make([]bool, len(gens))
 	skipped := 0
 	missingLeaderBlocks, missingFollowerBlocks := 0, 0
 	missingLeaderNames := make(map[string]struct{})
@@ -448,7 +451,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		// and "owned by npc_definition".
 		if skipMerchants && leader.rawMerchant != 0 {
 			skipped++
-			continue
+			dbOwned[i] = true
 		}
 		follower := load(g.Follower)
 		if g.Follower != "" && follower.bytes == nil {
@@ -456,6 +459,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			missingFollowerNames[g.Follower] = struct{}{}
 		}
 		wg := &world.Generator{
+			DBManaged:      dbOwned[i],
 			MinuteGenerate: g.MinuteGenerate,
 			MinGroup:       g.MinGroup,
 			MaxGroup:       g.MaxGroup,
@@ -474,12 +478,16 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			wg.SegWait[s] = int16(g.SegWait[s])
 		}
 		wgens[i] = wg
+		if dbOwned[i] {
+			wg.LeaderTmpl = nil
+			wg.FollowerTmpl = nil
+		}
 	}
 	w.RegisterGenerators(wgens)
 
 	total := 0
 	for i := range wgens {
-		if wgens[i] != nil {
+		if wgens[i] != nil && !dbOwned[i] {
 			total += len(w.GenerateMob(i))
 		}
 	}

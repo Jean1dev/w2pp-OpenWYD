@@ -23,6 +23,31 @@ func genMerchantTemplate(merchant uint8) []byte {
 	return b
 }
 
+func TestClearGeneratorRemovesWholeGroup(t *testing.T) {
+	w := New(Config{GridDim: 64}, slogDiscard(), nil, nil)
+	g := &Generator{
+		DBManaged: true, MinGroup: 2, MaxGroup: 2, MaxNumMob: 3,
+		SegX: [5]int16{20}, SegY: [5]int16{20},
+		LeaderTmpl: genMerchantTemplate(12), FollowerTmpl: genMobTemplate(0),
+	}
+	w.RegisterGenerators([]*Generator{g})
+	ids := w.GenerateMob(0)
+	if len(ids) != 3 {
+		t.Fatalf("GenerateMob spawned %d entities, want 3", len(ids))
+	}
+
+	w.ClearGenerator(0)
+
+	if g.CurrentNumMob != 0 {
+		t.Fatalf("CurrentNumMob = %d, want 0", g.CurrentNumMob)
+	}
+	for _, id := range ids {
+		if w.Entity(id) != nil {
+			t.Errorf("entity %d survived generator clear", id)
+		}
+	}
+}
+
 // TestGenerateMobGroup covers the GenerateMob port (Server.cpp:3442-3810):
 // group size, leader/follower linking, per-block population accounting
 // (including the leader-not-counted-in-the-clamp quirk) and the cap.

@@ -80,6 +80,11 @@ func npcDefinitionsToProto(defs []domain.NPCDefinition) []*dbv1.NpcDefinition {
 			Id: d.ID, Slug: d.Slug, TemplateName: d.TemplateName, DisplayName: d.DisplayName,
 			Enabled: d.Enabled, MapId: d.MapID, PosX: d.PosX, PosY: d.PosY,
 			RouteType: int32(d.RouteType), Merchant: int32(d.Merchant), Shop: shop,
+			Origin: d.Origin, GeneratorIndex: d.GeneratorIndex, FollowerTemplate: d.FollowerTemplate,
+			MinuteGenerate: d.MinuteGenerate, MinGroup: d.MinGroup, MaxGroup: d.MaxGroup,
+			MaxNumMob: d.MaxNumMob, Formation: int32(d.Formation),
+			SegX: d.SegX[:], SegY: d.SegY[:], SegRange: d.SegRange[:], SegWait: d.SegWait[:],
+			FightAction: d.FightAction[:], DieAction: d.DieAction[:],
 		})
 	}
 	return out

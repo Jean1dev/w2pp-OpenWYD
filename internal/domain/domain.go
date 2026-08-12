@@ -195,17 +195,25 @@ type Affect struct {
 // tmServer's single-owner loop — never the reverse. Slug is the stable id;
 // TemplateName points at the 816-byte STRUCT_MOB in Release/TMsrv/run/npc/.
 type NPCDefinition struct {
-	ID           int64
-	Slug         string
-	TemplateName string
-	DisplayName  string
-	Enabled      bool
-	MapID        int32
-	PosX         int32
-	PosY         int32
-	RouteType    int16
-	Merchant     int16
-	Shop         []NPCShopItem // merchant stock; overlays the template Carry[]
+	ID                            int64
+	Slug                          string
+	TemplateName                  string
+	DisplayName                   string
+	Enabled                       bool
+	MapID                         int32
+	PosX                          int32
+	PosY                          int32
+	RouteType                     int16
+	Merchant                      int16
+	Origin                        string
+	GeneratorIndex                int32
+	FollowerTemplate              string
+	MinuteGenerate                int32
+	MinGroup, MaxGroup, MaxNumMob int32
+	Formation                     int16
+	SegX, SegY, SegRange, SegWait [5]int32
+	FightAction, DieAction        [4]string
+	Shop                          []NPCShopItem // merchant stock; overlays the template Carry[]
 }
 
 // NPCShopItem is one shop slot of a merchant NPC. Prices are NOT stored here —

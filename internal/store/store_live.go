@@ -14,6 +14,9 @@ import (
 // ErrNotFound is returned when a queried account or character does not exist.
 var ErrNotFound = errors.New("store: not found")
 
+// ErrContentOwned prevents deleting versioned world content; moderators hide it instead.
+var ErrContentOwned = errors.New("store: content-owned definition")
+
 // ErrNoFreeSlot is returned when an account already has all character slots in use.
 var ErrNoFreeSlot = errors.New("store: no free character slot")
 
