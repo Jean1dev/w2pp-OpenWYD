@@ -13,19 +13,29 @@ const (
 	classMasterSCelestial  = 5
 )
 
-// BaseScore.Ac/Damage of a freshly created character. The per-class BaseMob
-// templates shipped in Release/DBsrv/run/BaseMob/{TK,FM,BM,HT} all carry
-// BaseScore.Ac=4 / BaseScore.Damage=5 (STRUCT_MOB.BaseScore @44, .Ac @48,
-// .Damage @52), and MORTAL creation only memcpy's the template
-// (DBSrv/CFileDB.cpp:984-993). ARCH creation overwrites the AC with 230
-// (CFileDB.cpp:1577) and the Arch→Celestial turn does the same
-// (_MSG_UseItem.cpp:3136). BaseScore.Damage is never written by TMSrv/DBSrv at
-// all — only by the EDITAPPMOB tool — so it stays 5 for a character's whole life.
 const (
-	baseACMortal   int32 = 4
-	baseACArch     int32 = 230
-	baseDamageChar int32 = 5
+	baseACMortal         int32 = 4
+	baseACArch           int32 = 230
+	baseDamageChar       int32 = 5
+	baseDamageMortalArch       = baseDamageChar
+	baseDamageCelestial  int32 = 0
 )
+
+// playerBaseDamage reconstructs the equipment-free BaseScore.Damage omitted by
+// api/db/v1.Character. Mortal and Arch characters inherit 5 from the four
+// BaseMob templates (DBSrv/CFileDB.cpp:981-993,1552-1577); the Pedra Ideal
+// conversion explicitly resets it to 0 (_MSG_UseItem.cpp:3137), which also
+// applies to the subsequent Celestial tiers.
+func playerBaseDamage(e *world.Entity) int32 {
+	switch e.ClassMaster {
+	case classMasterCelestial, classMasterCelestialCS, classMasterSCelestial:
+		return baseDamageCelestial
+	default:
+		// ClassMaster 0 is the pre-persistence compatibility value and is treated
+		// as Mortal by completeCharacterLogin.
+		return baseDamageMortalArch
+	}
+}
 
 // playerBaseAC reproduces BaseScore.Ac without persisting it. In the legacy the
 // field is only ever written on creation (the per-tier baseline above) and on

@@ -1368,6 +1368,9 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 	e.Level = 1
 	e.Exp = 0
 	e.CelLv40, e.CelLv90, e.CelCircle = 0, 0, 0
+	// _MSG_UseItem.cpp:3137 resets BaseScore.Damage during this conversion.
+	// Do it before refreshScore so the current session matches the next login.
+	e.BaseDamage = playerBaseDamage(e)
 	// BaseScore.Ac goes back to the Celestial baseline together with the level
 	// (_MSG_UseItem.cpp:3136) — without this the Arch's accumulated per-level AC
 	// would linger for the rest of the session and only snap back on the next
@@ -1913,17 +1916,13 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	return b
 }
 
-// deriveBaseScore captures the equipment-free BaseScore on login. Attributes,
-// MaxHP/MaxMP and Magic ARE persisted as the gear-inclusive CurrentScore, so
-// their base is recovered by subtracting the equipment back out; after this,
+// deriveBaseScore captures the equipment-free BaseScore on login. Persisted
+// Attributes, MaxHP/MaxMP and Magic recover their base by subtracting equipment;
+// after this,
 // refreshScore reproduces the loaded CurrentScore exactly until gear changes.
 //
-// AC and Damage take the other route: the DB contract carries neither (api/db/v1
-// Character has no `ac`/`damage`), so the loaded CurrentScore is always 0 for
-// them and subtracting the equipment would yield a NEGATIVE base — that was
-// issue #232, defense reading ~0 while geared and going negative on unequip.
-// Both are reconstructed from the legacy's own rules instead: see playerBaseAC
-// and baseDamageChar.
+// AC and Damage are reconstructed because the DB contract omits them.
+// WeaponDamage remains separate.
 func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	b := d.equipBonus(e)
 	e.BaseStr = e.Str - b.str
@@ -1931,7 +1930,7 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseDex = e.Dex - b.dex
 	e.BaseCon = e.Con - b.con
 	e.BaseAC = playerBaseAC(e)
-	e.BaseDamage = baseDamageChar
+	e.BaseDamage = playerBaseDamage(e)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 	// Magic (mount bonus + ordinary equipment's EF_MAGIC/EF_MAGICADD): same subtraction
