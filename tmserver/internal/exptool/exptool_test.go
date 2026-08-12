@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -60,8 +61,9 @@ func TestStampRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Stamped) != 1 || res.Skipped != 3 {
-		t.Fatalf("stamped %d / skipped %d, want 1 / 3", len(res.Stamped), res.Skipped)
+	if len(res.Stamped) != 1 || res.Skipped != 2 || res.SkippedNonTemplate != 1 {
+		t.Fatalf("stamped %d / skipped %d / non-template %d, want 1 / 2 / 1",
+			len(res.Stamped), res.Skipped, res.SkippedNonTemplate)
 	}
 	e := res.Stamped[0]
 	want := level.MobExpForLevel(10)
@@ -86,6 +88,41 @@ func TestStampRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(read(t, dir, "Base"), levelZero) {
 		t.Error("level-0 template was modified")
+	}
+}
+
+// TestStampLeavesLegacyTemplatesAlone pins the deliberate exception of issue
+// #244: the legacy layouts are decodable everywhere else, but restamping them
+// in place is not possible without rewriting the whole record (their Exp is a
+// 32-bit field at offset 28), so Stamp reports them instead of touching them.
+func TestStampLeavesLegacyTemplatesAlone(t *testing.T) {
+	dir := t.TempDir()
+	legacy := make([]byte, savefmt.MobSizeLegacy756)
+	for i := range legacy {
+		legacy[i] = byte(i % 251)
+	}
+	padded := make([]byte, savefmt.MobSizeLegacy756Padded)
+	for i := range padded {
+		padded[i] = byte(i % 241)
+	}
+	monster := template("Cobaia", 10, 0, 0)
+	write(t, dir, "Legacy", legacy)
+	write(t, dir, "Padded", padded)
+	write(t, dir, "Cobaia", monster)
+
+	res, err := Stamp(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Stamped) != 1 || res.SkippedVariant != 2 || res.SkippedNonTemplate != 0 {
+		t.Fatalf("stamped %d / variant %d / non-template %d, want 1 / 2 / 0",
+			len(res.Stamped), res.SkippedVariant, res.SkippedNonTemplate)
+	}
+	if !bytes.Equal(read(t, dir, "Legacy"), legacy) {
+		t.Error("756-byte template was rewritten")
+	}
+	if !bytes.Equal(read(t, dir, "Padded"), padded) {
+		t.Error("920-byte template was rewritten")
 	}
 }
 

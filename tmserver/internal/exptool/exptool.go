@@ -11,14 +11,14 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 )
 
-// expOffset pins the Exp field within the raw STRUCT_MOB (int64 at offset 32
-// — protocol.ParseMobBasics reads the same spot); the template size comes from
-// content.BaseMobSize, like the loaders.
+// expOffset pins the Exp field within the canonical raw STRUCT_MOB (int64 at
+// offset 32 — protocol.ParseMobBasics reads the same spot); the layout is
+// routed by savefmt.DetectMobVersion, like the loaders.
 const expOffset = 32
 
 // Entry reports one restamped template.
@@ -33,13 +33,21 @@ type Entry struct {
 // Result summarises a Stamp run.
 type Result struct {
 	Stamped []Entry
-	Skipped int // NPCs/merchants, level-0 templates and non-816-byte files
+	Skipped int // directories, NPCs/merchants and level-0 templates
+	// SkippedVariant counts legacy 756/920-byte templates (data-formats.md
+	// §1.4.1). They are deliberately left alone: their Exp is a 32-bit field at
+	// a different offset, and restamping in place would have to rewrite the
+	// whole record, changing a shipped asset's size.
+	SkippedVariant int
+	// SkippedNonTemplate counts files that are not a STRUCT_MOB in any layout.
+	SkippedNonTemplate int
 }
 
 // Stamp walks dir (one raw STRUCT_MOB per file) and rewrites the Exp field of
 // every real monster (Merchant==0, Level>=1) with level.MobExpForLevel,
 // leaving every other byte untouched. NPC/merchant and level-0 templates are
-// skipped. With dryRun the report is produced but nothing is written.
+// skipped, and so are the legacy 756/920-byte layouts — see Result.
+// With dryRun the report is produced but nothing is written.
 func Stamp(dir string, dryRun bool) (Result, error) {
 	var res Result
 	entries, err := os.ReadDir(dir)
@@ -56,8 +64,14 @@ func Stamp(dir string, dryRun bool) (Result, error) {
 		if err != nil {
 			return res, fmt.Errorf("reading %s: %w", de.Name(), err)
 		}
-		if len(raw) != content.BaseMobSize {
-			res.Skipped++
+		switch savefmt.DetectMobVersion(len(raw)) {
+		case savefmt.MobVersionCurrent:
+			// restampable in place
+		case savefmt.MobVersionLegacy756, savefmt.MobVersionLegacy756Padded:
+			res.SkippedVariant++
+			continue
+		default:
+			res.SkippedNonTemplate++
 			continue
 		}
 		b := protocol.ParseMobBasics(raw)

@@ -2,9 +2,11 @@ package mobtemplateadmin
 
 import (
 	"context"
+	"encoding/binary"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
@@ -224,6 +226,43 @@ func TestGetReadThrough(t *testing.T) {
 	}
 	if res != OK || overridden || st.Level != 42 {
 		t.Fatalf("Get(SomeMonster) with reader = %v, %+v, overridden=%v, want OK/false/Level=42", res, st, overridden)
+	}
+}
+
+// TestGetReadThroughAcceptsLegacyLayouts covers the panel half of issue #244:
+// a 756/920-byte template used to fail the read-through decode, and Get turned
+// that error into a silent NotFound — the moderator saw "no such template"
+// for a file that was sitting right there.
+func TestGetReadThroughAcceptsLegacyLayouts(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"Legacy756", savefmt.MobSizeLegacy756},
+		{"Legacy920", savefmt.MobSizeLegacy756Padded},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := make([]byte, tt.size)
+			copy(raw[0:16], tt.name)
+			// Legacy layout: CurrentScore at 64, Level (uint16) at +0, AC at +2.
+			binary.LittleEndian.PutUint16(raw[64:], 399)
+			binary.LittleEndian.PutUint16(raw[66:], 1820)
+
+			s := New(newFake())
+			s.SetTemplateReader(func(string) ([]byte, error) { return raw, nil })
+
+			res, st, overridden, err := s.Get(context.Background(), 1, tt.name)
+			if err != nil {
+				t.Fatalf("Get: %v", err)
+			}
+			if res != OK || overridden {
+				t.Fatalf("Get = %v, overridden=%v, want OK/false", res, overridden)
+			}
+			if st.Level != 399 || st.AC != 1820 {
+				t.Errorf("Level/AC = %d/%d, want 399/1820", st.Level, st.AC)
+			}
+		})
 	}
 }
 

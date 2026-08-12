@@ -142,8 +142,10 @@ func LoadNPCGenerators(path string) ([]NPCGenerator, error) {
 	return out, nil
 }
 
-// LoadNPCTemplate reads one mob template (Release/TMsrv/run/npc/<name>), a raw
-// 816-byte STRUCT_MOB. Legacy NPCGener names are resolved with Windows-like path
+// LoadNPCTemplate reads one mob template (Release/TMsrv/run/npc/<name>) and
+// returns it as a raw canonical 816-byte STRUCT_MOB — the legacy 756/920-byte
+// layouts in that directory are widened by npctemplate.Load (data-formats.md
+// §1.4.1). Legacy NPCGener names are resolved with Windows-like path
 // compatibility (case-insensitive, trailing dots ignored). Templates are cached
 // by the caller (many generators share a name).
 func LoadNPCTemplate(dir, name string) ([]byte, error) {

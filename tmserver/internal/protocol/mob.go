@@ -26,6 +26,14 @@ type MobBasics struct {
 
 // ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
 // (CurrentScore @92): name, class and the current score.
+//
+// The blob MUST already be canonical — the legacy 756/920-byte template layouts
+// have entirely different offsets and are widened to this one by
+// npctemplate.Load, the single loader boundary (data-formats.md §1.4.1). A
+// shorter slice is a contract violation and panics here, deliberately: the
+// alternative is a zero-valued MobBasics silently becoming a nameless, 0-HP
+// ghost mob in SpawnMobAt (world/api.go), and MobEquip would index the same
+// blob unguarded a few lines later anyway.
 func ParseMobBasics(mob816 []byte) MobBasics {
 	const cs = 92 // CurrentScore offset within STRUCT_MOB
 	return MobBasics{

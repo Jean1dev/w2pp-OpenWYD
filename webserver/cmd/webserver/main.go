@@ -95,11 +95,11 @@ func run(logger *slog.Logger) error {
 	attrMap := attributemap.New(st, *contentDir)
 	worldEvents := worldevent.New(st)
 	if *contentDir != "" {
-		templates, err := npctemplates.Scan(*contentDir, logger)
+		templates, npcStats, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
 			logger.Warn("npc template scan failed; merchant picker will be empty", "content", *contentDir, "err", err)
 		} else {
-			logger.Info("scanned merchant npc templates", "count", len(templates))
+			logger.Info("scanned merchant npc templates", "count", len(templates), "layouts", npcStats)
 			npcAdmin.SetTemplates(templates)
 		}
 
@@ -111,11 +111,11 @@ func run(logger *slog.Logger) error {
 			npcAdmin.SetItems(items)
 		}
 
-		mobTemplates, err := mobtemplates.Scan(*contentDir, logger)
+		mobTemplates, mobStats, err := mobtemplates.Scan(*contentDir, logger)
 		if err != nil {
 			logger.Warn("mob template scan failed; template picker will be empty", "content", *contentDir, "err", err)
 		} else {
-			logger.Info("scanned mob templates", "count", len(mobTemplates))
+			logger.Info("scanned mob templates", "count", len(mobTemplates), "layouts", mobStats)
 			mobTemplateAdmin.SetTemplates(mobTemplates)
 		}
 		mobTemplateAdmin.SetTemplateReader(func(name string) ([]byte, error) {
@@ -126,11 +126,12 @@ func run(logger *slog.Logger) error {
 		if err != nil {
 			logger.Warn("drop exclusion scan failed; continuing without exclusions", "content", *contentDir, "err", err)
 		}
-		drops, err := droptool.Scan(*contentDir, logger, droptool.Options{Exclusions: exclusions})
+		drops, dropStats, err := droptool.Scan(*contentDir, logger, droptool.Options{Exclusions: exclusions})
 		if err != nil {
 			logger.Warn("drop catalog scan failed; DropTool endpoints will be empty", "content", *contentDir, "err", err)
 		} else {
-			logger.Info("scanned drop catalog", "items", len(drops.Items), "mobs", len(drops.Mobs), "drops", len(drops.Drops))
+			logger.Info("scanned drop catalog", "items", len(drops.Items), "mobs", len(drops.Mobs),
+				"drops", len(drops.Drops), "layouts", dropStats)
 			npcAdmin.SetDropCatalog(drops)
 		}
 	}

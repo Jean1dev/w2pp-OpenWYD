@@ -84,6 +84,32 @@ func encodeScore(b []byte, s Score) {
 	}
 }
 
+// --- STRUCT_SCORE, legacy compact form (28) ---
+
+// decodeScoreCompact reads the 28-byte STRUCT_SCORE of the 756-byte legacy mob
+// layout (data-formats.md §1.4.1). Relative to the 48-byte form it narrows
+// Level/AC/Damage to 16 bits and Special[] to 8, and drops Direction,
+// ChaosRate, MaxMp and Mp entirely — all four are zero in the current-format
+// npc templates too, so widening loses nothing.
+func decodeScoreCompact(b []byte) Score {
+	var s Score
+	s.Level = int32(getU16(b, 0))
+	s.AC = int32(getU16(b, 2))
+	s.Damage = int32(getU16(b, 4))
+	s.Merchant = b[6]
+	s.AttackRun = b[7]
+	s.MaxHp = getI32(b, 8)
+	s.Hp = getI32(b, 12)
+	s.Str = getI16(b, 16)
+	s.Int = getI16(b, 18)
+	s.Dex = getI16(b, 20)
+	s.Con = getI16(b, 22)
+	for i := 0; i < 4; i++ {
+		s.Special[i] = int16(b[24+i])
+	}
+	return s
+}
+
 // --- STRUCT_AFFECT (8) ---
 
 func decodeAffect(b []byte) Affect {
@@ -172,6 +198,47 @@ func encodeMob(b []byte, m Mob) {
 	}
 }
 
+// decodeMobLegacy756 parses the 756-byte legacy STRUCT_MOB layout into the
+// current Mob shape (data-formats.md §1.4.1). Fields absent from that layout
+// (Quest, Magic, and the score's Direction/ChaosRate/MaxMp/Mp) stay zero, which
+// is what the 816-byte templates carry anyway. b must be at least
+// MobSizeLegacy756 bytes; the caller routes by DetectMobVersion.
+func decodeMobLegacy756(b []byte) Mob {
+	var m Mob
+	copy(m.Name[:], b[0:16])
+	m.Clan = b[offL756Clan]
+	m.Merchant = b[offL756Merchant]
+	m.Guild = getU16(b, offL756Guild)
+	m.Class = b[offL756Class]
+	m.Rsv = getU16(b, offL756Rsv)
+	m.Coin = getI32(b, offL756Coin)
+	m.Exp = int64(getI32(b, offL756Exp))
+	m.SPX = getI16(b, offL756SPX)
+	m.SPY = getI16(b, offL756SPY)
+	m.BaseScore = decodeScoreCompact(b[offL756BaseScore:])
+	m.CurrentScore = decodeScoreCompact(b[offL756CurrentScore:])
+	for i := 0; i < MaxEquip; i++ {
+		m.Equip[i] = decodeItem(b[offL756Equip+i*ItemSize:])
+	}
+	for i := 0; i < MaxCarry; i++ {
+		m.Carry[i] = decodeItem(b[offL756Carry+i*ItemSize:])
+	}
+	m.LearnedSkill = getI32(b, offL756LearnedSkill)
+	m.ScoreBonus = getU16(b, offL756ScoreBonus)
+	m.SpecialBonus = getU16(b, offL756SpecialBonus)
+	m.SkillBonus = getU16(b, offL756SkillBonus)
+	m.Critical = b[offL756Critical]
+	m.SaveMana = b[offL756SaveMana]
+	copy(m.SkillBar[:], b[offL756SkillBar:offL756SkillBar+4])
+	m.GuildLevel = b[offL756GuildLevel]
+	m.RegenHP = uint16(b[offL756RegenHP])
+	m.RegenMP = uint16(b[offL756RegenMP])
+	for i := 0; i < 4; i++ {
+		m.Resist[i] = int8(b[offL756Resist+i])
+	}
+	return m
+}
+
 // --- STRUCT_ACCOUNTINFO (216) ---
 
 func decodeAccountInfo(b []byte) AccountInfo {
@@ -253,6 +320,47 @@ func DecodeMob(b []byte) (Mob, error) {
 		return Mob{}, fmt.Errorf("savefmt: DecodeMob: length %d != %d", len(b), MobSize)
 	}
 	return decodeMob(b), nil
+}
+
+// DecodeMobAny parses a standalone STRUCT_MOB template in any layout known to
+// DetectMobVersion (mobversion.go) and reports which one it was. Use it for
+// files read straight out of Release/TMsrv/run/npc/, where 756- and 920-byte
+// legacy records sit alongside the canonical 816-byte ones; use DecodeMob when
+// the blob is already canonical.
+func DecodeMobAny(b []byte) (Mob, MobVersion, error) {
+	v := DetectMobVersion(len(b))
+	switch v {
+	case MobVersionCurrent:
+		return decodeMob(b), v, nil
+	case MobVersionLegacy756, MobVersionLegacy756Padded:
+		// The padded form's trailing bytes are uninitialized heap junk, not a
+		// struct tail — decode the record and drop the rest.
+		return decodeMobLegacy756(b[:MobSizeLegacy756]), v, nil
+	default:
+		return Mob{}, v, fmt.Errorf("savefmt: DecodeMobAny: length %d is not a known STRUCT_MOB layout (%d, %d or %d)",
+			len(b), MobSize, MobSizeLegacy756, MobSizeLegacy756Padded)
+	}
+}
+
+// NormalizeMob converts a template of any known layout into a canonical
+// MobSize blob, reporting the layout it came from. Loaders call this at the
+// content boundary so no variant-sized slice ever reaches the runtime — several
+// consumers (protocol.ParseMobBasics, EncodeCNFCharacterLoginRaw) index the
+// 816-byte layout directly. The 756→816 conversion only widens fields, so it is
+// lossless; the reverse is never needed because nothing rewrites templates on
+// the read path.
+func NormalizeMob(b []byte) ([]byte, MobVersion, error) {
+	v := DetectMobVersion(len(b))
+	if v == MobVersionCurrent {
+		out := make([]byte, MobSize)
+		copy(out, b)
+		return out, v, nil
+	}
+	m, v, err := DecodeMobAny(b)
+	if err != nil {
+		return nil, v, err
+	}
+	return EncodeMob(m), v, nil
 }
 
 // EncodeMob serializes m into a standalone 816-byte STRUCT_MOB blob — the

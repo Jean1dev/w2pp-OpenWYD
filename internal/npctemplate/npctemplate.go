@@ -22,6 +22,9 @@ type Resolution struct {
 	Name string
 	// Path is the absolute or relative path used to read the file.
 	Path string
+	// Version is the on-disk layout Load found, so callers can report how much
+	// of the catalog needed conversion. Zero value on a failed resolve.
+	Version savefmt.MobVersion
 }
 
 // Dir returns the NPC template directory for a Release/ content root.
@@ -80,8 +83,11 @@ func Resolve(contentDir, name string) (Resolution, error) {
 	}
 }
 
-// Load reads a template resolved by Resolve and verifies it is one raw
-// STRUCT_MOB blob.
+// Load reads a template resolved by Resolve and returns it as one canonical
+// Size-byte STRUCT_MOB blob. The legacy 756/920-byte layouts that the shipped
+// content mixes into the same directory are widened here (savefmt.NormalizeMob,
+// data-formats.md §1.4.1) so that everything downstream — which indexes the
+// 816-byte layout directly — only ever sees the canonical form.
 func Load(contentDir, name string) ([]byte, Resolution, error) {
 	res, err := Resolve(contentDir, name)
 	if err != nil {
@@ -91,10 +97,12 @@ func Load(contentDir, name string) ([]byte, Resolution, error) {
 	if err != nil {
 		return nil, Resolution{}, fmt.Errorf("npctemplate: read %s: %w", res.Path, err)
 	}
-	if len(b) != Size {
-		return nil, Resolution{}, fmt.Errorf("npctemplate: npc %s = %d bytes, want %d", res.Name, len(b), Size)
+	canonical, version, err := savefmt.NormalizeMob(b)
+	if err != nil {
+		return nil, Resolution{}, fmt.Errorf("npctemplate: npc %s = %d bytes: %w", res.Name, len(b), err)
 	}
-	return b, res, nil
+	res.Version = version
+	return canonical, res, nil
 }
 
 func canonicalName(name string) string {
