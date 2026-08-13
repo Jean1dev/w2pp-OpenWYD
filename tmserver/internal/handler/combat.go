@@ -537,8 +537,8 @@ func (d *Dispatcher) applyCastAffect(w *world.World, e, target *world.Entity, ti
 		}
 	}
 	delay := 100 + cast.special
-	applied := target.SetAffect(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, cast.special)
-	if target.SetTick(sp.TickType, sp.TickValue, sp.AffectTime, sp.Aggressive, delay, cast.special) {
+	applied := target.SetAffect(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, cast.special, d.affectDur)
+	if target.SetTick(sp.TickType, sp.TickValue, sp.AffectTime, sp.Aggressive, delay, cast.special, d.affectDur) {
 		applied = true
 	}
 	if !applied {
@@ -1154,8 +1154,8 @@ func (d *Dispatcher) applyOnHitSpell(w *world.World, target *world.Entity, tid, 
 	if !ok {
 		return
 	}
-	applied := target.SetAffect(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, level)
-	if target.SetTick(sp.TickType, sp.TickValue, sp.AffectTime, sp.Aggressive, delay, level) {
+	applied := target.SetAffect(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, level, d.affectDur)
+	if target.SetTick(sp.TickType, sp.TickValue, sp.AffectTime, sp.Aggressive, delay, level, d.affectDur) {
 		applied = true
 	}
 	if !applied {

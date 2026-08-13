@@ -42,7 +42,7 @@ Evidencia usa os codigos definidos em `README.md`.
 - `AffectType` 19/21/26/27/28/29/30/31/36/37/38 tem efeito de score, RSV ou dano.
 - `Skillnum==79` usa branch legado proprio: base 180% do dano, depois `BASE_GetDamage` e divisao por 2.
 - `Skillnum==85` e `Explosão_Etérea`, mas aplica o affect 31 chamado "Escudo Dourado"; o bloco legado cobra gold `100*Level` antes do gasto de MP. `Skillnum==86` e `Escudo_Dourado` e nao tem custo especial de gold.
-- Duracao do affect 31 (issue #236): a skill 85 esta em `affectTimeDivisorOverrides` e mantem o ÷4 legado, logo `AffectTime` = 7 (bruto 30) e nao 3. `SetAffect` guarda `(7+1)*(100+Special)/100` ticks de 8 s → **64 s sem mastery e 5m20 no teto `Special` 400**; com o ÷8 uniforme eram 32 s / 2m40. Ver `TestEscudoDouradoAffectDuration`.
+- Duracao do affect 31 (issues #236/#229): a skill 85 tem `AffectTime` bruto 30 (contra 600 das linhas longas), ou seja e a cauda curta da tabela. O ÷8 uniforme da #92 a truncava para 3 (−57%, nao a metade). Com o loader de volta ao ÷4 e o piso de 60 s de `world.AffectDuration` — que so vale para affects nao agressivos, e a skill 85 e `Aggressive=0` — ela fica em **64 s estaveis em qualquer mastery**, em vez de escalar com `Special`. Ver `TestCastBuffDurationCurve`.
 
 ## Lacunas e riscos
 

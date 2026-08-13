@@ -17,44 +17,17 @@ const (
 	MaxSkillIndex = 248
 )
 
-// affectTimeDivisor scales the raw column-12 AffectTime at load. The legacy
-// loader divides by 4 (legacyAffectTimeDivisor, Basedef.cpp:6708); this port
-// uses 8 — a deliberate server-tuning divergence from issue #92, where the ÷4
-// buff durations (up to ~100 min at max mastery) were reported as far too long.
-// ÷8 halves every cast-skill affect duration uniformly.
-const (
-	affectTimeDivisor       = 8
-	legacyAffectTimeDivisor = 4
-)
-
-// affectTimeDivisorOverrides opts individual skills out of the ÷8 tuning above.
+// affectTimeDivisor scales the raw column-12 AffectTime at load, exactly as the
+// legacy loader does (Basedef.cpp:6708).
 //
-// The ÷8 was aimed at the 27 rows carrying the long-buff raw AffectTime of 600
-// (≈10 min at Delay 100, ≈50 min at Special 400). It is applied uniformly, so
-// it also hit the short tail of the table — and there it costs more than the
-// intended half, because the division truncates: Escudo Dourado's raw 30 goes
-// 7 → 3, i.e. −57%. Combined with SetAffect's (AffectTime+1)*(100+Special)/100
-// ticks × 8 s, that left the buff at 32 s unbuffed and 2m40 at Special 400,
-// which issue #236 reported as far too short. Skill 85 therefore keeps the
-// legacy ÷4 (64 s … 5m20) instead of being re-tuned by hand.
-//
-// Index 85 is the shield despite the CSV naming it "Explosão_Etérea": it is the
-// row that applies affect 31 ("Escudo Dourado") and the one the legacy charges
-// 100×Level gold for (_MSG_Attack.cpp:222). CSV row 86, named "Escudo_Dourado",
-// is an instant damage skill with no affect at all.
-var affectTimeDivisorOverrides = map[int]int{
-	85: legacyAffectTimeDivisor, // Escudo Dourado (affect 31) — issue #236
-}
-
-// affectTimeFor scales one row's raw column-12 AffectTime, honouring the
-// per-skill divisor overrides.
-func affectTimeFor(index, raw int) int {
-	div := affectTimeDivisor
-	if d, ok := affectTimeDivisorOverrides[index]; ok {
-		div = d
-	}
-	return raw / div
-}
+// This used to be 8 — the issue #92 attempt at shortening buff durations. That
+// knob sat in the wrong place: the division is INTEGER, so it cost the short tail
+// of the table far more than the intended half (raw 30 went 30/4=7 → 30/8=3,
+// −57%, which is what issue #236 reported), and it never touched the term that
+// actually dominates the duration, the (100+Special)/100 mastery multiplier. The
+// tuning now lives in one place, world.AffectDuration, applied when a CAST
+// installs the affect — see issue #229 and world/affect.go.
+const affectTimeDivisor = 4
 
 // Spell is one STRUCT_SPELL row of SkillData.csv (Basedef.h, loaded by
 // BASE_InitializeSkill, Basedef.cpp:6657). Field names match the struct; the
@@ -73,7 +46,7 @@ type Spell struct {
 	TickValue         int
 	AffectType        int // affect type applied by SetAffect
 	AffectValue       int
-	AffectTime        int // stored ÷8 (issue #92; legacy ÷4, still used by affectTimeDivisorOverrides)
+	AffectTime        int // stored ÷affectTimeDivisor, as the legacy loader does post-parse
 	InstanceAttribute int
 	TickAttribute     int
 	Aggressive        int // 1 = hostile (resist roll applies)
@@ -118,7 +91,7 @@ func (s *SkillData) Len() int { return len(s.skills) }
 // LoadSkillData reads SkillData.csv exactly as BASE_InitializeSkill: the index
 // comes from column 0 (NOT the row number — indexes are sparse past 149), rows
 // with index outside [0,MaxSkillIndex) are skipped, and AffectTime is scaled
-// after parsing (affectTimeFor: ÷8, or the legacy ÷4 for overridden skills).
+// after parsing (÷4, matching the legacy loader).
 func LoadSkillData(path string) (*SkillData, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -165,7 +138,7 @@ func parseSkillData(r io.Reader) (*SkillData, error) {
 			Index: v[0], SkillPoint: v[1], TargetType: v[2], ManaSpent: v[3],
 			Delay: v[4], Range: v[5], InstanceType: v[6], InstanceValue: v[7],
 			TickType: v[8], TickValue: v[9], AffectType: v[10], AffectValue: v[11],
-			AffectTime:        affectTimeFor(v[0], v[12]),
+			AffectTime:        v[12] / affectTimeDivisor,
 			InstanceAttribute: v[13], TickAttribute: v[14], Aggressive: v[15],
 			MaxTarget: v[16], BParty: v[17], AffectResist: v[18], Passive: v[19],
 			Name: strings.TrimSpace(fields[len(fields)-1]),

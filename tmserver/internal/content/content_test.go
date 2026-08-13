@@ -401,7 +401,7 @@ func TestLoadSkillData(t *testing.T) {
 	if err != nil {
 		t.Skipf("SkillData.csv unavailable: %v", err)
 	}
-	// Golden rows straight from the CSV (sscanf order, AffectTime already ÷8).
+	// Golden rows straight from the CSV (sscanf order, AffectTime already ÷4).
 	tests := []struct {
 		index int
 		want  Spell
@@ -410,9 +410,11 @@ func TestLoadSkillData(t *testing.T) {
 			Range: 5, InstanceType: 4, InstanceValue: 5, InstanceAttribute: 4,
 			Aggressive: 1, MaxTarget: 13, AffectResist: 3, Name: "Giro_da_F\xfaria"}},
 		{5, Spell{Index: 5, SkillPoint: 81, ManaSpent: 53, TickType: 17, TickValue: 75,
-			AffectTime: 75, MaxTarget: 1, Name: "Aura_da_Vida"}},
-		// Escudo Dourado (affect 31) — raw AffectTime 30 kept on the legacy ÷4
-		// by affectTimeDivisorOverrides (issue #236), so 7 rather than 3.
+			AffectTime: 150, MaxTarget: 1, Name: "Aura_da_Vida"}},
+		// Escudo Dourado (affect 31): the short tail of the table, raw AffectTime
+		// 30. Pinned here because the issue #92 ÷8 truncated it to 3 (issue #236);
+		// the loader is legacy-faithful again and the tuning moved to
+		// world.AffectDuration, which floors short friendly buffs instead.
 		{85, Spell{Index: 85, SkillPoint: 90, ManaSpent: 120, Delay: 5, AffectType: 31,
 			AffectValue: 150, AffectTime: 7, MaxTarget: 1, Name: "Explos\xe3o_Et\xe9rea"}},
 	}
@@ -436,7 +438,7 @@ func TestLoadSkillData(t *testing.T) {
 	}
 }
 
-// TestParseSkillDataDividesAffectTime pins the loader's AffectTime ÷8 rule on a
+// TestParseSkillDataDividesAffectTime pins the loader's AffectTime ÷4 rule on a
 // synthetic row (no dependency on the Release CSV): 13 ints, the 2 dotted Act
 // strings, 7 ints, then the name. Column 12 is the raw AffectTime.
 func TestParseSkillDataDividesAffectTime(t *testing.T) {
@@ -449,8 +451,8 @@ func TestParseSkillDataDividesAffectTime(t *testing.T) {
 	if !ok {
 		t.Fatal("skill 2 missing after parse")
 	}
-	if got.AffectTime != 75 {
-		t.Errorf("AffectTime = %d, want 75 (600÷8)", got.AffectTime)
+	if got.AffectTime != 150 {
+		t.Errorf("AffectTime = %d, want 150 (600÷4)", got.AffectTime)
 	}
 	if got.AffectType != 11 || got.AffectValue != 5 {
 		t.Errorf("parsed = %+v, want AffectType 11 / AffectValue 5", got)
@@ -460,11 +462,10 @@ func TestParseSkillDataDividesAffectTime(t *testing.T) {
 	}
 }
 
-// TestParseSkillDataAffectTimeOverride pins the per-skill divisor opt-out
-// (issue #236): skill 85 (Escudo Dourado, affect 31) keeps the legacy ÷4 so its
-// already-short raw 30 is not truncated 7 → 3 by the uniform ÷8 of issue #92,
-// while every other row still takes the ÷8. Same synthetic row shape as above.
-func TestParseSkillDataAffectTimeOverride(t *testing.T) {
+// TestParseSkillDataUsesLegacyAffectTimeDivisor pins the uniform legacy loader
+// behavior. Duration tuning belongs to world.AffectDuration at cast time, so
+// both the short shield row and an otherwise identical row load with ÷4.
+func TestParseSkillDataUsesLegacyAffectTimeDivisor(t *testing.T) {
 	const (
 		shield = "85,90,0,120,5,0,0,0,0,0,31,150,30,anim.a,anim.b,0,0,0,1,0,0,0,Explosao_Eterea"
 		other  = "84,90,0,120,5,0,0,0,0,0,31,150,30,anim.a,anim.b,0,0,0,1,0,0,0,Outra"
@@ -480,9 +481,8 @@ func TestParseSkillDataAffectTimeOverride(t *testing.T) {
 	if got.AffectTime != 7 {
 		t.Errorf("skill 85 AffectTime = %d, want 7 (30÷4, legacy divisor)", got.AffectTime)
 	}
-	// The override is per-skill: an identical row at another index keeps ÷8.
-	if got, ok := s.Get(84); !ok || got.AffectTime != 3 {
-		t.Errorf("skill 84 AffectTime = %d (ok=%v), want 3 (30÷8)", got.AffectTime, ok)
+	if got, ok := s.Get(84); !ok || got.AffectTime != 7 {
+		t.Errorf("skill 84 AffectTime = %d (ok=%v), want 7 (30÷4)", got.AffectTime, ok)
 	}
 }
 
