@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS npc_definition_generator_index_idx;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS generator_data;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS formation;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS max_num_mob;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS max_group;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS min_group;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS minute_generate;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS follower_template;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS generator_index;
+ALTER TABLE npc_definition DROP COLUMN IF EXISTS origin;

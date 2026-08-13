@@ -10,8 +10,9 @@ package world
 // Generator is the runtime state of one NPCGener.txt block (NPCGENLIST,
 // CNPCGene.h:29-51): the spawn recipe plus the live population counter.
 type Generator struct {
-	MinuteGenerate int // respawn period in minutes; <=0 = the timer never regenerates
-	MinGroup       int // follower count rolled as MinGroup + rand()%(MaxGroup-MinGroup+1)
+	DBManaged      bool // content merchant recipe must be supplied by npc_definition
+	MinuteGenerate int  // respawn period in minutes; <=0 = the timer never regenerates
+	MinGroup       int  // follower count rolled as MinGroup + rand()%(MaxGroup-MinGroup+1)
 	MaxGroup       int
 	MaxNumMob      int // population cap (leader and followers both count toward it)
 	RouteType      uint8
@@ -59,6 +60,40 @@ func (w *World) GeneratorAt(idx int) *Generator {
 		return nil
 	}
 	return w.generators[idx]
+}
+
+// DBManagedGeneratorCount reports how many content slots require DB recipes.
+func (w *World) DBManagedGeneratorCount() int {
+	n := 0
+	for _, g := range w.generators {
+		if g != nil && g.DBManaged {
+			n++
+		}
+	}
+	return n
+}
+
+// ClearGenerator removes every live entity and queued respawn owned by one
+// generator slot before a DB snapshot replaces its recipe. Loop-only.
+func (w *World) ClearGenerator(idx int) {
+	if idx < 0 || idx >= len(w.generators) {
+		return
+	}
+	for id := MaxUser; id < MaxMob; id++ {
+		if e := w.entities[id]; e != nil && int(e.GenIndex) == idx {
+			w.DespawnMob(id, 0)
+		}
+	}
+	kept := w.respawnQueue[:0]
+	for _, entry := range w.respawnQueue {
+		if int(entry.spawn.GenIndex) != idx {
+			kept = append(kept, entry)
+		}
+	}
+	w.respawnQueue = kept
+	if g := w.generators[idx]; g != nil {
+		g.CurrentNumMob = 0
+	}
 }
 
 // SpawnGeneratorLeader spawns exactly one generator leader at its first

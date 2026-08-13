@@ -274,6 +274,7 @@ func adminNpcToProto(d domain.NPCDefinition) *webv1.AdminNpc {
 		Id: d.ID, Slug: d.Slug, TemplateName: d.TemplateName, DisplayName: d.DisplayName,
 		Enabled: d.Enabled, MapId: d.MapID, PosX: d.PosX, PosY: d.PosY,
 		RouteType: int32(d.RouteType), Merchant: int32(d.Merchant), Shop: shop,
+		Origin: d.Origin, GeneratorIndex: d.GeneratorIndex,
 	}
 }
 
@@ -301,6 +302,8 @@ func resultToProto(r npcadmin.Result) webv1.AdminResult {
 		return webv1.AdminResult_ADMIN_RESULT_FORBIDDEN
 	case npcadmin.NotFound:
 		return webv1.AdminResult_ADMIN_RESULT_NOT_FOUND
+	case npcadmin.ContentOwned:
+		return webv1.AdminResult_ADMIN_RESULT_CONTENT_OWNED
 	default:
 		return webv1.AdminResult_ADMIN_RESULT_INVALID
 	}

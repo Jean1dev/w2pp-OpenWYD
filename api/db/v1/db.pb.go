@@ -4444,20 +4444,34 @@ func (x *NpcShopItem) GetQuantity() int32 {
 }
 
 type NpcDefinition struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Slug          string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
-	TemplateName  string                 `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
-	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	MapId         int32                  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
-	PosX          int32                  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
-	PosY          int32                  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
-	RouteType     int32                  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
-	Merchant      int32                  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
-	Shop          []*NpcShopItem         `protobuf:"bytes,11,rep,name=shop,proto3" json:"shop,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Slug             string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	TemplateName     string                 `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DisplayName      string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Enabled          bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	MapId            int32                  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
+	PosX             int32                  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
+	PosY             int32                  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
+	RouteType        int32                  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
+	Merchant         int32                  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
+	Shop             []*NpcShopItem         `protobuf:"bytes,11,rep,name=shop,proto3" json:"shop,omitempty"`
+	Origin           string                 `protobuf:"bytes,12,opt,name=origin,proto3" json:"origin,omitempty"`
+	GeneratorIndex   int32                  `protobuf:"varint,13,opt,name=generator_index,json=generatorIndex,proto3" json:"generator_index,omitempty"`
+	FollowerTemplate string                 `protobuf:"bytes,14,opt,name=follower_template,json=followerTemplate,proto3" json:"follower_template,omitempty"`
+	MinuteGenerate   int32                  `protobuf:"varint,15,opt,name=minute_generate,json=minuteGenerate,proto3" json:"minute_generate,omitempty"`
+	MinGroup         int32                  `protobuf:"varint,16,opt,name=min_group,json=minGroup,proto3" json:"min_group,omitempty"`
+	MaxGroup         int32                  `protobuf:"varint,17,opt,name=max_group,json=maxGroup,proto3" json:"max_group,omitempty"`
+	MaxNumMob        int32                  `protobuf:"varint,18,opt,name=max_num_mob,json=maxNumMob,proto3" json:"max_num_mob,omitempty"`
+	Formation        int32                  `protobuf:"varint,19,opt,name=formation,proto3" json:"formation,omitempty"`
+	SegX             []int32                `protobuf:"varint,20,rep,packed,name=seg_x,json=segX,proto3" json:"seg_x,omitempty"`
+	SegY             []int32                `protobuf:"varint,21,rep,packed,name=seg_y,json=segY,proto3" json:"seg_y,omitempty"`
+	SegRange         []int32                `protobuf:"varint,22,rep,packed,name=seg_range,json=segRange,proto3" json:"seg_range,omitempty"`
+	SegWait          []int32                `protobuf:"varint,23,rep,packed,name=seg_wait,json=segWait,proto3" json:"seg_wait,omitempty"`
+	FightAction      []string               `protobuf:"bytes,24,rep,name=fight_action,json=fightAction,proto3" json:"fight_action,omitempty"`
+	DieAction        []string               `protobuf:"bytes,25,rep,name=die_action,json=dieAction,proto3" json:"die_action,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *NpcDefinition) Reset() {
@@ -4563,6 +4577,104 @@ func (x *NpcDefinition) GetMerchant() int32 {
 func (x *NpcDefinition) GetShop() []*NpcShopItem {
 	if x != nil {
 		return x.Shop
+	}
+	return nil
+}
+
+func (x *NpcDefinition) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+func (x *NpcDefinition) GetGeneratorIndex() int32 {
+	if x != nil {
+		return x.GeneratorIndex
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetFollowerTemplate() string {
+	if x != nil {
+		return x.FollowerTemplate
+	}
+	return ""
+}
+
+func (x *NpcDefinition) GetMinuteGenerate() int32 {
+	if x != nil {
+		return x.MinuteGenerate
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetMinGroup() int32 {
+	if x != nil {
+		return x.MinGroup
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetMaxGroup() int32 {
+	if x != nil {
+		return x.MaxGroup
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetMaxNumMob() int32 {
+	if x != nil {
+		return x.MaxNumMob
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetFormation() int32 {
+	if x != nil {
+		return x.Formation
+	}
+	return 0
+}
+
+func (x *NpcDefinition) GetSegX() []int32 {
+	if x != nil {
+		return x.SegX
+	}
+	return nil
+}
+
+func (x *NpcDefinition) GetSegY() []int32 {
+	if x != nil {
+		return x.SegY
+	}
+	return nil
+}
+
+func (x *NpcDefinition) GetSegRange() []int32 {
+	if x != nil {
+		return x.SegRange
+	}
+	return nil
+}
+
+func (x *NpcDefinition) GetSegWait() []int32 {
+	if x != nil {
+		return x.SegWait
+	}
+	return nil
+}
+
+func (x *NpcDefinition) GetFightAction() []string {
+	if x != nil {
+		return x.FightAction
+	}
+	return nil
+}
+
+func (x *NpcDefinition) GetDieAction() []string {
+	if x != nil {
+		return x.DieAction
 	}
 	return nil
 }
@@ -5872,7 +5984,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
 	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
 	"\x05effv3\x18\b \x01(\x05R\x05effv3\x12\x1a\n" +
-	"\bquantity\x18\t \x01(\x05R\bquantity\"\xb9\x02\n" +
+	"\bquantity\x18\t \x01(\x05R\bquantity\"\xec\x05\n" +
 	"\rNpcDefinition\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +
@@ -5886,7 +5998,22 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"route_type\x18\t \x01(\x05R\trouteType\x12\x1a\n" +
 	"\bmerchant\x18\n" +
 	" \x01(\x05R\bmerchant\x12&\n" +
-	"\x04shop\x18\v \x03(\v2\x12.db.v1.NpcShopItemR\x04shop\"@\n" +
+	"\x04shop\x18\v \x03(\v2\x12.db.v1.NpcShopItemR\x04shop\x12\x16\n" +
+	"\x06origin\x18\f \x01(\tR\x06origin\x12'\n" +
+	"\x0fgenerator_index\x18\r \x01(\x05R\x0egeneratorIndex\x12+\n" +
+	"\x11follower_template\x18\x0e \x01(\tR\x10followerTemplate\x12'\n" +
+	"\x0fminute_generate\x18\x0f \x01(\x05R\x0eminuteGenerate\x12\x1b\n" +
+	"\tmin_group\x18\x10 \x01(\x05R\bminGroup\x12\x1b\n" +
+	"\tmax_group\x18\x11 \x01(\x05R\bmaxGroup\x12\x1e\n" +
+	"\vmax_num_mob\x18\x12 \x01(\x05R\tmaxNumMob\x12\x1c\n" +
+	"\tformation\x18\x13 \x01(\x05R\tformation\x12\x13\n" +
+	"\x05seg_x\x18\x14 \x03(\x05R\x04segX\x12\x13\n" +
+	"\x05seg_y\x18\x15 \x03(\x05R\x04segY\x12\x1b\n" +
+	"\tseg_range\x18\x16 \x03(\x05R\bsegRange\x12\x19\n" +
+	"\bseg_wait\x18\x17 \x03(\x05R\asegWait\x12!\n" +
+	"\ffight_action\x18\x18 \x03(\tR\vfightAction\x12\x1d\n" +
+	"\n" +
+	"die_action\x18\x19 \x03(\tR\tdieAction\"@\n" +
 	"\tItemPrice\x12\x1d\n" +
 	"\n" +
 	"item_index\x18\x01 \x01(\x05R\titemIndex\x12\x14\n" +

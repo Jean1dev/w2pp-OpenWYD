@@ -78,7 +78,33 @@ func (c *NpcConfig) Snapshot(ctx context.Context) (npccfg.Snapshot, error) {
 			Y:           int16(d.GetPosY()),
 			RouteType:   uint8(d.GetRouteType()),
 			Merchant:    uint8(d.GetMerchant()),
+			Origin:      d.GetOrigin(), GeneratorIndex: int(d.GetGeneratorIndex()),
+			MinuteGenerate: int(d.GetMinuteGenerate()), MinGroup: int(d.GetMinGroup()),
+			MaxGroup: int(d.GetMaxGroup()), MaxNumMob: int(d.GetMaxNumMob()), Formation: int(d.GetFormation()),
 		}
+		if name := d.GetFollowerTemplate(); name != "" {
+			if b, lerr := c.template(name); lerr != nil {
+				c.log.Warn("npc follower template resolve failed", "template", name, "slug", d.GetSlug(), "err", lerr)
+			} else {
+				def.FollowerTemplate = b
+			}
+		}
+		for i := 0; i < 5; i++ {
+			if i < len(d.GetSegX()) {
+				def.SegX[i] = int16(d.GetSegX()[i])
+			}
+			if i < len(d.GetSegY()) {
+				def.SegY[i] = int16(d.GetSegY()[i])
+			}
+			if i < len(d.GetSegRange()) {
+				def.SegRange[i] = int16(d.GetSegRange()[i])
+			}
+			if i < len(d.GetSegWait()) {
+				def.SegWait[i] = int16(d.GetSegWait()[i])
+			}
+		}
+		copy(def.FightAction[:], d.GetFightAction())
+		copy(def.DieAction[:], d.GetDieAction())
 		for _, it := range d.GetShop() {
 			def.Shop = append(def.Shop, npccfg.ShopItem{
 				Slot:     int(it.GetSlot()),

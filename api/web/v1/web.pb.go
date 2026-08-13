@@ -90,11 +90,12 @@ func (CreateResult) EnumDescriptor() ([]byte, []int) {
 type AdminResult int32
 
 const (
-	AdminResult_ADMIN_RESULT_UNSPECIFIED AdminResult = 0
-	AdminResult_ADMIN_RESULT_OK          AdminResult = 1
-	AdminResult_ADMIN_RESULT_FORBIDDEN   AdminResult = 2 // caller is not a moderator/admin
-	AdminResult_ADMIN_RESULT_INVALID     AdminResult = 3 // validation failed (bad slot, unknown target, …)
-	AdminResult_ADMIN_RESULT_NOT_FOUND   AdminResult = 4 // target definition does not exist
+	AdminResult_ADMIN_RESULT_UNSPECIFIED   AdminResult = 0
+	AdminResult_ADMIN_RESULT_OK            AdminResult = 1
+	AdminResult_ADMIN_RESULT_FORBIDDEN     AdminResult = 2 // caller is not a moderator/admin
+	AdminResult_ADMIN_RESULT_INVALID       AdminResult = 3 // validation failed (bad slot, unknown target, …)
+	AdminResult_ADMIN_RESULT_NOT_FOUND     AdminResult = 4 // target definition does not exist
+	AdminResult_ADMIN_RESULT_CONTENT_OWNED AdminResult = 5 // content definitions must be hidden, not deleted
 )
 
 // Enum value maps for AdminResult.
@@ -105,13 +106,15 @@ var (
 		2: "ADMIN_RESULT_FORBIDDEN",
 		3: "ADMIN_RESULT_INVALID",
 		4: "ADMIN_RESULT_NOT_FOUND",
+		5: "ADMIN_RESULT_CONTENT_OWNED",
 	}
 	AdminResult_value = map[string]int32{
-		"ADMIN_RESULT_UNSPECIFIED": 0,
-		"ADMIN_RESULT_OK":          1,
-		"ADMIN_RESULT_FORBIDDEN":   2,
-		"ADMIN_RESULT_INVALID":     3,
-		"ADMIN_RESULT_NOT_FOUND":   4,
+		"ADMIN_RESULT_UNSPECIFIED":   0,
+		"ADMIN_RESULT_OK":            1,
+		"ADMIN_RESULT_FORBIDDEN":     2,
+		"ADMIN_RESULT_INVALID":       3,
+		"ADMIN_RESULT_NOT_FOUND":     4,
+		"ADMIN_RESULT_CONTENT_OWNED": 5,
 	}
 )
 
@@ -1606,20 +1609,22 @@ func (x *AdminNpcShopItem) GetQuantity() int32 {
 }
 
 type AdminNpc struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Slug          string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
-	TemplateName  string                 `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
-	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	MapId         int32                  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
-	PosX          int32                  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
-	PosY          int32                  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
-	RouteType     int32                  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
-	Merchant      int32                  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
-	Shop          []*AdminNpcShopItem    `protobuf:"bytes,11,rep,name=shop,proto3" json:"shop,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Slug           string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	TemplateName   string                 `protobuf:"bytes,3,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DisplayName    string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Enabled        bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	MapId          int32                  `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`
+	PosX           int32                  `protobuf:"varint,7,opt,name=pos_x,json=posX,proto3" json:"pos_x,omitempty"`
+	PosY           int32                  `protobuf:"varint,8,opt,name=pos_y,json=posY,proto3" json:"pos_y,omitempty"`
+	RouteType      int32                  `protobuf:"varint,9,opt,name=route_type,json=routeType,proto3" json:"route_type,omitempty"`
+	Merchant       int32                  `protobuf:"varint,10,opt,name=merchant,proto3" json:"merchant,omitempty"`
+	Shop           []*AdminNpcShopItem    `protobuf:"bytes,11,rep,name=shop,proto3" json:"shop,omitempty"`
+	Origin         string                 `protobuf:"bytes,12,opt,name=origin,proto3" json:"origin,omitempty"`
+	GeneratorIndex int32                  `protobuf:"varint,13,opt,name=generator_index,json=generatorIndex,proto3" json:"generator_index,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *AdminNpc) Reset() {
@@ -1727,6 +1732,20 @@ func (x *AdminNpc) GetShop() []*AdminNpcShopItem {
 		return x.Shop
 	}
 	return nil
+}
+
+func (x *AdminNpc) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+func (x *AdminNpc) GetGeneratorIndex() int32 {
+	if x != nil {
+		return x.GeneratorIndex
+	}
+	return 0
 }
 
 type ListNpcsRequest struct {
@@ -9060,7 +9079,7 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x05effv2\x18\x06 \x01(\x05R\x05effv2\x12\x12\n" +
 	"\x04eff3\x18\a \x01(\x05R\x04eff3\x12\x14\n" +
 	"\x05effv3\x18\b \x01(\x05R\x05effv3\x12\x1a\n" +
-	"\bquantity\x18\t \x01(\x05R\bquantity\"\xba\x02\n" +
+	"\bquantity\x18\t \x01(\x05R\bquantity\"\xfb\x02\n" +
 	"\bAdminNpc\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12#\n" +
@@ -9074,7 +9093,9 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"route_type\x18\t \x01(\x05R\trouteType\x12\x1a\n" +
 	"\bmerchant\x18\n" +
 	" \x01(\x05R\bmerchant\x12,\n" +
-	"\x04shop\x18\v \x03(\v2\x18.web.v1.AdminNpcShopItemR\x04shop\"4\n" +
+	"\x04shop\x18\v \x03(\v2\x18.web.v1.AdminNpcShopItemR\x04shop\x12\x16\n" +
+	"\x06origin\x18\f \x01(\tR\x06origin\x12'\n" +
+	"\x0fgenerator_index\x18\r \x01(\x05R\x0egeneratorIndex\"4\n" +
 	"\x0fListNpcsRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"e\n" +
 	"\x10ListNpcsResponse\x12+\n" +
@@ -9661,13 +9682,14 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x19CREATE_RESULT_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CREATE_RESULT_OK\x10\x01\x12\x1c\n" +
 	"\x18CREATE_RESULT_NAME_TAKEN\x10\x02\x12\x19\n" +
-	"\x15CREATE_RESULT_INVALID\x10\x03*\x92\x01\n" +
+	"\x15CREATE_RESULT_INVALID\x10\x03*\xb2\x01\n" +
 	"\vAdminResult\x12\x1c\n" +
 	"\x18ADMIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fADMIN_RESULT_OK\x10\x01\x12\x1a\n" +
 	"\x16ADMIN_RESULT_FORBIDDEN\x10\x02\x12\x18\n" +
 	"\x14ADMIN_RESULT_INVALID\x10\x03\x12\x1a\n" +
-	"\x16ADMIN_RESULT_NOT_FOUND\x10\x04*\xdc\x02\n" +
+	"\x16ADMIN_RESULT_NOT_FOUND\x10\x04\x12\x1e\n" +
+	"\x1aADMIN_RESULT_CONTENT_OWNED\x10\x05*\xdc\x02\n" +
 	"\x1eAttributeMapTransformOperation\x121\n" +
 	"-ATTRIBUTE_MAP_TRANSFORM_OPERATION_UNSPECIFIED\x10\x00\x12>\n" +
 	":ATTRIBUTE_MAP_TRANSFORM_OPERATION_LEGACY_MARK_PVP_EXP_LOSS\x10\x01\x122\n" +

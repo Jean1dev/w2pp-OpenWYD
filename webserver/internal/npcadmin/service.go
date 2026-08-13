@@ -44,6 +44,8 @@ const (
 	Invalid
 	// NotFound means the target definition does not exist.
 	NotFound
+	// ContentOwned means versioned content must be hidden rather than deleted.
+	ContentOwned
 )
 
 // Shop slots mirror MSG_ShopList's 27 entries; a merchant NPC's stock lives in
@@ -277,6 +279,8 @@ func classifyWrite(err error, op string) (Result, error) {
 		return OK, nil
 	case errors.Is(err, store.ErrNotFound):
 		return NotFound, nil
+	case errors.Is(err, store.ErrContentOwned):
+		return ContentOwned, nil
 	default:
 		return Invalid, fmt.Errorf("npcadmin: %s: %w", op, err)
 	}
@@ -287,10 +291,5 @@ func classifyWrite(err error, op string) (Result, error) {
 // quest NPC), and 111 (canonical King templates). Others are rejected until
 // confirmed by capture (npc-editing-plan.md §9.4).
 func validMerchant(m int16) bool {
-	switch m {
-	case 0, 1, 2, 19, 100, 111:
-		return true
-	default:
-		return false
-	}
+	return m >= 0 && m <= 255
 }

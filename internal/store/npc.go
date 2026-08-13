@@ -35,7 +35,9 @@ func (s *Store) NPCConfigVersion(ctx context.Context) (int64, error) {
 // id. This is the full snapshot the tmServer materializes into live entities.
 func (s *Store) ListNPCDefinitions(ctx context.Context) ([]domain.NPCDefinition, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant
+		SELECT id, slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant,
+		       origin, COALESCE(generator_index,-1), follower_template, minute_generate,
+		       min_group, max_group, max_num_mob, formation, generator_data
 		FROM npc_definition ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("store: list npc definitions: %w", err)
@@ -46,9 +48,20 @@ func (s *Store) ListNPCDefinitions(ctx context.Context) ([]domain.NPCDefinition,
 	var out []domain.NPCDefinition
 	for rows.Next() {
 		var d domain.NPCDefinition
+		var generatorData []byte
 		if err := rows.Scan(&d.ID, &d.Slug, &d.TemplateName, &d.DisplayName, &d.Enabled,
-			&d.MapID, &d.PosX, &d.PosY, &d.RouteType, &d.Merchant); err != nil {
+			&d.MapID, &d.PosX, &d.PosY, &d.RouteType, &d.Merchant, &d.Origin,
+			&d.GeneratorIndex, &d.FollowerTemplate, &d.MinuteGenerate, &d.MinGroup,
+			&d.MaxGroup, &d.MaxNumMob, &d.Formation, &generatorData); err != nil {
 			return nil, fmt.Errorf("store: scan npc definition: %w", err)
+		}
+		if len(generatorData) > 0 {
+			var gd generatorJSON
+			if err := json.Unmarshal(generatorData, &gd); err != nil {
+				return nil, fmt.Errorf("store: decode generator %q: %w", d.Slug, err)
+			}
+			d.SegX, d.SegY, d.SegRange, d.SegWait = gd.SegX, gd.SegY, gd.SegRange, gd.SegWait
+			d.FightAction, d.DieAction = gd.FightAction, gd.DieAction
 		}
 		byID[d.ID] = len(out)
 		out = append(out, d)
@@ -87,10 +100,11 @@ func (s *Store) ListNPCDefinitions(ctx context.Context) ([]domain.NPCDefinition,
 func (s *Store) GetNPCDefinition(ctx context.Context, id int64) (domain.NPCDefinition, error) {
 	var d domain.NPCDefinition
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant
+		SELECT id, slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant,
+		       origin, COALESCE(generator_index,-1)
 		FROM npc_definition WHERE id = $1`, id).
 		Scan(&d.ID, &d.Slug, &d.TemplateName, &d.DisplayName, &d.Enabled,
-			&d.MapID, &d.PosX, &d.PosY, &d.RouteType, &d.Merchant)
+			&d.MapID, &d.PosX, &d.PosY, &d.RouteType, &d.Merchant, &d.Origin, &d.GeneratorIndex)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.NPCDefinition{}, ErrNotFound
 	}
@@ -250,6 +264,17 @@ func (s *Store) SetItemPrice(ctx context.Context, itemIndex int32, price int64, 
 // ErrNotFound if absent.
 func (s *Store) DeleteNPCDefinition(ctx context.Context, npcID int64, moderatorID int64) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
+		var origin string
+		err := tx.QueryRow(ctx, `SELECT origin FROM npc_definition WHERE id = $1`, npcID).Scan(&origin)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("store: read npc definition origin: %w", err)
+		}
+		if origin == "content" {
+			return ErrContentOwned
+		}
 		before, err := fetchDefJSONByID(ctx, tx, npcID)
 		if err != nil {
 			return err
@@ -271,20 +296,37 @@ func (s *Store) DeleteNPCDefinition(ctx context.Context, npcID int64, moderatorI
 // definitions actually inserted.
 func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinition) (int, error) {
 	inserted := 0
+	indices := make(map[int32]string, len(defs))
+	for _, d := range defs {
+		if previous, exists := indices[d.GeneratorIndex]; exists {
+			return 0, fmt.Errorf("store: duplicate content generator index %d for %q and %q", d.GeneratorIndex, previous, d.Slug)
+		}
+		indices[d.GeneratorIndex] = d.Slug
+	}
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		for _, d := range defs {
+			gd, marshalErr := json.Marshal(generatorJSON{
+				SegX: d.SegX, SegY: d.SegY, SegRange: d.SegRange, SegWait: d.SegWait,
+				FightAction: d.FightAction, DieAction: d.DieAction,
+			})
+			if marshalErr != nil {
+				return fmt.Errorf("store: encode generator %q: %w", d.Slug, marshalErr)
+			}
 			var id int64
+			var created bool
 			err := tx.QueryRow(ctx, `
 				INSERT INTO npc_definition
-					(slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (slug) DO NOTHING
-				RETURNING id`,
+					(slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant,
+					 origin, generator_index, follower_template, minute_generate, min_group, max_group, max_num_mob, formation, generator_data)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'content',$10,$11,$12,$13,$14,$15,$16,$17)
+				ON CONFLICT (slug) DO UPDATE SET origin='content', generator_index=EXCLUDED.generator_index,
+				 follower_template=EXCLUDED.follower_template, minute_generate=EXCLUDED.minute_generate,
+				 min_group=EXCLUDED.min_group, max_group=EXCLUDED.max_group,
+				 max_num_mob=EXCLUDED.max_num_mob, formation=EXCLUDED.formation, generator_data=EXCLUDED.generator_data
+				RETURNING id, (xmax = 0)`,
 				d.Slug, d.TemplateName, d.DisplayName, d.Enabled, d.MapID, d.PosX, d.PosY, d.RouteType, d.Merchant,
-			).Scan(&id)
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue // slug already present — leave it untouched
-			}
+				d.GeneratorIndex, d.FollowerTemplate, d.MinuteGenerate, d.MinGroup, d.MaxGroup, d.MaxNumMob, d.Formation, gd,
+			).Scan(&id, &created)
 			if err != nil {
 				return fmt.Errorf("store: seed npc definition %q: %w", d.Slug, err)
 			}
@@ -292,16 +334,19 @@ func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinit
 				normalizeShopQuantity(&it)
 				if _, err := tx.Exec(ctx, `
 					INSERT INTO npc_shop_item (npc_id, slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+					ON CONFLICT (npc_id, slot) DO NOTHING`,
 					id, it.Slot, it.ItemIndex, normalizedQuantity(it.Quantity),
 					it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
 				); err != nil {
 					return fmt.Errorf("store: seed shop item (%q slot %d): %w", d.Slug, it.Slot, err)
 				}
 			}
-			inserted++
+			if created {
+				inserted++
+			}
 		}
-		if inserted > 0 {
+		if len(defs) > 0 {
 			if _, err := tx.Exec(ctx, `UPDATE npc_config_meta SET version = version + 1 WHERE id = TRUE`); err != nil {
 				return fmt.Errorf("store: bump npc config version: %w", err)
 			}
@@ -309,6 +354,15 @@ func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinit
 		return nil
 	})
 	return inserted, err
+}
+
+type generatorJSON struct {
+	SegX        [5]int32  `json:"seg_x"`
+	SegY        [5]int32  `json:"seg_y"`
+	SegRange    [5]int32  `json:"seg_range"`
+	SegWait     [5]int32  `json:"seg_wait"`
+	FightAction [4]string `json:"fight_action"`
+	DieAction   [4]string `json:"die_action"`
 }
 
 // --- helpers ---

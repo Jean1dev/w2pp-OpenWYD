@@ -202,6 +202,7 @@ enum AdminResult {
   ADMIN_RESULT_FORBIDDEN = 2;  // caller is not a moderator/admin
   ADMIN_RESULT_INVALID = 3;    // validation failed (bad slot, unknown target, …)
   ADMIN_RESULT_NOT_FOUND = 4;  // target definition does not exist
+  ADMIN_RESULT_CONTENT_OWNED = 5; // content definitions must be hidden, not deleted
 }
 
 message AdminAck { AdminResult result = 1; }
@@ -230,6 +231,8 @@ message AdminNpc {
   int32 route_type = 9;
   int32 merchant = 10;
   repeated AdminNpcShopItem shop = 11;
+  string origin = 12;
+  int32 generator_index = 13;
 }
 
 message ListNpcsRequest { int64 moderator_id = 1; }

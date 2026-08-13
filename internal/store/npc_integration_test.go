@@ -116,9 +116,9 @@ func TestSeedNPCDefinitionsIdempotent(t *testing.T) {
 
 	s := New(pool)
 	defs := []domain.NPCDefinition{
-		{Slug: "seed-int-1", TemplateName: "A", Enabled: true, Merchant: 1,
+		{Slug: "seed-int-1", TemplateName: "A", Enabled: true, Merchant: 1, GeneratorIndex: 1,
 			Shop: []domain.NPCShopItem{{Slot: 0, ItemIndex: 10, Quantity: 2}}},
-		{Slug: "seed-int-2", TemplateName: "B", Enabled: true, Merchant: 1},
+		{Slug: "seed-int-2", TemplateName: "B", Enabled: true, Merchant: 1, GeneratorIndex: 2},
 	}
 	n, err := s.SeedNPCDefinitions(ctx, defs)
 	if err != nil {

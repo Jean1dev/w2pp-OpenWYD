@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -30,21 +31,39 @@ const (
 
 // ApplyNPCConfigBoot fetches the definition snapshot synchronously and applies it
 // once at boot (no reveal — no players are connected yet). It runs before the
-// loop starts, so it is single-threaded like spawnNPCs. A fetch error is logged
-// and left for the periodic poll to retry once the loop is running.
-func (d *Dispatcher) ApplyNPCConfigBoot(w *world.World) {
+// loop starts, so it is single-threaded like spawnNPCs. Loading is fail-closed:
+// starting with an incomplete content catalog would silently remove legacy NPCs.
+func (d *Dispatcher) ApplyNPCConfigBoot(w *world.World) error {
 	if d.npcSource == nil {
-		return
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), npcFetchTimeout)
 	defer cancel()
 	snap, err := d.npcSource.Snapshot(ctx)
 	if err != nil {
-		d.log.Warn("npc config boot load failed (will retry via poll)", "err", err)
-		return
+		return fmt.Errorf("npc config boot load: %w", err)
+	}
+	expected := w.DBManagedGeneratorCount()
+	seen := make(map[int]struct{}, expected)
+	for _, def := range snap.Defs {
+		if def.Origin != "content" || def.GeneratorIndex < 0 {
+			continue
+		}
+		if _, exists := seen[def.GeneratorIndex]; exists {
+			return fmt.Errorf("npc config duplicate generator index %d", def.GeneratorIndex)
+		}
+		g := w.GeneratorAt(def.GeneratorIndex)
+		if g == nil || !g.DBManaged {
+			return fmt.Errorf("npc config content generator index %d is not DB-managed", def.GeneratorIndex)
+		}
+		seen[def.GeneratorIndex] = struct{}{}
+	}
+	if len(seen) != expected {
+		return fmt.Errorf("npc config incomplete: content generators=%d expected=%d", len(seen), expected)
 	}
 	d.applyNPCConfig(w, snap, false)
 	d.log.Info("npc config applied at boot", "version", snap.Version, "npcs", len(d.managedNPCs))
+	return nil
 }
 
 // pollNPCConfig checks the config version off the loop each npcPollPeriod ticks
@@ -97,6 +116,42 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 	}
 
 	for _, def := range snap.Defs {
+		if def.Origin == "content" && def.GeneratorIndex >= 0 {
+			g := w.GeneratorAt(def.GeneratorIndex)
+			if g == nil || !g.DBManaged {
+				d.log.Warn("npc content generator index is not DB-managed", "slug", def.Slug, "index", def.GeneratorIndex)
+				continue
+			}
+			w.ClearGenerator(def.GeneratorIndex)
+			if !def.Enabled {
+				g.LeaderTmpl = nil
+				g.FollowerTmpl = nil
+				continue
+			}
+			if def.Template == nil {
+				d.log.Warn("npc definition has no template — skipped", "slug", def.Slug)
+				continue
+			}
+			g.MinuteGenerate, g.MinGroup, g.MaxGroup, g.MaxNumMob = def.MinuteGenerate, def.MinGroup, def.MaxGroup, def.MaxNumMob
+			g.RouteType, g.Formation = def.RouteType, def.Formation
+			g.SegX, g.SegY, g.SegRange, g.SegWait = def.SegX, def.SegY, def.SegRange, def.SegWait
+			g.FightAction, g.DieAction = def.FightAction, def.DieAction
+			g.LeaderTmpl = npcTemplateWithDisplayName(def.Template, def.DisplayName)
+			g.FollowerTmpl = def.FollowerTemplate
+			ids := w.GenerateMob(def.GeneratorIndex)
+			if len(ids) == 0 {
+				d.log.Warn("npc content generator produced no entities", "slug", def.Slug, "index", def.GeneratorIndex)
+				continue
+			}
+			if def.Merchant != 0 {
+				applyShop(w.Entity(ids[0]), def.Shop)
+			}
+			d.managedNPCs[def.Slug] = ids[0]
+			if reveal {
+				d.revealSpawned(w, ids)
+			}
+			continue
+		}
 		if !def.Enabled {
 			continue
 		}
