@@ -118,8 +118,8 @@ func run(logger *slog.Logger) error {
 	// (AffectTime+1)*(100+Special)/100 ticks of 8s, which puts an endgame character
 	// at 30-100 min per buff — reported as far too long three times over (#92, #202,
 	// #229). 100/0/0 restores the legacy durations exactly.
-	affectScalePct := flag.Int("affect-scale-pct", envInt("W2PP_AFFECT_SCALE_PCT", 15), "percent of the legacy cast-affect duration to keep (100 = legacy)")
-	affectMinSeconds := flag.Int("affect-min-seconds", envInt("W2PP_AFFECT_MIN_SECONDS", 60), "floor for NON-aggressive cast affects, in seconds; keeps the short buffs (e.g. Escudo Dourado) usable after the scale (0 = no floor)")
+	affectScalePct := flag.Int("affect-scale-pct", envInt("W2PP_AFFECT_SCALE_PCT", 15), "percent of the legacy cast-affect duration to keep, applied only OUTSIDE the target band: a non-aggressive affect whose BASE (unmastered) duration is already under -affect-max-minutes keeps its legacy mastery curve (issue #236). 100 = legacy")
+	affectMinSeconds := flag.Int("affect-min-seconds", envInt("W2PP_AFFECT_MIN_SECONDS", 60), "floor for NON-aggressive cast affects, in seconds; keeps the shortest buffs usable (0 = no floor)")
 	affectMaxMinutes := flag.Int("affect-max-minutes", envInt("W2PP_AFFECT_MAX_MINUTES", 10), "cap for cast affects, in minutes; cuts the mastery tail (0 = no cap)")
 	flag.Parse()
 

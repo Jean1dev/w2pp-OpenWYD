@@ -126,23 +126,56 @@ const (
 // Only affects installed by a cast pass through here. Item, mount, cash-jewel and
 // Divine affects write Entity.Affect directly with their own intentional
 // durations (7/30 days, 1 h) and are untouched.
+//
+// The scale is deliberately NOT uniform: it only touches what the policy exists
+// to cut. See withinTargetBand — a first cut applied ScalePct to everything and
+// crushed the short tail of SkillData.csv into MinTicks, which is what issue #236
+// kept reporting from the other direction.
 type AffectDuration struct {
-	// ScalePct scales the legacy tick count. 0 or 100 leaves it alone.
+	// ScalePct scales the legacy tick count. 0 or 100 leaves it alone. It applies
+	// only OUTSIDE the target band (see withinTargetBand).
 	ScalePct int
-	// MinTicks floors the result for NON-aggressive affects only. Short friendly
-	// buffs (Escudo Dourado's raw AffectTime is 30, vs 600 for the long ones)
-	// would otherwise scale down to nothing. Hostile affects are excluded so the
-	// floor cannot LENGTHEN a short debuff like Enfraquecer (raw 5).
+	// MinTicks floors the result for NON-aggressive affects only, so the very
+	// shortest friendly buffs (raw AffectTime 1-15) stay usable. Hostile affects
+	// are excluded so the floor cannot LENGTHEN a short debuff like Enfraquecer
+	// (raw 5).
 	MinTicks int
 	// MaxTicks caps the result, cutting the mastery tail that no base-side
-	// tuning could reach.
+	// tuning could reach. It doubles as the edge of the target band.
 	MaxTicks int
 }
 
-// scale applies the policy to a legacy tick count. A landed affect never becomes
-// 0 ticks — that would install a buff the very next sweep deletes.
-func (d AffectDuration) scale(ticks, aggressive int) int {
-	if d.ScalePct > 0 && d.ScalePct != 100 {
+// withinTargetBand reports whether a row's BASE duration — its AffectTime+1, the
+// unmastered tick count — already fits the band the policy targets, in which case
+// there is nothing to cut and the legacy mastery curve is kept as-is.
+//
+// Membership is judged on the base, NOT on the mastery-inflated count, so that it
+// is a property of the SkillData row and constant across Special. Judging the
+// inflated count instead makes the curve non-monotonic: Teleporte (raw 60 → base
+// 16) crosses MaxTicks at high mastery and falls off the identity branch into the
+// 15% one, which had it landing at 2m08 unmastered, 6m24 at Special 200 and back
+// down to 1m36 at Special 400 — a buff that gets WORSE the more you invest.
+// There is no threshold to tune here: base durations in SkillData.csv are 1-16
+// ticks and then 151, nothing in between, so any cut inside that gap is the
+// same cut.
+//
+// Only friendly affects qualify. Hostile crowd-control length (Perseguição,
+// Lâmina Congelante, Nevasca, Conexão de Gelo — all base 1-2) is a separate
+// balance question nobody has filed, and letting the bypass reach it would
+// silently multiply freeze durations by up to 5x. Same restriction the MinTicks
+// floor already carries, for the same reason.
+//
+// With MaxTicks unset there is no band to be inside of, so nothing is exempt.
+func (d AffectDuration) withinTargetBand(baseTicks, aggressive int) bool {
+	return aggressive == 0 && d.MaxTicks > 0 && baseTicks <= d.MaxTicks
+}
+
+// scale applies the policy to a legacy tick count. baseTicks is the same affect's
+// unmastered count, which selects the branch (see withinTargetBand). A landed
+// affect never becomes 0 ticks — that would install a buff the very next sweep
+// deletes.
+func (d AffectDuration) scale(ticks, baseTicks, aggressive int) int {
+	if d.ScalePct > 0 && d.ScalePct != 100 && !d.withinTargetBand(baseTicks, aggressive) {
 		ticks = ticks * d.ScalePct / 100
 	}
 	if d.MaxTicks > 0 && ticks > d.MaxTicks {
@@ -187,7 +220,7 @@ func (e *Entity) SetAffect(affectType, affectValue, affectTime, aggressive, time
 		t, fixed = 2139062143, true
 	}
 	if !fixed {
-		t = dur.scale(t, aggressive)
+		t = dur.scale(t, affectTime+1, aggressive)
 	}
 	e.Affect[slot] = Affect{Type: uint8(affectType), Value: uint8(affectValue), Level: uint16(level), Time: uint32(t)}
 	return true
@@ -219,7 +252,7 @@ func (e *Entity) SetTick(tickType, tickValue, affectTime, aggressive, delay, lev
 		t, fixed = 2, true
 	}
 	if !fixed {
-		t = dur.scale(t, aggressive)
+		t = dur.scale(t, affectTime+1, aggressive)
 	}
 	e.Affect[slot] = Affect{Type: uint8(tickType), Value: uint8(tickValue), Level: uint16(level), Time: uint32(t)}
 	return true

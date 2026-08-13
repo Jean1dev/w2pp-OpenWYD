@@ -708,12 +708,16 @@ func TestApplyCastAffectAggressiveSkipsAllies(t *testing.T) {
 	}
 }
 
-// TestEscudoDouradoAffectDuration pins the landed duration of Escudo Dourado
-// (skill 85 → affect 31) after issue #236 restored the legacy ÷4 for that row:
+// TestEscudoDouradoAffectDuration pins the LEGACY duration of Escudo Dourado
+// (skill 85 → affect 31) — Config{} leaves AffectDuration at its zero value:
 // SetAffect stores (AffectTime+1)*(100+Special)/100 ticks and the sweep burns
-// one tick every affectTickPeriod seconds of real time. With AffectTime 7 that
-// is 64 s unbuffed and 5m20 at the Special cap — twice the 32 s…2m40 the
-// uniform ÷8 produced (raw 30 truncating to 3 instead of 7).
+// one tick every affectTickPeriod seconds of real time. With AffectTime 7 (raw
+// 30 under the legacy ÷4 issue #236 restored) that is 64 s unbuffed and 5m20 at
+// the Special cap — twice the 32 s…2m40 the uniform ÷8 produced.
+//
+// The production policy reproduces this same curve, because the row fits under
+// the cap and is exempt from the scale; TestCastBuffDurationCurve is where that
+// is asserted with the tmServer defaults wired in.
 func TestEscudoDouradoAffectDuration(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
@@ -891,13 +895,15 @@ var prodAffectDuration = world.AffectDuration{
 // buff is allowed to last, in the minutes the player reads off the buff bar.
 //
 // Skill 43 (Escudo Mágico) carries raw AffectTime 600 → 150 after the legacy ÷4,
-// like every other long buff in SkillData.csv. Skill 85 (Escudo Dourado, the
-// affect-31 row) carries raw 30 → 7 and stands for the short tail that the
-// issue #92 ÷8 truncated (issue #236).
+// like every other long buff in SkillData.csv. Skills 85 (Escudo Dourado, the
+// affect-31 row, raw 30 → 7) and 90 (Toxina da Serpente, raw 25 → 6) stand for
+// the short tail — the rows the issue #92 ÷8 truncated and the first cut at this
+// policy then scaled into the floor, both reported as issue #236.
 func TestCastBuffDurationCurve(t *testing.T) {
 	spells := content.NewSkillData([]content.Spell{
 		{Index: 43, AffectType: 11, AffectValue: 5, AffectTime: 150, MaxTarget: 1},
 		{Index: 85, AffectType: 31, AffectValue: 150, AffectTime: 7, MaxTarget: 1},
+		{Index: 90, AffectType: 30, AffectValue: 1, AffectTime: 6, MaxTarget: 1},
 	})
 	tests := []struct {
 		name     string
@@ -912,9 +918,13 @@ func TestCastBuffDurationCurve(t *testing.T) {
 		{"long buff, special 226", 43, 226, 584}, // 9m44
 		{"long buff, special 255", 43, 255, 600}, // capped at 10m
 		{"long buff, special 400", 43, 400, 600}, // capped at 10m
-		// The short tail is floored instead of scaled into uselessness.
-		{"short buff, no mastery", 85, 0, 64},
-		{"short buff, special 400", 85, 400, 64},
+		// The short tail already fits the target band, so it keeps the legacy
+		// mastery curve; only the very bottom of it meets the 60s floor.
+		{"short buff, no mastery", 85, 0, 64},     // 1m04, floored
+		{"short buff, special 100", 85, 100, 128}, // 2m08
+		{"short buff, special 400", 85, 400, 320}, // 5m20
+		{"shorter buff, no mastery", 90, 0, 64},   // 56s legacy, floored to 1m04
+		{"shorter buff, special 400", 90, 400, 280},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
