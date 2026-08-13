@@ -283,7 +283,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// straight from the DB; SkillBonus is re-derived from level + learned
 		// costs (BASE_GetBonusSkillPoint on character load, ProcessDBMessage.cpp:816).
 		e.LearnedSkill, e.SecLearnedSkill, e.SpecialBonus = st.LearnedSkill, st.SecLearnedSkill, st.SpecialBonus
-		e.BaseSpecial, e.SkillBar, e.Magic = st.BaseSpecial, st.SkillBar, st.Magic
+		e.BaseSpecial, e.SkillBar = st.BaseSpecial, st.SkillBar
 		s.ShortSkill = st.ShortSkill
 		d.deriveSkillBonus(e)
 		e.Equip = st.Equip

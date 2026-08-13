@@ -59,6 +59,43 @@ var htWeaponCoefs = []weaponCoef{
 	{41, 0.27, 0.37},
 }
 
+// magicWeaponCoef is the Dex/Int magic term the legacy adds per equipped weapon
+// (Basedef.cpp:3294-3844). byPos selects which field of the catalog row the
+// nUnique/nPos key is matched against: the original tests nUnique and nPos in
+// SEPARATE ifs, so a Cajado carrying nUnique 47 AND nPos 64 collects BOTH terms.
+type magicWeaponCoef struct {
+	key   int
+	byPos bool // match d.itemPos (ArmaPos) instead of d.itemUnique (ArmaUnique)
+	dexK  float64
+	intK  float64
+}
+
+// Coefficients are the literal .cpp constants (divided by 100 at use) so each row
+// can be diffed against Basedef.cpp directly. 44 = Lança, 47 = Cajado e Cetro,
+// nPos 64 = Cajado. The Huntress block has no nPos 64 branch in the original.
+var tkMagicCoefs = []magicWeaponCoef{
+	{key: 44, dexK: 2.0, intK: 2.5},
+	{key: 47, dexK: 1.2, intK: 1.5},
+	{key: 64, byPos: true, dexK: 2.0, intK: 2.5},
+}
+
+var fmMagicCoefs = []magicWeaponCoef{
+	{key: 44, dexK: 6.3, intK: 4.2},
+	{key: 47, dexK: 6.3, intK: 4.2},
+	{key: 64, byPos: true, dexK: 6.3, intK: 4.2},
+}
+
+var bmMagicCoefs = []magicWeaponCoef{
+	{key: 44, dexK: 7.0, intK: 6.0},
+	{key: 47, dexK: 6.8, intK: 5.8},
+	{key: 64, byPos: true, dexK: 5.5, intK: 4.5},
+}
+
+var htMagicCoefs = []magicWeaponCoef{
+	{key: 44, dexK: 40.0, intK: 20.0},
+	{key: 47, dexK: 40.0, intK: 20.0},
+}
+
 func isPlayerMob(e *world.Entity) bool {
 	if !world.IsPlayer(e.ID) {
 		return false
@@ -127,6 +164,72 @@ func (d *Dispatcher) classWeaponDamage(e *world.Entity) int32 {
 			continue
 		}
 		total += weaponTableBonus(e.Str, e.Dex, nUnique, table)
+	}
+	return total
+}
+
+func classMagicTable(cls uint8) []magicWeaponCoef {
+	switch cls {
+	case 0:
+		return tkMagicCoefs
+	case 1:
+		return fmMagicCoefs
+	case 2:
+		return bmMagicCoefs
+	case 3:
+		return htMagicCoefs
+	default:
+		return nil
+	}
+}
+
+// classWeaponMagic is the magic half of the same per-class weapon blocks
+// classWeaponDamage ports (Basedef.cpp:3294-3844): the original adds
+// ((Dex*dexK) + (Int*intK)) / 100 to the running `magic` inside each evolution
+// block, so the term counts once per LearnedSkill bit that is set — three times
+// over for a TK/FM/BM carrying all of Confiança/Trans/Espada Mágica, exactly like
+// the damage lane. Dex/Int are read post-equipment (CurrentScore), which is why
+// refreshScore calls this after assigning e.Dex/e.Int.
+//
+// The truncation matches the original: `magic` is an int and the right-hand side a
+// double, so each addition truncates. Because `magic` is already integral that is
+// the same as truncating each term on its own.
+func (d *Dispatcher) classWeaponMagic(e *world.Entity) int32 {
+	if !isPlayerMob(e) {
+		return 0
+	}
+	weapon := e.Equip[weaponSlotR]
+	if weapon.Empty() {
+		return 0
+	}
+	table := classMagicTable(e.Class)
+	if table == nil {
+		return 0
+	}
+	nUnique := d.itemUnique[int(weapon.Index)]
+	nPos := d.itemPos[int(weapon.Index)]
+
+	var perBit int32
+	for _, w := range table {
+		key := nUnique
+		if w.byPos {
+			key = nPos
+		}
+		if key != w.key {
+			continue
+		}
+		perBit += int32((float64(e.Dex)*w.dexK + float64(e.Int)*w.intK) / 100)
+	}
+	if perBit == 0 {
+		return 0
+	}
+
+	var total int32
+	for _, bit := range classSkillBits(e.Class) {
+		if e.LearnedSkill&(1<<bit) == 0 {
+			continue
+		}
+		total += perBit
 	}
 	return total
 }

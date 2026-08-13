@@ -1924,12 +1924,8 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
-	// Magic (mount bonus + ordinary equipment's EF_MAGIC/EF_MAGICADD): same subtraction
-	// as the fields above so the loaded CurrentScore round-trips.
-	e.BaseMagic = e.Magic - int16(mountMagicScore(b.magicRaw))
-	// Parry/Resist have NO base term at all — see refreshScore's comment: unlike Magic,
-	// they are never persisted, so a subtract-then-add "Base" here would net to zero for
-	// a character who logs in already equipped (issue #211 bug 3).
+	// Magic/Parry/Resist have no BaseScore term in the legacy. refreshScore derives
+	// them entirely from current equipment instead of subtracting the login value.
 }
 
 // refreshScore recomputes the live CurrentScore = BaseScore + FLAT equipment, after any
@@ -1964,19 +1960,17 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	// (The low clamp is belt-and-braces: no catalog row carries negative crit, but a
 	// bare uint8 conversion would wrap one into a near-guaranteed crit.)
 	e.Critical = uint8(min(max(b.criticalRaw/4, 0), 255))
-	// Magic gets the (sum+1)/4 scaling over mount + ordinary-equipment magic combined
-	// (equipBonus.magicRaw) and keeps a BaseMagic term since it IS persisted. Parry
-	// (evasion) and each Resist are derived ENTIRELY from equipment on every refresh,
-	// like Critical above — there is no BaseParry/BaseResist, because
-	// neither is persisted (world.CharacterState omits them), so a character logging in
-	// already equipped would otherwise always compute Base = 0 − equip, then
-	// Current = Base + equip = 0 regardless of gear (issue #211 bug 3). Resist is capped
+	// Magic gets the (sum+1)/4 equipment scaling plus the class/weapon Dex+Int term.
+	// Magic, Parry (evasion), and each Resist are derived ENTIRELY from equipment on
+	// every refresh, like Critical above: the legacy has no BaseScore fields for them.
+	// Treating a zero-valued persisted Magic as a base would cancel the equipped bonus
+	// on login (issue #231). Resist is capped
 	// at the legacy ceiling (CMob.cpp:640-643,692). Mounts live only in a player's
 	// Equip[14]; mobs carry their Magic/Parry/Resist straight from their template
 	// (world.SpawnMob) and never derive a BaseScore, so recomputing them here would zero
 	// those template values — guard to players.
 	if world.IsPlayer(e.ID) {
-		e.Magic = e.BaseMagic + int16(mountMagicScore(b.magicRaw))
+		e.Magic = clampInt16(mountMagicScore(b.magicRaw) + d.classWeaponMagic(e))
 		e.Parry = int(b.parry)
 		for i := range e.Resist {
 			e.Resist[i] = clampResist(int16(b.resist) + int16(b.itemResist[i]))
