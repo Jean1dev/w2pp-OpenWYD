@@ -99,13 +99,19 @@ func TestAffectDurationPolicy(t *testing.T) {
 		{"long buff, special 226", prod, 150, 0, 326, 73}, // 9m44
 		{"long buff, special 255", prod, 150, 0, 355, 75}, // capped at 10m
 		{"long buff, special 400", prod, 150, 0, 500, 75}, // capped at 10m
-		// Escudo Dourado (85): raw 30 → 7. The short tail is what the ÷8 of
-		// issue #92 destroyed (issue #236); the floor holds it at 64s flat.
-		{"short buff, no mastery", prod, 7, 0, 100, 8},
-		{"short buff, special 400", prod, 7, 0, 500, 8},
+		// Escudo Dourado (85): raw 30 → 7. Its legacy duration already fits under
+		// the cap, so it keeps the legacy mastery curve instead of being scaled
+		// into the floor — the second half of issue #236.
+		{"short buff, no mastery", prod, 7, 0, 100, 8},   // 64s (floored)
+		{"short buff, special 100", prod, 7, 0, 200, 16}, // 2m08, scaling again
+		{"short buff, special 400", prod, 7, 0, 500, 40}, // 5m20
 		// Enfraquecer (51): raw 5 → 1, aggressive. The floor must NOT apply, or
 		// the tuning would LENGTHEN a debuff.
 		{"short debuff is not floored", prod, 1, 1, 100, 1},
+		// …and neither may the target-band bypass: a hostile affect stays on the
+		// flat scale even though its legacy duration sits far under the cap.
+		// Perseguição (16) at the Special cap is 5 legacy ticks, kept at 1.
+		{"short debuff is still scaled", prod, 0, 1, 500, 1},
 		// Zero value = legacy formula, untouched.
 		{"zero value is legacy", AffectDuration{}, 150, 0, 500, 755},
 		{"scale 100 is legacy", AffectDuration{ScalePct: 100}, 150, 0, 500, 755},

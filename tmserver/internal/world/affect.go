@@ -126,23 +126,44 @@ const (
 // Only affects installed by a cast pass through here. Item, mount, cash-jewel and
 // Divine affects write Entity.Affect directly with their own intentional
 // durations (7/30 days, 1 h) and are untouched.
+//
+// The scale is deliberately NOT uniform: it only touches what the policy exists
+// to cut. See withinTargetBand — a first cut applied ScalePct to everything and
+// crushed the short tail of SkillData.csv into MinTicks, which is what issue #236
+// kept reporting from the other direction.
 type AffectDuration struct {
-	// ScalePct scales the legacy tick count. 0 or 100 leaves it alone.
+	// ScalePct scales the legacy tick count. 0 or 100 leaves it alone. It applies
+	// only OUTSIDE the target band (see withinTargetBand).
 	ScalePct int
-	// MinTicks floors the result for NON-aggressive affects only. Short friendly
-	// buffs (Escudo Dourado's raw AffectTime is 30, vs 600 for the long ones)
-	// would otherwise scale down to nothing. Hostile affects are excluded so the
-	// floor cannot LENGTHEN a short debuff like Enfraquecer (raw 5).
+	// MinTicks floors the result for NON-aggressive affects only, so the very
+	// shortest friendly buffs (raw AffectTime 1-15) stay usable. Hostile affects
+	// are excluded so the floor cannot LENGTHEN a short debuff like Enfraquecer
+	// (raw 5).
 	MinTicks int
 	// MaxTicks caps the result, cutting the mastery tail that no base-side
-	// tuning could reach.
+	// tuning could reach. It doubles as the edge of the target band.
 	MaxTicks int
+}
+
+// withinTargetBand reports whether the LEGACY duration already fits the band the
+// policy targets, in which case there is nothing to cut and the legacy mastery
+// curve is kept as-is.
+//
+// Only friendly affects qualify. Hostile crowd-control length (Perseguição,
+// Lâmina Congelante, Nevasca, Conexão de Gelo — all raw AffectTime 1-3) is a
+// separate balance question nobody has filed, and letting the bypass reach it
+// would silently multiply freeze durations by up to 5x. Same restriction the
+// MinTicks floor already carries, for the same reason.
+//
+// With MaxTicks unset there is no band to be inside of, so nothing is exempt.
+func (d AffectDuration) withinTargetBand(ticks, aggressive int) bool {
+	return aggressive == 0 && d.MaxTicks > 0 && ticks <= d.MaxTicks
 }
 
 // scale applies the policy to a legacy tick count. A landed affect never becomes
 // 0 ticks — that would install a buff the very next sweep deletes.
 func (d AffectDuration) scale(ticks, aggressive int) int {
-	if d.ScalePct > 0 && d.ScalePct != 100 {
+	if d.ScalePct > 0 && d.ScalePct != 100 && !d.withinTargetBand(ticks, aggressive) {
 		ticks = ticks * d.ScalePct / 100
 	}
 	if d.MaxTicks > 0 && ticks > d.MaxTicks {
