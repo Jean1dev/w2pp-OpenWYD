@@ -462,6 +462,30 @@ func TestParseSkillDataDividesAffectTime(t *testing.T) {
 	}
 }
 
+// TestParseSkillDataUsesLegacyAffectTimeDivisor pins the uniform legacy loader
+// behavior. Duration tuning belongs to world.AffectDuration at cast time, so
+// both the short shield row and an otherwise identical row load with ÷4.
+func TestParseSkillDataUsesLegacyAffectTimeDivisor(t *testing.T) {
+	const (
+		shield = "85,90,0,120,5,0,0,0,0,0,31,150,30,anim.a,anim.b,0,0,0,1,0,0,0,Explosao_Eterea"
+		other  = "84,90,0,120,5,0,0,0,0,0,31,150,30,anim.a,anim.b,0,0,0,1,0,0,0,Outra"
+	)
+	s, err := parseSkillData(strings.NewReader(shield + "\n" + other))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.Get(85)
+	if !ok {
+		t.Fatal("skill 85 missing after parse")
+	}
+	if got.AffectTime != 7 {
+		t.Errorf("skill 85 AffectTime = %d, want 7 (30÷4, legacy divisor)", got.AffectTime)
+	}
+	if got, ok := s.Get(84); !ok || got.AffectTime != 7 {
+		t.Errorf("skill 84 AffectTime = %d (ok=%v), want 7 (30÷4)", got.AffectTime, ok)
+	}
+}
+
 func TestSkillKindAndClass(t *testing.T) {
 	tests := []struct{ index, kind, class int }{
 		{0, 1, 0},   // TK tree 1

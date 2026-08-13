@@ -54,6 +54,15 @@ artifacts/
 *.obj
 *.pch
 *.pdb
+Release/DBsrv/run/DBSrv.exe
+Release/DBsrv/run/EDITAPPMOB.exe
+Release/TMsrv/run/TMSrv.exe
+Release/TMsrv/run/boss/TMSrv.exe
+Release/TMsrv/run/DropTool.exe
+Release/TMsrv/run/EDITAPPMOB.exe
+Release/TMsrv/run/EDITAPPSHOP.exe
+Release/TMsrv/run/NPTool.exe
+Source/Code/ClientPatch_v7662/3da_extra9.dll
 *.pgc
 *.pgd
 *.rsp

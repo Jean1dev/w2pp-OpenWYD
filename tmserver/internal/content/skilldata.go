@@ -90,8 +90,8 @@ func (s *SkillData) Len() int { return len(s.skills) }
 
 // LoadSkillData reads SkillData.csv exactly as BASE_InitializeSkill: the index
 // comes from column 0 (NOT the row number — indexes are sparse past 149), rows
-// with index outside [0,MaxSkillIndex) are skipped, and AffectTime is divided
-// by 4 after parsing.
+// with index outside [0,MaxSkillIndex) are skipped, and AffectTime is scaled
+// after parsing (÷4, matching the legacy loader).
 func LoadSkillData(path string) (*SkillData, error) {
 	f, err := os.Open(path)
 	if err != nil {

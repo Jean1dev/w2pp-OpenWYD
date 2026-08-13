@@ -16,10 +16,9 @@ package mobtemplates
 import (
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"sort"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
@@ -32,39 +31,24 @@ type File struct {
 }
 
 // Scan reads every file in <contentDir>/TMsrv/run/npc/ and decodes it as a
-// STRUCT_MOB, sorted by TemplateName. A file that isn't a valid 816-byte
-// STRUCT_MOB is logged and skipped rather than failing the whole scan — the
-// npc/ directory can contain non-template files.
-func Scan(contentDir string, logger *slog.Logger) ([]File, error) {
-	dir := filepath.Join(contentDir, "TMsrv", "run", "npc")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("mobtemplates: read %s: %w", dir, err)
-	}
-
+// STRUCT_MOB in any layout savefmt knows (816 canonical plus the legacy 756/920
+// forms — data-formats.md §1.4.1), sorted by TemplateName. A file that isn't a
+// STRUCT_MOB at all is counted in the returned stats rather than failing the
+// whole scan — the npc/ directory can contain non-template files. Callers log
+// the stats once instead of warning per file.
+func Scan(contentDir string, logger *slog.Logger) ([]File, npctemplate.ScanStats, error) {
 	var out []File
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		b, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			logger.Warn("mob template read failed", "name", name, "err", err)
-			continue
-		}
-		mob, err := savefmt.DecodeMob(b)
-		if err != nil {
-			logger.Warn("mob template decode failed", "name", name, "err", err)
-			continue
-		}
+	stats, err := npctemplate.ScanDir(contentDir, logger, func(name string, mob savefmt.Mob) {
 		out = append(out, File{
 			TemplateName: name,
 			DisplayName:  npctemplates.CString(mob.Name[:]),
 			Merchant:     mob.CurrentScore.Merchant,
 		})
+	})
+	if err != nil {
+		return nil, stats, fmt.Errorf("mobtemplates: %w", err)
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].TemplateName < out[j].TemplateName })
-	return out, nil
+	return out, stats, nil
 }

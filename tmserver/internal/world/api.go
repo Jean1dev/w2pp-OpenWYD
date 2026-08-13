@@ -108,6 +108,16 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 		AttackRun: b.AttackRun,
 		X:         x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
+		// A mob's BaseScore must be seeded too, not just the CurrentScore above:
+		// handler.refreshScore runs on mobs as well (any skill that lands an affect
+		// on one recomputes its score) and rebuilds CurrentScore as BaseScore +
+		// equipment — with a zero BaseScore that wipes the template's AC, damage,
+		// attributes and MaxHP, and the MaxHP clamp then drops the mob's HP to 0.
+		// The template's score IS the equipment-free base: EDITAPPMOB writes
+		// CurrentScore = BaseScore on save (see internal/domain.MobTemplateStat), and
+		// BASE_GetCurrentScore adds the equipment on top at runtime (CMob.cpp:709).
+		BaseAC: b.Ac, BaseDamage: b.Damage, BaseMaxHP: b.MaxHp,
+		BaseStr: b.Str, BaseInt: b.Int, BaseDex: b.Dex, BaseCon: b.Con,
 		Template:  template, // retained for runtime respawn (world/respawn.go)
 		RouteType: sp.RouteType, SegListX: sp.SegX, SegListY: sp.SegY, SegWait: sp.SegWait,
 		GenIndex: sp.GenIndex,

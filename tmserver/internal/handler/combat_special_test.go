@@ -708,6 +708,47 @@ func TestApplyCastAffectAggressiveSkipsAllies(t *testing.T) {
 	}
 }
 
+// TestEscudoDouradoAffectDuration pins the landed duration of Escudo Dourado
+// (skill 85 → affect 31) after issue #236 restored the legacy ÷4 for that row:
+// SetAffect stores (AffectTime+1)*(100+Special)/100 ticks and the sweep burns
+// one tick every affectTickPeriod seconds of real time. With AffectTime 7 that
+// is 64 s unbuffed and 5m20 at the Special cap — twice the 32 s…2m40 the
+// uniform ÷8 produced (raw 30 truncating to 3 instead of 7).
+func TestEscudoDouradoAffectDuration(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	// Skill 85 as the Release CSV yields it through the content loader.
+	shield := content.Spell{Index: 85, ManaSpent: 120, Delay: 5, AffectType: 31,
+		AffectValue: 150, AffectTime: 7, MaxTarget: 1}
+
+	cases := []struct {
+		special   int
+		wantTicks uint32
+		wantSecs  int
+	}{
+		{0, 8, 64},
+		{100, 16, 128},
+		{400, 40, 320},
+	}
+	for _, tt := range cases {
+		e := &world.Entity{ID: 1, Class: 3}
+		d.applyCastAffect(w, e, e, e.ID, castInfo{isSkill: true, special: tt.special, spell: shield})
+
+		var got uint32
+		for _, af := range e.Affect {
+			if af.Type == 31 {
+				got = af.Time
+			}
+		}
+		if got != tt.wantTicks {
+			t.Errorf("Special %d: Affect.Time = %d ticks, want %d", tt.special, got, tt.wantTicks)
+		}
+		if secs := int(got) * affectTickPeriod; secs != tt.wantSecs {
+			t.Errorf("Special %d: duration = %ds, want %ds", tt.special, secs, tt.wantSecs)
+		}
+	}
+}
+
 func TestValidateSkillTargetCommonGates(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 32}, slog.Default(), nil, nil)

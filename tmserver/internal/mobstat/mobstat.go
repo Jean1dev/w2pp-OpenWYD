@@ -52,10 +52,12 @@ type Override struct {
 // authoritative like npccfg's shop overlay: slots not listed in ov.Equip are
 // cleared, not left at the template's original values — a moderator emptying
 // the equip editor means "no equipment", not "keep whatever was there".
-// template must already be a valid MobSize blob (the loader validates this at
-// content-load time); a corrupt template is returned unchanged.
+// template is normally already a canonical MobSize blob (npctemplate.Load
+// widens the legacy layouts at content-load time), but the legacy 756/920-byte
+// forms are accepted here too so an override never silently degrades to a
+// no-op; the result is always MobSize. A corrupt template is returned unchanged.
 func Apply(template []byte, ov Override) []byte {
-	mob, err := savefmt.DecodeMob(template)
+	mob, _, err := savefmt.DecodeMobAny(template)
 	if err != nil {
 		return template
 	}

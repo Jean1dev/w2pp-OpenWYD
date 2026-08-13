@@ -20,6 +20,16 @@ func mobBytes(name string, merchant byte) []byte {
 	return b
 }
 
+// legacyMobBytes builds a template in the legacy layout (data-formats.md
+// §1.4.1), where CurrentScore starts at 64 and its Merchant byte is at 64+6.
+// size selects the plain 756-byte form or the 920-byte padded one.
+func legacyMobBytes(name string, merchant byte, size int) []byte {
+	b := make([]byte, size)
+	copy(b[0:16], name)
+	b[64+6] = merchant
+	return b
+}
+
 func mobBytesWithGrade(name string, merchant, grade byte) []byte {
 	b := mobBytes(name, merchant)
 	b[140+2] = 100
@@ -47,18 +57,25 @@ func TestScanFiltersToSupportedTemplates(t *testing.T) {
 	write("BlackOracle", mobBytes("BlackOracle", 78))
 	write("Perzen", mobBytesWithGrade("Perzen", 100, 10))
 	write("Perzen_Normal", mobBytesWithGrade("Perzen_Normal", 100, 7))
-	write("Broken", []byte{1, 2, 3}) // wrong size, must be skipped, not fatal
+	// Custom shops shipped in the legacy layouts (Armas[D], XTS_Store, …) are
+	// merchants the picker must offer — they used to be dropped (issue #244).
+	write("Armas_D", legacyMobBytes("Armas[D]", 1, savefmt.MobSizeLegacy756))
+	write("PaddedCargo", legacyMobBytes("PaddedCargo", 2, savefmt.MobSizeLegacy756Padded))
+	write("LegacyMonster", legacyMobBytes("LegacyMonster", 0, savefmt.MobSizeLegacy756))
+	write("Broken", []byte{1, 2, 3}) // not a template at all: counted, not fatal
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	got, err := Scan(dir, logger)
+	got, stats, err := Scan(dir, logger)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
 
 	want := []Template{
 		{TemplateName: "AkeMerchant", DisplayName: "Ake", Merchant: 19},
+		{TemplateName: "Armas_D", DisplayName: "Armas[D]", Merchant: 1},
 		{TemplateName: "CargoGuard", DisplayName: "Cargo", Merchant: 2},
 		{TemplateName: "HekalMerchant", DisplayName: "Hekal", Merchant: 1},
+		{TemplateName: "PaddedCargo", DisplayName: "PaddedCargo", Merchant: 2},
 		{TemplateName: "Perzen_Normal", DisplayName: "Perzen_Normal", Merchant: 100},
 	}
 	if len(got) != len(want) {
@@ -68,6 +85,12 @@ func TestScanFiltersToSupportedTemplates(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("templates[%d] = %+v, want %+v", i, got[i], want[i])
 		}
+	}
+	// The curated filter still drops non-merchants; the stats count every file
+	// that decoded, filtered or not.
+	if stats.Total() != 12 || stats.Current816 != 8 || stats.Legacy756 != 2 ||
+		stats.Legacy756Padded != 1 || stats.Rejected != 1 {
+		t.Errorf("stats = %+v, want 12 total / 8 current / 2 legacy / 1 padded / 1 rejected", stats)
 	}
 }
 
@@ -91,7 +114,7 @@ func TestScanKeepsOnlyCanonicalKingTemplates(t *testing.T) {
 	write("Rei_Glantuar", mobBytes("Rei_Glantuar", 111))
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	got, err := Scan(dir, logger)
+	got, _, err := Scan(dir, logger)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -112,7 +135,7 @@ func TestScanKeepsOnlyCanonicalKingTemplates(t *testing.T) {
 
 func TestScanMissingDirErrors(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if _, err := Scan(t.TempDir(), logger); err == nil {
+	if _, _, err := Scan(t.TempDir(), logger); err == nil {
 		t.Fatal("expected an error for a content dir with no TMsrv/run/npc")
 	}
 }
@@ -138,7 +161,7 @@ func TestScanDecodesLatin1Names(t *testing.T) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	got, err := Scan(dir, logger)
+	got, _, err := Scan(dir, logger)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}

@@ -13,10 +13,9 @@ package npctemplates
 import (
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"sort"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 )
 
@@ -44,45 +43,30 @@ type Template struct {
 }
 
 // Scan reads every file in <contentDir>/TMsrv/run/npc/, decodes it as a
-// STRUCT_MOB and keeps only the templates supported by the admin panel today,
-// sorted by TemplateName. A file that isn't a valid 816-byte STRUCT_MOB is
-// logged and skipped rather than failing the whole scan - the npc/ directory can
-// contain non-template files.
-func Scan(contentDir string, logger *slog.Logger) ([]Template, error) {
-	dir := filepath.Join(contentDir, "TMsrv", "run", "npc")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("npctemplates: read %s: %w", dir, err)
-	}
-
+// STRUCT_MOB in any layout savefmt knows (816 canonical plus the legacy 756/920
+// forms the shipped content mixes in — data-formats.md §1.4.1) and keeps only
+// the templates supported by the admin panel today, sorted by TemplateName. A
+// file that isn't a STRUCT_MOB at all is counted in the returned stats rather
+// than failing the whole scan — the npc/ directory can contain non-template
+// files. Callers log the stats once instead of warning per file.
+func Scan(contentDir string, logger *slog.Logger) ([]Template, npctemplate.ScanStats, error) {
 	var out []Template
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		b, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			logger.Warn("npc template read failed", "name", name, "err", err)
-			continue
-		}
-		mob, err := savefmt.DecodeMob(b)
-		if err != nil {
-			logger.Warn("npc template decode failed", "name", name, "err", err)
-			continue
-		}
+	stats, err := npctemplate.ScanDir(contentDir, logger, func(name string, mob savefmt.Mob) {
 		if !supportedTemplate(name, mob) {
-			continue
+			return
 		}
 		out = append(out, Template{
 			TemplateName: name,
 			DisplayName:  CString(mob.Name[:]),
 			Merchant:     int16(mob.CurrentScore.Merchant),
 		})
+	})
+	if err != nil {
+		return nil, stats, fmt.Errorf("npctemplates: %w", err)
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].TemplateName < out[j].TemplateName })
-	return out, nil
+	return out, stats, nil
 }
 
 func supportedTemplate(name string, mob savefmt.Mob) bool {

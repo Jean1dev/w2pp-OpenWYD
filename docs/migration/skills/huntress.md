@@ -56,3 +56,4 @@ Evidencia usa os codigos definidos em `README.md`.
 - Ilusao via movimento/Action3, MP e learned bit.
 - Imunidade, Meditacao, Evasao, Frost, Drain, ForceDamage, Soul e Invisibilidade atualizando score/RSV.
 - Skill 85 cobrando gold `100*Level` e aplicando affect 31; skill 86 sem custo especial de gold.
+- Duracao do affect 31 da skill 85 em `Special` 0/100/400 (8/16/40 ticks = 64 s/128 s/320 s).
