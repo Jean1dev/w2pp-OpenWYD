@@ -1368,6 +1368,14 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 	e.Level = 1
 	e.Exp = 0
 	e.CelLv40, e.CelLv90, e.CelCircle = 0, 0, 0
+	// _MSG_UseItem.cpp:3137 resets BaseScore.Damage during this conversion.
+	// Do it before refreshScore so the current session matches the next login.
+	e.BaseDamage = playerBaseDamage(e)
+	// BaseScore.Ac goes back to the Celestial baseline together with the level
+	// (_MSG_UseItem.cpp:3136) — without this the Arch's accumulated per-level AC
+	// would linger for the rest of the session and only snap back on the next
+	// login, when playerBaseAC re-derives it from the new tier and level.
+	e.BaseAC = playerBaseAC(e)
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.refreshScore(e)
@@ -1908,20 +1916,21 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	return b
 }
 
-// deriveBaseScore captures the equipment-free BaseScore from the loaded
-// CurrentScore (called once on login): base = current − equipBonus − derived
-// combat bonuses (attribute/class-weapon damage, skill AC). WeaponDamage is not
-// in the loaded CurrentScore, so it is not subtracted. After this, refreshScore
-// reproduces the loaded CurrentScore exactly until gear changes.
+// deriveBaseScore captures the equipment-free BaseScore on login. Persisted
+// Attributes, MaxHP/MaxMP and Magic recover their base by subtracting equipment;
+// after this,
+// refreshScore reproduces the loaded CurrentScore exactly until gear changes.
+//
+// AC and Damage are reconstructed because the DB contract omits them.
+// WeaponDamage remains separate.
 func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	b := d.equipBonus(e)
 	e.BaseStr = e.Str - b.str
 	e.BaseInt = e.Int - b.intel
 	e.BaseDex = e.Dex - b.dex
 	e.BaseCon = e.Con - b.con
-	flatAC := invertSkillACBonus(e, e.AC-b.ac)
-	e.BaseAC = flatAC
-	e.BaseDamage = e.Damage - b.damage - d.derivedDamageTotal(e, false)
+	e.BaseAC = playerBaseAC(e)
+	e.BaseDamage = playerBaseDamage(e)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 	// Magic/Parry/Resist have no BaseScore term in the legacy. refreshScore derives

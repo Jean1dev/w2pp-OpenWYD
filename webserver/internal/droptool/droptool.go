@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 )
@@ -170,13 +171,16 @@ func init() {
 	}
 }
 
-// Scan reads <contentDir>/Common/ItemList.csv and <contentDir>/TMsrv/run/npc/.
-// Invalid non-STRUCT_MOB files are logged and skipped, matching the existing
+// Scan reads <contentDir>/Common/ItemList.csv and <contentDir>/TMsrv/run/npc/,
+// accepting every STRUCT_MOB layout savefmt knows (816 canonical plus the
+// legacy 756/920 forms — data-formats.md §1.4.1). Files that are not templates
+// at all are counted in the returned stats and skipped, matching the existing
 // content scanners used by the moderator UI.
-func Scan(contentDir string, logger *slog.Logger, opts Options) (Catalog, error) {
+func Scan(contentDir string, logger *slog.Logger, opts Options) (Catalog, npctemplate.ScanStats, error) {
+	var stats npctemplate.ScanStats
 	items, err := itemcatalog.Scan(contentDir)
 	if err != nil {
-		return Catalog{}, fmt.Errorf("droptool: item catalog: %w", err)
+		return Catalog{}, stats, fmt.Errorf("droptool: item catalog: %w", err)
 	}
 
 	itemByIndex := make(map[int32]string, len(items))
@@ -186,31 +190,11 @@ func Scan(contentDir string, logger *slog.Logger, opts Options) (Catalog, error)
 		out.Items = append(out.Items, ItemEntry{Index: item.Index, Name: item.Name})
 	}
 
-	npcDir := filepath.Join(contentDir, "TMsrv", "run", "npc")
-	entries, err := os.ReadDir(npcDir)
-	if err != nil {
-		return Catalog{}, fmt.Errorf("droptool: read %s: %w", npcDir, err)
-	}
-
 	knownItems := make(map[int32]bool, len(out.Items))
 	for _, item := range out.Items {
 		knownItems[item.Index] = true
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		templateName := entry.Name()
-		b, err := os.ReadFile(filepath.Join(npcDir, templateName))
-		if err != nil {
-			logger.Warn("drop template read failed", "name", templateName, "err", err)
-			continue
-		}
-		mob, err := savefmt.DecodeMob(b)
-		if err != nil {
-			logger.Warn("drop template decode failed", "name", templateName, "err", err)
-			continue
-		}
+	stats, err = npctemplate.ScanDir(contentDir, logger, func(templateName string, mob savefmt.Mob) {
 		mobName := cString(mob.Name[:])
 		mobEntry := MobEntry{
 			TemplateName: templateName,
@@ -239,6 +223,9 @@ func Scan(contentDir string, logger *slog.Logger, opts Options) (Catalog, error)
 				out.Items = append(out.Items, ItemEntry{Index: itemIndex, Name: itemName})
 			}
 		}
+	})
+	if err != nil {
+		return Catalog{}, stats, fmt.Errorf("droptool: %w", err)
 	}
 
 	sort.Slice(out.Items, func(i, j int) bool { return out.Items[i].Index < out.Items[j].Index })
@@ -255,7 +242,7 @@ func Scan(contentDir string, logger *slog.Logger, opts Options) (Catalog, error)
 		}
 		return a.Slot < b.Slot
 	})
-	return out, nil
+	return out, stats, nil
 }
 
 // ListDropItems returns the item-centric report. By default it includes only

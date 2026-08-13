@@ -15,6 +15,20 @@ import (
 // (AFFECT_1H = 450 ticks × 8s = 3600s, Basedef.h:267).
 const affectTickPeriod = 8
 
+// AffectTicksFromSeconds converts a real-time duration to affect ticks, rounding
+// UP so a configured floor is never undershot by the integer division. Exported
+// because the tmServer wiring expresses the issue #229 duration policy in the
+// units the player actually reads off the buff bar (seconds/minutes), not ticks.
+func AffectTicksFromSeconds(sec int) int {
+	if sec <= 0 {
+		return 0
+	}
+	return (sec + affectTickPeriod - 1) / affectTickPeriod
+}
+
+// AffectTicksFromMinutes is AffectTicksFromSeconds for whole minutes.
+func AffectTicksFromMinutes(mins int) int { return AffectTicksFromSeconds(mins * 60) }
+
 // affectInfiniteTime mirrors world.affectInfiniteTime for the sweep guard
 // (Server.cpp:5832): timers at/above it (the Divine slot) never count down.
 const affectInfiniteTime = 32400000

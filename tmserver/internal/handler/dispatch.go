@@ -35,6 +35,11 @@ type Config struct {
 	Log           *slog.Logger     // default slog.Default()
 	Now           func() time.Time // wall clock for calendar-gated guild ops
 
+	// AffectDuration tunes how long a CAST buff/debuff lasts (issue #229). The
+	// zero value is legacy-faithful; production defaults are set in
+	// cmd/tmserver/main.go. Item/cash/Divine affects never pass through it.
+	AffectDuration world.AffectDuration
+
 	// CombineFamilies overrides the per-Type combine recipe/rate logic. When nil,
 	// UNVERIFIED placeholders are installed (every recipe reports "no match").
 	CombineFamilies map[protocol.Type]CombineFamily
@@ -159,6 +164,7 @@ type Dispatcher struct {
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	now             func() time.Time             // wall clock for calendar-gated guild ops
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
+	affectDur       world.AffectDuration         // cast-affect duration tuning (issue #229)
 	serverIndex     int                          // legacy guild id high bits
 	guildZones      [5]world.GuildZone           // loop-owned city/guild-zone cache
 	taxChangedAt    [5]time.Time                 // day each zone's guildtax last changed (one change/day, lote2-chat.md)
@@ -280,6 +286,7 @@ func New(cfg Config) *Dispatcher {
 		spells:           cfg.Spells,
 		heights:          cfg.Heights,
 		now:              cfg.Now,
+		affectDur:        cfg.AffectDuration,
 		serverIndex:      cfg.ServerIndex,
 		guildWars:        make(map[uint16]uint16),
 		guildAllies:      make(map[uint16]uint16),

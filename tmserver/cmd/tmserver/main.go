@@ -26,6 +26,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/binclient"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
@@ -113,6 +114,13 @@ func run(logger *slog.Logger) error {
 	newbieEvent := flag.Bool("newbie-event", envBool("W2PP_NEWBIE_EVENT", false), "NewbieEventServer: +15% exp and newbie under-100 bonus (gameconfig)")
 	kefraLive := flag.Bool("kefra-live", envBool("W2PP_KEFRA_LIVE", false), "KefraLive: when false, PvE exp is halved (default legacy KefraLive=0)")
 	logSends := flag.Bool("log-sends", envBool("W2PP_LOG_SENDS", false), "log every S→C frame (conn/type/id/len) — client-freeze diagnostics (investigacao-freeze-cliente.md); high volume, enable only while reproducing an incident")
+	// Cast-buff duration tuning (issue #229). The legacy formula is
+	// (AffectTime+1)*(100+Special)/100 ticks of 8s, which puts an endgame character
+	// at 30-100 min per buff — reported as far too long three times over (#92, #202,
+	// #229). 100/0/0 restores the legacy durations exactly.
+	affectScalePct := flag.Int("affect-scale-pct", envInt("W2PP_AFFECT_SCALE_PCT", 15), "percent of the legacy cast-affect duration to keep (100 = legacy)")
+	affectMinSeconds := flag.Int("affect-min-seconds", envInt("W2PP_AFFECT_MIN_SECONDS", 60), "floor for NON-aggressive cast affects, in seconds; keeps the short buffs (e.g. Escudo Dourado) usable after the scale (0 = no floor)")
+	affectMaxMinutes := flag.Int("affect-max-minutes", envInt("W2PP_AFFECT_MAX_MINUTES", 10), "cap for cast affects, in minutes; cuts the mastery tail (0 = no cap)")
 	flag.Parse()
 
 	// Echo the effective wiring at boot: the client-version and the resolved
@@ -293,6 +301,11 @@ func run(logger *slog.Logger) error {
 		WorldEvents:     worldEvents,
 		CastleQuests:    castleQuests,
 		EventRNGSeed:    eventSeed,
+		AffectDuration: world.AffectDuration{
+			ScalePct: *affectScalePct,
+			MinTicks: handler.AffectTicksFromSeconds(*affectMinSeconds),
+			MaxTicks: handler.AffectTicksFromMinutes(*affectMaxMinutes),
+		},
 	})
 	w := world.New(world.Config{
 		RejectChecksum: *rejectChecksum,
@@ -392,13 +405,24 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		rawMerchant uint8
 	}
 	templates := make(map[string]loadedTemplate)
+	// stats records the on-disk layout of every referenced template so the boot
+	// log says how much of the catalog needed widening from the legacy 756/920
+	// forms, and how many blocks lost their template and why (issue #244 — the
+	// load error used to be discarded here, leaving a rejected template visible
+	// only as a name in the "NPC templates missing" sample).
+	var stats npctemplate.ScanStats
 	load := func(name string) loadedTemplate {
 		if name == "" {
 			return loadedTemplate{}
 		}
 		t, seen := templates[name]
 		if !seen {
-			if b, terr := content.LoadNPCTemplate(dir, name); terr == nil {
+			b, res, terr := npctemplate.Load(dir, name)
+			if terr != nil {
+				logger.Warn("npc template load failed", "npc", name, "err", terr)
+				stats.CountUnreadable()
+			} else {
+				stats.Count(res.Version)
 				t.rawMerchant = protocol.ParseMobBasics(b).Merchant
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
@@ -480,6 +504,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			"missing_follower_templates", len(missingFollowerNames),
 			"missing_follower_sample", sampleNames(missingFollowerNames, 10))
 	}
+	logger.Info("npc template catalog", "layouts", stats)
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
 		"merchant_blocks_skipped", skipped)
 }

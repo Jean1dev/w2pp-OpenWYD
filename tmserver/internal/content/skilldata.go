@@ -17,12 +17,17 @@ const (
 	MaxSkillIndex = 248
 )
 
-// affectTimeDivisor scales the raw column-12 AffectTime at load. The legacy
-// loader divides by 4 (Basedef.cpp:6708); this port uses 8 — a deliberate
-// server-tuning divergence from issue #92, where the ÷4 buff durations (up to
-// ~100 min at max mastery) were reported as far too long. ÷8 halves every
-// cast-skill affect duration uniformly.
-const affectTimeDivisor = 8
+// affectTimeDivisor scales the raw column-12 AffectTime at load, exactly as the
+// legacy loader does (Basedef.cpp:6708).
+//
+// This used to be 8 — the issue #92 attempt at shortening buff durations. That
+// knob sat in the wrong place: the division is INTEGER, so it cost the short tail
+// of the table far more than the intended half (raw 30 went 30/4=7 → 30/8=3,
+// −57%, which is what issue #236 reported), and it never touched the term that
+// actually dominates the duration, the (100+Special)/100 mastery multiplier. The
+// tuning now lives in one place, world.AffectDuration, applied when a CAST
+// installs the affect — see issue #229 and world/affect.go.
+const affectTimeDivisor = 4
 
 // Spell is one STRUCT_SPELL row of SkillData.csv (Basedef.h, loaded by
 // BASE_InitializeSkill, Basedef.cpp:6657). Field names match the struct; the
@@ -41,7 +46,7 @@ type Spell struct {
 	TickValue         int
 	AffectType        int // affect type applied by SetAffect
 	AffectValue       int
-	AffectTime        int // stored ÷affectTimeDivisor (÷8, issue #92; legacy ÷4)
+	AffectTime        int // stored ÷affectTimeDivisor, as the legacy loader does post-parse
 	InstanceAttribute int
 	TickAttribute     int
 	Aggressive        int // 1 = hostile (resist roll applies)
@@ -85,8 +90,8 @@ func (s *SkillData) Len() int { return len(s.skills) }
 
 // LoadSkillData reads SkillData.csv exactly as BASE_InitializeSkill: the index
 // comes from column 0 (NOT the row number — indexes are sparse past 149), rows
-// with index outside [0,MaxSkillIndex) are skipped, and AffectTime is divided
-// by 4 after parsing.
+// with index outside [0,MaxSkillIndex) are skipped, and AffectTime is scaled
+// after parsing (÷4, matching the legacy loader).
 func LoadSkillData(path string) (*SkillData, error) {
 	f, err := os.Open(path)
 	if err != nil {

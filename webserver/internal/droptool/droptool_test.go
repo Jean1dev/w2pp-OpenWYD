@@ -44,6 +44,26 @@ func writeMob(t *testing.T, dir, fileName string, name []byte, level int32, carr
 	}
 }
 
+// writeLegacyMob is writeMob for the legacy layout (data-formats.md §1.4.1):
+// CurrentScore at 64 with a 16-bit Level, and Carry[] at 220. size selects the
+// plain 756-byte record or the 920-byte padded one.
+func writeLegacyMob(t *testing.T, dir, fileName string, name []byte, level int16, carries map[int]int16, size int) {
+	t.Helper()
+	npcDir := filepath.Join(dir, "TMsrv", "run", "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b := make([]byte, size)
+	copy(b[0:16], name)
+	binary.LittleEndian.PutUint16(b[64:], uint16(level))
+	for slot, index := range carries {
+		binary.LittleEndian.PutUint16(b[220+slot*savefmt.ItemSize:], uint16(index))
+	}
+	if err := os.WriteFile(filepath.Join(npcDir, fileName), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func writeBrokenMob(t *testing.T, dir, fileName string) {
 	t.Helper()
 	npcDir := filepath.Join(dir, "TMsrv", "run", "npc")
@@ -69,7 +89,7 @@ func TestScanBuildsItemAndMobViews(t *testing.T) {
 	writeMob(t, dir, "Beta", []byte("Beta"), 41, map[int]int16{0: 1000})
 	writeBrokenMob(t, dir, "Broken")
 
-	catalog, err := Scan(dir, testLogger(), Options{})
+	catalog, _, err := Scan(dir, testLogger(), Options{})
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -97,6 +117,53 @@ func TestScanBuildsItemAndMobViews(t *testing.T) {
 	}
 }
 
+// TestScanIncludesLegacyLayouts covers the drop-catalog half of issue #244: the
+// 756/920-byte templates carry real Carry[] tables, and dropping them left
+// their loot invisible in the report.
+func TestScanIncludesLegacyLayouts(t *testing.T) {
+	dir := t.TempDir()
+	writeItemList(t, dir,
+		[]byte("1000,Adaga,0"),
+		[]byte("1001,Espada,0"),
+	)
+	writeMob(t, dir, "Alpha", []byte("Alpha"), 37, map[int]int16{0: 1000})
+	writeLegacyMob(t, dir, "Legacy", []byte("Legacy"), 399, map[int]int16{0: 1000, 8: 1001}, savefmt.MobSizeLegacy756)
+	writeLegacyMob(t, dir, "Padded", []byte("Padded"), 444, map[int]int16{0: 1001}, savefmt.MobSizeLegacy756Padded)
+	writeBrokenMob(t, dir, "Broken")
+
+	catalog, stats, err := Scan(dir, testLogger(), Options{})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if stats.Total() != 4 || stats.Current816 != 1 || stats.Legacy756 != 1 ||
+		stats.Legacy756Padded != 1 || stats.Rejected != 1 {
+		t.Errorf("stats = %+v, want 4 total / 1 current / 1 legacy / 1 padded / 1 rejected", stats)
+	}
+
+	mobs := catalog.ListMobDrops(Filter{})
+	if len(mobs) != 3 {
+		t.Fatalf("mobs = %+v, want Alpha, Legacy and Padded", mobs)
+	}
+	byName := make(map[string]MobDropEntry, len(mobs))
+	for _, m := range mobs {
+		byName[m.TemplateName] = m
+	}
+	legacy, ok := byName["Legacy"]
+	if !ok {
+		t.Fatalf("Legacy template missing from %+v", mobs)
+	}
+	if legacy.MobName != "Legacy" || legacy.MobLevel != 399 || len(legacy.Items) != 2 {
+		t.Errorf("Legacy = %+v, want level 399 with two drops", legacy)
+	}
+	padded, ok := byName["Padded"]
+	if !ok {
+		t.Fatalf("Padded template missing from %+v", mobs)
+	}
+	if padded.MobLevel != 444 || len(padded.Items) != 1 {
+		t.Errorf("Padded = %+v, want level 444 with one drop", padded)
+	}
+}
+
 func TestScanExclusionsAndZeroDropItems(t *testing.T) {
 	dir := t.TempDir()
 	writeItemList(t, dir,
@@ -106,7 +173,7 @@ func TestScanExclusionsAndZeroDropItems(t *testing.T) {
 	)
 	writeMob(t, dir, "Alpha", []byte("Alpha"), 37, map[int]int16{0: 1000, 1: 1001})
 
-	catalog, err := Scan(dir, testLogger(), Options{
+	catalog, _, err := Scan(dir, testLogger(), Options{
 		Exclusions: []ExclusionRange{{From: 1001, To: 1001}},
 	})
 	if err != nil {
@@ -136,7 +203,7 @@ func TestFilters(t *testing.T) {
 	writeMob(t, dir, "Alpha", []byte("Alpha"), 37, map[int]int16{0: 1000, 8: 1001})
 	writeMob(t, dir, "Beta", []byte("Beta"), 41, map[int]int16{0: 1000})
 
-	catalog, err := Scan(dir, testLogger(), Options{})
+	catalog, _, err := Scan(dir, testLogger(), Options{})
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -164,7 +231,7 @@ func TestScanDecodesLatin1Names(t *testing.T) {
 	)
 	writeMob(t, dir, "Dragao", []byte{'D', 'r', 'a', 'g', 0xE3, 'o'}, 12, map[int]int16{0: 1000})
 
-	catalog, err := Scan(dir, testLogger(), Options{})
+	catalog, _, err := Scan(dir, testLogger(), Options{})
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -202,7 +269,7 @@ func TestLoadExclusions(t *testing.T) {
 }
 
 func TestScanMissingInputsError(t *testing.T) {
-	if _, err := Scan(t.TempDir(), testLogger(), Options{}); err == nil {
+	if _, _, err := Scan(t.TempDir(), testLogger(), Options{}); err == nil {
 		t.Fatal("expected error for content dir without ItemList.csv")
 	}
 }

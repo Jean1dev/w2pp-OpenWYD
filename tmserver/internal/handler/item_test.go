@@ -439,7 +439,17 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
 	send(t, c, protocol.MsgUseItem, body.Encode())
 
-	expect(t, c, protocol.MsgSendItem)        // Pedra Ideal removed from carry
+	expect(t, c, protocol.MsgSendItem) // Pedra Ideal removed from carry
+	ty, payload, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgUpdateScore {
+		t.Fatalf("got %#x ok=%v, want UpdateScore after Celestial conversion", ty, ok)
+	}
+	// The fixture has zero STR/DEX/Special and no damage-bearing gear. A fresh
+	// Celestial therefore has only its level term (1+MAX_LEVEL); the Mortal/Arch
+	// BaseScore.Damage=5 must have been reset before this score was emitted.
+	if want := level.MaxLevel + 1; scoreDamage(payload) != want {
+		t.Errorf("Celestial Damage = %d, want %d (zero base + level term)", scoreDamage(payload), want)
+	}
 	expect(t, c, protocol.MsgCombineComplete) // unlock signal
 	expect(t, c, protocol.MsgMotion)          // unlock emote
 
@@ -1200,8 +1210,8 @@ func TestRefreshScoreSpecial(t *testing.T) {
 	if e.Str != 80 {
 		t.Errorf("Str = %d, want 80 (round-trip stable)", e.Str)
 	}
-	if e.AC != 120 {
-		t.Errorf("AC = %d, want 120 (round-trip stable)", e.AC)
+	if want := playerBaseAC(e); e.AC != want {
+		t.Errorf("AC = %d, want rebuilt base %d", e.AC, want)
 	}
 	if e.Special[1] != 15 {
 		t.Errorf("Special[1] = %d, want 15", e.Special[1])

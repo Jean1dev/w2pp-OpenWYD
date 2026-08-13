@@ -13,6 +13,55 @@ const (
 	classMasterSCelestial  = 5
 )
 
+const (
+	baseACMortal         int32 = 4
+	baseACArch           int32 = 230
+	baseDamageChar       int32 = 5
+	baseDamageMortalArch       = baseDamageChar
+	baseDamageCelestial  int32 = 0
+)
+
+// playerBaseDamage reconstructs the equipment-free BaseScore.Damage omitted by
+// api/db/v1.Character. Mortal and Arch characters inherit 5 from the four
+// BaseMob templates (DBSrv/CFileDB.cpp:981-993,1552-1577); the Pedra Ideal
+// conversion explicitly resets it to 0 (_MSG_UseItem.cpp:3137), which also
+// applies to the subsequent Celestial tiers.
+func playerBaseDamage(e *world.Entity) int32 {
+	switch e.ClassMaster {
+	case classMasterCelestial, classMasterCelestialCS, classMasterSCelestial:
+		return baseDamageCelestial
+	default:
+		// ClassMaster 0 is the pre-persistence compatibility value and is treated
+		// as Mortal by completeCharacterLogin.
+		return baseDamageMortalArch
+	}
+}
+
+// playerBaseAC reproduces BaseScore.Ac without persisting it. In the legacy the
+// field is only ever written on creation (the per-tier baseline above) and on
+// level-up, +1 per level for every tier (CMob.cpp:1133,1145,1150) — so it is a
+// pure function of (tier, level). The Celestial turn resets the level to 1
+// together with the baseline (_MSG_UseItem.cpp:3136 + handler.useIdealStone), so
+// the same "baseline + (level−1)" holds for all three creation paths.
+//
+// This derivation exists because the DB contract carries no AC: api/db/v1
+// Character has no `ac` field, so a login always reads CurrentScore.Ac == 0 and
+// the old "base = current − equipment" subtraction produced a NEGATIVE base —
+// defense read ~0 while geared and went negative on unequip (issue #232).
+//
+// CAUTION: if the Arch quest crystals (+30/+20 BaseScore.Ac,
+// _MSG_UseItem.cpp:3412-3421, not ported) are ever implemented, this stops being
+// sufficient and BaseScore.Ac has to become a persisted column.
+func playerBaseAC(e *world.Entity) int32 {
+	base := baseACArch
+	// ClassMaster == 0 means "never persisted" and is treated as MORTAL, the same
+	// convention completeCharacterLogin applies before this runs (character.go).
+	if e.ClassMaster == classMasterMortal || e.ClassMaster == 0 {
+		base = baseACMortal
+	}
+	return base + max(e.Level-1, 0)
+}
+
 type weaponCoef struct {
 	nUnique int
 	dexK    float64
@@ -277,18 +326,4 @@ func skillDerivedACBonus(e *world.Entity, flatAC int32) int32 {
 		bonus += int32(e.Special[3])/3 + 10
 	}
 	return bonus
-}
-
-func invertSkillACBonus(e *world.Entity, ac int32) int32 {
-	if e.Class == 0 && e.LearnedSkill&(1<<15) != 0 {
-		return ac * 10 / 11
-	}
-	if e.Class == 3 && e.LearnedSkill&(1<<23) != 0 {
-		return ac - (int32(e.Special[3])/3 + 10)
-	}
-	return ac
-}
-
-func (d *Dispatcher) derivedDamageTotal(e *world.Entity, withAffectSpecial bool) int32 {
-	return d.derivedDamageBeforeAffects(e) + attributeDamageBonus(e, withAffectSpecial)
 }
