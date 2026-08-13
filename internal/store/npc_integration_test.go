@@ -8,6 +8,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
@@ -133,5 +134,69 @@ func TestSeedNPCDefinitionsIdempotent(t *testing.T) {
 	}
 	if n != 0 {
 		t.Errorf("second seed inserted %d, want 0 (idempotent)", n)
+	}
+	// The shop items are re-queued on every pass and deduped by
+	// ON CONFLICT (npc_id, slot) DO NOTHING — assert the second pass did not
+	// double them, which the pipelined seed could otherwise hide.
+	var shopRows int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM npc_shop_item si
+		JOIN npc_definition d ON d.id = si.npc_id
+		WHERE d.slug = 'seed-int-1'`).Scan(&shopRows); err != nil {
+		t.Fatalf("count shop items: %v", err)
+	}
+	if shopRows != 1 {
+		t.Errorf("shop items for seed-int-1 = %d, want 1", shopRows)
+	}
+}
+
+// chunkGenBase keeps TestSeedNPCDefinitionsSpansBatchChunks' generator indices
+// clear of the ones the other tests in this package use.
+const chunkGenBase = 100000
+
+// TestSeedNPCDefinitionsSpansBatchChunks covers the chunk boundary of the
+// pipelined seed. Definition ids come back positionally per chunk and the shop
+// items are keyed off them, so an off-by-one at a chunk split would silently
+// attach a merchant's stock to the wrong NPC.
+func TestSeedNPCDefinitionsSpansBatchChunks(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	_, _ = pool.Exec(ctx, `DELETE FROM npc_shop_item; DELETE FROM npc_definition WHERE slug LIKE 'seed-chunk-%'`)
+
+	s := New(pool)
+	total := seedBatchChunk + 5
+	defs := make([]domain.NPCDefinition, total)
+	for i := range defs {
+		defs[i] = domain.NPCDefinition{
+			Slug: fmt.Sprintf("seed-chunk-%d", i), TemplateName: "A", Enabled: true,
+			// generator_index is globally unique, so offset well clear of any
+			// rows the other tests in this package leave behind.
+			Merchant: 1, GeneratorIndex: int32(chunkGenBase + i),
+			// item_index encodes the slug's ordinal so the pairing is checkable.
+			Shop: []domain.NPCShopItem{{Slot: 0, ItemIndex: int32(1000 + i), Quantity: 1}},
+		}
+	}
+
+	n, err := s.SeedNPCDefinitions(ctx, defs)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if n != total {
+		t.Fatalf("seed inserted %d, want %d", n, total)
+	}
+
+	var mismatched int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM npc_shop_item si
+		JOIN npc_definition d ON d.id = si.npc_id
+		WHERE d.slug LIKE 'seed-chunk-%'
+		  AND si.item_index <> 1000 + split_part(d.slug, '-', 3)::int`).Scan(&mismatched); err != nil {
+		t.Fatalf("check shop pairing: %v", err)
+	}
+	if mismatched != 0 {
+		t.Errorf("%d shop items landed on the wrong definition across the chunk split", mismatched)
 	}
 }

@@ -295,7 +295,6 @@ func (s *Store) DeleteNPCDefinition(ctx context.Context, npcID int64, moderatorI
 // audit (this is a system import, not moderator activity). Returns the number of
 // definitions actually inserted.
 func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinition) (int, error) {
-	inserted := 0
 	indices := make(map[int32]string, len(defs))
 	for _, d := range defs {
 		if previous, exists := indices[d.GeneratorIndex]; exists {
@@ -303,18 +302,63 @@ func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinit
 		}
 		indices[d.GeneratorIndex] = d.Slug
 	}
+	inserted := 0
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		for _, d := range defs {
+		ids, created, err := seedNPCRows(ctx, tx, defs)
+		if err != nil {
+			return err
+		}
+		if err := seedNPCShopRows(ctx, tx, defs, ids); err != nil {
+			return err
+		}
+		for _, isNew := range created {
+			if isNew {
+				inserted++
+			}
+		}
+		if len(defs) > 0 {
+			if _, err := tx.Exec(ctx, `UPDATE npc_config_meta SET version = version + 1 WHERE id = TRUE`); err != nil {
+				return fmt.Errorf("store: bump npc config version: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return inserted, nil
+}
+
+// seedBatchChunk bounds how many statements are pipelined per round trip. The
+// content catalog is ~550 definitions plus several thousand shop items, so
+// chunking keeps the client-side buffer bounded without giving up the
+// pipelining. See seedNPCRows for why the pipelining matters.
+const seedBatchChunk = 1000
+
+// seedNPCRows upserts every definition and returns, positionally, each row's id
+// and whether THIS call created it (`xmax = 0` distinguishes a fresh insert from
+// a conflict update — that is what SeedNPCDefinitions counts).
+//
+// The statements are pipelined with pgx.Batch rather than issued one at a time.
+// A round trip per row cost ~56s against the production database, and because
+// dbServer reconciles the catalog BEFORE it listens (dbserver/cmd/dbserver/main.go),
+// that time was spent with port 7514 closed — long enough for the tmServer to
+// exhaust its restart budget and crash-loop the deploy.
+func seedNPCRows(ctx context.Context, tx pgx.Tx, defs []domain.NPCDefinition) ([]int64, []bool, error) {
+	ids := make([]int64, len(defs))
+	created := make([]bool, len(defs))
+	for start := 0; start < len(defs); start += seedBatchChunk {
+		end := min(start+seedBatchChunk, len(defs))
+		batch := &pgx.Batch{}
+		for _, d := range defs[start:end] {
 			gd, marshalErr := json.Marshal(generatorJSON{
 				SegX: d.SegX, SegY: d.SegY, SegRange: d.SegRange, SegWait: d.SegWait,
 				FightAction: d.FightAction, DieAction: d.DieAction,
 			})
 			if marshalErr != nil {
-				return fmt.Errorf("store: encode generator %q: %w", d.Slug, marshalErr)
+				return nil, nil, fmt.Errorf("store: encode generator %q: %w", d.Slug, marshalErr)
 			}
-			var id int64
-			var created bool
-			err := tx.QueryRow(ctx, `
+			batch.Queue(`
 				INSERT INTO npc_definition
 					(slug, template_name, display_name, enabled, map_id, pos_x, pos_y, route_type, merchant,
 					 origin, generator_index, follower_template, minute_generate, min_group, max_group, max_num_mob, formation, generator_data)
@@ -326,34 +370,71 @@ func (s *Store) SeedNPCDefinitions(ctx context.Context, defs []domain.NPCDefinit
 				RETURNING id, (xmax = 0)`,
 				d.Slug, d.TemplateName, d.DisplayName, d.Enabled, d.MapID, d.PosX, d.PosY, d.RouteType, d.Merchant,
 				d.GeneratorIndex, d.FollowerTemplate, d.MinuteGenerate, d.MinGroup, d.MaxGroup, d.MaxNumMob, d.Formation, gd,
-			).Scan(&id, &created)
-			if err != nil {
-				return fmt.Errorf("store: seed npc definition %q: %w", d.Slug, err)
-			}
-			for _, it := range d.Shop {
-				normalizeShopQuantity(&it)
-				if _, err := tx.Exec(ctx, `
-					INSERT INTO npc_shop_item (npc_id, slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-					ON CONFLICT (npc_id, slot) DO NOTHING`,
-					id, it.Slot, it.ItemIndex, normalizedQuantity(it.Quantity),
-					it.Eff1, it.EffV1, it.Eff2, it.EffV2, it.Eff3, it.EffV3,
-				); err != nil {
-					return fmt.Errorf("store: seed shop item (%q slot %d): %w", d.Slug, it.Slot, err)
-				}
-			}
-			if created {
-				inserted++
+			)
+		}
+		// Every queued result must be consumed and the batch closed before the
+		// next statement runs on this tx, so keep only the first error and drain.
+		res := tx.SendBatch(ctx, batch)
+		var batchErr error
+		for i := start; i < end; i++ {
+			if err := res.QueryRow().Scan(&ids[i], &created[i]); err != nil && batchErr == nil {
+				batchErr = fmt.Errorf("store: seed npc definition %q: %w", defs[i].Slug, err)
 			}
 		}
-		if len(defs) > 0 {
-			if _, err := tx.Exec(ctx, `UPDATE npc_config_meta SET version = version + 1 WHERE id = TRUE`); err != nil {
-				return fmt.Errorf("store: bump npc config version: %w", err)
+		if err := res.Close(); err != nil && batchErr == nil {
+			batchErr = fmt.Errorf("store: seed npc definitions: %w", err)
+		}
+		if batchErr != nil {
+			return nil, nil, batchErr
+		}
+	}
+	return ids, created, nil
+}
+
+// seedNPCShopRows inserts the shop items of every definition, pipelined the same
+// way as seedNPCRows. ids is positional against defs (from seedNPCRows).
+func seedNPCShopRows(ctx context.Context, tx pgx.Tx, defs []domain.NPCDefinition, ids []int64) error {
+	// Flatten first so the chunking is over shop items, not over definitions —
+	// a merchant carries up to 27 slots, so the row count is several thousand.
+	type shopRow struct {
+		npcID int64
+		slug  string
+		item  domain.NPCShopItem
+	}
+	var rows []shopRow
+	for i, d := range defs {
+		for _, it := range d.Shop {
+			normalizeShopQuantity(&it)
+			rows = append(rows, shopRow{npcID: ids[i], slug: d.Slug, item: it})
+		}
+	}
+	for start := 0; start < len(rows); start += seedBatchChunk {
+		end := min(start+seedBatchChunk, len(rows))
+		batch := &pgx.Batch{}
+		for _, r := range rows[start:end] {
+			batch.Queue(`
+				INSERT INTO npc_shop_item (npc_id, slot, item_index, quantity, eff1, effv1, eff2, effv2, eff3, effv3)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+				ON CONFLICT (npc_id, slot) DO NOTHING`,
+				r.npcID, r.item.Slot, r.item.ItemIndex, normalizedQuantity(r.item.Quantity),
+				r.item.Eff1, r.item.EffV1, r.item.Eff2, r.item.EffV2, r.item.Eff3, r.item.EffV3,
+			)
+		}
+		res := tx.SendBatch(ctx, batch)
+		var batchErr error
+		for _, r := range rows[start:end] {
+			if _, err := res.Exec(); err != nil && batchErr == nil {
+				batchErr = fmt.Errorf("store: seed shop item (%q slot %d): %w", r.slug, r.item.Slot, err)
 			}
 		}
-		return nil
-	})
-	return inserted, err
+		if err := res.Close(); err != nil && batchErr == nil {
+			batchErr = fmt.Errorf("store: seed shop items: %w", err)
+		}
+		if batchErr != nil {
+			return batchErr
+		}
+	}
+	return nil
 }
 
 type generatorJSON struct {

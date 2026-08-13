@@ -29,19 +29,64 @@ const (
 	npcFetchTimeout = 5 * time.Second
 )
 
+// Boot retry budget. Vars, not consts, so tests can shrink them.
+var (
+	// npcBootRetryBudget bounds how long boot waits for the dbServer to become
+	// reachable and finish reconciling the content catalog. Both services are
+	// deployed together and the dbServer seeds the catalog BEFORE it listens, so
+	// the tmServer legitimately wins the race; without this wait the deploy
+	// crash-loops (production incident, 2026-08-13).
+	npcBootRetryBudget = 90 * time.Second
+	// npcBootRetryInitial and npcBootRetryMax bracket the exponential backoff.
+	npcBootRetryInitial = 1 * time.Second
+	npcBootRetryMax     = 5 * time.Second
+)
+
 // ApplyNPCConfigBoot fetches the definition snapshot synchronously and applies it
 // once at boot (no reveal — no players are connected yet). It runs before the
 // loop starts, so it is single-threaded like spawnNPCs. Loading is fail-closed:
 // starting with an incomplete content catalog would silently remove legacy NPCs.
-func (d *Dispatcher) ApplyNPCConfigBoot(w *world.World) error {
+// Transient failures are retried until npcBootRetryBudget expires — the dbServer
+// may still be unreachable, or still mid-seed and answering with a short catalog.
+// Structural failures (duplicate or non-DB-managed generator index) never heal on
+// their own, so they fail immediately instead of burning the budget.
+func (d *Dispatcher) ApplyNPCConfigBoot(ctx context.Context, w *world.World) error {
 	if d.npcSource == nil {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), npcFetchTimeout)
+	deadline := time.Now().Add(npcBootRetryBudget)
+	delay := npcBootRetryInitial
+	for attempt := 1; ; attempt++ {
+		retriable, err := d.loadNPCConfigBoot(ctx, w)
+		if err == nil {
+			return nil
+		}
+		if !retriable {
+			return err
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("gave up after %d attempts in %s: %w", attempt, npcBootRetryBudget, err)
+		}
+		d.log.Warn("npc config boot load failed, retrying", "attempt", attempt, "retry_in", delay, "err", err)
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("npc config boot load: %w", ctx.Err())
+		case <-timer.C:
+		}
+		delay = min(delay*2, npcBootRetryMax)
+	}
+}
+
+// loadNPCConfigBoot runs one boot-load attempt. retriable reports whether the
+// failure is the kind that clears once the dbServer finishes coming up.
+func (d *Dispatcher) loadNPCConfigBoot(ctx context.Context, w *world.World) (retriable bool, err error) {
+	fetchCtx, cancel := context.WithTimeout(ctx, npcFetchTimeout)
 	defer cancel()
-	snap, err := d.npcSource.Snapshot(ctx)
+	snap, err := d.npcSource.Snapshot(fetchCtx)
 	if err != nil {
-		return fmt.Errorf("npc config boot load: %w", err)
+		return true, fmt.Errorf("npc config boot load: %w", err)
 	}
 	expected := w.DBManagedGeneratorCount()
 	seen := make(map[int]struct{}, expected)
@@ -50,20 +95,22 @@ func (d *Dispatcher) ApplyNPCConfigBoot(w *world.World) error {
 			continue
 		}
 		if _, exists := seen[def.GeneratorIndex]; exists {
-			return fmt.Errorf("npc config duplicate generator index %d", def.GeneratorIndex)
+			return false, fmt.Errorf("npc config duplicate generator index %d", def.GeneratorIndex)
 		}
 		g := w.GeneratorAt(def.GeneratorIndex)
 		if g == nil || !g.DBManaged {
-			return fmt.Errorf("npc config content generator index %d is not DB-managed", def.GeneratorIndex)
+			return false, fmt.Errorf("npc config content generator index %d is not DB-managed", def.GeneratorIndex)
 		}
 		seen[def.GeneratorIndex] = struct{}{}
 	}
 	if len(seen) != expected {
-		return fmt.Errorf("npc config incomplete: content generators=%d expected=%d", len(seen), expected)
+		// The dbServer seeds the whole catalog in one transaction, so a short
+		// count means we read before it committed — not that content is broken.
+		return true, fmt.Errorf("npc config incomplete: content generators=%d expected=%d", len(seen), expected)
 	}
 	d.applyNPCConfig(w, snap, false)
 	d.log.Info("npc config applied at boot", "version", snap.Version, "npcs", len(d.managedNPCs))
-	return nil
+	return false, nil
 }
 
 // pollNPCConfig checks the config version off the loop each npcPollPeriod ticks

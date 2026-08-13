@@ -355,7 +355,9 @@ func run(logger *slog.Logger) error {
 		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
-		if err := dispatch.ApplyNPCConfigBoot(w); err != nil {
+		// Retries while the dbServer is still coming up; ctx aborts the wait on
+		// SIGTERM instead of holding the process for the whole retry budget.
+		if err := dispatch.ApplyNPCConfigBoot(ctx, w); err != nil {
 			return err
 		}
 	}
