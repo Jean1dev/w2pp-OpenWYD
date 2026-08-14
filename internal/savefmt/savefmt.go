@@ -43,6 +43,12 @@ const (
 	MobSizeLegacy756Padded = 920 // 756-byte record + 164 B of uninitialized junk
 )
 
+// offMobExp pins the kill-reward Exp within the canonical 816-byte STRUCT_MOB
+// (int64). It is the only canonical STRUCT_MOB offset with a name — the rest
+// stay inline in codec.go — because PutMobExp has to write it opposite the
+// legacy offL756Exp below, and a bare 32 next to a bare 28 reads as a typo.
+const offMobExp = 32
+
 // Field offsets within the 756-byte legacy STRUCT_MOB (data-formats.md §1.4.1).
 // Reverse-engineered from the shipped assets and cross-validated against the
 // 816-byte file of the same mob across all 41 legacy/canonical name pairs in

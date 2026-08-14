@@ -342,9 +342,10 @@ passa por `npctemplate.Load`, que normaliza — nenhum slice de tamanho variante
 porque `protocol.ParseMobBasics` e `EncodeCNFCharacterLoginRaw` indexam o layout de 816 diretamente.
 A conversão 756→816 é **lossless** (só alargamento; os campos ausentes ficam em 0, que é o que os
 arquivos de 816 já trazem em `MaxMp`/`Mp`). A conversão inversa não existe e não é necessária: nada
-reescreve template no caminho de leitura. A exceção deliberada é o `cmd/exptool`, que só regrava
-`Exp` in-place em arquivos de 816 B e reporta os legados em `Result.SkippedVariant` — regravar um
-registro de 756 mudaria o tamanho de um asset versionado.
+reescreve template no caminho de leitura. A única escrita é o `cmd/exptool`, que regrava `Exp`
+in-place em **qualquer** layout via `savefmt.PutMobExp` (`int64` @32 no canônico, `int32` @28 no
+legado) e conta em `Result.StampedVariant` quantos eram legados — os 4 bytes trocados não mudam o
+tamanho do asset versionado.
 
 Precedente legado: `Source/Code/TMSrv/Server.cpp:7763` (`ReadMob`) faz `_read(sizeof(STRUCT_MOB))`
 **sem checar tamanho**, ou seja, o servidor original também teria interpretado esses arquivos errado

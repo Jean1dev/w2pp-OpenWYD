@@ -1,6 +1,9 @@
 package savefmt
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // Fixed-width little-endian field helpers. Offsets are relative to the start of
 // the slice passed in (callers pass the struct's base slice).
@@ -361,6 +364,33 @@ func NormalizeMob(b []byte) ([]byte, MobVersion, error) {
 		return nil, v, err
 	}
 	return EncodeMob(m), v, nil
+}
+
+// PutMobExp overwrites the kill-reward Exp of a standalone STRUCT_MOB template
+// in place, in whichever layout b already is, leaving every other byte — and the
+// slice length — untouched. cmd/exptool restamps the balanced curve (issue #43)
+// through it, so the mixed-layout content tree gets one consistent pass without
+// any template changing size on disk.
+//
+// The legacy layouts keep Exp as a 32-bit field at a different offset
+// (data-formats.md §1.4.1), so a value that does not fit there is an error
+// rather than a silent truncation — level.MobExpForLevel peaks around 5.5M, far
+// inside the range, so this only fires on a caller passing something bogus.
+func PutMobExp(b []byte, exp int64) error {
+	switch v := DetectMobVersion(len(b)); v {
+	case MobVersionCurrent:
+		putI64(b, offMobExp, exp)
+		return nil
+	case MobVersionLegacy756, MobVersionLegacy756Padded:
+		if exp < math.MinInt32 || exp > math.MaxInt32 {
+			return fmt.Errorf("savefmt: PutMobExp: %d does not fit the %s layout's 32-bit Exp", exp, v)
+		}
+		putI32(b, offL756Exp, int32(exp))
+		return nil
+	default:
+		return fmt.Errorf("savefmt: PutMobExp: length %d is not a known STRUCT_MOB layout (%d, %d or %d)",
+			len(b), MobSize, MobSizeLegacy756, MobSizeLegacy756Padded)
+	}
 }
 
 // EncodeMob serializes m into a standalone 816-byte STRUCT_MOB blob — the
