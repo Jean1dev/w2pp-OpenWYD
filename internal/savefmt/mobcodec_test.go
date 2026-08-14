@@ -2,6 +2,7 @@ package savefmt
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 )
@@ -306,6 +307,68 @@ func TestNormalizeMob(t *testing.T) {
 				t.Error("NormalizeMob aliased the input slice")
 			}
 		})
+	}
+}
+
+// TestPutMobExp is the restamp contract cmd/exptool depends on: the Exp field
+// of every accepted layout is writable in place, nothing else moves, and the
+// file keeps its size — that is what lets the legacy templates join the balance
+// pass without rewriting a shipped asset.
+func TestPutMobExp(t *testing.T) {
+	const want = 1234567
+	for _, f := range []string{fxCurrent816Gargul, fxLegacy756Gargula, fxLegacy756Shop, fxLegacy920NPC1} {
+		t.Run(f, func(t *testing.T) {
+			raw := fixture(t, f)
+			before, _, err := DecodeMobAny(raw)
+			if err != nil {
+				t.Fatalf("DecodeMobAny: %v", err)
+			}
+			size := len(raw)
+			if err := PutMobExp(raw, want); err != nil {
+				t.Fatalf("PutMobExp: %v", err)
+			}
+			if len(raw) != size {
+				t.Fatalf("length = %d, want %d", len(raw), size)
+			}
+			after, _, err := DecodeMobAny(raw)
+			if err != nil {
+				t.Fatalf("DecodeMobAny after stamp: %v", err)
+			}
+			if after.Exp != want {
+				t.Errorf("Exp = %d, want %d", after.Exp, want)
+			}
+			// Exp is the only field that may differ.
+			before.Exp, after.Exp = 0, 0
+			if before != after {
+				t.Error("PutMobExp changed a field other than Exp")
+			}
+		})
+	}
+}
+
+// TestPutMobExpRejects covers the two refusals: a value too wide for the legacy
+// 32-bit field (truncating it would silently corrupt the balance data) and a
+// slice that is not a template at all.
+func TestPutMobExpRejects(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+		exp  int64
+	}{
+		{"legacy overflow", MobSizeLegacy756, math.MaxInt32 + 1},
+		{"padded overflow", MobSizeLegacy756Padded, math.MinInt32 - 1},
+		{"unknown layout", 100, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := PutMobExp(make([]byte, tt.size), tt.exp); err == nil {
+				t.Errorf("PutMobExp(%d bytes, %d) succeeded, want error", tt.size, tt.exp)
+			}
+		})
+	}
+	// The canonical layout is 64-bit wide, so the same value is accepted there.
+	if err := PutMobExp(make([]byte, MobSize), math.MaxInt32+1); err != nil {
+		t.Errorf("PutMobExp on the canonical layout: %v", err)
 	}
 }
 
