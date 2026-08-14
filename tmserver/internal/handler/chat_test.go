@@ -257,6 +257,121 @@ func TestCommandChaosPoints(t *testing.T) {
 	}
 }
 
+// trumpetDB is chatDB with "Hero" (account 7) carrying a stack of Trombetas
+// Mágicas in slot 0. amount == 0 means no trumpet at all.
+func trumpetDB(amount uint8) *fakeDB {
+	db := chatDB()
+	hero := db.loads[7]
+	if amount > 0 {
+		hero.Carry[0] = amountItem(itemMagicTrumpet, amount)
+	}
+	db.loads[7] = hero
+	return db
+}
+
+// TestCommandGritar verifies /gritar burns one Trombeta Mágica and shouts to
+// every player online, the shouter included (_MSG_MessageWhisper.cpp:114).
+func TestCommandGritar(t *testing.T) {
+	addr, stop, _ := startServerClock(t, trumpetDB(3))
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	whisperFrame(t, a, "gritar", "ola mundo")
+
+	// The shouter's own slot is re-synced first: 3 → 2.
+	_, slot, index, amount := sendItemSlotAmount(expect(t, a, protocol.MsgSendItem))
+	if slot != 0 || index != itemMagicTrumpet || amount != 2 {
+		t.Errorf("slot sync = (slot %d, index %d, amount %d), want (0, %d, 2)", slot, index, amount, itemMagicTrumpet)
+	}
+
+	want := "[Hero]> ola mundo"
+	for _, tc := range []struct {
+		name string
+		c    net.Conn
+	}{{"shouter", a}, {"other", b}} {
+		payload := expect(t, tc.c, protocol.MsgMagicTrumpet)
+		if len(payload) != protocol.MagicTrumpetBodySize {
+			t.Errorf("%s: body = %d bytes, want %d", tc.name, len(payload), protocol.MagicTrumpetBodySize)
+			continue
+		}
+		if got := cstr(payload); got != want {
+			t.Errorf("%s: shout = %q, want %q", tc.name, got, want)
+		}
+		if payload[94] != 1 {
+			t.Errorf("%s: String[94] = %d, want 1 (legacy marker byte)", tc.name, payload[94])
+		}
+	}
+}
+
+// TestCommandGritarLastTrumpet verifies the slot is cleared, not decremented,
+// when the last unit is spent (BASE_ClearItem, _MSG_MessageWhisper.cpp:135).
+func TestCommandGritarLastTrumpet(t *testing.T) {
+	addr, stop, _ := startServerClock(t, trumpetDB(1))
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "gritar", "adeus")
+	_, slot, index, _ := sendItemSlotAmount(expect(t, a, protocol.MsgSendItem))
+	if slot != 0 || index != 0 {
+		t.Errorf("slot sync = (slot %d, index %d), want (0, 0) — an empty slot", slot, index)
+	}
+}
+
+// TestCommandGritarNoTrumpet verifies the command refuses without the item: the
+// caller is told why (a deliberate deviation — the legacy returned silently at
+// _MSG_MessageWhisper.cpp:139) and nobody else hears anything.
+func TestCommandGritarNoTrumpet(t *testing.T) {
+	addr, stop, _ := startServerClock(t, trumpetDB(0))
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	whisperFrame(t, a, "gritar", "ola mundo")
+	ty, payload, ok := readMaybe(t, a)
+	if !ok || ty != protocol.MsgMessageChat {
+		t.Fatalf("got %#x ok=%v, want MessageChat", ty, ok)
+	}
+	if got := cstr(payload); got != "Você precisa de uma Trombeta Mágica para gritar." {
+		t.Errorf("refusal = %q", got)
+	}
+	if ty, _, ok := readMaybe(t, b); ok && ty == protocol.MsgMagicTrumpet {
+		t.Error("the shout reached other players without a trumpet being spent")
+	}
+}
+
+// TestCommandGritarEmpty verifies a bare /gritar is a no-op: no shout and, above
+// all, no trumpet burned (the legacy shouted "[Nome]> " and charged for it).
+func TestCommandGritarEmpty(t *testing.T) {
+	addr, stop, _ := startServerClock(t, trumpetDB(3))
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "gritar", "   ")
+	if ty, _, ok := readMaybe(t, a); ok {
+		t.Errorf("empty shout produced %#x, want silence", ty)
+	}
+}
+
+// TestCommandSpkAlias verifies /spk, the legacy alias, routes to the same command.
+func TestCommandSpkAlias(t *testing.T) {
+	addr, stop, _ := startServerClock(t, trumpetDB(2))
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	whisperFrame(t, a, "spk", "oi")
+	if got := cstr(expect(t, a, protocol.MsgMagicTrumpet)); got != "[Hero]> oi" {
+		t.Errorf("shout = %q, want %q", got, "[Hero]> oi")
+	}
+}
+
 func TestChatPublicBroadcast(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
 	defer stop()

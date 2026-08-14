@@ -25,6 +25,7 @@
 ✅ /buffs: Remove todos os buffs do personagem <br/>
 ✅ /cp: mostra os pontos de caos atuais do personagem <br/>
 ✅ /nick \<jogador\>: mostra nick, guild (nome/fama, se registrada — `world/guild.go`), cidadania e fama do jogador alvo <br/>
+✅ /gritar \<mensagem\>: grito global — consome 1 Trombeta Mágica (item 3330) e envia `[Nome]> mensagem` a todos os jogadores online, em verde (`_MSG_MagicTrumpet`). Alias legado: `/spk`. Sem trombeta, avisa e não grita; o alcance é o deste canal (o fan-out entre canais do legado passava pelo DBSrv e não foi portado) <br/>
 
 > Bônus já implementados (existem na fonte legada, fora da lista acima): `/selados`,
 > `/amagos`, `/agua` (teleportes).

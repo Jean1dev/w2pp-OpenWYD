@@ -153,6 +153,15 @@ const (
 	MsgEnvEffect          Type = 0x03A2 // 930  S→C area effect box (MSG_EnvEffect, Basedef.h:2529)
 	MsgUpdateWeather      Type = 0x018B // 395  S→C global weather change (MSG_UpdateWeather, Basedef.h:2167)
 
+	// MsgMagicTrumpet is _MSG_MagicTrumpet (Basedef.h:1738, protocol-spec.md:685):
+	// 29 | DB2Game | Game2DB | Game2Client. The Trombeta Mágica shout — a
+	// server-wide chat line. The legacy relayed it through the DBSrv so every
+	// channel saw it; here it is emitted straight to the players of this tmServer.
+	// The ClientPatch paints it green on arrival (ClientPatch_v7662/Functions.cpp:51
+	// writes TNColor::Speak 0xFF00CD00 to 0x4A016A), which is why the shout does not
+	// reuse MsgMessageChat.
+	MsgMagicTrumpet Type = 0x0D1D // 3357 S→C global shout (MSG_MagicTrumpet)
+
 	// Personal shop / autotrade S→C (issue #115). CreateMobTrade is the shop pose:
 	// the pose is driven by this Type (0x0363), NOT by a CreateType value.
 	MsgCreateMobTrade Type = 0x0363 // 867  S→C spawn a shop-owner in view (MSG_CreateMobTrade)
