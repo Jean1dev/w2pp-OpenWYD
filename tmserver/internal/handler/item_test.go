@@ -1070,6 +1070,141 @@ func TestVigorAffectBonus(t *testing.T) {
 	}
 }
 
+// TestUseVigorConsumesOneFromStack is the issue #259 regression: useVigor used to
+// wipe the whole carry slot, so drinking one potion out of a "Pack Poção de Vigor"
+// destroyed the entire stack. The legacy decrements instead — every arm of the
+// Vol-58 block ends with `if (amount > 1) BASE_SetItemAmount(item, amount - 1);
+// else memset(item, 0, ...)` (_MSG_UseItem.cpp:2197/2218/2239/2260). The buff
+// duration per sIndex is asserted alongside, since nothing covered it end to end.
+func TestUseVigorConsumesOneFromStack(t *testing.T) {
+	cases := []struct {
+		name     string
+		item     int16
+		wantTime uint32
+	}{
+		{"1h", 3313, affect1H},
+		{"7d", 3364, affect1D * 7},
+		{"15d", 3365, affect1D * 15},
+		{"30d", 3366, affect1D * 30},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newDB()
+			st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+			st.Carry[0] = world.Item{Index: tc.item, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+			db.loadResult = st
+			addr, stop := startServerClockVol(t, db, map[int]int{int(tc.item): volVigor})
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+			send(t, c, protocol.MsgUseItem, body.Encode())
+
+			item := expect(t, c, protocol.MsgSendItem)
+			if le16(item[4:6]) != uint16(tc.item) {
+				t.Fatalf("carry slot 0 item = %d, want %d (whole pack consumed)", le16(item[4:6]), tc.item)
+			}
+			if item[6] != efAmount || item[7] != 4 {
+				t.Errorf("amount effect = (%d,%d), want (%d,4)", item[6], item[7], efAmount)
+			}
+			expect(t, c, protocol.MsgUpdateScore)
+			affect := expect(t, c, protocol.MsgSendAffect)
+			if affect[0] != world.AffectVigor {
+				t.Fatalf("slot 0 affect type = %d, want %d (Vigor)", affect[0], world.AffectVigor)
+			}
+			if got := binary.LittleEndian.Uint32(affect[4:8]); got != tc.wantTime {
+				t.Errorf("affect time = %d, want %d", got, tc.wantTime)
+			}
+		})
+	}
+}
+
+// TestUseVigorLastUnitClearsSlot is the other half of the legacy idiom: a lone
+// potion (no EF_AMOUNT at all, so itemAmount reports 1) still empties the slot.
+func TestUseVigorLastUnitClearsSlot(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 3313}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{3313: volVigor})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[2:4]) != 0 || le16(item[4:6]) != 0 {
+		t.Errorf("slot/item = %d/%d, want slot 0 empty", le16(item[2:4]), le16(item[4:6]))
+	}
+}
+
+// TestUseVigorThenMoveKeepsReducedAmount is the symptom the player actually sees:
+// without a real server-side decrement the client shows the stack gone, and the
+// next slot resync (a move, a shop buy, a relog) "revives" it — or, with the old
+// wipe, the whole pack really was gone. Mirrors TestUseThenMoveKeepsReducedAmount.
+func TestUseVigorThenMoveKeepsReducedAmount(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 3313, Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{3313: volVigor})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	afterUse := expect(t, c, protocol.MsgSendItem)
+	if le16(afterUse[4:6]) != 3313 || afterUse[6] != efAmount || afterUse[7] != 9 {
+		t.Fatalf("after use: item %d amount-effect (%d,%d), want 3313 (%d,9)", le16(afterUse[4:6]), afterUse[6], afterUse[7], efAmount)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	expect(t, c, protocol.MsgSendAffect)
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem) // move echo
+	expect(t, c, protocol.MsgSendItem)    // source slot 0, now empty
+	moved := expect(t, c, protocol.MsgSendItem)
+	if le16(moved[2:4]) != 1 || le16(moved[4:6]) != 3313 {
+		t.Fatalf("dest slot = %d item %d, want slot 1 item 3313", le16(moved[2:4]), le16(moved[4:6]))
+	}
+	if moved[6] != efAmount || moved[7] != 9 {
+		t.Errorf("moved item amount-effect = (%d,%d), want (%d,9)", moved[6], moved[7], efAmount)
+	}
+}
+
+// TestUseDivineConsumesOneFromStack is the issue #259 sibling: useDivine carried
+// the same whole-slot wipe (its "stacking not modeled yet" note predated
+// consumeOneItem). Legacy: _MSG_UseItem.cpp:2165. Item 3360 is the Panqueca (Vol 66).
+func TestUseDivineConsumesOneFromStack(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: 3360, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{3360: volDivine30})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	item := expect(t, c, protocol.MsgSendItem)
+	if le16(item[4:6]) != 3360 {
+		t.Fatalf("carry slot 0 item = %d, want 3360 (whole pack consumed)", le16(item[4:6]))
+	}
+	if item[6] != efAmount || item[7] != 4 {
+		t.Errorf("amount effect = (%d,%d), want (%d,4)", item[6], item[7], efAmount)
+	}
+	expect(t, c, protocol.MsgUpdateScore)
+	if affect := expect(t, c, protocol.MsgSendAffect); affect[0] != world.AffectDivine {
+		t.Errorf("slot 0 affect type = %d, want %d (Divine)", affect[0], world.AffectDivine)
+	}
+}
+
 // TestEquipBonusRefine verifies the refine (+9) THRESHOLD on a defense piece: a
 // refined (sanc>=9) item whose nPos is a defense slot (4/8/128) gains a flat +25 AC on
 // top of its catalog AC; below +9 there is no threshold bonus (captura §E).
@@ -2432,6 +2567,52 @@ func TestUseSilverBar1Bi(t *testing.T) {
 			sawEtc = true
 			if got := int32(le(payload[28:32])); got != 1_000_000_000 {
 				t.Errorf("coin = %d, want 1000000000", got)
+			}
+		}
+	}
+	if !sawSendItem {
+		t.Error("missing MsgSendItem after using silver bar")
+	}
+	if !sawEtc {
+		t.Error("missing MsgUpdateEtc after using silver bar")
+	}
+}
+
+// TestUseSilverBarConsumesOneFromStack is the issue #259 sibling: useSilverBar also
+// wiped the slot, so cashing one bar out of a stack burned the rest. Legacy:
+// _MSG_UseItem.cpp:4277. Only one bar's worth of gold may be credited per use.
+func TestUseSilverBarConsumesOneFromStack(t *testing.T) {
+	db := silverBarDB(4026, 0)
+	st := db.loadResult
+	st.Carry[0] = world.Item{Index: 4026, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}}
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, map[int]int{4026: volSilverBar})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	sawSendItem, sawEtc := false, false
+	for range 4 {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			sawSendItem = true
+			if le16(payload[4:6]) != 4026 {
+				t.Fatalf("carry slot 0 item = %d, want 4026 (whole stack consumed)", le16(payload[4:6]))
+			}
+			if payload[6] != efAmount || payload[7] != 4 {
+				t.Errorf("amount effect = (%d,%d), want (%d,4)", payload[6], payload[7], efAmount)
+			}
+		case protocol.MsgUpdateEtc:
+			sawEtc = true
+			if got := int32(le(payload[28:32])); got != 1_000_000 {
+				t.Errorf("coin = %d, want 1000000 (one bar, not the stack)", got)
 			}
 		}
 	}

@@ -949,8 +949,8 @@ func (d *Dispatcher) useDivine(w *world.World, s *world.Session, e *world.Entity
 	}
 	e.DivineEnd = time.Now().Unix() + days*86400
 	e.Affect[slot] = world.Affect{Type: world.AffectDivine, Level: 1, Time: divineAffectTime}
-	e.Carry[src] = world.Item{} // consume one unit (stacking not modeled yet)
-	d.refreshScore(e)           // re-clamp; the +20% is read-time (effective getters)
+	consumeOneItem(&e.Carry[src])
+	d.refreshScore(e) // re-clamp; the +20% is read-time (effective getters)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
@@ -975,7 +975,7 @@ func (d *Dispatcher) useVigor(w *world.World, s *world.Session, e *world.Entity,
 		ticks = affect1D * 30
 	}
 	e.Affect[slot] = world.Affect{Type: world.AffectVigor, Level: 1, Time: ticks}
-	e.Carry[src] = world.Item{}
+	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendScore(w, s, e)
@@ -1035,7 +1035,7 @@ func (d *Dispatcher) useSilverBar(w *world.World, s *world.Session, e *world.Ent
 		return
 	}
 	e.Coin += gold
-	e.Carry[src] = world.Item{}
+	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.sendEtc(w, s, e)
 	d.log.Info("silver bar used", "conn", s.Conn, "item", itemIdx, "gold", gold, "coin", e.Coin)
