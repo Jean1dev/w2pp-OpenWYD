@@ -6,6 +6,22 @@ import (
 	"testing"
 )
 
+func TestEncodeExpPanelBody(t *testing.T) {
+	body := EncodeExpPanelBody("+425 de EXP", 0xFFCCAAFF)
+	if len(body) != MsgExpPanelBodySize {
+		t.Fatalf("len = %d, want %d", len(body), MsgExpPanelBodySize)
+	}
+	if got := string(body[:11]); got != "+425 de EXP" {
+		t.Fatalf("text = %q, want %q", got, "+425 de EXP")
+	}
+	if body[11] != 0 {
+		t.Fatalf("text is not NUL terminated: byte[11] = %#x", body[11])
+	}
+	if got := binary.LittleEndian.Uint32(body[MessageLength:]); got != 0xFFCCAAFF {
+		t.Fatalf("color = %#x, want %#x", got, uint32(0xFFCCAAFF))
+	}
+}
+
 func TestMessageBodySizes(t *testing.T) {
 	// Body size + HeaderSize must equal the documented total packet size
 	// (protocol-spec.md §3.5).
