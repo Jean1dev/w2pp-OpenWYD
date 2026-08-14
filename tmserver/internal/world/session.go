@@ -291,12 +291,12 @@ type Entity struct {
 	BaseStr, BaseInt, BaseDex, BaseCon int16
 	BaseAC, BaseDamage                 int32
 	BaseMaxHP, BaseMaxMP               int32
-	// BaseMagic: the equipment-free Magic, the mount-bonus counterpart of the Base* fields
-	// above. Same policy — derived on login (current − equipment) and re-added by
-	// refreshScore. Unlike Magic, Parry (evasion) and Resist have NO base term: neither is
-	// persisted, so refreshScore derives them entirely from current equipment every call
-	// instead (see its doc comment — issue #211 bug 3).
-	BaseMagic int16
+	// Magic, Parry (evasion) and Resist have NO base term: the legacy has none either.
+	// BASE_GetCurrentScore seeds a fresh local `magic` from equipment (Basedef.cpp:3194),
+	// accumulates the derived terms and stores it at :4729 — there is no BaseScore.Magic
+	// anywhere in the original, and the stored MOB.Magic never feeds back in. refreshScore
+	// derives all three entirely from current equipment every call (issue #211 bug 3,
+	// issue #231).
 
 	// HpAddPct/MpAddPct: EF_HPADD/EF_MPADD percent bonus from equipment (e.g. +10 =
 	// +10%). Cached by refreshScore and applied at READ time (effective max HP/MP),

@@ -100,14 +100,11 @@ func TestMagicFromEquipment(t *testing.T) {
 	}
 }
 
-// TestMagicLoginRoundTrip: unlike Resist/Parry (issue #211 bug 3), Magic already has a
-// persisted BaseMagic field, so a character reconnecting with magic-attack gear or a mount
-// already equipped must round-trip through deriveBaseScore/refreshScore without double
-// counting or resetting — the same regression shape as TestResistLoginRoundTrip and
-// TestMountScoreRoundTrip, now covering ordinary equipment's contribution too.
+// TestMagicLoginRoundTrip verifies that the stale persisted Magic value does not feed
+// back into the score. BASE_GetCurrentScore derives Magic afresh from equipment.
 func TestMagicLoginRoundTrip(t *testing.T) {
 	d := New(magicConfig())
-	e := &world.Entity{ID: 1, Level: 50, Magic: 37} // loaded from a save with this gear on
+	e := &world.Entity{ID: 1, Level: 50, Magic: 0}
 	e.Equip[0] = world.Item{Index: magicFlat}
 	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
 	d.deriveBaseScore(e)
@@ -122,5 +119,59 @@ func TestMagicLoginRoundTrip(t *testing.T) {
 	d.refreshScore(e)
 	if e.Magic != want {
 		t.Errorf("Magic after second refresh = %d, want %d (must not accumulate)", e.Magic, want)
+	}
+}
+
+func TestClassWeaponMagic(t *testing.T) {
+	const weapon = 700
+	tests := []struct {
+		name          string
+		class         uint8
+		unique, pos   int
+		learnedSkills int32
+		want          int32
+	}{
+		{name: "TK spear", class: 0, unique: 44, learnedSkills: 1 << 7, want: 22},
+		{name: "TK staff unique and position", class: 0, unique: 47, pos: 64, learnedSkills: 1 << 7, want: 35},
+		{name: "FM staff", class: 1, unique: 47, learnedSkills: 1 << 15, want: 47},
+		{name: "BM staff position", class: 2, pos: 64, learnedSkills: 1 << 23, want: 47},
+		{name: "HT sceptre", class: 3, unique: 47, learnedSkills: 1 << 2, want: 259},
+		{name: "HT has no position branch", class: 3, pos: 64, learnedSkills: 1 << 2},
+		{name: "three evolution bits stack", class: 1, unique: 44, learnedSkills: 1<<7 | 1<<15 | 1<<23, want: 141},
+		{name: "no learned evolution", class: 1, unique: 44},
+		{name: "physical weapon", class: 1, unique: 42, learnedSkills: 1 << 7},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := New(Config{ItemUnique: map[int]int{weapon: tt.unique}, ItemPos: map[int]int{weapon: tt.pos}})
+			e := &world.Entity{ID: 1, Class: tt.class, Dex: 321, Int: 654, LearnedSkill: tt.learnedSkills}
+			e.Equip[weaponSlotR] = world.Item{Index: weapon}
+			if got := d.classWeaponMagic(e); got != tt.want {
+				t.Fatalf("classWeaponMagic = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMagicEquipChangesAreMonotonic(t *testing.T) {
+	const weapon = 700
+	d := New(Config{
+		ItemEffects: map[int][]content.BaseEffect{magicFlat: {{Eff: efMagic, Val: 40}}},
+		ItemUnique:  map[int]int{weapon: 47},
+	})
+	e := &world.Entity{ID: 1, Class: 1, Int: 1000, Dex: 200, LearnedSkill: 1 << 7}
+	e.Equip[weaponSlotR] = world.Item{Index: weapon}
+	e.Equip[1] = world.Item{Index: magicFlat}
+	d.deriveBaseScore(e)
+	d.refreshScore(e)
+	withGear := e.Magic
+	if withGear <= 0 {
+		t.Fatalf("Magic with gear = %d, want positive", withGear)
+	}
+	e.Equip[1] = world.Item{}
+	d.refreshScore(e)
+	if e.Magic < 0 || e.Magic >= withGear {
+		t.Fatalf("Magic after unequip = %d, want [0,%d)", e.Magic, withGear)
 	}
 }

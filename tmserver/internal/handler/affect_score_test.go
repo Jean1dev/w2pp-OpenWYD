@@ -41,6 +41,16 @@ func TestAffect31GoldenShieldAC(t *testing.T) {
 	}
 }
 
+func TestMagicAffectsStack(t *testing.T) {
+	e := &world.Entity{Magic: 100}
+	e.Affect[0] = world.Affect{Type: 4}
+	e.Affect[1] = world.Affect{Type: 9}
+	applyAffectScore(e)
+	if e.AffMagic != 10 {
+		t.Fatalf("AffMagic = %d, want 10", e.AffMagic)
+	}
+}
+
 func TestAffect38SwapsHalfMPToHP(t *testing.T) {
 	e := &world.Entity{MaxMP: 1000}
 	e.Affect[0] = world.Affect{Type: 38}

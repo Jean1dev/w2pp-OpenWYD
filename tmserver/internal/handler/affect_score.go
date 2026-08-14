@@ -74,6 +74,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			}
 		case 4: // combat scroll: +30 damage (its ×4 multi and +5 magic deferred)
 			e.AffDamage += 30
+			e.AffMagic += 5
 		case 5: // Fanatismo/Incapacitador: Dex *= (100-Value)%.
 			base := int32(e.Dex + e.AffDex)
 			e.AffDex += clampInt16(base*(100-value)/100 - base)
@@ -124,6 +125,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 				add *= 3
 			}
 			e.AffDamage += add
+			e.AffMagic += 5
 		case 10: // damage debuff
 			e.AffDamage -= level/5 + value
 		case 11: // AC buff

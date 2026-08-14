@@ -99,9 +99,8 @@ func TestMountEquipScore(t *testing.T) {
 	}
 }
 
-// TestMountScoreRoundTrip: a mount already equipped at login round-trips. Damage/Magic
-// have a real BaseDamage/BaseMagic term (persisted, so pre-seeding them here matters);
-// Parry/Resist have NO base term at all (issue #211 bug 3) — they are derived entirely
+// TestMountScoreRoundTrip: a mount already equipped at login round-trips. Damage has a
+// persisted BaseDamage term; Magic/Parry/Resist have no base term and are derived entirely
 // from the current equip bonus on every refresh, so they come out right regardless of
 // whatever a fresh Entity starts with, which is exactly what avoids the login zero-out.
 func TestMountScoreRoundTrip(t *testing.T) {
@@ -112,8 +111,8 @@ func TestMountScoreRoundTrip(t *testing.T) {
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
 	wantDamage := baseDamageChar + e.Level + 750
-	if e.Damage != wantDamage || e.Magic != 60 || e.Parry != 80 {
-		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/60/80", e.Damage, e.Magic, e.Parry, wantDamage)
+	if e.Damage != wantDamage || e.Magic != 27 || e.Parry != 80 {
+		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/27/80", e.Damage, e.Magic, e.Parry, wantDamage)
 	}
 	for i := range e.Resist {
 		if e.Resist[i] != 32 {
