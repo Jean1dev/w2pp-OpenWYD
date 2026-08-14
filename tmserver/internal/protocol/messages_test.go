@@ -241,3 +241,38 @@ func TestEncodeStandardParm(t *testing.T) {
 		t.Fatalf("round-trip = %d ok=%v, want -2", parm, ok)
 	}
 }
+
+// TestEncodeMagicTrumpetBody pins the MSG_MagicTrumpet body (Basedef.h:1739):
+// String[96] + int Color, with the legacy marker byte at String[94] and the text
+// always NUL-terminated before it.
+func TestEncodeMagicTrumpetBody(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"short", "[Hero]> ola", "[Hero]> ola"},
+		{"empty", "", ""},
+		{"truncated", strings.Repeat("x", 200), strings.Repeat("x", magicTrumpetMarker-1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := EncodeMagicTrumpetBody(tt.text)
+			if len(b) != MagicTrumpetBodySize || MagicTrumpetBodySize+HeaderSize != 112 {
+				t.Fatalf("body = %d bytes (packet %d), want %d (112)", len(b), MagicTrumpetBodySize+HeaderSize, MagicTrumpetBodySize)
+			}
+			if got := cTrimNUL(b[:MessageLength]); got != tt.want {
+				t.Errorf("text = %q, want %q", got, tt.want)
+			}
+			if b[magicTrumpetMarker] != 1 {
+				t.Errorf("String[%d] = %d, want 1", magicTrumpetMarker, b[magicTrumpetMarker])
+			}
+			if b[magicTrumpetMarker-1] != 0 {
+				t.Errorf("String[%d] = %d, want a NUL terminating the text before the marker", magicTrumpetMarker-1, b[magicTrumpetMarker-1])
+			}
+			if binary.LittleEndian.Uint32(b[MessageLength:]) != 0 {
+				t.Error("Color must ship as 0 — the patched client picks the colour itself")
+			}
+		})
+	}
+}

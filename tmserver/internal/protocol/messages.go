@@ -497,6 +497,31 @@ func (m *MsgWhisperBody) Encode() []byte {
 	return b
 }
 
+// MagicTrumpetBodySize is MSG_MagicTrumpet minus the header (Basedef.h:1739-1745):
+// char String[MESSAGE_LENGTH] followed by int Color — 100 bytes, so the frame on
+// the wire is 112.
+const MagicTrumpetBodySize = MessageLength + 4
+
+// magicTrumpetMarker is the offset of the byte the legacy stamps to 1 right after
+// copying the text (_MSG_MessageWhisper.cpp:154, "sm_mt.String[94] = 1").
+const magicTrumpetMarker = 94
+
+// EncodeMagicTrumpetBody returns the MSG_MagicTrumpet body carrying text (already
+// formatted as "[Nome]> mensagem" by the caller).
+//
+// Parity notes: text is truncated to magicTrumpetMarker-1 bytes so the C string
+// always terminates before the marker byte — the legacy strncpy(String, temp, 96)
+// could ship an unterminated string and then overwrite byte 94 mid-text. Color
+// stays 0: the legacy only memset the first sizeof(MSG_STANDARDPARM) bytes of the
+// struct, so it shipped uninitialized stack garbage there, and the patched client
+// picks the colour itself (ClientPatch_v7662/Functions.cpp:51).
+func EncodeMagicTrumpetBody(text string) []byte {
+	b := make([]byte, MagicTrumpetBodySize)
+	copy(b[:magicTrumpetMarker-1], text)
+	b[magicTrumpetMarker] = 1
+	return b
+}
+
 // MsgSendReqPartyBody is MSG_SendReqParty (C↔S, 0x037F): PartyID is the leader
 // and Unk carries the invited player on the client request. This struct is
 // outside the legacy pack(1) blocks, so the int field keeps the MSVC x86 padding

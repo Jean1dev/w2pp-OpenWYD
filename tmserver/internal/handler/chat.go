@@ -166,6 +166,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.showChaosPoints(w, s)
 		return true
 	}
+	if cmd == "gritar" || cmd == "spk" {
+		d.magicTrumpet(w, s, args)
+		return true
+	}
 	if cmd == "gm" {
 		// GM/moderation command bus (issue #122). args is the whisper's String — the
 		// rest of the typed line (e.g. "/gm kick foo" → args = "kick foo").
@@ -335,6 +339,59 @@ func (d *Dispatcher) showChaosPoints(w *world.World, s *world.Session) {
 	chaos := int(pkPoint(e)) - 75
 	msg := fmt.Sprintf("Pontos Caos atual: %d", chaos)
 	d.sendChatText(w, s, msg)
+}
+
+// itemMagicTrumpet is the Trombeta Mágica (ItemList.csv:5031 —
+// "3330,Trombeta_Mágica,…,EF_VOLATILE,0,EF_GRID,0"): a stackable consumable with
+// no use-effect of its own; it exists only to pay for /gritar.
+const itemMagicTrumpet = 3330
+
+// magicTrumpet handles /gritar (legacy alias /spk): it burns one Trombeta Mágica
+// and shouts "[Nome]> texto" to every player online
+// (_MSG_MessageWhisper.cpp:114-162, issue #258).
+//
+// Deviations from the legacy, all deliberate:
+//   - The legacy relayed MSG_MagicTrumpet through the DBSrv so every channel
+//     received it (DBSrv/CFileDB.cpp:1616, TMSrv/ProcessDBMessage.cpp:136). The Go
+//     stack has one tmServer per channel and the dbServer has no announce RPC, so
+//     the shout reaches this server's players only. Cross-channel fan-out is future
+//     work.
+//   - Without a trumpet the legacy returned silently (:139); here the player is
+//     told why nothing happened.
+//   - An empty message is refused instead of shouting "[Nome]> " and eating a
+//     trumpet anyway.
+//   - The MuteChat gate (:118) has no counterpart — muting is not modeled yet.
+func (d *Dispatcher) magicTrumpet(w *world.World, s *world.Session, args []byte) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	text := strings.TrimSpace(cstr(args))
+	if text == "" {
+		return
+	}
+	slot := -1
+	for i, limit := 0, activeCarryLimit(e); i < limit; i++ {
+		if e.Carry[i].Index == itemMagicTrumpet {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		d.sendChatText(w, s, "Você precisa de uma Trombeta Mágica para gritar.")
+		return
+	}
+	consumeOneItem(&e.Carry[slot])
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+
+	// HEADER.ID = 0 like the legacy (sm_mt.ID = 0): the shout carries its speaker
+	// inside the text, not in the header. Nobody is excluded — the shouter sees it
+	// too, as SyncMulticast(0, …) did.
+	payload := protocol.EncodeMagicTrumpetBody(fmt.Sprintf("[%s]> %s", e.Name, text))
+	w.ForEachPlaying(-1, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgMagicTrumpet, ID: 0}, payload)
+	})
+	d.log.Info("magic trumpet", "conn", s.Conn, "account", s.AccountName, "name", e.Name, "text", text)
 }
 
 // sendChatText sends a raw MsgMessageChat line to s only — the SendClientMessage
