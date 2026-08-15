@@ -457,6 +457,18 @@ documentar na Fase 4/5 ao detalhar `CItem`/`CReadFiles`.
 > **`ItemCSum.h`** (`Release/TMsrv/` e `DBsrv/`) é um header de checksum da `ItemList` — provável
 > anti-tamper para garantir que TMSrv e DBSrv usam a mesma lista. Confirmar uso.
 
+**Layout do `.bin` (CONFIRMADO):** `Release/DBsrv/run/ItemList.bin` = **6500 registros × 140 bytes,
+ofuscados com XOR 0x5A plano, sem cabeçalho** (sobram 4 bytes no fim; 910 004 = 6500×140 + 4). Os
+comentários de offset da struct (`Price // 92`) são de uma versão antiga com nome curto — com
+`ITEMNAME_LENGTH=64` (`Basedef.h:203`) o layout real é `Name[64] + 8×short (mesh, texture, vfx,
+ReqLvl/Str/Int/Dex/Con) + 12×(short sEffect, short sValue) + int Price + 4×short (nUnique, nPos,
+Extra, Grade) = 140`. `nPos` é um **bitmask sobre `STRUCT_MOB.Equip[16]`** (bit *i* = slot *i*;
+`64|128` = arma de duas mãos; `0` = não equipável), e `IndexVisualEffect` é 0 em todas as linhas.
+O `.bin` está **desatualizado** em relação ao `.csv`: 23 dos 3216 itens divergem em mesh — o `.csv`
+é a fonte de verdade (é o que os serviços Go carregam). Decodificador de referência:
+`scripts/item-icon-manifest.py --check-bin`; consumo desses campos pelo front em
+[item-icons-plan.md](item-icons-plan.md).
+
 ### 3.2. `SkillData.csv` → `STRUCT_SPELL` (`Basedef.h:1110-...`)
 
 `MAX_SKILL`/`MAX_SPELL` entradas. Campos por skill: `SkillPoint, TargetType, ManaSpent, Delay,
