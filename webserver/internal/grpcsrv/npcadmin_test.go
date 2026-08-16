@@ -151,7 +151,11 @@ func TestListItemCatalogMapping(t *testing.T) {
 	fake := &fakeNpcAdmin{
 		listItemsRes: npcadmin.OK,
 		listItems: []itemcatalog.Entry{
-			{Index: 1100, Name: "Espada Curta"},
+			{
+				Index: 1100, Name: "Espada_Curta", DisplayName: "Espada Curta",
+				Mesh: 837, Texture: 1, SlotMask: 64, Slots: []string{"weapon"},
+				Grade: 2, IconKey: "m837_t1_p64",
+			},
 			{Index: 1101, Name: "Adaga"},
 		},
 	}
@@ -171,8 +175,19 @@ func TestListItemCatalogMapping(t *testing.T) {
 		t.Fatalf("items = %+v, want 2 entries", resp.GetItems())
 	}
 	got := resp.GetItems()[0]
-	if got.GetItemIndex() != 1100 || got.GetName() != "Espada Curta" {
-		t.Errorf("items[0] = %+v, want {1100 Espada Curta}", got)
+	if got.GetItemIndex() != 1100 || got.GetName() != "Espada_Curta" {
+		t.Errorf("items[0] = %+v, want {1100 Espada_Curta}", got)
+	}
+	// The moderator picker shares the mapper with ItemCatalogService, so the
+	// icon fields have to reach this surface too.
+	if got.GetIconKey() != "m837_t1_p64" || got.GetDisplayName() != "Espada Curta" {
+		t.Errorf("items[0] icon = %q / %q, want m837_t1_p64 / Espada Curta", got.GetIconKey(), got.GetDisplayName())
+	}
+	if got.GetSlotMask() != 64 || len(got.GetSlots()) != 1 || got.GetSlots()[0] != "weapon" {
+		t.Errorf("items[0] slots = %d / %v, want 64 / [weapon]", got.GetSlotMask(), got.GetSlots())
+	}
+	if got.GetGrade() != 2 || got.GetMesh() != 837 || got.GetTexture() != 1 {
+		t.Errorf("items[0] grade/mesh/texture = %d/%d/%d, want 2/837/1", got.GetGrade(), got.GetMesh(), got.GetTexture())
 	}
 }
 

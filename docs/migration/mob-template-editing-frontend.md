@@ -108,6 +108,14 @@ editado por `NpcAdminService.SetNpcShop`) e a posição de spawn do subconjunto 
 
 > Picker de itens: reutilize `NpcAdminService.ListItemCatalog` (`item_index` → nome) no editor de
 > equipamento, em vez de pedir `item_index` cru — mesma recomendação já vale pro editor de loja.
+>
+> Ícone do item: as entradas do catálogo trazem `icon_key`, `display_name`, `slots` e `grade` — ver
+> [item-icons-nextjs.md](../integrations/item-icons-nextjs.md).
+>
+> **Atenção à colisão de nomes:** o `slot` da tabela acima é o índice de `Equip[]` **sendo editado**
+> (0..15). O `slot_mask`/`slots` do catálogo é onde o item **pode** ser equipado. Dá para usar o
+> segundo para validar o primeiro no formulário (avisar quando o item escolhido não pertence àquele
+> slot), mas o backend não faz essa checagem.
 
 **Semântica "autoritativa" (importante para o formulário):** `SetMobTemplateEquip` **substitui a
 lista inteira** — slots não enviados voltam a ficar vazios (não ficam com o valor antigo do

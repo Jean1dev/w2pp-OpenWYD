@@ -178,10 +178,11 @@ func init() {
 // content scanners used by the moderator UI.
 func Scan(contentDir string, logger *slog.Logger, opts Options) (Catalog, npctemplate.ScanStats, error) {
 	var stats npctemplate.ScanStats
-	items, err := itemcatalog.Scan(contentDir)
+	catalog, err := itemcatalog.Scan(contentDir)
 	if err != nil {
 		return Catalog{}, stats, fmt.Errorf("droptool: item catalog: %w", err)
 	}
+	items := catalog.Items
 
 	itemByIndex := make(map[int32]string, len(items))
 	out := Catalog{Items: make([]ItemEntry, 0, len(items))}
