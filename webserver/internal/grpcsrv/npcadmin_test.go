@@ -44,6 +44,10 @@ type fakeNpcAdmin struct {
 	listZones    []mapzones.Zone
 	listZonesErr error
 
+	deleteRes npcadmin.Result
+	deleteErr error
+	lastNpcID int64
+
 	setShopItems []domain.NPCShopItem
 }
 
@@ -66,8 +70,10 @@ func (f *fakeNpcAdmin) SetShop(_ context.Context, _ int64, _ int64, items []doma
 func (f *fakeNpcAdmin) SetItemPrice(context.Context, int64, int32, int64) (npcadmin.Result, error) {
 	return npcadmin.OK, nil
 }
-func (f *fakeNpcAdmin) Delete(context.Context, int64, int64) (npcadmin.Result, error) {
-	return npcadmin.OK, nil
+func (f *fakeNpcAdmin) Delete(_ context.Context, moderatorID, npcID int64) (npcadmin.Result, error) {
+	f.lastModeratorID = moderatorID
+	f.lastNpcID = npcID
+	return f.deleteRes, f.deleteErr
 }
 func (f *fakeNpcAdmin) ListMerchantTemplates(_ context.Context, moderatorID int64) (npcadmin.Result, []npctemplates.Template, error) {
 	f.lastModeratorID = moderatorID
@@ -458,6 +464,48 @@ func TestListMapZonesInfraError(t *testing.T) {
 	s := NewNpcAdmin(fake)
 
 	if _, err := s.ListMapZones(context.Background(), &webv1.ListMapZonesRequest{}); err == nil {
+		t.Fatal("expected gRPC error on infra failure")
+	}
+}
+
+// TestDeleteNpcContentOwned checks the refusal of a content-owned definition
+// reaches the portal as ADMIN_RESULT_CONTENT_OWNED (5) rather than a generic
+// error — the enum value is the only thing telling the UI to say "hide it
+// instead of deleting it" (#257).
+func TestDeleteNpcContentOwned(t *testing.T) {
+	fake := &fakeNpcAdmin{deleteRes: npcadmin.ContentOwned}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.DeleteNpc(context.Background(), &webv1.DeleteNpcRequest{ModeratorId: 1, NpcId: 766})
+	if err != nil {
+		t.Fatalf("DeleteNpc: %v", err)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_CONTENT_OWNED {
+		t.Errorf("result = %v, want CONTENT_OWNED", resp.GetResult())
+	}
+	if fake.lastModeratorID != 1 || fake.lastNpcID != 766 {
+		t.Errorf("forwarded (moderator, npc) = (%d, %d), want (1, 766)", fake.lastModeratorID, fake.lastNpcID)
+	}
+}
+
+func TestDeleteNpcForbidden(t *testing.T) {
+	fake := &fakeNpcAdmin{deleteRes: npcadmin.Forbidden}
+	s := NewNpcAdmin(fake)
+
+	resp, err := s.DeleteNpc(context.Background(), &webv1.DeleteNpcRequest{ModeratorId: 3, NpcId: 10})
+	if err != nil {
+		t.Fatalf("DeleteNpc: %v", err)
+	}
+	if resp.GetResult() != webv1.AdminResult_ADMIN_RESULT_FORBIDDEN {
+		t.Errorf("result = %v, want FORBIDDEN", resp.GetResult())
+	}
+}
+
+func TestDeleteNpcInfraError(t *testing.T) {
+	fake := &fakeNpcAdmin{deleteErr: errors.New("pool exhausted")}
+	s := NewNpcAdmin(fake)
+
+	if _, err := s.DeleteNpc(context.Background(), &webv1.DeleteNpcRequest{}); err == nil {
 		t.Fatal("expected gRPC error on infra failure")
 	}
 }

@@ -8,6 +8,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -147,6 +148,84 @@ func TestSeedNPCDefinitionsIdempotent(t *testing.T) {
 	}
 	if shopRows != 1 {
 		t.Errorf("shop items for seed-int-1 = %d, want 1", shopRows)
+	}
+}
+
+// contentGenIndex keeps TestDeleteNPCDefinitionContentOwned's generator index
+// clear of the ones the other tests in this package use (generator_index is
+// globally unique).
+const contentGenIndex = 200000
+
+// TestDeleteNPCDefinitionContentOwned checks a definition imported from
+// NPCGener.txt (origin = 'content', written by SeedNPCDefinitions) is refused
+// rather than deleted, and that the refusal leaves nothing behind: no audit row
+// and no config-version bump, since it returns before auditAndBump.
+func TestDeleteNPCDefinitionContentOwned(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	_, _ = pool.Exec(ctx, `DELETE FROM npc_shop_item; DELETE FROM npc_definition WHERE slug LIKE 'content-int-%'`)
+
+	s := New(pool)
+
+	var modID int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO account (name, pass_hash, role) VALUES ('mod_npc_content_test','x','moderator') RETURNING id`).
+		Scan(&modID); err != nil {
+		t.Fatalf("seed moderator: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM account WHERE id = $1`, modID) })
+
+	if _, err := s.SeedNPCDefinitions(ctx, []domain.NPCDefinition{
+		{Slug: "content-int-1", TemplateName: "Set_BM_2", Enabled: true, GeneratorIndex: contentGenIndex},
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM npc_definition WHERE slug = 'content-int-1'`) })
+
+	var npcID int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM npc_definition WHERE slug = 'content-int-1'`).Scan(&npcID); err != nil {
+		t.Fatalf("read seeded id: %v", err)
+	}
+
+	v0, err := s.NPCConfigVersion(ctx)
+	if err != nil {
+		t.Fatalf("version: %v", err)
+	}
+
+	if err := s.DeleteNPCDefinition(ctx, npcID, modID); !errors.Is(err, ErrContentOwned) {
+		t.Fatalf("delete = %v, want ErrContentOwned", err)
+	}
+
+	var still int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM npc_definition WHERE id = $1`, npcID).Scan(&still); err != nil {
+		t.Fatalf("count definition: %v", err)
+	}
+	if still != 1 {
+		t.Errorf("definition rows after refused delete = %d, want 1 (untouched)", still)
+	}
+
+	var audits int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM npc_audit WHERE npc_id = $1`, npcID).Scan(&audits); err != nil {
+		t.Fatalf("count audit: %v", err)
+	}
+	if audits != 0 {
+		t.Errorf("audit rows = %d, want 0 (refusal returns before auditAndBump)", audits)
+	}
+
+	vN, err := s.NPCConfigVersion(ctx)
+	if err != nil {
+		t.Fatalf("version: %v", err)
+	}
+	if vN != v0 {
+		t.Errorf("version = %d, want %d (refused write must not bump)", vN, v0)
+	}
+
+	// Hiding it is the supported alternative and must still work.
+	if err := s.SetNPCVisibility(ctx, npcID, false, modID); err != nil {
+		t.Errorf("set visibility on content NPC: %v", err)
 	}
 }
 

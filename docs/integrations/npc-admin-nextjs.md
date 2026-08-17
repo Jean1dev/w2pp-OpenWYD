@@ -73,9 +73,15 @@ Todas as RPCs recebem `moderator_id` (int64). Resultados de negócio viajam **no
 | `ADMIN_RESULT_FORBIDDEN` (2)| chamador não é `moderator`/`admin`             | 403                  |
 | `ADMIN_RESULT_INVALID` (3)  | validação falhou (slot, merchant, campos…)     | 400 / 422            |
 | `ADMIN_RESULT_NOT_FOUND` (4)| NPC alvo não existe                            | 404                  |
+| `ADMIN_RESULT_CONTENT_OWNED` (5)| NPC é conteúdo versionado (`origin = "content"`) — deve ser **escondido**, não apagado (§5.7) | 409 |
 | `ADMIN_RESULT_UNSPECIFIED`(0)| não deve ocorrer                              | 500                  |
 
 Erros gRPC (ex.: `UNAVAILABLE`, `INTERNAL`) = falha de infraestrutura → 502/500 no BFF.
+
+> **Não trate um valor desconhecido como erro genérico.** `ADMIN_RESULT_CONTENT_OWNED` é um resultado
+> *esperado* de `DeleteNpc` na esmagadora maioria dos NPCs; um mapa `AdminResult → HTTP` que não o
+> conheça o joga em 500 e o moderador vê "erro interno" sem saber o que fazer — foi exatamente o bug
+> da issue #257. Ver §5.7.
 
 ### 4.2 RPCs
 
@@ -108,6 +114,8 @@ message AdminNpc {
   int32  route_type    = 9;  // 0 = parado
   int32  merchant      = 10; // ver §5.1
   repeated AdminNpcShopItem shop = 11; // preenchido em GetNpc/ListNpcs
+  string origin          = 12; // "content" (veio do NPCGener.txt) | "custom" (criado por moderador) — ver §5.7
+  int32  generator_index = 13; // linha de origem no NPCGener.txt; -1 quando não aplicável
 }
 
 message AdminNpcShopItem {
@@ -278,6 +286,40 @@ Ambas as RPCs seguem exatamente o mesmo contrato de `ListMerchantTemplates`:
 - `ListMapZones`: **não depende de `-content`** — é uma tabela fixa de 5 zonas (`0 Armia … 4 Noatum`),
   sempre retornada (nunca vazia). Simples `<select>` de 5 opções, sem necessidade de busca.
 
+### 5.7 `origin` — NPC de conteúdo **não pode ser apagado**, só escondido
+
+Cada definição carrega um `origin` (§4.3, campo 12):
+
+| `origin` | de onde veio | `DeleteNpc` |
+|----------|--------------|-------------|
+| `"content"` | importado do `NPCGener.txt` por `dbserver import-npcs` — é conteúdo versionado do jogo | **sempre recusado** com `ADMIN_RESULT_CONTENT_OWNED` |
+| `"custom"`  | criado pelo moderador no painel (`UpsertNpc`) | permitido |
+
+A regra é intencional: apagar um NPC do `NPCGener.txt` no banco não o remove do conteúdo — o próximo
+`import-npcs` o traria de volta, e nesse meio-tempo o banco e o `Release/` ficariam divergentes. A
+saída pretendida é **desabilitar**: `SetNpcVisibility(npc_id, enabled=false)` tira o NPC do mundo
+mantendo a definição.
+
+**Isso não é um caso de canto.** Na base atual são **567 de 572 definições** com `origin = "content"`
+(~99%). Um painel que mostra o botão de excluir para todos convida a uma ação que falha em quase
+todos os cliques.
+
+Duas coisas a fazer na UI:
+
+1. **Não oferecer a ação impossível.** `origin` já vem no payload de `ListNpcs`/`GetNpc` — esconda ou
+   desabilite o botão de excluir quando `npc.origin === "content"`, deixando só o toggle de
+   visibilidade. É decisão puramente de UI, sem round-trip extra.
+2. **Explicar quando acontecer mesmo assim** (link direto, chamada por script, corrida com outro
+   moderador): traduza `ADMIN_RESULT_CONTENT_OWNED` (5) numa mensagem que aponte a saída, não num
+   erro genérico. Texto sugerido:
+
+   > Este NPC faz parte do conteúdo do jogo e não pode ser excluído. Desabilite-o para removê-lo do mundo.
+
+Do lado do servidor, uma recusa dessas é registrada como
+`delete npc refused: content-owned npc_id=… moderator_id=…` no log do `webserver` — útil para
+confirmar que a rejeição chegou ao backend (ela não deixa linha de auditoria, porque nada foi
+escrito).
+
 ## 6. Camada BFF (Next.js) — como implementar
 
 O browser fala com **rotas REST do próprio Next.js**; essas rotas (server-side) chamam o `web-api` por
@@ -341,7 +383,9 @@ import { NextResponse } from "next/server";
 import { npcAdmin } from "@/lib/npcAdminClient";
 import { getSession } from "@/lib/session"; // lê o cookie httpOnly → { accountId }
 
-const httpFor = (r: number) => ({ 1: 200, 2: 403, 3: 422, 4: 404 } as const)[r] ?? 500;
+// Cobre TODOS os valores do enum (§4.1) — um valor faltando aqui vira 500 e a UI
+// perde o motivo real da recusa (foi o bug da #257 com o 5).
+const httpFor = (r: number) => ({ 1: 200, 2: 403, 3: 422, 4: 404, 5: 409 } as const)[r] ?? 500;
 
 export async function GET() {
   const session = await getSession();
@@ -356,6 +400,33 @@ export async function GET() {
   const status = httpFor(resp.result);
   if (status !== 200) return NextResponse.json({ result: resp.result }, { status });
   return NextResponse.json({ npcs: resp.npcs });
+}
+```
+
+```ts
+// app/api/admin/npcs/[id]/route.ts — DELETE, com o caso content-owned (§5.7)
+import { NextResponse } from "next/server";
+import { npcAdmin } from "@/lib/npcAdminClient";
+import { getSession } from "@/lib/session";
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const resp = await new Promise<any>((resolve, reject) =>
+    npcAdmin.deleteNpc({ moderatorId: session.accountId, npcId: Number(params.id) }, (err: unknown, r: unknown) =>
+      err ? reject(err) : resolve(r)),
+  ).catch(() => null);
+
+  if (!resp) return NextResponse.json({ error: "upstream" }, { status: 502 });
+  if (resp.result === 5 /* ADMIN_RESULT_CONTENT_OWNED */) {
+    // Não é falha do servidor: o NPC veio do NPCGener.txt. A UI deve mostrar a
+    // mensagem e oferecer o toggle de visibilidade no lugar (§5.7).
+    return NextResponse.json({ result: resp.result, error: "content_owned" }, { status: 409 });
+  }
+  const status = httpFor(resp.result);
+  if (status !== 200) return NextResponse.json({ result: resp.result }, { status });
+  return NextResponse.json({ ok: true });
 }
 ```
 
@@ -393,7 +464,9 @@ export async function GET() {
 Pontos importantes do BFF:
 
 - **`moderatorId` vem SEMPRE da sessão** (`session.accountId`), nunca do corpo do request.
-- Mapear `AdminResult` → HTTP (tabela §4.1). Rejeição de gRPC (promise reject) = falha de infra → 502.
+- Mapear `AdminResult` → HTTP (tabela §4.1), **incluindo o `5` (`CONTENT_OWNED` → 409)**, que a UI
+  precisa traduzir numa mensagem específica e não num erro genérico (§5.7). Rejeição de gRPC
+  (promise reject) = falha de infra → 502.
 - Cliente gRPC é **singleton server-side**; nunca exposto ao browser.
 - Cookie de sessão `httpOnly` + proteção CSRF nas rotas mutantes (POST/PUT/PATCH/DELETE).
 
@@ -426,7 +499,12 @@ feature). Ferramentas usuais: `@grpc/grpc-js` + `grpc-tools`/`ts-proto`, ou `buf
 - [ ] Login via `AccountWebService.VerifyCredentials` → cookie `httpOnly` guardando `account_id` **e** `role`.
 - [ ] Gate da página/menu de NPC por `role ∈ { moderator, admin }` (só UX — o web-api reautoriza).
 - [ ] Toda rota admin deriva `moderator_id` da sessão (nunca do corpo).
-- [ ] Mapear `AdminResult` → HTTP; tratar reject de gRPC como 502.
+- [ ] Mapear `AdminResult` → HTTP (os **6** valores, incluindo `ADMIN_RESULT_CONTENT_OWNED` = 5 → 409);
+      tratar reject de gRPC como 502.
+- [ ] Botão de excluir escondido/desabilitado quando `npc.origin === "content"` (§5.7) — sobra só o
+      toggle de visibilidade, que é a ação suportada para ~99% dos NPCs.
+- [ ] `ADMIN_RESULT_CONTENT_OWNED` traduzido em mensagem específica ("faz parte do conteúdo do jogo…
+      desabilite-o", §5.7), nunca em "erro interno".
 - [ ] UI da loja em 3 abas de 9 (slots 0..8 / 9..17 / 18..26); `SetNpcShop` envia a loja inteira.
 - [ ] Cada item da loja tem um controle de remover (ex.: botão "x" por slot) que, ao salvar, tira aquele
       slot do array de `items` antes de chamar `SetNpcShop` (§5.2) — sem isso não há como excluir um item
