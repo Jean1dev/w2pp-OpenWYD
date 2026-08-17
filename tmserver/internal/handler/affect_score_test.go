@@ -41,6 +41,51 @@ func TestAffect31GoldenShieldAC(t *testing.T) {
 	}
 }
 
+// Samaritano (skill 13, SkillData.csv:14) carries Value 0, so the whole buff
+// rides on the caster's mastery: v = Level*3/4. The AffAC assertion is the point
+// of the issue-#267 divergence — the legacy's +Ac/4 (Basedef.cpp:4225) is gone.
+func TestAffect24SamaritanoConAndMaxHP(t *testing.T) {
+	e := &world.Entity{ID: 1, Con: 212, AC: 1000, MaxHP: 4000}
+	e.Affect[0] = world.Affect{Type: affectSamaritano, Value: 0, Level: 200}
+
+	applyAffectScore(e)
+
+	if e.AffCon != 150 || e.AffMaxHP != 300 {
+		t.Errorf("AffCon/AffMaxHP = %d/%d, want 150/300", e.AffCon, e.AffMaxHP)
+	}
+	if e.AffAC != 0 {
+		t.Errorf("AffAC = %d, want 0 (Samaritano no longer buffs AC)", e.AffAC)
+	}
+}
+
+// On a MOB, affect 24 is the summon lifespan counter (summon.go:25), not a buff —
+// the legacy tells them apart by idx >= MAX_USER (Server.cpp:5843).
+func TestAffect24OnMobIsSummonLifespanOnly(t *testing.T) {
+	e := &world.Entity{ID: world.MaxUser, Con: 50, AC: 1000, MaxHP: 4000}
+	e.Affect[0] = world.Affect{Type: affectSummonLife, Level: 200, Time: summonLifeTicks}
+
+	applyAffectScore(e)
+
+	if e.AffCon != 0 || e.AffMaxHP != 0 || e.AffAC != 0 {
+		t.Errorf("summon picked up a player buff: AffCon=%d AffMaxHP=%d AffAC=%d",
+			e.AffCon, e.AffMaxHP, e.AffAC)
+	}
+}
+
+// Possuído (skill 3, SkillData.csv:4 — affect 14, Value 10) is the shape
+// Samaritano now shares. The numbers are the ones captured in game on issue #267:
+// mastery 200 → v = 200*3/4 + 10 = 160 → CON +160, MaxHP +320.
+func TestAffect14PossuidoConAndMaxHP(t *testing.T) {
+	e := &world.Entity{ID: 1, Con: 212, MaxHP: 4031}
+	e.Affect[0] = world.Affect{Type: 14, Value: 10, Level: 200}
+
+	applyAffectScore(e)
+
+	if e.AffCon != 160 || e.AffMaxHP != 320 {
+		t.Errorf("AffCon/AffMaxHP = %d/%d, want 160/320", e.AffCon, e.AffMaxHP)
+	}
+}
+
 func TestMagicAffectsStack(t *testing.T) {
 	e := &world.Entity{Magic: 100}
 	e.Affect[0] = world.Affect{Type: 4}

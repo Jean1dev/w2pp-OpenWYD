@@ -753,6 +753,73 @@ func TestEscudoDouradoAffectDuration(t *testing.T) {
 	}
 }
 
+// samaritanoSpell is skill 13 exactly as the Release CSV yields it through the
+// content loader (SkillData.csv:14: affect 24, Value 0, AffectTime 600 ÷4 = 150).
+var samaritanoSpell = content.Spell{Index: 13, SkillPoint: 72, ManaSpent: 25, Delay: 1,
+	Range: 5, AffectType: affectSamaritano, AffectValue: 0, AffectTime: 150, MaxTarget: 1}
+
+// TestSamaritanoCastRaisesConAndMaxHP walks the whole issue-#267 path: the cast
+// installs affect 24, refreshScore caches the CON/MaxHP contribution, and the
+// score packet the client renders carries both. Con and MaxHp are precisely the
+// two fields the issue's screenshots point at.
+func TestSamaritanoCastRaisesConAndMaxHP(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	e := &world.Entity{ID: 1, Class: 0, BaseCon: 212, BaseMaxHP: 4031, MaxHP: 4031, Con: 212, HP: 4031}
+
+	d.applyCastAffect(w, e, e, e.ID, castInfo{isSkill: true, special: 200, spell: samaritanoSpell})
+
+	if e.AffCon != 150 || e.AffMaxHP != 300 {
+		t.Fatalf("AffCon/AffMaxHP = %d/%d, want 150/300", e.AffCon, e.AffMaxHP)
+	}
+	sc := d.computeScore(e)
+	if sc.Con != 362 {
+		t.Errorf("score Con = %d, want 362 (212 + 150)", sc.Con)
+	}
+	if sc.MaxHp != 4331 {
+		t.Errorf("score MaxHp = %d, want 4331 (4031 + 300)", sc.MaxHp)
+	}
+}
+
+// The legacy drops Samaritano at the TOP of every attack (_MSG_Attack.cpp:274)
+// while the affect it is casting only lands further down, in applyCastAffect —
+// so casting the buff must never cancel it. Guards that ordering.
+func TestSamaritanoSurvivesItsOwnCast(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	e := &world.Entity{ID: 1, BaseMaxHP: 4000, MaxHP: 4000}
+
+	d.removeSamaritano(w, e) // what attack() does before resolving the cast
+	d.applyCastAffect(w, e, e, e.ID, castInfo{isSkill: true, special: 200, spell: samaritanoSpell})
+
+	if !e.HasAffect(affectSamaritano) {
+		t.Fatal("Samaritano did not survive its own cast")
+	}
+}
+
+// TestRemoveSamaritanoOnAttack is the DoRemoveSamaritano port (Server.cpp:9129):
+// swinging drops the buff, and the score goes back to its unbuffed values —
+// including the HP clamp the shrinking MaxHP forces.
+func TestRemoveSamaritanoOnAttack(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	e := &world.Entity{ID: 1, BaseCon: 212, BaseMaxHP: 4031, MaxHP: 4031, Con: 212}
+	d.applyCastAffect(w, e, e, e.ID, castInfo{isSkill: true, special: 200, spell: samaritanoSpell})
+	e.HP = 4331 // topped up while buffed
+
+	d.removeSamaritano(w, e)
+
+	if e.HasAffect(affectSamaritano) {
+		t.Fatal("attack did not drop Samaritano")
+	}
+	if e.AffCon != 0 || e.AffMaxHP != 0 {
+		t.Errorf("AffCon/AffMaxHP = %d/%d, want 0/0", e.AffCon, e.AffMaxHP)
+	}
+	if e.HP != 4031 {
+		t.Errorf("HP = %d, want 4031 (clamped to the unbuffed max)", e.HP)
+	}
+}
+
 func TestValidateSkillTargetCommonGates(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 32}, slog.Default(), nil, nil)

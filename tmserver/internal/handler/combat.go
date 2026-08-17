@@ -22,6 +22,32 @@ const (
 	damSkill = -1
 )
 
+// affectSamaritano is affect 24 ON A PLAYER (SkillData.csv:14, the only skill row
+// that uses it). The same id on a MOB is the summon lifespan counter —
+// affectSummonLife, summon.go:25 — which is why every read of it is index-gated.
+const affectSamaritano = 24
+
+// removeSamaritano ports DoRemoveSamaritano (Server.cpp:9129), which the legacy
+// calls on EVERY attack packet — melee or cast, before any damage is resolved
+// (_MSG_Attack.cpp:274). Samaritano is a purely defensive buff: it is meant to
+// hold only while its owner is not swinging back.
+//
+// This runs at the TOP of attack, while the cast that installs the affect only
+// lands much later in applyCastAffect — so casting Samaritano never cancels the
+// buff it is putting up.
+func (d *Dispatcher) removeSamaritano(w *world.World, e *world.Entity) {
+	if !e.ClearFirstAffect(affectSamaritano) {
+		return
+	}
+	// Losing the buff shrinks MaxHP, so the refresh may clamp current HP down —
+	// the same thing the legacy's GetCurrentScore does before SendScore.
+	d.refreshScore(e)
+	if s := w.Session(e.ID); s != nil {
+		d.sendScore(w, s, e)
+		d.sendAffect(w, s, e)
+	}
+}
+
 // attack handles _MSG_Attack / _MSG_AttackOne / _MSG_AttackTwo (0x0367/039D/039E),
 // handlers/_MSG_Attack.md. Damage is SERVER-AUTHORITATIVE: the client's Dam[]
 // damage is recomputed via the combat formulas (game-rules.md §4) and overwritten
@@ -127,6 +153,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		d.applyBookResurrection(w, s, e)
 		body.ReqMp = int16(s.ReqMp)
 	}
+
+	// Swinging drops Samaritano (_MSG_Attack.cpp:274), before the damage loop.
+	d.removeSamaritano(w, e)
 
 	// Server-authoritative attack power = CurrentScore.Damage + the equipped weapon's
 	// damage, with the Divine buff's +20% folded in (effectiveDamage).
