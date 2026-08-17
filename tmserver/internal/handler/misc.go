@@ -153,6 +153,11 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	if npc == nil || npc.Mode == world.MobEmpty {
 		return
 	}
+	// QUEST_JARDINEIRO (Merchant 100, EF_GRADE0 1): second Quest 256 arena.
+	if npc.Merchant == 100 && npc.Grade == 1 {
+		d.quest256NPC(w, s, e, quest256Steps[1], 4039)
+		return
+	}
 	// PERZEN (Merchant 100, EF_GRADE0 ∈ {7,8,9}): the item exchange.
 	if npc.Merchant == 100 && npc.Grade >= 7 && npc.Grade <= 9 {
 		d.perzenExchange(w, s, npc)
@@ -578,6 +583,40 @@ var quest256Steps = []quest256Step{
 	{flag: 3, minLevel: 190, maxLevel: 265, x: 464, y: 3902, area: questArea{x1: 459, y1: 3887, x2: 497, y2: 3916}},
 	{flag: 4, minLevel: 265, maxLevel: 320, x: 668, y: 3756, area: questArea{x1: 658, y1: 3728, x2: 703, y2: 3762}},
 	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
+}
+
+// quest256NPC handles the item hand-in performed by the five legacy Quest 256
+// NPC cases. The Jardineiro route is the first one exposed here; keeping the
+// step and ticket explicit avoids accidentally enabling the other unfinished
+// quest NPC routes.
+func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Entity, step quest256Step, ticket int16) {
+	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	if e.Level < step.minLevel || e.Level >= step.maxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+
+	slot := -1
+	for i := 0; i < activeCarryLimit(e); i++ {
+		if e.Carry[i].Index == ticket {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+
+	// BASE_ClearItem clears the whole legacy slot; Quest 256 tickets are not a
+	// stack consumption path even if a malformed item carries EF_AMOUNT.
+	e.Carry[slot] = world.Item{}
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
+	d.teleportQuest256Step(w, s, e, step)
+	d.log.Info("quest256 NPC teleport", "conn", s.Conn, "item", ticket, "level", e.Level, "quest_flag", step.flag)
 }
 
 var masterGriffTravelDelay = 9500 * time.Millisecond

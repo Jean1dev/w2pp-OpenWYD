@@ -186,6 +186,84 @@ func baseMortalState(level int) world.CharacterState {
 	}
 }
 
+func TestJardineiroStartsQuest256WithRealTemplate(t *testing.T) {
+	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Jardineiro"))
+	if err != nil {
+		t.Fatalf("read real Jardineiro template: %v", err)
+	}
+	db := newDB()
+	st := baseMortalState(115)
+	st.Carry[7] = world.Item{Index: 4039}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	item := expect(t, c, protocol.MsgSendItem)
+	if slot, idx := le16(item[2:4]), le16(item[4:6]); slot != 7 || idx != 0 {
+		t.Fatalf("Jardineiro consume slot=%d idx=%d, want slot 7 cleared", slot, idx)
+	}
+	action := expectAction(t, c)
+	if action.Effect != 1 || !inRange(action.TargetX, 2234) || !inRange(action.TargetY, 1714) {
+		t.Fatalf("Jardineiro teleport effect=%d target=%d,%d, want effect 1 around 2234,1714", action.Effect, action.TargetX, action.TargetY)
+	}
+}
+
+func TestJardineiroAcceptsArch(t *testing.T) {
+	tmpl := questNPCTemplate("Jardineiro", 100, 1, 0)
+	db := newDB()
+	st := baseMortalState(189)
+	st.ClassMaster = classMasterArch
+	st.Carry[0] = world.Item{Index: 4039}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	expect(t, c, protocol.MsgSendItem)
+	expectAction(t, c)
+}
+
+func TestJardineiroRejectsInvalidRequirements(t *testing.T) {
+	tests := []struct {
+		name        string
+		level       int
+		classMaster uint8
+		item        int16
+	}{
+		{name: "below level", level: 114, classMaster: classMasterMortal, item: 4039},
+		{name: "at upper bound", level: 190, classMaster: classMasterMortal, item: 4039},
+		{name: "wrong class", level: 120, classMaster: classMasterCelestial, item: 4039},
+		{name: "missing ticket", level: 120, classMaster: classMasterMortal},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl := questNPCTemplate("Jardineiro", 100, 1, 0)
+			db := newDB()
+			st := baseMortalState(tt.level)
+			st.ClassMaster = tt.classMaster
+			st.Carry[0] = world.Item{Index: tt.item}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			questFrame(t, c, npcID)
+			if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+				t.Fatalf("notice = %d, want NoticeReqNotMet", code)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Fatalf("rejected Jardineiro interaction produced %#x after notice", ty)
+			}
+		})
+	}
+}
+
 func TestCapaverdeTeleport(t *testing.T) {
 	tmpl := questNPCTemplate("Treinador_Aprendiz", 100, 14, 0)
 	db := newDB()
