@@ -87,6 +87,7 @@ func run(logger *slog.Logger) error {
 	srv := grpc.NewServer(grpc.Creds(creds))
 	st := store.New(pool)
 	npcAdmin := npcadmin.New(st)
+	npcAdmin.SetLogger(logger)
 	mobTemplateAdmin := mobtemplateadmin.New(st)
 	donate := donateshop.New(st)
 	dailyRwd := dailyreward.New(st)

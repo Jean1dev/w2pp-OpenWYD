@@ -1,8 +1,11 @@
 package npcadmin
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
@@ -75,8 +78,13 @@ func (f *fakeStore) ItemPriceOverrides(context.Context) ([]domain.ItemPriceOverr
 	return f.itemPrices, nil
 }
 func (f *fakeStore) DeleteNPCDefinition(_ context.Context, id int64, _ int64) error {
-	if _, ok := f.defs[id]; !ok {
+	d, ok := f.defs[id]
+	if !ok {
 		return store.ErrNotFound
+	}
+	// Mirrors the real store: versioned content is hidden, never deleted.
+	if d.Origin == "content" {
+		return store.ErrContentOwned
 	}
 	f.deletedID = id
 	return nil
@@ -85,7 +93,10 @@ func (f *fakeStore) DeleteNPCDefinition(_ context.Context, id int64, _ int64) er
 func newFake() *fakeStore {
 	return &fakeStore{
 		roles: map[int64]string{1: "moderator", 2: "admin", 3: "player"},
-		defs:  map[int64]domain.NPCDefinition{10: {ID: 10, Slug: "shop-10", Merchant: 1}},
+		defs: map[int64]domain.NPCDefinition{
+			10: {ID: 10, Slug: "shop-10", Merchant: 1},
+			11: {ID: 11, Slug: "Set_BM-6079", Origin: "content"},
+		},
 	}
 }
 
@@ -213,6 +224,43 @@ func TestDeleteNotFound(t *testing.T) {
 	}
 	if got != NotFound {
 		t.Errorf("Delete result = %v, want NotFound", got)
+	}
+}
+
+// TestDeleteContentOwned checks a definition that came from NPCGener.txt is
+// refused rather than deleted, and that the refusal is logged: the store rejects
+// before writing its audit row, so the log is the only server-side trace (#257).
+func TestDeleteContentOwned(t *testing.T) {
+	fs := newFake()
+	s := New(fs)
+	var logs bytes.Buffer
+	s.SetLogger(slog.New(slog.NewTextHandler(&logs, nil)))
+
+	got, err := s.Delete(context.Background(), 1, 11)
+	if err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if got != ContentOwned {
+		t.Errorf("Delete result = %v, want ContentOwned", got)
+	}
+	if fs.deletedID != 0 {
+		t.Errorf("deleted id = %d, want none deleted", fs.deletedID)
+	}
+	if !strings.Contains(logs.String(), "content-owned") || !strings.Contains(logs.String(), "npc_id=11") {
+		t.Errorf("log = %q, want a content-owned refusal naming npc_id=11", logs.String())
+	}
+}
+
+// TestDeleteContentOwnedWithoutLogger checks the logger is optional — the
+// refusal still classifies correctly when SetLogger was never called.
+func TestDeleteContentOwnedWithoutLogger(t *testing.T) {
+	s := New(newFake())
+	got, err := s.Delete(context.Background(), 1, 11)
+	if err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if got != ContentOwned {
+		t.Errorf("Delete result = %v, want ContentOwned", got)
 	}
 }
 
