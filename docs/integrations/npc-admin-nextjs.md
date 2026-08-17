@@ -132,11 +132,19 @@ message ListMerchantTemplatesResponse {
   repeated MerchantTemplate templates = 2;
 }
 
-// Uma linha de Release/Common/ItemList.csv, só o que o picker de item_index
-// precisa (o resto da linha — preço, grade, efeitos — não viaja aqui).
+// Uma linha de Release/Common/ItemList.csv, só o que o picker de item_index e o
+// ícone precisam (o resto da linha — preço, efeitos — não viaja aqui).
+// Os campos 3..9 são a chave visual: ver docs/integrations/item-icons-nextjs.md.
 message ItemCatalogEntry {
   int32 item_index = 1;
-  string name = 2;
+  string name = 2;           // nome cru, com "_"
+  string icon_key = 3;       // "m<mesh>_t<texture>_p<slot_mask>"
+  string display_name = 4;   // name com "_" virando espaço — é o que se exibe
+  int32 slot_mask = 5;       // nPos: bitmask sobre Equip[16]; 0 = não equipável
+  repeated string slots = 6; // slot_mask decodificado ("boots", "weapon", …)
+  int32 grade = 7;           // 1=Normal 2=Místico 3=Arcano 4=Lendário
+  int32 mesh = 8;
+  int32 texture = 9;
 }
 message ListItemCatalogRequest { int64 moderator_id = 1; }
 message ListItemCatalogResponse {
@@ -275,6 +283,9 @@ Ambas as RPCs seguem exatamente o mesmo contrato de `ListMerchantTemplates`:
   (não é uma flag nova — reaproveita a mesma configuração). `items = []` quando `-content` não foi setado;
   UI cai no campo `item_index` numérico manual. Catálogo é grande (~3200 entradas) — carregar uma vez no
   client e filtrar localmente (combobox pesquisável por nome), sem round-trip a cada tecla.
+  Cada entrada também carrega `icon_key`/`display_name`/`slots`/`grade`, então o combobox pode mostrar
+  ícone e raridade em vez de só o índice — ver `docs/integrations/item-icons-nextjs.md`. Filtre por
+  `name` (cru), exiba `display_name`.
 - `ListMapZones`: **não depende de `-content`** — é uma tabela fixa de 5 zonas (`0 Armia … 4 Noatum`),
   sempre retornada (nunca vazia). Simples `<select>` de 5 opções, sem necessidade de busca.
 

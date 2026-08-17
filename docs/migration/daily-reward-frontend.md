@@ -69,6 +69,11 @@ dia. Comparado ao `DonateShopItem`, não existe campo `price`.
 > Picker de itens: o catálogo (item_index → nome) é servido pelo `NpcAdminService.ListItemCatalog`
 > (já existente, reutilizado do donate) quando o `web-api` roda com `-content`. Reutilize-o no editor
 > da oferta em vez de pedir `item_index` cru.
+>
+> Ícone do item: cada entrada do catálogo carrega `icon_key`, `display_name`, `slots` e `grade` — use
+> tanto no editor quanto no calendário de recompensas, com o fallback por slot+grade. Como
+> `DailyRewardItem` não replica esses campos, faça o join por `item_index`. Ver
+> [item-icons-nextjs.md](../integrations/item-icons-nextjs.md).
 
 ## 4. Serviço `DailyRewardAdminService` (painel do moderador)
 

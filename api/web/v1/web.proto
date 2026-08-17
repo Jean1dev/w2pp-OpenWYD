@@ -146,6 +146,28 @@ message ListMyCharactersResponse {
   repeated WebCharacterSummary characters = 1;
 }
 
+// ItemCatalogService exposes the item catalog read-only to the player-facing
+// screens that have to render an item (donate shop, daily reward, drop tables,
+// world events). Unlike NpcAdminService.ListItemCatalog it takes no
+// moderator_id: the catalog is public, immutable content read from the
+// read-only Release/ mount at boot, not account data.
+//
+// The whole list is ~3.2k entries; the BFF is expected to fetch it once and
+// cache it against catalog_version rather than call per item.
+service ItemCatalogService {
+  // ListItems returns the full catalog. Empty (not an error) when the service
+  // runs without -content/W2PP_CONTENT.
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+}
+
+message ListItemsRequest {}
+message ListItemsResponse {
+  repeated ItemCatalogEntry items = 1;
+  // catalog_version fingerprints ItemList.csv; it only changes on redeploy, so
+  // the BFF can cache the list indefinitely and revalidate on this value.
+  string catalog_version = 2;
+}
+
 // NpcAdminService is the moderator-facing NPC editing surface (npc-editing-plan.md).
 // The Next.js BFF calls it server-side after establishing a moderator session;
 // every request carries the moderator's account_id, which the web-api authorizes
@@ -307,11 +329,22 @@ message ListMerchantTemplatesResponse {
 }
 
 // ItemCatalogEntry is one row of Release/Common/ItemList.csv, trimmed to what
-// the shop-item picker needs (the full row also carries price/effects, not
-// relevant here — see tmserver/internal/content.ItemEntry for that).
+// the shop-item picker and the item icons need (the full row also carries
+// price/effects, not relevant here — see tmserver/internal/content.ItemEntry).
+//
+// Fields 3..9 are the visual key (item-icons-plan.md §5). The client draws an
+// item from STRUCT_ITEMLIST's IndexMesh/IndexTexture/nPos, never from the item
+// index, so icon_key — not item_index — is what an icon pack is keyed by.
 message ItemCatalogEntry {
   int32 item_index = 1;
-  string name = 2;
+  string name = 2;          // raw catalog name, e.g. "Botas_Douradas(N)"
+  string icon_key = 3;      // "m<mesh>_t<texture>_p<slot_mask>"
+  string display_name = 4;  // name with underscores turned back into spaces
+  int32 slot_mask = 5;      // nPos: bitmask over STRUCT_MOB.Equip[16]; 0 = not equippable
+  repeated string slots = 6; // slot_mask decoded ("boots", "weapon", …)
+  int32 grade = 7;          // 1=Normal 2=Místico 3=Arcano 4=Lendário …
+  int32 mesh = 8;           // IndexMesh: model/appearance
+  int32 texture = 9;        // IndexTexture: colour variant of that model
 }
 
 message ListItemCatalogRequest { int64 moderator_id = 1; }

@@ -450,6 +450,130 @@ var CharacterWebService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	ItemCatalogService_ListItems_FullMethodName = "/web.v1.ItemCatalogService/ListItems"
+)
+
+// ItemCatalogServiceClient is the client API for ItemCatalogService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// ItemCatalogService exposes the item catalog read-only to the player-facing
+// screens that have to render an item (donate shop, daily reward, drop tables,
+// world events). Unlike NpcAdminService.ListItemCatalog it takes no
+// moderator_id: the catalog is public, immutable content read from the
+// read-only Release/ mount at boot, not account data.
+//
+// The whole list is ~3.2k entries; the BFF is expected to fetch it once and
+// cache it against catalog_version rather than call per item.
+type ItemCatalogServiceClient interface {
+	// ListItems returns the full catalog. Empty (not an error) when the service
+	// runs without -content/W2PP_CONTENT.
+	ListItems(ctx context.Context, in *ListItemsRequest, opts ...grpc.CallOption) (*ListItemsResponse, error)
+}
+
+type itemCatalogServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewItemCatalogServiceClient(cc grpc.ClientConnInterface) ItemCatalogServiceClient {
+	return &itemCatalogServiceClient{cc}
+}
+
+func (c *itemCatalogServiceClient) ListItems(ctx context.Context, in *ListItemsRequest, opts ...grpc.CallOption) (*ListItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListItemsResponse)
+	err := c.cc.Invoke(ctx, ItemCatalogService_ListItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ItemCatalogServiceServer is the server API for ItemCatalogService service.
+// All implementations must embed UnimplementedItemCatalogServiceServer
+// for forward compatibility.
+//
+// ItemCatalogService exposes the item catalog read-only to the player-facing
+// screens that have to render an item (donate shop, daily reward, drop tables,
+// world events). Unlike NpcAdminService.ListItemCatalog it takes no
+// moderator_id: the catalog is public, immutable content read from the
+// read-only Release/ mount at boot, not account data.
+//
+// The whole list is ~3.2k entries; the BFF is expected to fetch it once and
+// cache it against catalog_version rather than call per item.
+type ItemCatalogServiceServer interface {
+	// ListItems returns the full catalog. Empty (not an error) when the service
+	// runs without -content/W2PP_CONTENT.
+	ListItems(context.Context, *ListItemsRequest) (*ListItemsResponse, error)
+	mustEmbedUnimplementedItemCatalogServiceServer()
+}
+
+// UnimplementedItemCatalogServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedItemCatalogServiceServer struct{}
+
+func (UnimplementedItemCatalogServiceServer) ListItems(context.Context, *ListItemsRequest) (*ListItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListItems not implemented")
+}
+func (UnimplementedItemCatalogServiceServer) mustEmbedUnimplementedItemCatalogServiceServer() {}
+func (UnimplementedItemCatalogServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeItemCatalogServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ItemCatalogServiceServer will
+// result in compilation errors.
+type UnsafeItemCatalogServiceServer interface {
+	mustEmbedUnimplementedItemCatalogServiceServer()
+}
+
+func RegisterItemCatalogServiceServer(s grpc.ServiceRegistrar, srv ItemCatalogServiceServer) {
+	// If the following call panics, it indicates UnimplementedItemCatalogServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ItemCatalogService_ServiceDesc, srv)
+}
+
+func _ItemCatalogService_ListItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ItemCatalogServiceServer).ListItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ItemCatalogService_ListItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ItemCatalogServiceServer).ListItems(ctx, req.(*ListItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ItemCatalogService_ServiceDesc is the grpc.ServiceDesc for ItemCatalogService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ItemCatalogService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "web.v1.ItemCatalogService",
+	HandlerType: (*ItemCatalogServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListItems",
+			Handler:    _ItemCatalogService_ListItems_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/web/v1/web.proto",
+}
+
+const (
 	NpcAdminService_ListNpcs_FullMethodName              = "/web.v1.NpcAdminService/ListNpcs"
 	NpcAdminService_GetNpc_FullMethodName                = "/web.v1.NpcAdminService/GetNpc"
 	NpcAdminService_UpsertNpc_FullMethodName             = "/web.v1.NpcAdminService/UpsertNpc"

@@ -188,6 +188,11 @@ Crie uma tela de moderação com duas abas:
 - **Por mob**: busca por nome/template do mob, filtro opcional por item, tabela de mobs com expansão
   mostrando `slot`, `item_index`, `item_name`, `rate_divisor`.
 
+> Ícone do item: `DropItemEntry`/`MobDropItem` carregam só `item_index` + `item_name` — os campos
+> visuais vivem em `ItemCatalogEntry`. Carregue o catálogo uma vez (`ItemCatalogService.ListItems`) e
+> faça o **join por `item_index`** para desenhar o ícone nas duas abas. Ver
+> [item-icons-nextjs.md](item-icons-nextjs.md).
+
 Estados obrigatórios:
 
 - carregando;

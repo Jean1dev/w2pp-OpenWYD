@@ -66,6 +66,11 @@ Uma oferta da loja = um item entregável por um preço em donate.
 > Picker de itens: o catálogo (item_index → nome) é servido pelo `NpcAdminService.ListItemCatalog`
 > (já existente) quando o `web-api` roda com `-content`. Reutilize-o no editor da oferta em vez de
 > pedir `item_index` cru.
+>
+> Ícone do item: cada entrada do catálogo carrega `icon_key`, `display_name`, `slots` e `grade` — use
+> tanto no editor quanto na vitrine da loja, com o fallback por slot+grade. Como `DonateShopItem` não
+> replica esses campos, faça o join por `item_index`. Ver
+> [item-icons-nextjs.md](../integrations/item-icons-nextjs.md).
 
 ## 4. Serviço `DonateAdminService` (painel do moderador)
 

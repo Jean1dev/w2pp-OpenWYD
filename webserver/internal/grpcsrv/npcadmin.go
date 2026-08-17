@@ -159,7 +159,7 @@ func (s *NpcAdminServer) ListItemCatalog(ctx context.Context, req *webv1.ListIte
 	}
 	out := make([]*webv1.ItemCatalogEntry, 0, len(items))
 	for _, it := range items {
-		out = append(out, &webv1.ItemCatalogEntry{ItemIndex: it.Index, Name: it.Name})
+		out = append(out, itemCatalogEntryToProto(it))
 	}
 	return &webv1.ListItemCatalogResponse{Result: resultToProto(res), Items: out}, nil
 }
