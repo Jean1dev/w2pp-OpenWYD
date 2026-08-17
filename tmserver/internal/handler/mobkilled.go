@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/loot"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -9,6 +11,10 @@ import (
 
 // coinCap is the total-gold overflow guard (game-rules.md §7, MobKilled.cpp:2715).
 const coinCap = 2_000_000_000
+
+// expPanelDefaultColor is TNColor::Default from Basedef.h. The alpha byte is
+// required by the unmodified client; RGB alone leaves the panel text invisible.
+const expPanelDefaultColor uint32 = 0xFFCCAAFF
 
 // Level-up effect (captura-wyd-levelup.md §7): MSG_Motion with these values is the
 // client-side level-up animation/sound.
@@ -201,9 +207,14 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 	if gain <= 0 {
 		return
 	}
+	previousExp := killer.Exp
 	killer.Exp += gain
 	if killer.Exp > level.MaxExp {
 		killer.Exp = level.MaxExp
+	}
+	if applied := killer.Exp - previousExp; applied > 0 && ks != nil {
+		body := protocol.EncodeExpPanelBody(fmt.Sprintf("+%d de EXP", applied), expPanelDefaultColor)
+		w.Send(ks, protocol.MsgExpPanel, body)
 	}
 
 	d.applyLevelUps(w, ks, killer)
