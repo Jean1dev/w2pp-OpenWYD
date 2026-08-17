@@ -1205,9 +1205,10 @@ func TestUseDivineConsumesOneFromStack(t *testing.T) {
 	}
 }
 
-// TestEquipBonusRefine verifies the refine (+9) THRESHOLD on a defense piece: a
-// refined (sanc>=9) item whose nPos is a defense slot (4/8/128) gains a flat +25 AC on
-// top of its catalog AC; below +9 there is no threshold bonus (captura §E).
+// TestEquipBonusRefine verifies the two INDEPENDENT refine rules on a defense piece.
+// The catalog AC is first scaled by BASE_GetItemAbility's (sanc+10)/10 multiplier, and
+// only then does the +9 THRESHOLD add its flat +25 for a defense nPos (4/8/128) on top —
+// captura §E is explicit that the threshold sits above the scaled value, not instead of it.
 func TestEquipBonusRefine(t *testing.T) {
 	d := New(Config{
 		ItemEffects: map[int][]content.BaseEffect{555: {{Eff: efAc, Val: 100}}}, // armor, base AC 100
@@ -1221,16 +1222,17 @@ func TestEquipBonusRefine(t *testing.T) {
 	e9 := &world.Entity{}
 	e9.Equip[0] = armor9
 
-	if ac8 := d.equipBonus(e8).ac; ac8 != 100 {
-		t.Errorf("+8 AC = %d, want 100 (no threshold below +9)", ac8)
+	if ac8 := d.equipBonus(e8).ac; ac8 != 180 {
+		t.Errorf("+8 AC = %d, want 180 (100*18/10, no threshold below +9)", ac8)
 	}
-	if ac9 := d.equipBonus(e9).ac; ac9 != 125 {
-		t.Errorf("+9 AC = %d, want 125 (100 + 25 refine threshold)", ac9)
+	if ac9 := d.equipBonus(e9).ac; ac9 != 215 {
+		t.Errorf("+9 AC = %d, want 215 (100*19/10 + 25 refine threshold)", ac9)
 	}
 }
 
-// TestWeaponDamageRefine verifies the refine (+9) threshold adds +40 to a weapon hand
-// (nPos 64/192) at sanc>=9 (captura §E).
+// TestWeaponDamageRefine is the weapon-hand counterpart of TestEquipBonusRefine: the
+// catalog EF_DAMAGE scales by (sanc+10)/10 and the +9 threshold adds its flat +40 on top
+// (nPos 64/192, captura §E).
 func TestWeaponDamageRefine(t *testing.T) {
 	d := New(Config{
 		ItemEffects: map[int][]content.BaseEffect{900: {{Eff: efDamage, Val: 100}}},
@@ -1242,8 +1244,8 @@ func TestWeaponDamageRefine(t *testing.T) {
 		t.Errorf("+0 weaponDamage = %d, want 100", got)
 	}
 	e.Equip[6] = world.Item{Index: 900, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
-	if got := d.weaponDamage(e); got != 140 {
-		t.Errorf("+9 weaponDamage = %d, want 140 (100 + 40 threshold)", got)
+	if got := d.weaponDamage(e); got != 230 {
+		t.Errorf("+9 weaponDamage = %d, want 230 (100*19/10 + 40 threshold)", got)
 	}
 }
 
@@ -1276,8 +1278,8 @@ func TestItemSancUnpacksPity(t *testing.T) {
 	}
 }
 
-// The threshold bonus must key off the real level, not the packed byte: a +5
-// item with pity must NOT be granted the +9 AC bonus.
+// Both refine rules must key off the real level, not the packed byte: a +5 item with pity
+// scales as +5 and must NOT be granted the +9 threshold bonus.
 func TestEquipBonusRefineIgnoresPity(t *testing.T) {
 	d := New(Config{
 		ItemEffects: map[int][]content.BaseEffect{555: {{Eff: efAc, Val: 100}}},
@@ -1285,8 +1287,8 @@ func TestEquipBonusRefineIgnoresPity(t *testing.T) {
 	})
 	e := &world.Entity{}
 	e.Equip[0] = world.Item{Index: 555, Effects: [3]world.Effect{{Effect: efSanc, Value: 25}}} // +5, pity 2
-	if ac := d.equipBonus(e).ac; ac != 100 {
-		t.Errorf("+5 (pity 2) AC = %d, want 100 — pity must not unlock the +9 threshold", ac)
+	if ac := d.equipBonus(e).ac; ac != 150 {
+		t.Errorf("+5 (pity 2) AC = %d, want 150 (100*15/10) — pity must not unlock the +9 threshold", ac)
 	}
 }
 

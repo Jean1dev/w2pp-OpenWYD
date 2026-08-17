@@ -333,6 +333,32 @@ refino hoje.
 - Itens "tipo 5" (selados) não refinam além de `sanc >= 9` (`_MSG_UseItem.cpp:227`); outros não
   passam de `sanc >= 6 && Vol == 4` (`:203`). Mensagem `_NN_Cant_Refine_More`.
 
+### 3.5.1. Quanto o refino vale em status (issue #282)
+
+`BASE_GetItemAbility` (`Basedef.cpp:1687-1867`) devolve, para **um** efeito, a soma
+catálogo + instância e só então aplica o multiplicador `(sanc+10)/10`. Duas regras
+acompanham:
+
+- **Promoção de acessório** (`:1851-1852`): item com `nPos & 0xF00` (os quatro slots
+  `Equip[8..11]`) e `sanc == 9` passa a contar como `sanc = 10`, ou seja um **×2 exato**.
+- **Lista de isenção** (`:1854`): `EF_GRID, EF_CLASS, EF_POS, EF_WTYPE, EF_RANGE, EF_LEVEL,
+  EF_REQ_*, EF_VOLATILE, EF_INCUBATE, EF_INCUDELAY, EF_MOBTYPE, EF_ITEMTYPE, EF_ITEMLEVEL,
+  EF_NOTRADE, EF_NOSANC, EF_DONATE` não escalam — são metadados de identidade/requisito.
+  `EF_RUNSPEED` escala e depois passa por um clamp próprio (`:1860-1867`): nunca ultrapassa 2,
+  e um item em `sanc == 9` **promovido não** ganha o ponto extra.
+
+Exemplo canônico: `Pedra_Amunra` (**3464**, `ItemList.csv:5289`) tem `EF_STR/INT/DEX/CON 100`.
+Em +9, acessório, cada pedra vale **200** — e um personagem usa quatro, logo **+800** por atributo.
+O tooltip do cliente já implementa isso; o servidor precisa bater com ele.
+
+> Os thresholds `+25 AC` (defesa, `Basedef.cpp:4601-4622`) e `+40 dano` (arma,
+> `CMob::GetCurrentScore`) são somas **separadas**, aplicadas **por cima** do valor já
+> multiplicado — não substituem o multiplicador. Ver `captura-wyd-affect-divina.md` §E.
+
+No port: `handler.itemAbilityRefined` é a única implementação; `equipBonus`/`weaponDamage` a
+consomem uma vez **por efeito distinto** de cada item, porque a divisão inteira precisa truncar a
+soma uma única vez.
+
 ### 3.6. Refino com poeiras — onde ele realmente mora (issue #103)
 
 **O refino com poeiras NÃO fica no handler de combine.** Ele vive dentro de `_MSG_UseItem` (0x0373):
