@@ -41,7 +41,6 @@ func init() {
 // EffectiveDropRate computes the per-slot drop odds after the killer's drop
 // bonus and the target-level adjustment (game-rules.md §2.2). A larger result is
 // rarer. killerBonus is the killer's DropBonus (0 = none).
-//
 func EffectiveDropRate(slot, killerBonus, mobLevel int) int {
 	droprate := DropRate[slot]
 	dropbonus := DropBonus[slot] + killerBonus
