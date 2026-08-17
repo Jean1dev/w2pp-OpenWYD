@@ -15,24 +15,29 @@ import (
 // boot (webserver/cmd/webserver/main.go).
 type ItemCatalogServer struct {
 	webv1.UnimplementedItemCatalogServiceServer
-	catalog itemcatalog.Catalog
+	version string
+	// entries is built once in NewItemCatalog and never mutated afterwards: the
+	// catalog is immutable after boot, so rebuilding ~3200 messages (~400 KB) per
+	// call would be pure waste on an endpoint that takes no arguments and no
+	// authorization. Every response shares this slice — gRPC only marshals it.
+	entries []*webv1.ItemCatalogEntry
 }
 
 // NewItemCatalog builds the ItemCatalogService over an already-scanned catalog.
 // A zero-valued catalog (no -content configured) is valid and serves an empty
 // list.
 func NewItemCatalog(catalog itemcatalog.Catalog) *ItemCatalogServer {
-	return &ItemCatalogServer{catalog: catalog}
+	entries := make([]*webv1.ItemCatalogEntry, 0, len(catalog.Items))
+	for _, it := range catalog.Items {
+		entries = append(entries, itemCatalogEntryToProto(it))
+	}
+	return &ItemCatalogServer{version: catalog.Version, entries: entries}
 }
 
 // ListItems returns the whole catalog. It cannot fail: the content was read at
 // boot, and its absence is a legitimate degraded mode rather than an error.
 func (s *ItemCatalogServer) ListItems(_ context.Context, _ *webv1.ListItemsRequest) (*webv1.ListItemsResponse, error) {
-	out := make([]*webv1.ItemCatalogEntry, 0, len(s.catalog.Items))
-	for _, it := range s.catalog.Items {
-		out = append(out, itemCatalogEntryToProto(it))
-	}
-	return &webv1.ListItemsResponse{Items: out, CatalogVersion: s.catalog.Version}, nil
+	return &webv1.ListItemsResponse{Items: s.entries, CatalogVersion: s.version}, nil
 }
 
 // itemCatalogEntryToProto is shared with NpcAdminService.ListItemCatalog so the

@@ -93,8 +93,9 @@ não podem divergir.
 ### 3.1. Modo degradado
 
 Sem `-content`/`W2PP_CONTENT` configurado no `web-api`, `ListItems` devolve **lista vazia e nenhum
-erro** (mesma degradação dos pickers de moderação). O front tem que tratar catálogo vazio como
-"sem enfeite", nunca como falha.
+erro** (mesma degradação dos pickers de moderação), com `catalog_version` também vazio (`""`). O
+front tem que tratar catálogo vazio como "sem enfeite", nunca como falha — mas sem cacheá-lo para
+sempre; ver §6.
 
 ## 4. `slot_mask`: o bitmask de `Equip[16]`
 
@@ -165,6 +166,11 @@ Padrão recomendado: buscar a lista uma vez no server-side, indexar por `item_in
 browser um mapa já reduzido ao que a tela precisa. Use `catalog_version` como `ETag`/chave de
 revalidação.
 
+Uma exceção ao "buscar uma vez": quando o `web-api` sobe sem `-content`, a resposta vem vazia e
+`catalog_version` vem `""` (§3.1). Esse resultado **não** deve ser cacheado — se o `web-api` for
+redeployado com conteúdo, um processo que cacheou o vazio continuaria servindo mapa vazio (ícones
+presos no fallback, silenciosamente) até reiniciar. `version === ""` é a checagem barata.
+
 ## 7. Exemplo (pseudocódigo BFF, server-side)
 
 ```ts
@@ -194,10 +200,22 @@ export type CatalogItem = {
   grade: number;
 };
 
-let cached: { version: string; byIndex: Map<number, CatalogItem> } | null = null;
+type Catalog = { version: string; byIndex: Map<number, CatalogItem> };
 
-export async function getCatalog() {
+let cached: Catalog | null = null;
+let inFlight: Promise<Catalog> | null = null;
+
+export async function getCatalog(): Promise<Catalog> {
   if (cached) return cached;
+  // Sem dedupe, N requests a frio puxam N × ~400 KB antes do primeiro cache.
+  if (inFlight) return inFlight;
+  inFlight = fetchCatalog().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function fetchCatalog(): Promise<Catalog> {
   const r = await new Promise<any>((resolve, reject) =>
     itemCatalog.listItems({}, (e: unknown, x: unknown) => (e ? reject(e) : resolve(x))),
   );
@@ -212,9 +230,12 @@ export async function getCatalog() {
       grade: it.grade,
     });
   }
-  // Catálogo vazio = web-api sem -content. Não é erro: as telas caem no fallback.
-  cached = { version: r.catalogVersion ?? "", byIndex };
-  return cached;
+  const catalog: Catalog = { version: r.catalogVersion ?? "", byIndex };
+  // Catálogo vazio (version "") = web-api sem -content. Não é erro — as telas caem no
+  // fallback —, mas NÃO cacheie: se a web-api for redeployada com conteúdo, este processo
+  // continuaria servindo mapa vazio até reiniciar. Sem cache, a próxima chamada reconsulta.
+  if (catalog.version !== "") cached = catalog;
+  return catalog;
 }
 ```
 
@@ -229,6 +250,11 @@ export function ItemIcon({ item }: { item: CatalogItem }) {
       title={item.displayName}
       data-grade={item.grade}
       onError={(e) => {
+        // Na Fase 1 nem o pacote de ícones nem os SVGs de fallback existem (§9), então os
+        // dois URLs dão 404. Sem esta guarda, reatribuir o src redispara onError em loop —
+        // um stream de requests por item, num picker de ~3220. Só tente o fallback uma vez.
+        if (e.currentTarget.dataset.fb) return;
+        e.currentTarget.dataset.fb = "1";
         // pacote ausente ou item sem ícone: cai no SVG por slot+grade (§5)
         e.currentTarget.src = `/item-fallback/${slot}.svg`;
       }}
