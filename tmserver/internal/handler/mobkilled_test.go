@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -49,6 +50,17 @@ func expMobTemplate(lvl int32, exp int64, clan uint8) []byte {
 	binary.LittleEndian.PutUint32(b[cs+0:], uint32(lvl))
 	binary.LittleEndian.PutUint32(b[cs+16:], 100) // MaxHp
 	binary.LittleEndian.PutUint32(b[cs+24:], 100) // Hp
+	return b
+}
+
+func mobTemplateWithDrop(slot int, item world.Item) []byte {
+	b := expMobTemplate(100, 0, 0)
+	o := 268 + slot*8 // STRUCT_MOB.Carry[64]
+	binary.LittleEndian.PutUint16(b[o:], uint16(item.Index))
+	for i, ef := range item.Effects {
+		b[o+2+i*2] = ef.Effect
+		b[o+3+i*2] = ef.Value
+	}
 	return b
 }
 
@@ -169,6 +181,59 @@ func TestMobKilledClan4NoExp(t *testing.T) {
 	d.mobKilled(w, killer, w.Entity(mobID))
 	if killer.Exp != 0 {
 		t.Errorf("killer.Exp = %d, want 0 for a clan-4 mob", killer.Exp)
+	}
+}
+
+func TestMobKilledDeliversCommonDropToCarry(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	want := world.Item{Index: 777, Effects: [3]world.Effect{
+		{Effect: 43, Value: 7},
+		{Effect: 2, Value: 20},
+		{Effect: 3, Value: 5},
+	}}
+	mobID := w.SpawnMob(mobTemplateWithDrop(11, want), 6, 5) // slot 11 always drops
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	if got := killer.Carry[0]; got != want {
+		t.Fatalf("killer.Carry[0] = %+v, want %+v", got, want)
+	}
+	if gi := w.GroundItemAt(6, 5); gi != nil {
+		t.Fatalf("common mob drop was incorrectly placed on the ground: %+v", gi)
+	}
+}
+
+func TestMobKilledFullCarryLosesCommonDrop(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	for i := 0; i < baseCarrySlots; i++ {
+		killer.Carry[i] = world.Item{Index: int16(1000 + i)}
+	}
+	mobID := w.SpawnMob(mobTemplateWithDrop(11, world.Item{Index: 777}), 6, 5)
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+
+	for i := 0; i < baseCarrySlots; i++ {
+		if killer.Carry[i].Index != int16(1000+i) {
+			t.Fatalf("full Carry slot %d changed to %+v", i, killer.Carry[i])
+		}
+	}
+	if gi := w.GroundItemAt(6, 5); gi != nil {
+		t.Fatalf("full Carry fell back to ground: %+v", gi)
+	}
+}
+
+func TestMobKilledRejectsNonDroppableCatalogEntries(t *testing.T) {
+	for _, index := range []int16{390, 454, 30000} {
+		t.Run(fmt.Sprintf("item_%d", index), func(t *testing.T) {
+			d, w, killer := mobKilledWorld(t)
+			mobID := w.SpawnMob(mobTemplateWithDrop(11, world.Item{Index: index}), 6, 5)
+
+			d.mobKilled(w, killer, w.Entity(mobID))
+
+			if !killer.Carry[0].Empty() {
+				t.Fatalf("non-droppable item %d delivered as %+v", index, killer.Carry[0])
+			}
+		})
 	}
 }
 
@@ -476,4 +541,42 @@ func TestKillWorldEventDropSendsCarrySlot(t *testing.T) {
 		return
 	}
 	t.Fatal("never received world event SendItem")
+}
+
+func TestKillCommonMobDropSendsCarrySlot(t *testing.T) {
+	want := world.Item{Index: 777, Effects: [3]world.Effect{
+		{Effect: 43, Value: 7},
+		{Effect: 2, Value: 20},
+		{Effect: 3, Value: 5},
+	}}
+	mob := mobTemplateWithDrop(11, want) // slot 11 is the legacy guaranteed slot
+	binary.LittleEndian.PutUint32(mob[92+16:], 1)
+	binary.LittleEndian.PutUint32(mob[92+24:], 1)
+	addr, stop := startServerExpMob(t, skillCombatDB(0), mob)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	skillAttackFrame(t, c, serverTime, world.MaxUser, -1, -2)
+
+	for i := 0; i < 12; i++ {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			t.Fatal("no MsgSendItem after common mob drop")
+		}
+		if ty != protocol.MsgSendItem {
+			continue
+		}
+		if place, slot, idx := le16(payload[0:2]), le16(payload[2:4]), le16(payload[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != uint16(want.Index) {
+			t.Fatalf("common drop SendItem = place %d slot %d index %d, want carry/0/%d", place, slot, idx, want.Index)
+		}
+		for i, effect := range want.Effects {
+			o := 6 + i*2
+			if payload[o] != effect.Effect || payload[o+1] != effect.Value {
+				t.Fatalf("common drop effect %d = %d:%d, want %d:%d", i, payload[o], payload[o+1], effect.Effect, effect.Value)
+			}
+		}
+		return
+	}
+	t.Fatal("never received MsgSendItem for common mob drop")
 }
