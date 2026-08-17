@@ -71,7 +71,7 @@ Etapas sequenciais de progressão de nível (rumo ao cap 256/Arch). Cada NPC:
 
 | Etapa | NPC (grade) | Faixa de nível | Ticket (`sIndex`) | `QuestFlag` | Teleporte (aprox.) |
 |------:|-------------|----------------|------------------:|------------:|--------------------|
-| 1 | COVEIRO (0) | 39 – 115 | 4038 | 1 | (2398, 2105) |
+| 1 | COVEIRO (0) ✅ | 39 – 115 | 4038 | 1 | (2398, 2105) |
 | 2 | JARDINEIRO (1) | 115 – 190 | 4039 | 2 | (2234, 1714) |
 | 3 | KAIZEN (2) | 190 – 265 | 4040 | 3 | (464, 3902) |
 | 4 | HIDRA (3) | 265 – 320 | 4041 | 4 | (668, 3756) |
@@ -100,6 +100,11 @@ Etapas sequenciais de progressão de nível (rumo ao cap 256/Arch). Cada NPC:
   (open-wyd-scripts) e em game-rules (Fase 4).
 - **Identificação do NPC por `Merchant` + `EF_GRADE0` do item equipado** é um quirk a preservar na
   leitura dos dados de NPC (Fase 2 — `NPCGener`/BaseMob) durante a migração.
+- **Grade 0 é ambíguo — e isso é legado, não bug.** `BASE_GetItemAbilityNosanc` (`:34`) devolve `0`
+  quando o `Equip[0]` não tem efeito `EF_GRADE0`, então templates Merchant-100 sem esse efeito
+  (`FirstTrainer`, `Guarda_`, `Treinador1` em `Release/TMsrv/run/npc/`) caem em `QUEST_COVEIRO`
+  junto com o Coveiro (que tem `EF_GRADE0 0` explícito). A porta do grade 0 no Go reproduz isso de
+  propósito; desambiguar quebraria a paridade.
 - **UNVERIFIED (passo-a-passo fino):** recompensas/etapas internas exatas dos blocos longos
   (`JEFFI`, `SHAMA`, `KING`, `KINGDOM`, `URNAMMU`, `ARZAN_DRAGON`, `GOLD_DRAGON`, `EXPLOIT_LEADER`,
   `MESTREHAB`, `KIBITA`, `GODGOVERNMENT`) — o **despacho e o propósito** estão mapeados; abrir a linha

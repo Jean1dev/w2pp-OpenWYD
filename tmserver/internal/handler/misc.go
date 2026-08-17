@@ -153,6 +153,17 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	if npc == nil || npc.Mode == world.MobEmpty {
 		return
 	}
+	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain
+	// (_MSG_Quest.cpp:53/293, Basedef.h:331). Grade is 0 both for the Coveiro —
+	// which carries an explicit EF_GRADE0 0 — and for Merchant-100 templates with
+	// no EF_GRADE0 effect at all (FirstTrainer, Guarda_, Treinador1). That is the
+	// legacy behaviour, not an accident: BASE_GetItemAbilityNosanc returns 0 for a
+	// missing effect (_MSG_Quest.cpp:34), so those templates fall into
+	// QUEST_COVEIRO on the original server too. Disambiguating would break parity.
+	if npc.Merchant == 100 && npc.Grade == 0 {
+		d.quest256NPC(w, s, e, quest256Steps[0], itemVelaDoCoveiro)
+		return
+	}
 	// PERZEN (Merchant 100, EF_GRADE0 ∈ {7,8,9}): the item exchange.
 	if npc.Merchant == 100 && npc.Grade >= 7 && npc.Grade <= 9 {
 		d.perzenExchange(w, s, npc)
@@ -578,6 +589,48 @@ var quest256Steps = []quest256Step{
 	{flag: 3, minLevel: 190, maxLevel: 265, x: 464, y: 3902, area: questArea{x1: 459, y1: 3887, x2: 497, y2: 3916}},
 	{flag: 4, minLevel: 265, maxLevel: 320, x: 668, y: 3756, area: questArea{x1: 658, y1: 3728, x2: 703, y2: 3762}},
 	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
+}
+
+// itemVelaDoCoveiro is the Quest 256 step-1 ticket handed to the Coveiro
+// (ItemList.csv:5703, "Vela_do_Coveiro"; _MSG_Quest.cpp:315).
+const itemVelaDoCoveiro int16 = 4038
+
+// quest256NPC handles the item hand-in performed by the five legacy Quest 256
+// NPC cases (_MSG_Quest.cpp:293/338/382/426/470). The Coveiro route is the first
+// one exposed here; keeping the step and ticket explicit avoids accidentally
+// enabling the other unfinished quest NPC routes.
+func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Entity, step quest256Step, ticket int16) {
+	// Legacy answers each rejection with SendSay on the NPC; this fork uses the
+	// same NoticeReqNotMet message box as the other quest NPCs (perzenExchange,
+	// capaverdeTeleport, molarGargula, useQuest256Ticket).
+	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
+		d.notify(w, s, NoticeReqNotMet) // _NN_Level_Limit2
+		return
+	}
+	if e.Level < step.minLevel || e.Level >= step.maxLevel {
+		d.notify(w, s, NoticeReqNotMet) // _NN_Level_limit
+		return
+	}
+
+	slot := -1
+	for i := 0; i < activeCarryLimit(e); i++ {
+		if e.Carry[i].Index == ticket {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		d.notify(w, s, NoticeReqNotMet) // _SN_BRINGITEM
+		return
+	}
+
+	// BASE_ClearItem clears the whole legacy slot (_MSG_Quest.cpp:316); Quest 256
+	// tickets are not a stack consumption path (issue #259) even if a malformed
+	// item carries EF_AMOUNT.
+	e.Carry[slot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+	d.teleportQuest256Step(w, s, e, step)
+	d.log.Info("quest256 NPC teleport", "conn", s.Conn, "item", ticket, "level", e.Level, "quest_flag", step.flag)
 }
 
 var masterGriffTravelDelay = 9500 * time.Millisecond
