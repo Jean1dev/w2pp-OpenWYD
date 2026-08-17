@@ -1690,6 +1690,31 @@ func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
 	return total
 }
 
+// itemScoreAbility mirrors the refine scaling at the end of
+// BASE_GetItemAbility (Basedef.cpp:1849-1858). Levels above +10 use the
+// legacy REF_* score values rather than the displayed refine level; notably,
+// +15 is REF_15 (27), so score effects scale by (27+10)/10.
+func (d *Dispatcher) itemScoreAbility(it world.Item, effect uint8) int32 {
+	v := int32(d.itemAbility(it, effect))
+	if v == 0 {
+		return 0
+	}
+	sanc := itemScoreSanc(itemSanc(it))
+	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
+		sanc = 10
+	}
+	return v * int32(sanc+10) / 10
+}
+
+// itemScoreSanc converts the true 0..15 level reported by the Go refine
+// package back to BASE_GetItemSanc's REF_* values used in score arithmetic.
+func itemScoreSanc(level int) int {
+	if level <= 10 {
+		return level
+	}
+	return [...]int{11: 12, 12: 15, 13: 18, 14: 22, 15: 27}[level]
+}
+
 // accessoryPosMask marks the four accessory slots (Equip[8..11]) in an item's catalog
 // nPos bitmask — the slots Pedra_Amunra equips into, which is why a player wears four.
 // BASE_GetItemAbility keys the +9 refine promotion off it (Basedef.cpp:1850).
@@ -1717,17 +1742,11 @@ func (d *Dispatcher) itemCritical(it world.Item) int32 {
 	if it.Effects[1].Effect == efCritical2 || it.Effects[2].Effect == efCritical2 {
 		want = efCritical2
 	}
-	v := int32(d.itemAbility(it, want))
+	v := d.itemScoreAbility(it, want)
 	if v == 0 {
 		return 0
 	}
-	// Inherits itemSanc's decoding of the EF_SANC byte (issue #103 is correcting that
-	// decode); crit scales with whatever level it reports, so it improves in step.
-	sanc := itemSanc(it)
-	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
-		sanc = 10
-	}
-	return v * int32(sanc+10) / 10
+	return v
 }
 
 // resistEffects maps resist index [0..3] to its EF_RESISTn id (CMob.cpp:640-643 assigns
@@ -1749,7 +1768,7 @@ func (d *Dispatcher) itemResist(it world.Item, i int) int32 {
 	if v == 0 {
 		return 0
 	}
-	sanc := itemSanc(it)
+	sanc := itemScoreSanc(itemSanc(it))
 	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
 		sanc = 10
 	}
@@ -1815,10 +1834,10 @@ type equipBonus struct {
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	var b equipBonus
 	// add folds one effect/value pair into the bonus. weaponSlot excludes weapon-hand
-	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD/EF_MAGICADD to the jewel items (nUnique
-	// 41-50); offHand excludes EF_MAGIC on the off-hand weapon slot only (Basedef.cpp:
-	// 2447 — unlike EF_DAMAGE, the right-hand weapon still counts toward magic).
-	add := func(eff uint8, val int32, weaponSlot, dmgJewel, offHand bool) {
+	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD to nUnique 41-50 items. Magic is handled
+	// per item below because BASE_GetItemAbility applies refine scaling to the combined
+	// catalog and instance values before BASE_GetMobAbility sums the equipment.
+	add := func(eff uint8, val int32, weaponSlot, dmgJewel bool) {
 		switch eff {
 		case efStr:
 			b.str += int16(val)
@@ -1849,14 +1868,6 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		case efDamageAdd:
 			if dmgJewel { // only jewels (nUnique 41-50) contribute EF_DAMAGEADD
 				b.damage += val
-			}
-		case efMagic:
-			if !offHand { // BASE_GetMobAbility excludes only the off-hand weapon slot
-				b.magicRaw += val
-			}
-		case efMagicAdd:
-			if dmgJewel { // only jewels (nUnique 41-50) contribute EF_MAGICADD
-				b.magicRaw += val
 			}
 		case efHp:
 			b.maxHP += val
@@ -1898,11 +1909,21 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		offHand := slot == weaponSlotL
 		nUnique := d.itemUnique[int(it.Index)]
 		dmgJewel := nUnique >= 41 && nUnique <= 50
+		// Magic is queried per item through BASE_GetItemAbility, which applies
+		// the item's refine multiplier after combining catalog and instance
+		// effects. EF_MAGIC is excluded only from the off-hand; EF_MAGICADD is
+		// independently queried and gated by nUnique 41..50.
+		if !offHand {
+			b.magicRaw += d.itemScoreAbility(it, efMagic)
+		}
+		if dmgJewel {
+			b.magicRaw += d.itemScoreAbility(it, efMagicAdd)
+		}
 		for _, be := range d.itemEffects[int(it.Index)] { // catalog base effects
-			add(be.Eff, int32(be.Val), weaponSlot, dmgJewel, offHand)
+			add(be.Eff, int32(be.Val), weaponSlot, dmgJewel)
 		}
 		for _, ef := range it.Effects { // per-item instance refines/divines
-			add(ef.Effect, int32(ef.Value), weaponSlot, dmgJewel, offHand)
+			add(ef.Effect, int32(ef.Value), weaponSlot, dmgJewel)
 		}
 		// Refine (+9) threshold: defense pieces gain +25 AC (weapons' +40 is in
 		// weaponDamage). captura §E.
