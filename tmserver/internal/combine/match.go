@@ -25,8 +25,9 @@ type Catalog struct {
 	Extra      map[int]int
 	Effects    map[int][]content.BaseEffect
 	AnctChance [3]int
-	// Pos maps item index → nPos (equip-slot class), needed by MatchOdin's
-	// "+12+" recipe gate.
+	// Pos maps item index → nPos (equip-slot class). It backs BASE_GetItemAbility's
+	// EF_POS branch (see itemAbility), so both MatchAnct's sacrifice gate and
+	// MatchOdin's "+12+" recipe gate read it.
 	Pos map[int]int
 }
 
@@ -86,8 +87,20 @@ func MatchAnct(cat Catalog, items []world.Item) int {
 	return rate
 }
 
+// itemAbility is the BASE_GetItemAbility port (Basedef.cpp:1560-1600): the sum of
+// the catalog's static effects and the item instance's own effect pairs.
+//
+// EF_POS is NOT one of those pairs. BASE_GetItemAbility adds g_pItemList[idx].nPos
+// before it ever scans stEffect[] (Basedef.cpp:1579-1580, and the identical
+// branches at :1741 and :1912), and ItemList.csv carries nPos as column 6 — the
+// token "EF_POS" appears in zero of its rows. Summing only the effect pairs
+// therefore made EF_POS always 0, which made MatchAnct reject every sacrifice item
+// and left the Compositor's Anct recipe unbuildable (issue #270).
 func itemAbility(cat Catalog, it world.Item, eff uint8) int32 {
 	var sum int32
+	if eff == efPos {
+		sum += int32(cat.Pos[int(it.Index)])
+	}
 	for _, be := range cat.Effects[int(it.Index)] {
 		if be.Eff == eff {
 			sum += int32(be.Val)
