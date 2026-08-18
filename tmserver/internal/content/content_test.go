@@ -318,8 +318,8 @@ func TestBaseEffectsMagic(t *testing.T) {
 		idx  int
 		want int16
 	}{
-		{3582, 55}, // Cajado Caotico comum permanece no valor legado.
-		{3725, 70}, {3726, 70}, {3727, 70}, {3728, 70}, // Issue #281: variantes Anct rebalanceadas.
+		{3582, 55},                                     // The common Cajado Caotico keeps its legacy value.
+		{3725, 70}, {3726, 70}, {3727, 70}, {3728, 70}, // Issue #281: rebalanced Anct variants.
 	} {
 		var got int16
 		for _, e := range realEffects[tc.idx] {
