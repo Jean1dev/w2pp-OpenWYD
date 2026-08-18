@@ -15,7 +15,7 @@ const (
 	magicRightHand   = 622  // EF_MAGIC on the right-hand weapon slot (6) — still counts
 	magicAddJewel    = 623  // EF_MAGICADD, registered as a jewel (nUnique 41-50) in magicConfig
 	magicAddNonJewel = 624  // EF_MAGICADD, no nUnique entry — must NOT count
-	magicChaoticAnct = 3725 // Cajado_Caotico(Anct), the real issue #223 reproduction
+	magicChaoticAnct = 3725 // Cajado_Caotico(Anct), the real issue #281 reproduction
 )
 
 // magicConfig is the catalog the magic tests read: static effects and the nUnique each
@@ -28,7 +28,7 @@ func magicConfig() Config {
 			magicRightHand:   {{Eff: efMagic, Val: 40}},
 			magicAddJewel:    {{Eff: efMagicAdd, Val: 20}},
 			magicAddNonJewel: {{Eff: efMagicAdd, Val: 20}},
-			magicChaoticAnct: {{Eff: efMagic, Val: 63}},
+			magicChaoticAnct: {{Eff: efMagic, Val: 70}},
 		},
 		ItemUnique: map[int]int{
 			magicAddJewel:    45, // nUnique range 41-50
@@ -76,9 +76,9 @@ func TestMagicFromEquipment(t *testing.T) {
 			want:  0,
 		},
 		{
-			// ItemList[3725] has EF_MAGIC 63; the instance carries another
+			// ItemList[3725] has the rebalanced EF_MAGIC 70; the instance carries another
 			// EF_MAGIC 8 and packed +15 (250). BASE_GetItemSanc maps +15 to
-			// REF_15=27: (63+8)*37/10 = 262, then (262+1)/4 = 65.
+			// REF_15=27: (70+8)*37/10 = 288, then (288+1)/4 = 72.
 			name: "Cajado Caotico Anct +15 applies refined magic",
 			equip: map[int]world.Item{weaponSlotR: {
 				Index: magicChaoticAnct,
@@ -87,7 +87,7 @@ func TestMagicFromEquipment(t *testing.T) {
 					{Effect: efMagic, Value: 8},
 				},
 			}},
-			want: 65,
+			want: 72,
 		},
 		{
 			// Mount magicRaw (Thoroughbred 30D: 110, mountBonusTable row {750,110,80,32,6})
