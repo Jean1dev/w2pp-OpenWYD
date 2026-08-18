@@ -527,6 +527,30 @@ soma `Dex*kd + Str*ks` conforme a arma. Ex.: TK (`Class==0`) com skill "Confian�
   stack nova deve usar o mesmo delay efetivo (Delay/4) para não rejeitar ações legítimas do cliente.
 - Efeitos de affect persistidos: `STRUCT_AFFECT[MAX_AFFECT=32]` com `Time` (expiração).
 
+### 5.1. Soul permanente do Mortal — Kibita
+
+O terceiro ramo do `case KIBITA` (`_MSG_Quest.cpp:2518-2558`) é uma progressão permanente, não um
+cast nem o campo elemental `MobExtra.Soul`. O parâmetro `confirm` é ignorado.
+
+```text
+requer ClassMaster == MORTAL
+requer CurrentScore.Level >= 369
+requer LearnedSkill bit 30 ainda zerado
+pedra_por_classe = [5334 Água, 5336 Sol, 5335 Terra, 5337 Vento]
+
+limpa integralmente o primeiro slot com pedra_por_classe[MOB.Class]
+LearnedSkill |= 1 << 30
+Equip[15] = 3194 se Clan==7, 3195 se Clan==8, senão 3196
+CharLogOut(); SendArchEffect(slot do personagem)
+```
+
+O `memset` do legado substitui qualquer capa anterior e apaga todos os efeitos do item consumido;
+não é consumo de uma unidade de stack. O logout é parte da transição: salva antes de o cliente
+reler a skill e a capa na seleção.
+
+Esse bit 30 também não é o gate de `Limite_da_Alma` (skill 102 usa `102%24 == 6`). O affect 29 lê
+`MobExtra.Soul`, que permanece inalterado neste fluxo.
+
 ---
 
 ## 6. Eventos e timers

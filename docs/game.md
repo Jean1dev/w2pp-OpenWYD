@@ -59,6 +59,11 @@
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
 
+Para liberar a Soul permanente do Mortal no nível técnico 369+, leve à Kibita a Pedra Secreta da
+classe: TransKnight usa Água (5334), Foema usa Sol (5336), Beastmaster usa Terra (5335) e Huntress
+usa Vento (5337). A pedra será consumida, a capa será substituída pela versão do reino e o
+personagem retornará à seleção para recarregar a progressão.
+
 Faça as quest dos quatros cristais no seu Arch para liberar mais pontos.
 - Dê /red ou /blue para ir direto para o rei desejado.
 • Não precisa transformar o Lac, somente separe 10 que já vai funcionar

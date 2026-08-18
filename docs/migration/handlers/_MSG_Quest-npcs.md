@@ -49,7 +49,7 @@
 | 58 | — | `MOUNT_MASTER` | 170 | curar/ressuscitar montaria (`Equip[14]`) |
 | 62 | — | `ARZAN_DRAGON` | 1397 | dragão de Arzan |
 | 76 | — | `URNAMMU` | 1247 | NPC Urnammu |
-| 74 | — | `KIBITA` | 2430 | NPC Kibita |
+| 74 | — | `KIBITA` | 2430 | cidadania, buff condicional e Soul permanente |
 | 200 | — | `CURANDEIRO` | 2717 | curandeiro |
 
 > **Total:** 38 tipos de NPC → 36 blocos `case`/`#pragma region` (KING cobre Merchant 14 e 15).
@@ -91,6 +91,36 @@ Etapas sequenciais de progressão de nível (rumo ao cap 256/Arch). Cada NPC:
   (teleporte, item inicial, cura, troca). Passo-a-passo fino: abrir a linha do `case` indicada na
   tabela de despacho.
 
+## Detalhe — `KIBITA` (Merchant 74)
+
+O `case KIBITA` (`_MSG_Quest.cpp:2430-2562`) ignora `confirm` e avalia três serviços nesta ordem:
+
+1. **Cidadania:** se `Citizen==0` e há pelo menos 4.000.000 de gold, cobra o valor, define
+   `Citizen=ServerIndex+1`, atualiza a cidadania da guilda quando o jogador é líder e encerra o case.
+2. **Buff temporário:** existe somente sob `#ifdef KIBITA_SOUL` (não há definição desse macro na
+   árvore versionada). Em dias úteis, às 21h, Mortal abaixo do nível 369 entrega o item 420, recebe
+   affect 29 por `AFFECT_1H` e é teleportado para perto de `(2454,1843)`.
+3. **Soul permanente ✅:** Mortal com `CurrentScore.Level>=369` e sem o bit 30 de `LearnedSkill`
+   entrega a Pedra Secreta da classe. O slot é limpo integralmente, o bit 30 é ativado, `Equip[15]`
+   é substituído pela capa do reino e `CharLogOut` força o reload antes de `_MSG_SendArchEffect`.
+
+| Classe (`MOB.Class`) | Pedra Secreta | Item |
+|---------------------:|----------------|-----:|
+| 0 — TransKnight | Água | 5334 |
+| 1 — Foema | Sol | 5336 |
+| 2 — Beastmaster | Terra | 5335 |
+| 3 — Huntress | Vento | 5337 |
+
+| Reino (`MOB.Clan`) | Capa (`Equip[15]`) |
+|--------------------:|-------------------:|
+| 7 — Hekalotia | 3194 |
+| 8 — Akelonia | 3195 |
+| qualquer outro | 3196 |
+
+O bit 30 é uma flag permanente de progressão. Este ramo não escreve `STRUCT_MOBEXTRA.Soul`; esse
+campo elemental é outro conceito, consumido pelo affect 29. No servidor Go somente o terceiro ramo
+está implementado; cidadania e o bloco condicional continuam pendentes.
+
 ## Notas de migração
 - **Estado de quest** mora em `STRUCT_MOBEXTRA.QuestInfo` (Mortal/Arch/Celestial, Fase 2 §1.5) e em
   `pMob[conn].QuestFlag` (estado volátil da etapa atual) — mapear cada flag no schema novo.
@@ -107,7 +137,7 @@ Etapas sequenciais de progressão de nível (rumo ao cap 256/Arch). Cada NPC:
   propósito; desambiguar quebraria a paridade.
 - **UNVERIFIED (passo-a-passo fino):** recompensas/etapas internas exatas dos blocos longos
   (`JEFFI`, `SHAMA`, `KING`, `KINGDOM`, `URNAMMU`, `ARZAN_DRAGON`, `GOLD_DRAGON`, `EXPLOIT_LEADER`,
-  `MESTREHAB`, `KIBITA`, `GODGOVERNMENT`) — o **despacho e o propósito** estão mapeados; abrir a linha
+  `MESTREHAB`, `GODGOVERNMENT`) — o **despacho e o propósito** estão mapeados; abrir a linha
   do `case` ao implementar cada um.
 
 > **Status:** todos os **38 tipos de NPC / 36 `case`** mapeados (gatilho Merchant/grade → modo →

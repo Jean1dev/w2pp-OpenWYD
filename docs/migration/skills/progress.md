@@ -142,6 +142,9 @@ Itens fechados:
 - Livros Sephira `EF_VOLATILE 31..38` setam bits `24..31`, atualizam `UpdateEtc` e agora consomem apenas uma unidade quando o item esta stackado.
 - Validação de cast shared/extra-class usa a regra viva do legado: `LearnedSkill & (1 << (skillnum % 24))` para `0..247`; `SecLearnedSkill` nao participa.
 - `Poder Superior`/A39 aplica +100 `ExpBonus`; `Limite da Alma`/A29 aplica Soul no score quando `Entity.Soul` esta populado.
+- Kibita agora concede a progressao Soul permanente para Mortal no nivel legado 369+: consome a
+  Pedra Secreta da classe, ativa `LearnedSkill` bit 30, troca a capa e persiste antes do logout. Esse
+  bit nao e o gate da skill 102 e nao altera `Entity.Soul`.
 - `Canhão Guardião` exige item 746 no grid; `Muro de Espinhos` cria Vinha; `Ressureição` revive o personagem morto.
 - Buff Loop recebeu os types 5, 6 e 12 alem dos types 39/42 ja usados por Sephira.
 - `Invocação Final`/InstanceValue 9 foi triada para template de summon id 8 com `pSummonBonus` zero.

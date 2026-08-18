@@ -209,6 +209,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.compSephi(w, s, e, npc, int(confirm))
 		return
 	}
+	// KIBITA (Merchant 74): permanently unlocks Mortal Soul with the
+	// class-specific Secreta stone (_MSG_Quest.cpp:2518-2558).
+	if npc.Merchant == 74 {
+		d.kibitaSoul(w, s, e)
+		return
+	}
 	if isKingQuestNPC(npc) {
 		d.kingArch(w, s, e, npc, int(confirm))
 		return
@@ -227,6 +233,65 @@ const (
 	capeEquipSlot        = 15
 	pedraIdealsCraftCoin = 30_000_000
 )
+
+const (
+	kibitaSoulMinLevel  = 369
+	kibitaSoulSkillBit  = int32(1 << 30)
+	kibitaCapeHekalotia = int16(3194)
+	kibitaCapeAkelonia  = int16(3195)
+	kibitaCapeNeutral   = int16(3196)
+)
+
+var kibitaSoulStones = [...]int16{5334, 5336, 5335, 5337}
+
+// kibitaSoul ports the permanent Soul branch of KIBITA. The citizenship branch
+// and the compile-time KIBITA_SOUL event buff are separate legacy services and
+// intentionally remain disabled until their own state and scheduling are ported.
+func (d *Dispatcher) kibitaSoul(w *world.World, s *world.Session, e *world.Entity) {
+	if e.ClassMaster != classMasterMortal || e.Level < kibitaSoulMinLevel || e.LearnedSkill&kibitaSoulSkillBit != 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	if int(e.Class) >= len(kibitaSoulStones) {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+
+	stone := kibitaSoulStones[e.Class]
+	slot := -1
+	for i := 0; i < activeCarryLimit(e); i++ {
+		if e.Carry[i].Index == stone {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+
+	e.Carry[slot] = world.Item{}
+	e.LearnedSkill |= kibitaSoulSkillBit
+	cape := kibitaCapeNeutral
+	switch e.Clan {
+	case clanHekalotia:
+		cape = kibitaCapeHekalotia
+	case clanAkelonia:
+		cape = kibitaCapeAkelonia
+	}
+	e.Equip[capeEquipSlot] = world.Item{Index: cape}
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+	d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
+	d.refreshScore(e)
+	d.sendScore(w, s, e)
+	d.sendEtc(w, s, e)
+
+	d.log.Info("mortal soul learned", "conn", s.Conn, "name", e.Name, "class", e.Class, "stone", stone, "cape", cape)
+	d.returnToCharacterSelection(w, s, func(w *world.World, s *world.Session) {
+		w.SendTo(s, protocol.Header{Type: protocol.MsgSendArchEffect, ID: protocol.IDScene},
+			protocol.EncodeStandardParm(int32(s.Slot)))
+	})
+}
 
 func isKingQuestNPC(npc *world.Entity) bool {
 	if npc == nil {

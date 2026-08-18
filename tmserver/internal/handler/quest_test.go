@@ -186,6 +186,136 @@ func baseMortalState(level int) world.CharacterState {
 	}
 }
 
+func TestKibitaSoulWithRealTemplate(t *testing.T) {
+	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Kibita"))
+	if err != nil {
+		t.Fatalf("read real Kibita template: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		class int
+		clan  uint8
+		stone int16
+		cape  int16
+	}{
+		{name: "TransKnight water Hekalotia", class: 0, clan: clanHekalotia, stone: 5334, cape: 3194},
+		{name: "Foema sun Akelonia", class: 1, clan: clanAkelonia, stone: 5336, cape: 3195},
+		{name: "Beastmaster earth neutral", class: 2, stone: 5335, cape: 3196},
+		{name: "Huntress wind other clan", class: 3, clan: 2, stone: 5337, cape: 3196},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newDB()
+			st := baseMortalState(kibitaSoulMinLevel)
+			st.Class = tt.class
+			st.Clan = tt.clan
+			st.Carry[7] = world.Item{Index: tt.stone, Effects: [3]world.Effect{{Effect: 61, Value: 9}}}
+			st.Equip[capeEquipSlot] = world.Item{Index: 4006}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			questFrame(t, c, npcID)
+			carry := expect(t, c, protocol.MsgSendItem)
+			if place, slot, idx := le16(carry[0:2]), le16(carry[2:4]), le16(carry[4:6]); place != world.ItemPlaceCarry || slot != 7 || idx != 0 {
+				t.Fatalf("carry update place=%d slot=%d idx=%d, want carry slot 7 cleared", place, slot, idx)
+			}
+			equip := expect(t, c, protocol.MsgSendItem)
+			if place, slot, idx := le16(equip[0:2]), le16(equip[2:4]), le16(equip[4:6]); place != world.ItemPlaceEquip || slot != capeEquipSlot || int16(idx) != tt.cape {
+				t.Fatalf("cape update place=%d slot=%d idx=%d, want equip slot %d item %d", place, slot, idx, capeEquipSlot, tt.cape)
+			}
+			expect(t, c, protocol.MsgUpdateScore)
+			expect(t, c, protocol.MsgUpdateEtc)
+			expect(t, c, protocol.MsgCNFCharacterLogout)
+			effect := expect(t, c, protocol.MsgSendArchEffect)
+			if parm, ok := protocol.StandardParm(effect); !ok || parm != int32(st.Slot) {
+				t.Fatalf("SendArchEffect parm=%d ok=%v, want slot %d", parm, ok, st.Slot)
+			}
+
+			save, n := db.lastSavedChar()
+			if n == 0 {
+				t.Fatal("Kibita Soul character was not saved before logout")
+			}
+			if save.LearnedSkill&kibitaSoulSkillBit == 0 {
+				t.Fatalf("saved LearnedSkill=%#x, want Soul bit %#x", save.LearnedSkill, kibitaSoulSkillBit)
+			}
+			if _, ok := savedItemAt(save.Carry, 7); ok {
+				t.Fatal("saved carry still contains the consumed Secreta stone")
+			}
+			cape, ok := savedItemAt(save.Equip, capeEquipSlot)
+			if !ok || cape.Index != tt.cape {
+				t.Fatalf("saved cape=%+v ok=%v, want item %d", cape, ok, tt.cape)
+			}
+		})
+	}
+}
+
+func TestKibitaSoulRejectsInvalidRequirementsWithoutMutation(t *testing.T) {
+	tests := []struct {
+		name         string
+		level        int
+		class        int
+		classMaster  uint8
+		learnedSkill int32
+		stone        int16
+	}{
+		{name: "below legacy level", level: 368, classMaster: classMasterMortal, stone: 5334},
+		{name: "not Mortal", level: 369, classMaster: classMasterArch, stone: 5334},
+		{name: "invalid class", level: 369, class: 4, classMaster: classMasterMortal, stone: 5334},
+		{name: "already learned", level: 369, classMaster: classMasterMortal, learnedSkill: kibitaSoulSkillBit, stone: 5334},
+		{name: "missing stone", level: 369, classMaster: classMasterMortal},
+		{name: "wrong class stone", level: 369, classMaster: classMasterMortal, stone: 5337},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl := questNPCTemplate("Kibita", 74, 0, 0)
+			db := newDB()
+			st := baseMortalState(tt.level)
+			st.Class = tt.class
+			st.ClassMaster = tt.classMaster
+			st.LearnedSkill = tt.learnedSkill
+			st.Carry[0] = world.Item{Index: tt.stone}
+			st.Equip[capeEquipSlot] = world.Item{Index: 4006}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			questFrame(t, c, npcID)
+			if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+				t.Fatalf("notice=%d, want NoticeReqNotMet", code)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Fatalf("rejected Kibita interaction produced %#x after notice", ty)
+			}
+
+			send(t, c, protocol.MsgCharacterLogout, nil)
+			expect(t, c, protocol.MsgCNFCharacterLogout)
+			save, n := db.lastSavedChar()
+			if n == 0 {
+				t.Fatal("character was not saved on explicit logout")
+			}
+			if save.LearnedSkill != tt.learnedSkill {
+				t.Fatalf("saved LearnedSkill=%#x, want unchanged %#x", save.LearnedSkill, tt.learnedSkill)
+			}
+			cape, ok := savedItemAt(save.Equip, capeEquipSlot)
+			if !ok || cape.Index != 4006 {
+				t.Fatalf("saved cape=%+v ok=%v, want original item 4006", cape, ok)
+			}
+			if tt.stone != 0 {
+				item, ok := savedItemAt(save.Carry, 0)
+				if !ok || item.Index != tt.stone {
+					t.Fatalf("saved stone=%+v ok=%v, want unchanged item %d", item, ok, tt.stone)
+				}
+			}
+		})
+	}
+}
+
 func TestJardineiroStartsQuest256WithRealTemplate(t *testing.T) {
 	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Jardineiro"))
 	if err != nil {
