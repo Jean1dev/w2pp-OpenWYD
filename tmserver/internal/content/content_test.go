@@ -12,6 +12,26 @@ func release(t *testing.T, parts ...string) string {
 	return filepath.Join(append([]string{"..", "..", "..", "Release"}, parts...)...)
 }
 
+func TestCombineVariantRatesFromRelease(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "Release", "Common", "Settings", "CompRate.txt")
+	c, err := LoadCompRate(path)
+	if err != nil {
+		t.Skipf("Release content unavailable: %v", err)
+	}
+	if got := c.ChanceBase("Tiny"); got != 15 {
+		t.Errorf("Tiny ChanceBase=%d, want 15", got)
+	}
+	if got := c.ChanceBase("Ailyn"); got != 10 {
+		t.Errorf("Ailyn ChanceBase=%d, want 10", got)
+	}
+	if got := c.ChanceBase("Agatha"); got != 15 {
+		t.Errorf("Agatha ChanceBase=%d, want 15", got)
+	}
+	if got := c.EhreRates()[3]; got != 40 {
+		t.Errorf("Ehre Espiritual=%d, want 40", got)
+	}
+}
+
 func TestLoadCompRate(t *testing.T) {
 	c, err := LoadCompRate(release(t, "Common", "Settings", "CompRate.txt"))
 	if err != nil {

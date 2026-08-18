@@ -90,6 +90,21 @@ func NextLevelExpTier(curLevel int32, classMaster uint8) int64 {
 	return nextLevel2[next]
 }
 
+// ForExpTier maps total experience back to a level on the tier's curve.
+// Ehre's purified-refine recipe subtracts experience and then performs this
+// inverse lookup exactly like CMob's legacy g_pNextLevel_2 scan.
+func ForExpTier(exp int64, classMaster uint8) int32 {
+	levelCap := MaxLevelForTier(classMaster)
+	var result int32
+	for current := int32(0); current < levelCap; current++ {
+		if exp < NextLevelExpTier(current, classMaster) {
+			break
+		}
+		result = current + 1
+	}
+	return result
+}
+
 // ExpApply is GetExpApply for the MORTAL path (GetFunc.cpp:1028): it scales the
 // mob's base reward by the attacker↔target level ratio. attacker is the killer's
 // level, target the mob's. Higher-level targets give a bonus (capped at 200%); a

@@ -16,6 +16,7 @@ func NewCombineCatalog(items *content.ItemList, comp *content.CompRate) combine.
 		Effects:    items.BaseEffects(),
 		AnctChance: comp.AnctChance(),
 		Pos:        items.Positions(),
+		Grade:      items.Grades(),
 	}
 }
 

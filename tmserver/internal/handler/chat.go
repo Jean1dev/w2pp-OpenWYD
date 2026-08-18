@@ -277,7 +277,7 @@ func (d *Dispatcher) destravarCelestialFor(w *world.World, s *world.Session, e *
 		}
 		e.CelLv40 = 1
 	}
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(celestialUnlockParm))
+	sendCombineComplete(w, s, celestialUnlockParm)
 	if ninety {
 		d.playUnlockEmote(w, s)
 	}
@@ -300,7 +300,7 @@ func (d *Dispatcher) arcana(w *world.World, s *world.Session) {
 	e.CelCircle = 1
 	e.Equip[arcanaEquipSlot] = world.Item{Index: arcanaItemIndex}
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, arcanaEquipSlot, itemToSel(e.Equip[arcanaEquipSlot])))
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(celestialUnlockParm))
+	sendCombineComplete(w, s, celestialUnlockParm)
 	d.playUnlockEmote(w, s)
 	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
 	d.log.Info("arcana quest", "conn", s.Conn, "name", e.Name)

@@ -628,6 +628,8 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Citizen:      uint8(c.GetCitizen()),
 		ClassMaster:  uint8(c.GetClassMaster()),
 		CelLv40:      uint8(c.GetCelestialLv40()),
+		ArchLv355:    uint8(c.GetArchLv355()),
+		ArchLv370:    uint8(c.GetArchLv370()),
 		CelLv90:      uint8(c.GetCelestialLv90()),
 		CelCircle:    uint8(c.GetCelestialCircle()),
 		TerraMistica: uint8(c.GetMortalTerraMistica()),
@@ -748,6 +750,8 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		// here is what makes a tier change survive relog.
 		ClassMaster:     int32(s.ClassMaster),
 		CelestialLv40:   int32(s.CelLv40),
+		ArchLv355:       int32(s.ArchLv355),
+		ArchLv370:       int32(s.ArchLv370),
 		CelestialLv90:   int32(s.CelLv90),
 		CelestialCircle: int32(s.CelCircle),
 		PkPoint:         int32(s.PKPoint),

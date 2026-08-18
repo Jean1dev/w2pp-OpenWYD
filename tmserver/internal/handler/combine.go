@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"encoding/binary"
-
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
@@ -35,11 +33,7 @@ type CombineFamily struct {
 // MsgCombineItemOdin is NOT here — its recipes don't fit the generic
 // CombineFamily{Rate,Apply} shape, so it gets its own dedicated handler
 // (combine_odin.go) instead.
-var combineItemTypes = []protocol.Type{
-	protocol.MsgCombineItem, protocol.MsgCombineItemEhre, protocol.MsgCombineItemTiny,
-	protocol.MsgCombineItemShany, protocol.MsgCombineItemAilyn, protocol.MsgCombineItemAgatha,
-	protocol.MsgCombineItemLindy, protocol.MsgCombineItemAlquimia,
-}
+var combineItemTypes = []protocol.Type{protocol.MsgCombineItem}
 
 // defaultCombineFamily is the UNVERIFIED placeholder used until the recipe/rate
 // tables (Common/Settings/CompRate.txt) and ItemList are loaded (Phase 5): every
@@ -86,7 +80,7 @@ func (d *Dispatcher) resolveComboInputs(w *world.World, s *world.Session, e *wor
 			return items, slots, active, false
 		}
 		if !sameItem(body.Item[i], e.Carry[pos]) {
-			w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid)) // changed/removed
+			sendCombineComplete(w, s, combineInvalid) // changed/removed
 			return items, slots, active, false
 		}
 		items[i] = e.Carry[pos]
@@ -105,10 +99,6 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		return
 	}
-	if h.Type == protocol.MsgCombineItemAlquimia && e.Class != 3 {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
-		return
-	}
 	fam, ok := d.combineFamilies[h.Type]
 	if !ok {
 		return
@@ -122,12 +112,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	if !ok {
 		return
 	}
-	items := make([]world.Item, len(active))
-	slots := make([]int, len(active))
-	for i, pos := range active {
-		items[i] = byPos[pos]
-		slots[i] = slotByPos[pos]
-	}
+	items := byPos[:]
 
 	rate := 0
 	if len(items) > 0 {
@@ -135,25 +120,26 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	}
 	if rate == 0 {
 		// _NN_Wrong_Combination — inputs are NOT consumed.
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
+		sendCombineComplete(w, s, combineInvalid)
 		return
 	}
 
 	// Consume the inputs BEFORE the roll (lost on failure, by design).
-	for _, sl := range slots {
+	for _, pos := range active {
+		sl := slotByPos[pos]
 		e.Carry[sl] = world.Item{}
-		w.Send(s, protocol.MsgSendItem, slotPayload(sl))
+		sendCarrySlot(w, s, e, sl)
 	}
 
 	if _, success := combine.Roll(w.Rand(), rate); !success {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineFailed))
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 
-	ipos := slots[0]
+	ipos := slotByPos[active[0]]
 	e.Carry[ipos] = fam.Apply(items)
-	w.Send(s, protocol.MsgSendItem, slotPayload(ipos))
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(combineSuccess))
+	sendCombineComplete(w, s, combineSuccess)
+	sendCarrySlot(w, s, e, ipos)
 }
 
 // combineExtracao handles _MSG_CombineItemExtracao (0x02D4): Huntress extraction
@@ -245,8 +231,21 @@ func extractionResultIndex(pos int) int16 {
 	}
 }
 
-func parmPayload(parm int16) []byte {
-	var b [2]byte
-	binary.LittleEndian.PutUint16(b[:], uint16(parm))
-	return b[:]
+// sendCombineComplete answers a combine with _MSG_CombineComplete (0x03A7).
+//
+// The body is MSG_STANDARDPARM — a 4-byte int Parm (Basedef.h:1254-1258), not a
+// short: a 2-byte body left the client reading Parm's high half out of the next
+// frame. HEADER.ID is ESCENE_FIELD, as SendClientSignalParm sets it
+// (SendFunc.cpp:300-310), not the sender's conn.
+func sendCombineComplete(w *world.World, s *world.Session, parm int32) {
+	w.SendTo(s, protocol.Header{Type: protocol.MsgCombineComplete, ID: protocol.IDScene}, protocol.EncodeStandardParm(parm))
+}
+
+// sendCarrySlot pushes one carry slot's current contents to the client.
+//
+// MSG_SendItem is {short invType; short Slot; STRUCT_ITEM item} (Basedef.h:2037-2046)
+// — a 12-byte body. The combine paths used to send a bare slot index instead, so the
+// client parsed invType from the slot number and the item from whatever followed.
+func sendCarrySlot(w *world.World, s *world.Session, e *world.Entity, slot int) {
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
 }

@@ -735,8 +735,11 @@ const MaxCombine = 8
 // variants), game-rules.md §3.1. An input i is active when Item[i].Index != 0;
 // InvenPos[i] is its carry slot.
 //
-// UNVERIFIED: exact field layout/order not in protocol-spec.md §3.5;
-// self-consistent best-effort.
+// The layout is the C struct verbatim (Basedef.h:2344-2351):
+//
+//	struct MSG_CombineItem { _MSG; STRUCT_ITEM Item[MAX_COMBINE]; char InvenPos[MAX_COMBINE]; };
+//
+// so the body is 8*8 + 8 = 72 bytes and the frame 84.
 type MsgCombineItemBody struct {
 	Item     [MaxCombine]WireItem
 	InvenPos [MaxCombine]uint8

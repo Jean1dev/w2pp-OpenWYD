@@ -61,7 +61,12 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 113 | 5 | Mercador_Noel, Arqueologo | _MSG_Quest | ❌ |
 | 120 | 4 | Carbuncle_Wind, Ajudante | _MSG_Quest (CARBUNCLE_WIND) | ❌ |
 | 128 | 5 | Gate_Keeper, Town_Watcher | _MSG_Quest | ❌ guardas/teleporte |
-| 224/229 | 1/1 | Compositor, Zangets | _MSG_Quest | ❌ |
+| 224/229 | 1/1 | Compositor, Zangets | — (224: janela abre no cliente) | ✅ 224 (composição Anct); 229 ❌ |
+
+> **224 (Compositor, Azran)** não passa por `_MSG_Quest` — não há branch para 224 em
+> `_MSG_Quest.cpp`. O cliente abre o "Sistema de Composição" sozinho a partir de
+> `Merchant == 224` e o confirm manda `_MSG_CombineItem` (0x03A6) direto; o servidor não
+> faz nenhuma checagem de proximidade do NPC. Spawn em `NPCGener.txt` ≈ (2530,1734).
 
 ## Merchant==100 — sub-tipos por `EF_GRADE0`
 Ver a tabela completa em [_MSG_Quest-npcs.md](./_MSG_Quest-npcs.md). Resumo dos grades presentes
@@ -83,7 +88,8 @@ quests grade 11–16/24–30) **não**.
 ## Já implementado (fora do _MSG_Quest)
 - **Loja NPC** (Merchant 1/19): `reqShopList`, `buy`, `sell`.
 - **Cargo/banco** (Merchant 2): `reqShopList` → `openCargo`, deposit/withdraw.
-- **Combine/refino**: família `combineItem` (Odin/Lindy/Shany/… via opcodes dedicados).
+- **Combine/refino**: `combineItem` (Anct), `combineItemOdin` e os handlers dedicados
+  `combineItemAilyn/Ehre/Tiny/Shany/Agatha/Lindy/Alquimia`.
 - **Perzen** (Merchant 100 grade 7/8/9): troca esfera→montaria.
 - **Coveiro** (Merchant 100 grade 0): etapa 1 da cadeia Quest 256 ("Defensor da Alma", issue #261) —
   `quest256NPC` em `handler/misc.go` consome a Vela do Coveiro (4038), seta `QuestFlag = 1` e

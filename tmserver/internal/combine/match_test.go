@@ -3,7 +3,6 @@ package combine
 import (
 	"testing"
 
-	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -62,9 +61,10 @@ func TestAnctResultWithoutSancSlot(t *testing.T) {
 
 func TestMatchAnctSacrificeBonus(t *testing.T) {
 	cat := Catalog{
-		Unique:     map[int]int{801: 41},
-		Extra:      map[int]int{801: 2451},
-		Effects:    map[int][]content.BaseEffect{900: {{Eff: efPos, Val: 4}}},
+		Unique: map[int]int{801: 41},
+		Extra:  map[int]int{801: 2451},
+		// EF_POS lives in nPos, never in a BaseEffect pair (see itemAbility).
+		Pos:        map[int]int{900: 4},
 		AnctChance: [3]int{2, 4, 10},
 	}
 	items := []world.Item{

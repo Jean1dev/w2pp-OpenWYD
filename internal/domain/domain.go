@@ -74,6 +74,8 @@ type Character struct {
 	CelLv90         uint8  // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
 	CelCircle       uint8  // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
 	TerraMistica    uint8  // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
+	ArchLv355       uint8  // MobExtra.QuestInfo.Arch.Level355
+	ArchLv370       uint8  // MobExtra.QuestInfo.Arch.Level370
 	Soul            uint8  // MobExtra.Soul
 	Fame            int32  // MobExtra.Fame
 	PKPoint         uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)

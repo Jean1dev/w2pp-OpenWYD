@@ -78,7 +78,7 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 	// hazard this fork's single-owner/no-dup invariant (CLAUDE.md) can't
 	// allow. Require slot 1 to have been a real, validated input.
 	if (id == combine.OdinNoMatch || id == combine.OdinItemCelestial) && items[1].Empty() {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
+		sendCombineComplete(w, s, combineInvalid)
 		return
 	}
 	var targetLevel, capeLevel int
@@ -86,18 +86,18 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 	case combine.OdinPlus12:
 		targetLevel = refine.Level(items[2])
 		if odinSecretaUneven(items[:]) || targetLevel >= 15 || d.itemAbility(items[2], efMobType) == 3 {
-			w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
+			sendCombineComplete(w, s, combineInvalid)
 			return
 		}
 	case combine.OdinDestraveLv40:
 		if e.Level != 39 || e.CelLv40 != 0 || e.ClassMaster != classMasterCelestial {
-			w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
+			sendCombineComplete(w, s, combineInvalid)
 			return
 		}
 	case combine.OdinCapaCelestial:
 		capeLevel = itemSanc(e.Equip[reinoCapeSlot])
 		if e.ClassMaster == classMasterMortal || e.ClassMaster == classMasterArch || capeLevel >= 9 {
-			w.Send(s, protocol.MsgCombineComplete, parmPayload(combineInvalid))
+			sendCombineComplete(w, s, combineInvalid)
 			return
 		}
 	}
@@ -108,7 +108,7 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 	// dust refine and Anct combine already follow.
 	for _, i := range active {
 		e.Carry[slots[i]] = world.Item{}
-		w.Send(s, protocol.MsgSendItem, slotPayload(slots[i]))
+		sendCarrySlot(w, s, e, slots[i])
 	}
 
 	roll := combine.RollOdin(w.Rand())
@@ -165,8 +165,8 @@ func (d *Dispatcher) odinComposicao(w *world.World, s *world.Session, e *world.E
 	rate := odinRate[id] + w.Rand().Intn(5)
 	if roll > rate {
 		e.Carry[baseSlot] = base
-		w.Send(s, protocol.MsgSendItem, slotPayload(baseSlot))
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineFailed))
+		sendCarrySlot(w, s, e, baseSlot)
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	result := base
@@ -175,8 +175,8 @@ func (d *Dispatcher) odinComposicao(w *world.World, s *world.Session, e *world.E
 	}
 	refine.Set(&result, 0, 0)
 	e.Carry[baseSlot] = result
-	w.Send(s, protocol.MsgSendItem, slotPayload(baseSlot))
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(combineSuccess))
+	sendCarrySlot(w, s, e, baseSlot)
+	sendCombineComplete(w, s, combineSuccess)
 }
 
 // odinPlus12 is id 2, the "+11→+15" refine tier. Per the issue #138 plan
@@ -195,8 +195,8 @@ func (d *Dispatcher) odinPlus12(w *world.World, s *world.Session, e *world.Entit
 	result := items[2]
 	refine.Set(&result, newLevel, refine.Gem(items[2]))
 	e.Carry[targetSlot] = result
-	w.Send(s, protocol.MsgSendItem, slotPayload(targetSlot))
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(combineSuccess))
+	sendCarrySlot(w, s, e, targetSlot)
+	sendCombineComplete(w, s, combineSuccess)
 	d.log.Info("odin +12+ refine", "conn", s.Conn, "from", level, "to", newLevel, "rate", rate, "protect", protect)
 }
 
@@ -208,12 +208,12 @@ func (d *Dispatcher) odinPlus12(w *world.World, s *world.Session, e *world.Entit
 // of these recipes restores anything (_MSG_CombineItemOdin.cpp:517-650).
 func (d *Dispatcher) odinFreshResult(w *world.World, s *world.Session, e *world.Entity, slot int, result int16, roll, id int) {
 	if roll > odinRate[id] {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineFailed))
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	e.Carry[slot] = world.Item{Index: result}
-	w.Send(s, protocol.MsgSendItem, slotPayload(slot))
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(combineSuccess))
+	sendCarrySlot(w, s, e, slot)
+	sendCombineComplete(w, s, combineSuccess)
 }
 
 // odinDestraveLv40 is id 4: no item is produced, only the Celestial level-40
@@ -222,7 +222,7 @@ func (d *Dispatcher) odinFreshResult(w *world.World, s *world.Session, e *world.
 // CelLv40==0 and ClassMaster==Celestial.
 func (d *Dispatcher) odinDestraveLv40(w *world.World, s *world.Session, e *world.Entity, roll int) {
 	if roll > odinRate[combine.OdinDestraveLv40] {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineFailed))
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	d.destravarCelestialFor(w, s, e, false) // sends its own MsgCombineComplete + persists
@@ -235,15 +235,15 @@ func (d *Dispatcher) odinDestraveLv40(w *world.World, s *world.Session, e *world
 // computed level, the cape's current refine level.
 func (d *Dispatcher) odinCapaCelestial(w *world.World, s *world.Session, e *world.Entity, roll, level int) {
 	if roll > odinRate[combine.OdinCapaCelestial] {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineFailed))
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	cape := &e.Equip[reinoCapeSlot]
 	if !refine.Bootstrap(cape) {
-		w.Send(s, protocol.MsgCombineComplete, parmPayload(combineFailed))
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	refine.Set(cape, level+1, 0)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, reinoCapeSlot, itemToSel(*cape)))
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(combineSuccess))
+	sendCombineComplete(w, s, combineSuccess)
 }

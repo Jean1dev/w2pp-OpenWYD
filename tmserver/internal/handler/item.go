@@ -1389,7 +1389,7 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 	d.refreshScore(e)
 	d.sendScore(w, s, e)
 	d.sendEtc(w, s, e)
-	w.Send(s, protocol.MsgCombineComplete, parmPayload(celestialUnlockParm))
+	sendCombineComplete(w, s, celestialUnlockParm)
 	d.playUnlockEmote(w, s)
 	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
 	d.log.Info("celestial created", "conn", s.Conn, "name", e.Name)
