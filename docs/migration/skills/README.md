@@ -12,6 +12,10 @@ precisa de implementacao, captura Windows ou golden cases no cliente real.
 - Banda alvo do tuning (issue #236, segunda metade): o `ScalePct` **nao e uniforme** — ele so se aplica fora da banda que a politica existe para cortar. `AffectDuration.withinTargetBand` isenta um affect **nao agressivo** cuja duracao **base** (`AffectTime+1`, sem mastery) ja cabe sob `MaxTicks`, entao a cauda curta do CSV (85 Escudo Dourado, 90 Toxina, 96 Poder Superior, 41 Teleporte, 216 Magia Misteriosa…) mantem a curva legada com o piso de 60 s por baixo, em vez de ser esmagada ate ele. Affects **agressivos** ficam de fora da isencao de proposito: alongar CC (Perseguicao, Nevasca, Lamina Congelante) seria mudanca de PvP que nenhuma issue pediu. Regra em uma frase: *buff amigo segue o legado ate o teto, com piso de 60 s; affect hostil e buff longo seguem no scale.* Ver `ingame-bugs.md` B15.
 - A pertinencia a banda e julgada pela **base**, nunca pelo tick ja inflado pela mastery — assim ela e propriedade da linha do CSV e constante em `Special`, e a curva nao pode inverter. Julgando o valor inflado, o Teleporte (base 16 ticks) cruzava `MaxTicks` no alto da mastery e caia do ramo identidade para o de 15 %: 2m08 sem mastery, 6m24 em `Special` 200 e de volta a **1m36** em `Special` 400. Nao ha limiar delicado aqui: as bases do `SkillData.csv` sao 1-16 ticks e depois 151, sem nada no meio. Travado por `TestReleaseAffectDurationIsMonotonicInMastery`.
 - Os testes de duracao rodam contra o **CSV real** (`TestReleaseAffectDuration*` em `handler/affect_duration_content_test.go`), nao contra fixtures de `content.Spell`. Esse era o seam por onde as tentativas anteriores passaram: a #92 mexeu no loader e a #229 na politica, cada uma testada isoladamente contra fixtures, e nenhuma foi rodada sobre a tabela inteira — por isso a cauda curta passou batido duas vezes.
+- Divergencias deliberadas do legado (o port e fiel por padrao; estas tres nao sao, e cada uma tem
+  justificativa escrita em `ingame-bugs.md`): o remap de elementos do affect 25 (**B13**, issue #233), a
+  politica de duracao de buff (**B14/B15**, issues #92/#229/#236) e o efeito do affect 24 — Samaritano
+  passa a dar CON/MaxHP em vez de AC (**B16**, issue #267).
 - Divisao por classe: TK `0..23`, FM `24..47`, BM `48..71`, HT `72..95`, Sephira/shared `96+`.
 - Arvore: `(index % 24) / 8 + 1`.
 - Status e evidencias foram cruzados com `tmserver/internal/combat`, `tmserver/internal/handler`, `tmserver/internal/world`, `tmserver/internal/protocol`, `Source/Code`, `Source/Buff Loop.txt` e os testes existentes.
@@ -37,6 +41,13 @@ precisa de implementacao, captura Windows ou golden cases no cliente real.
 | **Total** | **151** | **0** | **0** | **0** | **151** |
 
 `UNVERIFIED` ficou em zero na matriz por skill porque as lacunas locais desta rodada sao principalmente codigo ausente ou parcial. As perguntas Windows foram respondidas e agora `windows-agent-questions.md` rastreia apenas capturas ao vivo pendentes que documentam UI/bytes reais, sem bloquear a implementacao server-side provada por fonte.
+
+> **A matriz sobre-declara.** A auditoria da issue #267 (`audit-affects.md`) achou efeito de conteudo
+> sem tratamento no Go — tick types 3/12/46 (skills 226, 202, 225) sao no-ops silenciosos — e a
+> `DoRemoveHide` da Huntress nunca foi portada. Leia `151/0/0/0` como "existe case em Go para o efeito
+> principal", nao como cobertura. E leia a evidencia `SCORE` do mesmo jeito: ela diz que existe um case
+> no `affect_score.go`, **nao** que alguem conferiu o numero. Linha com `SCORE` e sem `TEST` e linha que
+> so se confirma lendo o codigo — foi assim que a #267 nasceu.
 
 ## Codigos de evidencia
 
@@ -67,6 +78,7 @@ precisa de implementacao, captura Windows ou golden cases no cliente real.
 - `beastmaster.md`: skills `48..71`, transformacao e summons.
 - `huntress.md`: skills `72..95`.
 - `sephira-shared.md`: skills `96+`.
+- `audit-affects.md`: auditoria do pipeline de affects (issue #267) — divida mapeada que ainda nao virou codigo.
 - `progress.md`: tracker de execucao por fase; prevalece enquanto as tabelas por classe nao forem recontadas.
 - `implementation-plan.md`: fases executaveis.
 - `validation-plan.md`: testes automatizados e validacao manual.

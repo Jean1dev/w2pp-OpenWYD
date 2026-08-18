@@ -20,8 +20,8 @@ import (
 const summonClan = 4
 
 // affectSummonLife is the summon lifespan affect (Type 24 on a MOB — on a
-// player the same type is the fortify AC buff; the legacy overloads it and
-// disambiguates by idx >= MAX_USER, Server.cpp:5843).
+// player the same type is Samaritano, affectSamaritano in combat.go; the legacy
+// overloads it and disambiguates by idx >= MAX_USER, Server.cpp:5843).
 const affectSummonLife = 24
 
 // summonLifeTicks is the non-item summon lifespan: 20 affect ticks of 8s

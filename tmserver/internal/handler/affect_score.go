@@ -17,9 +17,9 @@ const maxLegacyDamage int32 = 1_000_000_000
 // 3 (resist debuff), 4 (scroll), 5/6 (DEX percent), 7 (frozen blade
 // attack-speed/INT debuff), 8 (Jóias PvP — resist/cast/lifesteal/%HP/%AC/
 // %Damage/%Magic/MP↔HP, one per Level bit), 9/10 (damage buff/debuff),
-// 11/12/21/24/31 (AC), 13
-// (critical armor: −10% MaxHP; its damage/DAMAGEMULTI parts included), 14
-// (CON/HP), 15 (Special, cap 400 at read), 16 (BM transform → transform.go),
+// 11/12/21/31 (AC), 13
+// (Assalto: +15% damage, DAMAGEMULTI, −10% MaxHP), 14/24 (CON/HP —
+// Possuído and Samaritano), 15 (Special, cap 400 at read), 16 (BM transform → transform.go),
 // 19/26/28/36 (Rsv flags), 25 (fire/ice/thunder resists), 27 (weapon-gated Frost),
 // 29 (Soul attribute multiplier), 30/37 (ForceMobDamage/ForceDamage), 38/42
 // (HP↔MP swap), 39 (Baú de XP → AffExpBonus). Deferred (need systems we don't
@@ -142,10 +142,8 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			e.AffDamage += boosted - dmg
 			e.AffDamageMultiPct += level/10 + value
 			e.AffMaxHP -= e.MaxHP / 10
-		case 14: // vigor/CON buff: +CON and +2×value MaxHP
-			v := level*3/4 + value
-			e.AffMaxHP += 2 * v
-			e.AffCon += int16(v)
+		case 14: // Possuído (skill 3): +CON and twice that in MaxHP
+			applyConHpBuff(e, level, value)
 		case 15: // all four Special trees (+cap 400 applied at read)
 			v := int16(level/10 + value)
 			for k := range e.AffSpecial {
@@ -158,8 +156,25 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 		case 21: // curse/Meditação: −AC and +DAMAGEMULTI.
 			e.AffAC -= level/3 + 10
 			e.AffDamageMultiPct += level/10 + value
-		case 24: // fortify: +AC/4 + value (over the flat AC)
-			e.AffAC += e.AC/4 + value
+		case affectSamaritano: // Samaritano: +CON and +2×value MaxHP
+			// DELIBERATE DIVERGENCE FROM THE LEGACY (issue #267). Basedef.cpp:4225
+			// ("else if(Type == 24) // Samaritano") and Buff Loop.txt:295 both make
+			// this an AC buff, `Ac += Ac/4 + Value`, and SkillData.csv:14 gives the
+			// skill Value 0 — so the legacy effect is a flat +25% AC. In game the
+			// skill is expected to raise HP and Constitution instead, which is the
+			// affect-14 shape, so we apply that shape here with Samaritano's own
+			// Value (0) and mastery. Same spirit as the case-25 element remap of
+			// issue #233 and the duration policy of issues #92/#236.
+			//
+			// The IsPlayer guard is load-bearing, not defensive: on a MOB this same
+			// affect id is the summon lifespan counter parked in Affect[0]
+			// (summon.go:25). The legacy disambiguates the two by index
+			// (Server.cpp:5843, `Type == 24 && idx >= MAX_USER`), and without the
+			// guard a summon that ever reaches refreshScore would pick up a player
+			// buff off its own death timer.
+			if world.IsPlayer(e.ID) {
+				applyConHpBuff(e, level, value)
+			}
 		case 25: // Proteção Elemental: the three elements, never holy.
 			add := int16((value + level/4) / 10)
 			if level >= 255 {
@@ -211,6 +226,23 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			e.AffMaxMP -= mana
 		}
 	}
+}
+
+// applyConHpBuff is the CON/MaxHP buff shape shared by affect 14 (Possuído,
+// Basedef.cpp:4053 / Buff Loop.txt:127) and affect 24 (Samaritano, by the issue
+// #267 divergence). MaxHP is added EXPLICITLY because Con feeds nothing in this
+// model: refreshScore builds MaxHP from BaseMaxHP + equipment (item.go), never
+// from Con, exactly like the legacy, whose Con→HP derivation runs before the
+// buff loop (Basedef.cpp:3152).
+//
+// Not ported from Basedef.cpp:4056: `if (ClassMaster != MORTAL && != ARCH) value
+// *= 3`, along with that file's *22 / *125% multipliers — those are private-server
+// tuning (their own comments read "(106k)" and "(5004)") absent from Buff Loop.txt,
+// which is the variant this port follows. See docs/migration/skills/audit-affects.md.
+func applyConHpBuff(e *world.Entity, level, value int32) {
+	v := level*3/4 + value
+	e.AffMaxHP += 2 * v
+	e.AffCon += clampInt16(v)
 }
 
 const (

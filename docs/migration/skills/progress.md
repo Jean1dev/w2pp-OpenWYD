@@ -1,6 +1,6 @@
 # Progresso da frente de skills
 
-Atualizado em 2026-07-11.
+Atualizado em 2026-08-17.
 
 Este arquivo rastreia a execucao de `docs/migration/skills/implementation-plan.md`.
 O status aqui prevalece sobre as tabelas por classe enquanto elas nao forem recontadas apos cada
@@ -57,6 +57,8 @@ Itens fechados:
 - `Toque Sagrado`/affect 1 aplica slow de movimento, attack-speed e penalidade de INT para robe.
 - `Lamina Congelada`/affect 7 aplica reducao de attack-speed e penalidade de INT para robe.
 - `Assalto`/affect 13 aplica +15% de dano, `DAMAGEMULTI += Level/10+Value` e -10% de MaxHP.
+- `Samaritano`/affect 24 aplica CON/MaxHP pela forma do affect 14, sem o +25% AC legado, e cai
+  quando o personagem ataca; em mobs, o mesmo type continua sendo apenas o timer de vida de summon.
 - `Armadura Critica`/affect 36 ativa `RSV_DRAIN`.
 - `Mestre das Armas` (`bit 9`) faz a mao secundaria contar 100% no `WeaponDamage`.
 - `Nocao de Combate` (`bit 14`) injeta mastery de mitigacao `Special[2]/20`, clamp `0..15`, no cast.

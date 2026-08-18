@@ -23,10 +23,12 @@ Affect tests:
 - `SetAffect`: player-only, reuso de slot, `AffectTime` ja dividido por 4 no loader, timer `(AffectTime+1)*delay/100`, tick de 8 s e clamp de types 1/3/10.
 - `SetTick`: mob permitido, merchant bloqueado, tick 17 HoT, tick 20 DoT, tick 22 quando implementado.
 - `sweepAffects`: expiracao zera slot, refresh `MSG_UpdateScore` em grid, `MSG_SendAffect` self, `MSG_SetHpDam` quando aplicavel, transform expiry revertendo mesh.
+- Samaritano/type 24: player recebe CON/MaxHP sem AC, mob trata o type como vida de summon e o
+  primeiro ataque remove o buff sem cancelar o proprio cast.
 - Persistencia: learned skill, special, skillbar, short skill, affects, Divine deadline e score sem double-count.
 
 Tests por classe:
-- TK: uma skill de dano por arvore, Furia Divina, Exterminar, passivas de weapon/AC.
+- TK: uma skill de dano por arvore, Furia Divina, Exterminar, Samaritano e passivas de weapon/AC.
 - FM: Cura/Recuperar, Flash, Renascimento, Cancelamento, buffs 41/43/44/45.
 - BM: Chamas Etereas, summon 1 e 8, transform 64/66/68/70/71, passivas 65/67/69.
 - HT: Ilusao, Tempestade 79, Imunidade/Evasao/Invisibilidade, skill 85/86.
