@@ -153,15 +153,16 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	if npc == nil || npc.Mode == world.MobEmpty {
 		return
 	}
-	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain
-	// (_MSG_Quest.cpp:53/293, Basedef.h:331). Grade is 0 both for the Coveiro —
-	// which carries an explicit EF_GRADE0 0 — and for Merchant-100 templates with
-	// no EF_GRADE0 effect at all (FirstTrainer, Guarda_, Treinador1). That is the
-	// legacy behaviour, not an accident: BASE_GetItemAbilityNosanc returns 0 for a
-	// missing effect (_MSG_Quest.cpp:34), so those templates fall into
-	// QUEST_COVEIRO on the original server too. Disambiguating would break parity.
+	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain.
+	// Grade is also 0 for Merchant-100 templates without EF_GRADE0; routing those
+	// here matches BASE_GetItemAbilityNosanc in the legacy server.
 	if npc.Merchant == 100 && npc.Grade == 0 {
 		d.quest256NPC(w, s, e, quest256Steps[0], itemVelaDoCoveiro)
+		return
+	}
+	// QUEST_JARDINEIRO (Merchant 100, EF_GRADE0 1): second Quest 256 arena.
+	if npc.Merchant == 100 && npc.Grade == 1 {
+		d.quest256NPC(w, s, e, quest256Steps[1], 4039)
 		return
 	}
 	// PERZEN (Merchant 100, EF_GRADE0 ∈ {7,8,9}): the item exchange.
@@ -596,9 +597,8 @@ var quest256Steps = []quest256Step{
 const itemVelaDoCoveiro int16 = 4038
 
 // quest256NPC handles the item hand-in performed by the five legacy Quest 256
-// NPC cases (_MSG_Quest.cpp:293/338/382/426/470). The Coveiro route is the first
-// one exposed here; keeping the step and ticket explicit avoids accidentally
-// enabling the other unfinished quest NPC routes.
+// NPC cases (_MSG_Quest.cpp:293/338/382/426/470). Keeping the step and ticket
+// explicit avoids accidentally enabling unfinished quest NPC routes.
 func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Entity, step quest256Step, ticket int16) {
 	// Legacy answers each rejection with SendSay on the NPC; this fork uses the
 	// same NoticeReqNotMet message box as the other quest NPCs (perzenExchange,
