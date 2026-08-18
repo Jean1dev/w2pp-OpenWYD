@@ -132,3 +132,42 @@ func TestCombineInvalidRecipe(t *testing.T) {
 		t.Errorf("got %#x parm=%d ok=%v, want CombineComplete(0) with no prior SendItem", ty, parmOf(p), ok)
 	}
 }
+
+// TestCombineExtracaoConsumesOneCatalyst pins the stack behaviour of the Huntress
+// extraction: the Pedra do Sábio is sold in packs, so a run must peel a single unit
+// off the stack instead of wiping the slot.
+func TestCombineExtracaoConsumesOneCatalyst(t *testing.T) {
+	target := world.Item{Index: 1050, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	addr, stop := startServerClockItemPos(t,
+		carryDB(target, amountItem(itemPedraDoSabio, 3)),
+		map[int]int{1050: 2})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgCombineItemExtracao, protocol.EncodeStandardParm2(0, 0))
+
+	_, slot, index, amount := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	if slot != 1 || index != itemPedraDoSabio || amount != 2 {
+		t.Errorf("catalyst slot=%d idx=%d amt=%d, want slot 1 idx %d amt 2", slot, index, amount, itemPedraDoSabio)
+	}
+}
+
+// TestCombineExtracaoClearsLastCatalyst is the boundary of the case above: the last
+// unit still empties the slot.
+func TestCombineExtracaoClearsLastCatalyst(t *testing.T) {
+	target := world.Item{Index: 1050, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	addr, stop := startServerClockItemPos(t,
+		carryDB(target, world.Item{Index: itemPedraDoSabio}),
+		map[int]int{1050: 2})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgCombineItemExtracao, protocol.EncodeStandardParm2(0, 0))
+
+	_, slot, index, _ := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	if slot != 1 || index != 0 {
+		t.Errorf("catalyst slot=%d idx=%d, want slot 1 cleared", slot, index)
+	}
+}

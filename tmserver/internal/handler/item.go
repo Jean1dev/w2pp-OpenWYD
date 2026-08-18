@@ -162,13 +162,21 @@ func (d *Dispatcher) deleteItem(w *world.World, s *world.Session, _ protocol.Hea
 // isSplittable reports whether an item may be divided by _MSG_SplitItem
 // (_MSG_SplitItem.cpp:45-52): a fixed set of currency/stackable specials plus the
 // 2390..2419 range (dusts Vol 4/5 — the hot case, feeds refino, issue #103).
+//
+// itemPedraDoSabio is a deliberate divergence from the legacy list: the NPC shop
+// sells it in packs (npcconfig.go shopEffects writes EF_AMOUNT), so Shift+click
+// must be able to peel units off the stack (issue #268).
 func isSplittable(index int16) bool {
 	switch index {
-	case 412, 413, 414, 416, 419, 420:
+	case 412, 413, 414, 416, 419, 420, itemPedraDoSabio:
 		return true
 	}
 	return index >= 2390 && index <= 2419
 }
+
+// itemPedraDoSabio is the Pedra do Sábio (ItemList.csv:2903), the Huntress
+// extraction catalyst — see combineExtracao.
+const itemPedraDoSabio = 1774
 
 const maxStackAmount = 120
 

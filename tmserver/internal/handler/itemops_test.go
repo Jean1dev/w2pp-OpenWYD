@@ -84,6 +84,54 @@ func TestSplitItem(t *testing.T) {
 	}
 }
 
+// TestSplitItemPedraDoSabio covers issue #268: the NPC shop sells the Pedra do
+// Sábio in packs, so Shift+click must peel units off it. The shop's extra effects
+// must ride along to the new stack (splitItem copies the item, unlike the legacy).
+func TestSplitItemPedraDoSabio(t *testing.T) {
+	pack := amountItem(itemPedraDoSabio, 10)
+	pack.Effects[1] = world.Effect{Effect: efItemLevel, Value: 3}
+	addr, stop, _ := startServerClock(t, carryDB(pack))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgSplitItem, (&protocol.MsgSplitItemBody{Slot: 0, SIndex: itemPedraDoSabio, Num: 3}).Encode())
+
+	newPayload := expect(t, c, protocol.MsgSendItem)
+	_, newSlot, newIdx, newAmt := sendItemSlotAmount(newPayload)
+	_, srcSlot, srcIdx, srcAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	if newSlot == 0 || newIdx != itemPedraDoSabio || newAmt != 3 {
+		t.Errorf("new stack slot=%d idx=%d amt=%d, want slot!=0 idx %d amt 3", newSlot, newIdx, newAmt, itemPedraDoSabio)
+	}
+	if srcSlot != 0 || srcIdx != itemPedraDoSabio || srcAmt != 7 {
+		t.Errorf("source stack slot=%d idx=%d amt=%d, want slot 0 idx %d amt 7", srcSlot, srcIdx, srcAmt, itemPedraDoSabio)
+	}
+	if newPayload[8] != efItemLevel || newPayload[9] != 3 {
+		t.Errorf("new stack effect1 = (%d,%d), want (%d,3)", newPayload[8], newPayload[9], efItemLevel)
+	}
+}
+
+// TestTradingItemMergePedraDoSabio is the inverse of TestSplitItemPedraDoSabio:
+// dragging one pack onto another must merge instead of swapping.
+func TestTradingItemMergePedraDoSabio(t *testing.T) {
+	addr, stop, _ := startServerClock(t, carryDB(amountItem(itemPedraDoSabio, 3), amountItem(itemPedraDoSabio, 7)))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	tradeItemFrame(t, c, world.ItemPlaceCarry, 0, world.ItemPlaceCarry, 1, 0)
+	expect(t, c, protocol.MsgTradingItem)
+	_, srcSlot, srcIdx, _ := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	_, dstSlot, dstIdx, dstAmt := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+
+	if srcSlot != 0 || srcIdx != 0 {
+		t.Errorf("source after merge slot=%d idx=%d, want slot 0 cleared", srcSlot, srcIdx)
+	}
+	if dstSlot != 1 || dstIdx != itemPedraDoSabio || dstAmt != 10 {
+		t.Errorf("dest after merge slot=%d idx=%d amt=%d, want slot 1 idx %d amt 10", dstSlot, dstIdx, dstAmt, itemPedraDoSabio)
+	}
+}
+
 func TestSplitItemRejected(t *testing.T) {
 	cases := []struct {
 		name string
@@ -230,12 +278,14 @@ func TestTradingItemSameSlotNoop(t *testing.T) {
 }
 
 func TestIsSplittable(t *testing.T) {
-	for _, idx := range []int16{412, 413, 414, 416, 419, 420, 2390, 2400, 2419} {
+	for _, idx := range []int16{412, 413, 414, 416, 419, 420, 2390, 2400, 2419, itemPedraDoSabio} {
 		if !isSplittable(idx) {
 			t.Errorf("isSplittable(%d) = false, want true", idx)
 		}
 	}
-	for _, idx := range []int16{0, 411, 415, 417, 418, 421, 2389, 2420, 1100} {
+	// 1745 (Pedra da Sabedoria) and 1773/1775 neighbour the Pedra do Sábio in the
+	// catalog: only 1774 itself is splittable.
+	for _, idx := range []int16{0, 411, 415, 417, 418, 421, 2389, 2420, 1100, 1745, 1773, 1775} {
 		if isSplittable(idx) {
 			t.Errorf("isSplittable(%d) = true, want false", idx)
 		}
