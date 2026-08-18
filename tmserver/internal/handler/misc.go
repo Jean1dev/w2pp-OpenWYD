@@ -153,6 +153,13 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	if npc == nil || npc.Mode == world.MobEmpty {
 		return
 	}
+	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain.
+	// Grade is also 0 for Merchant-100 templates without EF_GRADE0; routing those
+	// here matches BASE_GetItemAbilityNosanc in the legacy server.
+	if npc.Merchant == 100 && npc.Grade == 0 {
+		d.quest256NPC(w, s, e, quest256Steps[0], itemVelaDoCoveiro)
+		return
+	}
 	// QUEST_JARDINEIRO (Merchant 100, EF_GRADE0 1): second Quest 256 arena.
 	if npc.Merchant == 100 && npc.Grade == 1 {
 		d.quest256NPC(w, s, e, quest256Steps[1], 4039)
@@ -585,17 +592,23 @@ var quest256Steps = []quest256Step{
 	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
 }
 
+// itemVelaDoCoveiro is the Quest 256 step-1 ticket handed to the Coveiro
+// (ItemList.csv:5703, "Vela_do_Coveiro"; _MSG_Quest.cpp:315).
+const itemVelaDoCoveiro int16 = 4038
+
 // quest256NPC handles the item hand-in performed by the five legacy Quest 256
-// NPC cases. The Jardineiro route is the first one exposed here; keeping the
-// step and ticket explicit avoids accidentally enabling the other unfinished
-// quest NPC routes.
+// NPC cases (_MSG_Quest.cpp:293/338/382/426/470). Keeping the step and ticket
+// explicit avoids accidentally enabling unfinished quest NPC routes.
 func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Entity, step quest256Step, ticket int16) {
+	// Legacy answers each rejection with SendSay on the NPC; this fork uses the
+	// same NoticeReqNotMet message box as the other quest NPCs (perzenExchange,
+	// capaverdeTeleport, molarGargula, useQuest256Ticket).
 	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
-		d.notify(w, s, NoticeReqNotMet)
+		d.notify(w, s, NoticeReqNotMet) // _NN_Level_Limit2
 		return
 	}
 	if e.Level < step.minLevel || e.Level >= step.maxLevel {
-		d.notify(w, s, NoticeReqNotMet)
+		d.notify(w, s, NoticeReqNotMet) // _NN_Level_limit
 		return
 	}
 
@@ -607,14 +620,15 @@ func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Enti
 		}
 	}
 	if slot < 0 {
-		d.notify(w, s, NoticeReqNotMet)
+		d.notify(w, s, NoticeReqNotMet) // _SN_BRINGITEM
 		return
 	}
 
-	// BASE_ClearItem clears the whole legacy slot; Quest 256 tickets are not a
-	// stack consumption path even if a malformed item carries EF_AMOUNT.
+	// BASE_ClearItem clears the whole legacy slot (_MSG_Quest.cpp:316); Quest 256
+	// tickets are not a stack consumption path (issue #259) even if a malformed
+	// item carries EF_AMOUNT.
 	e.Carry[slot] = world.Item{}
-	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
 	d.teleportQuest256Step(w, s, e, step)
 	d.log.Info("quest256 NPC teleport", "conn", s.Conn, "item", ticket, "level", e.Level, "quest_flag", step.flag)
 }

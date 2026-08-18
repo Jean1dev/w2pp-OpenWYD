@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
@@ -63,6 +64,7 @@ type Service struct {
 	templates   []npctemplates.Template
 	items       []itemcatalog.Entry
 	dropCatalog droptool.Catalog
+	logger      *slog.Logger
 }
 
 // New builds the service over the given store.
@@ -84,6 +86,12 @@ func (s *Service) SetItems(items []itemcatalog.Entry) { s.items = items }
 // ListMobDrops serve. Called once at boot after scanning the content tree; left
 // as a zero-value catalog when -content/W2PP_CONTENT wasn't configured.
 func (s *Service) SetDropCatalog(catalog droptool.Catalog) { s.dropCatalog = catalog }
+
+// SetLogger installs the logger used to record business refusals that leave no
+// audit trail (a content-owned delete returns before the store's audit write, so
+// without this a rejected delete is indistinguishable from "nothing happened" on
+// the server side — issue #257). Left nil in tests, which silences the logging.
+func (s *Service) SetLogger(logger *slog.Logger) { s.logger = logger }
 
 // List returns every NPC definition, after authorizing the caller.
 func (s *Service) List(ctx context.Context, moderatorID int64) (Result, []domain.NPCDefinition, error) {
@@ -243,13 +251,21 @@ func (s *Service) ListItemPrices(ctx context.Context, moderatorID int64) (Result
 	return OK, prices, nil
 }
 
-// Delete removes a definition.
+// Delete removes a definition. Content-owned definitions (origin = "content",
+// ~99% of the catalog) are refused with ContentOwned — the moderator is meant to
+// hide them via SetVisibility instead.
 func (s *Service) Delete(ctx context.Context, moderatorID, npcID int64) (Result, error) {
 	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
 		return r, err
 	}
 	err := s.store.DeleteNPCDefinition(ctx, npcID, moderatorID)
-	return classifyWrite(err, "delete")
+	res, cerr := classifyWrite(err, "delete")
+	// The store rejects before writing the audit row, so this refusal would
+	// otherwise be invisible on the server (issue #257).
+	if res == ContentOwned && s.logger != nil {
+		s.logger.Info("delete npc refused: content-owned", "npc_id", npcID, "moderator_id", moderatorID)
+	}
+	return res, cerr
 }
 
 // authorize checks the caller has a moderator/admin role. A missing account or a

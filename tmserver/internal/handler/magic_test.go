@@ -3,17 +3,19 @@ package handler
 import (
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
 // Item indices used by the magic tests, synthetic, mirroring resist_test.go's convention.
 const (
-	magicFlat        = 620 // flat EF_MAGIC on an ordinary (non-weapon) slot
-	magicOffHand     = 621 // EF_MAGIC on the off-hand weapon slot (7) — excluded
-	magicRightHand   = 622 // EF_MAGIC on the right-hand weapon slot (6) — still counts
-	magicAddJewel    = 623 // EF_MAGICADD, registered as a jewel (nUnique 41-50) in magicConfig
-	magicAddNonJewel = 624 // EF_MAGICADD, no nUnique entry — must NOT count
+	magicFlat        = 620  // flat EF_MAGIC on an ordinary (non-weapon) slot
+	magicOffHand     = 621  // EF_MAGIC on the off-hand weapon slot (7) — excluded
+	magicRightHand   = 622  // EF_MAGIC on the right-hand weapon slot (6) — still counts
+	magicAddJewel    = 623  // EF_MAGICADD, registered as a jewel (nUnique 41-50) in magicConfig
+	magicAddNonJewel = 624  // EF_MAGICADD, no nUnique entry — must NOT count
+	magicChaoticAnct = 3725 // Cajado_Caotico(Anct), the real issue #223 reproduction
 )
 
 // magicConfig is the catalog the magic tests read: static effects and the nUnique each
@@ -26,9 +28,14 @@ func magicConfig() Config {
 			magicRightHand:   {{Eff: efMagic, Val: 40}},
 			magicAddJewel:    {{Eff: efMagicAdd, Val: 20}},
 			magicAddNonJewel: {{Eff: efMagicAdd, Val: 20}},
+			magicChaoticAnct: {{Eff: efMagic, Val: 63}},
 		},
 		ItemUnique: map[int]int{
-			magicAddJewel: 45, // jewel range 41-50
+			magicAddJewel:    45, // nUnique range 41-50
+			magicChaoticAnct: 47,
+		},
+		ItemPos: map[int]int{
+			magicChaoticAnct: nPosWeapon1,
 		},
 	}
 }
@@ -69,6 +76,20 @@ func TestMagicFromEquipment(t *testing.T) {
 			want:  0,
 		},
 		{
+			// ItemList[3725] has EF_MAGIC 63; the instance carries another
+			// EF_MAGIC 8 and packed +15 (250). BASE_GetItemSanc maps +15 to
+			// REF_15=27: (63+8)*37/10 = 262, then (262+1)/4 = 65.
+			name: "Cajado Caotico Anct +15 applies refined magic",
+			equip: map[int]world.Item{weaponSlotR: {
+				Index: magicChaoticAnct,
+				Effects: [3]world.Effect{
+					{Effect: efSanc, Value: 250},
+					{Effect: efMagic, Value: 8},
+				},
+			}},
+			want: 65,
+		},
+		{
 			// Mount magicRaw (Thoroughbred 30D: 110, mountBonusTable row {750,110,80,32,6})
 			// and item magicRaw (40) combine BEFORE the single (x+1)/4 scaling: (110+40+1)/4.
 			name: "mount magic and item magic combine under one scaling",
@@ -97,6 +118,15 @@ func TestMagicFromEquipment(t *testing.T) {
 				t.Errorf("e.Magic = %d, want %d", e.Magic, tt.want)
 			}
 		})
+	}
+}
+
+func TestItemScoreSancUsesLegacyRefValues(t *testing.T) {
+	want := map[int]int{10: 10, 11: 12, 12: 15, 13: 18, 14: 22, 15: 27}
+	for level, scoreSanc := range want {
+		if got := itemScoreSanc(level); got != scoreSanc {
+			t.Errorf("itemScoreSanc(%d) = %d, want %d", level, got, scoreSanc)
+		}
 	}
 }
 
@@ -173,5 +203,31 @@ func TestMagicEquipChangesAreMonotonic(t *testing.T) {
 	d.refreshScore(e)
 	if e.Magic < 0 || e.Magic >= withGear {
 		t.Fatalf("Magic after unequip = %d, want [0,%d)", e.Magic, withGear)
+	}
+}
+
+func TestRefinedMagicItemRaisesSkillDamage(t *testing.T) {
+	d := New(magicConfig())
+	e := &world.Entity{ID: 1, Class: 1, Level: 200, BaseInt: 1000, Int: 1000}
+	e.Equip[weaponSlotR] = world.Item{
+		Index: magicChaoticAnct,
+		Effects: [3]world.Effect{
+			{Effect: efSanc, Value: 250},
+			{Effect: efMagic, Value: 8},
+		},
+	}
+	d.refreshScore(e)
+	withItem := combat.SkillBaseDamage(16, combat.SkillSpell{InstanceType: 1, InstanceValue: 100}, combat.SkillCaster{
+		Class: int(e.Class), Level: int(e.Level), Int: int(e.Int), Magic: int(effectiveMagic(e)),
+	}, 0, 0)
+
+	e.Equip[weaponSlotR] = world.Item{}
+	d.refreshScore(e)
+	withoutItem := combat.SkillBaseDamage(16, combat.SkillSpell{InstanceType: 1, InstanceValue: 100}, combat.SkillCaster{
+		Class: int(e.Class), Level: int(e.Level), Int: int(e.Int), Magic: int(effectiveMagic(e)),
+	}, 0, 0)
+
+	if withItem <= withoutItem {
+		t.Fatalf("skill damage with refined magic item = %d, without = %d", withItem, withoutItem)
 	}
 }
