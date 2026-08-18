@@ -43,7 +43,7 @@
 ✅ /gm goto \<jogador\> (ou /gm ir): teleporta você até o jogador <br/>
 ✅ /gm summon \<jogador\> (ou /gm puxar): puxa o jogador até você <br/>
 ✅ /gm spawn \<id\>: cria uma criatura de teste (índice do roster de summons) na sua posição <br/>
-✅ /gm item \<id\>: coloca um item (por índice) no seu inventário <br/>
+✅ /gm item \<id\> \[qtd\]: coloca um item (por índice) no seu inventário; `qtd` (1–120) cria um stack <br/>
 ✅ /gm setlevel \<n\>: sobe o seu nível para n (apenas sobe — não rebaixa) <br/>
 ✅ /gm setgold \<n\>: define o seu ouro carregado <br/>
 ✅ /gm ban \<jogador|conta\>: bloqueia a conta (via `account.is_blocked`) e derruba se online <br/>

@@ -157,7 +157,8 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 }
 
 // combineExtracao handles _MSG_CombineItemExtracao (0x02D4): Huntress extraction
-// uses MSG_STANDARDPARM2.Parm2 as the carry slot and consumes one 1774 catalyst.
+// uses MSG_STANDARDPARM2.Parm2 as the carry slot and consumes one Pedra do Sábio
+// catalyst — one unit, not the whole stack: the NPC shop sells it in packs.
 func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -186,7 +187,7 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 	}
 	catalyst := -1
 	for i := 0; i < activeCarryLimit(e); i++ {
-		if e.Carry[i].Index == 1774 {
+		if e.Carry[i].Index == itemPedraDoSabio {
 			catalyst = i
 			break
 		}
@@ -194,7 +195,7 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 	if catalyst < 0 {
 		return
 	}
-	e.Carry[catalyst] = world.Item{}
+	consumeOneItem(&e.Carry[catalyst])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, catalyst, itemToSel(e.Carry[catalyst])))
 
 	roll := w.Rand().Intn(115)

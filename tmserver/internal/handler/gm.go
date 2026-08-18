@@ -174,11 +174,31 @@ func (d *Dispatcher) gmSpawn(w *world.World, s *world.Session, rest string) {
 	d.log.Info("gm spawn", "account", s.AccountName, "template", id, "mobConn", newID)
 }
 
-// gmItem grants a test item (by index, no effects) into the caller's inventory.
+// gmItem grants a test item into the caller's inventory: "/gm item <index> [qty]".
+// The optional quantity writes EF_AMOUNT (clamped to [1, maxStackAmount]) so stack
+// paths — split, merge, catalyst consumption — are reachable without configuring an
+// NPC shop pack in the web portal.
 func (d *Dispatcher) gmItem(w *world.World, s *world.Session, rest string) {
-	id, err := strconv.Atoi(firstToken(rest))
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return
+	}
+	id, err := strconv.Atoi(fields[0])
 	if err != nil || id <= 0 || id >= world.MaxItem {
 		return
+	}
+	qty := 1
+	if len(fields) > 1 {
+		qty, err = strconv.Atoi(fields[1])
+		if err != nil {
+			return
+		}
+		if qty < 1 {
+			qty = 1
+		}
+		if qty > maxStackAmount {
+			qty = maxStackAmount
+		}
 	}
 	e := w.Entity(s.Conn)
 	if e == nil {
@@ -189,9 +209,13 @@ func (d *Dispatcher) gmItem(w *world.World, s *world.Session, rest string) {
 		d.notify(w, s, NoticeNoEmptySlot)
 		return
 	}
-	e.Carry[slot] = world.Item{Index: int16(id)}
+	it := world.Item{Index: int16(id)}
+	if qty > 1 {
+		setItemAmount(&it, qty)
+	}
+	e.Carry[slot] = it
 	w.Send(s, protocol.MsgCNFGetItem, slotPayload(slot))
-	d.log.Info("gm item", "account", s.AccountName, "item", id, "slot", slot)
+	d.log.Info("gm item", "account", s.AccountName, "item", id, "amount", qty, "slot", slot)
 }
 
 // gmSetLevel raises the caller to the given level for testing. It reuses the

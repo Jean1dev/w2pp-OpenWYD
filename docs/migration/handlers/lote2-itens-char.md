@@ -41,6 +41,10 @@
 - **Status Go (issue #120): ✅** `handler.splitItem` + `setItemAmount`/`isSplittable` (`item.go`).
   Whitelist {412,413,414,416,419,420, 2390–2419}; `EF_AMOUNT` (61) guarda a quantidade; coloca o novo
   stack via `AddToCarry` e envia dois `MsgSendItem`. Sem slot livre → mantém o stack inteiro.
+  **Divergência deliberada (issue #268):** a whitelist inclui também **1774** (Pedra do Sábio), que a
+  loja de NPC do portal vende em pack (`npcconfig.go` grava `EF_AMOUNT` no item vendido) — sem isso o
+  Shift+clique no pack não fazia nada. O merge (`sameStackClass`) usa a mesma lista, então as duas
+  pontas ficam consistentes.
 
 ## `_MSG_UpdateItem` (0x0374) — abrir portões/baús/estado de item no mundo
 - **Gatilho/struct:** `MSG_UpdateItem` (`ItemID`, `State`).
