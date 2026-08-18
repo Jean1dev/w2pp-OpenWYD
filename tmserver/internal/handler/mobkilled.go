@@ -261,7 +261,7 @@ func isCelestialTier(classMaster uint8) bool {
 // /destravar40 and /destravar90 set the flags (CMob.cpp:1107, 1121-1151). Shared by
 // kill EXP, Poeira de Fada, GM setlevel and combat.
 func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.Entity) bool {
-	leveled := false
+	gained := int32(0) // levels actually crossed — the Chaos Point grant below is per level
 	celestial := isCelestialTier(e.ClassMaster)
 	levelCap := level.MaxLevelForTier(e.ClassMaster)
 	for e.Level < levelCap && e.Exp >= level.NextLevelExpTier(e.Level, e.ClassMaster) {
@@ -292,9 +292,9 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 			}
 			e.SpecialBonus += 2
 		}
-		leveled = true
+		gained++
 	}
-	if !leveled {
+	if gained == 0 {
 		return false
 	}
 	// BASE_GetBonusScorePoint reads the equipment-free BaseScore attributes: it
@@ -317,6 +317,11 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 		w.Send(s, protocol.MsgMotion, motion)
 	}
 	w.BroadcastInView(e.ID, protocol.MsgMotion, motion)
+
+	// Chaos Points paid back for the levels just gained (issue #279). Last on
+	// purpose: it can emit a CreateMob that recolors the nick, which must land
+	// after the score/etc refresh above, not in the middle of it.
+	d.grantLevelUpPKPoint(w, s, e, gained)
 	return true
 }
 
