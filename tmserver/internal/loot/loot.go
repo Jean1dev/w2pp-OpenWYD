@@ -41,9 +41,6 @@ func init() {
 // EffectiveDropRate computes the per-slot drop odds after the killer's drop
 // bonus and the target-level adjustment (game-rules.md §2.2). A larger result is
 // rarer. killerBonus is the killer's DropBonus (0 = none).
-//
-// UNVERIFIED: only the level<10 adjustment is documented in full
-// (MobKilled.cpp:2779+ is truncated); higher level bands are not yet applied.
 func EffectiveDropRate(slot, killerBonus, mobLevel int) int {
 	droprate := DropRate[slot]
 	dropbonus := DropBonus[slot] + killerBonus
@@ -52,12 +49,50 @@ func EffectiveDropRate(slot, killerBonus, mobLevel int) int {
 		droprate = dropbonus * droprate / 100
 	}
 	if slot < 60 {
-		switch pos := slot / 8; pos {
+		switch slot / 8 {
 		case 0, 1, 2:
-			if mobLevel < 10 {
+			switch {
+			case mobLevel < 10:
 				droprate = 4 * droprate / 100
+			case mobLevel < 20:
+				droprate = 5 * droprate / 100
+			case mobLevel < 30:
+				droprate = 6 * droprate / 100
+			case mobLevel < 40:
+				droprate = 7 * droprate / 100
+			case mobLevel < 60:
+				droprate = 8 * droprate / 100
+			default:
+				droprate = 99 * droprate / 100
 			}
 		}
+	} else {
+		switch {
+		case mobLevel < 170:
+			droprate = 90 * droprate / 100
+		case mobLevel < 200:
+			droprate = 60 * droprate / 100
+		case mobLevel < 230:
+			droprate = 50 * droprate / 100
+		case mobLevel < 255:
+			droprate = 43 * droprate / 100
+		case mobLevel < 320:
+			droprate = 38 * droprate / 100
+		default:
+			droprate = 50 * droprate / 100
+		}
+	}
+
+	// These four Carry positions are hard overrides applied after every level
+	// adjustment in MobKilled.cpp. Slot 11 is therefore guaranteed.
+	switch slot {
+	case 8, 9, 10:
+		droprate = 4
+	case 11:
+		droprate = 1
+	}
+	if droprate > 32000 {
+		droprate = 32000
 	}
 	return droprate
 }

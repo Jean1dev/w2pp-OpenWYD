@@ -74,8 +74,8 @@ func TestIssue282FourAmunra(t *testing.T) {
 }
 
 // TestItemAbilityRefinedScale covers BASE_GetItemAbility's tail (Basedef.cpp:1849-1858):
-// the (sanc+10)/10 multiplier, the accessory-only +9 → 10 promotion, the truncation, and
-// the exemption list.
+// the (REF_* score sanc+10)/10 multiplier, the accessory-only +9 → 10 promotion, the
+// truncation, and the exemption list.
 func TestItemAbilityRefinedScale(t *testing.T) {
 	d := New(refineScaleConfig())
 
@@ -92,8 +92,8 @@ func TestItemAbilityRefinedScale(t *testing.T) {
 			world.Item{Index: scaleArmor, Effects: [3]world.Effect{sancEffect(9)}}, efStr, 190},
 		{"+8 accessory gets no promotion",
 			world.Item{Index: scaleAmunra, Effects: [3]world.Effect{sancEffect(8)}}, efStr, 180},
-		{"+11 scales by 21/10",
-			world.Item{Index: scaleAmunra, Effects: [3]world.Effect{sancEffect(234)}}, efStr, 210},
+		{"+11 uses REF_11 and scales by 22/10",
+			world.Item{Index: scaleAmunra, Effects: [3]world.Effect{sancEffect(234)}}, efStr, 220},
 		{"catalog and instance are summed BEFORE the multiplier",
 			// (5+5)*19/10 = 19. Scaling each entry instead would truncate twice:
 			// 5*19/10 + 5*19/10 = 9+9 = 18.

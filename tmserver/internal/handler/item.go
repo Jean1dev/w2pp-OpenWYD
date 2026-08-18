@@ -1741,6 +1741,15 @@ func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
 	return total
 }
 
+// itemScoreSanc converts the true 0..15 level reported by the Go refine
+// package back to BASE_GetItemSanc's REF_* values used in score arithmetic.
+func itemScoreSanc(level int) int {
+	if level <= 10 {
+		return level
+	}
+	return [...]int{11: 12, 12: 15, 13: 18, 14: 22, 15: 27}[level]
+}
+
 // accessoryPosMask marks the four accessory slots (Equip[8..11]) in an item's catalog
 // nPos bitmask — the slots Pedra_Amunra equips into, which is why a player wears four.
 // BASE_GetItemAbility keys the +9 refine promotion off it (Basedef.cpp:1850).
@@ -1760,11 +1769,12 @@ func refineScaled(eff uint8) bool {
 }
 
 // refineFactor is BASE_GetItemAbility's refine multiplier numerator (Basedef.cpp:1849-1852):
-// the item's sanc + 10, so a value scales by (sanc+10)/10. Accessories (nPos & 0xF00)
-// reaching +9 are promoted to sanc 10 first, which is what turns the +9 bonus into a clean
-// x2 — the rule behind a +9 Pedra_Amunra granting 200 per attribute instead of 100 (#282).
+// the item's REF_* score sanc + 10, so +11..+15 use their legacy nonlinear values.
+// Accessories (nPos & 0xF00) reaching +9 are promoted to sanc 10 first, which is what
+// turns the +9 bonus into a clean x2 — the rule behind a +9 Pedra_Amunra granting 200
+// per attribute instead of 100 (#282).
 func (d *Dispatcher) refineFactor(it world.Item) int {
-	sanc := itemSanc(it)
+	sanc := itemScoreSanc(itemSanc(it))
 	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
 		sanc = 10
 	}
@@ -1895,9 +1905,8 @@ type equipBonus struct {
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	var b equipBonus
 	// add folds one effect/value pair into the bonus. weaponSlot excludes weapon-hand
-	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD/EF_MAGICADD to the jewel items (nUnique
-	// 41-50); offHand excludes EF_MAGIC on the off-hand weapon slot only (Basedef.cpp:
-	// 2447 — unlike EF_DAMAGE, the right-hand weapon still counts toward magic).
+	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD/EF_MAGICADD to nUnique 41-50 items;
+	// offHand excludes EF_MAGIC on the off-hand weapon slot only.
 	add := func(eff uint8, val int32, weaponSlot, dmgJewel, offHand bool) {
 		switch eff {
 		case efStr:

@@ -451,8 +451,25 @@ Exemplo real (`Release/Common/ItemList.csv:1`):
 1,TransKnight,0.0,0.0.0.0.0,0,0,1,0,0,EF_CLASS,1,EF_RANGE,1,EF_REGENHP,2,EF_REGENMP,2,EF_CRITICAL,10
 ```
 Formato CSV: `index,Name,...,pares EF_<nome>,valor`. Os `EF_*` mapeiam para constantes de efeito
-(ver `ItemEffect.h`). **UNVERIFIED** o mapeamento coluna-a-coluna completo do CSV → struct;
-documentar na Fase 4/5 ao detalhar `CItem`/`CReadFiles`.
+(ver `ItemEffect.h`). O mapeamento das colunas usadas hoje está **CONFIRMADO** empiricamente
+(`BASE_ReadItemListFile`, `Basedef.cpp:5717`, conferido contra as 3220 linhas do arquivo e coberto
+por teste em `webserver/internal/itemcatalog`):
+
+| col. (0-based) | campo | onde é lido |
+|---|---|---|
+| 0 | `index` | todos os parsers |
+| 1 | `Name` (Latin-1, `_` no lugar de espaço) | idem |
+| 2 | `IndexMesh.IndexTexture` | `itemcatalog` (chave do ícone) |
+| 3 | `ReqLvl.ReqStr.ReqInt.ReqDex.ReqCon` | `content.Requirements()` |
+| 4 | `nUnique` | `content.Uniques()` |
+| 5 | `Price` | `content.Prices()` |
+| 6 | `nPos` (bitmask de `Equip[16]`; short **com sinal**) | `content.Positions()`, `itemcatalog` |
+| 7 | `Extra` | `content.Extras()` |
+| 8 | `Grade` | `content.Grades()`, `itemcatalog` |
+| 9+ | pares `EF_<nome>,valor` | `content.BaseEffects()` |
+
+**UNVERIFIED** ainda: `IndexVisualEffect` (o servidor zera; 0 em 100% do `.bin`) e o `EF_GRID`
+(0 em todo o catálogo atual).
 
 > **`ItemCSum.h`** (`Release/TMsrv/` e `DBsrv/`) é um header de checksum da `ItemList` — provável
 > anti-tamper para garantir que TMSrv e DBSrv usam a mesma lista. Confirmar uso.
@@ -466,8 +483,10 @@ Extra, Grade) = 140`. `nPos` é um **bitmask sobre `STRUCT_MOB.Equip[16]`** (bit
 `64|128` = arma de duas mãos; `0` = não equipável), e `IndexVisualEffect` é 0 em todas as linhas.
 O `.bin` está **desatualizado** em relação ao `.csv`: 23 dos 3216 itens divergem em mesh — o `.csv`
 é a fonte de verdade (é o que os serviços Go carregam). Decodificador de referência:
-`scripts/item-icon-manifest.py --check-bin`; consumo desses campos pelo front em
-[item-icons-plan.md](item-icons-plan.md).
+`scripts/item-icon-manifest.py --check-bin`, reimplementado como teste de regressão em
+`webserver/internal/itemcatalog/bindrift_test.go` (os 23 divergentes estão fixados como baseline, e
+o teste roda no CI). Consumo desses campos pelo front em [item-icons-plan.md](item-icons-plan.md) e
+[../integrations/item-icons-nextjs.md](../integrations/item-icons-nextjs.md).
 
 ### 3.2. `SkillData.csv` → `STRUCT_SPELL` (`Basedef.h:1110-...`)
 

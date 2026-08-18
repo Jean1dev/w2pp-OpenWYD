@@ -1,22 +1,29 @@
 # Plano de viabilidade — Imagens dos itens para o front-end
 
-> Status: **PLANO** (nada implementado além do script de levantamento
-> `scripts/item-icon-manifest.py`). Pergunta que este doc responde: *dá para mostrar a imagem de
+> Status: **FASE 1 IMPLEMENTADA** (§8). Pergunta que este doc responde: *dá para mostrar a imagem de
 > cada item no portal web, e por qual caminho?* Resposta curta: **dá, mas a imagem não vem do
 > servidor** — o repositório não tem nenhum pixel de item. O que o servidor tem, e que ninguém
 > estava usando, é a **chave** que identifica a imagem. O plano é publicar essa chave num contrato
 > estável agora e plugar o pacote de imagens depois, como conteúdo.
+>
+> O contrato já está publicado: `ItemCatalogService.ListItems` (`api/web/v1/web.proto`) e os campos
+> `icon_key`/`display_name`/`slot_mask`/`slots`/`grade`/`mesh`/`texture` em `ItemCatalogEntry`.
+> Guia de consumo pelo front: [../integrations/item-icons-nextjs.md](../integrations/item-icons-nextjs.md).
 
 ---
 
 ## 1. Por que isso importa
 
 O front-end (Next.js BFF, `docs/migration/web-platform-plan.md`) já manipula item em várias telas:
-inventário/equipamento em `my-characters`, loja de doação (`donate-shop-frontend.md`), recompensa
-diária (`daily-reward-frontend.md`), DropTool (`docs/integrations/drop-tool-nextjs.md`), editor de
-loja de NPC (`npc-admin-nextjs.md`) e templates de mob (`mob-template-editing-frontend.md`). Hoje
-todas mostram `item_index` + `name` cru (`Botas_Douradas(N)`). Ícone é o que transforma essas telas
-em algo usável.
+loja de doação (`donate-shop-frontend.md`), recompensa diária (`daily-reward-frontend.md`), DropTool
+(`docs/integrations/drop-tool-nextjs.md`), editor de loja de NPC
+(`docs/integrations/npc-admin-nextjs.md`), templates de mob (`mob-template-editing-frontend.md`) e
+world events (`docs/integrations/world-events-nextjs.md`). Hoje todas mostram `item_index` + `name`
+cru (`Botas_Douradas(N)`). Ícone é o que transforma essas telas em algo usável.
+
+> Correção: `my-characters` **não** entra nessa lista — `docs/integrations/my-characters-nextjs.md`
+> é explícito que "inventário, equipamentos e buffs ficam fora desta API". Mostrar inventário com
+> ícone exige antes uma RPC de inventário, que não existe.
 
 ---
 
@@ -67,7 +74,7 @@ tem nada além desses campos — ou seja:
 > **A imagem do item é função de `(IndexMesh, IndexTexture, nPos)`, não do `item_index`.**
 
 Isso muda a escala do problema: os 3220 itens nomeados colapsam em **1055 chaves visuais
-distintas** (614 meshes, 889 pares mesh.texture). Um pacote de ícones precisa cobrir ~1k imagens,
+distintas** (617 meshes, 892 pares mesh.texture). Um pacote de ícones precisa cobrir ~1k imagens,
 não 6,5k. É por isso que armadura/calça/luva/bota de um mesmo set compartilham `IndexMesh` (o set
 "Malha" inteiro é mesh 4) e se diferenciam pelo `nPos`.
 
@@ -81,13 +88,16 @@ não 6,5k. É por isso que armadura/calça/luva/bota de um mesmo set compartilha
 `Release/DBsrv/run/ItemList.bin` = **6500 registros × 140 bytes, ofuscado com XOR 0x5A plano, sem
 cabeçalho** (sobram 4 bytes no fim). Os comentários de offset no header (`Price // 92`) são de uma
 versão antiga da struct com nome curto; com `ITEMNAME_LENGTH=64` (`Basedef.h:203`) o layout real é
-`Name[64] + 8 shorts + 12×(short,short) + int Price + 4 shorts = 140`. Isso não estava documentado
-em `data-formats.md` §3.1 e deveria ser incorporado lá.
+`Name[64] + 8 shorts + 12×(short,short) + int Price + 4 shorts = 140`. **Já incorporado** em
+`data-formats.md` §3.1, e reimplementado em Go como teste de regressão
+(`webserver/internal/itemcatalog/bindrift_test.go`).
 
 Cruzando `.csv` × `.bin`: **3193 de 3216 itens batem**; 23 divergem em mesh (Dríade Selado,
 Sephirot, Pedra/Cupom da Imortalidade). O `.bin` está **desatualizado** em relação ao `.csv` — o
 `.csv` é a fonte de verdade porque é ele que os serviços Go carregam
-(`tmserver/internal/content/catalog.go`). Vale um check no CI.
+(`tmserver/internal/content/catalog.go`). Esse check **já roda no CI**: os 23 estão fixados como
+baseline em `webserver/internal/itemcatalog/bindrift_test.go`, dentro do `go test` que já existia —
+sem Python no pipeline. Um item entrando ou saindo do conjunto quebra o teste.
 
 ---
 
@@ -145,12 +155,21 @@ ItemList.csv ──(build)──> items.json (manifesto)  ──> Next.js: item_
    fallback.
 5. **Decoração fica no front, não na imagem:** refino (`+1..+9`), aura por `grade`, quantidade
    (`EF_AMOUNT`), marca de "selado". Assar isso no PNG multiplicaria o pacote por 10.
-6. **Contrato gRPC:** estender `ItemCatalogEntry` (`api/web/v1/web.proto:312`) com
-   `icon_key`, `slot_mask`, `grade`, `mesh`, `texture` — a implementação já tem tudo em mãos
-   (`webserver/internal/grpcsrv/npcadmin.go:160`). Como `ListItemCatalog` hoje exige
-   `moderator_id`, criar um `ItemCatalogService.ListItems` público (leitura pura do catálogo) para
-   as telas de jogador, **ou** simplesmente publicar o `items.json` estático e não gastar RPC. A
-   segunda opção é a recomendada: menos superfície, cacheável em CDN.
+6. **Contrato gRPC (FEITO, e foi este o caminho escolhido):** `ItemCatalogEntry`
+   (`api/web/v1/web.proto`) ganhou `icon_key`, `display_name`, `slot_mask`, `slots`, `grade`,
+   `mesh` e `texture`, e existe um `ItemCatalogService.ListItems` público (sem `moderator_id`) para
+   as telas de jogador. `NpcAdminService.ListItemCatalog` continua para a moderação e compartilha o
+   mesmo mapper.
+
+   > Correção ao levantamento original: a implementação **não** tinha "tudo em mãos".
+   > `webserver/internal/itemcatalog` lia apenas as duas primeiras colunas do CSV
+   > (`Entry{Index, Name}`), então faltava o parser das colunas visuais — não só o mapper. A coluna
+   > 2 (`mesh.texture`) não era parseada em Go em lugar nenhum; `content/catalog.go` já tinha
+   > `Grades()` (col. 8) e `Positions()` (col. 6).
+
+   O manifesto `items.json` estático foi **descartado** em favor da RPC: o webserver é gRPC puro
+   (não serve HTTP), e uma RPC segue o padrão existente sem inventar uma convenção de asset
+   estático que o repo não tem. O efeito de cache foi preservado via `catalog_version`.
 
 ### 5.1. O que já existe para apoiar
 
@@ -196,18 +215,32 @@ diff contra o `.bin`:
 | Fase | Entrega | Esforço | Depende de |
 |---|---|---|---|
 | 0 | Manifesto + relatório de cobertura (`scripts/item-icon-manifest.py`) | **feito** | — |
-| 1 | `icon_key`/`slot`/`grade` no contrato + fallback SVG no front | ~1-2 dias | nada |
+| 1 | `icon_key`/`slots`/`grade` no contrato + fallback SVG especificado | **feito** | nada |
 | 2 | Pacote de ícones reais (A ou B), WebP 64/128, publicado | ~2-4 dias | experimento §7 + decisão de licença |
 | 3 | Render 3D dos meshes p/ alta resolução, ou arte própria nas lacunas | ~1 semana | opcional |
 
 Fase 1 já resolve a dor descrita no pedido (telas usáveis, item reconhecível por slot/raridade) sem
 depender de nada externo. Fase 2 é o "bonito", e é a única que carrega risco jurídico.
 
+**O que a Fase 1 entregou neste repositório** (o portal Next.js é um projeto externo — não há código
+TypeScript aqui, então o fallback SVG está *especificado*, não implementado):
+
+- `webserver/internal/itemcatalog`: parser das colunas visuais + `icon_key`, e `Catalog.Version`
+  (hash do `ItemList.csv`) para o BFF cachear.
+- `api/web/v1/web.proto`: campos 3..9 de `ItemCatalogEntry` (aditivos) e `ItemCatalogService`.
+- `webserver/internal/grpcsrv/itemcatalog.go`: o serviço + o mapper compartilhado com a moderação.
+- Testes: casos de parity do bitmask (manto `-32768`, duas mãos `192`, `nPos = 0`), os totais do
+  catálogo real (3220 itens / 1055 chaves) e o baseline de drift `.csv` × `.bin`.
+- `docs/integrations/item-icons-nextjs.md`: contrato, tabela bit→slot, regra do fallback e o
+  Route Handler de exemplo.
+
 ---
 
 ## 9. Decisões que precisam de um humano
 
 1. **Distribuir assets extraídos do cliente oficial?** (Fase 2 A/B). Se a resposta for não, o plano
-   para na Fase 1 + Fase 3 com arte própria.
-2. **Manifesto estático ou RPC pública?** Recomendado estático (§5.6).
+   para na Fase 1 + Fase 3 com arte própria. **Ainda em aberto** — é o que bloqueia a Fase 2.
+2. ~~**Manifesto estático ou RPC pública?**~~ **Decidido: RPC pública** (`ItemCatalogService`), com
+   `catalog_version` para o BFF cachear. Ver §5.6.
 3. **Onde hospedar o pacote de imagens** — repo separado + CDN, ou bucket do próprio portal.
+   **Ainda em aberto**, e só importa a partir da Fase 2.

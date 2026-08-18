@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/loot"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -9,6 +11,10 @@ import (
 
 // coinCap is the total-gold overflow guard (game-rules.md §7, MobKilled.cpp:2715).
 const coinCap = 2_000_000_000
+
+// expPanelDefaultColor is TNColor::Default from Basedef.h. The alpha byte is
+// required by the unmodified client; RGB alone leaves the panel text invisible.
+const expPanelDefaultColor uint32 = 0xFFCCAAFF
 
 // Level-up effect (captura-wyd-levelup.md §7): MSG_Motion with these values is the
 // client-side level-up animation/sound.
@@ -77,7 +83,9 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// Item drop: each occupied loot slot rolls against its g_pDropRate odds.
 	for slot := range mob.Carry {
 		it := mob.Carry[slot]
-		if it.Empty() {
+		// MobKilled.cpp only admits real droppable catalog entries here. Low
+		// indices are internal/legacy objects and 454 is explicitly suppressed.
+		if it.Index <= 390 || int(it.Index) >= maxItemList || it.Index == 454 {
 			continue
 		}
 		// UNVERIFIED: killer.DropBonus (item/event bonus) → 0 placeholder.
@@ -86,7 +94,10 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 			if d.castleKeyDrop(w, reward, it) {
 				continue
 			}
-			w.CreateGroundItem(it, mob.X, mob.Y)
+			// Ordinary legacy mob loot goes through PutItem: it is delivered
+			// directly to the killer's Carry and synchronized with SendItem. It is
+			// not a floor object and therefore must not use CreateGroundItem.
+			d.putMobDrop(w, reward, it)
 		}
 	}
 
@@ -96,6 +107,27 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// free its grid cell + entity slot, so the corpse disappears and it can't be
 	// retargeted. Without this the client keeps rendering the dead mob.
 	w.DespawnMob(mob.ID, 1)
+}
+
+// putMobDrop mirrors legacy PutItem for common mob loot. A full accessible Carry
+// loses the rolled item and receives the same no-space notification; there is no
+// fallback to the ground.
+func (d *Dispatcher) putMobDrop(w *world.World, reward *world.Entity, it world.Item) bool {
+	if reward == nil {
+		return false
+	}
+	slot := firstEmptyAccessibleCarry(reward)
+	if slot < 0 {
+		if s := w.Session(reward.ID); s != nil {
+			d.notify(w, s, NoticeNoSpaceToTrade)
+		}
+		return false
+	}
+	reward.Carry[slot] = it
+	if s := w.Session(reward.ID); s != nil {
+		d.sendSlot(w, s, world.ItemPlaceCarry, slot, it)
+	}
+	return true
 }
 
 func (d *Dispatcher) growBabyMountOnKill(w *world.World, killer, mob *world.Entity) {
@@ -201,9 +233,14 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 	if gain <= 0 {
 		return
 	}
+	previousExp := killer.Exp
 	killer.Exp += gain
 	if killer.Exp > level.MaxExp {
 		killer.Exp = level.MaxExp
+	}
+	if applied := killer.Exp - previousExp; applied > 0 && ks != nil {
+		body := protocol.EncodeExpPanelBody(fmt.Sprintf("+%d de EXP", applied), expPanelDefaultColor)
+		w.Send(ks, protocol.MsgExpPanel, body)
 	}
 
 	d.applyLevelUps(w, ks, killer)

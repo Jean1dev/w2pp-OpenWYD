@@ -1453,6 +1453,96 @@ func (x *ListMyCharactersResponse) GetCharacters() []*WebCharacterSummary {
 	return nil
 }
 
+type ListItemsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListItemsRequest) Reset() {
+	*x = ListItemsRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListItemsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListItemsRequest) ProtoMessage() {}
+
+func (x *ListItemsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListItemsRequest.ProtoReflect.Descriptor instead.
+func (*ListItemsRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{13}
+}
+
+type ListItemsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Items []*ItemCatalogEntry    `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	// catalog_version fingerprints ItemList.csv; it only changes on redeploy, so
+	// the BFF can cache the list indefinitely and revalidate on this value.
+	CatalogVersion string `protobuf:"bytes,2,opt,name=catalog_version,json=catalogVersion,proto3" json:"catalog_version,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListItemsResponse) Reset() {
+	*x = ListItemsResponse{}
+	mi := &file_api_web_v1_web_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListItemsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListItemsResponse) ProtoMessage() {}
+
+func (x *ListItemsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListItemsResponse.ProtoReflect.Descriptor instead.
+func (*ListItemsResponse) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ListItemsResponse) GetItems() []*ItemCatalogEntry {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListItemsResponse) GetCatalogVersion() string {
+	if x != nil {
+		return x.CatalogVersion
+	}
+	return ""
+}
+
 type AdminAck struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
@@ -1462,7 +1552,7 @@ type AdminAck struct {
 
 func (x *AdminAck) Reset() {
 	*x = AdminAck{}
-	mi := &file_api_web_v1_web_proto_msgTypes[13]
+	mi := &file_api_web_v1_web_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1474,7 +1564,7 @@ func (x *AdminAck) String() string {
 func (*AdminAck) ProtoMessage() {}
 
 func (x *AdminAck) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[13]
+	mi := &file_api_web_v1_web_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1487,7 +1577,7 @@ func (x *AdminAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAck.ProtoReflect.Descriptor instead.
 func (*AdminAck) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{13}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *AdminAck) GetResult() AdminResult {
@@ -1517,7 +1607,7 @@ type AdminNpcShopItem struct {
 
 func (x *AdminNpcShopItem) Reset() {
 	*x = AdminNpcShopItem{}
-	mi := &file_api_web_v1_web_proto_msgTypes[14]
+	mi := &file_api_web_v1_web_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +1619,7 @@ func (x *AdminNpcShopItem) String() string {
 func (*AdminNpcShopItem) ProtoMessage() {}
 
 func (x *AdminNpcShopItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[14]
+	mi := &file_api_web_v1_web_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1542,7 +1632,7 @@ func (x *AdminNpcShopItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminNpcShopItem.ProtoReflect.Descriptor instead.
 func (*AdminNpcShopItem) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{14}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AdminNpcShopItem) GetSlot() int32 {
@@ -1629,7 +1719,7 @@ type AdminNpc struct {
 
 func (x *AdminNpc) Reset() {
 	*x = AdminNpc{}
-	mi := &file_api_web_v1_web_proto_msgTypes[15]
+	mi := &file_api_web_v1_web_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1641,7 +1731,7 @@ func (x *AdminNpc) String() string {
 func (*AdminNpc) ProtoMessage() {}
 
 func (x *AdminNpc) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[15]
+	mi := &file_api_web_v1_web_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1654,7 +1744,7 @@ func (x *AdminNpc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminNpc.ProtoReflect.Descriptor instead.
 func (*AdminNpc) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{15}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AdminNpc) GetId() int64 {
@@ -1757,7 +1847,7 @@ type ListNpcsRequest struct {
 
 func (x *ListNpcsRequest) Reset() {
 	*x = ListNpcsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[16]
+	mi := &file_api_web_v1_web_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1769,7 +1859,7 @@ func (x *ListNpcsRequest) String() string {
 func (*ListNpcsRequest) ProtoMessage() {}
 
 func (x *ListNpcsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[16]
+	mi := &file_api_web_v1_web_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1782,7 +1872,7 @@ func (x *ListNpcsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNpcsRequest.ProtoReflect.Descriptor instead.
 func (*ListNpcsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{16}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListNpcsRequest) GetModeratorId() int64 {
@@ -1802,7 +1892,7 @@ type ListNpcsResponse struct {
 
 func (x *ListNpcsResponse) Reset() {
 	*x = ListNpcsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[17]
+	mi := &file_api_web_v1_web_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1814,7 +1904,7 @@ func (x *ListNpcsResponse) String() string {
 func (*ListNpcsResponse) ProtoMessage() {}
 
 func (x *ListNpcsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[17]
+	mi := &file_api_web_v1_web_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1827,7 +1917,7 @@ func (x *ListNpcsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNpcsResponse.ProtoReflect.Descriptor instead.
 func (*ListNpcsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{17}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListNpcsResponse) GetResult() AdminResult {
@@ -1854,7 +1944,7 @@ type GetNpcRequest struct {
 
 func (x *GetNpcRequest) Reset() {
 	*x = GetNpcRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[18]
+	mi := &file_api_web_v1_web_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1866,7 +1956,7 @@ func (x *GetNpcRequest) String() string {
 func (*GetNpcRequest) ProtoMessage() {}
 
 func (x *GetNpcRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[18]
+	mi := &file_api_web_v1_web_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1879,7 +1969,7 @@ func (x *GetNpcRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNpcRequest.ProtoReflect.Descriptor instead.
 func (*GetNpcRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{18}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetNpcRequest) GetModeratorId() int64 {
@@ -1906,7 +1996,7 @@ type GetNpcResponse struct {
 
 func (x *GetNpcResponse) Reset() {
 	*x = GetNpcResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[19]
+	mi := &file_api_web_v1_web_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1918,7 +2008,7 @@ func (x *GetNpcResponse) String() string {
 func (*GetNpcResponse) ProtoMessage() {}
 
 func (x *GetNpcResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[19]
+	mi := &file_api_web_v1_web_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1931,7 +2021,7 @@ func (x *GetNpcResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNpcResponse.ProtoReflect.Descriptor instead.
 func (*GetNpcResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{19}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetNpcResponse) GetResult() AdminResult {
@@ -1968,7 +2058,7 @@ type UpsertNpcRequest struct {
 
 func (x *UpsertNpcRequest) Reset() {
 	*x = UpsertNpcRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[20]
+	mi := &file_api_web_v1_web_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1980,7 +2070,7 @@ func (x *UpsertNpcRequest) String() string {
 func (*UpsertNpcRequest) ProtoMessage() {}
 
 func (x *UpsertNpcRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[20]
+	mi := &file_api_web_v1_web_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1993,7 +2083,7 @@ func (x *UpsertNpcRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertNpcRequest.ProtoReflect.Descriptor instead.
 func (*UpsertNpcRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{20}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpsertNpcRequest) GetModeratorId() int64 {
@@ -2076,7 +2166,7 @@ type UpsertNpcResponse struct {
 
 func (x *UpsertNpcResponse) Reset() {
 	*x = UpsertNpcResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[21]
+	mi := &file_api_web_v1_web_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2088,7 +2178,7 @@ func (x *UpsertNpcResponse) String() string {
 func (*UpsertNpcResponse) ProtoMessage() {}
 
 func (x *UpsertNpcResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[21]
+	mi := &file_api_web_v1_web_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2101,7 +2191,7 @@ func (x *UpsertNpcResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertNpcResponse.ProtoReflect.Descriptor instead.
 func (*UpsertNpcResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{21}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *UpsertNpcResponse) GetResult() AdminResult {
@@ -2129,7 +2219,7 @@ type SetNpcVisibilityRequest struct {
 
 func (x *SetNpcVisibilityRequest) Reset() {
 	*x = SetNpcVisibilityRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[22]
+	mi := &file_api_web_v1_web_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2141,7 +2231,7 @@ func (x *SetNpcVisibilityRequest) String() string {
 func (*SetNpcVisibilityRequest) ProtoMessage() {}
 
 func (x *SetNpcVisibilityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[22]
+	mi := &file_api_web_v1_web_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2154,7 +2244,7 @@ func (x *SetNpcVisibilityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetNpcVisibilityRequest.ProtoReflect.Descriptor instead.
 func (*SetNpcVisibilityRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{22}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SetNpcVisibilityRequest) GetModeratorId() int64 {
@@ -2189,7 +2279,7 @@ type SetNpcShopRequest struct {
 
 func (x *SetNpcShopRequest) Reset() {
 	*x = SetNpcShopRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[23]
+	mi := &file_api_web_v1_web_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2201,7 +2291,7 @@ func (x *SetNpcShopRequest) String() string {
 func (*SetNpcShopRequest) ProtoMessage() {}
 
 func (x *SetNpcShopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[23]
+	mi := &file_api_web_v1_web_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2214,7 +2304,7 @@ func (x *SetNpcShopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetNpcShopRequest.ProtoReflect.Descriptor instead.
 func (*SetNpcShopRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{23}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SetNpcShopRequest) GetModeratorId() int64 {
@@ -2249,7 +2339,7 @@ type SetItemPriceRequest struct {
 
 func (x *SetItemPriceRequest) Reset() {
 	*x = SetItemPriceRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[24]
+	mi := &file_api_web_v1_web_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2261,7 +2351,7 @@ func (x *SetItemPriceRequest) String() string {
 func (*SetItemPriceRequest) ProtoMessage() {}
 
 func (x *SetItemPriceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[24]
+	mi := &file_api_web_v1_web_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2274,7 +2364,7 @@ func (x *SetItemPriceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetItemPriceRequest.ProtoReflect.Descriptor instead.
 func (*SetItemPriceRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{24}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SetItemPriceRequest) GetModeratorId() int64 {
@@ -2308,7 +2398,7 @@ type DeleteNpcRequest struct {
 
 func (x *DeleteNpcRequest) Reset() {
 	*x = DeleteNpcRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[25]
+	mi := &file_api_web_v1_web_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2320,7 +2410,7 @@ func (x *DeleteNpcRequest) String() string {
 func (*DeleteNpcRequest) ProtoMessage() {}
 
 func (x *DeleteNpcRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[25]
+	mi := &file_api_web_v1_web_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2333,7 +2423,7 @@ func (x *DeleteNpcRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNpcRequest.ProtoReflect.Descriptor instead.
 func (*DeleteNpcRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{25}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DeleteNpcRequest) GetModeratorId() int64 {
@@ -2363,7 +2453,7 @@ type MerchantTemplate struct {
 
 func (x *MerchantTemplate) Reset() {
 	*x = MerchantTemplate{}
-	mi := &file_api_web_v1_web_proto_msgTypes[26]
+	mi := &file_api_web_v1_web_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2375,7 +2465,7 @@ func (x *MerchantTemplate) String() string {
 func (*MerchantTemplate) ProtoMessage() {}
 
 func (x *MerchantTemplate) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[26]
+	mi := &file_api_web_v1_web_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2388,7 +2478,7 @@ func (x *MerchantTemplate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MerchantTemplate.ProtoReflect.Descriptor instead.
 func (*MerchantTemplate) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{26}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MerchantTemplate) GetTemplateName() string {
@@ -2421,7 +2511,7 @@ type ListMerchantTemplatesRequest struct {
 
 func (x *ListMerchantTemplatesRequest) Reset() {
 	*x = ListMerchantTemplatesRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[27]
+	mi := &file_api_web_v1_web_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2433,7 +2523,7 @@ func (x *ListMerchantTemplatesRequest) String() string {
 func (*ListMerchantTemplatesRequest) ProtoMessage() {}
 
 func (x *ListMerchantTemplatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[27]
+	mi := &file_api_web_v1_web_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2446,7 +2536,7 @@ func (x *ListMerchantTemplatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMerchantTemplatesRequest.ProtoReflect.Descriptor instead.
 func (*ListMerchantTemplatesRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{27}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListMerchantTemplatesRequest) GetModeratorId() int64 {
@@ -2466,7 +2556,7 @@ type ListMerchantTemplatesResponse struct {
 
 func (x *ListMerchantTemplatesResponse) Reset() {
 	*x = ListMerchantTemplatesResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[28]
+	mi := &file_api_web_v1_web_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2478,7 +2568,7 @@ func (x *ListMerchantTemplatesResponse) String() string {
 func (*ListMerchantTemplatesResponse) ProtoMessage() {}
 
 func (x *ListMerchantTemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[28]
+	mi := &file_api_web_v1_web_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2491,7 +2581,7 @@ func (x *ListMerchantTemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMerchantTemplatesResponse.ProtoReflect.Descriptor instead.
 func (*ListMerchantTemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{28}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListMerchantTemplatesResponse) GetResult() AdminResult {
@@ -2509,19 +2599,30 @@ func (x *ListMerchantTemplatesResponse) GetTemplates() []*MerchantTemplate {
 }
 
 // ItemCatalogEntry is one row of Release/Common/ItemList.csv, trimmed to what
-// the shop-item picker needs (the full row also carries price/effects, not
-// relevant here — see tmserver/internal/content.ItemEntry for that).
+// the shop-item picker and the item icons need (the full row also carries
+// price/effects, not relevant here — see tmserver/internal/content.ItemEntry).
+//
+// Fields 3..9 are the visual key (item-icons-plan.md §5). The client draws an
+// item from STRUCT_ITEMLIST's IndexMesh/IndexTexture/nPos, never from the item
+// index, so icon_key — not item_index — is what an icon pack is keyed by.
 type ItemCatalogEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ItemIndex     int32                  `protobuf:"varint,1,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                  // raw catalog name, e.g. "Botas_Douradas(N)"
+	IconKey       string                 `protobuf:"bytes,3,opt,name=icon_key,json=iconKey,proto3" json:"icon_key,omitempty"`             // "m<mesh>_t<texture>_p<slot_mask>"
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // name with underscores turned back into spaces
+	SlotMask      int32                  `protobuf:"varint,5,opt,name=slot_mask,json=slotMask,proto3" json:"slot_mask,omitempty"`         // nPos: bitmask over STRUCT_MOB.Equip[16]; 0 = not equippable
+	Slots         []string               `protobuf:"bytes,6,rep,name=slots,proto3" json:"slots,omitempty"`                                // slot_mask decoded ("boots", "weapon", …)
+	Grade         int32                  `protobuf:"varint,7,opt,name=grade,proto3" json:"grade,omitempty"`                               // 1=Normal 2=Místico 3=Arcano 4=Lendário …
+	Mesh          int32                  `protobuf:"varint,8,opt,name=mesh,proto3" json:"mesh,omitempty"`                                 // IndexMesh: model/appearance
+	Texture       int32                  `protobuf:"varint,9,opt,name=texture,proto3" json:"texture,omitempty"`                           // IndexTexture: colour variant of that model
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ItemCatalogEntry) Reset() {
 	*x = ItemCatalogEntry{}
-	mi := &file_api_web_v1_web_proto_msgTypes[29]
+	mi := &file_api_web_v1_web_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2533,7 +2634,7 @@ func (x *ItemCatalogEntry) String() string {
 func (*ItemCatalogEntry) ProtoMessage() {}
 
 func (x *ItemCatalogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[29]
+	mi := &file_api_web_v1_web_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2546,7 +2647,7 @@ func (x *ItemCatalogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemCatalogEntry.ProtoReflect.Descriptor instead.
 func (*ItemCatalogEntry) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{29}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ItemCatalogEntry) GetItemIndex() int32 {
@@ -2563,6 +2664,55 @@ func (x *ItemCatalogEntry) GetName() string {
 	return ""
 }
 
+func (x *ItemCatalogEntry) GetIconKey() string {
+	if x != nil {
+		return x.IconKey
+	}
+	return ""
+}
+
+func (x *ItemCatalogEntry) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *ItemCatalogEntry) GetSlotMask() int32 {
+	if x != nil {
+		return x.SlotMask
+	}
+	return 0
+}
+
+func (x *ItemCatalogEntry) GetSlots() []string {
+	if x != nil {
+		return x.Slots
+	}
+	return nil
+}
+
+func (x *ItemCatalogEntry) GetGrade() int32 {
+	if x != nil {
+		return x.Grade
+	}
+	return 0
+}
+
+func (x *ItemCatalogEntry) GetMesh() int32 {
+	if x != nil {
+		return x.Mesh
+	}
+	return 0
+}
+
+func (x *ItemCatalogEntry) GetTexture() int32 {
+	if x != nil {
+		return x.Texture
+	}
+	return 0
+}
+
 type ListItemCatalogRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
@@ -2572,7 +2722,7 @@ type ListItemCatalogRequest struct {
 
 func (x *ListItemCatalogRequest) Reset() {
 	*x = ListItemCatalogRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[30]
+	mi := &file_api_web_v1_web_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2584,7 +2734,7 @@ func (x *ListItemCatalogRequest) String() string {
 func (*ListItemCatalogRequest) ProtoMessage() {}
 
 func (x *ListItemCatalogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[30]
+	mi := &file_api_web_v1_web_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2597,7 +2747,7 @@ func (x *ListItemCatalogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemCatalogRequest.ProtoReflect.Descriptor instead.
 func (*ListItemCatalogRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{30}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListItemCatalogRequest) GetModeratorId() int64 {
@@ -2617,7 +2767,7 @@ type ListItemCatalogResponse struct {
 
 func (x *ListItemCatalogResponse) Reset() {
 	*x = ListItemCatalogResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[31]
+	mi := &file_api_web_v1_web_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2629,7 +2779,7 @@ func (x *ListItemCatalogResponse) String() string {
 func (*ListItemCatalogResponse) ProtoMessage() {}
 
 func (x *ListItemCatalogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[31]
+	mi := &file_api_web_v1_web_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2642,7 +2792,7 @@ func (x *ListItemCatalogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemCatalogResponse.ProtoReflect.Descriptor instead.
 func (*ListItemCatalogResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{31}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListItemCatalogResponse) GetResult() AdminResult {
@@ -2672,7 +2822,7 @@ type DropItemMob struct {
 
 func (x *DropItemMob) Reset() {
 	*x = DropItemMob{}
-	mi := &file_api_web_v1_web_proto_msgTypes[32]
+	mi := &file_api_web_v1_web_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2684,7 +2834,7 @@ func (x *DropItemMob) String() string {
 func (*DropItemMob) ProtoMessage() {}
 
 func (x *DropItemMob) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[32]
+	mi := &file_api_web_v1_web_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2697,7 +2847,7 @@ func (x *DropItemMob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropItemMob.ProtoReflect.Descriptor instead.
 func (*DropItemMob) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{32}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *DropItemMob) GetTemplateName() string {
@@ -2746,7 +2896,7 @@ type DropItemEntry struct {
 
 func (x *DropItemEntry) Reset() {
 	*x = DropItemEntry{}
-	mi := &file_api_web_v1_web_proto_msgTypes[33]
+	mi := &file_api_web_v1_web_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2758,7 +2908,7 @@ func (x *DropItemEntry) String() string {
 func (*DropItemEntry) ProtoMessage() {}
 
 func (x *DropItemEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[33]
+	mi := &file_api_web_v1_web_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2771,7 +2921,7 @@ func (x *DropItemEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropItemEntry.ProtoReflect.Descriptor instead.
 func (*DropItemEntry) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{33}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DropItemEntry) GetItemIndex() int32 {
@@ -2808,7 +2958,7 @@ type ListDropItemsRequest struct {
 
 func (x *ListDropItemsRequest) Reset() {
 	*x = ListDropItemsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[34]
+	mi := &file_api_web_v1_web_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2820,7 +2970,7 @@ func (x *ListDropItemsRequest) String() string {
 func (*ListDropItemsRequest) ProtoMessage() {}
 
 func (x *ListDropItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[34]
+	mi := &file_api_web_v1_web_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2833,7 +2983,7 @@ func (x *ListDropItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDropItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListDropItemsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{34}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListDropItemsRequest) GetModeratorId() int64 {
@@ -2881,7 +3031,7 @@ type ListDropItemsResponse struct {
 
 func (x *ListDropItemsResponse) Reset() {
 	*x = ListDropItemsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[35]
+	mi := &file_api_web_v1_web_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2893,7 +3043,7 @@ func (x *ListDropItemsResponse) String() string {
 func (*ListDropItemsResponse) ProtoMessage() {}
 
 func (x *ListDropItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[35]
+	mi := &file_api_web_v1_web_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2906,7 +3056,7 @@ func (x *ListDropItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDropItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListDropItemsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{35}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListDropItemsResponse) GetResult() AdminResult {
@@ -2935,7 +3085,7 @@ type MobDropItem struct {
 
 func (x *MobDropItem) Reset() {
 	*x = MobDropItem{}
-	mi := &file_api_web_v1_web_proto_msgTypes[36]
+	mi := &file_api_web_v1_web_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2947,7 +3097,7 @@ func (x *MobDropItem) String() string {
 func (*MobDropItem) ProtoMessage() {}
 
 func (x *MobDropItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[36]
+	mi := &file_api_web_v1_web_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2960,7 +3110,7 @@ func (x *MobDropItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MobDropItem.ProtoReflect.Descriptor instead.
 func (*MobDropItem) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{36}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *MobDropItem) GetSlot() int32 {
@@ -3003,7 +3153,7 @@ type MobDropEntry struct {
 
 func (x *MobDropEntry) Reset() {
 	*x = MobDropEntry{}
-	mi := &file_api_web_v1_web_proto_msgTypes[37]
+	mi := &file_api_web_v1_web_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3015,7 +3165,7 @@ func (x *MobDropEntry) String() string {
 func (*MobDropEntry) ProtoMessage() {}
 
 func (x *MobDropEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[37]
+	mi := &file_api_web_v1_web_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3028,7 +3178,7 @@ func (x *MobDropEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MobDropEntry.ProtoReflect.Descriptor instead.
 func (*MobDropEntry) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{37}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *MobDropEntry) GetTemplateName() string {
@@ -3071,7 +3221,7 @@ type ListMobDropsRequest struct {
 
 func (x *ListMobDropsRequest) Reset() {
 	*x = ListMobDropsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[38]
+	mi := &file_api_web_v1_web_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3083,7 +3233,7 @@ func (x *ListMobDropsRequest) String() string {
 func (*ListMobDropsRequest) ProtoMessage() {}
 
 func (x *ListMobDropsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[38]
+	mi := &file_api_web_v1_web_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3096,7 +3246,7 @@ func (x *ListMobDropsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMobDropsRequest.ProtoReflect.Descriptor instead.
 func (*ListMobDropsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{38}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListMobDropsRequest) GetModeratorId() int64 {
@@ -3137,7 +3287,7 @@ type ListMobDropsResponse struct {
 
 func (x *ListMobDropsResponse) Reset() {
 	*x = ListMobDropsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[39]
+	mi := &file_api_web_v1_web_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3149,7 +3299,7 @@ func (x *ListMobDropsResponse) String() string {
 func (*ListMobDropsResponse) ProtoMessage() {}
 
 func (x *ListMobDropsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[39]
+	mi := &file_api_web_v1_web_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3162,7 +3312,7 @@ func (x *ListMobDropsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMobDropsResponse.ProtoReflect.Descriptor instead.
 func (*ListMobDropsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{39}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListMobDropsResponse) GetResult() AdminResult {
@@ -3191,7 +3341,7 @@ type ItemPrice struct {
 
 func (x *ItemPrice) Reset() {
 	*x = ItemPrice{}
-	mi := &file_api_web_v1_web_proto_msgTypes[40]
+	mi := &file_api_web_v1_web_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3203,7 +3353,7 @@ func (x *ItemPrice) String() string {
 func (*ItemPrice) ProtoMessage() {}
 
 func (x *ItemPrice) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[40]
+	mi := &file_api_web_v1_web_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3216,7 +3366,7 @@ func (x *ItemPrice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemPrice.ProtoReflect.Descriptor instead.
 func (*ItemPrice) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{40}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ItemPrice) GetItemIndex() int32 {
@@ -3242,7 +3392,7 @@ type ListItemPricesRequest struct {
 
 func (x *ListItemPricesRequest) Reset() {
 	*x = ListItemPricesRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[41]
+	mi := &file_api_web_v1_web_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3254,7 +3404,7 @@ func (x *ListItemPricesRequest) String() string {
 func (*ListItemPricesRequest) ProtoMessage() {}
 
 func (x *ListItemPricesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[41]
+	mi := &file_api_web_v1_web_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3267,7 +3417,7 @@ func (x *ListItemPricesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemPricesRequest.ProtoReflect.Descriptor instead.
 func (*ListItemPricesRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{41}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListItemPricesRequest) GetModeratorId() int64 {
@@ -3287,7 +3437,7 @@ type ListItemPricesResponse struct {
 
 func (x *ListItemPricesResponse) Reset() {
 	*x = ListItemPricesResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[42]
+	mi := &file_api_web_v1_web_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3299,7 +3449,7 @@ func (x *ListItemPricesResponse) String() string {
 func (*ListItemPricesResponse) ProtoMessage() {}
 
 func (x *ListItemPricesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[42]
+	mi := &file_api_web_v1_web_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3312,7 +3462,7 @@ func (x *ListItemPricesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemPricesResponse.ProtoReflect.Descriptor instead.
 func (*ListItemPricesResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{42}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListItemPricesResponse) GetResult() AdminResult {
@@ -3342,7 +3492,7 @@ type MapZone struct {
 
 func (x *MapZone) Reset() {
 	*x = MapZone{}
-	mi := &file_api_web_v1_web_proto_msgTypes[43]
+	mi := &file_api_web_v1_web_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3354,7 +3504,7 @@ func (x *MapZone) String() string {
 func (*MapZone) ProtoMessage() {}
 
 func (x *MapZone) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[43]
+	mi := &file_api_web_v1_web_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3367,7 +3517,7 @@ func (x *MapZone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MapZone.ProtoReflect.Descriptor instead.
 func (*MapZone) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{43}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *MapZone) GetId() int32 {
@@ -3393,7 +3543,7 @@ type ListMapZonesRequest struct {
 
 func (x *ListMapZonesRequest) Reset() {
 	*x = ListMapZonesRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[44]
+	mi := &file_api_web_v1_web_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3405,7 +3555,7 @@ func (x *ListMapZonesRequest) String() string {
 func (*ListMapZonesRequest) ProtoMessage() {}
 
 func (x *ListMapZonesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[44]
+	mi := &file_api_web_v1_web_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3418,7 +3568,7 @@ func (x *ListMapZonesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMapZonesRequest.ProtoReflect.Descriptor instead.
 func (*ListMapZonesRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{44}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListMapZonesRequest) GetModeratorId() int64 {
@@ -3438,7 +3588,7 @@ type ListMapZonesResponse struct {
 
 func (x *ListMapZonesResponse) Reset() {
 	*x = ListMapZonesResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[45]
+	mi := &file_api_web_v1_web_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3450,7 +3600,7 @@ func (x *ListMapZonesResponse) String() string {
 func (*ListMapZonesResponse) ProtoMessage() {}
 
 func (x *ListMapZonesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[45]
+	mi := &file_api_web_v1_web_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3463,7 +3613,7 @@ func (x *ListMapZonesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMapZonesResponse.ProtoReflect.Descriptor instead.
 func (*ListMapZonesResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{45}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListMapZonesResponse) GetResult() AdminResult {
@@ -3493,7 +3643,7 @@ type MobTemplateFile struct {
 
 func (x *MobTemplateFile) Reset() {
 	*x = MobTemplateFile{}
-	mi := &file_api_web_v1_web_proto_msgTypes[46]
+	mi := &file_api_web_v1_web_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3505,7 +3655,7 @@ func (x *MobTemplateFile) String() string {
 func (*MobTemplateFile) ProtoMessage() {}
 
 func (x *MobTemplateFile) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[46]
+	mi := &file_api_web_v1_web_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3518,7 +3668,7 @@ func (x *MobTemplateFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MobTemplateFile.ProtoReflect.Descriptor instead.
 func (*MobTemplateFile) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{46}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *MobTemplateFile) GetTemplateName() string {
@@ -3551,7 +3701,7 @@ type ListMobTemplatesRequest struct {
 
 func (x *ListMobTemplatesRequest) Reset() {
 	*x = ListMobTemplatesRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[47]
+	mi := &file_api_web_v1_web_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3563,7 +3713,7 @@ func (x *ListMobTemplatesRequest) String() string {
 func (*ListMobTemplatesRequest) ProtoMessage() {}
 
 func (x *ListMobTemplatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[47]
+	mi := &file_api_web_v1_web_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3576,7 +3726,7 @@ func (x *ListMobTemplatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMobTemplatesRequest.ProtoReflect.Descriptor instead.
 func (*ListMobTemplatesRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{47}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListMobTemplatesRequest) GetModeratorId() int64 {
@@ -3596,7 +3746,7 @@ type ListMobTemplatesResponse struct {
 
 func (x *ListMobTemplatesResponse) Reset() {
 	*x = ListMobTemplatesResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[48]
+	mi := &file_api_web_v1_web_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3608,7 +3758,7 @@ func (x *ListMobTemplatesResponse) String() string {
 func (*ListMobTemplatesResponse) ProtoMessage() {}
 
 func (x *ListMobTemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[48]
+	mi := &file_api_web_v1_web_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3621,7 +3771,7 @@ func (x *ListMobTemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMobTemplatesResponse.ProtoReflect.Descriptor instead.
 func (*ListMobTemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{48}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListMobTemplatesResponse) GetResult() AdminResult {
@@ -3655,7 +3805,7 @@ type AdminMobTemplateEquipItem struct {
 
 func (x *AdminMobTemplateEquipItem) Reset() {
 	*x = AdminMobTemplateEquipItem{}
-	mi := &file_api_web_v1_web_proto_msgTypes[49]
+	mi := &file_api_web_v1_web_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3667,7 +3817,7 @@ func (x *AdminMobTemplateEquipItem) String() string {
 func (*AdminMobTemplateEquipItem) ProtoMessage() {}
 
 func (x *AdminMobTemplateEquipItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[49]
+	mi := &file_api_web_v1_web_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3680,7 +3830,7 @@ func (x *AdminMobTemplateEquipItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminMobTemplateEquipItem.ProtoReflect.Descriptor instead.
 func (*AdminMobTemplateEquipItem) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{49}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AdminMobTemplateEquipItem) GetSlot() int32 {
@@ -3796,7 +3946,7 @@ type AdminMobTemplateStat struct {
 
 func (x *AdminMobTemplateStat) Reset() {
 	*x = AdminMobTemplateStat{}
-	mi := &file_api_web_v1_web_proto_msgTypes[50]
+	mi := &file_api_web_v1_web_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3808,7 +3958,7 @@ func (x *AdminMobTemplateStat) String() string {
 func (*AdminMobTemplateStat) ProtoMessage() {}
 
 func (x *AdminMobTemplateStat) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[50]
+	mi := &file_api_web_v1_web_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3821,7 +3971,7 @@ func (x *AdminMobTemplateStat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminMobTemplateStat.ProtoReflect.Descriptor instead.
 func (*AdminMobTemplateStat) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{50}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *AdminMobTemplateStat) GetTemplateName() string {
@@ -4121,7 +4271,7 @@ type GetMobTemplateStatRequest struct {
 
 func (x *GetMobTemplateStatRequest) Reset() {
 	*x = GetMobTemplateStatRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[51]
+	mi := &file_api_web_v1_web_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4133,7 +4283,7 @@ func (x *GetMobTemplateStatRequest) String() string {
 func (*GetMobTemplateStatRequest) ProtoMessage() {}
 
 func (x *GetMobTemplateStatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[51]
+	mi := &file_api_web_v1_web_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4146,7 +4296,7 @@ func (x *GetMobTemplateStatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMobTemplateStatRequest.ProtoReflect.Descriptor instead.
 func (*GetMobTemplateStatRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{51}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *GetMobTemplateStatRequest) GetModeratorId() int64 {
@@ -4173,7 +4323,7 @@ type GetMobTemplateStatResponse struct {
 
 func (x *GetMobTemplateStatResponse) Reset() {
 	*x = GetMobTemplateStatResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[52]
+	mi := &file_api_web_v1_web_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4185,7 +4335,7 @@ func (x *GetMobTemplateStatResponse) String() string {
 func (*GetMobTemplateStatResponse) ProtoMessage() {}
 
 func (x *GetMobTemplateStatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[52]
+	mi := &file_api_web_v1_web_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4198,7 +4348,7 @@ func (x *GetMobTemplateStatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMobTemplateStatResponse.ProtoReflect.Descriptor instead.
 func (*GetMobTemplateStatResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{52}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetMobTemplateStatResponse) GetResult() AdminResult {
@@ -4225,7 +4375,7 @@ type UpsertMobTemplateStatRequest struct {
 
 func (x *UpsertMobTemplateStatRequest) Reset() {
 	*x = UpsertMobTemplateStatRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[53]
+	mi := &file_api_web_v1_web_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4237,7 +4387,7 @@ func (x *UpsertMobTemplateStatRequest) String() string {
 func (*UpsertMobTemplateStatRequest) ProtoMessage() {}
 
 func (x *UpsertMobTemplateStatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[53]
+	mi := &file_api_web_v1_web_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4250,7 +4400,7 @@ func (x *UpsertMobTemplateStatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertMobTemplateStatRequest.ProtoReflect.Descriptor instead.
 func (*UpsertMobTemplateStatRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{53}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *UpsertMobTemplateStatRequest) GetModeratorId() int64 {
@@ -4276,7 +4426,7 @@ type UpsertMobTemplateStatResponse struct {
 
 func (x *UpsertMobTemplateStatResponse) Reset() {
 	*x = UpsertMobTemplateStatResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[54]
+	mi := &file_api_web_v1_web_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4288,7 +4438,7 @@ func (x *UpsertMobTemplateStatResponse) String() string {
 func (*UpsertMobTemplateStatResponse) ProtoMessage() {}
 
 func (x *UpsertMobTemplateStatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[54]
+	mi := &file_api_web_v1_web_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4301,7 +4451,7 @@ func (x *UpsertMobTemplateStatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertMobTemplateStatResponse.ProtoReflect.Descriptor instead.
 func (*UpsertMobTemplateStatResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{54}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *UpsertMobTemplateStatResponse) GetResult() AdminResult {
@@ -4322,7 +4472,7 @@ type SetMobTemplateEquipRequest struct {
 
 func (x *SetMobTemplateEquipRequest) Reset() {
 	*x = SetMobTemplateEquipRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[55]
+	mi := &file_api_web_v1_web_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4334,7 +4484,7 @@ func (x *SetMobTemplateEquipRequest) String() string {
 func (*SetMobTemplateEquipRequest) ProtoMessage() {}
 
 func (x *SetMobTemplateEquipRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[55]
+	mi := &file_api_web_v1_web_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4347,7 +4497,7 @@ func (x *SetMobTemplateEquipRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetMobTemplateEquipRequest.ProtoReflect.Descriptor instead.
 func (*SetMobTemplateEquipRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{55}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SetMobTemplateEquipRequest) GetModeratorId() int64 {
@@ -4381,7 +4531,7 @@ type DeleteMobTemplateStatRequest struct {
 
 func (x *DeleteMobTemplateStatRequest) Reset() {
 	*x = DeleteMobTemplateStatRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[56]
+	mi := &file_api_web_v1_web_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4393,7 +4543,7 @@ func (x *DeleteMobTemplateStatRequest) String() string {
 func (*DeleteMobTemplateStatRequest) ProtoMessage() {}
 
 func (x *DeleteMobTemplateStatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[56]
+	mi := &file_api_web_v1_web_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4406,7 +4556,7 @@ func (x *DeleteMobTemplateStatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMobTemplateStatRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMobTemplateStatRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{56}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *DeleteMobTemplateStatRequest) GetModeratorId() int64 {
@@ -4432,7 +4582,7 @@ type GetAttributeMapInfoRequest struct {
 
 func (x *GetAttributeMapInfoRequest) Reset() {
 	*x = GetAttributeMapInfoRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[57]
+	mi := &file_api_web_v1_web_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4444,7 +4594,7 @@ func (x *GetAttributeMapInfoRequest) String() string {
 func (*GetAttributeMapInfoRequest) ProtoMessage() {}
 
 func (x *GetAttributeMapInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[57]
+	mi := &file_api_web_v1_web_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4457,7 +4607,7 @@ func (x *GetAttributeMapInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAttributeMapInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetAttributeMapInfoRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{57}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *GetAttributeMapInfoRequest) GetModeratorId() int64 {
@@ -4477,7 +4627,7 @@ type GetAttributeMapInfoResponse struct {
 
 func (x *GetAttributeMapInfoResponse) Reset() {
 	*x = GetAttributeMapInfoResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[58]
+	mi := &file_api_web_v1_web_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4489,7 +4639,7 @@ func (x *GetAttributeMapInfoResponse) String() string {
 func (*GetAttributeMapInfoResponse) ProtoMessage() {}
 
 func (x *GetAttributeMapInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[58]
+	mi := &file_api_web_v1_web_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4502,7 +4652,7 @@ func (x *GetAttributeMapInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAttributeMapInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetAttributeMapInfoResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{58}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GetAttributeMapInfoResponse) GetResult() AdminResult {
@@ -4532,7 +4682,7 @@ type AttributeMapInfo struct {
 
 func (x *AttributeMapInfo) Reset() {
 	*x = AttributeMapInfo{}
-	mi := &file_api_web_v1_web_proto_msgTypes[59]
+	mi := &file_api_web_v1_web_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4544,7 +4694,7 @@ func (x *AttributeMapInfo) String() string {
 func (*AttributeMapInfo) ProtoMessage() {}
 
 func (x *AttributeMapInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[59]
+	mi := &file_api_web_v1_web_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4557,7 +4707,7 @@ func (x *AttributeMapInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeMapInfo.ProtoReflect.Descriptor instead.
 func (*AttributeMapInfo) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{59}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *AttributeMapInfo) GetDim() int32 {
@@ -4605,7 +4755,7 @@ type AttributeMapValueCount struct {
 
 func (x *AttributeMapValueCount) Reset() {
 	*x = AttributeMapValueCount{}
-	mi := &file_api_web_v1_web_proto_msgTypes[60]
+	mi := &file_api_web_v1_web_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4617,7 +4767,7 @@ func (x *AttributeMapValueCount) String() string {
 func (*AttributeMapValueCount) ProtoMessage() {}
 
 func (x *AttributeMapValueCount) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[60]
+	mi := &file_api_web_v1_web_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4630,7 +4780,7 @@ func (x *AttributeMapValueCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeMapValueCount.ProtoReflect.Descriptor instead.
 func (*AttributeMapValueCount) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{60}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *AttributeMapValueCount) GetValue() int32 {
@@ -4659,7 +4809,7 @@ type AttributeMapMeaning struct {
 
 func (x *AttributeMapMeaning) Reset() {
 	*x = AttributeMapMeaning{}
-	mi := &file_api_web_v1_web_proto_msgTypes[61]
+	mi := &file_api_web_v1_web_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4671,7 +4821,7 @@ func (x *AttributeMapMeaning) String() string {
 func (*AttributeMapMeaning) ProtoMessage() {}
 
 func (x *AttributeMapMeaning) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[61]
+	mi := &file_api_web_v1_web_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4684,7 +4834,7 @@ func (x *AttributeMapMeaning) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeMapMeaning.ProtoReflect.Descriptor instead.
 func (*AttributeMapMeaning) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{61}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *AttributeMapMeaning) GetValue() int32 {
@@ -4730,7 +4880,7 @@ type AttributeMapRect struct {
 
 func (x *AttributeMapRect) Reset() {
 	*x = AttributeMapRect{}
-	mi := &file_api_web_v1_web_proto_msgTypes[62]
+	mi := &file_api_web_v1_web_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4742,7 +4892,7 @@ func (x *AttributeMapRect) String() string {
 func (*AttributeMapRect) ProtoMessage() {}
 
 func (x *AttributeMapRect) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[62]
+	mi := &file_api_web_v1_web_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4755,7 +4905,7 @@ func (x *AttributeMapRect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeMapRect.ProtoReflect.Descriptor instead.
 func (*AttributeMapRect) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{62}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *AttributeMapRect) GetMinX() int32 {
@@ -4801,7 +4951,7 @@ type AttributeMapTransformFilter struct {
 
 func (x *AttributeMapTransformFilter) Reset() {
 	*x = AttributeMapTransformFilter{}
-	mi := &file_api_web_v1_web_proto_msgTypes[63]
+	mi := &file_api_web_v1_web_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4813,7 +4963,7 @@ func (x *AttributeMapTransformFilter) String() string {
 func (*AttributeMapTransformFilter) ProtoMessage() {}
 
 func (x *AttributeMapTransformFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[63]
+	mi := &file_api_web_v1_web_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4826,7 +4976,7 @@ func (x *AttributeMapTransformFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeMapTransformFilter.ProtoReflect.Descriptor instead.
 func (*AttributeMapTransformFilter) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{63}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *AttributeMapTransformFilter) GetEnabled() bool {
@@ -4870,7 +5020,7 @@ type TransformAttributeMapRequest struct {
 
 func (x *TransformAttributeMapRequest) Reset() {
 	*x = TransformAttributeMapRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[64]
+	mi := &file_api_web_v1_web_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4882,7 +5032,7 @@ func (x *TransformAttributeMapRequest) String() string {
 func (*TransformAttributeMapRequest) ProtoMessage() {}
 
 func (x *TransformAttributeMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[64]
+	mi := &file_api_web_v1_web_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4895,7 +5045,7 @@ func (x *TransformAttributeMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransformAttributeMapRequest.ProtoReflect.Descriptor instead.
 func (*TransformAttributeMapRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{64}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *TransformAttributeMapRequest) GetModeratorId() int64 {
@@ -4949,7 +5099,7 @@ type TransformAttributeMapResponse struct {
 
 func (x *TransformAttributeMapResponse) Reset() {
 	*x = TransformAttributeMapResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[65]
+	mi := &file_api_web_v1_web_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4961,7 +5111,7 @@ func (x *TransformAttributeMapResponse) String() string {
 func (*TransformAttributeMapResponse) ProtoMessage() {}
 
 func (x *TransformAttributeMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[65]
+	mi := &file_api_web_v1_web_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4974,7 +5124,7 @@ func (x *TransformAttributeMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransformAttributeMapResponse.ProtoReflect.Descriptor instead.
 func (*TransformAttributeMapResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{65}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *TransformAttributeMapResponse) GetResult() AdminResult {
@@ -5057,7 +5207,7 @@ type DonateShopItem struct {
 
 func (x *DonateShopItem) Reset() {
 	*x = DonateShopItem{}
-	mi := &file_api_web_v1_web_proto_msgTypes[66]
+	mi := &file_api_web_v1_web_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5069,7 +5219,7 @@ func (x *DonateShopItem) String() string {
 func (*DonateShopItem) ProtoMessage() {}
 
 func (x *DonateShopItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[66]
+	mi := &file_api_web_v1_web_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5082,7 +5232,7 @@ func (x *DonateShopItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DonateShopItem.ProtoReflect.Descriptor instead.
 func (*DonateShopItem) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{66}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *DonateShopItem) GetId() int64 {
@@ -5185,7 +5335,7 @@ type ListShopItemsRequest struct {
 
 func (x *ListShopItemsRequest) Reset() {
 	*x = ListShopItemsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[67]
+	mi := &file_api_web_v1_web_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5197,7 +5347,7 @@ func (x *ListShopItemsRequest) String() string {
 func (*ListShopItemsRequest) ProtoMessage() {}
 
 func (x *ListShopItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[67]
+	mi := &file_api_web_v1_web_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5210,7 +5360,7 @@ func (x *ListShopItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShopItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListShopItemsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{67}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ListShopItemsRequest) GetModeratorId() int64 {
@@ -5230,7 +5380,7 @@ type ListShopItemsResponse struct {
 
 func (x *ListShopItemsResponse) Reset() {
 	*x = ListShopItemsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[68]
+	mi := &file_api_web_v1_web_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5242,7 +5392,7 @@ func (x *ListShopItemsResponse) String() string {
 func (*ListShopItemsResponse) ProtoMessage() {}
 
 func (x *ListShopItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[68]
+	mi := &file_api_web_v1_web_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5255,7 +5405,7 @@ func (x *ListShopItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShopItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListShopItemsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{68}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *ListShopItemsResponse) GetResult() AdminResult {
@@ -5283,7 +5433,7 @@ type UpsertShopItemRequest struct {
 
 func (x *UpsertShopItemRequest) Reset() {
 	*x = UpsertShopItemRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[69]
+	mi := &file_api_web_v1_web_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5295,7 +5445,7 @@ func (x *UpsertShopItemRequest) String() string {
 func (*UpsertShopItemRequest) ProtoMessage() {}
 
 func (x *UpsertShopItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[69]
+	mi := &file_api_web_v1_web_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5308,7 +5458,7 @@ func (x *UpsertShopItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertShopItemRequest.ProtoReflect.Descriptor instead.
 func (*UpsertShopItemRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{69}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *UpsertShopItemRequest) GetModeratorId() int64 {
@@ -5335,7 +5485,7 @@ type UpsertShopItemResponse struct {
 
 func (x *UpsertShopItemResponse) Reset() {
 	*x = UpsertShopItemResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[70]
+	mi := &file_api_web_v1_web_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5347,7 +5497,7 @@ func (x *UpsertShopItemResponse) String() string {
 func (*UpsertShopItemResponse) ProtoMessage() {}
 
 func (x *UpsertShopItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[70]
+	mi := &file_api_web_v1_web_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5360,7 +5510,7 @@ func (x *UpsertShopItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertShopItemResponse.ProtoReflect.Descriptor instead.
 func (*UpsertShopItemResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{70}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UpsertShopItemResponse) GetResult() AdminResult {
@@ -5388,7 +5538,7 @@ type SetShopItemEnabledRequest struct {
 
 func (x *SetShopItemEnabledRequest) Reset() {
 	*x = SetShopItemEnabledRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[71]
+	mi := &file_api_web_v1_web_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5400,7 +5550,7 @@ func (x *SetShopItemEnabledRequest) String() string {
 func (*SetShopItemEnabledRequest) ProtoMessage() {}
 
 func (x *SetShopItemEnabledRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[71]
+	mi := &file_api_web_v1_web_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5413,7 +5563,7 @@ func (x *SetShopItemEnabledRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetShopItemEnabledRequest.ProtoReflect.Descriptor instead.
 func (*SetShopItemEnabledRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{71}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *SetShopItemEnabledRequest) GetModeratorId() int64 {
@@ -5447,7 +5597,7 @@ type DeleteShopItemRequest struct {
 
 func (x *DeleteShopItemRequest) Reset() {
 	*x = DeleteShopItemRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[72]
+	mi := &file_api_web_v1_web_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5459,7 +5609,7 @@ func (x *DeleteShopItemRequest) String() string {
 func (*DeleteShopItemRequest) ProtoMessage() {}
 
 func (x *DeleteShopItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[72]
+	mi := &file_api_web_v1_web_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5472,7 +5622,7 @@ func (x *DeleteShopItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteShopItemRequest.ProtoReflect.Descriptor instead.
 func (*DeleteShopItemRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{72}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *DeleteShopItemRequest) GetModeratorId() int64 {
@@ -5501,7 +5651,7 @@ type CreditDonateBalanceRequest struct {
 
 func (x *CreditDonateBalanceRequest) Reset() {
 	*x = CreditDonateBalanceRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[73]
+	mi := &file_api_web_v1_web_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5513,7 +5663,7 @@ func (x *CreditDonateBalanceRequest) String() string {
 func (*CreditDonateBalanceRequest) ProtoMessage() {}
 
 func (x *CreditDonateBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[73]
+	mi := &file_api_web_v1_web_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5526,7 +5676,7 @@ func (x *CreditDonateBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreditDonateBalanceRequest.ProtoReflect.Descriptor instead.
 func (*CreditDonateBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{73}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *CreditDonateBalanceRequest) GetModeratorId() int64 {
@@ -5567,7 +5717,7 @@ type CreditDonateBalanceResponse struct {
 
 func (x *CreditDonateBalanceResponse) Reset() {
 	*x = CreditDonateBalanceResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[74]
+	mi := &file_api_web_v1_web_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5579,7 +5729,7 @@ func (x *CreditDonateBalanceResponse) String() string {
 func (*CreditDonateBalanceResponse) ProtoMessage() {}
 
 func (x *CreditDonateBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[74]
+	mi := &file_api_web_v1_web_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5592,7 +5742,7 @@ func (x *CreditDonateBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreditDonateBalanceResponse.ProtoReflect.Descriptor instead.
 func (*CreditDonateBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{74}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *CreditDonateBalanceResponse) GetResult() AdminResult {
@@ -5617,7 +5767,7 @@ type ListStoreItemsRequest struct {
 
 func (x *ListStoreItemsRequest) Reset() {
 	*x = ListStoreItemsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[75]
+	mi := &file_api_web_v1_web_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5629,7 +5779,7 @@ func (x *ListStoreItemsRequest) String() string {
 func (*ListStoreItemsRequest) ProtoMessage() {}
 
 func (x *ListStoreItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[75]
+	mi := &file_api_web_v1_web_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5642,7 +5792,7 @@ func (x *ListStoreItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStoreItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListStoreItemsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{75}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{77}
 }
 
 type ListStoreItemsResponse struct {
@@ -5654,7 +5804,7 @@ type ListStoreItemsResponse struct {
 
 func (x *ListStoreItemsResponse) Reset() {
 	*x = ListStoreItemsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[76]
+	mi := &file_api_web_v1_web_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5666,7 +5816,7 @@ func (x *ListStoreItemsResponse) String() string {
 func (*ListStoreItemsResponse) ProtoMessage() {}
 
 func (x *ListStoreItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[76]
+	mi := &file_api_web_v1_web_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5679,7 +5829,7 @@ func (x *ListStoreItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStoreItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListStoreItemsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{76}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ListStoreItemsResponse) GetItems() []*DonateShopItem {
@@ -5698,7 +5848,7 @@ type GetBalanceRequest struct {
 
 func (x *GetBalanceRequest) Reset() {
 	*x = GetBalanceRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[77]
+	mi := &file_api_web_v1_web_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5710,7 +5860,7 @@ func (x *GetBalanceRequest) String() string {
 func (*GetBalanceRequest) ProtoMessage() {}
 
 func (x *GetBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[77]
+	mi := &file_api_web_v1_web_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5723,7 +5873,7 @@ func (x *GetBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBalanceRequest.ProtoReflect.Descriptor instead.
 func (*GetBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{77}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *GetBalanceRequest) GetAccountId() int64 {
@@ -5742,7 +5892,7 @@ type GetBalanceResponse struct {
 
 func (x *GetBalanceResponse) Reset() {
 	*x = GetBalanceResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[78]
+	mi := &file_api_web_v1_web_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5754,7 +5904,7 @@ func (x *GetBalanceResponse) String() string {
 func (*GetBalanceResponse) ProtoMessage() {}
 
 func (x *GetBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[78]
+	mi := &file_api_web_v1_web_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5767,7 +5917,7 @@ func (x *GetBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBalanceResponse.ProtoReflect.Descriptor instead.
 func (*GetBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{78}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *GetBalanceResponse) GetBalance() int32 {
@@ -5787,7 +5937,7 @@ type BuyRequest struct {
 
 func (x *BuyRequest) Reset() {
 	*x = BuyRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[79]
+	mi := &file_api_web_v1_web_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5799,7 +5949,7 @@ func (x *BuyRequest) String() string {
 func (*BuyRequest) ProtoMessage() {}
 
 func (x *BuyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[79]
+	mi := &file_api_web_v1_web_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5812,7 +5962,7 @@ func (x *BuyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyRequest.ProtoReflect.Descriptor instead.
 func (*BuyRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{79}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *BuyRequest) GetAccountId() int64 {
@@ -5839,7 +5989,7 @@ type BuyResponse struct {
 
 func (x *BuyResponse) Reset() {
 	*x = BuyResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[80]
+	mi := &file_api_web_v1_web_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5851,7 +6001,7 @@ func (x *BuyResponse) String() string {
 func (*BuyResponse) ProtoMessage() {}
 
 func (x *BuyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[80]
+	mi := &file_api_web_v1_web_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5864,7 +6014,7 @@ func (x *BuyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyResponse.ProtoReflect.Descriptor instead.
 func (*BuyResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{80}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *BuyResponse) GetResult() BuyResult {
@@ -5904,7 +6054,7 @@ type DailyRewardItem struct {
 
 func (x *DailyRewardItem) Reset() {
 	*x = DailyRewardItem{}
-	mi := &file_api_web_v1_web_proto_msgTypes[81]
+	mi := &file_api_web_v1_web_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5916,7 +6066,7 @@ func (x *DailyRewardItem) String() string {
 func (*DailyRewardItem) ProtoMessage() {}
 
 func (x *DailyRewardItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[81]
+	mi := &file_api_web_v1_web_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5929,7 +6079,7 @@ func (x *DailyRewardItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DailyRewardItem.ProtoReflect.Descriptor instead.
 func (*DailyRewardItem) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{81}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *DailyRewardItem) GetId() int64 {
@@ -6025,7 +6175,7 @@ type ListRewardItemsRequest struct {
 
 func (x *ListRewardItemsRequest) Reset() {
 	*x = ListRewardItemsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[82]
+	mi := &file_api_web_v1_web_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6037,7 +6187,7 @@ func (x *ListRewardItemsRequest) String() string {
 func (*ListRewardItemsRequest) ProtoMessage() {}
 
 func (x *ListRewardItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[82]
+	mi := &file_api_web_v1_web_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6050,7 +6200,7 @@ func (x *ListRewardItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRewardItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListRewardItemsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{82}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *ListRewardItemsRequest) GetModeratorId() int64 {
@@ -6070,7 +6220,7 @@ type ListRewardItemsResponse struct {
 
 func (x *ListRewardItemsResponse) Reset() {
 	*x = ListRewardItemsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[83]
+	mi := &file_api_web_v1_web_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6082,7 +6232,7 @@ func (x *ListRewardItemsResponse) String() string {
 func (*ListRewardItemsResponse) ProtoMessage() {}
 
 func (x *ListRewardItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[83]
+	mi := &file_api_web_v1_web_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6095,7 +6245,7 @@ func (x *ListRewardItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRewardItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListRewardItemsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{83}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ListRewardItemsResponse) GetResult() AdminResult {
@@ -6123,7 +6273,7 @@ type UpsertRewardItemRequest struct {
 
 func (x *UpsertRewardItemRequest) Reset() {
 	*x = UpsertRewardItemRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[84]
+	mi := &file_api_web_v1_web_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6135,7 +6285,7 @@ func (x *UpsertRewardItemRequest) String() string {
 func (*UpsertRewardItemRequest) ProtoMessage() {}
 
 func (x *UpsertRewardItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[84]
+	mi := &file_api_web_v1_web_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6148,7 +6298,7 @@ func (x *UpsertRewardItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertRewardItemRequest.ProtoReflect.Descriptor instead.
 func (*UpsertRewardItemRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{84}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *UpsertRewardItemRequest) GetModeratorId() int64 {
@@ -6175,7 +6325,7 @@ type UpsertRewardItemResponse struct {
 
 func (x *UpsertRewardItemResponse) Reset() {
 	*x = UpsertRewardItemResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[85]
+	mi := &file_api_web_v1_web_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6187,7 +6337,7 @@ func (x *UpsertRewardItemResponse) String() string {
 func (*UpsertRewardItemResponse) ProtoMessage() {}
 
 func (x *UpsertRewardItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[85]
+	mi := &file_api_web_v1_web_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6200,7 +6350,7 @@ func (x *UpsertRewardItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertRewardItemResponse.ProtoReflect.Descriptor instead.
 func (*UpsertRewardItemResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{85}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *UpsertRewardItemResponse) GetResult() AdminResult {
@@ -6228,7 +6378,7 @@ type SetRewardItemEnabledRequest struct {
 
 func (x *SetRewardItemEnabledRequest) Reset() {
 	*x = SetRewardItemEnabledRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[86]
+	mi := &file_api_web_v1_web_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6240,7 +6390,7 @@ func (x *SetRewardItemEnabledRequest) String() string {
 func (*SetRewardItemEnabledRequest) ProtoMessage() {}
 
 func (x *SetRewardItemEnabledRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[86]
+	mi := &file_api_web_v1_web_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6253,7 +6403,7 @@ func (x *SetRewardItemEnabledRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRewardItemEnabledRequest.ProtoReflect.Descriptor instead.
 func (*SetRewardItemEnabledRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{86}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *SetRewardItemEnabledRequest) GetModeratorId() int64 {
@@ -6287,7 +6437,7 @@ type DeleteRewardItemRequest struct {
 
 func (x *DeleteRewardItemRequest) Reset() {
 	*x = DeleteRewardItemRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[87]
+	mi := &file_api_web_v1_web_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6299,7 +6449,7 @@ func (x *DeleteRewardItemRequest) String() string {
 func (*DeleteRewardItemRequest) ProtoMessage() {}
 
 func (x *DeleteRewardItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[87]
+	mi := &file_api_web_v1_web_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6312,7 +6462,7 @@ func (x *DeleteRewardItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRewardItemRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRewardItemRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{87}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *DeleteRewardItemRequest) GetModeratorId() int64 {
@@ -6347,7 +6497,7 @@ type WorldEventConfig struct {
 
 func (x *WorldEventConfig) Reset() {
 	*x = WorldEventConfig{}
-	mi := &file_api_web_v1_web_proto_msgTypes[88]
+	mi := &file_api_web_v1_web_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6359,7 +6509,7 @@ func (x *WorldEventConfig) String() string {
 func (*WorldEventConfig) ProtoMessage() {}
 
 func (x *WorldEventConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[88]
+	mi := &file_api_web_v1_web_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6372,7 +6522,7 @@ func (x *WorldEventConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorldEventConfig.ProtoReflect.Descriptor instead.
 func (*WorldEventConfig) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{88}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *WorldEventConfig) GetEnabled() bool {
@@ -6454,7 +6604,7 @@ type GetWorldEventConfigRequest struct {
 
 func (x *GetWorldEventConfigRequest) Reset() {
 	*x = GetWorldEventConfigRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[89]
+	mi := &file_api_web_v1_web_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6466,7 +6616,7 @@ func (x *GetWorldEventConfigRequest) String() string {
 func (*GetWorldEventConfigRequest) ProtoMessage() {}
 
 func (x *GetWorldEventConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[89]
+	mi := &file_api_web_v1_web_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6479,7 +6629,7 @@ func (x *GetWorldEventConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorldEventConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetWorldEventConfigRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{89}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *GetWorldEventConfigRequest) GetModeratorId() int64 {
@@ -6500,7 +6650,7 @@ type GetWorldEventConfigResponse struct {
 
 func (x *GetWorldEventConfigResponse) Reset() {
 	*x = GetWorldEventConfigResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[90]
+	mi := &file_api_web_v1_web_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6512,7 +6662,7 @@ func (x *GetWorldEventConfigResponse) String() string {
 func (*GetWorldEventConfigResponse) ProtoMessage() {}
 
 func (x *GetWorldEventConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[90]
+	mi := &file_api_web_v1_web_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6525,7 +6675,7 @@ func (x *GetWorldEventConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorldEventConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetWorldEventConfigResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{90}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *GetWorldEventConfigResponse) GetResult() AdminResult {
@@ -6559,7 +6709,7 @@ type SetWorldEventConfigRequest struct {
 
 func (x *SetWorldEventConfigRequest) Reset() {
 	*x = SetWorldEventConfigRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[91]
+	mi := &file_api_web_v1_web_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6571,7 +6721,7 @@ func (x *SetWorldEventConfigRequest) String() string {
 func (*SetWorldEventConfigRequest) ProtoMessage() {}
 
 func (x *SetWorldEventConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[91]
+	mi := &file_api_web_v1_web_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6584,7 +6734,7 @@ func (x *SetWorldEventConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetWorldEventConfigRequest.ProtoReflect.Descriptor instead.
 func (*SetWorldEventConfigRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{91}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *SetWorldEventConfigRequest) GetModeratorId() int64 {
@@ -6609,7 +6759,7 @@ type ListRewardsRequest struct {
 
 func (x *ListRewardsRequest) Reset() {
 	*x = ListRewardsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[92]
+	mi := &file_api_web_v1_web_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6621,7 +6771,7 @@ func (x *ListRewardsRequest) String() string {
 func (*ListRewardsRequest) ProtoMessage() {}
 
 func (x *ListRewardsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[92]
+	mi := &file_api_web_v1_web_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6634,7 +6784,7 @@ func (x *ListRewardsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRewardsRequest.ProtoReflect.Descriptor instead.
 func (*ListRewardsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{92}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{94}
 }
 
 type ListRewardsResponse struct {
@@ -6646,7 +6796,7 @@ type ListRewardsResponse struct {
 
 func (x *ListRewardsResponse) Reset() {
 	*x = ListRewardsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[93]
+	mi := &file_api_web_v1_web_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6658,7 +6808,7 @@ func (x *ListRewardsResponse) String() string {
 func (*ListRewardsResponse) ProtoMessage() {}
 
 func (x *ListRewardsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[93]
+	mi := &file_api_web_v1_web_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6671,7 +6821,7 @@ func (x *ListRewardsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRewardsResponse.ProtoReflect.Descriptor instead.
 func (*ListRewardsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{93}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *ListRewardsResponse) GetItems() []*DailyRewardItem {
@@ -6690,7 +6840,7 @@ type GetClaimStatusRequest struct {
 
 func (x *GetClaimStatusRequest) Reset() {
 	*x = GetClaimStatusRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[94]
+	mi := &file_api_web_v1_web_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6702,7 +6852,7 @@ func (x *GetClaimStatusRequest) String() string {
 func (*GetClaimStatusRequest) ProtoMessage() {}
 
 func (x *GetClaimStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[94]
+	mi := &file_api_web_v1_web_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6715,7 +6865,7 @@ func (x *GetClaimStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClaimStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetClaimStatusRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{94}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *GetClaimStatusRequest) GetAccountId() int64 {
@@ -6736,7 +6886,7 @@ type GetClaimStatusResponse struct {
 
 func (x *GetClaimStatusResponse) Reset() {
 	*x = GetClaimStatusResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[95]
+	mi := &file_api_web_v1_web_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6748,7 +6898,7 @@ func (x *GetClaimStatusResponse) String() string {
 func (*GetClaimStatusResponse) ProtoMessage() {}
 
 func (x *GetClaimStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[95]
+	mi := &file_api_web_v1_web_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6761,7 +6911,7 @@ func (x *GetClaimStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClaimStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetClaimStatusResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{95}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *GetClaimStatusResponse) GetClaimedToday() bool {
@@ -6795,7 +6945,7 @@ type ClaimRequest struct {
 
 func (x *ClaimRequest) Reset() {
 	*x = ClaimRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[96]
+	mi := &file_api_web_v1_web_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6807,7 +6957,7 @@ func (x *ClaimRequest) String() string {
 func (*ClaimRequest) ProtoMessage() {}
 
 func (x *ClaimRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[96]
+	mi := &file_api_web_v1_web_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6820,7 +6970,7 @@ func (x *ClaimRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimRequest.ProtoReflect.Descriptor instead.
 func (*ClaimRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{96}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *ClaimRequest) GetAccountId() int64 {
@@ -6846,7 +6996,7 @@ type ClaimResponse struct {
 
 func (x *ClaimResponse) Reset() {
 	*x = ClaimResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[97]
+	mi := &file_api_web_v1_web_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6858,7 +7008,7 @@ func (x *ClaimResponse) String() string {
 func (*ClaimResponse) ProtoMessage() {}
 
 func (x *ClaimResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[97]
+	mi := &file_api_web_v1_web_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6871,7 +7021,7 @@ func (x *ClaimResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimResponse.ProtoReflect.Descriptor instead.
 func (*ClaimResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{97}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *ClaimResponse) GetResult() ClaimResult {
@@ -6890,7 +7040,7 @@ type GetPayerProfileRequest struct {
 
 func (x *GetPayerProfileRequest) Reset() {
 	*x = GetPayerProfileRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[98]
+	mi := &file_api_web_v1_web_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6902,7 +7052,7 @@ func (x *GetPayerProfileRequest) String() string {
 func (*GetPayerProfileRequest) ProtoMessage() {}
 
 func (x *GetPayerProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[98]
+	mi := &file_api_web_v1_web_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6915,7 +7065,7 @@ func (x *GetPayerProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayerProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetPayerProfileRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{98}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *GetPayerProfileRequest) GetAccountId() int64 {
@@ -6936,7 +7086,7 @@ type GetPayerProfileResponse struct {
 
 func (x *GetPayerProfileResponse) Reset() {
 	*x = GetPayerProfileResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[99]
+	mi := &file_api_web_v1_web_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6948,7 +7098,7 @@ func (x *GetPayerProfileResponse) String() string {
 func (*GetPayerProfileResponse) ProtoMessage() {}
 
 func (x *GetPayerProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[99]
+	mi := &file_api_web_v1_web_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6961,7 +7111,7 @@ func (x *GetPayerProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayerProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetPayerProfileResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{99}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *GetPayerProfileResponse) GetFound() bool {
@@ -6996,7 +7146,7 @@ type SavePayerProfileRequest struct {
 
 func (x *SavePayerProfileRequest) Reset() {
 	*x = SavePayerProfileRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[100]
+	mi := &file_api_web_v1_web_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7008,7 +7158,7 @@ func (x *SavePayerProfileRequest) String() string {
 func (*SavePayerProfileRequest) ProtoMessage() {}
 
 func (x *SavePayerProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[100]
+	mi := &file_api_web_v1_web_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7021,7 +7171,7 @@ func (x *SavePayerProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavePayerProfileRequest.ProtoReflect.Descriptor instead.
 func (*SavePayerProfileRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{100}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *SavePayerProfileRequest) GetAccountId() int64 {
@@ -7054,7 +7204,7 @@ type SavePayerProfileResponse struct {
 
 func (x *SavePayerProfileResponse) Reset() {
 	*x = SavePayerProfileResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[101]
+	mi := &file_api_web_v1_web_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7066,7 +7216,7 @@ func (x *SavePayerProfileResponse) String() string {
 func (*SavePayerProfileResponse) ProtoMessage() {}
 
 func (x *SavePayerProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[101]
+	mi := &file_api_web_v1_web_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7079,7 +7229,7 @@ func (x *SavePayerProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavePayerProfileResponse.ProtoReflect.Descriptor instead.
 func (*SavePayerProfileResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{101}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *SavePayerProfileResponse) GetResult() AdminResult {
@@ -7102,7 +7252,7 @@ type CreateTopupOrderRequest struct {
 
 func (x *CreateTopupOrderRequest) Reset() {
 	*x = CreateTopupOrderRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[102]
+	mi := &file_api_web_v1_web_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7114,7 +7264,7 @@ func (x *CreateTopupOrderRequest) String() string {
 func (*CreateTopupOrderRequest) ProtoMessage() {}
 
 func (x *CreateTopupOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[102]
+	mi := &file_api_web_v1_web_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7127,7 +7277,7 @@ func (x *CreateTopupOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTopupOrderRequest.ProtoReflect.Descriptor instead.
 func (*CreateTopupOrderRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{102}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *CreateTopupOrderRequest) GetAccountId() int64 {
@@ -7175,7 +7325,7 @@ type CreateTopupOrderResponse struct {
 
 func (x *CreateTopupOrderResponse) Reset() {
 	*x = CreateTopupOrderResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[103]
+	mi := &file_api_web_v1_web_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7187,7 +7337,7 @@ func (x *CreateTopupOrderResponse) String() string {
 func (*CreateTopupOrderResponse) ProtoMessage() {}
 
 func (x *CreateTopupOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[103]
+	mi := &file_api_web_v1_web_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7200,7 +7350,7 @@ func (x *CreateTopupOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTopupOrderResponse.ProtoReflect.Descriptor instead.
 func (*CreateTopupOrderResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{103}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *CreateTopupOrderResponse) GetResult() AdminResult {
@@ -7226,7 +7376,7 @@ type ConfirmTopupOrderRequest struct {
 
 func (x *ConfirmTopupOrderRequest) Reset() {
 	*x = ConfirmTopupOrderRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[104]
+	mi := &file_api_web_v1_web_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7238,7 +7388,7 @@ func (x *ConfirmTopupOrderRequest) String() string {
 func (*ConfirmTopupOrderRequest) ProtoMessage() {}
 
 func (x *ConfirmTopupOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[104]
+	mi := &file_api_web_v1_web_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7251,7 +7401,7 @@ func (x *ConfirmTopupOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTopupOrderRequest.ProtoReflect.Descriptor instead.
 func (*ConfirmTopupOrderRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{104}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *ConfirmTopupOrderRequest) GetExternalReference() string {
@@ -7271,7 +7421,7 @@ type ConfirmTopupOrderResponse struct {
 
 func (x *ConfirmTopupOrderResponse) Reset() {
 	*x = ConfirmTopupOrderResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[105]
+	mi := &file_api_web_v1_web_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7283,7 +7433,7 @@ func (x *ConfirmTopupOrderResponse) String() string {
 func (*ConfirmTopupOrderResponse) ProtoMessage() {}
 
 func (x *ConfirmTopupOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[105]
+	mi := &file_api_web_v1_web_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7296,7 +7446,7 @@ func (x *ConfirmTopupOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTopupOrderResponse.ProtoReflect.Descriptor instead.
 func (*ConfirmTopupOrderResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{105}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *ConfirmTopupOrderResponse) GetResult() TopupResult {
@@ -7323,7 +7473,7 @@ type GetTopupOrderRequest struct {
 
 func (x *GetTopupOrderRequest) Reset() {
 	*x = GetTopupOrderRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[106]
+	mi := &file_api_web_v1_web_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7335,7 +7485,7 @@ func (x *GetTopupOrderRequest) String() string {
 func (*GetTopupOrderRequest) ProtoMessage() {}
 
 func (x *GetTopupOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[106]
+	mi := &file_api_web_v1_web_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7348,7 +7498,7 @@ func (x *GetTopupOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopupOrderRequest.ProtoReflect.Descriptor instead.
 func (*GetTopupOrderRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{106}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *GetTopupOrderRequest) GetExternalReference() string {
@@ -7376,7 +7526,7 @@ type GetTopupOrderResponse struct {
 
 func (x *GetTopupOrderResponse) Reset() {
 	*x = GetTopupOrderResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[107]
+	mi := &file_api_web_v1_web_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7388,7 +7538,7 @@ func (x *GetTopupOrderResponse) String() string {
 func (*GetTopupOrderResponse) ProtoMessage() {}
 
 func (x *GetTopupOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[107]
+	mi := &file_api_web_v1_web_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7401,7 +7551,7 @@ func (x *GetTopupOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopupOrderResponse.ProtoReflect.Descriptor instead.
 func (*GetTopupOrderResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{107}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *GetTopupOrderResponse) GetStatus() TopupStatus {
@@ -7439,7 +7589,7 @@ type RevenueWindow struct {
 
 func (x *RevenueWindow) Reset() {
 	*x = RevenueWindow{}
-	mi := &file_api_web_v1_web_proto_msgTypes[108]
+	mi := &file_api_web_v1_web_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7451,7 +7601,7 @@ func (x *RevenueWindow) String() string {
 func (*RevenueWindow) ProtoMessage() {}
 
 func (x *RevenueWindow) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[108]
+	mi := &file_api_web_v1_web_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7464,7 +7614,7 @@ func (x *RevenueWindow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevenueWindow.ProtoReflect.Descriptor instead.
 func (*RevenueWindow) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{108}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *RevenueWindow) GetFromUnix() int64 {
@@ -7503,7 +7653,7 @@ type RevenueTotals struct {
 
 func (x *RevenueTotals) Reset() {
 	*x = RevenueTotals{}
-	mi := &file_api_web_v1_web_proto_msgTypes[109]
+	mi := &file_api_web_v1_web_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7515,7 +7665,7 @@ func (x *RevenueTotals) String() string {
 func (*RevenueTotals) ProtoMessage() {}
 
 func (x *RevenueTotals) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[109]
+	mi := &file_api_web_v1_web_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7528,7 +7678,7 @@ func (x *RevenueTotals) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevenueTotals.ProtoReflect.Descriptor instead.
 func (*RevenueTotals) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{109}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *RevenueTotals) GetPaidOrders() int64 {
@@ -7621,7 +7771,7 @@ type RevenueByMethod struct {
 
 func (x *RevenueByMethod) Reset() {
 	*x = RevenueByMethod{}
-	mi := &file_api_web_v1_web_proto_msgTypes[110]
+	mi := &file_api_web_v1_web_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7633,7 +7783,7 @@ func (x *RevenueByMethod) String() string {
 func (*RevenueByMethod) ProtoMessage() {}
 
 func (x *RevenueByMethod) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[110]
+	mi := &file_api_web_v1_web_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7646,7 +7796,7 @@ func (x *RevenueByMethod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevenueByMethod.ProtoReflect.Descriptor instead.
 func (*RevenueByMethod) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{110}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *RevenueByMethod) GetPaymentMethod() PaymentMethod {
@@ -7685,7 +7835,7 @@ type RevenuePoint struct {
 
 func (x *RevenuePoint) Reset() {
 	*x = RevenuePoint{}
-	mi := &file_api_web_v1_web_proto_msgTypes[111]
+	mi := &file_api_web_v1_web_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7697,7 +7847,7 @@ func (x *RevenuePoint) String() string {
 func (*RevenuePoint) ProtoMessage() {}
 
 func (x *RevenuePoint) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[111]
+	mi := &file_api_web_v1_web_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7710,7 +7860,7 @@ func (x *RevenuePoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevenuePoint.ProtoReflect.Descriptor instead.
 func (*RevenuePoint) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{111}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *RevenuePoint) GetBucketStartUnix() int64 {
@@ -7760,7 +7910,7 @@ type GetRevenueSummaryRequest struct {
 
 func (x *GetRevenueSummaryRequest) Reset() {
 	*x = GetRevenueSummaryRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[112]
+	mi := &file_api_web_v1_web_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7772,7 +7922,7 @@ func (x *GetRevenueSummaryRequest) String() string {
 func (*GetRevenueSummaryRequest) ProtoMessage() {}
 
 func (x *GetRevenueSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[112]
+	mi := &file_api_web_v1_web_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7785,7 +7935,7 @@ func (x *GetRevenueSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRevenueSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetRevenueSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{112}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *GetRevenueSummaryRequest) GetModeratorId() int64 {
@@ -7830,7 +7980,7 @@ type GetRevenueSummaryResponse struct {
 
 func (x *GetRevenueSummaryResponse) Reset() {
 	*x = GetRevenueSummaryResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[113]
+	mi := &file_api_web_v1_web_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7842,7 +7992,7 @@ func (x *GetRevenueSummaryResponse) String() string {
 func (*GetRevenueSummaryResponse) ProtoMessage() {}
 
 func (x *GetRevenueSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[113]
+	mi := &file_api_web_v1_web_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7855,7 +8005,7 @@ func (x *GetRevenueSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRevenueSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetRevenueSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{113}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *GetRevenueSummaryResponse) GetResult() AdminResult {
@@ -7929,7 +8079,7 @@ type TopupOrderRow struct {
 
 func (x *TopupOrderRow) Reset() {
 	*x = TopupOrderRow{}
-	mi := &file_api_web_v1_web_proto_msgTypes[114]
+	mi := &file_api_web_v1_web_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7941,7 +8091,7 @@ func (x *TopupOrderRow) String() string {
 func (*TopupOrderRow) ProtoMessage() {}
 
 func (x *TopupOrderRow) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[114]
+	mi := &file_api_web_v1_web_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7954,7 +8104,7 @@ func (x *TopupOrderRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopupOrderRow.ProtoReflect.Descriptor instead.
 func (*TopupOrderRow) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{114}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *TopupOrderRow) GetId() int64 {
@@ -8072,7 +8222,7 @@ type ListTopupOrdersRequest struct {
 
 func (x *ListTopupOrdersRequest) Reset() {
 	*x = ListTopupOrdersRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[115]
+	mi := &file_api_web_v1_web_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8084,7 +8234,7 @@ func (x *ListTopupOrdersRequest) String() string {
 func (*ListTopupOrdersRequest) ProtoMessage() {}
 
 func (x *ListTopupOrdersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[115]
+	mi := &file_api_web_v1_web_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8097,7 +8247,7 @@ func (x *ListTopupOrdersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTopupOrdersRequest.ProtoReflect.Descriptor instead.
 func (*ListTopupOrdersRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{115}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *ListTopupOrdersRequest) GetModeratorId() int64 {
@@ -8162,7 +8312,7 @@ type ListTopupOrdersResponse struct {
 
 func (x *ListTopupOrdersResponse) Reset() {
 	*x = ListTopupOrdersResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[116]
+	mi := &file_api_web_v1_web_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8174,7 +8324,7 @@ func (x *ListTopupOrdersResponse) String() string {
 func (*ListTopupOrdersResponse) ProtoMessage() {}
 
 func (x *ListTopupOrdersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[116]
+	mi := &file_api_web_v1_web_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8187,7 +8337,7 @@ func (x *ListTopupOrdersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTopupOrdersResponse.ProtoReflect.Descriptor instead.
 func (*ListTopupOrdersResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{116}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *ListTopupOrdersResponse) GetResult() AdminResult {
@@ -8247,7 +8397,7 @@ type TopBuyerRow struct {
 
 func (x *TopBuyerRow) Reset() {
 	*x = TopBuyerRow{}
-	mi := &file_api_web_v1_web_proto_msgTypes[117]
+	mi := &file_api_web_v1_web_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8259,7 +8409,7 @@ func (x *TopBuyerRow) String() string {
 func (*TopBuyerRow) ProtoMessage() {}
 
 func (x *TopBuyerRow) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[117]
+	mi := &file_api_web_v1_web_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8272,7 +8422,7 @@ func (x *TopBuyerRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopBuyerRow.ProtoReflect.Descriptor instead.
 func (*TopBuyerRow) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{117}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *TopBuyerRow) GetAccountId() int64 {
@@ -8364,7 +8514,7 @@ type ListTopBuyersRequest struct {
 
 func (x *ListTopBuyersRequest) Reset() {
 	*x = ListTopBuyersRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[118]
+	mi := &file_api_web_v1_web_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8376,7 +8526,7 @@ func (x *ListTopBuyersRequest) String() string {
 func (*ListTopBuyersRequest) ProtoMessage() {}
 
 func (x *ListTopBuyersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[118]
+	mi := &file_api_web_v1_web_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8389,7 +8539,7 @@ func (x *ListTopBuyersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTopBuyersRequest.ProtoReflect.Descriptor instead.
 func (*ListTopBuyersRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{118}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *ListTopBuyersRequest) GetModeratorId() int64 {
@@ -8433,7 +8583,7 @@ type ListTopBuyersResponse struct {
 
 func (x *ListTopBuyersResponse) Reset() {
 	*x = ListTopBuyersResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[119]
+	mi := &file_api_web_v1_web_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8445,7 +8595,7 @@ func (x *ListTopBuyersResponse) String() string {
 func (*ListTopBuyersResponse) ProtoMessage() {}
 
 func (x *ListTopBuyersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[119]
+	mi := &file_api_web_v1_web_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8458,7 +8608,7 @@ func (x *ListTopBuyersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTopBuyersResponse.ProtoReflect.Descriptor instead.
 func (*ListTopBuyersResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{119}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *ListTopBuyersResponse) GetResult() AdminResult {
@@ -8521,7 +8671,7 @@ type DonateLedgerRow struct {
 
 func (x *DonateLedgerRow) Reset() {
 	*x = DonateLedgerRow{}
-	mi := &file_api_web_v1_web_proto_msgTypes[120]
+	mi := &file_api_web_v1_web_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8533,7 +8683,7 @@ func (x *DonateLedgerRow) String() string {
 func (*DonateLedgerRow) ProtoMessage() {}
 
 func (x *DonateLedgerRow) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[120]
+	mi := &file_api_web_v1_web_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8546,7 +8696,7 @@ func (x *DonateLedgerRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DonateLedgerRow.ProtoReflect.Descriptor instead.
 func (*DonateLedgerRow) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{120}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *DonateLedgerRow) GetId() int64 {
@@ -8647,7 +8797,7 @@ type ListDonateSpendRequest struct {
 
 func (x *ListDonateSpendRequest) Reset() {
 	*x = ListDonateSpendRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[121]
+	mi := &file_api_web_v1_web_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8659,7 +8809,7 @@ func (x *ListDonateSpendRequest) String() string {
 func (*ListDonateSpendRequest) ProtoMessage() {}
 
 func (x *ListDonateSpendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[121]
+	mi := &file_api_web_v1_web_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8672,7 +8822,7 @@ func (x *ListDonateSpendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDonateSpendRequest.ProtoReflect.Descriptor instead.
 func (*ListDonateSpendRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{121}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *ListDonateSpendRequest) GetModeratorId() int64 {
@@ -8730,7 +8880,7 @@ type ListDonateSpendResponse struct {
 
 func (x *ListDonateSpendResponse) Reset() {
 	*x = ListDonateSpendResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[122]
+	mi := &file_api_web_v1_web_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8742,7 +8892,7 @@ func (x *ListDonateSpendResponse) String() string {
 func (*ListDonateSpendResponse) ProtoMessage() {}
 
 func (x *ListDonateSpendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[122]
+	mi := &file_api_web_v1_web_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8755,7 +8905,7 @@ func (x *ListDonateSpendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDonateSpendResponse.ProtoReflect.Descriptor instead.
 func (*ListDonateSpendResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{122}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *ListDonateSpendResponse) GetResult() AdminResult {
@@ -8809,7 +8959,7 @@ type AccountSummary struct {
 
 func (x *AccountSummary) Reset() {
 	*x = AccountSummary{}
-	mi := &file_api_web_v1_web_proto_msgTypes[123]
+	mi := &file_api_web_v1_web_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8821,7 +8971,7 @@ func (x *AccountSummary) String() string {
 func (*AccountSummary) ProtoMessage() {}
 
 func (x *AccountSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[123]
+	mi := &file_api_web_v1_web_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8834,7 +8984,7 @@ func (x *AccountSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccountSummary.ProtoReflect.Descriptor instead.
 func (*AccountSummary) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{123}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *AccountSummary) GetId() int64 {
@@ -8890,7 +9040,7 @@ type SearchAccountsRequest struct {
 
 func (x *SearchAccountsRequest) Reset() {
 	*x = SearchAccountsRequest{}
-	mi := &file_api_web_v1_web_proto_msgTypes[124]
+	mi := &file_api_web_v1_web_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8902,7 +9052,7 @@ func (x *SearchAccountsRequest) String() string {
 func (*SearchAccountsRequest) ProtoMessage() {}
 
 func (x *SearchAccountsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[124]
+	mi := &file_api_web_v1_web_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8915,7 +9065,7 @@ func (x *SearchAccountsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchAccountsRequest.ProtoReflect.Descriptor instead.
 func (*SearchAccountsRequest) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{124}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *SearchAccountsRequest) GetModeratorId() int64 {
@@ -8949,7 +9099,7 @@ type SearchAccountsResponse struct {
 
 func (x *SearchAccountsResponse) Reset() {
 	*x = SearchAccountsResponse{}
-	mi := &file_api_web_v1_web_proto_msgTypes[125]
+	mi := &file_api_web_v1_web_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8961,7 +9111,7 @@ func (x *SearchAccountsResponse) String() string {
 func (*SearchAccountsResponse) ProtoMessage() {}
 
 func (x *SearchAccountsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_web_v1_web_proto_msgTypes[125]
+	mi := &file_api_web_v1_web_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8974,7 +9124,7 @@ func (x *SearchAccountsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchAccountsResponse.ProtoReflect.Descriptor instead.
 func (*SearchAccountsResponse) Descriptor() ([]byte, []int) {
-	return file_api_web_v1_web_proto_rawDescGZIP(), []int{125}
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *SearchAccountsResponse) GetResult() AdminResult {
@@ -9066,7 +9216,11 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x18ListMyCharactersResponse\x12;\n" +
 	"\n" +
 	"characters\x18\x01 \x03(\v2\x1b.web.v1.WebCharacterSummaryR\n" +
-	"characters\"7\n" +
+	"characters\"\x12\n" +
+	"\x10ListItemsRequest\"l\n" +
+	"\x11ListItemsResponse\x12.\n" +
+	"\x05items\x18\x01 \x03(\v2\x18.web.v1.ItemCatalogEntryR\x05items\x12'\n" +
+	"\x0fcatalog_version\x18\x02 \x01(\tR\x0ecatalogVersion\"7\n" +
 	"\bAdminAck\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\"\xdf\x01\n" +
 	"\x10AdminNpcShopItem\x12\x12\n" +
@@ -9147,11 +9301,18 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"\x84\x01\n" +
 	"\x1dListMerchantTemplatesResponse\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x126\n" +
-	"\ttemplates\x18\x02 \x03(\v2\x18.web.v1.MerchantTemplateR\ttemplates\"E\n" +
+	"\ttemplates\x18\x02 \x03(\v2\x18.web.v1.MerchantTemplateR\ttemplates\"\xfa\x01\n" +
 	"\x10ItemCatalogEntry\x12\x1d\n" +
 	"\n" +
 	"item_index\x18\x01 \x01(\x05R\titemIndex\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\";\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
+	"\bicon_key\x18\x03 \x01(\tR\aiconKey\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x1b\n" +
+	"\tslot_mask\x18\x05 \x01(\x05R\bslotMask\x12\x14\n" +
+	"\x05slots\x18\x06 \x03(\tR\x05slots\x12\x14\n" +
+	"\x05grade\x18\a \x01(\x05R\x05grade\x12\x12\n" +
+	"\x04mesh\x18\b \x01(\x05R\x04mesh\x12\x18\n" +
+	"\atexture\x18\t \x01(\x05R\atexture\";\n" +
 	"\x16ListItemCatalogRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"v\n" +
 	"\x17ListItemCatalogResponse\x12+\n" +
@@ -9738,7 +9899,9 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x0eListExpRanking\x12\x1d.web.v1.ListExpRankingRequest\x1a\x1e.web.v1.ListExpRankingResponse\x12R\n" +
 	"\x0fListDuelRanking\x12\x1e.web.v1.ListDuelRankingRequest\x1a\x1f.web.v1.ListDuelRankingResponse2l\n" +
 	"\x13CharacterWebService\x12U\n" +
-	"\x10ListMyCharacters\x12\x1f.web.v1.ListMyCharactersRequest\x1a .web.v1.ListMyCharactersResponse2\xb4\a\n" +
+	"\x10ListMyCharacters\x12\x1f.web.v1.ListMyCharactersRequest\x1a .web.v1.ListMyCharactersResponse2V\n" +
+	"\x12ItemCatalogService\x12@\n" +
+	"\tListItems\x12\x18.web.v1.ListItemsRequest\x1a\x19.web.v1.ListItemsResponse2\xb4\a\n" +
 	"\x0fNpcAdminService\x12=\n" +
 	"\bListNpcs\x12\x17.web.v1.ListNpcsRequest\x1a\x18.web.v1.ListNpcsResponse\x127\n" +
 	"\x06GetNpc\x12\x15.web.v1.GetNpcRequest\x1a\x16.web.v1.GetNpcResponse\x12@\n" +
@@ -9812,7 +9975,7 @@ func file_api_web_v1_web_proto_rawDescGZIP() []byte {
 }
 
 var file_api_web_v1_web_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 126)
+var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 128)
 var file_api_web_v1_web_proto_goTypes = []any{
 	(CreateResult)(0),                     // 0: web.v1.CreateResult
 	(AdminResult)(0),                      // 1: web.v1.AdminResult
@@ -9837,319 +10000,324 @@ var file_api_web_v1_web_proto_goTypes = []any{
 	(*ListMyCharactersRequest)(nil),       // 20: web.v1.ListMyCharactersRequest
 	(*WebCharacterSummary)(nil),           // 21: web.v1.WebCharacterSummary
 	(*ListMyCharactersResponse)(nil),      // 22: web.v1.ListMyCharactersResponse
-	(*AdminAck)(nil),                      // 23: web.v1.AdminAck
-	(*AdminNpcShopItem)(nil),              // 24: web.v1.AdminNpcShopItem
-	(*AdminNpc)(nil),                      // 25: web.v1.AdminNpc
-	(*ListNpcsRequest)(nil),               // 26: web.v1.ListNpcsRequest
-	(*ListNpcsResponse)(nil),              // 27: web.v1.ListNpcsResponse
-	(*GetNpcRequest)(nil),                 // 28: web.v1.GetNpcRequest
-	(*GetNpcResponse)(nil),                // 29: web.v1.GetNpcResponse
-	(*UpsertNpcRequest)(nil),              // 30: web.v1.UpsertNpcRequest
-	(*UpsertNpcResponse)(nil),             // 31: web.v1.UpsertNpcResponse
-	(*SetNpcVisibilityRequest)(nil),       // 32: web.v1.SetNpcVisibilityRequest
-	(*SetNpcShopRequest)(nil),             // 33: web.v1.SetNpcShopRequest
-	(*SetItemPriceRequest)(nil),           // 34: web.v1.SetItemPriceRequest
-	(*DeleteNpcRequest)(nil),              // 35: web.v1.DeleteNpcRequest
-	(*MerchantTemplate)(nil),              // 36: web.v1.MerchantTemplate
-	(*ListMerchantTemplatesRequest)(nil),  // 37: web.v1.ListMerchantTemplatesRequest
-	(*ListMerchantTemplatesResponse)(nil), // 38: web.v1.ListMerchantTemplatesResponse
-	(*ItemCatalogEntry)(nil),              // 39: web.v1.ItemCatalogEntry
-	(*ListItemCatalogRequest)(nil),        // 40: web.v1.ListItemCatalogRequest
-	(*ListItemCatalogResponse)(nil),       // 41: web.v1.ListItemCatalogResponse
-	(*DropItemMob)(nil),                   // 42: web.v1.DropItemMob
-	(*DropItemEntry)(nil),                 // 43: web.v1.DropItemEntry
-	(*ListDropItemsRequest)(nil),          // 44: web.v1.ListDropItemsRequest
-	(*ListDropItemsResponse)(nil),         // 45: web.v1.ListDropItemsResponse
-	(*MobDropItem)(nil),                   // 46: web.v1.MobDropItem
-	(*MobDropEntry)(nil),                  // 47: web.v1.MobDropEntry
-	(*ListMobDropsRequest)(nil),           // 48: web.v1.ListMobDropsRequest
-	(*ListMobDropsResponse)(nil),          // 49: web.v1.ListMobDropsResponse
-	(*ItemPrice)(nil),                     // 50: web.v1.ItemPrice
-	(*ListItemPricesRequest)(nil),         // 51: web.v1.ListItemPricesRequest
-	(*ListItemPricesResponse)(nil),        // 52: web.v1.ListItemPricesResponse
-	(*MapZone)(nil),                       // 53: web.v1.MapZone
-	(*ListMapZonesRequest)(nil),           // 54: web.v1.ListMapZonesRequest
-	(*ListMapZonesResponse)(nil),          // 55: web.v1.ListMapZonesResponse
-	(*MobTemplateFile)(nil),               // 56: web.v1.MobTemplateFile
-	(*ListMobTemplatesRequest)(nil),       // 57: web.v1.ListMobTemplatesRequest
-	(*ListMobTemplatesResponse)(nil),      // 58: web.v1.ListMobTemplatesResponse
-	(*AdminMobTemplateEquipItem)(nil),     // 59: web.v1.AdminMobTemplateEquipItem
-	(*AdminMobTemplateStat)(nil),          // 60: web.v1.AdminMobTemplateStat
-	(*GetMobTemplateStatRequest)(nil),     // 61: web.v1.GetMobTemplateStatRequest
-	(*GetMobTemplateStatResponse)(nil),    // 62: web.v1.GetMobTemplateStatResponse
-	(*UpsertMobTemplateStatRequest)(nil),  // 63: web.v1.UpsertMobTemplateStatRequest
-	(*UpsertMobTemplateStatResponse)(nil), // 64: web.v1.UpsertMobTemplateStatResponse
-	(*SetMobTemplateEquipRequest)(nil),    // 65: web.v1.SetMobTemplateEquipRequest
-	(*DeleteMobTemplateStatRequest)(nil),  // 66: web.v1.DeleteMobTemplateStatRequest
-	(*GetAttributeMapInfoRequest)(nil),    // 67: web.v1.GetAttributeMapInfoRequest
-	(*GetAttributeMapInfoResponse)(nil),   // 68: web.v1.GetAttributeMapInfoResponse
-	(*AttributeMapInfo)(nil),              // 69: web.v1.AttributeMapInfo
-	(*AttributeMapValueCount)(nil),        // 70: web.v1.AttributeMapValueCount
-	(*AttributeMapMeaning)(nil),           // 71: web.v1.AttributeMapMeaning
-	(*AttributeMapRect)(nil),              // 72: web.v1.AttributeMapRect
-	(*AttributeMapTransformFilter)(nil),   // 73: web.v1.AttributeMapTransformFilter
-	(*TransformAttributeMapRequest)(nil),  // 74: web.v1.TransformAttributeMapRequest
-	(*TransformAttributeMapResponse)(nil), // 75: web.v1.TransformAttributeMapResponse
-	(*DonateShopItem)(nil),                // 76: web.v1.DonateShopItem
-	(*ListShopItemsRequest)(nil),          // 77: web.v1.ListShopItemsRequest
-	(*ListShopItemsResponse)(nil),         // 78: web.v1.ListShopItemsResponse
-	(*UpsertShopItemRequest)(nil),         // 79: web.v1.UpsertShopItemRequest
-	(*UpsertShopItemResponse)(nil),        // 80: web.v1.UpsertShopItemResponse
-	(*SetShopItemEnabledRequest)(nil),     // 81: web.v1.SetShopItemEnabledRequest
-	(*DeleteShopItemRequest)(nil),         // 82: web.v1.DeleteShopItemRequest
-	(*CreditDonateBalanceRequest)(nil),    // 83: web.v1.CreditDonateBalanceRequest
-	(*CreditDonateBalanceResponse)(nil),   // 84: web.v1.CreditDonateBalanceResponse
-	(*ListStoreItemsRequest)(nil),         // 85: web.v1.ListStoreItemsRequest
-	(*ListStoreItemsResponse)(nil),        // 86: web.v1.ListStoreItemsResponse
-	(*GetBalanceRequest)(nil),             // 87: web.v1.GetBalanceRequest
-	(*GetBalanceResponse)(nil),            // 88: web.v1.GetBalanceResponse
-	(*BuyRequest)(nil),                    // 89: web.v1.BuyRequest
-	(*BuyResponse)(nil),                   // 90: web.v1.BuyResponse
-	(*DailyRewardItem)(nil),               // 91: web.v1.DailyRewardItem
-	(*ListRewardItemsRequest)(nil),        // 92: web.v1.ListRewardItemsRequest
-	(*ListRewardItemsResponse)(nil),       // 93: web.v1.ListRewardItemsResponse
-	(*UpsertRewardItemRequest)(nil),       // 94: web.v1.UpsertRewardItemRequest
-	(*UpsertRewardItemResponse)(nil),      // 95: web.v1.UpsertRewardItemResponse
-	(*SetRewardItemEnabledRequest)(nil),   // 96: web.v1.SetRewardItemEnabledRequest
-	(*DeleteRewardItemRequest)(nil),       // 97: web.v1.DeleteRewardItemRequest
-	(*WorldEventConfig)(nil),              // 98: web.v1.WorldEventConfig
-	(*GetWorldEventConfigRequest)(nil),    // 99: web.v1.GetWorldEventConfigRequest
-	(*GetWorldEventConfigResponse)(nil),   // 100: web.v1.GetWorldEventConfigResponse
-	(*SetWorldEventConfigRequest)(nil),    // 101: web.v1.SetWorldEventConfigRequest
-	(*ListRewardsRequest)(nil),            // 102: web.v1.ListRewardsRequest
-	(*ListRewardsResponse)(nil),           // 103: web.v1.ListRewardsResponse
-	(*GetClaimStatusRequest)(nil),         // 104: web.v1.GetClaimStatusRequest
-	(*GetClaimStatusResponse)(nil),        // 105: web.v1.GetClaimStatusResponse
-	(*ClaimRequest)(nil),                  // 106: web.v1.ClaimRequest
-	(*ClaimResponse)(nil),                 // 107: web.v1.ClaimResponse
-	(*GetPayerProfileRequest)(nil),        // 108: web.v1.GetPayerProfileRequest
-	(*GetPayerProfileResponse)(nil),       // 109: web.v1.GetPayerProfileResponse
-	(*SavePayerProfileRequest)(nil),       // 110: web.v1.SavePayerProfileRequest
-	(*SavePayerProfileResponse)(nil),      // 111: web.v1.SavePayerProfileResponse
-	(*CreateTopupOrderRequest)(nil),       // 112: web.v1.CreateTopupOrderRequest
-	(*CreateTopupOrderResponse)(nil),      // 113: web.v1.CreateTopupOrderResponse
-	(*ConfirmTopupOrderRequest)(nil),      // 114: web.v1.ConfirmTopupOrderRequest
-	(*ConfirmTopupOrderResponse)(nil),     // 115: web.v1.ConfirmTopupOrderResponse
-	(*GetTopupOrderRequest)(nil),          // 116: web.v1.GetTopupOrderRequest
-	(*GetTopupOrderResponse)(nil),         // 117: web.v1.GetTopupOrderResponse
-	(*RevenueWindow)(nil),                 // 118: web.v1.RevenueWindow
-	(*RevenueTotals)(nil),                 // 119: web.v1.RevenueTotals
-	(*RevenueByMethod)(nil),               // 120: web.v1.RevenueByMethod
-	(*RevenuePoint)(nil),                  // 121: web.v1.RevenuePoint
-	(*GetRevenueSummaryRequest)(nil),      // 122: web.v1.GetRevenueSummaryRequest
-	(*GetRevenueSummaryResponse)(nil),     // 123: web.v1.GetRevenueSummaryResponse
-	(*TopupOrderRow)(nil),                 // 124: web.v1.TopupOrderRow
-	(*ListTopupOrdersRequest)(nil),        // 125: web.v1.ListTopupOrdersRequest
-	(*ListTopupOrdersResponse)(nil),       // 126: web.v1.ListTopupOrdersResponse
-	(*TopBuyerRow)(nil),                   // 127: web.v1.TopBuyerRow
-	(*ListTopBuyersRequest)(nil),          // 128: web.v1.ListTopBuyersRequest
-	(*ListTopBuyersResponse)(nil),         // 129: web.v1.ListTopBuyersResponse
-	(*DonateLedgerRow)(nil),               // 130: web.v1.DonateLedgerRow
-	(*ListDonateSpendRequest)(nil),        // 131: web.v1.ListDonateSpendRequest
-	(*ListDonateSpendResponse)(nil),       // 132: web.v1.ListDonateSpendResponse
-	(*AccountSummary)(nil),                // 133: web.v1.AccountSummary
-	(*SearchAccountsRequest)(nil),         // 134: web.v1.SearchAccountsRequest
-	(*SearchAccountsResponse)(nil),        // 135: web.v1.SearchAccountsResponse
+	(*ListItemsRequest)(nil),              // 23: web.v1.ListItemsRequest
+	(*ListItemsResponse)(nil),             // 24: web.v1.ListItemsResponse
+	(*AdminAck)(nil),                      // 25: web.v1.AdminAck
+	(*AdminNpcShopItem)(nil),              // 26: web.v1.AdminNpcShopItem
+	(*AdminNpc)(nil),                      // 27: web.v1.AdminNpc
+	(*ListNpcsRequest)(nil),               // 28: web.v1.ListNpcsRequest
+	(*ListNpcsResponse)(nil),              // 29: web.v1.ListNpcsResponse
+	(*GetNpcRequest)(nil),                 // 30: web.v1.GetNpcRequest
+	(*GetNpcResponse)(nil),                // 31: web.v1.GetNpcResponse
+	(*UpsertNpcRequest)(nil),              // 32: web.v1.UpsertNpcRequest
+	(*UpsertNpcResponse)(nil),             // 33: web.v1.UpsertNpcResponse
+	(*SetNpcVisibilityRequest)(nil),       // 34: web.v1.SetNpcVisibilityRequest
+	(*SetNpcShopRequest)(nil),             // 35: web.v1.SetNpcShopRequest
+	(*SetItemPriceRequest)(nil),           // 36: web.v1.SetItemPriceRequest
+	(*DeleteNpcRequest)(nil),              // 37: web.v1.DeleteNpcRequest
+	(*MerchantTemplate)(nil),              // 38: web.v1.MerchantTemplate
+	(*ListMerchantTemplatesRequest)(nil),  // 39: web.v1.ListMerchantTemplatesRequest
+	(*ListMerchantTemplatesResponse)(nil), // 40: web.v1.ListMerchantTemplatesResponse
+	(*ItemCatalogEntry)(nil),              // 41: web.v1.ItemCatalogEntry
+	(*ListItemCatalogRequest)(nil),        // 42: web.v1.ListItemCatalogRequest
+	(*ListItemCatalogResponse)(nil),       // 43: web.v1.ListItemCatalogResponse
+	(*DropItemMob)(nil),                   // 44: web.v1.DropItemMob
+	(*DropItemEntry)(nil),                 // 45: web.v1.DropItemEntry
+	(*ListDropItemsRequest)(nil),          // 46: web.v1.ListDropItemsRequest
+	(*ListDropItemsResponse)(nil),         // 47: web.v1.ListDropItemsResponse
+	(*MobDropItem)(nil),                   // 48: web.v1.MobDropItem
+	(*MobDropEntry)(nil),                  // 49: web.v1.MobDropEntry
+	(*ListMobDropsRequest)(nil),           // 50: web.v1.ListMobDropsRequest
+	(*ListMobDropsResponse)(nil),          // 51: web.v1.ListMobDropsResponse
+	(*ItemPrice)(nil),                     // 52: web.v1.ItemPrice
+	(*ListItemPricesRequest)(nil),         // 53: web.v1.ListItemPricesRequest
+	(*ListItemPricesResponse)(nil),        // 54: web.v1.ListItemPricesResponse
+	(*MapZone)(nil),                       // 55: web.v1.MapZone
+	(*ListMapZonesRequest)(nil),           // 56: web.v1.ListMapZonesRequest
+	(*ListMapZonesResponse)(nil),          // 57: web.v1.ListMapZonesResponse
+	(*MobTemplateFile)(nil),               // 58: web.v1.MobTemplateFile
+	(*ListMobTemplatesRequest)(nil),       // 59: web.v1.ListMobTemplatesRequest
+	(*ListMobTemplatesResponse)(nil),      // 60: web.v1.ListMobTemplatesResponse
+	(*AdminMobTemplateEquipItem)(nil),     // 61: web.v1.AdminMobTemplateEquipItem
+	(*AdminMobTemplateStat)(nil),          // 62: web.v1.AdminMobTemplateStat
+	(*GetMobTemplateStatRequest)(nil),     // 63: web.v1.GetMobTemplateStatRequest
+	(*GetMobTemplateStatResponse)(nil),    // 64: web.v1.GetMobTemplateStatResponse
+	(*UpsertMobTemplateStatRequest)(nil),  // 65: web.v1.UpsertMobTemplateStatRequest
+	(*UpsertMobTemplateStatResponse)(nil), // 66: web.v1.UpsertMobTemplateStatResponse
+	(*SetMobTemplateEquipRequest)(nil),    // 67: web.v1.SetMobTemplateEquipRequest
+	(*DeleteMobTemplateStatRequest)(nil),  // 68: web.v1.DeleteMobTemplateStatRequest
+	(*GetAttributeMapInfoRequest)(nil),    // 69: web.v1.GetAttributeMapInfoRequest
+	(*GetAttributeMapInfoResponse)(nil),   // 70: web.v1.GetAttributeMapInfoResponse
+	(*AttributeMapInfo)(nil),              // 71: web.v1.AttributeMapInfo
+	(*AttributeMapValueCount)(nil),        // 72: web.v1.AttributeMapValueCount
+	(*AttributeMapMeaning)(nil),           // 73: web.v1.AttributeMapMeaning
+	(*AttributeMapRect)(nil),              // 74: web.v1.AttributeMapRect
+	(*AttributeMapTransformFilter)(nil),   // 75: web.v1.AttributeMapTransformFilter
+	(*TransformAttributeMapRequest)(nil),  // 76: web.v1.TransformAttributeMapRequest
+	(*TransformAttributeMapResponse)(nil), // 77: web.v1.TransformAttributeMapResponse
+	(*DonateShopItem)(nil),                // 78: web.v1.DonateShopItem
+	(*ListShopItemsRequest)(nil),          // 79: web.v1.ListShopItemsRequest
+	(*ListShopItemsResponse)(nil),         // 80: web.v1.ListShopItemsResponse
+	(*UpsertShopItemRequest)(nil),         // 81: web.v1.UpsertShopItemRequest
+	(*UpsertShopItemResponse)(nil),        // 82: web.v1.UpsertShopItemResponse
+	(*SetShopItemEnabledRequest)(nil),     // 83: web.v1.SetShopItemEnabledRequest
+	(*DeleteShopItemRequest)(nil),         // 84: web.v1.DeleteShopItemRequest
+	(*CreditDonateBalanceRequest)(nil),    // 85: web.v1.CreditDonateBalanceRequest
+	(*CreditDonateBalanceResponse)(nil),   // 86: web.v1.CreditDonateBalanceResponse
+	(*ListStoreItemsRequest)(nil),         // 87: web.v1.ListStoreItemsRequest
+	(*ListStoreItemsResponse)(nil),        // 88: web.v1.ListStoreItemsResponse
+	(*GetBalanceRequest)(nil),             // 89: web.v1.GetBalanceRequest
+	(*GetBalanceResponse)(nil),            // 90: web.v1.GetBalanceResponse
+	(*BuyRequest)(nil),                    // 91: web.v1.BuyRequest
+	(*BuyResponse)(nil),                   // 92: web.v1.BuyResponse
+	(*DailyRewardItem)(nil),               // 93: web.v1.DailyRewardItem
+	(*ListRewardItemsRequest)(nil),        // 94: web.v1.ListRewardItemsRequest
+	(*ListRewardItemsResponse)(nil),       // 95: web.v1.ListRewardItemsResponse
+	(*UpsertRewardItemRequest)(nil),       // 96: web.v1.UpsertRewardItemRequest
+	(*UpsertRewardItemResponse)(nil),      // 97: web.v1.UpsertRewardItemResponse
+	(*SetRewardItemEnabledRequest)(nil),   // 98: web.v1.SetRewardItemEnabledRequest
+	(*DeleteRewardItemRequest)(nil),       // 99: web.v1.DeleteRewardItemRequest
+	(*WorldEventConfig)(nil),              // 100: web.v1.WorldEventConfig
+	(*GetWorldEventConfigRequest)(nil),    // 101: web.v1.GetWorldEventConfigRequest
+	(*GetWorldEventConfigResponse)(nil),   // 102: web.v1.GetWorldEventConfigResponse
+	(*SetWorldEventConfigRequest)(nil),    // 103: web.v1.SetWorldEventConfigRequest
+	(*ListRewardsRequest)(nil),            // 104: web.v1.ListRewardsRequest
+	(*ListRewardsResponse)(nil),           // 105: web.v1.ListRewardsResponse
+	(*GetClaimStatusRequest)(nil),         // 106: web.v1.GetClaimStatusRequest
+	(*GetClaimStatusResponse)(nil),        // 107: web.v1.GetClaimStatusResponse
+	(*ClaimRequest)(nil),                  // 108: web.v1.ClaimRequest
+	(*ClaimResponse)(nil),                 // 109: web.v1.ClaimResponse
+	(*GetPayerProfileRequest)(nil),        // 110: web.v1.GetPayerProfileRequest
+	(*GetPayerProfileResponse)(nil),       // 111: web.v1.GetPayerProfileResponse
+	(*SavePayerProfileRequest)(nil),       // 112: web.v1.SavePayerProfileRequest
+	(*SavePayerProfileResponse)(nil),      // 113: web.v1.SavePayerProfileResponse
+	(*CreateTopupOrderRequest)(nil),       // 114: web.v1.CreateTopupOrderRequest
+	(*CreateTopupOrderResponse)(nil),      // 115: web.v1.CreateTopupOrderResponse
+	(*ConfirmTopupOrderRequest)(nil),      // 116: web.v1.ConfirmTopupOrderRequest
+	(*ConfirmTopupOrderResponse)(nil),     // 117: web.v1.ConfirmTopupOrderResponse
+	(*GetTopupOrderRequest)(nil),          // 118: web.v1.GetTopupOrderRequest
+	(*GetTopupOrderResponse)(nil),         // 119: web.v1.GetTopupOrderResponse
+	(*RevenueWindow)(nil),                 // 120: web.v1.RevenueWindow
+	(*RevenueTotals)(nil),                 // 121: web.v1.RevenueTotals
+	(*RevenueByMethod)(nil),               // 122: web.v1.RevenueByMethod
+	(*RevenuePoint)(nil),                  // 123: web.v1.RevenuePoint
+	(*GetRevenueSummaryRequest)(nil),      // 124: web.v1.GetRevenueSummaryRequest
+	(*GetRevenueSummaryResponse)(nil),     // 125: web.v1.GetRevenueSummaryResponse
+	(*TopupOrderRow)(nil),                 // 126: web.v1.TopupOrderRow
+	(*ListTopupOrdersRequest)(nil),        // 127: web.v1.ListTopupOrdersRequest
+	(*ListTopupOrdersResponse)(nil),       // 128: web.v1.ListTopupOrdersResponse
+	(*TopBuyerRow)(nil),                   // 129: web.v1.TopBuyerRow
+	(*ListTopBuyersRequest)(nil),          // 130: web.v1.ListTopBuyersRequest
+	(*ListTopBuyersResponse)(nil),         // 131: web.v1.ListTopBuyersResponse
+	(*DonateLedgerRow)(nil),               // 132: web.v1.DonateLedgerRow
+	(*ListDonateSpendRequest)(nil),        // 133: web.v1.ListDonateSpendRequest
+	(*ListDonateSpendResponse)(nil),       // 134: web.v1.ListDonateSpendResponse
+	(*AccountSummary)(nil),                // 135: web.v1.AccountSummary
+	(*SearchAccountsRequest)(nil),         // 136: web.v1.SearchAccountsRequest
+	(*SearchAccountsResponse)(nil),        // 137: web.v1.SearchAccountsResponse
 }
 var file_api_web_v1_web_proto_depIdxs = []int32{
 	0,   // 0: web.v1.CreateAccountResponse.result:type_name -> web.v1.CreateResult
 	15,  // 1: web.v1.ListExpRankingResponse.entries:type_name -> web.v1.RankingEntry
 	18,  // 2: web.v1.ListDuelRankingResponse.entries:type_name -> web.v1.DuelRankingEntry
 	21,  // 3: web.v1.ListMyCharactersResponse.characters:type_name -> web.v1.WebCharacterSummary
-	1,   // 4: web.v1.AdminAck.result:type_name -> web.v1.AdminResult
-	24,  // 5: web.v1.AdminNpc.shop:type_name -> web.v1.AdminNpcShopItem
-	1,   // 6: web.v1.ListNpcsResponse.result:type_name -> web.v1.AdminResult
-	25,  // 7: web.v1.ListNpcsResponse.npcs:type_name -> web.v1.AdminNpc
-	1,   // 8: web.v1.GetNpcResponse.result:type_name -> web.v1.AdminResult
-	25,  // 9: web.v1.GetNpcResponse.npc:type_name -> web.v1.AdminNpc
-	1,   // 10: web.v1.UpsertNpcResponse.result:type_name -> web.v1.AdminResult
-	24,  // 11: web.v1.SetNpcShopRequest.items:type_name -> web.v1.AdminNpcShopItem
-	1,   // 12: web.v1.ListMerchantTemplatesResponse.result:type_name -> web.v1.AdminResult
-	36,  // 13: web.v1.ListMerchantTemplatesResponse.templates:type_name -> web.v1.MerchantTemplate
-	1,   // 14: web.v1.ListItemCatalogResponse.result:type_name -> web.v1.AdminResult
-	39,  // 15: web.v1.ListItemCatalogResponse.items:type_name -> web.v1.ItemCatalogEntry
-	42,  // 16: web.v1.DropItemEntry.mobs:type_name -> web.v1.DropItemMob
-	1,   // 17: web.v1.ListDropItemsResponse.result:type_name -> web.v1.AdminResult
-	43,  // 18: web.v1.ListDropItemsResponse.items:type_name -> web.v1.DropItemEntry
-	46,  // 19: web.v1.MobDropEntry.items:type_name -> web.v1.MobDropItem
-	1,   // 20: web.v1.ListMobDropsResponse.result:type_name -> web.v1.AdminResult
-	47,  // 21: web.v1.ListMobDropsResponse.mobs:type_name -> web.v1.MobDropEntry
-	1,   // 22: web.v1.ListItemPricesResponse.result:type_name -> web.v1.AdminResult
-	50,  // 23: web.v1.ListItemPricesResponse.prices:type_name -> web.v1.ItemPrice
-	1,   // 24: web.v1.ListMapZonesResponse.result:type_name -> web.v1.AdminResult
-	53,  // 25: web.v1.ListMapZonesResponse.zones:type_name -> web.v1.MapZone
-	1,   // 26: web.v1.ListMobTemplatesResponse.result:type_name -> web.v1.AdminResult
-	56,  // 27: web.v1.ListMobTemplatesResponse.templates:type_name -> web.v1.MobTemplateFile
-	59,  // 28: web.v1.AdminMobTemplateStat.equip:type_name -> web.v1.AdminMobTemplateEquipItem
-	1,   // 29: web.v1.GetMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
-	60,  // 30: web.v1.GetMobTemplateStatResponse.stat:type_name -> web.v1.AdminMobTemplateStat
-	60,  // 31: web.v1.UpsertMobTemplateStatRequest.stat:type_name -> web.v1.AdminMobTemplateStat
-	1,   // 32: web.v1.UpsertMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
-	59,  // 33: web.v1.SetMobTemplateEquipRequest.items:type_name -> web.v1.AdminMobTemplateEquipItem
-	1,   // 34: web.v1.GetAttributeMapInfoResponse.result:type_name -> web.v1.AdminResult
-	69,  // 35: web.v1.GetAttributeMapInfoResponse.info:type_name -> web.v1.AttributeMapInfo
-	70,  // 36: web.v1.AttributeMapInfo.histogram:type_name -> web.v1.AttributeMapValueCount
-	71,  // 37: web.v1.AttributeMapInfo.meanings:type_name -> web.v1.AttributeMapMeaning
-	2,   // 38: web.v1.TransformAttributeMapRequest.operation:type_name -> web.v1.AttributeMapTransformOperation
-	72,  // 39: web.v1.TransformAttributeMapRequest.rect:type_name -> web.v1.AttributeMapRect
-	73,  // 40: web.v1.TransformAttributeMapRequest.filter:type_name -> web.v1.AttributeMapTransformFilter
-	1,   // 41: web.v1.TransformAttributeMapResponse.result:type_name -> web.v1.AdminResult
-	70,  // 42: web.v1.TransformAttributeMapResponse.before_histogram:type_name -> web.v1.AttributeMapValueCount
-	70,  // 43: web.v1.TransformAttributeMapResponse.after_histogram:type_name -> web.v1.AttributeMapValueCount
-	1,   // 44: web.v1.ListShopItemsResponse.result:type_name -> web.v1.AdminResult
-	76,  // 45: web.v1.ListShopItemsResponse.items:type_name -> web.v1.DonateShopItem
-	76,  // 46: web.v1.UpsertShopItemRequest.item:type_name -> web.v1.DonateShopItem
-	1,   // 47: web.v1.UpsertShopItemResponse.result:type_name -> web.v1.AdminResult
-	1,   // 48: web.v1.CreditDonateBalanceResponse.result:type_name -> web.v1.AdminResult
-	76,  // 49: web.v1.ListStoreItemsResponse.items:type_name -> web.v1.DonateShopItem
-	3,   // 50: web.v1.BuyResponse.result:type_name -> web.v1.BuyResult
-	1,   // 51: web.v1.ListRewardItemsResponse.result:type_name -> web.v1.AdminResult
-	91,  // 52: web.v1.ListRewardItemsResponse.items:type_name -> web.v1.DailyRewardItem
-	91,  // 53: web.v1.UpsertRewardItemRequest.item:type_name -> web.v1.DailyRewardItem
-	1,   // 54: web.v1.UpsertRewardItemResponse.result:type_name -> web.v1.AdminResult
-	1,   // 55: web.v1.GetWorldEventConfigResponse.result:type_name -> web.v1.AdminResult
-	98,  // 56: web.v1.GetWorldEventConfigResponse.config:type_name -> web.v1.WorldEventConfig
-	98,  // 57: web.v1.SetWorldEventConfigRequest.config:type_name -> web.v1.WorldEventConfig
-	91,  // 58: web.v1.ListRewardsResponse.items:type_name -> web.v1.DailyRewardItem
-	4,   // 59: web.v1.ClaimResponse.result:type_name -> web.v1.ClaimResult
-	1,   // 60: web.v1.SavePayerProfileResponse.result:type_name -> web.v1.AdminResult
-	5,   // 61: web.v1.CreateTopupOrderRequest.payment_method:type_name -> web.v1.PaymentMethod
-	1,   // 62: web.v1.CreateTopupOrderResponse.result:type_name -> web.v1.AdminResult
-	6,   // 63: web.v1.ConfirmTopupOrderResponse.result:type_name -> web.v1.TopupResult
-	7,   // 64: web.v1.GetTopupOrderResponse.status:type_name -> web.v1.TopupStatus
-	5,   // 65: web.v1.RevenueByMethod.payment_method:type_name -> web.v1.PaymentMethod
-	118, // 66: web.v1.GetRevenueSummaryRequest.window:type_name -> web.v1.RevenueWindow
-	8,   // 67: web.v1.GetRevenueSummaryRequest.bucket:type_name -> web.v1.RevenueBucket
-	1,   // 68: web.v1.GetRevenueSummaryResponse.result:type_name -> web.v1.AdminResult
-	119, // 69: web.v1.GetRevenueSummaryResponse.totals:type_name -> web.v1.RevenueTotals
-	120, // 70: web.v1.GetRevenueSummaryResponse.by_method:type_name -> web.v1.RevenueByMethod
-	121, // 71: web.v1.GetRevenueSummaryResponse.series:type_name -> web.v1.RevenuePoint
-	5,   // 72: web.v1.TopupOrderRow.payment_method:type_name -> web.v1.PaymentMethod
-	7,   // 73: web.v1.TopupOrderRow.status:type_name -> web.v1.TopupStatus
-	118, // 74: web.v1.ListTopupOrdersRequest.window:type_name -> web.v1.RevenueWindow
-	7,   // 75: web.v1.ListTopupOrdersRequest.status:type_name -> web.v1.TopupStatus
-	5,   // 76: web.v1.ListTopupOrdersRequest.payment_method:type_name -> web.v1.PaymentMethod
-	1,   // 77: web.v1.ListTopupOrdersResponse.result:type_name -> web.v1.AdminResult
-	124, // 78: web.v1.ListTopupOrdersResponse.orders:type_name -> web.v1.TopupOrderRow
-	118, // 79: web.v1.ListTopBuyersRequest.window:type_name -> web.v1.RevenueWindow
-	1,   // 80: web.v1.ListTopBuyersResponse.result:type_name -> web.v1.AdminResult
-	127, // 81: web.v1.ListTopBuyersResponse.buyers:type_name -> web.v1.TopBuyerRow
-	9,   // 82: web.v1.DonateLedgerRow.action:type_name -> web.v1.DonateLedgerAction
-	118, // 83: web.v1.ListDonateSpendRequest.window:type_name -> web.v1.RevenueWindow
-	9,   // 84: web.v1.ListDonateSpendRequest.action:type_name -> web.v1.DonateLedgerAction
-	1,   // 85: web.v1.ListDonateSpendResponse.result:type_name -> web.v1.AdminResult
-	130, // 86: web.v1.ListDonateSpendResponse.entries:type_name -> web.v1.DonateLedgerRow
-	1,   // 87: web.v1.SearchAccountsResponse.result:type_name -> web.v1.AdminResult
-	133, // 88: web.v1.SearchAccountsResponse.accounts:type_name -> web.v1.AccountSummary
-	10,  // 89: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
-	12,  // 90: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
-	14,  // 91: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
-	17,  // 92: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
-	20,  // 93: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
-	26,  // 94: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
-	28,  // 95: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
-	30,  // 96: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
-	32,  // 97: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
-	33,  // 98: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
-	34,  // 99: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
-	35,  // 100: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
-	37,  // 101: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
-	40,  // 102: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
-	44,  // 103: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
-	48,  // 104: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
-	51,  // 105: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
-	54,  // 106: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
-	57,  // 107: web.v1.MobTemplateAdminService.ListMobTemplates:input_type -> web.v1.ListMobTemplatesRequest
-	61,  // 108: web.v1.MobTemplateAdminService.GetMobTemplateStat:input_type -> web.v1.GetMobTemplateStatRequest
-	63,  // 109: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:input_type -> web.v1.UpsertMobTemplateStatRequest
-	65,  // 110: web.v1.MobTemplateAdminService.SetMobTemplateEquip:input_type -> web.v1.SetMobTemplateEquipRequest
-	66,  // 111: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:input_type -> web.v1.DeleteMobTemplateStatRequest
-	67,  // 112: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
-	74,  // 113: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
-	77,  // 114: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
-	79,  // 115: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
-	81,  // 116: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
-	82,  // 117: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
-	83,  // 118: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
-	85,  // 119: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
-	87,  // 120: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
-	89,  // 121: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
-	92,  // 122: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
-	94,  // 123: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
-	96,  // 124: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
-	97,  // 125: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
-	99,  // 126: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
-	101, // 127: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
-	102, // 128: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
-	104, // 129: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
-	106, // 130: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
-	108, // 131: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
-	110, // 132: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
-	112, // 133: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
-	114, // 134: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
-	116, // 135: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
-	122, // 136: web.v1.DonateRevenueAdminService.GetRevenueSummary:input_type -> web.v1.GetRevenueSummaryRequest
-	125, // 137: web.v1.DonateRevenueAdminService.ListTopupOrders:input_type -> web.v1.ListTopupOrdersRequest
-	128, // 138: web.v1.DonateRevenueAdminService.ListTopBuyers:input_type -> web.v1.ListTopBuyersRequest
-	131, // 139: web.v1.DonateRevenueAdminService.ListDonateSpend:input_type -> web.v1.ListDonateSpendRequest
-	134, // 140: web.v1.DonateRevenueAdminService.SearchAccounts:input_type -> web.v1.SearchAccountsRequest
-	11,  // 141: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
-	13,  // 142: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
-	16,  // 143: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
-	19,  // 144: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
-	22,  // 145: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
-	27,  // 146: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
-	29,  // 147: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
-	31,  // 148: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
-	23,  // 149: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
-	23,  // 150: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
-	23,  // 151: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
-	23,  // 152: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
-	38,  // 153: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
-	41,  // 154: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
-	45,  // 155: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
-	49,  // 156: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
-	52,  // 157: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
-	55,  // 158: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
-	58,  // 159: web.v1.MobTemplateAdminService.ListMobTemplates:output_type -> web.v1.ListMobTemplatesResponse
-	62,  // 160: web.v1.MobTemplateAdminService.GetMobTemplateStat:output_type -> web.v1.GetMobTemplateStatResponse
-	64,  // 161: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:output_type -> web.v1.UpsertMobTemplateStatResponse
-	23,  // 162: web.v1.MobTemplateAdminService.SetMobTemplateEquip:output_type -> web.v1.AdminAck
-	23,  // 163: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:output_type -> web.v1.AdminAck
-	68,  // 164: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
-	75,  // 165: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
-	78,  // 166: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
-	80,  // 167: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
-	23,  // 168: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
-	23,  // 169: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
-	84,  // 170: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
-	86,  // 171: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
-	88,  // 172: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
-	90,  // 173: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
-	93,  // 174: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
-	95,  // 175: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
-	23,  // 176: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
-	23,  // 177: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
-	100, // 178: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
-	23,  // 179: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
-	103, // 180: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
-	105, // 181: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
-	107, // 182: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
-	109, // 183: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
-	111, // 184: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
-	113, // 185: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
-	115, // 186: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
-	117, // 187: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
-	123, // 188: web.v1.DonateRevenueAdminService.GetRevenueSummary:output_type -> web.v1.GetRevenueSummaryResponse
-	126, // 189: web.v1.DonateRevenueAdminService.ListTopupOrders:output_type -> web.v1.ListTopupOrdersResponse
-	129, // 190: web.v1.DonateRevenueAdminService.ListTopBuyers:output_type -> web.v1.ListTopBuyersResponse
-	132, // 191: web.v1.DonateRevenueAdminService.ListDonateSpend:output_type -> web.v1.ListDonateSpendResponse
-	135, // 192: web.v1.DonateRevenueAdminService.SearchAccounts:output_type -> web.v1.SearchAccountsResponse
-	141, // [141:193] is the sub-list for method output_type
-	89,  // [89:141] is the sub-list for method input_type
-	89,  // [89:89] is the sub-list for extension type_name
-	89,  // [89:89] is the sub-list for extension extendee
-	0,   // [0:89] is the sub-list for field type_name
+	41,  // 4: web.v1.ListItemsResponse.items:type_name -> web.v1.ItemCatalogEntry
+	1,   // 5: web.v1.AdminAck.result:type_name -> web.v1.AdminResult
+	26,  // 6: web.v1.AdminNpc.shop:type_name -> web.v1.AdminNpcShopItem
+	1,   // 7: web.v1.ListNpcsResponse.result:type_name -> web.v1.AdminResult
+	27,  // 8: web.v1.ListNpcsResponse.npcs:type_name -> web.v1.AdminNpc
+	1,   // 9: web.v1.GetNpcResponse.result:type_name -> web.v1.AdminResult
+	27,  // 10: web.v1.GetNpcResponse.npc:type_name -> web.v1.AdminNpc
+	1,   // 11: web.v1.UpsertNpcResponse.result:type_name -> web.v1.AdminResult
+	26,  // 12: web.v1.SetNpcShopRequest.items:type_name -> web.v1.AdminNpcShopItem
+	1,   // 13: web.v1.ListMerchantTemplatesResponse.result:type_name -> web.v1.AdminResult
+	38,  // 14: web.v1.ListMerchantTemplatesResponse.templates:type_name -> web.v1.MerchantTemplate
+	1,   // 15: web.v1.ListItemCatalogResponse.result:type_name -> web.v1.AdminResult
+	41,  // 16: web.v1.ListItemCatalogResponse.items:type_name -> web.v1.ItemCatalogEntry
+	44,  // 17: web.v1.DropItemEntry.mobs:type_name -> web.v1.DropItemMob
+	1,   // 18: web.v1.ListDropItemsResponse.result:type_name -> web.v1.AdminResult
+	45,  // 19: web.v1.ListDropItemsResponse.items:type_name -> web.v1.DropItemEntry
+	48,  // 20: web.v1.MobDropEntry.items:type_name -> web.v1.MobDropItem
+	1,   // 21: web.v1.ListMobDropsResponse.result:type_name -> web.v1.AdminResult
+	49,  // 22: web.v1.ListMobDropsResponse.mobs:type_name -> web.v1.MobDropEntry
+	1,   // 23: web.v1.ListItemPricesResponse.result:type_name -> web.v1.AdminResult
+	52,  // 24: web.v1.ListItemPricesResponse.prices:type_name -> web.v1.ItemPrice
+	1,   // 25: web.v1.ListMapZonesResponse.result:type_name -> web.v1.AdminResult
+	55,  // 26: web.v1.ListMapZonesResponse.zones:type_name -> web.v1.MapZone
+	1,   // 27: web.v1.ListMobTemplatesResponse.result:type_name -> web.v1.AdminResult
+	58,  // 28: web.v1.ListMobTemplatesResponse.templates:type_name -> web.v1.MobTemplateFile
+	61,  // 29: web.v1.AdminMobTemplateStat.equip:type_name -> web.v1.AdminMobTemplateEquipItem
+	1,   // 30: web.v1.GetMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
+	62,  // 31: web.v1.GetMobTemplateStatResponse.stat:type_name -> web.v1.AdminMobTemplateStat
+	62,  // 32: web.v1.UpsertMobTemplateStatRequest.stat:type_name -> web.v1.AdminMobTemplateStat
+	1,   // 33: web.v1.UpsertMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
+	61,  // 34: web.v1.SetMobTemplateEquipRequest.items:type_name -> web.v1.AdminMobTemplateEquipItem
+	1,   // 35: web.v1.GetAttributeMapInfoResponse.result:type_name -> web.v1.AdminResult
+	71,  // 36: web.v1.GetAttributeMapInfoResponse.info:type_name -> web.v1.AttributeMapInfo
+	72,  // 37: web.v1.AttributeMapInfo.histogram:type_name -> web.v1.AttributeMapValueCount
+	73,  // 38: web.v1.AttributeMapInfo.meanings:type_name -> web.v1.AttributeMapMeaning
+	2,   // 39: web.v1.TransformAttributeMapRequest.operation:type_name -> web.v1.AttributeMapTransformOperation
+	74,  // 40: web.v1.TransformAttributeMapRequest.rect:type_name -> web.v1.AttributeMapRect
+	75,  // 41: web.v1.TransformAttributeMapRequest.filter:type_name -> web.v1.AttributeMapTransformFilter
+	1,   // 42: web.v1.TransformAttributeMapResponse.result:type_name -> web.v1.AdminResult
+	72,  // 43: web.v1.TransformAttributeMapResponse.before_histogram:type_name -> web.v1.AttributeMapValueCount
+	72,  // 44: web.v1.TransformAttributeMapResponse.after_histogram:type_name -> web.v1.AttributeMapValueCount
+	1,   // 45: web.v1.ListShopItemsResponse.result:type_name -> web.v1.AdminResult
+	78,  // 46: web.v1.ListShopItemsResponse.items:type_name -> web.v1.DonateShopItem
+	78,  // 47: web.v1.UpsertShopItemRequest.item:type_name -> web.v1.DonateShopItem
+	1,   // 48: web.v1.UpsertShopItemResponse.result:type_name -> web.v1.AdminResult
+	1,   // 49: web.v1.CreditDonateBalanceResponse.result:type_name -> web.v1.AdminResult
+	78,  // 50: web.v1.ListStoreItemsResponse.items:type_name -> web.v1.DonateShopItem
+	3,   // 51: web.v1.BuyResponse.result:type_name -> web.v1.BuyResult
+	1,   // 52: web.v1.ListRewardItemsResponse.result:type_name -> web.v1.AdminResult
+	93,  // 53: web.v1.ListRewardItemsResponse.items:type_name -> web.v1.DailyRewardItem
+	93,  // 54: web.v1.UpsertRewardItemRequest.item:type_name -> web.v1.DailyRewardItem
+	1,   // 55: web.v1.UpsertRewardItemResponse.result:type_name -> web.v1.AdminResult
+	1,   // 56: web.v1.GetWorldEventConfigResponse.result:type_name -> web.v1.AdminResult
+	100, // 57: web.v1.GetWorldEventConfigResponse.config:type_name -> web.v1.WorldEventConfig
+	100, // 58: web.v1.SetWorldEventConfigRequest.config:type_name -> web.v1.WorldEventConfig
+	93,  // 59: web.v1.ListRewardsResponse.items:type_name -> web.v1.DailyRewardItem
+	4,   // 60: web.v1.ClaimResponse.result:type_name -> web.v1.ClaimResult
+	1,   // 61: web.v1.SavePayerProfileResponse.result:type_name -> web.v1.AdminResult
+	5,   // 62: web.v1.CreateTopupOrderRequest.payment_method:type_name -> web.v1.PaymentMethod
+	1,   // 63: web.v1.CreateTopupOrderResponse.result:type_name -> web.v1.AdminResult
+	6,   // 64: web.v1.ConfirmTopupOrderResponse.result:type_name -> web.v1.TopupResult
+	7,   // 65: web.v1.GetTopupOrderResponse.status:type_name -> web.v1.TopupStatus
+	5,   // 66: web.v1.RevenueByMethod.payment_method:type_name -> web.v1.PaymentMethod
+	120, // 67: web.v1.GetRevenueSummaryRequest.window:type_name -> web.v1.RevenueWindow
+	8,   // 68: web.v1.GetRevenueSummaryRequest.bucket:type_name -> web.v1.RevenueBucket
+	1,   // 69: web.v1.GetRevenueSummaryResponse.result:type_name -> web.v1.AdminResult
+	121, // 70: web.v1.GetRevenueSummaryResponse.totals:type_name -> web.v1.RevenueTotals
+	122, // 71: web.v1.GetRevenueSummaryResponse.by_method:type_name -> web.v1.RevenueByMethod
+	123, // 72: web.v1.GetRevenueSummaryResponse.series:type_name -> web.v1.RevenuePoint
+	5,   // 73: web.v1.TopupOrderRow.payment_method:type_name -> web.v1.PaymentMethod
+	7,   // 74: web.v1.TopupOrderRow.status:type_name -> web.v1.TopupStatus
+	120, // 75: web.v1.ListTopupOrdersRequest.window:type_name -> web.v1.RevenueWindow
+	7,   // 76: web.v1.ListTopupOrdersRequest.status:type_name -> web.v1.TopupStatus
+	5,   // 77: web.v1.ListTopupOrdersRequest.payment_method:type_name -> web.v1.PaymentMethod
+	1,   // 78: web.v1.ListTopupOrdersResponse.result:type_name -> web.v1.AdminResult
+	126, // 79: web.v1.ListTopupOrdersResponse.orders:type_name -> web.v1.TopupOrderRow
+	120, // 80: web.v1.ListTopBuyersRequest.window:type_name -> web.v1.RevenueWindow
+	1,   // 81: web.v1.ListTopBuyersResponse.result:type_name -> web.v1.AdminResult
+	129, // 82: web.v1.ListTopBuyersResponse.buyers:type_name -> web.v1.TopBuyerRow
+	9,   // 83: web.v1.DonateLedgerRow.action:type_name -> web.v1.DonateLedgerAction
+	120, // 84: web.v1.ListDonateSpendRequest.window:type_name -> web.v1.RevenueWindow
+	9,   // 85: web.v1.ListDonateSpendRequest.action:type_name -> web.v1.DonateLedgerAction
+	1,   // 86: web.v1.ListDonateSpendResponse.result:type_name -> web.v1.AdminResult
+	132, // 87: web.v1.ListDonateSpendResponse.entries:type_name -> web.v1.DonateLedgerRow
+	1,   // 88: web.v1.SearchAccountsResponse.result:type_name -> web.v1.AdminResult
+	135, // 89: web.v1.SearchAccountsResponse.accounts:type_name -> web.v1.AccountSummary
+	10,  // 90: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
+	12,  // 91: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
+	14,  // 92: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
+	17,  // 93: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
+	20,  // 94: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
+	23,  // 95: web.v1.ItemCatalogService.ListItems:input_type -> web.v1.ListItemsRequest
+	28,  // 96: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
+	30,  // 97: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
+	32,  // 98: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
+	34,  // 99: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
+	35,  // 100: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
+	36,  // 101: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
+	37,  // 102: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
+	39,  // 103: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
+	42,  // 104: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
+	46,  // 105: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
+	50,  // 106: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
+	53,  // 107: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
+	56,  // 108: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
+	59,  // 109: web.v1.MobTemplateAdminService.ListMobTemplates:input_type -> web.v1.ListMobTemplatesRequest
+	63,  // 110: web.v1.MobTemplateAdminService.GetMobTemplateStat:input_type -> web.v1.GetMobTemplateStatRequest
+	65,  // 111: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:input_type -> web.v1.UpsertMobTemplateStatRequest
+	67,  // 112: web.v1.MobTemplateAdminService.SetMobTemplateEquip:input_type -> web.v1.SetMobTemplateEquipRequest
+	68,  // 113: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:input_type -> web.v1.DeleteMobTemplateStatRequest
+	69,  // 114: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
+	76,  // 115: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
+	79,  // 116: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
+	81,  // 117: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
+	83,  // 118: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
+	84,  // 119: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
+	85,  // 120: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
+	87,  // 121: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
+	89,  // 122: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
+	91,  // 123: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
+	94,  // 124: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
+	96,  // 125: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
+	98,  // 126: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
+	99,  // 127: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
+	101, // 128: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
+	103, // 129: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
+	104, // 130: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
+	106, // 131: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
+	108, // 132: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
+	110, // 133: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
+	112, // 134: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
+	114, // 135: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
+	116, // 136: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
+	118, // 137: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
+	124, // 138: web.v1.DonateRevenueAdminService.GetRevenueSummary:input_type -> web.v1.GetRevenueSummaryRequest
+	127, // 139: web.v1.DonateRevenueAdminService.ListTopupOrders:input_type -> web.v1.ListTopupOrdersRequest
+	130, // 140: web.v1.DonateRevenueAdminService.ListTopBuyers:input_type -> web.v1.ListTopBuyersRequest
+	133, // 141: web.v1.DonateRevenueAdminService.ListDonateSpend:input_type -> web.v1.ListDonateSpendRequest
+	136, // 142: web.v1.DonateRevenueAdminService.SearchAccounts:input_type -> web.v1.SearchAccountsRequest
+	11,  // 143: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
+	13,  // 144: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
+	16,  // 145: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
+	19,  // 146: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
+	22,  // 147: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
+	24,  // 148: web.v1.ItemCatalogService.ListItems:output_type -> web.v1.ListItemsResponse
+	29,  // 149: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
+	31,  // 150: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
+	33,  // 151: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
+	25,  // 152: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
+	25,  // 153: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
+	25,  // 154: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
+	25,  // 155: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
+	40,  // 156: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
+	43,  // 157: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
+	47,  // 158: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
+	51,  // 159: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
+	54,  // 160: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
+	57,  // 161: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
+	60,  // 162: web.v1.MobTemplateAdminService.ListMobTemplates:output_type -> web.v1.ListMobTemplatesResponse
+	64,  // 163: web.v1.MobTemplateAdminService.GetMobTemplateStat:output_type -> web.v1.GetMobTemplateStatResponse
+	66,  // 164: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:output_type -> web.v1.UpsertMobTemplateStatResponse
+	25,  // 165: web.v1.MobTemplateAdminService.SetMobTemplateEquip:output_type -> web.v1.AdminAck
+	25,  // 166: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:output_type -> web.v1.AdminAck
+	70,  // 167: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
+	77,  // 168: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
+	80,  // 169: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
+	82,  // 170: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
+	25,  // 171: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
+	25,  // 172: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
+	86,  // 173: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
+	88,  // 174: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
+	90,  // 175: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
+	92,  // 176: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
+	95,  // 177: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
+	97,  // 178: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
+	25,  // 179: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
+	25,  // 180: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
+	102, // 181: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
+	25,  // 182: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
+	105, // 183: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
+	107, // 184: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
+	109, // 185: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
+	111, // 186: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
+	113, // 187: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
+	115, // 188: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
+	117, // 189: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
+	119, // 190: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
+	125, // 191: web.v1.DonateRevenueAdminService.GetRevenueSummary:output_type -> web.v1.GetRevenueSummaryResponse
+	128, // 192: web.v1.DonateRevenueAdminService.ListTopupOrders:output_type -> web.v1.ListTopupOrdersResponse
+	131, // 193: web.v1.DonateRevenueAdminService.ListTopBuyers:output_type -> web.v1.ListTopBuyersResponse
+	134, // 194: web.v1.DonateRevenueAdminService.ListDonateSpend:output_type -> web.v1.ListDonateSpendResponse
+	137, // 195: web.v1.DonateRevenueAdminService.SearchAccounts:output_type -> web.v1.SearchAccountsResponse
+	143, // [143:196] is the sub-list for method output_type
+	90,  // [90:143] is the sub-list for method input_type
+	90,  // [90:90] is the sub-list for extension type_name
+	90,  // [90:90] is the sub-list for extension extendee
+	0,   // [0:90] is the sub-list for field type_name
 }
 
 func init() { file_api_web_v1_web_proto_init() }
@@ -10163,9 +10331,9 @@ func file_api_web_v1_web_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_web_v1_web_proto_rawDesc), len(file_api_web_v1_web_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   126,
+			NumMessages:   128,
 			NumExtensions: 0,
-			NumServices:   13,
+			NumServices:   14,
 		},
 		GoTypes:           file_api_web_v1_web_proto_goTypes,
 		DependencyIndexes: file_api_web_v1_web_proto_depIdxs,

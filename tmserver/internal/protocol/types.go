@@ -1,5 +1,7 @@
 package protocol
 
+import "encoding/binary"
+
 // Type is the 2-byte HEADER.Type field: a message base OR'd with direction
 // flags (protocol-spec.md §2, Basedef.h:1212-1221). The dispatcher compares the
 // full wire value (base + flags) directly, so a constant with multiple flags
@@ -28,6 +30,19 @@ const (
 func EncodeMessageChatBody(text string) []byte {
 	body := make([]byte, MessageLength)
 	copy(body, text)
+	return body
+}
+
+// MsgExpPanelBodySize is the packed body of MSG_Exp_Msg_Panel_: Msg[96]
+// followed by its 32-bit ARGB text color.
+const MsgExpPanelBodySize = MessageLength + 4
+
+// EncodeExpPanelBody builds the fixed-width body shown in the client's EXP
+// notification panel. Text longer than the legacy C string is truncated.
+func EncodeExpPanelBody(text string, color uint32) []byte {
+	body := make([]byte, MsgExpPanelBodySize)
+	copy(body[:MessageLength], text)
+	binary.LittleEndian.PutUint32(body[MessageLength:], color)
 	return body
 }
 
@@ -166,4 +181,5 @@ const (
 	// the pose is driven by this Type (0x0363), NOT by a CreateType value.
 	MsgCreateMobTrade Type = 0x0363 // 867  S→C spawn a shop-owner in view (MSG_CreateMobTrade)
 	MsgItemSold       Type = 0x039B // 923  S→C an item left a shop (MSG_STANDARDPARM2, Parm1=seller Parm2=pos)
+	MsgExpPanel       Type = 0x5000 // S→C MSG_Exp_Msg_Panel_ (custom EXP notification panel)
 )

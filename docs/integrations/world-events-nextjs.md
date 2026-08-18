@@ -201,7 +201,9 @@ progresso antigo pela versão da configuração.
 Crie uma tela de moderação com:
 
 - toggle geral do drop global (`enabled`);
-- campo de item por índice (`itemIndex`);
+- campo de item por índice (`itemIndex`) — de preferência um picker com ícone/nome em vez de um
+  número cru, carregando o catálogo por `ItemCatalogService.ListItems` e fazendo o join por
+  `item_index` (ver [item-icons-nextjs.md](item-icons-nextjs.md));
 - campo de divisor de chance (`rate`);
 - controles numéricos para `startIndex`, `currentIndex` e `endIndex`;
 - toggles para `indexed`, `noticeEnabled`, `doubleExpEnabled` e

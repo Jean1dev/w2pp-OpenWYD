@@ -87,6 +87,7 @@ func run(logger *slog.Logger) error {
 	srv := grpc.NewServer(grpc.Creds(creds))
 	st := store.New(pool)
 	npcAdmin := npcadmin.New(st)
+	npcAdmin.SetLogger(logger)
 	mobTemplateAdmin := mobtemplateadmin.New(st)
 	donate := donateshop.New(st)
 	dailyRwd := dailyreward.New(st)
@@ -94,6 +95,9 @@ func run(logger *slog.Logger) error {
 	revenue := donaterevenue.New(st)
 	attrMap := attributemap.New(st, *contentDir)
 	worldEvents := worldevent.New(st)
+	// Stays zero-valued without -content: ItemCatalogService then serves an
+	// empty list, the same graceful degradation the pickers already have.
+	var itemCatalog itemcatalog.Catalog
 	if *contentDir != "" {
 		templates, npcStats, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -103,12 +107,13 @@ func run(logger *slog.Logger) error {
 			npcAdmin.SetTemplates(templates)
 		}
 
-		items, err := itemcatalog.Scan(*contentDir)
+		catalog, err := itemcatalog.Scan(*contentDir)
 		if err != nil {
 			logger.Warn("item catalog scan failed; item picker will be empty", "content", *contentDir, "err", err)
 		} else {
-			logger.Info("scanned item catalog", "count", len(items))
-			npcAdmin.SetItems(items)
+			logger.Info("scanned item catalog", "count", len(catalog.Items), "version", catalog.Version)
+			npcAdmin.SetItems(catalog.Items)
+			itemCatalog = catalog
 		}
 
 		mobTemplates, mobStats, err := mobtemplates.Scan(*contentDir, logger)
@@ -138,6 +143,7 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
 	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterCharacterWebServiceServer(srv, grpcsrv.NewCharacters(characters.New(st)))
+	webv1.RegisterItemCatalogServiceServer(srv, grpcsrv.NewItemCatalog(itemCatalog))
 	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
 	webv1.RegisterMobTemplateAdminServiceServer(srv, grpcsrv.NewMobTemplateAdmin(mobTemplateAdmin))
 	webv1.RegisterAttributeMapAdminServiceServer(srv, grpcsrv.NewAttributeMapAdmin(attrMap))
