@@ -85,6 +85,9 @@ quests grade 11–16/24–30) **não**.
 - **Cargo/banco** (Merchant 2): `reqShopList` → `openCargo`, deposit/withdraw.
 - **Combine/refino**: família `combineItem` (Odin/Lindy/Shany/… via opcodes dedicados).
 - **Perzen** (Merchant 100 grade 7/8/9): troca esfera→montaria.
+- **Coveiro** (Merchant 100 grade 0): etapa 1 da cadeia Quest 256 ("Defensor da Alma", issue #261) —
+  `quest256NPC` em `handler/misc.go` consome a Vela do Coveiro (4038), seta `QuestFlag = 1` e
+  teleporta para `(2398,2105)`. Grades 1–4 (Jardineiro/Kaizen/Hidra/Elfos) ainda pendentes.
 - **King Arch** (Merchant 111): cria personagem Arch a partir dos reis canônicos.
 - **Mestre Grifo** (`_MSG_MasterGriff` 0x0AD9): teleporta, após a animação de viagem do cliente, para
   Defensor de Almas `(2372,2099)`, Jardim dos Deuses `(2220,1714)`, Calabouco `(2365,2279)` ou
@@ -95,8 +98,8 @@ quests grade 11–16/24–30) **não**.
    — alinha com o sistema de montaria (Shire/esfera) que estamos implementando.
 2. **Mestres de skill/classe** (Merchant 3, 31) — progressão.
 3. **Teleportes/guardas** (Merchant 36, 128) — locomoção.
-4. **Cadeia Quest 256** (Merchant 100 grades 0–4) — progressão de level (hardcoded; candidato a
-   tabela data-driven `quest`/`quest_step`).
+4. **Cadeia Quest 256** (Merchant 100 grades 1–4; o grade 0 / Coveiro já está feito) — progressão de
+   level (hardcoded; candidato a tabela data-driven `quest`/`quest_step`).
 5. Restante (reis, oráculos, governo, etc.) — quests pontuais.
 
 > **Nota:** o engine de quest completo é hardcoded (level, tickets, coords) — forte candidato a

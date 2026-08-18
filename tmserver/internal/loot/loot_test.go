@@ -32,18 +32,57 @@ func TestDropRateTable(t *testing.T) {
 }
 
 func TestEffectiveDropRate(t *testing.T) {
-	// No killer bonus, level >= 10 ⇒ raw table value.
-	if got := EffectiveDropRate(0, 0, 100); got != 900 {
-		t.Errorf("slot 0 = %d, want 900", got)
+	// Level >= 60 on the first three groups receives the legacy 99% scaling.
+	if got := EffectiveDropRate(0, 0, 100); got != 891 {
+		t.Errorf("slot 0 = %d, want 891", got)
 	}
 	// Level < 10 on a low slot (pos 0) ⇒ 4*rate/100.
 	if got := EffectiveDropRate(0, 0, 5); got != 4*900/100 {
 		t.Errorf("slot 0 low level = %d, want %d", got, 4*900/100)
 	}
 	// Killer bonus changes the divisor: dropbonus=10000/(100+50+1) ⇒ rate scaled.
-	want := (10000 / (151)) * 900 / 100
+	want := 99 * ((10000 / 151) * 900 / 100) / 100
 	if got := EffectiveDropRate(0, 50, 100); got != want {
 		t.Errorf("slot 0 with bonus = %d, want %d", got, want)
+	}
+}
+
+func TestEffectiveDropRateLevelBandsAndOverrides(t *testing.T) {
+	tests := []struct {
+		name        string
+		slot, level int
+		want        int
+	}{
+		{"under 20", 0, 10, 45},
+		{"under 30", 0, 20, 54},
+		{"under 40", 0, 30, 63},
+		{"under 60", 0, 40, 72},
+		{"slot 8 override", 8, 1, 4},
+		{"slot 11 guaranteed", 11, 1, 1},
+		{"high slot under 170", 63, 100, 18000},
+		{"high slot under 200", 63, 170, 12000},
+		{"high slot under 230", 63, 200, 10000},
+		{"high slot under 255", 63, 230, 8600},
+		{"high slot under 320", 63, 255, 7600},
+		{"high slot 320 plus", 63, 320, 10000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EffectiveDropRate(tt.slot, 0, tt.level); got != tt.want {
+				t.Errorf("EffectiveDropRate(%d, 0, %d) = %d, want %d", tt.slot, tt.level, got, tt.want)
+			}
+		})
+	}
+
+	old := DropRate[63]
+	DropRate[63] = 50000
+	t.Cleanup(func() { DropRate[63] = old })
+	if got := EffectiveDropRate(63, 0, 320); got != 25000 {
+		t.Errorf("scaled capped rate = %d, want 25000", got)
+	}
+	DropRate[63] = 100000
+	if got := EffectiveDropRate(63, 0, 320); got != 32000 {
+		t.Errorf("rate cap = %d, want 32000", got)
 	}
 }
 

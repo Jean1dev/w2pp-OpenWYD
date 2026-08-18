@@ -100,6 +100,8 @@ REF_10..REF_15; senão `sanc%10`. Montarias → FALSE.
 - Arma (`nPos 64||192`): `CMob::GetCurrentScore` `if sanc(Equip[6/7])>=9 → WeaponDamage += 40`.
 - Defesa (`Basedef.cpp:4601-4622`): cada `Equip[1..7]` com `sanc>=9`: `nPos 4/8/128 → Ac += 25`; `nPos 16 → Rsv|=RSV_CAST`.
 - O dano/AC "cru" do item (que já cresce com o refino) vem dos `stEffect`/catálogo via `BASE_GetItemAbility`.
+  ⚠️ Esse crescimento **é** o multiplicador `(sanc+10)/10` de `BASE_GetItemAbility` (`Basedef.cpp:1854`),
+  não um valor já refinado guardado no item: o threshold soma **em cima** dele. Ver `game-rules.md` §3.5.1.
 - `g_pSancRate`/`g_pSuccessRate` = **taxa de SUCESSO do refino** (combine), NÃO escala de status.
 ### EF_*ADD em GetCurrentScore
 | efeito | nº | aplicação | tipo |

@@ -1626,6 +1626,25 @@ const (
 	efItemLevel  = 87
 	efMobType    = 112
 	efRunSpeed   = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
+	efDamage2    = 73 // EF_DAMAGE2: enchanted damage — SUPERSEDES EF_DAMAGE on a nPos 32 item
+
+	// Effect ids that BASE_GetItemAbility leaves UNSCALED by the refine multiplier
+	// (Basedef.cpp:1854). They are item identity/requirement metadata, not stats, so
+	// refining an item must not move them. efWType, efItemLevel, efMobType above and
+	// efNoSanc/efIncubate/efIncuDelay (refine.go) belong to the same list.
+	efLevel    = 1
+	efPos      = 17
+	efClass    = 18
+	efReqStr   = 22
+	efReqInt   = 23
+	efReqDex   = 24
+	efReqCon   = 25
+	efRange    = 27
+	efGrid     = 33
+	efVolatile = 38
+	efDonate   = 91
+	efItemType = 113
+	efNoTrade  = 127
 
 	// baseAttackRun is the class templates' base speed byte (run<<4 | move) = 82
 	// (run 5, move 2). UNVERIFIED: per-state speed curves are not reproduced.
@@ -1654,22 +1673,54 @@ const (
 	nPosDef1        = 4   // armor/helm/boots → +25 AC
 	nPosDef2        = 8
 	nPosDef3        = 128 // shield → +25 AC
+	nPosDamage2     = 32  // the slot class whose EF_DAMAGE2 supersedes EF_DAMAGE
 	refineThreshold = 9
 )
 
-// itemBaseDamage returns an equipped item's catalog EF_DAMAGE (its inherent weapon
-// damage) at face value — the refined value is already stored in the item's effects,
-// so no multiplier is applied (captura §E). 0 if empty or no catalog entry.
+// itemBaseDamage is BASE_GetItemAbility(item, EF_DAMAGE) for a weapon hand: the
+// catalog+instance EF_DAMAGE, refine-scaled. captura §E ("o dano cru do item, que já
+// cresce com o refino, vem dos stEffect/catálogo via BASE_GetItemAbility") describes that
+// growth as coming FROM this multiplier — the separate +40 threshold in weaponDamage sits
+// on top of it, it does not replace it.
+//
+// EF_DAMAGE2 (Basedef.cpp:1711-1715) substitutes for EF_DAMAGE on nPos 32 items, the same
+// either/or shape as itemCritical's EF_CRITICAL2.
 func (d *Dispatcher) itemBaseDamage(it world.Item) int32 {
 	if it.Empty() {
 		return 0
 	}
-	for _, be := range d.itemEffects[int(it.Index)] {
-		if be.Eff == efDamage {
-			return int32(be.Val)
-		}
+	want := uint8(efDamage)
+	if d.itemPos[int(it.Index)] == nPosDamage2 &&
+		(it.Effects[1].Effect == efDamage2 || it.Effects[2].Effect == efDamage2) {
+		want = efDamage2
 	}
-	return 0
+	return d.itemAbilityRefined(it, want)
+}
+
+// forEachEffectID calls fn once per DISTINCT effect id carried by an item, across its
+// catalog entries and its instance effects. BASE_GetItemAbility is queried per effect id
+// and sums every entry carrying it, so a caller folding an item into a score must visit
+// each id exactly once — visiting per entry would double-count and, worse, truncate the
+// refine multiplier once per entry instead of once per effect.
+func (d *Dispatcher) forEachEffectID(it world.Item, fn func(eff uint8)) {
+	var seen [4]uint64 // bitset over the 0..255 effect id space
+	visit := func(eff uint8) {
+		if eff == 0 { // EF_NONE: an empty slot, not an effect
+			return
+		}
+		bit := uint64(1) << (eff % 64)
+		if seen[eff/64]&bit != 0 {
+			return
+		}
+		seen[eff/64] |= bit
+		fn(eff)
+	}
+	for _, be := range d.itemEffects[int(it.Index)] {
+		visit(be.Eff)
+	}
+	for _, ef := range it.Effects {
+		visit(ef.Effect)
+	}
 }
 
 func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
@@ -1690,44 +1741,89 @@ func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
 	return total
 }
 
+// itemScoreSanc converts the true 0..15 level reported by the Go refine
+// package back to BASE_GetItemSanc's REF_* values used in score arithmetic.
+func itemScoreSanc(level int) int {
+	if level <= 10 {
+		return level
+	}
+	return [...]int{11: 12, 12: 15, 13: 18, 14: 22, 15: 27}[level]
+}
+
 // accessoryPosMask marks the four accessory slots (Equip[8..11]) in an item's catalog
 // nPos bitmask — the slots Pedra_Amunra equips into, which is why a player wears four.
 // BASE_GetItemAbility keys the +9 refine promotion off it (Basedef.cpp:1850).
 const accessoryPosMask = 0xF00
 
-// itemCritical is BASE_GetItemAbility(item, EF_CRITICAL) (Basedef.cpp:1687-1856) for the
-// one effect the score needs: EF_CRITICAL, with two legacy rules the generic itemAbility
-// cannot express because they are properties of the whole item rather than of one effect.
+// refineScaled reports whether the refine multiplier applies to eff, i.e. whether it is
+// absent from BASE_GetItemAbility's exemption list (Basedef.cpp:1854).
+func refineScaled(eff uint8) bool {
+	switch eff {
+	case efGrid, efClass, efPos, efWType, efRange, efLevel,
+		efReqStr, efReqInt, efReqDex, efReqCon,
+		efVolatile, efIncubate, efIncuDelay,
+		efMobType, efItemType, efItemLevel, efNoTrade, efNoSanc, efDonate:
+		return false
+	}
+	return true
+}
+
+// refineFactor is BASE_GetItemAbility's refine multiplier numerator (Basedef.cpp:1849-1852):
+// the item's REF_* score sanc + 10, so +11..+15 use their legacy nonlinear values.
+// Accessories (nPos & 0xF00) reaching +9 are promoted to sanc 10 first, which is what
+// turns the +9 bonus into a clean x2 — the rule behind a +9 Pedra_Amunra granting 200
+// per attribute instead of 100 (#282).
+func (d *Dispatcher) refineFactor(it world.Item) int {
+	sanc := itemScoreSanc(itemSanc(it))
+	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
+		sanc = 10
+	}
+	return sanc + 10
+}
+
+// itemAbilityRefined is BASE_GetItemAbility (Basedef.cpp:1687-1867): the catalog+instance
+// sum for one effect, then the refine multiplier for every non-exempt effect. The legacy
+// multiplies the SUM, not each entry, and the division truncates — so callers must ask for
+// a whole effect at once rather than scaling individual entries.
 //
-// First, the EF_CRITICAL2 substitution (Basedef.cpp:1705-1709): 42 is the query id and 71
-// the storage id for enchanted crit, so an item carrying EF_CRITICAL2 in stEffect[1] or
-// [2] reports that value INSTEAD of its EF_CRITICAL — either/or, never summed. Only slots
-// 1 and 2 arm it; slot 0 does not.
+// EF_RUNSPEED carries a post-multiplier clamp of its own (Basedef.cpp:1860-1867): boots
+// never contribute more than 2 to the move nibble, and a +9 pair gets one extra point.
+func (d *Dispatcher) itemAbilityRefined(it world.Item, eff uint8) int32 {
+	v := int32(d.itemAbility(it, eff))
+	if v == 0 || !refineScaled(eff) {
+		return v
+	}
+	factor := d.refineFactor(it)
+	v = v * int32(factor) / 10
+	if eff == efRunSpeed {
+		if v >= 3 {
+			v = 2
+		}
+		// The legacy tests the PROMOTED sanc, so an accessory at +9 (promoted to 10)
+		// misses this extra point while +9 boots get it.
+		if v > 0 && factor == refineThreshold+10 {
+			v++
+		}
+	}
+	return v
+}
+
+// itemCritical is BASE_GetItemAbility(item, EF_CRITICAL) with the one legacy rule
+// itemAbilityRefined cannot express, because it is a property of the whole item rather
+// than of one effect: the EF_CRITICAL2 substitution (Basedef.cpp:1705-1709). 42 is the
+// query id and 71 the storage id for enchanted crit, so an item carrying EF_CRITICAL2 in
+// stEffect[1] or [2] reports that value INSTEAD of its EF_CRITICAL — either/or, never
+// summed. Only slots 1 and 2 arm it; slot 0 does not.
 //
-// Second, the refine multiplier (Basedef.cpp:1848-1856): EF_CRITICAL is absent from the
-// exemption list, so crit scales by (sanc+10)/10, and accessories reaching +9 are promoted
-// to sanc 10 for a clean x2.
-//
-// TODO(parity): the legacy applies that multiplier to EVERY non-exempt effect; this port
-// does it for EF_CRITICAL only. AC/damage still use the flat +25/+40 threshold model
-// (equipBonus/weaponDamage), so refined gear diverges there — a deliberate scope call,
-// since converting them is a balance change across every refined item.
+// The refine multiplier comes from itemAbilityRefined, and inherits itemSanc's decoding of
+// the EF_SANC byte (issue #103 is correcting that decode); crit scales with whatever level
+// it reports, so it improves in step.
 func (d *Dispatcher) itemCritical(it world.Item) int32 {
 	want := uint8(efCritical)
 	if it.Effects[1].Effect == efCritical2 || it.Effects[2].Effect == efCritical2 {
 		want = efCritical2
 	}
-	v := int32(d.itemAbility(it, want))
-	if v == 0 {
-		return 0
-	}
-	// Inherits itemSanc's decoding of the EF_SANC byte (issue #103 is correcting that
-	// decode); crit scales with whatever level it reports, so it improves in step.
-	sanc := itemSanc(it)
-	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
-		sanc = 10
-	}
-	return v * int32(sanc+10) / 10
+	return d.itemAbilityRefined(it, want)
 }
 
 // resistEffects maps resist index [0..3] to its EF_RESISTn id (CMob.cpp:640-643 assigns
@@ -1736,11 +1832,9 @@ var resistEffects = [4]uint8{efResist1, efResist2, efResist3, efResist4}
 
 // itemResist is BASE_GetItemAbility(item, EF_RESISTn) (Basedef.cpp:1830-1858): the flat
 // catalog+instance sum for the queried resist index, PLUS any EF_RESISTALL folded in from
-// the same item (catalog+instance), THEN the refine multiplier (sanc+10)/10 — EF_RESIST1-4
-// is not in BASE_GetItemAbility's exemption list, so it scales like EF_CRITICAL, not like
-// the flat AC/Damage model (the item.go:1640-1647 TODO scope call doesn't apply here: there
-// is no already-live flat-resist baseline to preserve, since resist items granted nothing
-// before this — issue #211).
+// the same item (catalog+instance), THEN the refine multiplier. The two sums are added
+// BEFORE the multiplier, as the legacy does, so the truncation happens once — which is why
+// this cannot just call itemAbilityRefined twice (issue #211).
 func (d *Dispatcher) itemResist(it world.Item, i int) int32 {
 	if it.Empty() {
 		return 0
@@ -1749,11 +1843,7 @@ func (d *Dispatcher) itemResist(it world.Item, i int) int32 {
 	if v == 0 {
 		return 0
 	}
-	sanc := itemSanc(it)
-	if sanc == refineThreshold && d.itemPos[int(it.Index)]&accessoryPosMask != 0 {
-		sanc = 10
-	}
-	return v * int32(sanc+10) / 10
+	return v * int32(d.refineFactor(it)) / 10
 }
 
 // weaponDamage is GetCurrentScore's WeaponDamage (CMob.cpp:756-789): the stronger
@@ -1815,9 +1905,8 @@ type equipBonus struct {
 func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 	var b equipBonus
 	// add folds one effect/value pair into the bonus. weaponSlot excludes weapon-hand
-	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD/EF_MAGICADD to the jewel items (nUnique
-	// 41-50); offHand excludes EF_MAGIC on the off-hand weapon slot only (Basedef.cpp:
-	// 2447 — unlike EF_DAMAGE, the right-hand weapon still counts toward magic).
+	// EF_DAMAGE; dmgJewel gates EF_DAMAGEADD/EF_MAGICADD to nUnique 41-50 items;
+	// offHand excludes EF_MAGIC on the off-hand weapon slot only.
 	add := func(eff uint8, val int32, weaponSlot, dmgJewel, offHand bool) {
 		switch eff {
 		case efStr:
@@ -1840,7 +1929,7 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			for i := 1; i <= 3; i++ {
 				b.special[i] += int16(val)
 			}
-		case efAc, efAcAdd: // EF_AC (refined value already in the effect) + EF_ACADD, both FLAT
+		case efAc, efAcAdd: // EF_AC + EF_ACADD, both summed straight into AC (captura §E)
 			b.ac += val
 		case efDamage:
 			if !weaponSlot { // weapon-hand damage is the separate WeaponDamage
@@ -1898,12 +1987,12 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		offHand := slot == weaponSlotL
 		nUnique := d.itemUnique[int(it.Index)]
 		dmgJewel := nUnique >= 41 && nUnique <= 50
-		for _, be := range d.itemEffects[int(it.Index)] { // catalog base effects
-			add(be.Eff, int32(be.Val), weaponSlot, dmgJewel, offHand)
-		}
-		for _, ef := range it.Effects { // per-item instance refines/divines
-			add(ef.Effect, int32(ef.Value), weaponSlot, dmgJewel, offHand)
-		}
+		// One add per DISTINCT effect id, not per entry: BASE_GetItemAbility sums the
+		// catalog and instance entries of an effect and only then applies the refine
+		// multiplier, so the integer division must truncate the whole sum once.
+		d.forEachEffectID(it, func(eff uint8) {
+			add(eff, d.itemAbilityRefined(it, eff), weaponSlot, dmgJewel, offHand)
+		})
 		// Refine (+9) threshold: defense pieces gain +25 AC (weapons' +40 is in
 		// weaponDamage). captura §E.
 		if itemSanc(it) >= refineThreshold {
