@@ -33,11 +33,7 @@ type CombineFamily struct {
 // MsgCombineItemOdin is NOT here — its recipes don't fit the generic
 // CombineFamily{Rate,Apply} shape, so it gets its own dedicated handler
 // (combine_odin.go) instead.
-var combineItemTypes = []protocol.Type{
-	protocol.MsgCombineItem, protocol.MsgCombineItemEhre, protocol.MsgCombineItemTiny,
-	protocol.MsgCombineItemShany, protocol.MsgCombineItemAilyn, protocol.MsgCombineItemAgatha,
-	protocol.MsgCombineItemLindy, protocol.MsgCombineItemAlquimia,
-}
+var combineItemTypes = []protocol.Type{protocol.MsgCombineItem}
 
 // defaultCombineFamily is the UNVERIFIED placeholder used until the recipe/rate
 // tables (Common/Settings/CompRate.txt) and ItemList are loaded (Phase 5): every
@@ -103,10 +99,6 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		return
 	}
-	if h.Type == protocol.MsgCombineItemAlquimia && e.Class != 3 {
-		sendCombineComplete(w, s, combineInvalid)
-		return
-	}
 	fam, ok := d.combineFamilies[h.Type]
 	if !ok {
 		return
@@ -120,12 +112,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	if !ok {
 		return
 	}
-	items := make([]world.Item, len(active))
-	slots := make([]int, len(active))
-	for i, pos := range active {
-		items[i] = byPos[pos]
-		slots[i] = slotByPos[pos]
-	}
+	items := byPos[:]
 
 	rate := 0
 	if len(items) > 0 {
@@ -138,7 +125,8 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	}
 
 	// Consume the inputs BEFORE the roll (lost on failure, by design).
-	for _, sl := range slots {
+	for _, pos := range active {
+		sl := slotByPos[pos]
 		e.Carry[sl] = world.Item{}
 		sendCarrySlot(w, s, e, sl)
 	}
@@ -148,7 +136,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 		return
 	}
 
-	ipos := slots[0]
+	ipos := slotByPos[active[0]]
 	e.Carry[ipos] = fam.Apply(items)
 	sendCombineComplete(w, s, combineSuccess)
 	sendCarrySlot(w, s, e, ipos)

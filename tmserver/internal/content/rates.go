@@ -47,6 +47,64 @@ func (c *CompRate) AnctChance() [3]int {
 	return def
 }
 
+// ehreRateDefaults is g_pEhreRate (Basedef.cpp:84), indexed by the recipe id
+// GetMatchCombineEhre returns. Index 0 is unused (0 = "no recipe") and index 5
+// (Refinação abençoada purificada) has NO CompRate key — the handler recomputes
+// that one from the character's level, so the compiled default just sits there.
+var ehreRateDefaults = [10]int{0, 100, 100, 40, 10, 10, 100, 100, 100, 100}
+
+// ehreRateKeys maps the CompRate.txt "Ehre <key>" tokens to their g_pEhreRate
+// slot (CReadFiles.cpp:414-434). The file only OVERRIDES what it lists, so the
+// defaults above are the starting point — same contract as SancRate.
+var ehreRateKeys = map[string]int{
+	"PACOTE_ORI":             1,
+	"MISTERIOSA":             2,
+	"ESPIRITUAL":             3,
+	"AMUNRA":                 4,
+	"TRAJE_MONTARIA":         6,
+	"RETIRAR_TRAJE_MONTARIA": 7,
+	"SOUL":                   8,
+}
+
+// EhreRates returns the Ehre family's per-recipe success rates, indexed by the
+// recipe id (1..8) that combine.MatchEhre returns.
+func (c *CompRate) EhreRates() [10]int {
+	out := ehreRateDefaults
+	if c == nil {
+		return out
+	}
+	for key, idx := range ehreRateKeys {
+		if r, ok := c.rateCI("Ehre", key); ok {
+			out[idx] = r
+		}
+	}
+	return out
+}
+
+// chanceBaseDefaults are g_pTinyBase/g_pShanyBase/g_pAilynBase/g_pAgathaBase
+// (Basedef.cpp:108-111), the single "ChanceBase" rate each of those families
+// carries in CompRate.txt.
+var chanceBaseDefaults = map[string]int{
+	"TINY":   15,
+	"SHANY":  35,
+	"AILYN":  100,
+	"AGATHA": 15,
+}
+
+// ChanceBase returns a family's "ChanceBase" rate from CompRate.txt, falling
+// back to the compiled Basedef default. An unknown family returns 0, which
+// makes its recipes always fail rather than silently succeed.
+func (c *CompRate) ChanceBase(family string) int {
+	def := chanceBaseDefaults[asciiUpper(family)]
+	if c == nil {
+		return def
+	}
+	if r, ok := c.rateCI(family, "ChanceBase"); ok {
+		return r
+	}
+	return def
+}
+
 func (c *CompRate) rateCI(family, key string) (int, bool) {
 	if r, ok := c.Rate(family, key); ok {
 		return r, true

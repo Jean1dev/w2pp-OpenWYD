@@ -22,9 +22,10 @@ Aplica-se a: `_MSG_CombineItemEhre` (0x02D3), `_MSG_CombineItemTiny` (0x03C0),
   (rate table, Fase 4 §3; influência de `Sanc`/anct) → **sucesso**: aplica o upgrade no item
   resultante + `SendItem` + `_NN_Processing_Complete`; **falha**: `_NN_CombineFailed` (pode consumir/
   degradar insumos conforme a receita). `ItemLog` em ambos.
-- **Diferença entre variantes:** apenas a **receita e a tabela de taxas** (cada nome — Tiny, Shany,
-  Ailyn, Agatha, Odin, Lindy, Alquimia, Ehre — é um sistema/NPC de refino distinto). O esqueleto de
-  validação e o fluxo sucesso/falha são os mesmos.
+- **Diferença entre variantes:** receita, taxa, custo, slots consumidos e efeito final variam. Ailyn
+  preserva os slots 0/1 na falha e custa 50M; Tiny custa 100M e destrói o alvo na falha; Agatha
+  preserva o slot 1; Shany entrega o item 633 via `PutItem`; Alquimia usa `Special[2]`; Lindy é um
+  desbloqueio Arch determinístico e persistente; Ehre possui oito resultados diferentes.
 - **Anti-cheat/risco:**
   - **Dup/anti-spam:** o cooldown anti-spam de refino está **comentado** no base
     (`_MSG_UseItem.cpp:209-221`, ver lote 1) — reintroduzir no novo servidor.
@@ -32,10 +33,9 @@ Aplica-se a: `_MSG_CombineItemEhre` (0x02D3), `_MSG_CombineItemTiny` (0x03C0),
     receita/tabela (resolve o risco apontado pela arquitetura).
   - **RNG:** `rand() % 115` é a fonte de não-determinismo — seed injetável para golden cases
     (testar **distribuição**, não valor exato; Fase 8 §4).
-  - **UNVERIFIED por variante:** a receita exata (itens de entrada→saída) e a taxa de cada uma — abrir
-    arquivo a arquivo e cruzar com `Common/Settings/CompRate.txt`/`SancRate.txt` (Fase 4 §3).
-    `Ehre` (395 linhas) e `Odin` (722 linhas) têm lógica/recompensas próprias mais extensas (não usam
-    os mesmos `_NN_*` padrão) — exigem leitura dedicada.
+  - As sete variantes restantes foram portadas em `handler/combine_variants.go`, com matchers puros
+    em `internal/combine/match.go`, a partir de `GetFunc.cpp:187-506,622-687` e dos respectivos
+    `_MSG_CombineItem<Nome>.cpp`. Odin continua no handler dedicado `combine_odin.go`.
 
 ## Caso especial — `_MSG_CombineItemExtracao` (0x02D4)
 - **Gatilho/struct:** **`MSG_STANDARDPARM2`** (não `MSG_CombineItem`): `Parm2 = ItemSlot`.

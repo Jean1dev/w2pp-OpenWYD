@@ -90,6 +90,11 @@ var efName = map[string]uint8{
 	"EF_MAGIC":     60,
 	"EF_DAMAGEADD": 67, "EF_MAGICADD": 68, "EF_HPADD2": 69, "EF_MPADD2": 70, "EF_CRITICAL2": 71,
 	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
+	// EF_ITEMTYPE is not a score stat either: it is read only by the combine
+	// matchers (GetFunc.cpp:487 Agatha) as a recipe gate, exactly like EF_NOSANC
+	// gates the refine path. Without it in this whitelist those gates read 0 for
+	// every item and silently pass/fail the wrong way.
+	"EF_ITEMTYPE": 113,
 	// Refine gates (_MSG_UseItem.cpp dust path): EF_NOSANC marks an item that can
 	// never be refined; the two incubation effects drive the mount-egg branch.
 	"EF_NOSANC": 126, "EF_INCUBATE": 78, "EF_INCUDELAY": 84,

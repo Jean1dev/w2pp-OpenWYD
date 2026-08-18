@@ -161,7 +161,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       max_hp, max_mp, hp, mp, critical, regen_hp, regen_mp,
 		       resist_fire, resist_ice, resist_thunder, resist_magic,
 		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
-		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica,
+		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
 		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
@@ -169,7 +169,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ScoreBonus, &ch.SpecialBonus, &ch.SkillBonus, &ch.MaxHp, &ch.MaxMp, &ch.Hp, &ch.Mp,
 			&ch.Critical, &ch.RegenHP, &ch.RegenMP, &ch.ResistFire, &ch.ResistIce, &ch.ResistThunder,
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
-			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &skillBar, &shortSkill, &special,
+			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &ch.ArchLv355, &ch.ArchLv370, &skillBar, &shortSkill, &special,
 			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
@@ -374,7 +374,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			score_bonus=$18, special_bonus=$19, learned_skill=$20, sec_learned_skill=$21, soul=$22, fame=$23,
 			special=$24, skill_bar=$25, short_skill=$26, save_x=$27, save_y=$28,
 			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32, terra_mistica=$33,
-			pk_point=$34, guilty=$35, cur_kill=$36, tot_kill=$37
+			arch_lv355=$34, arch_lv370=$35, pk_point=$36, guilty=$37, cur_kill=$38, tot_kill=$39
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -384,7 +384,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.Fame,
 		ch.Special[:], byteArrToInt16Arr(ch.SkillBar[:]), byteArrToInt16Arr(ch.ShortSkill[:]),
 		ch.SaveX, ch.SaveY,
-		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica,
+		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica, ch.ArchLv355, ch.ArchLv370,
 		ch.PKPoint, ch.Guilty, ch.CurKill, ch.TotKill,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {

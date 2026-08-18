@@ -187,6 +187,8 @@ message Character {
   int32 guilty = 41;    // PvP "red nick" decay counter
   int32 cur_kill = 42;  // current PvP kill streak
   uint32 tot_kill = 43; // lifetime PvP kills
+  int32 arch_lv355 = 44; // QuestInfo.Arch.Level355
+  int32 arch_lv370 = 45; // QuestInfo.Arch.Level370
 }
 
 message Item {

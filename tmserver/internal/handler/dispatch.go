@@ -48,7 +48,9 @@ type Config struct {
 	// lookup, Plus12's nPos gate). NewCombineCatalog builds it the same way
 	// DefaultCombineFamilies does. When zero, every Odin recipe still matches by
 	// sIndex, but Composição de Sets/armas can't resolve a result item.
-	OdinCatalog combine.Catalog
+	OdinCatalog    combine.Catalog
+	CombineCatalog combine.Catalog
+	CompRate       *content.CompRate
 
 	// BaseMobs are the per-class STRUCT_MOB templates (class index → raw 816 bytes,
 	// content.LoadBaseMobs). Used to render a character on entering the world with
@@ -147,6 +149,8 @@ type Dispatcher struct {
 	fails           map[string]int // wrong-password count per account (CheckFailAccount)
 	combineFamilies map[protocol.Type]CombineFamily
 	odinCatalog     combine.Catalog
+	combineCatalog  combine.Catalog
+	compRate        *content.CompRate
 	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
 	summonMobs      [][]byte                     // BM evocation templates (summon id → STRUCT_MOB)
 	vineMob         []byte                       // Sephira Muro de Espinhos template
@@ -270,6 +274,8 @@ func New(cfg Config) *Dispatcher {
 		fails:            make(map[string]int),
 		combineFamilies:  cfg.CombineFamilies,
 		odinCatalog:      cfg.OdinCatalog,
+		combineCatalog:   cfg.CombineCatalog,
+		compRate:         cfg.CompRate,
 		baseMobs:         cfg.BaseMobs,
 		summonMobs:       cfg.SummonMobs,
 		vineMob:          cfg.VineMob,
@@ -369,6 +375,13 @@ func New(cfg Config) *Dispatcher {
 	}
 	d.routes[protocol.MsgCombineItemExtracao] = d.combineExtracao
 	d.routes[protocol.MsgCombineItemOdin] = d.combineItemOdin
+	d.routes[protocol.MsgCombineItemAilyn] = d.combineItemAilyn
+	d.routes[protocol.MsgCombineItemTiny] = d.combineItemTiny
+	d.routes[protocol.MsgCombineItemShany] = d.combineItemShany
+	d.routes[protocol.MsgCombineItemAgatha] = d.combineItemAgatha
+	d.routes[protocol.MsgCombineItemLindy] = d.combineItemLindy
+	d.routes[protocol.MsgCombineItemAlquimia] = d.combineItemAlquimia
+	d.routes[protocol.MsgCombineItemEhre] = d.combineItemEhre
 	// Batch 7 — party & guild.
 	d.routes[protocol.MsgSendReqParty] = d.sendReqParty
 	d.routes[protocol.MsgAcceptParty] = d.acceptParty

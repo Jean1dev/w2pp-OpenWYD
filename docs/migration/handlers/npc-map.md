@@ -88,7 +88,8 @@ quests grade 11–16/24–30) **não**.
 ## Já implementado (fora do _MSG_Quest)
 - **Loja NPC** (Merchant 1/19): `reqShopList`, `buy`, `sell`.
 - **Cargo/banco** (Merchant 2): `reqShopList` → `openCargo`, deposit/withdraw.
-- **Combine/refino**: família `combineItem` (Odin/Lindy/Shany/… via opcodes dedicados).
+- **Combine/refino**: `combineItem` (Anct), `combineItemOdin` e os handlers dedicados
+  `combineItemAilyn/Ehre/Tiny/Shany/Agatha/Lindy/Alquimia`.
 - **Perzen** (Merchant 100 grade 7/8/9): troca esfera→montaria.
 - **King Arch** (Merchant 111): cria personagem Arch a partir dos reis canônicos.
 - **Mestre Grifo** (`_MSG_MasterGriff` 0x0AD9): teleporta, após a animação de viagem do cliente, para

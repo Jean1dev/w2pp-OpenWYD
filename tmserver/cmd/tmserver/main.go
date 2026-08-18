@@ -150,6 +150,7 @@ func run(logger *slog.Logger) error {
 	var spells *content.SkillData
 	var heights *content.Grid
 	var sancRate *content.SancRate
+	var compRate *content.CompRate
 	if *contentDir != "" {
 		c, err := loadContent(*contentDir, logger)
 		if err != nil {
@@ -166,6 +167,7 @@ func run(logger *slog.Logger) error {
 		spells = c.skills
 		heights = c.heights
 		sancRate = c.sanc
+		compRate = c.comp
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -297,6 +299,8 @@ func run(logger *slog.Logger) error {
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		CombineFamilies: combineFamilies,
 		OdinCatalog:     odinCatalog,
+		CombineCatalog:  odinCatalog,
+		CompRate:        compRate,
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
 		CastleQuests:    castleQuests,

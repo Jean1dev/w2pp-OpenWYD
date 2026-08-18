@@ -130,6 +130,8 @@ type CharacterState struct {
 	CelLv90      uint8 // QuestInfo.Celestial.Lv90 gate
 	CelCircle    uint8 // QuestInfo.Circle (Arcana quest done)
 	TerraMistica uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
+	ArchLv355    uint8
+	ArchLv370    uint8
 	Soul         uint8
 	Fame         int32 // MobExtra.Fame
 	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
@@ -223,6 +225,8 @@ type CharacterSave struct {
 	CelLv90      uint8
 	CelCircle    uint8
 	TerraMistica uint8
+	ArchLv355    uint8
+	ArchLv370    uint8
 	// PK/karma state (issue #210) — see CharacterState for field meanings.
 	PKPoint     uint8
 	Guilty      uint8
