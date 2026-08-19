@@ -34,6 +34,18 @@ const (
 	pkPointChaos   uint8 = 0  // red blinking nick
 )
 
+// pkPointPerLevel is the Chaos Point paid back per level gained (issue #279).
+//
+// DELIBERATE DIVERGENCE FROM THE LEGACY — do not "fix" this back to parity
+// without reading the issue. The original never tied PKPoint to leveling: its
+// only natural recovery is the hourly RegenMob gate (Server.cpp:4872-4881,
+// ported below as pkPointRecoverPeriod), which is why issue #210 was closed
+// without this. Issue #279 reopened it as a design decision for this server:
+// leveling must also pay chaos back, so a character grinding out of chaos sees
+// the nick go white. Same +1 step and same 75 ceiling as the hourly gate, and it
+// stacks with it rather than replacing it.
+const pkPointPerLevel = 1
+
 // pkGuilty reports whether e is currently in the chaotic (red-blinking-nick)
 // state: its Guilty decay counter (GetFunc.cpp KILL_MARK slot) hasn't reached 0.
 func pkGuilty(e *world.Entity) bool {
@@ -91,6 +103,37 @@ func (d *Dispatcher) markGuilty(w *world.World, s *world.Session, e *world.Entit
 	}
 }
 
+// grantLevelUpPKPoint pays levels × pkPointPerLevel back toward the neutral 75
+// after a level-up (issue #279). It never pushes past 75: the 76..150 range only
+// comes from the quest/item paths (_MSG_Quest.cpp:2569-2579, _MSG_UseItem.cpp:3867)
+// and leveling must not top those up — same ceiling the hourly recovery uses.
+//
+// The gain is reported once, not per level, so a multi-level jump (Poeira de
+// Fada, GM /setlevel) produces a single chat line, and the PK state is
+// re-broadcast so the nick recolors without a relog. While Guilty > 0 the visible
+// pkPoint(e) is pinned at 0, so the CreateMob would carry the same byte as before
+// — skip the broadcast then and let the Guilty decay in sweepGuilty do it.
+// s may be nil (the GM/offline applyLevelUps callers).
+func (d *Dispatcher) grantLevelUpPKPoint(w *world.World, s *world.Session, e *world.Entity, levels int32) {
+	if levels <= 0 || e.PKPoint >= pkPointNeutral {
+		return
+	}
+	// int arithmetic first: levels can be in the hundreds (/setlevel), which would
+	// overflow the uint8 counter.
+	gain := int(levels) * pkPointPerLevel
+	if room := int(pkPointNeutral - e.PKPoint); gain > room {
+		gain = room
+	}
+	e.PKPoint += uint8(gain)
+	if s == nil {
+		return
+	}
+	d.sendChatText(w, s, notifyPKPointDelta(e.PKPoint, gain))
+	if !pkGuilty(e) {
+		d.broadcastPKState(w, s, e)
+	}
+}
+
 // pkMode handles _MSG_PKMode (0x0399): the client's K-key Player-Killer consent
 // toggle (Exec_MSG_PKMode, _MSG_PKMode.cpp). Toggling only flips the consent gate
 // checked by attack() — it cancels any active trade (same anti-dup guard as
@@ -136,6 +179,13 @@ func (d *Dispatcher) sweepGuilty(w *world.World) {
 		if pkTick && e.PKPoint < pkPointNeutral {
 			e.PKPoint++
 			d.sendChatText(w, s, notifyPKPointDelta(e.PKPoint, 1))
+			// The recovered point changes MobName[12], so the nick has to be
+			// repainted here too — otherwise it keeps the stale color until the
+			// next CreateMob (a relog, or leaving and re-entering someone's view).
+			// Pinned at 0 while Guilty > 0, so nothing to repaint in that case.
+			if !pkGuilty(e) {
+				d.broadcastPKState(w, s, e)
+			}
 		}
 	})
 }
