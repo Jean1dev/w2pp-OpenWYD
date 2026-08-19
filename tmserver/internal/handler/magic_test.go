@@ -167,7 +167,7 @@ func TestClassWeaponMagic(t *testing.T) {
 		{name: "BM staff position", class: 2, pos: 64, learnedSkills: 1 << 23, want: 47},
 		{name: "HT sceptre", class: 3, unique: 47, learnedSkills: 1 << 2, want: 259},
 		{name: "HT has no position branch", class: 3, pos: 64, learnedSkills: 1 << 2},
-		{name: "three evolution bits stack", class: 1, unique: 44, learnedSkills: 1<<7 | 1<<15 | 1<<23, want: 141},
+		{name: "three evolution bits grant once", class: 1, unique: 44, learnedSkills: 1<<7 | 1<<15 | 1<<23, want: 47},
 		{name: "no learned evolution", class: 1, unique: 44},
 		{name: "physical weapon", class: 1, unique: 42, learnedSkills: 1 << 7},
 	}
@@ -181,6 +181,44 @@ func TestClassWeaponMagic(t *testing.T) {
 				t.Fatalf("classWeaponMagic = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestClassWeaponMagicIssue280 reproduces the report's Foema attributes with a
+// dual-hand staff carrying the displayed +15 magic values. Learning all three
+// evolutions must not triple the category bonus when the weapon is equipped.
+func TestClassWeaponMagicIssue280(t *testing.T) {
+	const weapon = 700
+	d := New(Config{
+		ItemEffects: map[int][]content.BaseEffect{weapon: {{Eff: efMagic, Val: 38}}},
+		ItemUnique:  map[int]int{weapon: 47},
+		ItemPos:     map[int]int{weapon: nPosWeapon2},
+	})
+	e := &world.Entity{
+		ID:           1,
+		Class:        1,
+		BaseInt:      3347,
+		BaseDex:      12,
+		LearnedSkill: 1<<7 | 1<<15 | 1<<23,
+	}
+	e.Equip[weaponSlotR] = world.Item{
+		Index: weapon,
+		Effects: [3]world.Effect{
+			{Effect: efSanc, Value: 250},
+			{Effect: efMagic, Value: 32},
+		},
+	}
+
+	d.refreshScore(e)
+	// Item: ((38+32)*37/10+1)/4 = 65. Class weapon: (12*6.3+3347*4.2)/100 = 141.
+	if e.Magic != 206 {
+		t.Fatalf("Magic with issue #280 staff = %d, want 206", e.Magic)
+	}
+
+	e.Equip[weaponSlotR] = world.Item{}
+	d.refreshScore(e)
+	if e.Magic != 0 {
+		t.Fatalf("Magic after unequip = %d, want 0", e.Magic)
 	}
 }
 
