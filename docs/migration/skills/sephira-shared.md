@@ -14,6 +14,9 @@ Windows `WIN-SKILL-007/008` fecharam a regra viva deste build:
   isso ainda e preservado como dado de save, mas a promocao/troca de tier nao faz parte desta fase.
 - Affects/ticks `40/41/43/44/45/46/47/48` sao icon-only/no-op no servidor original: entram no slot,
   aparecem no cliente e decaem, mas nao alteram score, dano, resist, regen, target, on-hit ou cooldown.
+- A "Soul permanente" entregue pela Kibita e outra flag: ela ativa diretamente o bit 30 de
+  `LearnedSkill`. Nao ensina a skill 102 (cujo gate vivo e o bit `102%24 == 6`) e nao preenche
+  `MobExtra.Soul`, que continua sendo o atributo lido pelo affect 29 de `Limite_da_Alma`.
 
 Evidencia usa os codigos definidos em `README.md`.
 

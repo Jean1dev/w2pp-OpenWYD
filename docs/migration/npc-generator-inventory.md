@@ -18,7 +18,7 @@ Principais grupos que estavam integral ou parcialmente ausentes:
 | 23/24 | 2 | Mestre_Grifo, Alquimista_Odin | quest/combine |
 | 32 | 65 | guardas e cavaleiros | evento/combate |
 | 64 | 178 | Zakum, arqueiros, lanceiros | evento/combate |
-| 74 | 2 | Kibita, Lindy | quest/combine parcial |
+| 74 | 2 | Kibita, Lindy | Lindy + Soul permanente; cidadania/buff da Kibita pendentes |
 | 78 | 2 | BlueOracle, RedOracle | quest |
 | 96 | 43 | guardas, soldados e Lanceiro | evento/combate |
 | 100 | 26 | cadeia Quest 256 e tutoriais | quest parcial |
@@ -27,3 +27,8 @@ Principais grupos que estavam integral ou parcialmente ausentes:
 Casos não classificados com paridade comprovada permanecem `UNVERIFIED` e são
 acompanhados pela issue guarda-chuva. A presença no mundo não implica que a
 interação específica já esteja implementada.
+
+No grupo 74, o generator da Kibita já aciona o ramo permanente documentado em
+`handlers/_MSG_Quest-npcs.md`: Pedra Secreta por classe, bit 30 de `LearnedSkill`, capa por reino e
+retorno à seleção. O grupo continua parcial porque os outros dois serviços do mesmo `case KIBITA`
+(cidadania e o buff protegido por `#ifdef KIBITA_SOUL`) não fazem parte desse port.

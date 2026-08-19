@@ -583,6 +583,14 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 	if s.Mode != world.UserPlay {
 		return
 	}
+	d.returnToCharacterSelection(w, s, nil)
+}
+
+// returnToCharacterSelection performs the world cleanup and durable save shared
+// by ordinary logout and legacy quest transitions that force a character reload.
+// after runs in the world loop after the client has received the logout
+// confirmation, so follow-up selection-screen effects cannot race the save.
+func (d *Dispatcher) returnToCharacterSelection(w *world.World, s *world.Session, after func(*world.World, *world.Session)) {
 	// Leave the party (and reap this character's summons) first, while the session
 	// is still UserPlay — sendRemoveParty/sendAddParty only reach UserPlay
 	// recipients (_MSG_CharacterLogout.cpp:23 calls RemoveParty for the same
@@ -617,6 +625,9 @@ func (d *Dispatcher) characterLogout(w *world.World, s *world.Session, _ protoco
 			s.TradeMode = 0
 			s.Mode = world.UserSelChar
 			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+			if after != nil {
+				after(w, s)
+			}
 		})
 	})
 }

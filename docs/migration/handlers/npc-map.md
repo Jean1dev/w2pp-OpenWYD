@@ -46,7 +46,7 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 64 | 65 | Magician, Imp, Wizard | _MSG_Quest | ❌ |
 | 68 | 17 | Kemi, Aylin, Jasmine | _MSG_Quest (GODGOVERNMENT) | ❌ |
 | 72 | — | Uxmal (ver merchant 104) | _MSG_Quest (UXMAL) | ❌ |
-| 74 | 3 | Kibita, Lindy | CombineItem (Lindy) / _MSG_Quest | ⚠️ parcial (Lindy combine ✅) |
+| 74 | 3 | Kibita, Lindy | CombineItem (Lindy) / _MSG_Quest | ⚠️ Lindy e Soul permanente ✅; cidadania/buff pendentes |
 | 76 | 3 | Urnammu | _MSG_Quest (URNAMMU) | ❌ |
 | 78 | 3 | QuestOffice, Blue/RedOracle | _MSG_Quest (BLACKORACLE) | ❌ |
 | 80/84 | 1/1 | Aaryan, Oraculo_Negro | _MSG_Quest | ❌ |
@@ -94,6 +94,9 @@ quests grade 11–16/24–30) **não**.
 - **Coveiro** (Merchant 100 grade 0): etapa 1 da cadeia Quest 256 ("Defensor da Alma", issue #261) —
   `quest256NPC` em `handler/misc.go` consome a Vela do Coveiro (4038), seta `QuestFlag = 1` e
   teleporta para `(2398,2105)`. Grades 1–4 (Jardineiro/Kaizen/Hidra/Elfos) ainda pendentes.
+- **Kibita** (Merchant 74): o ramo permanente consome a Pedra Secreta da classe, ativa
+  `LearnedSkill` bit 30, troca `Equip[15]` pela capa 3194/3195/3196 e retorna à seleção. A compra de
+  cidadania e o buff compilado por `KIBITA_SOUL` ainda não foram portados.
 - **King Arch** (Merchant 111): cria personagem Arch a partir dos reis canônicos.
 - **Mestre Grifo** (`_MSG_MasterGriff` 0x0AD9): teleporta, após a animação de viagem do cliente, para
   Defensor de Almas `(2372,2099)`, Jardim dos Deuses `(2220,1714)`, Calabouco `(2365,2279)` ou
