@@ -232,13 +232,13 @@ func classMagicTable(cls uint8) []magicWeaponCoef {
 	}
 }
 
-// classWeaponMagic is the magic half of the same per-class weapon blocks
-// classWeaponDamage ports (Basedef.cpp:3294-3844): the original adds
-// ((Dex*dexK) + (Int*intK)) / 100 to the running `magic` inside each evolution
-// block, so the term counts once per LearnedSkill bit that is set — three times
-// over for a TK/FM/BM carrying all of Confiança/Trans/Espada Mágica, exactly like
-// the damage lane. Dex/Int are read post-equipment (CurrentScore), which is why
-// refreshScore calls this after assigning e.Dex/e.Int.
+// classWeaponMagic derives the magic granted by the equipped weapon category.
+// Basedef.cpp:3294-3844 repeats this term in every learned evolution block, which
+// can triple the loss when a caster unequips a weapon. Issue #280 deliberately
+// limits that legacy behavior to one grant once any class evolution is learned.
+// The separate nUnique and nPos matches remain additive, as they describe distinct
+// properties of the weapon. Dex/Int are read post-equipment (CurrentScore), which
+// is why refreshScore calls this after assigning e.Dex/e.Int.
 //
 // The truncation matches the original: `magic` is an int and the right-hand side a
 // double, so each addition truncates. Because `magic` is already integral that is
@@ -258,7 +258,7 @@ func (d *Dispatcher) classWeaponMagic(e *world.Entity) int32 {
 	nUnique := d.itemUnique[int(weapon.Index)]
 	nPos := d.itemPos[int(weapon.Index)]
 
-	var perBit int32
+	var weaponBonus int32
 	for _, w := range table {
 		key := nUnique
 		if w.byPos {
@@ -267,20 +267,18 @@ func (d *Dispatcher) classWeaponMagic(e *world.Entity) int32 {
 		if key != w.key {
 			continue
 		}
-		perBit += int32((float64(e.Dex)*w.dexK + float64(e.Int)*w.intK) / 100)
+		weaponBonus += int32((float64(e.Dex)*w.dexK + float64(e.Int)*w.intK) / 100)
 	}
-	if perBit == 0 {
+	if weaponBonus == 0 {
 		return 0
 	}
 
-	var total int32
 	for _, bit := range classSkillBits(e.Class) {
-		if e.LearnedSkill&(1<<bit) == 0 {
-			continue
+		if e.LearnedSkill&(1<<bit) != 0 {
+			return weaponBonus
 		}
-		total += perBit
 	}
-	return total
+	return 0
 }
 
 func skillFlatDamage(e *world.Entity) int32 {

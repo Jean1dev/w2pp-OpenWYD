@@ -55,6 +55,34 @@ func parseBin(t *testing.T, path string) map[int32]binVisual {
 	return out
 }
 
+// binEffectValue reads one static effect from a compiled catalog record. Keeping
+// this decoder independent from the CSV parser makes the client artifact itself
+// part of the issue #281 regression coverage.
+func binEffectValue(t *testing.T, path string, index int, effect int16) (int16, bool) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	start := index * binRecord
+	if start < 0 || start+binRecord > len(raw) {
+		t.Fatalf("item index %d outside %s", index, path)
+	}
+	rec := make([]byte, binRecord)
+	for i, b := range raw[start : start+binRecord] {
+		rec[i] = b ^ binXOR
+	}
+	const effectsOffset = 80 // Name[64] + mesh/texture/vfx[3] + requirements[5].
+	for slot := 0; slot < 12; slot++ {
+		off := effectsOffset + slot*4
+		gotEffect := int16(binary.LittleEndian.Uint16(rec[off : off+2]))
+		if gotEffect == effect {
+			return int16(binary.LittleEndian.Uint16(rec[off+2 : off+4])), true
+		}
+	}
+	return 0, false
+}
+
 // driftBaseline is the set of items whose visual fields already differ between
 // ItemList.csv and the stale ItemList.bin, collected with
 // `scripts/item-icon-manifest.py --check-bin`. The .csv wins — it is what the
@@ -152,6 +180,25 @@ func TestBinDriftMatchesBaseline(t *testing.T) {
 	for i := range drift {
 		if drift[i] != driftBaseline[i] {
 			t.Errorf("drift[%d] = %d, want %d (full set: %v)", i, drift[i], driftBaseline[i], drift)
+		}
+	}
+}
+
+func TestBinMagicRebalanceMatchesClientCatalog(t *testing.T) {
+	binPath := filepath.Join(releaseDir(t), "DBsrv", "run", "ItemList.bin")
+	if _, err := os.Stat(binPath); err != nil {
+		t.Skipf("ItemList.bin not available: %v", err)
+	}
+	for _, tc := range []struct {
+		index int
+		want  int16
+	}{
+		{3582, 55},
+		{3725, 70}, {3726, 70}, {3727, 70}, {3728, 70},
+	} {
+		got, ok := binEffectValue(t, binPath, tc.index, 60) // EF_MAGIC
+		if !ok || got != tc.want {
+			t.Errorf("ItemList.bin item %d EF_MAGIC = %d (found=%v), want %d", tc.index, got, ok, tc.want)
 		}
 	}
 }

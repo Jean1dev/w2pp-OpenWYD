@@ -15,7 +15,7 @@ const (
 	magicRightHand   = 622  // EF_MAGIC on the right-hand weapon slot (6) — still counts
 	magicAddJewel    = 623  // EF_MAGICADD, registered as a jewel (nUnique 41-50) in magicConfig
 	magicAddNonJewel = 624  // EF_MAGICADD, no nUnique entry — must NOT count
-	magicChaoticAnct = 3725 // Cajado_Caotico(Anct), the real issue #223 reproduction
+	magicChaoticAnct = 3725 // Cajado_Caotico(Anct), the real issue #281 reproduction
 )
 
 // magicConfig is the catalog the magic tests read: static effects and the nUnique each
@@ -28,7 +28,7 @@ func magicConfig() Config {
 			magicRightHand:   {{Eff: efMagic, Val: 40}},
 			magicAddJewel:    {{Eff: efMagicAdd, Val: 20}},
 			magicAddNonJewel: {{Eff: efMagicAdd, Val: 20}},
-			magicChaoticAnct: {{Eff: efMagic, Val: 63}},
+			magicChaoticAnct: {{Eff: efMagic, Val: 70}},
 		},
 		ItemUnique: map[int]int{
 			magicAddJewel:    45, // nUnique range 41-50
@@ -76,9 +76,9 @@ func TestMagicFromEquipment(t *testing.T) {
 			want:  0,
 		},
 		{
-			// ItemList[3725] has EF_MAGIC 63; the instance carries another
+			// ItemList[3725] has the rebalanced EF_MAGIC 70; the instance carries another
 			// EF_MAGIC 8 and packed +15 (250). BASE_GetItemSanc maps +15 to
-			// REF_15=27: (63+8)*37/10 = 262, then (262+1)/4 = 65.
+			// REF_15=27: (70+8)*37/10 = 288, then (288+1)/4 = 72.
 			name: "Cajado Caotico Anct +15 applies refined magic",
 			equip: map[int]world.Item{weaponSlotR: {
 				Index: magicChaoticAnct,
@@ -87,7 +87,7 @@ func TestMagicFromEquipment(t *testing.T) {
 					{Effect: efMagic, Value: 8},
 				},
 			}},
-			want: 65,
+			want: 72,
 		},
 		{
 			// Mount magicRaw (Thoroughbred 30D: 110, mountBonusTable row {750,110,80,32,6})
@@ -167,7 +167,7 @@ func TestClassWeaponMagic(t *testing.T) {
 		{name: "BM staff position", class: 2, pos: 64, learnedSkills: 1 << 23, want: 47},
 		{name: "HT sceptre", class: 3, unique: 47, learnedSkills: 1 << 2, want: 259},
 		{name: "HT has no position branch", class: 3, pos: 64, learnedSkills: 1 << 2},
-		{name: "three evolution bits stack", class: 1, unique: 44, learnedSkills: 1<<7 | 1<<15 | 1<<23, want: 141},
+		{name: "three evolution bits grant once", class: 1, unique: 44, learnedSkills: 1<<7 | 1<<15 | 1<<23, want: 47},
 		{name: "no learned evolution", class: 1, unique: 44},
 		{name: "physical weapon", class: 1, unique: 42, learnedSkills: 1 << 7},
 	}
@@ -181,6 +181,44 @@ func TestClassWeaponMagic(t *testing.T) {
 				t.Fatalf("classWeaponMagic = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestClassWeaponMagicIssue280 reproduces the report's Foema attributes with a
+// dual-hand staff carrying the displayed +15 magic values. Learning all three
+// evolutions must not triple the category bonus when the weapon is equipped.
+func TestClassWeaponMagicIssue280(t *testing.T) {
+	const weapon = 700
+	d := New(Config{
+		ItemEffects: map[int][]content.BaseEffect{weapon: {{Eff: efMagic, Val: 38}}},
+		ItemUnique:  map[int]int{weapon: 47},
+		ItemPos:     map[int]int{weapon: nPosWeapon2},
+	})
+	e := &world.Entity{
+		ID:           1,
+		Class:        1,
+		BaseInt:      3347,
+		BaseDex:      12,
+		LearnedSkill: 1<<7 | 1<<15 | 1<<23,
+	}
+	e.Equip[weaponSlotR] = world.Item{
+		Index: weapon,
+		Effects: [3]world.Effect{
+			{Effect: efSanc, Value: 250},
+			{Effect: efMagic, Value: 32},
+		},
+	}
+
+	d.refreshScore(e)
+	// Item: ((38+32)*37/10+1)/4 = 65. Class weapon: (12*6.3+3347*4.2)/100 = 141.
+	if e.Magic != 206 {
+		t.Fatalf("Magic with issue #280 staff = %d, want 206", e.Magic)
+	}
+
+	e.Equip[weaponSlotR] = world.Item{}
+	d.refreshScore(e)
+	if e.Magic != 0 {
+		t.Fatalf("Magic after unequip = %d, want 0", e.Magic)
 	}
 }
 

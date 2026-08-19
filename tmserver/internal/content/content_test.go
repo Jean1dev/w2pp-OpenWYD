@@ -333,8 +333,27 @@ func TestBaseEffectsMagic(t *testing.T) {
 	if err != nil {
 		t.Skipf("ItemList.csv unavailable: %v", err)
 	}
+	realEffects := full.BaseEffects()
+	for _, tc := range []struct {
+		idx  int
+		want int16
+	}{
+		{3582, 55},                                     // The common Cajado Caotico keeps its legacy value.
+		{3725, 70}, {3726, 70}, {3727, 70}, {3728, 70}, // Issue #281: rebalanced Anct variants.
+	} {
+		var got int16
+		for _, e := range realEffects[tc.idx] {
+			if e.Eff == 60 {
+				got = e.Val
+				break
+			}
+		}
+		if got != tc.want {
+			t.Errorf("real catalog item %d EF_MAGIC = %d, want %d", tc.idx, got, tc.want)
+		}
+	}
 	var withMagic int
-	for _, effs := range full.BaseEffects() {
+	for _, effs := range realEffects {
 		for _, e := range effs {
 			if e.Eff == 60 || e.Eff == 68 {
 				withMagic++
