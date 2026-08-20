@@ -72,10 +72,20 @@ Etapas sequenciais de progressão de nível (rumo ao cap 256/Arch). Cada NPC:
 | Etapa | NPC (grade) | Faixa de nível | Ticket (`sIndex`) | `QuestFlag` | Teleporte (aprox.) |
 |------:|-------------|----------------|------------------:|------------:|--------------------|
 | 1 | COVEIRO (0) ✅ | 39 – 115 | 4038 | 1 | (2398, 2105) |
-| 2 | JARDINEIRO (1) | 115 – 190 | 4039 | 2 | (2234, 1714) |
-| 3 | KAIZEN (2) | 190 – 265 | 4040 | 3 | (464, 3902) |
-| 4 | HIDRA (3) | 265 – 320 | 4041 | 4 | (668, 3756) |
-| 5 | ELFOS (4) | (ver `:470`) | (ver fonte) | 5 | (ver fonte) |
+| 2 | JARDINEIRO (1) ✅ | 115 – 190 | 4039 | 2 | (2234, 1714) |
+| 3 | KAIZEN (2) ✅ | 190 – 265 | 4040 | 3 | (464, 3902) |
+| 4 | HIDRA (3) ✅ | 265 – 320 | 4041 | 4 | (668, 3756) |
+| 5 | ELFOS (4) ✅ | 320 – 350 | 4042 | 5 | (1322, 4041) |
+
+> **Nomes in-game** (a fonte legada só usa os apelidos internos acima; estes são os nomes que o
+> cliente mostra na tooltip do ticket, levantados nas issues #261/#263/#264/#265):
+> 1 Coveiro = *Defensor da Alma* · 3 Kaizen = *Ressureição do Cavaleiro Negro* (NPC "Patrulha", na
+> Dungeon Negro) · 4 Hidra = *Hidra Imortal* (mesmo NPC "Patrulha") · 5 Elfos =
+> *Início da Infelicidade* (NPC "Guarda", no Submundo).
+>
+> A tooltip mostra a faixa **1-based** (ex.: "Mortal 321~350" para o passo 5), enquanto a checagem
+> legada usa o nível armazenado 0-based `[min, max)` — por isso os títulos das issues citam o limite
+> superior +1. Os valores da tabela são os do `_MSG_Quest.cpp`, e batem com a tooltip.
 
 ## Exemplos de NPCs não-cadeia (amostra detalhada)
 - **`MOUNT_MASTER` (Merchant 58, `:170`):** cura/ressuscita a montaria (`Equip[14]`, `sIndex`

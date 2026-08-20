@@ -53,7 +53,7 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 96 | 23 | King_Harabard, Lanceiro | _MSG_Quest | ❌ |
 | 97 | 2 | Armeiro_Odalac | _MSG_Quest | ❌ |
 | 99/116 | 2/2 | God_Government | _MSG_Quest (GODGOVERNMENT) | ❌ |
-| 100 | 34 | **Perzen**, Treinador1, Guarda_da_Sorte | _MSG_Quest (por grade) | ⚠️ **Perzen (grade 7/8/9) ✅**; resto ❌ |
+| 100 | 34 | **Perzen**, Coveiro, Jardineiro, Patrulha, Guarda | _MSG_Quest (por grade) | ⚠️ **cadeia Quest 256 (grades 0–4) e Perzen (7/8/9) ✅**; resto ❌ |
 | 101 | 8 | Cecilia, U_Ni_Corn | _MSG_Quest | ❌ montaria unicórnio? |
 | 104/105/107 | 4/2/1 | Uxmal, Treinador2/3, TrainerChief | _MSG_Quest (tutoriais) | ❌ |
 | 110 | 1 | Unicornio_Puro | _MSG_Quest | ❌ |
@@ -71,7 +71,8 @@ O **`Merchant`** do NPC decide o que o clique manda:
 ## Merchant==100 — sub-tipos por `EF_GRADE0`
 Ver a tabela completa em [_MSG_Quest-npcs.md](./_MSG_Quest-npcs.md). Resumo dos grades presentes
 no conteúdo: 0–16, 24, 26–30. **Implementado:** grade **7/8/9 = PERZEN** (troca esfera→montaria,
-data-driven por `npc.Carry[0]→[1]`). Os demais (cadeia Quest 256 grades 0–4, líder grade 5,
+data-driven por `npc.Carry[0]→[1]`) e a **cadeia Quest 256 inteira, grades 0–4**
+(Coveiro/Jardineiro/Patrulha_/Patrulha/Guarda). Os demais (líder grade 5,
 quests grade 11–16/24–30) **não**.
 
 ### Perzen — pares item→recompensa (data-driven, do template do NPC)
@@ -91,9 +92,19 @@ quests grade 11–16/24–30) **não**.
 - **Combine/refino**: `combineItem` (Anct), `combineItemOdin` e os handlers dedicados
   `combineItemAilyn/Ehre/Tiny/Shany/Agatha/Lindy/Alquimia`.
 - **Perzen** (Merchant 100 grade 7/8/9): troca esfera→montaria.
-- **Coveiro** (Merchant 100 grade 0): etapa 1 da cadeia Quest 256 ("Defensor da Alma", issue #261) —
-  `quest256NPC` em `handler/misc.go` consome a Vela do Coveiro (4038), seta `QuestFlag = 1` e
-  teleporta para `(2398,2105)`. Grades 1–4 (Jardineiro/Kaizen/Hidra/Elfos) ainda pendentes.
+- **Cadeia Quest 256 (completa)** — o helper `quest256NPC` em `handler/misc.go` cobre os cinco
+  grades; cada um consome o ticket da etapa, seta o `QuestFlag` e teleporta para a arena:
+
+  | grade | NPC | quest in-game | ticket | `QuestFlag` | arena | issue |
+  |------:|-----|---------------|-------:|------------:|-------|-------|
+  | 0 | Coveiro | Defensor da Alma | 4038 | 1 | (2398,2105) | #261 |
+  | 1 | Jardineiro | — | 4039 | 2 | (2234,1714) | — |
+  | 2 | Patrulha_ | Ressureição do Cavaleiro Negro | 4040 | 3 | (464,3902) | #263 |
+  | 3 | Patrulha | Hidra Imortal | 4041 | 4 | (668,3756) | #264 |
+  | 4 | Guarda | Início da Infelicidade | 4042 | 5 | (1322,4041) | #265 |
+
+  O mesmo ticket também funciona por clique-direito (`useQuest256Ticket`, `handler/item.go`), e
+  `guardQuest256Areas` (`handler/mobai.go`) expulsa quem entra na arena sem o `QuestFlag` da etapa.
 - **Kibita** (Merchant 74): o ramo permanente consome a Pedra Secreta da classe, ativa
   `LearnedSkill` bit 30, troca `Equip[15]` pela capa 3194/3195/3196 e retorna à seleção. A compra de
   cidadania e o buff compilado por `KIBITA_SOUL` ainda não foram portados.
@@ -107,9 +118,7 @@ quests grade 11–16/24–30) **não**.
    — alinha com o sistema de montaria (Shire/esfera) que estamos implementando.
 2. **Mestres de skill/classe** (Merchant 3, 31) — progressão.
 3. **Teleportes/guardas** (Merchant 36, 128) — locomoção.
-4. **Cadeia Quest 256** (Merchant 100 grades 1–4; o grade 0 / Coveiro já está feito) — progressão de
-   level (hardcoded; candidato a tabela data-driven `quest`/`quest_step`).
-5. Restante (reis, oráculos, governo, etc.) — quests pontuais.
+4. Restante (reis, oráculos, governo, etc.) — quests pontuais.
 
 > **Nota:** o engine de quest completo é hardcoded (level, tickets, coords) — forte candidato a
 > **conteúdo data-driven** (ver game-rules.md Fase 4). A troca Perzen já é data-driven (pelo Carry
