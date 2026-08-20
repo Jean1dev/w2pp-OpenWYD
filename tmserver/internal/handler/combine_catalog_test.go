@@ -23,7 +23,8 @@ const (
 	anctDiamond      = 2441
 	anctSacrifice    = 831
 	anctResultIndex  = 2452
-	anctSacrificeMax = 10 // AnctChance[2], "Compositor Item_+9" in CompRate.txt
+	anctSacrificeMax = 10   // AnctChance[2], "Compositor Item_+9" in CompRate.txt
+	aylinTarget      = 2451 // Porrete(Anct), grade 5, nPos 192
 )
 
 // releaseCombineCatalog builds the combine catalog from the real content tree,
@@ -129,5 +130,26 @@ func TestAnctResultSanc7WithReleaseCatalog(t *testing.T) {
 	}
 	if lvl := refine.Level(result); lvl != 7 {
 		t.Errorf("AnctResult sanc = %d, want 7", lvl)
+	}
+}
+
+// TestAilynCombineWithReleaseCatalog is the issue #269 recipe as the client
+// submits it: two equal grade-5 Anct items, one Pedra do Sábio and four
+// grade-matching jewels. Keeping this fixture on the shipped catalog prevents
+// synthetic Grade/nPos metadata from hiding a broken production wiring.
+func TestAilynCombineWithReleaseCatalog(t *testing.T) {
+	cat := releaseCombineCatalog(t)
+	target := world.Item{Index: aylinTarget, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	items := []world.Item{
+		target,
+		target,
+		{Index: itemPedraDoSabio},
+		{Index: anctDiamond},
+		{Index: anctDiamond},
+		{Index: anctDiamond},
+		{Index: anctDiamond},
+	}
+	if got := combine.MatchAilyn(cat, items, 10); got != 41 {
+		t.Fatalf("MatchAilyn = %d, want 41 (base 1 + four ChanceBase 10 jewels)", got)
 	}
 }
