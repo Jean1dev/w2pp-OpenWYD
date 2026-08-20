@@ -43,6 +43,25 @@ func TestMeetsEquipReq(t *testing.T) {
 	}
 }
 
+// TestMeetsEquipReqClasseD pins the gate against the rescaled class D gear of
+// issue #278: Tunica_de_Mytril(A) (ItemList.csv:1346) went from level 254 to 174,
+// so a mortal at 174 with the set's attributes must be able to wear it.
+func TestMeetsEquipReqClasseD(t *testing.T) {
+	d := New(Config{ItemReqs: map[int]content.ItemReq{
+		1346: {Lvl: 174, Str: 117, Int: 205},
+	}})
+	tunic := world.Item{Index: 1346}
+	foema := func(lvl int32) *world.Entity {
+		return &world.Entity{ClassMaster: classMasterMortal, Level: lvl, Str: 117, Int: 205}
+	}
+	if d.meetsEquipReq(foema(173), tunic) {
+		t.Error("Tunica_de_Mytril(A) equipped one level below its requirement")
+	}
+	if !d.meetsEquipReq(foema(174), tunic) {
+		t.Error("Tunica_de_Mytril(A) rejected at level 174, the rescaled requirement")
+	}
+}
+
 func itemDB(carry0 int16) *fakeDB {
 	db := newDB()
 	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}

@@ -435,6 +435,53 @@ func TestRequirements(t *testing.T) {
 	}
 }
 
+// TestRequirementsClasseD is the issue #278 regression. Class D gear
+// (EF_ITEMLEVEL 4) demanded up to level 254 while its own class D siblings
+// (Conjuradora/Aeon/Natureza) sat at 128-174, so every row in 185..260 had its
+// level cut by 80 and its attributes scaled by the same ratio. Anchored on the
+// real catalog: a synthetic fixture would not catch the .csv being regenerated
+// from a stale source.
+func TestRequirementsClasseD(t *testing.T) {
+	full, err := LoadItemList(release(t, "Common", "ItemList.csv"))
+	if err != nil {
+		t.Skipf("ItemList.csv unavailable: %v", err)
+	}
+	reqs := full.Requirements()
+	for _, tc := range []struct {
+		idx  int
+		name string
+		want ItemReq
+	}{
+		{1346, "Tunica_de_Mytril(A)", ItemReq{Lvl: 174, Str: 117, Int: 205}},
+		{911, "Solaris", ItemReq{Lvl: 174, Str: 464, Dex: 140}},
+		{1191, "Elmo_Anao(N)", ItemReq{Lvl: 115, Str: 146, Con: 98}},
+		{1892, "Tunica_Conjuradora(A), the EF_BONUS variant", ItemReq{Lvl: 132, Str: 90, Int: 157}},
+		// Untouched: below the rescaled band, and above it (the special capes).
+		{1331, "Tunica_Conjuradora(A), base set", ItemReq{Lvl: 174, Str: 119, Int: 208}},
+		{1720, "Capa_da_Escuridao", ItemReq{Lvl: 399}},
+	} {
+		if got := reqs[tc.idx]; got != tc.want {
+			t.Errorf("Requirements()[%d] (%s) = %+v, want %+v", tc.idx, tc.name, got, tc.want)
+		}
+	}
+
+	// The band itself must stay empty: no class D item may demand 181..260
+	// again. Above 260 only the preserved specials survive (capes, Pedra Amunra).
+	effects := full.BaseEffects()
+	for idx, req := range reqs {
+		classeD := false
+		for _, e := range effects[idx] {
+			if e.Eff == 87 && e.Val == 4 { // EF_ITEMLEVEL 4 = classe D
+				classeD = true
+				break
+			}
+		}
+		if classeD && req.Lvl >= 181 && req.Lvl <= 260 {
+			t.Errorf("class D item %d requires level %d, want <= 180 (or a preserved special > 260)", idx, req.Lvl)
+		}
+	}
+}
+
 func TestLoadSkillData(t *testing.T) {
 	s, err := LoadSkillData(release(t, "Common", "SkillData.csv"))
 	if err != nil {

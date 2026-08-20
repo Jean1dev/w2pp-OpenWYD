@@ -1,10 +1,13 @@
 package itemcatalog
 
 import (
+	"bufio"
 	"encoding/binary"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -199,6 +202,132 @@ func TestBinMagicRebalanceMatchesClientCatalog(t *testing.T) {
 		got, ok := binEffectValue(t, binPath, tc.index, 60) // EF_MAGIC
 		if !ok || got != tc.want {
 			t.Errorf("ItemList.bin item %d EF_MAGIC = %d (found=%v), want %d", tc.index, got, ok, tc.want)
+		}
+	}
+}
+
+// binRequirements decodes ReqLvl/ReqStr/ReqInt/ReqDex/ReqCon (the five shorts at
+// offset 70) of every compiled record. Same reasoning as binEffectValue: the
+// client reads the .bin, so the .bin is what has to be asserted.
+func binRequirements(t *testing.T, path string) map[int][5]int16 {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	const requirementsOffset = 70 // Name[64] + mesh/texture/vfx.
+	out := make(map[int][5]int16)
+	for i := 0; i < binCount; i++ {
+		start := i * binRecord
+		if start+binRecord > len(raw) {
+			break
+		}
+		rec := make([]byte, binRecord)
+		for j, b := range raw[start : start+binRecord] {
+			rec[j] = b ^ binXOR
+		}
+		var req [5]int16
+		for k := range req {
+			off := requirementsOffset + k*2
+			req[k] = int16(binary.LittleEndian.Uint16(rec[off : off+2]))
+		}
+		out[i] = req
+	}
+	return out
+}
+
+// csvRequirements reads column 3 (ReqLvl.ReqStr.ReqInt.ReqDex.ReqCon) of
+// ItemList.csv. itemcatalog.Entry deliberately does not carry requirements (they
+// are tmserver/internal/content's concern), so this test parses them itself.
+func csvRequirements(t *testing.T, path string) map[int][5]int16 {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open %s: %v", path, err)
+	}
+	defer f.Close()
+
+	out := make(map[int][5]int16)
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		fields := strings.Split(strings.TrimSpace(sc.Text()), ",")
+		if len(fields) < 4 {
+			continue
+		}
+		idx, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue
+		}
+		parts := strings.Split(fields[3], ".")
+		if len(parts) != 5 {
+			continue
+		}
+		var req [5]int16
+		ok := true
+		for i, p := range parts {
+			n, err := strconv.Atoi(p)
+			if err != nil {
+				ok = false
+				break
+			}
+			req[i] = int16(n)
+		}
+		if ok {
+			out[idx] = req
+		}
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("scan %s: %v", path, err)
+	}
+	return out
+}
+
+// TestBinRequirementsMatchCSV guards the issue #278 rescale of the class D gear.
+// The requirements were patched into both files by hand, and unlike the visual
+// fields (which have a known stale baseline above) they agree on every single
+// row — so any divergence here means one of the two artifacts was edited alone.
+func TestBinRequirementsMatchCSV(t *testing.T) {
+	dir := releaseDir(t)
+	binPath := filepath.Join(dir, "DBsrv", "run", "ItemList.bin")
+	if _, err := os.Stat(binPath); err != nil {
+		t.Skipf("ItemList.bin not available: %v", err)
+	}
+
+	fromBin := binRequirements(t, binPath)
+	fromCSV := csvRequirements(t, filepath.Join(dir, "Common", "ItemList.csv"))
+	if len(fromCSV) < 3000 {
+		t.Fatalf("parsed only %d csv rows, want the full catalog", len(fromCSV))
+	}
+	var mismatches int
+	for idx, want := range fromCSV {
+		got, ok := fromBin[idx]
+		if !ok {
+			continue // csv row outside the compiled record range
+		}
+		if got != want {
+			mismatches++
+			if mismatches <= 10 {
+				t.Errorf("ItemList.bin item %d requirements = %v, want %v (csv)", idx, got, want)
+			}
+		}
+	}
+	if mismatches > 10 {
+		t.Errorf("%d rows diverge between ItemList.bin and ItemList.csv", mismatches)
+	}
+
+	// Anchors from the issue #278 rescale, read straight out of the client artifact.
+	for _, tc := range []struct {
+		index int
+		want  [5]int16
+	}{
+		{1346, [5]int16{174, 117, 205, 0, 0}}, // Tunica_de_Mytril(A), the reported item
+		{911, [5]int16{174, 464, 0, 140, 0}},  // Solaris
+		{1191, [5]int16{115, 146, 0, 0, 98}},  // Elmo_Anao(N)
+		{1331, [5]int16{174, 119, 208, 0, 0}}, // Tunica_Conjuradora(A): untouched
+	} {
+		if got := fromBin[tc.index]; got != tc.want {
+			t.Errorf("ItemList.bin item %d requirements = %v, want %v", tc.index, got, tc.want)
 		}
 	}
 }
