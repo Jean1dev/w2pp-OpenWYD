@@ -1273,3 +1273,242 @@ func TestQuest256TicketSecondUseOnEmptySlotIsNoop(t *testing.T) {
 		t.Fatalf("second use on empty slot produced %#x; want no-op", ty)
 	}
 }
+
+func TestGuardaStartsQuest256WithRealTemplate(t *testing.T) {
+	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Guarda"))
+	if err != nil {
+		t.Fatalf("read real Guarda template: %v", err)
+	}
+	db := newDB()
+	st := baseMortalState(320)
+	st.Carry[7] = world.Item{Index: itemEmblemaDoGuarda}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	item := expect(t, c, protocol.MsgSendItem)
+	if slot, idx := le16(item[2:4]), le16(item[4:6]); slot != 7 || idx != 0 {
+		t.Fatalf("Guarda consume slot=%d idx=%d, want slot 7 cleared", slot, idx)
+	}
+	action := expectAction(t, c)
+	if action.Effect != 1 || !inRange(action.TargetX, 1322) || !inRange(action.TargetY, 4041) {
+		t.Fatalf("Guarda teleport effect=%d target=%d,%d, want effect 1 around 1322,4041", action.Effect, action.TargetX, action.TargetY)
+	}
+}
+
+func TestGuardaAcceptsArch(t *testing.T) {
+	tmpl := questNPCTemplate("Guarda", 100, 4, 0)
+	db := newDB()
+	st := baseMortalState(349)
+	st.ClassMaster = classMasterArch
+	st.Carry[0] = world.Item{Index: itemEmblemaDoGuarda}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	expect(t, c, protocol.MsgSendItem)
+	expectAction(t, c)
+}
+
+func TestGuardaRejectsInvalidRequirements(t *testing.T) {
+	tests := []struct {
+		name        string
+		level       int
+		classMaster uint8
+		item        int16
+	}{
+		{name: "below level", level: 319, classMaster: classMasterMortal, item: itemEmblemaDoGuarda},
+		{name: "at upper bound", level: 350, classMaster: classMasterMortal, item: itemEmblemaDoGuarda},
+		{name: "wrong class", level: 330, classMaster: classMasterCelestial, item: itemEmblemaDoGuarda},
+		{name: "missing ticket", level: 330, classMaster: classMasterMortal},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl := questNPCTemplate("Guarda", 100, 4, 0)
+			db := newDB()
+			st := baseMortalState(tt.level)
+			st.ClassMaster = tt.classMaster
+			st.Carry[0] = world.Item{Index: tt.item}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			questFrame(t, c, npcID)
+			if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+				t.Fatalf("notice = %d, want NoticeReqNotMet", code)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Fatalf("rejected Guarda interaction produced %#x after notice", ty)
+			}
+		})
+	}
+}
+
+// The Kaizen and Hidra steps share the "Patrulha" NPC name in the content tree;
+// only EF_GRADE0 (2 vs 3) and the ticket tell them apart, so both load the real
+// template to prove the pair resolves to different steps.
+func TestPatrulhaKaizenStartsQuest256WithRealTemplate(t *testing.T) {
+	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Patrulha_"))
+	if err != nil {
+		t.Fatalf("read real Patrulha_ template: %v", err)
+	}
+	db := newDB()
+	st := baseMortalState(190)
+	st.Carry[7] = world.Item{Index: itemCuraDoBatedor}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	item := expect(t, c, protocol.MsgSendItem)
+	if slot, idx := le16(item[2:4]), le16(item[4:6]); slot != 7 || idx != 0 {
+		t.Fatalf("Kaizen consume slot=%d idx=%d, want slot 7 cleared", slot, idx)
+	}
+	action := expectAction(t, c)
+	if action.Effect != 1 || !inRange(action.TargetX, 464) || !inRange(action.TargetY, 3902) {
+		t.Fatalf("Kaizen teleport effect=%d target=%d,%d, want effect 1 around 464,3902", action.Effect, action.TargetX, action.TargetY)
+	}
+}
+
+func TestPatrulhaKaizenAcceptsArch(t *testing.T) {
+	tmpl := questNPCTemplate("Patrulha_", 100, 2, 0)
+	db := newDB()
+	st := baseMortalState(264)
+	st.ClassMaster = classMasterArch
+	st.Carry[0] = world.Item{Index: itemCuraDoBatedor}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	expect(t, c, protocol.MsgSendItem)
+	expectAction(t, c)
+}
+
+func TestPatrulhaKaizenRejectsInvalidRequirements(t *testing.T) {
+	tests := []struct {
+		name        string
+		level       int
+		classMaster uint8
+		item        int16
+	}{
+		{name: "below level", level: 189, classMaster: classMasterMortal, item: itemCuraDoBatedor},
+		{name: "at upper bound", level: 265, classMaster: classMasterMortal, item: itemCuraDoBatedor},
+		{name: "wrong class", level: 200, classMaster: classMasterCelestial, item: itemCuraDoBatedor},
+		{name: "missing ticket", level: 200, classMaster: classMasterMortal},
+		{name: "next step ticket", level: 200, classMaster: classMasterMortal, item: itemManaDoBatedor},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl := questNPCTemplate("Patrulha_", 100, 2, 0)
+			db := newDB()
+			st := baseMortalState(tt.level)
+			st.ClassMaster = tt.classMaster
+			st.Carry[0] = world.Item{Index: tt.item}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			questFrame(t, c, npcID)
+			if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+				t.Fatalf("notice = %d, want NoticeReqNotMet", code)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Fatalf("rejected Kaizen interaction produced %#x after notice", ty)
+			}
+		})
+	}
+}
+
+func TestPatrulhaHidraStartsQuest256WithRealTemplate(t *testing.T) {
+	tmpl, err := os.ReadFile(filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "npc", "Patrulha"))
+	if err != nil {
+		t.Fatalf("read real Patrulha template: %v", err)
+	}
+	db := newDB()
+	st := baseMortalState(265)
+	st.Carry[7] = world.Item{Index: itemManaDoBatedor}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	item := expect(t, c, protocol.MsgSendItem)
+	if slot, idx := le16(item[2:4]), le16(item[4:6]); slot != 7 || idx != 0 {
+		t.Fatalf("Hidra consume slot=%d idx=%d, want slot 7 cleared", slot, idx)
+	}
+	action := expectAction(t, c)
+	if action.Effect != 1 || !inRange(action.TargetX, 668) || !inRange(action.TargetY, 3756) {
+		t.Fatalf("Hidra teleport effect=%d target=%d,%d, want effect 1 around 668,3756", action.Effect, action.TargetX, action.TargetY)
+	}
+}
+
+func TestPatrulhaHidraAcceptsArch(t *testing.T) {
+	tmpl := questNPCTemplate("Patrulha", 100, 3, 0)
+	db := newDB()
+	st := baseMortalState(319)
+	st.ClassMaster = classMasterArch
+	st.Carry[0] = world.Item{Index: itemManaDoBatedor}
+	db.loadResult = st
+	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	questFrame(t, c, npcID)
+	expect(t, c, protocol.MsgSendItem)
+	expectAction(t, c)
+}
+
+func TestPatrulhaHidraRejectsInvalidRequirements(t *testing.T) {
+	tests := []struct {
+		name        string
+		level       int
+		classMaster uint8
+		item        int16
+	}{
+		{name: "below level", level: 264, classMaster: classMasterMortal, item: itemManaDoBatedor},
+		{name: "at upper bound", level: 320, classMaster: classMasterMortal, item: itemManaDoBatedor},
+		{name: "wrong class", level: 300, classMaster: classMasterCelestial, item: itemManaDoBatedor},
+		{name: "missing ticket", level: 300, classMaster: classMasterMortal},
+		{name: "previous step ticket", level: 300, classMaster: classMasterMortal, item: itemCuraDoBatedor},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl := questNPCTemplate("Patrulha", 100, 3, 0)
+			db := newDB()
+			st := baseMortalState(tt.level)
+			st.ClassMaster = tt.classMaster
+			st.Carry[0] = world.Item{Index: tt.item}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			questFrame(t, c, npcID)
+			if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeReqNotMet {
+				t.Fatalf("notice = %d, want NoticeReqNotMet", code)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Fatalf("rejected Hidra interaction produced %#x after notice", ty)
+			}
+		})
+	}
+}

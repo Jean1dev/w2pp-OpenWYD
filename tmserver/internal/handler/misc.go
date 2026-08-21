@@ -133,10 +133,11 @@ func (d *Dispatcher) completeAccountSecure(w *world.World, s *world.Session, ok 
 // MSG_STANDARDPARM2 (Parm1 = npcIndex, Parm2 = confirm). The NPC sub-type comes
 // from MOB.Merchant (+ EF_GRADE0 for Merchant==100), see _MSG_Quest-npcs.md.
 //
-// This batch implements the PERZEN item-exchange NPCs (Merchant 100, grade 7/8/9)
-// and Mestre Grifo (Merchant 23), a server-content shortcut into the Quest 256
-// arenas, plus the King Arch creation path. The remaining quest NPC types (level
-// chains, tutorials, teleports) are UNVERIFIED and not yet routed.
+// Routed so far: the whole Quest 256 chain (grade 0-4), the PERZEN item-exchange
+// NPCs (grade 7/8/9), Mestre Grifo (Merchant 23) — a server-content shortcut into
+// the Quest 256 arenas — and the King Arch creation path, plus the standalone
+// service NPCs below. The remaining quest NPC types (tutorials, teleports) are
+// not routed yet.
 func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -162,7 +163,28 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	}
 	// QUEST_JARDINEIRO (Merchant 100, EF_GRADE0 1): second Quest 256 arena.
 	if npc.Merchant == 100 && npc.Grade == 1 {
-		d.quest256NPC(w, s, e, quest256Steps[1], 4039)
+		d.quest256NPC(w, s, e, quest256Steps[1], itemColheitaDoJardineiro)
+		return
+	}
+	// QUEST_KAIZEN (Merchant 100, EF_GRADE0 2): third Quest 256 arena, the
+	// "Ressureicao do Cavaleiro Negro" quest (_MSG_Quest.cpp:382). The Patrulha of
+	// the Dungeon Negro asks for the Cura do Batedor.
+	if npc.Merchant == 100 && npc.Grade == 2 {
+		d.quest256NPC(w, s, e, quest256Steps[2], itemCuraDoBatedor)
+		return
+	}
+	// QUEST_HIDRA (Merchant 100, EF_GRADE0 3): fourth Quest 256 arena, the
+	// "Hidra Imortal" quest (_MSG_Quest.cpp:426). Same Patrulha NPC name as the
+	// Kaizen step, one tier up: it asks for the Mana do Batedor.
+	if npc.Merchant == 100 && npc.Grade == 3 {
+		d.quest256NPC(w, s, e, quest256Steps[3], itemManaDoBatedor)
+		return
+	}
+	// QUEST_ELFOS (Merchant 100, EF_GRADE0 4): fifth and last Quest 256 arena, the
+	// "Inicio da Infelicidade" quest (_MSG_Quest.cpp:470). The Guarda of the
+	// Submundo asks for the Emblema do Guarda.
+	if npc.Merchant == 100 && npc.Grade == 4 {
+		d.quest256NPC(w, s, e, quest256Steps[4], itemEmblemaDoGuarda)
 		return
 	}
 	// PERZEN (Merchant 100, EF_GRADE0 ∈ {7,8,9}): the item exchange.
@@ -657,9 +679,17 @@ var quest256Steps = []quest256Step{
 	{flag: 5, minLevel: 320, maxLevel: 350, x: 1322, y: 4041, area: questArea{x1: 1312, y1: 4027, x2: 1348, y2: 4055}},
 }
 
-// itemVelaDoCoveiro is the Quest 256 step-1 ticket handed to the Coveiro
-// (ItemList.csv:5703, "Vela_do_Coveiro"; _MSG_Quest.cpp:315).
-const itemVelaDoCoveiro int16 = 4038
+// The Quest 256 tickets, one per chain step: the NPC of that step only opens its
+// arena for the player carrying the matching item (_MSG_Quest.cpp:315/360/404/448/492).
+// They are consecutive in ItemList.csv (:5703-5711), which is what lets
+// quest256StepForTicket map a right-clicked ticket back to its step.
+const (
+	itemVelaDoCoveiro        int16 = 4038 // "Vela_do_Coveiro"
+	itemColheitaDoJardineiro int16 = 4039 // "Colheita_do_Jardineiro"
+	itemCuraDoBatedor        int16 = 4040 // "Cura_do_Batedor"
+	itemManaDoBatedor        int16 = 4041 // "Mana_do_Batedor"
+	itemEmblemaDoGuarda      int16 = 4042 // "Emblema_do_Guarda"
+)
 
 // quest256NPC handles the item hand-in performed by the five legacy Quest 256
 // NPC cases (_MSG_Quest.cpp:293/338/382/426/470). Keeping the step and ticket
