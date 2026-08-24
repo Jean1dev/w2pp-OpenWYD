@@ -108,6 +108,9 @@ func run(logger *slog.Logger) error {
 		}
 		logger.Info("loaded item icon manifest", "version", iconManifest.PackVersion,
 			"mapped", iconManifest.MappedItems, "icons", iconManifest.DistinctIcons)
+	} else {
+		logger.Warn("item icon manifest not configured; catalog is fallback-only",
+			"configuration", "W2PP_ITEM_ICONS_MANIFEST")
 	}
 	if *contentDir != "" {
 		templates, npcStats, err := npctemplates.Scan(*contentDir, logger)
@@ -125,7 +128,10 @@ func run(logger *slog.Logger) error {
 			if *iconManifestPath != "" {
 				itemcatalog.ApplyIcons(&catalog, iconManifest)
 			}
-			logger.Info("scanned item catalog", "count", len(catalog.Items), "version", catalog.Version)
+			withIconKey, withIconURL := catalog.IconCoverage()
+			logger.Info("scanned item catalog", "count", len(catalog.Items), "version", catalog.Version,
+				"icon_pack_version", catalog.IconPackVersion, "items_with_icon_key", withIconKey,
+				"items_with_icon_url", withIconURL)
 			npcAdmin.SetItemCatalog(catalog)
 			itemCatalog = catalog
 		}
