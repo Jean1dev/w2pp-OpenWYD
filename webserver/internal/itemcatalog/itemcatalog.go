@@ -67,6 +67,22 @@ type Catalog struct {
 	IconPackVersion string
 }
 
+// IconCoverage reports how many catalog entries have a classic-client mapping
+// and how many of those mappings have a published URL. Keeping these counts on
+// the boot path makes a generated-only manifest distinguishable from a fully
+// published one without logging individual URLs.
+func (c Catalog) IconCoverage() (withKey, withURL int) {
+	for _, item := range c.Items {
+		if item.IconKey != "" {
+			withKey++
+		}
+		if item.IconURL != "" {
+			withURL++
+		}
+	}
+	return withKey, withURL
+}
+
 // ApplyIcons joins a validated classic-client icon manifest onto a catalog.
 // itemicon.bin is indexed directly by item index; mesh, texture and position
 // are fallback metadata and are not an icon lookup key.

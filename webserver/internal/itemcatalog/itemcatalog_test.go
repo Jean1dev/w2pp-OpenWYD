@@ -215,6 +215,19 @@ func TestApplyIconsUsesItemIndexTable(t *testing.T) {
 	}
 }
 
+func TestIconCoverageDistinguishesMappedAndPublished(t *testing.T) {
+	catalog := Catalog{Items: []Entry{
+		{Index: 1, IconKey: "i0001", IconURL: "https://storage.example/one"},
+		{Index: 2, IconKey: "i0002"},
+		{Index: 3},
+	}}
+
+	withKey, withURL := catalog.IconCoverage()
+	if withKey != 2 || withURL != 1 {
+		t.Fatalf("IconCoverage = %d/%d, want 2/1", withKey, withURL)
+	}
+}
+
 // TestScanVersionFingerprintsContent guards the cache contract the BFF relies
 // on: the same catalog must produce the same version, a changed one must not.
 func TestScanVersionFingerprintsContent(t *testing.T) {
