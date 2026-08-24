@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemicons"
 )
 
 func writeCSV(t *testing.T, dir string, lines ...string) {
@@ -37,8 +39,8 @@ func TestScanParsesIndexAndName(t *testing.T) {
 		t.Fatalf("Scan: %v", err)
 	}
 	want := []Entry{
-		{Index: 1101, Name: "Adaga", DisplayName: "Adaga", IconKey: "m0_t0_p0"},
-		{Index: 1100, Name: "Espada Curta", DisplayName: "Espada Curta", IconKey: "m0_t0_p0"},
+		{Index: 1101, Name: "Adaga", DisplayName: "Adaga"},
+		{Index: 1100, Name: "Espada Curta", DisplayName: "Espada Curta"},
 	}
 	if !reflect.DeepEqual(got.Items, want) {
 		t.Errorf("items = %+v, want %+v", got.Items, want)
@@ -107,7 +109,6 @@ func TestScanVisualFields(t *testing.T) {
 	tests := []struct {
 		name     string
 		row      string
-		wantKey  string
 		wantMesh int32
 		wantTex  int32
 		wantMask int32
@@ -117,13 +118,11 @@ func TestScanVisualFields(t *testing.T) {
 		{
 			name:     "boots, real row",
 			row:      "1188,Botas_Douradas(N),10.0,126.163.0.0.110,6,120000,32,2180,1,EF_CLASS,1,EF_AC,47",
-			wantKey:  "m10_t0_p32",
 			wantMesh: 10, wantMask: 32, wantSlot: []string{"boots"}, wantGrad: 1,
 		},
 		{
 			name:     "one-handed weapon, real row",
 			row:      "831,Garra,837.0,4.10.0.0.11,43,530,64,2571,0,EF_CLASS,9,EF_DAMAGE,8",
-			wantKey:  "m837_t0_p64",
 			wantMesh: 837, wantMask: 64, wantSlot: []string{"weapon"},
 		},
 		{
@@ -133,7 +132,6 @@ func TestScanVisualFields(t *testing.T) {
 			// the fixture stays byte-identical to what a Latin-1 file holds)
 			name:     "non-zero texture",
 			row:      "1519,Peitoral_Driade_Selado,1421.1,0.0.0.0.0,0,0,4,0,3",
-			wantKey:  "m1421_t1_p4",
 			wantMesh: 1421, wantTex: 1, wantMask: 4, wantSlot: []string{"armor"}, wantGrad: 3,
 		},
 		{
@@ -141,33 +139,28 @@ func TestScanVisualFields(t *testing.T) {
 			// 16-bit mask the whole key goes negative and every cape breaks.
 			name:     "cape, negative nPos",
 			row:      "3000,Manto_Teste,500.0,0.0.0.0.0,0,0,-32768,0,2",
-			wantKey:  "m500_t0_p32768",
 			wantMesh: 500, wantMask: 32768, wantSlot: []string{"cape"}, wantGrad: 2,
 		},
 		{
 			name:     "two-handed weapon claims the shield slot",
 			row:      "3001,Machado_Teste,600.0,0.0.0.0.0,0,0,192,0,1",
-			wantKey:  "m600_t0_p192",
 			wantMesh: 600, wantMask: 192, wantSlot: []string{"weapon", "shield"}, wantGrad: 1,
 		},
 		{
 			name:     "not equippable",
 			row:      "3002,Cupom_Teste,2711.0,0.0.0.0.0,0,0,0,0,0",
-			wantKey:  "m2711_t0_p0",
 			wantMesh: 2711, wantMask: 0, wantSlot: nil,
 		},
 		{
 			name:     "mount",
 			row:      "3003,Montaria_Teste,943.0,0.0.0.0.0,0,0,16384,0,1",
-			wantKey:  "m943_t0_p16384",
 			wantMesh: 943, wantMask: 16384, wantSlot: []string{"mount"}, wantGrad: 1,
 		},
 		{
 			// Short rows must still yield an entry (the picker only needs the
 			// name); the visual columns simply read as zero.
-			name:    "short row keeps the item, zeroes the visuals",
-			row:     "3004,Item_Curto",
-			wantKey: "m0_t0_p0",
+			name: "short row keeps the item, zeroes the visuals",
+			row:  "3004,Item_Curto",
 		},
 	}
 
@@ -183,8 +176,8 @@ func TestScanVisualFields(t *testing.T) {
 				t.Fatalf("got %d entries, want 1", len(got.Items))
 			}
 			e := got.Items[0]
-			if e.IconKey != tt.wantKey {
-				t.Errorf("IconKey = %q, want %q", e.IconKey, tt.wantKey)
+			if e.IconKey != "" {
+				t.Errorf("IconKey = %q before ApplyIcons, want empty", e.IconKey)
 			}
 			if e.Mesh != tt.wantMesh || e.Texture != tt.wantTex {
 				t.Errorf("mesh/texture = %d/%d, want %d/%d", e.Mesh, e.Texture, tt.wantMesh, tt.wantTex)
@@ -199,6 +192,26 @@ func TestScanVisualFields(t *testing.T) {
 				t.Errorf("Grade = %d, want %d", e.Grade, tt.wantGrad)
 			}
 		})
+	}
+}
+
+func TestApplyIconsUsesItemIndexTable(t *testing.T) {
+	itemToIcon := make([]int, itemicons.ItemCount)
+	for i := range itemToIcon {
+		itemToIcon[i] = -1
+	}
+	itemToIcon[1100] = 42
+	manifest := itemicons.Manifest{
+		Version: 1, PackVersion: "abc123", CellSize: itemicons.CellSize,
+		Columns: itemicons.Columns, IconsPerAtlas: itemicons.IconsPerAtlas,
+		Atlases: []string{"itemicon01.wyt"}, ItemToIcon: itemToIcon,
+		MappedItems: 1, DistinctIcons: 1,
+		IconURLs: map[string]string{"i0042": "https://storage.example/i0042"},
+	}
+	catalog := Catalog{Items: []Entry{{Index: 1100}, {Index: 1101}}}
+	ApplyIcons(&catalog, manifest)
+	if catalog.IconPackVersion != "abc123" || catalog.Items[0].IconKey != "i0042" || catalog.Items[0].IconURL == "" || catalog.Items[1].IconKey != "" {
+		t.Fatalf("ApplyIcons = %+v, want version abc123, i0042 URL and empty fallback", catalog)
 	}
 }
 

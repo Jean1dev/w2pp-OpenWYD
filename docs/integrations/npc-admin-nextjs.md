@@ -142,22 +142,25 @@ message ListMerchantTemplatesResponse {
 
 // Uma linha de Release/Common/ItemList.csv, só o que o picker de item_index e o
 // ícone precisam (o resto da linha — preço, efeitos — não viaja aqui).
-// Os campos 3..9 são a chave visual: ver docs/integrations/item-icons-nextjs.md.
+// A chave real vem de itemicon.bin; os demais campos dirigem busca e fallback.
 message ItemCatalogEntry {
   int32 item_index = 1;
   string name = 2;           // nome cru, com "_"
-  string icon_key = 3;       // "m<mesh>_t<texture>_p<slot_mask>"
+  string icon_key = 3;       // "iNNNN"; vazio = fallback
   string display_name = 4;   // name com "_" virando espaço — é o que se exibe
   int32 slot_mask = 5;       // nPos: bitmask sobre Equip[16]; 0 = não equipável
   repeated string slots = 6; // slot_mask decodificado ("boots", "weapon", …)
   int32 grade = 7;           // 1=Normal 2=Místico 3=Arcano 4=Lendário
   int32 mesh = 8;
   int32 texture = 9;
+  string icon_url = 10;      // URL pública HTTPS; vazio = fallback
 }
 message ListItemCatalogRequest { int64 moderator_id = 1; }
 message ListItemCatalogResponse {
   AdminResult result = 1;
   repeated ItemCatalogEntry items = 2;
+  string catalog_version = 3;
+  string icon_pack_version = 4;
 }
 
 // Override de preço global de um item (tabela item_price). Item ausente desta

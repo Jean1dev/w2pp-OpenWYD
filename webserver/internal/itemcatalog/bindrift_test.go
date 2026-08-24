@@ -87,9 +87,8 @@ func binEffectValue(t *testing.T, path string, index int, effect int16) (int16, 
 }
 
 // driftBaseline is the set of items whose visual fields already differ between
-// ItemList.csv and the stale ItemList.bin, collected with
-// `scripts/item-icon-manifest.py --check-bin`. The .csv wins — it is what the
-// Go services parse — so these are recorded, not fixed.
+// ItemList.csv and the stale ItemList.bin. The .csv wins — it is what the Go
+// services parse — so these are recorded, not fixed.
 //
 // The point of pinning the exact set is regression detection in both
 // directions: an item leaving it means the .bin was refreshed (fine, but the
@@ -116,9 +115,7 @@ func releaseDir(t *testing.T) string {
 	return dir
 }
 
-// TestRealCatalogTotals pins the parser against the whole shipped catalog. The
-// numbers must match scripts/item-icon-manifest.py, which is the reference
-// implementation of these derivations — if they diverge, this port is wrong.
+// TestRealCatalogTotals pins the parser against the whole shipped catalog.
 func TestRealCatalogTotals(t *testing.T) {
 	catalog, err := Scan(releaseDir(t))
 	if err != nil {
@@ -127,15 +124,6 @@ func TestRealCatalogTotals(t *testing.T) {
 	if got, want := len(catalog.Items), 3220; got != want {
 		t.Errorf("item count = %d, want %d", got, want)
 	}
-	keys := make(map[string]bool, len(catalog.Items))
-	for _, it := range catalog.Items {
-		keys[it.IconKey] = true
-	}
-	// The whole premise of icon_key: ~3.2k items collapse into ~1k icons.
-	if got, want := len(keys), 1055; got != want {
-		t.Errorf("distinct icon keys = %d, want %d", got, want)
-	}
-
 	// Spot-check a known row end to end.
 	var boots Entry
 	for _, it := range catalog.Items {
@@ -144,8 +132,8 @@ func TestRealCatalogTotals(t *testing.T) {
 			break
 		}
 	}
-	if boots.IconKey != "m10_t0_p32" || boots.DisplayName != "Botas Douradas(N)" || boots.Grade != 1 {
-		t.Errorf("item 1188 = %+v, want icon m10_t0_p32 / Botas Douradas(N) / grade 1", boots)
+	if boots.IconKey != "" || boots.DisplayName != "Botas Douradas(N)" || boots.Grade != 1 {
+		t.Errorf("item 1188 = %+v, want fallback-only / Botas Douradas(N) / grade 1", boots)
 	}
 }
 

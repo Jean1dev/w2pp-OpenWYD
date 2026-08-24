@@ -36,6 +36,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/grpcsrv"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemicons"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobtemplateadmin"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobtemplates"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
@@ -62,6 +63,7 @@ func run(logger *slog.Logger) error {
 	tlsKey := flag.String("tls-key", os.Getenv("W2PP_TLS_KEY"), "server private key (PEM)")
 	tlsCA := flag.String("tls-ca", os.Getenv("W2PP_TLS_CA"), "client CA (PEM) for mTLS")
 	contentDir := flag.String("content", os.Getenv("W2PP_CONTENT"), "path to the Release/ content tree (empty = skip; ListMerchantTemplates/ListItemCatalog return empty lists and the UI falls back to manual entry)")
+	iconManifestPath := flag.String("item-icons-manifest", os.Getenv("W2PP_ITEM_ICONS_MANIFEST"), "generated item-icon manifest (empty = fallback-only)")
 	flag.Parse()
 
 	if *dsn == "" {
@@ -98,6 +100,15 @@ func run(logger *slog.Logger) error {
 	// Stays zero-valued without -content: ItemCatalogService then serves an
 	// empty list, the same graceful degradation the pickers already have.
 	var itemCatalog itemcatalog.Catalog
+	var iconManifest itemicons.Manifest
+	if *iconManifestPath != "" {
+		iconManifest, err = itemicons.Load(*iconManifestPath)
+		if err != nil {
+			return err
+		}
+		logger.Info("loaded item icon manifest", "version", iconManifest.PackVersion,
+			"mapped", iconManifest.MappedItems, "icons", iconManifest.DistinctIcons)
+	}
 	if *contentDir != "" {
 		templates, npcStats, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -111,8 +122,11 @@ func run(logger *slog.Logger) error {
 		if err != nil {
 			logger.Warn("item catalog scan failed; item picker will be empty", "content", *contentDir, "err", err)
 		} else {
+			if *iconManifestPath != "" {
+				itemcatalog.ApplyIcons(&catalog, iconManifest)
+			}
 			logger.Info("scanned item catalog", "count", len(catalog.Items), "version", catalog.Version)
-			npcAdmin.SetItems(catalog.Items)
+			npcAdmin.SetItemCatalog(catalog)
 			itemCatalog = catalog
 		}
 

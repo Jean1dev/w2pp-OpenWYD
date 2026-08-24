@@ -10,16 +10,16 @@ import (
 
 func TestListItemsMapping(t *testing.T) {
 	s := NewItemCatalog(itemcatalog.Catalog{
-		Version: "deadbeefdeadbeef",
+		Version: "deadbeefdeadbeef", IconPackVersion: "cafebabecafebabe",
 		Items: []itemcatalog.Entry{
 			{
 				Index: 1188, Name: "Botas_Douradas(N)", DisplayName: "Botas Douradas(N)",
 				Mesh: 10, Texture: 0, SlotMask: 32, Slots: []string{"boots"},
-				Grade: 1, IconKey: "m10_t0_p32",
+				Grade: 1, IconKey: "i0042", IconURL: "https://storage.example/i0042",
 			},
 			{
 				Index: 3002, Name: "Cupom_da_Sorte", DisplayName: "Cupom da Sorte",
-				Mesh: 2711, IconKey: "m2711_t0_p0",
+				Mesh: 2711,
 			},
 		},
 	})
@@ -31,13 +31,19 @@ func TestListItemsMapping(t *testing.T) {
 	if resp.GetCatalogVersion() != "deadbeefdeadbeef" {
 		t.Errorf("catalog version = %q, want deadbeefdeadbeef", resp.GetCatalogVersion())
 	}
+	if resp.GetIconPackVersion() != "cafebabecafebabe" {
+		t.Errorf("icon pack version = %q, want cafebabecafebabe", resp.GetIconPackVersion())
+	}
 	if len(resp.GetItems()) != 2 {
 		t.Fatalf("items = %+v, want 2 entries", resp.GetItems())
 	}
 
 	boots := resp.GetItems()[0]
-	if boots.GetItemIndex() != 1188 || boots.GetIconKey() != "m10_t0_p32" {
-		t.Errorf("items[0] = %d / %q, want 1188 / m10_t0_p32", boots.GetItemIndex(), boots.GetIconKey())
+	if boots.GetItemIndex() != 1188 || boots.GetIconKey() != "i0042" {
+		t.Errorf("items[0] = %d / %q, want 1188 / i0042", boots.GetItemIndex(), boots.GetIconKey())
+	}
+	if boots.GetIconUrl() != "https://storage.example/i0042" {
+		t.Errorf("items[0] URL = %q", boots.GetIconUrl())
 	}
 	if boots.GetDisplayName() != "Botas Douradas(N)" || boots.GetGrade() != 1 {
 		t.Errorf("items[0] = %q / grade %d, want Botas Douradas(N) / grade 1", boots.GetDisplayName(), boots.GetGrade())
@@ -52,8 +58,8 @@ func TestListItemsMapping(t *testing.T) {
 	if coupon.GetSlotMask() != 0 || len(coupon.GetSlots()) != 0 {
 		t.Errorf("items[1] slots = %d / %v, want 0 / []", coupon.GetSlotMask(), coupon.GetSlots())
 	}
-	if coupon.GetIconKey() != "m2711_t0_p0" {
-		t.Errorf("items[1] icon = %q, want m2711_t0_p0", coupon.GetIconKey())
+	if coupon.GetIconKey() != "" {
+		t.Errorf("items[1] icon = %q, want fallback", coupon.GetIconKey())
 	}
 }
 

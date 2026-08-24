@@ -24,7 +24,7 @@ type fakeNpcAdmin struct {
 	lastModeratorID  int64
 
 	listItemsRes npcadmin.Result
-	listItems    []itemcatalog.Entry
+	listItems    itemcatalog.Catalog
 	listItemsErr error
 
 	listDropItemsRes npcadmin.Result
@@ -79,7 +79,7 @@ func (f *fakeNpcAdmin) ListMerchantTemplates(_ context.Context, moderatorID int6
 	f.lastModeratorID = moderatorID
 	return f.listTemplatesRes, f.listTemplates, f.listTemplatesErr
 }
-func (f *fakeNpcAdmin) ListItemCatalog(_ context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error) {
+func (f *fakeNpcAdmin) ListItemCatalog(_ context.Context, moderatorID int64) (npcadmin.Result, itemcatalog.Catalog, error) {
 	f.lastModeratorID = moderatorID
 	return f.listItemsRes, f.listItems, f.listItemsErr
 }
@@ -156,14 +156,14 @@ func TestListMerchantTemplatesInfraError(t *testing.T) {
 func TestListItemCatalogMapping(t *testing.T) {
 	fake := &fakeNpcAdmin{
 		listItemsRes: npcadmin.OK,
-		listItems: []itemcatalog.Entry{
+		listItems: itemcatalog.Catalog{Version: "catalog-v1", IconPackVersion: "icons-v1", Items: []itemcatalog.Entry{
 			{
 				Index: 1100, Name: "Espada_Curta", DisplayName: "Espada Curta",
 				Mesh: 837, Texture: 1, SlotMask: 64, Slots: []string{"weapon"},
-				Grade: 2, IconKey: "m837_t1_p64",
+				Grade: 2, IconKey: "i0042", IconURL: "https://storage.example/i0042",
 			},
 			{Index: 1101, Name: "Adaga"},
-		},
+		}},
 	}
 	s := NewNpcAdmin(fake)
 
@@ -180,14 +180,20 @@ func TestListItemCatalogMapping(t *testing.T) {
 	if len(resp.GetItems()) != 2 {
 		t.Fatalf("items = %+v, want 2 entries", resp.GetItems())
 	}
+	if resp.GetCatalogVersion() != "catalog-v1" || resp.GetIconPackVersion() != "icons-v1" {
+		t.Errorf("versions = %q/%q, want catalog-v1/icons-v1", resp.GetCatalogVersion(), resp.GetIconPackVersion())
+	}
 	got := resp.GetItems()[0]
 	if got.GetItemIndex() != 1100 || got.GetName() != "Espada_Curta" {
 		t.Errorf("items[0] = %+v, want {1100 Espada_Curta}", got)
 	}
 	// The moderator picker shares the mapper with ItemCatalogService, so the
 	// icon fields have to reach this surface too.
-	if got.GetIconKey() != "m837_t1_p64" || got.GetDisplayName() != "Espada Curta" {
-		t.Errorf("items[0] icon = %q / %q, want m837_t1_p64 / Espada Curta", got.GetIconKey(), got.GetDisplayName())
+	if got.GetIconKey() != "i0042" || got.GetDisplayName() != "Espada Curta" {
+		t.Errorf("items[0] icon = %q / %q, want i0042 / Espada Curta", got.GetIconKey(), got.GetDisplayName())
+	}
+	if got.GetIconUrl() != "https://storage.example/i0042" {
+		t.Errorf("items[0] URL = %q", got.GetIconUrl())
 	}
 	if got.GetSlotMask() != 64 || len(got.GetSlots()) != 1 || got.GetSlots()[0] != "weapon" {
 		t.Errorf("items[0] slots = %d / %v, want 64 / [weapon]", got.GetSlotMask(), got.GetSlots())

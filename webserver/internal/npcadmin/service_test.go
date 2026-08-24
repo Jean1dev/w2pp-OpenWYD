@@ -306,7 +306,7 @@ func TestListMerchantTemplatesEmptyWhenUnset(t *testing.T) {
 }
 
 // TestListItemCatalog checks the authorization gate and that it returns
-// whatever SetItems installed (or an empty list when unset).
+// whatever SetItemCatalog installed (or an empty list when unset).
 func TestListItemCatalog(t *testing.T) {
 	want := []itemcatalog.Entry{
 		{Index: 1100, Name: "Espada Curta"},
@@ -314,17 +314,18 @@ func TestListItemCatalog(t *testing.T) {
 	}
 
 	s := New(newFake())
-	s.SetItems(want)
+	wantCatalog := itemcatalog.Catalog{Version: "catalog-v1", IconPackVersion: "icons-v1", Items: want}
+	s.SetItemCatalog(wantCatalog)
 
-	got, items, err := s.ListItemCatalog(context.Background(), 1)
+	got, catalog, err := s.ListItemCatalog(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("ListItemCatalog: %v", err)
 	}
 	if got != OK {
 		t.Fatalf("result = %v, want OK", got)
 	}
-	if !reflect.DeepEqual(items, want) {
-		t.Errorf("items = %+v, want %+v", items, want)
+	if !reflect.DeepEqual(catalog, wantCatalog) {
+		t.Errorf("catalog = %+v, want %+v", catalog, wantCatalog)
 	}
 
 	if got, _, err := s.ListItemCatalog(context.Background(), 3); err != nil || got != Forbidden {
@@ -334,12 +335,12 @@ func TestListItemCatalog(t *testing.T) {
 
 func TestListItemCatalogEmptyWhenUnset(t *testing.T) {
 	s := New(newFake())
-	got, items, err := s.ListItemCatalog(context.Background(), 1)
+	got, catalog, err := s.ListItemCatalog(context.Background(), 1)
 	if err != nil || got != OK {
 		t.Fatalf("result = %v, err %v, want OK, nil", got, err)
 	}
-	if len(items) != 0 {
-		t.Errorf("items = %+v, want empty", items)
+	if len(catalog.Items) != 0 {
+		t.Errorf("items = %+v, want empty", catalog.Items)
 	}
 }
 

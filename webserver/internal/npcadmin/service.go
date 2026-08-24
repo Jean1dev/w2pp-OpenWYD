@@ -62,7 +62,7 @@ const (
 type Service struct {
 	store       Store
 	templates   []npctemplates.Template
-	items       []itemcatalog.Entry
+	itemCatalog itemcatalog.Catalog
 	dropCatalog droptool.Catalog
 	logger      *slog.Logger
 }
@@ -76,11 +76,11 @@ func New(s Store) *Service { return &Service{store: s} }
 // ListMerchantTemplates returns an empty list rather than failing.
 func (s *Service) SetTemplates(templates []npctemplates.Template) { s.templates = templates }
 
-// SetItems installs the item catalog ListItemCatalog serves. Called once at
+// SetItemCatalog installs the item catalog ListItemCatalog serves. Called once at
 // boot after scanning the content tree (itemcatalog.Scan); left unset (nil)
 // when -content/W2PP_CONTENT wasn't configured, in which case
 // ListItemCatalog returns an empty list rather than failing.
-func (s *Service) SetItems(items []itemcatalog.Entry) { s.items = items }
+func (s *Service) SetItemCatalog(catalog itemcatalog.Catalog) { s.itemCatalog = catalog }
 
 // SetDropCatalog installs the DropTool-equivalent catalog ListDropItems and
 // ListMobDrops serve. Called once at boot after scanning the content tree; left
@@ -120,11 +120,11 @@ func (s *Service) ListMerchantTemplates(ctx context.Context, moderatorID int64) 
 // content tree at boot (itemcatalog.Scan), after authorizing the caller. It is
 // never an error for the list to be empty — that just means -content wasn't
 // configured, and the shop-item editor falls back to a raw item_index field.
-func (s *Service) ListItemCatalog(ctx context.Context, moderatorID int64) (Result, []itemcatalog.Entry, error) {
+func (s *Service) ListItemCatalog(ctx context.Context, moderatorID int64) (Result, itemcatalog.Catalog, error) {
 	if r, err := s.authorize(ctx, moderatorID); r != OK || err != nil {
-		return r, nil, err
+		return r, itemcatalog.Catalog{}, err
 	}
-	return OK, s.items, nil
+	return OK, s.itemCatalog, nil
 }
 
 // ListDropItems returns the item-centric DropTool report scanned from the

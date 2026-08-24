@@ -1,4 +1,4 @@
-.PHONY: build binaries test lint fmt vet run run-local vuln tidy proto certs certs-clean exp-data
+.PHONY: build binaries test lint fmt vet run run-local vuln tidy proto certs certs-clean exp-data item-icons item-icons-publish
 
 build:
 	go build ./...
@@ -15,6 +15,17 @@ binaries:
 # Run after adding/editing Release npc templates, review with -dry-run first.
 exp-data:
 	go run ./tmserver/cmd/exptool -npc Release/TMsrv/run/npc -quiet
+
+# Extract proprietary client icons into ignored deployment artifacts. Usage:
+#   make item-icons CLIENT_DIR=/path/to/WYD-7662
+item-icons:
+	test -n "$(CLIENT_DIR)" || (echo "CLIENT_DIR is required" >&2; exit 1)
+	go run ./webserver/cmd/itemiconpack -client "$(CLIENT_DIR)" -content Release -out "$${OUTPUT_DIR:-dist/item-icons}"
+
+# Publish through Jean1dev/storage-manager-server. The command is resumable and
+# writes every returned URL to docs/audits/item-icons-upload-<version>.json.
+item-icons-publish:
+	sh ./scripts/upload-item-icons-storage-manager.sh
 
 test:
 	go test -race -cover ./...
