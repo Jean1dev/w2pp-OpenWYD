@@ -15,7 +15,8 @@ import (
 // boot (webserver/cmd/webserver/main.go).
 type ItemCatalogServer struct {
 	webv1.UnimplementedItemCatalogServiceServer
-	version string
+	version         string
+	iconPackVersion string
 	// entries is built once in NewItemCatalog and never mutated afterwards: the
 	// catalog is immutable after boot, so rebuilding ~3200 messages (~400 KB) per
 	// call would be pure waste on an endpoint that takes no arguments and no
@@ -31,13 +32,13 @@ func NewItemCatalog(catalog itemcatalog.Catalog) *ItemCatalogServer {
 	for _, it := range catalog.Items {
 		entries = append(entries, itemCatalogEntryToProto(it))
 	}
-	return &ItemCatalogServer{version: catalog.Version, entries: entries}
+	return &ItemCatalogServer{version: catalog.Version, iconPackVersion: catalog.IconPackVersion, entries: entries}
 }
 
 // ListItems returns the whole catalog. It cannot fail: the content was read at
 // boot, and its absence is a legitimate degraded mode rather than an error.
 func (s *ItemCatalogServer) ListItems(_ context.Context, _ *webv1.ListItemsRequest) (*webv1.ListItemsResponse, error) {
-	return &webv1.ListItemsResponse{Items: s.entries, CatalogVersion: s.version}, nil
+	return &webv1.ListItemsResponse{Items: s.entries, CatalogVersion: s.version, IconPackVersion: s.iconPackVersion}, nil
 }
 
 // itemCatalogEntryToProto is shared with NpcAdminService.ListItemCatalog so the
@@ -53,5 +54,6 @@ func itemCatalogEntryToProto(e itemcatalog.Entry) *webv1.ItemCatalogEntry {
 		Grade:       e.Grade,
 		Mesh:        e.Mesh,
 		Texture:     e.Texture,
+		IconUrl:     e.IconURL,
 	}
 }

@@ -26,7 +26,7 @@ type NpcAdmin interface {
 	SetItemPrice(ctx context.Context, moderatorID int64, itemIndex int32, price int64) (npcadmin.Result, error)
 	Delete(ctx context.Context, moderatorID, npcID int64) (npcadmin.Result, error)
 	ListMerchantTemplates(ctx context.Context, moderatorID int64) (npcadmin.Result, []npctemplates.Template, error)
-	ListItemCatalog(ctx context.Context, moderatorID int64) (npcadmin.Result, []itemcatalog.Entry, error)
+	ListItemCatalog(ctx context.Context, moderatorID int64) (npcadmin.Result, itemcatalog.Catalog, error)
 	ListDropItems(ctx context.Context, moderatorID int64, filter droptool.Filter) (npcadmin.Result, []droptool.ItemDropEntry, error)
 	ListMobDrops(ctx context.Context, moderatorID int64, filter droptool.Filter) (npcadmin.Result, []droptool.MobDropEntry, error)
 	ListItemPrices(ctx context.Context, moderatorID int64) (npcadmin.Result, []domain.ItemPriceOverride, error)
@@ -153,15 +153,18 @@ func merchantTemplateToProto(t npctemplates.Template) *webv1.MerchantTemplate {
 // ListItemCatalog returns the item index/name catalog for the shop-item
 // picker (SetNpcShop/SetItemPrice take a raw item_index).
 func (s *NpcAdminServer) ListItemCatalog(ctx context.Context, req *webv1.ListItemCatalogRequest) (*webv1.ListItemCatalogResponse, error) {
-	res, items, err := s.admin.ListItemCatalog(ctx, req.GetModeratorId())
+	res, catalog, err := s.admin.ListItemCatalog(ctx, req.GetModeratorId())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list item catalog: %v", err)
 	}
-	out := make([]*webv1.ItemCatalogEntry, 0, len(items))
-	for _, it := range items {
+	out := make([]*webv1.ItemCatalogEntry, 0, len(catalog.Items))
+	for _, it := range catalog.Items {
 		out = append(out, itemCatalogEntryToProto(it))
 	}
-	return &webv1.ListItemCatalogResponse{Result: resultToProto(res), Items: out}, nil
+	return &webv1.ListItemCatalogResponse{
+		Result: resultToProto(res), Items: out,
+		CatalogVersion: catalog.Version, IconPackVersion: catalog.IconPackVersion,
+	}, nil
 }
 
 // ListDropItems returns the item-centric DropTool report for the moderator

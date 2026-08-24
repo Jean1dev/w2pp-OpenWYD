@@ -1495,8 +1495,11 @@ type ListItemsResponse struct {
 	// catalog_version fingerprints ItemList.csv; it only changes on redeploy, so
 	// the BFF can cache the list indefinitely and revalidate on this value.
 	CatalogVersion string `protobuf:"bytes,2,opt,name=catalog_version,json=catalogVersion,proto3" json:"catalog_version,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// icon_pack_version fingerprints itemicon.bin and its numbered atlases. It
+	// is the immutable CDN path segment; empty means fallback-only mode.
+	IconPackVersion string `protobuf:"bytes,3,opt,name=icon_pack_version,json=iconPackVersion,proto3" json:"icon_pack_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListItemsResponse) Reset() {
@@ -1539,6 +1542,13 @@ func (x *ListItemsResponse) GetItems() []*ItemCatalogEntry {
 func (x *ListItemsResponse) GetCatalogVersion() string {
 	if x != nil {
 		return x.CatalogVersion
+	}
+	return ""
+}
+
+func (x *ListItemsResponse) GetIconPackVersion() string {
+	if x != nil {
+		return x.IconPackVersion
 	}
 	return ""
 }
@@ -2602,20 +2612,21 @@ func (x *ListMerchantTemplatesResponse) GetTemplates() []*MerchantTemplate {
 // the shop-item picker and the item icons need (the full row also carries
 // price/effects, not relevant here — see tmserver/internal/content.ItemEntry).
 //
-// Fields 3..9 are the visual key (item-icons-plan.md §5). The client draws an
-// item from STRUCT_ITEMLIST's IndexMesh/IndexTexture/nPos, never from the item
-// index, so icon_key — not item_index — is what an icon pack is keyed by.
+// The classic client resolves the image through itemicon.bin, a direct mapping
+// from item_index to a 35x35 cell in UI/itemiconNN.wyt. mesh/texture/slot remain
+// useful fallback metadata but do not identify the image.
 type ItemCatalogEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ItemIndex     int32                  `protobuf:"varint,1,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                  // raw catalog name, e.g. "Botas_Douradas(N)"
-	IconKey       string                 `protobuf:"bytes,3,opt,name=icon_key,json=iconKey,proto3" json:"icon_key,omitempty"`             // "m<mesh>_t<texture>_p<slot_mask>"
+	IconKey       string                 `protobuf:"bytes,3,opt,name=icon_key,json=iconKey,proto3" json:"icon_key,omitempty"`             // generated atlas-cell key "iNNNN"; empty = fallback
 	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // name with underscores turned back into spaces
 	SlotMask      int32                  `protobuf:"varint,5,opt,name=slot_mask,json=slotMask,proto3" json:"slot_mask,omitempty"`         // nPos: bitmask over STRUCT_MOB.Equip[16]; 0 = not equippable
 	Slots         []string               `protobuf:"bytes,6,rep,name=slots,proto3" json:"slots,omitempty"`                                // slot_mask decoded ("boots", "weapon", …)
 	Grade         int32                  `protobuf:"varint,7,opt,name=grade,proto3" json:"grade,omitempty"`                               // 1=Normal 2=Místico 3=Arcano 4=Lendário …
 	Mesh          int32                  `protobuf:"varint,8,opt,name=mesh,proto3" json:"mesh,omitempty"`                                 // IndexMesh: model/appearance
 	Texture       int32                  `protobuf:"varint,9,opt,name=texture,proto3" json:"texture,omitempty"`                           // IndexTexture: colour variant of that model
+	IconUrl       string                 `protobuf:"bytes,10,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`            // public storage-manager URL; empty = fallback
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2713,6 +2724,13 @@ func (x *ItemCatalogEntry) GetTexture() int32 {
 	return 0
 }
 
+func (x *ItemCatalogEntry) GetIconUrl() string {
+	if x != nil {
+		return x.IconUrl
+	}
+	return ""
+}
+
 type ListItemCatalogRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
@@ -2758,11 +2776,13 @@ func (x *ListItemCatalogRequest) GetModeratorId() int64 {
 }
 
 type ListItemCatalogResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
-	Items         []*ItemCatalogEntry    `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Result          AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	Items           []*ItemCatalogEntry    `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	CatalogVersion  string                 `protobuf:"bytes,3,opt,name=catalog_version,json=catalogVersion,proto3" json:"catalog_version,omitempty"`
+	IconPackVersion string                 `protobuf:"bytes,4,opt,name=icon_pack_version,json=iconPackVersion,proto3" json:"icon_pack_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListItemCatalogResponse) Reset() {
@@ -2807,6 +2827,20 @@ func (x *ListItemCatalogResponse) GetItems() []*ItemCatalogEntry {
 		return x.Items
 	}
 	return nil
+}
+
+func (x *ListItemCatalogResponse) GetCatalogVersion() string {
+	if x != nil {
+		return x.CatalogVersion
+	}
+	return ""
+}
+
+func (x *ListItemCatalogResponse) GetIconPackVersion() string {
+	if x != nil {
+		return x.IconPackVersion
+	}
+	return ""
 }
 
 type DropItemMob struct {
@@ -9217,10 +9251,11 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\n" +
 	"characters\x18\x01 \x03(\v2\x1b.web.v1.WebCharacterSummaryR\n" +
 	"characters\"\x12\n" +
-	"\x10ListItemsRequest\"l\n" +
+	"\x10ListItemsRequest\"\x98\x01\n" +
 	"\x11ListItemsResponse\x12.\n" +
 	"\x05items\x18\x01 \x03(\v2\x18.web.v1.ItemCatalogEntryR\x05items\x12'\n" +
-	"\x0fcatalog_version\x18\x02 \x01(\tR\x0ecatalogVersion\"7\n" +
+	"\x0fcatalog_version\x18\x02 \x01(\tR\x0ecatalogVersion\x12*\n" +
+	"\x11icon_pack_version\x18\x03 \x01(\tR\x0ficonPackVersion\"7\n" +
 	"\bAdminAck\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\"\xdf\x01\n" +
 	"\x10AdminNpcShopItem\x12\x12\n" +
@@ -9301,7 +9336,7 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"\x84\x01\n" +
 	"\x1dListMerchantTemplatesResponse\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x126\n" +
-	"\ttemplates\x18\x02 \x03(\v2\x18.web.v1.MerchantTemplateR\ttemplates\"\xfa\x01\n" +
+	"\ttemplates\x18\x02 \x03(\v2\x18.web.v1.MerchantTemplateR\ttemplates\"\x95\x02\n" +
 	"\x10ItemCatalogEntry\x12\x1d\n" +
 	"\n" +
 	"item_index\x18\x01 \x01(\x05R\titemIndex\x12\x12\n" +
@@ -9312,12 +9347,16 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x05slots\x18\x06 \x03(\tR\x05slots\x12\x14\n" +
 	"\x05grade\x18\a \x01(\x05R\x05grade\x12\x12\n" +
 	"\x04mesh\x18\b \x01(\x05R\x04mesh\x12\x18\n" +
-	"\atexture\x18\t \x01(\x05R\atexture\";\n" +
+	"\atexture\x18\t \x01(\x05R\atexture\x12\x19\n" +
+	"\bicon_url\x18\n" +
+	" \x01(\tR\aiconUrl\";\n" +
 	"\x16ListItemCatalogRequest\x12!\n" +
-	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"v\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"\xcb\x01\n" +
 	"\x17ListItemCatalogResponse\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12.\n" +
-	"\x05items\x18\x02 \x03(\v2\x18.web.v1.ItemCatalogEntryR\x05items\"\xa1\x01\n" +
+	"\x05items\x18\x02 \x03(\v2\x18.web.v1.ItemCatalogEntryR\x05items\x12'\n" +
+	"\x0fcatalog_version\x18\x03 \x01(\tR\x0ecatalogVersion\x12*\n" +
+	"\x11icon_pack_version\x18\x04 \x01(\tR\x0ficonPackVersion\"\xa1\x01\n" +
 	"\vDropItemMob\x12#\n" +
 	"\rtemplate_name\x18\x01 \x01(\tR\ftemplateName\x12\x19\n" +
 	"\bmob_name\x18\x02 \x01(\tR\amobName\x12\x1b\n" +

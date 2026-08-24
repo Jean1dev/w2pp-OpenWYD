@@ -482,8 +482,7 @@ ReqLvl/Str/Int/Dex/Con) + 12×(short sEffect, short sValue) + int Price + 4×sho
 Extra, Grade) = 140`. `nPos` é um **bitmask sobre `STRUCT_MOB.Equip[16]`** (bit *i* = slot *i*;
 `64|128` = arma de duas mãos; `0` = não equipável), e `IndexVisualEffect` é 0 em todas as linhas.
 O `.bin` está **desatualizado** em relação ao `.csv`: 23 dos 3216 itens divergem em mesh — o `.csv`
-é a fonte de verdade (é o que os serviços Go carregam). Decodificador de referência:
-`scripts/item-icon-manifest.py --check-bin`, reimplementado como teste de regressão em
+é a fonte de verdade (é o que os serviços Go carregam). O decodificador é exercitado como teste de regressão em
 `webserver/internal/itemcatalog/bindrift_test.go` (os 23 divergentes estão fixados como baseline, e
 o teste roda no CI). Consumo desses campos pelo front em [item-icons-plan.md](item-icons-plan.md) e
 [../integrations/item-icons-nextjs.md](../integrations/item-icons-nextjs.md).

@@ -27,7 +27,7 @@
 | — | [client-patch-hooks.md](client-patch-hooks.md) | **COMPLETO** | mapa dos hooks/patches da `ClientPatch_v7662.dll` por endereço (checksum off, força-gráficos, SkillDelay, título); 4 pontos de extensão p/ customizar o cliente fechado (ReadMessage/SendChat/UI/SendPack) |
 | — | [web-platform-plan.md](web-platform-plan.md) | **PLANO** | integração da plataforma web (contas, cash, recompensas, loja-web, ranking); web-api + `delivery_queue` (mailbox) preservando o single-owner |
 | — | [npc-editing-plan.md](npc-editing-plan.md) | **PLANO** | edição de NPCs por moderadores via web (aparece/não, posição, itens/preços da loja); overlay em Postgres + hot-reload no loop single-owner |
-| — | [item-icons-plan.md](item-icons-plan.md) | **FASE 1 FEITA** | viabilidade das imagens de item no front-end; a imagem é função de `(IndexMesh, IndexTexture, nPos)` → 1055 `icon_key` p/ 3220 itens; decodificação do `ItemList.bin` (XOR 0x5A, 6500×140 B); fallback procedural + pacote de ícones fora do repo. Contrato publicado em `ItemCatalogService`; guia do front em [../integrations/item-icons-nextjs.md](../integrations/item-icons-nextjs.md) |
+| — | [item-icons-plan.md](item-icons-plan.md) | **PIPELINE IMPLEMENTADO** | mapeamento real `itemicon.bin` → atlas WYT; extrator PNG versionado, upload via `storage-manager-server` com auditoria de URLs, fallback e contrato em `ItemCatalogService`. Guia do front em [../integrations/item-icons-nextjs.md](../integrations/item-icons-nextjs.md) |
 
 ---
 

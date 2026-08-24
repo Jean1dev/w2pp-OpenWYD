@@ -1,15 +1,11 @@
 // Package itemcatalog reads the item lookup the web front-end needs from
 // Release/Common/ItemList.csv: the index/name pair the moderator shop-item
-// picker labels its rows with, plus the visual fields every item-facing screen
-// needs to draw an icon (item-icons-plan.md §5).
+// picker labels its rows with, plus the fallback metadata every item-facing
+// screen needs when a classic-client icon is unavailable.
 //
-// The visual part matters more than it looks. The client never sees the item
-// index when it draws an item: it reads the very same catalog (STRUCT_ITEMLIST,
-// Basedef.h:1162-1185) and the only visual fields there are IndexMesh,
-// IndexTexture and nPos. So the image is a function of that triple, not of the
-// item index — which is why Entry carries IconKey, and why ~3.2k named items
-// collapse into ~1k distinct icons. scripts/item-icon-manifest.py is the
-// reference implementation of these derivations.
+// The classic client resolves real pixels through itemicon.bin, a direct map
+// from item index to a numbered atlas cell. ApplyIcons joins that separately
+// generated manifest; a catalog scanned on its own remains fallback-only.
 //
 // The rest of the row (price, effects, requirements) stays
 // tmserver/internal/content.ItemEntry's concern — webserver only needs what a
@@ -32,6 +28,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemicons"
 )
 
 // Entry is one catalog row, trimmed to what the web needs.
@@ -50,9 +48,11 @@ type Entry struct {
 	SlotMask int32
 	Slots    []string // SlotMask decoded; empty when SlotMask is 0
 	Grade    int32    // 1=Normal 2=Místico 3=Arcano 4=Lendário …
-	// IconKey is the icon-pack key, "m<mesh>_t<texture>_p<slotmask>". Stable,
-	// far fewer values than there are items, and computable offline.
+	// IconKey is the generated atlas-cell key ("iNNNN"). Empty means no mapping.
 	IconKey string
+	// IconURL is the public URL returned by storage-manager-server. Empty means
+	// the generated pack has not been uploaded or the item has no mapping.
+	IconURL string
 }
 
 // Catalog is the scanned item list plus a fingerprint of the file it came from.
@@ -62,6 +62,20 @@ type Catalog struct {
 	// revalidate cheaply. The catalog is immutable at runtime (the content
 	// tree is mounted read-only), so this only changes on redeploy.
 	Version string
+	// IconPackVersion fingerprints itemicon.bin and its source atlases. Empty
+	// means this catalog is operating in fallback-only mode.
+	IconPackVersion string
+}
+
+// ApplyIcons joins a validated classic-client icon manifest onto a catalog.
+// itemicon.bin is indexed directly by item index; mesh, texture and position
+// are fallback metadata and are not an icon lookup key.
+func ApplyIcons(catalog *Catalog, manifest itemicons.Manifest) {
+	for i := range catalog.Items {
+		catalog.Items[i].IconKey = manifest.IconKey(catalog.Items[i].Index)
+		catalog.Items[i].IconURL = manifest.IconURL(catalog.Items[i].Index)
+	}
+	catalog.IconPackVersion = manifest.PackVersion
 }
 
 // slotNames maps each nPos bit to the Equip[] slot it selects. Bit 13 is the
@@ -140,7 +154,6 @@ func Scan(contentDir string) (Catalog, error) {
 			SlotMask:    slotMask,
 			Slots:       decodeSlots(slotMask),
 			Grade:       number(column(fields, 8)),
-			IconKey:     fmt.Sprintf("m%d_t%d_p%d", number(mesh), number(texture), slotMask),
 		}
 	}
 	if err := sc.Err(); err != nil {
