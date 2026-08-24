@@ -26,6 +26,6 @@ COPY --from=build /src/Release /Release
 # The storage-manager assigns opaque object names, so the validated published
 # manifest is the immutable URL map consumed by webserver. Pinning its digest
 # makes the production build fail instead of silently accepting changed data.
-ADD --checksum=sha256:e6e10d3bac61792d9bae048715ff9bf5f85168c1fe18ec43c5dc900e4d57a4da https://jeanluca-teste.s3.amazonaws.com/602dce1d-bdf1-4ce6-a329-7e1fa630bec6file /item-icons/published-manifest.json
+ADD --chown=65532:65532 --chmod=0444 --checksum=sha256:e6e10d3bac61792d9bae048715ff9bf5f85168c1fe18ec43c5dc900e4d57a4da https://jeanluca-teste.s3.amazonaws.com/602dce1d-bdf1-4ce6-a329-7e1fa630bec6file /item-icons/published-manifest.json
 ENV W2PP_ITEM_ICONS_MANIFEST=/item-icons/published-manifest.json
 ENTRYPOINT ["/app"]
