@@ -456,6 +456,10 @@ func TestRequirementsClasseD(t *testing.T) {
 		{911, "Solaris", ItemReq{Lvl: 174, Str: 464, Dex: 140}},
 		{1191, "Elmo_Anao(N)", ItemReq{Lvl: 115, Str: 146, Con: 98}},
 		{1892, "Tunica_Conjuradora(A), the EF_BONUS variant", ItemReq{Lvl: 132, Str: 90, Int: 157}},
+		// Issue #308: the client displays ReqLvl one-based, so raw 160 is level 161.
+		{661, "Ankh_da_Justica", ItemReq{Lvl: 160}},
+		{662, "Ankh_da_Eternidade", ItemReq{Lvl: 160}},
+		{663, "Ankh_da_Gloria", ItemReq{Lvl: 160}},
 		// Untouched: below the rescaled band, and above it (the special capes).
 		{1331, "Tunica_Conjuradora(A), base set", ItemReq{Lvl: 174, Str: 119, Int: 208}},
 		{1720, "Capa_da_Escuridao", ItemReq{Lvl: 399}},
