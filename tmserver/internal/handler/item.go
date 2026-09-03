@@ -341,6 +341,7 @@ const (
 	volMagicBean         = 186
 	volPaint             = volMagicBean
 	volEntradaTerritorio = 188 // Entrada do Território (LAN) ticket (_MSG_UseItem.cpp:4202)
+	volHuntingScroll     = 195 // Pedido de Caça: destination selected by MSG_UseItem.WarpID
 	volExpChest          = 198
 	volBuffKappa20h      = 200
 	volBuffCombat20h     = 201
@@ -381,7 +382,22 @@ const (
 	// distinguished by sIndex: (N)=4111, (M)=4112, (A)=4113. Tier = sIndex - base
 	// (_MSG_UseItem.cpp:4204).
 	itemEntradaTerritorioBase = 4111
+
+	itemHuntingScrollBase = 3432
+	itemHuntingScrollLast = 3437
 )
+
+// huntingScrollDestinations preserves HuntingScrolls[6][10][2] from the
+// legacy _MSG_UseItem.cpp. Rows are item indices 3432..3437 and columns are
+// the client selection WarpID 1..10.
+var huntingScrollDestinations = [6][10][2]int16{
+	{{2370, 2106}, {2508, 2101}, {2526, 2109}, {2529, 1882}, {2126, 1600}, {2005, 1617}, {2241, 1474}, {1858, 1721}, {2250, 1316}, {1989, 1755}},
+	{{290, 3799}, {724, 3781}, {481, 4062}, {876, 4058}, {855, 3922}, {808, 3876}, {959, 3813}, {926, 3750}, {1096, 3730}, {1132, 3800}},
+	{{1242, 4035}, {1264, 4017}, {1333, 3994}, {1358, 4041}, {1462, 4033}, {1326, 3788}, {1493, 3777}, {1437, 3741}, {1389, 3740}, {1422, 3810}},
+	{{1376, 1722}, {1426, 1686}, {1381, 1861}, {1326, 1896}, {1510, 1723}, {1543, 1726}, {1580, 1758}, {1182, 1714}, {1634, 1727}, {1237, 1764}},
+	{{2367, 4024}, {2236, 4044}, {2236, 3993}, {2209, 3989}, {2453, 4067}, {2485, 4043}, {2537, 3897}, {2489, 3919}, {2269, 3910}, {2202, 3866}},
+	{{3664, 3024}, {3582, 3007}, {3514, 3008}, {3819, 2977}, {3517, 2889}, {3745, 2977}, {3639, 2877}, {3650, 2727}, {3660, 2773}, {3746, 2879}},
+}
 
 // volClasses (Classes A-E, _MSG_UseItem.cpp:4959) is handled by useClasseItem
 // (classe.go), NOT rejectUnimplementedConsumable: unlike the water scrolls
@@ -492,6 +508,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useClasseItem(w, s, e, body, src)
 	case vol == volEntradaTerritorio:
 		d.useEntradaTerritorio(w, s, e, src)
+	case vol == volHuntingScroll:
+		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
 		vol >= volWaterNLo && vol <= volWaterNHi,
 		vol >= volWaterALo && vol <= volWaterAHi:
@@ -505,6 +523,22 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		// appears to bring the item back.
 		d.rejectUnimplementedConsumable(w, s, e, src)
 	}
+}
+
+// useHuntingScroll ports the legacy Pedidos de Caça block. The item selects
+// one of six map rows and WarpID selects one of ten destinations within it.
+func (d *Dispatcher) useHuntingScroll(w *world.World, s *world.Session, e *world.Entity, src int, warpID uint16) {
+	itemIndex := int(e.Carry[src].Index)
+	if itemIndex < itemHuntingScrollBase || itemIndex > itemHuntingScrollLast || warpID == 0 || warpID > 10 {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	dest := huntingScrollDestinations[itemIndex-itemHuntingScrollBase][int(warpID)-1]
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.doTeleport(w, s, dest[0], dest[1])
+	d.log.Info("hunting scroll used", "conn", s.Conn, "item", itemIndex, "warp_id", warpID, "to_x", dest[0], "to_y", dest[1])
 }
 
 func isLegacyBuffConsumableVol(vol int) bool {

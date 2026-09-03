@@ -2734,6 +2734,105 @@ func useItemFrame(t *testing.T, c net.Conn, slot int) {
 	send(t, c, protocol.MsgUseItem, body.Encode())
 }
 
+func useItemWarpFrame(t *testing.T, c net.Conn, slot int, warpID uint16) {
+	t.Helper()
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: int32(slot), WarpID: warpID}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+}
+
+func TestHuntingScrollDestinations(t *testing.T) {
+	carry := make([]world.Item, len(huntingScrollDestinations))
+	vols := make(map[int]int, len(huntingScrollDestinations))
+	for row := range huntingScrollDestinations {
+		index := itemHuntingScrollBase + row
+		carry[row] = world.Item{Index: int16(index), Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}}
+		vols[index] = volHuntingScroll
+	}
+	db := recallScrollDB(0, 1000, 500, carry...)
+	addr, stop := startServerClockVolGrid(t, db, vols, world.DefaultGridDim)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	for row, destinations := range huntingScrollDestinations {
+		for col, want := range destinations {
+			warpID := uint16(col + 1)
+			useItemWarpFrame(t, c, row, warpID)
+			expect(t, c, protocol.MsgSendItem)
+			action := expectAction(t, c)
+			if action.TargetX != want[0] || action.TargetY != want[1] {
+				t.Errorf("item %d WarpID %d target = (%d,%d), want (%d,%d)",
+					itemHuntingScrollBase+row, warpID, action.TargetX, action.TargetY, want[0], want[1])
+			}
+		}
+	}
+}
+
+func TestHuntingScrollConsumesSingleAndStackedItems(t *testing.T) {
+	const stackedAmount = 3
+	items := []world.Item{
+		{Index: itemHuntingScrollBase},
+		{Index: itemHuntingScrollBase + 1, Effects: [3]world.Effect{{Effect: efAmount, Value: stackedAmount}}},
+	}
+	vols := map[int]int{
+		itemHuntingScrollBase:     volHuntingScroll,
+		itemHuntingScrollBase + 1: volHuntingScroll,
+	}
+	db := recallScrollDB(0, 1000, 500, items...)
+	addr, stop := startServerClockVolGrid(t, db, vols, world.DefaultGridDim)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemWarpFrame(t, c, 0, 1)
+	single := expect(t, c, protocol.MsgSendItem)
+	if got := le16(single[4:6]); got != 0 {
+		t.Errorf("single scroll slot item = %d, want empty", got)
+	}
+	expectAction(t, c)
+
+	useItemWarpFrame(t, c, 1, 1)
+	stacked := expect(t, c, protocol.MsgSendItem)
+	if got := le16(stacked[4:6]); got != itemHuntingScrollBase+1 {
+		t.Fatalf("stacked scroll slot item = %d, want %d", got, itemHuntingScrollBase+1)
+	}
+	if stacked[6] != efAmount || stacked[7] != stackedAmount-1 {
+		t.Errorf("stacked scroll amount effect = %d.%d, want %d.%d", stacked[6], stacked[7], efAmount, stackedAmount-1)
+	}
+	expectAction(t, c)
+}
+
+func TestHuntingScrollRejectsInvalidItemAndWarpID(t *testing.T) {
+	tests := []struct {
+		name   string
+		item   int16
+		warpID uint16
+	}{
+		{name: "item below range", item: itemHuntingScrollBase - 1, warpID: 1},
+		{name: "item above range", item: itemHuntingScrollLast + 1, warpID: 1},
+		{name: "WarpID zero", item: itemHuntingScrollBase, warpID: 0},
+		{name: "WarpID eleven", item: itemHuntingScrollBase, warpID: 11},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := recallScrollDB(0, 1000, 500, world.Item{Index: tt.item})
+			addr, stop := startServerClockVolGrid(t, db, map[int]int{int(tt.item): volHuntingScroll}, 16)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			useItemWarpFrame(t, c, 0, tt.warpID)
+			item := expect(t, c, protocol.MsgSendItem)
+			if got := int16(le16(item[4:6])); got != tt.item {
+				t.Errorf("rejected slot item = %d, want preserved item %d", got, tt.item)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Errorf("rejected hunting scroll produced unexpected frame %#x", ty)
+			}
+		})
+	}
+}
+
 // TestUseRecallScrollConsumesAndRecalls ports _MSG_UseItem.cpp's "Retorno" block:
 // EF_VOLATILE 11 calls DoRecall and consumes one Pergaminho_Retorno.
 func TestUseRecallScrollConsumesAndRecalls(t *testing.T) {
