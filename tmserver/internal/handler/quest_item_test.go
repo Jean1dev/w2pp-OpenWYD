@@ -31,9 +31,9 @@ func useQuestItem(t *testing.T, c net.Conn) {
 	send(t, c, protocol.MsgUseItem, body.Encode())
 }
 
-func collectQuestResult(t *testing.T, c net.Conn, max int) (exp int64, coin int32, item []byte, sawPanel bool) {
+func collectQuestResult(t *testing.T, c net.Conn, limit int) (exp int64, coin int32, item []byte, sawPanel bool) {
 	t.Helper()
-	for range max {
+	for range limit {
 		ty, payload, ok := readMaybe(t, c)
 		if !ok {
 			break

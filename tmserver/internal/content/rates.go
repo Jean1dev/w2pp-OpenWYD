@@ -65,13 +65,18 @@ func parseQuestRates(r io.Reader) (*QuestRates, error) {
 			continue
 		}
 		kind := asciiUpper(fields[0])
-		want := 4
-		if kind == "COIN" {
+		var want int
+		switch kind {
+		case "EXP":
+			want = 4
+		case "COIN":
 			want = 3
-		} else if kind == "LEVEL" {
+		case "LEVEL":
 			want = 6
+		default:
+			return nil, fmt.Errorf("content: QuestsRate line %d: malformed directive", line)
 		}
-		if (kind != "EXP" && kind != "COIN" && kind != "LEVEL") || len(fields) != want {
+		if len(fields) != want {
 			return nil, fmt.Errorf("content: QuestsRate line %d: malformed directive", line)
 		}
 		values := make([]int64, len(fields)-1)
