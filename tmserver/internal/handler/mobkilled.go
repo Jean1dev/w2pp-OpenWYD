@@ -246,6 +246,31 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 	d.applyLevelUps(w, ks, killer)
 }
 
+// grantDirectExp awards a fixed, already-calculated amount. Quest rewards must
+// not pass through monster level scaling, equipment bonuses, or EXP events.
+func (d *Dispatcher) grantDirectExp(w *world.World, s *world.Session, e *world.Entity, gain int64) int64 {
+	if gain <= 0 {
+		return 0
+	}
+	previous := e.Exp
+	e.Exp += gain
+	if e.Exp > level.MaxExp {
+		e.Exp = level.MaxExp
+	}
+	applied := e.Exp - previous
+	if applied <= 0 || s == nil {
+		return applied
+	}
+	w.Send(s, protocol.MsgExpPanel, protocol.EncodeExpPanelBody(fmt.Sprintf("+%d de EXP", applied), expPanelDefaultColor))
+	if !d.applyLevelUps(w, s, e) {
+		d.sendEtc(w, s, e)
+	}
+	motion := protocol.EncodeMotion(motionLevelUp, motionLevelUpParm)
+	w.Send(s, protocol.MsgMotion, motion)
+	w.BroadcastInView(e.ID, protocol.MsgMotion, motion)
+	return applied
+}
+
 // isCelestialTier reports whether the tier rides the Celestial curve (g_pNextLevel_2)
 // and cap (MAX_CLEVEL): CELESTIAL/CELESTIALCS/SCELESTIAL (CMob.cpp:1085).
 func isCelestialTier(classMaster uint8) bool {

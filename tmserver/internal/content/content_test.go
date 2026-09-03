@@ -103,6 +103,54 @@ func TestLoadSancRate(t *testing.T) {
 	}
 }
 
+func TestQuestRateDefaults(t *testing.T) {
+	q := DefaultQuestRates()
+	want := []QuestTierRate{
+		{1000, 500, 2000, 39, 115, 39, 115},
+		{2000, 1000, 4000, 115, 190, 115, 190},
+		{3000, 1500, 6000, 190, 265, 190, 265},
+		{4000, 2000, 8000, 265, 320, 265, 320},
+		{5000, 2500, 10000, 320, 350, 320, 350},
+	}
+	for i := range want {
+		if got, ok := q.Tier(i); !ok || got != want[i] {
+			t.Errorf("Tier(%d) = %+v,%v, want %+v,true", i, got, ok, want[i])
+		}
+	}
+	if _, ok := q.Tier(-1); ok {
+		t.Error("Tier(-1) succeeded")
+	}
+}
+
+func TestLoadQuestRates(t *testing.T) {
+	q, err := LoadQuestRates(release(t, "Common", "Settings", "QuestsRate.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := q.Tier(2); got != (QuestTierRate{200000, 200000, 100000, 190, 265, 190, 265}) {
+		t.Errorf("Tier(2) = %+v", got)
+	}
+}
+
+func TestParseQuestRatesOverlayAndValidation(t *testing.T) {
+	q, err := parseQuestRates(strings.NewReader("exp 0 30 20\nCoin 0 40\nLEVEL 0 1 2 3 4\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := q.Tier(0); got != (QuestTierRate{30, 20, 40, 1, 2, 3, 4}) {
+		t.Errorf("Tier(0) = %+v", got)
+	}
+	if got, _ := q.Tier(1); got != questRateDefaults[1] {
+		t.Errorf("missing Tier(1) override changed default: %+v", got)
+	}
+	bad := []string{"EXP 5 1 1", "EXP 0 nope 1", "COIN 0 -1", "LEVEL 0 4 4 1 2", "LEVEL 0 0 400 1 2", "wat 0 1"}
+	for _, input := range bad {
+		if _, err := parseQuestRates(strings.NewReader(input)); err == nil {
+			t.Errorf("parseQuestRates(%q) succeeded", input)
+		}
+	}
+}
+
 func TestSancRateOutOfRange(t *testing.T) {
 	s := DefaultSancRate()
 	for _, tt := range []struct{ anvil, idx int }{{-1, 0}, {3, 0}, {0, -1}, {0, 12}} {
