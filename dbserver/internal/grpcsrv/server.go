@@ -30,6 +30,8 @@ type Store interface {
 	PinHashByID(ctx context.Context, id int64) (string, error)
 	SetPinHash(ctx context.Context, id int64, hash string) error
 	SaveCharacter(ctx context.Context, accountID int64, ch domain.Character) error
+	QuoteKingdomCape(ctx context.Context) (domain.KingdomCapeQuote, error)
+	PurchaseKingdomCape(ctx context.Context, accountID, expectedRevision int64, kingdom uint8, ch domain.Character) (domain.KingdomCapeQuote, bool, error)
 	LoadCargo(ctx context.Context, accountID int64) (int32, []domain.Item, error)
 	SaveCargo(ctx context.Context, accountID int64, coin int32, items []domain.Item) error
 	PendingItemDeliveries(ctx context.Context, accountID int64) ([]domain.Delivery, error)
@@ -153,6 +155,31 @@ func (s *Server) SaveCharacter(ctx context.Context, req *dbv1.SaveCharacterReque
 		return nil, status.Errorf(codes.Internal, "save character: %v", err)
 	}
 	return &dbv1.SaveCharacterResponse{Ok: true}, nil
+}
+
+// QuoteKingdomCape returns the durable price and revision used by both Kings.
+func (s *Server) QuoteKingdomCape(ctx context.Context, _ *dbv1.QuoteKingdomCapeRequest) (*dbv1.QuoteKingdomCapeResponse, error) {
+	q, err := s.store.QuoteKingdomCape(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "quote kingdom cape: %v", err)
+	}
+	return kingdomCapeQuoteToProto(q), nil
+}
+
+// PurchaseKingdomCape commits the staged character outcome at the quoted revision.
+func (s *Server) PurchaseKingdomCape(ctx context.Context, req *dbv1.PurchaseKingdomCapeRequest) (*dbv1.PurchaseKingdomCapeResponse, error) {
+	q, ok, err := s.store.PurchaseKingdomCape(ctx, req.GetAccountId(), req.GetExpectedRevision(), uint8(req.GetKingdom()), protoToCharacter(req.GetCharacter()))
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.PurchaseKingdomCapeResponse{Quote: kingdomCapeQuoteToProto(q)}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "purchase kingdom cape: %v", err)
+	}
+	return &dbv1.PurchaseKingdomCapeResponse{Ok: ok, Quote: kingdomCapeQuoteToProto(q)}, nil
+}
+
+func kingdomCapeQuoteToProto(q domain.KingdomCapeQuote) *dbv1.QuoteKingdomCapeResponse {
+	return &dbv1.QuoteKingdomCapeResponse{Revision: q.Revision, HekalotiaCost: q.HekalotiaCost, AkeloniaCost: q.AkeloniaCost}
 }
 
 // LoadCargo loads the account-shared cargo (gold + items). A missing account
@@ -433,6 +460,7 @@ func (s *Server) CreateArchCharacter(ctx context.Context, req *dbv1.CreateArchCh
 		Name:        req.GetName(),
 		Class:       uint8(class),
 		ClassMaster: classMasterArch,
+		MortalLevel: uint16(req.GetMortalLevel()),
 		Level:       1,
 		Str:         12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,

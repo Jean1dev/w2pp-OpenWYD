@@ -102,38 +102,40 @@ type Delivery struct {
 // _MSG_CNFCharacterLogin is UNVERIFIED (its SELCHAR/snapshot layout is not fully
 // documented) and completed once captured.
 type CharacterState struct {
-	Slot         int
-	Name         string
-	Class        int
-	Level        int
-	Exp          int64
-	X            int16
-	Y            int16
-	LastCity     int16 // last city (0..3); login spawn = that city's default area
-	SaveX        int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX), 0 = never set
-	SaveY        int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY), 0 = never set
-	HP           int32
-	MaxHP        int32
-	MP           int32
-	MaxMP        int32
-	Damage       int32 // CurrentScore.Damage
-	AC           int32 // CurrentScore.Ac
-	Master       int   // weapon mastery
-	Critical     uint8
-	Coin         int32
-	Clan         uint8
-	GuildID      uint16
-	GuildLevel   uint8
-	Citizen      uint8 // MobExtra.Citizen; city allegiance and guild creation metadata
-	ClassMaster  uint8
-	CelLv40      uint8 // QuestInfo.Celestial.Lv40 gate
-	CelLv90      uint8 // QuestInfo.Celestial.Lv90 gate
-	CelCircle    uint8 // QuestInfo.Circle (Arcana quest done)
-	TerraMistica uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
-	ArchLv355    uint8
-	ArchLv370    uint8
-	Soul         uint8
-	Fame         int32 // MobExtra.Fame
+	Slot               int
+	Name               string
+	Class              int
+	Level              int
+	Exp                int64
+	X                  int16
+	Y                  int16
+	LastCity           int16 // last city (0..3); login spawn = that city's default area
+	SaveX              int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX), 0 = never set
+	SaveY              int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY), 0 = never set
+	HP                 int32
+	MaxHP              int32
+	MP                 int32
+	MaxMP              int32
+	Damage             int32 // CurrentScore.Damage
+	AC                 int32 // CurrentScore.Ac
+	Master             int   // weapon mastery
+	Critical           uint8
+	Coin               int32
+	Clan               uint8
+	GuildID            uint16
+	GuildLevel         uint8
+	Citizen            uint8 // MobExtra.Citizen; city allegiance and guild creation metadata
+	ClassMaster        uint8
+	CelLv40            uint8 // QuestInfo.Celestial.Lv40 gate
+	CelLv90            uint8 // QuestInfo.Celestial.Lv90 gate
+	CelCircle          uint8 // QuestInfo.Circle (Arcana quest done)
+	TerraMistica       uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
+	ArchLv355          uint8
+	ArchLv370          uint8
+	MortalLevel        uint16
+	CelestialArchLevel uint8
+	Soul               uint8
+	Fame               int32 // MobExtra.Fame
 	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
 	// means "never persisted" (SetPKPoint never legitimately writes 0) — the login
 	// path treats that as neutral (75), the same convention as ClassMaster == 0.
@@ -220,13 +222,15 @@ type CharacterSave struct {
 	Fame            int32
 	// Tier state persisted by the in-game save (world-owned): ClassMaster carries
 	// tier transformations; CelLv40/CelLv90/CelCircle are the celestial quest gates.
-	ClassMaster  uint8
-	CelLv40      uint8
-	CelLv90      uint8
-	CelCircle    uint8
-	TerraMistica uint8
-	ArchLv355    uint8
-	ArchLv370    uint8
+	ClassMaster        uint8
+	CelLv40            uint8
+	CelLv90            uint8
+	CelCircle          uint8
+	TerraMistica       uint8
+	ArchLv355          uint8
+	ArchLv370          uint8
+	MortalLevel        uint16
+	CelestialArchLevel uint8
 	// PK/karma state (issue #210) — see CharacterState for field meanings.
 	PKPoint     uint8
 	Guilty      uint8
@@ -239,6 +243,13 @@ type CharacterSave struct {
 
 	Carry []SavedItem
 	Equip []SavedItem
+}
+
+// KingdomCapeQuote is one durable pricing revision shared by both kingdoms.
+type KingdomCapeQuote struct {
+	Revision      int64
+	HekalotiaCost int
+	AkeloniaCost  int
 }
 
 // GuildRecord is the tmServer-facing guild registry row. ID is the legacy
@@ -301,10 +312,12 @@ type CastleQuestState struct {
 // I/O); SaveOnShutdown is called inline during the shutdown drain.
 type Persistence interface {
 	SaveOnShutdown(ctx context.Context, save CharacterSave) error
+	QuoteKingdomCape(ctx context.Context) (KingdomCapeQuote, error)
+	PurchaseKingdomCape(ctx context.Context, expectedRevision int64, kingdom uint8, save CharacterSave) (KingdomCapeQuote, bool, error)
 	AccountLogin(ctx context.Context, name, password string) (LoginOutcome, error)
 	ListCharacters(ctx context.Context, accountID int64) ([]CharSummary, error)
 	CreateCharacter(ctx context.Context, accountID int64, slot int, name string, class int) (bool, error)
-	CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error)
+	CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot, mortalLevel int) (int, bool, error)
 	DeleteCharacter(ctx context.Context, accountID int64, slot int, name, password string) (bool, error)
 	// SetPin sets/changes the account's numeric PIN (hashed argon2id on the
 	// dbServer). VerifyPin checks a PIN. Both run off the loop via World.Go.
@@ -356,6 +369,16 @@ type NopPersistence struct{}
 // SaveOnShutdown does nothing.
 func (NopPersistence) SaveOnShutdown(context.Context, CharacterSave) error { return nil }
 
+// QuoteKingdomCape returns the balanced development price without persistence.
+func (NopPersistence) QuoteKingdomCape(context.Context) (KingdomCapeQuote, error) {
+	return KingdomCapeQuote{Revision: 1, HekalotiaCost: 8, AkeloniaCost: 8}, nil
+}
+
+// PurchaseKingdomCape cannot provide an atomic purchase without a backend.
+func (NopPersistence) PurchaseKingdomCape(context.Context, int64, uint8, CharacterSave) (KingdomCapeQuote, bool, error) {
+	return KingdomCapeQuote{}, false, errNoPersistence
+}
+
 // AccountLogin always reports no account.
 func (NopPersistence) AccountLogin(context.Context, string, string) (LoginOutcome, error) {
 	return LoginOutcome{Result: LoginNoAccount}, nil
@@ -372,7 +395,7 @@ func (NopPersistence) CreateCharacter(context.Context, int64, int, string, int) 
 }
 
 // CreateArchCharacter is unsupported without a backend.
-func (NopPersistence) CreateArchCharacter(context.Context, int64, string, int, int, int) (int, bool, error) {
+func (NopPersistence) CreateArchCharacter(context.Context, int64, string, int, int, int, int) (int, bool, error) {
 	return 0, false, errNoPersistence
 }
 

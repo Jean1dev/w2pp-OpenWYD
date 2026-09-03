@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/binary"
 	"time"
 
@@ -1348,51 +1349,107 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }
 
-// celestialArchLevelReq is the Arch level required to use the Pedra Ideal for the
-// Arch→Celestial transformation (issue #222): mirrors kingArch's own near-max-level
-// gate for Mortal→Arch (Level>=299 there); Arch's own cap is level.MaxLevel (399).
-const celestialArchLevelReq = level.MaxLevel
+const celestialArchLevelReq = 355
 
 // useIdealStone handles the Arch→Celestial transformation triggered by right-clicking
 // the Pedra Ideal (item 1742, issue #222). This is a distinct self-use path from
 // kingArch's equip-and-visit-the-King Mortal→Arch flow, which reuses the same item —
 // the in-game tooltip instructs "clique na pedra com o botão direito do mouse" and only
 // applies once the character is already Arch (the caller in useItem gates on that).
-//
-// Level/Exp reset to the Celestial curve's start: Celestial's level cap
-// (level.MaxCLevel=199) is lower than Arch's (level.MaxLevel=399), so carrying the Arch
-// level over would leave the character permanently over-cap. The Celestial quest gates
-// (CelLv40/CelLv90/CelCircle) reset too, so a freshly-made Celestial unlocks level
-// 40/90 the normal way via /destravar40/90. Attribute points, HP/MP, and skills are
-// left untouched — no capture data confirms the legacy resets those as well
-// (docs/migration/celestial-system-plan.md), so this fork doesn't invent it.
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
-	if e.Level < celestialArchLevelReq {
+	if e.ClassMaster != classMasterArch || e.Level < celestialArchLevelReq || e.MortalLevel < 99 {
 		d.notify(w, s, NoticeReqNotMet)
-		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	e.ClassMaster = classMasterCelestial
-	e.Level = 1
-	e.Exp = 0
+	if !e.Equip[1].Empty() {
+		d.notify(w, s, NoticeOnlyToEquips)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	staged := *e
+	d.buildCelestialSnapshot(&staged, src)
+	save := w.CharacterSaveFor(s, &staged)
+	p := w.Persistence()
+	s.Mode = world.UserWaitDB
+	w.Go(s, func() func(*world.World, *world.Session) {
+		err := p.SaveOnShutdown(context.Background(), save)
+		return func(w *world.World, s *world.Session) {
+			if err != nil {
+				s.Mode = world.UserPlay
+				d.log.Warn("celestial save failed", "conn", s.Conn, "name", e.Name, "err", err)
+				d.notify(w, s, NoticeDBError)
+				d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+				return
+			}
+			*e = staged
+			d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+			d.sendSlot(w, s, world.ItemPlaceEquip, 1, e.Equip[1])
+			d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
+			d.sendScore(w, s, e)
+			d.sendEtc(w, s, e)
+			d.returnPersistedCharacterToSelection(w, s, func(w *world.World, s *world.Session) {
+				w.SendTo(s, protocol.Header{Type: protocol.MsgSendArchEffect, ID: protocol.IDScene}, protocol.EncodeStandardParm(int32(s.Slot)))
+			})
+			d.log.Info("celestial created", "conn", s.Conn, "name", e.Name)
+		}
+	})
+}
+
+func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity, src int) {
+	archLevel := e.Level
+	e.CelestialArchLevel = celestialArchBand(archLevel)
+	e.ClassMaster, e.Level, e.Exp = classMasterCelestial, 0, 0
+	bases := [4][6]int32{{8, 4, 7, 6, 80, 45}, {5, 8, 5, 5, 60, 65}, {6, 6, 9, 5, 70, 55}, {8, 9, 13, 6, 75, 60}}
+	class := int(e.Class)
+	if class < 0 || class >= len(bases) {
+		class = 0
+	}
+	b := bases[class]
+	e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon = int16(b[0]), int16(b[1]), int16(b[2]), int16(b[3])
+	e.Str, e.Int, e.Dex, e.Con = e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon
+	e.BaseSpecial, e.Special = [4]int16{}, [4]int16{}
+	e.BaseAC, e.BaseDamage = 230, 0
+	e.BaseMaxHP, e.BaseMaxMP = b[4], b[5]
+	e.HP, e.MaxHP, e.MP, e.MaxMP = b[4], b[4], b[5], b[5]
+	e.ScoreBonus, e.SkillBonus, e.SpecialBonus = 0, 0, 855
+	e.LearnedSkill, e.SecLearnedSkill = 1<<30, 0
+	e.SkillBar = [4]uint8{}
 	e.CelLv40, e.CelLv90, e.CelCircle = 0, 0, 0
-	// _MSG_UseItem.cpp:3137 resets BaseScore.Damage during this conversion.
-	// Do it before refreshScore so the current session matches the next login.
-	e.BaseDamage = playerBaseDamage(e)
-	// BaseScore.Ac goes back to the Celestial baseline together with the level
-	// (_MSG_UseItem.cpp:3136) — without this the Arch's accumulated per-level AC
-	// would linger for the rest of the session and only snap back on the next
-	// login, when playerBaseAC re-derives it from the new tier and level.
-	e.BaseAC = playerBaseAC(e)
+	body := int16(3500)
+	if archLevel >= 399 {
+		body = 3502
+	} else if archLevel >= 380 {
+		body = 3501
+	}
+	e.Equip[1] = world.Item{Index: body}
+	cape := int16(3199)
+	switch e.Clan {
+	case clanHekalotia:
+		cape = 3197
+	case clanAkelonia:
+		cape = 3198
+	}
+	e.Equip[capeEquipSlot] = world.Item{Index: cape}
+	e.Equip[0].Effects[1] = world.Effect{Effect: 98, Value: 3}
+	e.Equip[0].Effects[2] = world.Effect{Effect: 106, Value: uint8(e.Equip[0].Index)}
 	consumeOneItem(&e.Carry[src])
-	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.refreshScore(e)
-	d.sendScore(w, s, e)
-	d.sendEtc(w, s, e)
-	sendCombineComplete(w, s, celestialUnlockParm)
-	d.playUnlockEmote(w, s)
-	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
-	d.log.Info("celestial created", "conn", s.Conn, "name", e.Name)
+}
+
+func celestialArchBand(level int32) uint8 {
+	switch {
+	case level < 370:
+		return 1
+	case level < 380:
+		return 2
+	case level < 398:
+		return 3
+	case level == 398:
+		return 4
+	default:
+		return 5
+	}
 }
 
 const (

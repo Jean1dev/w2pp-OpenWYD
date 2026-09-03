@@ -119,13 +119,14 @@ func (c *Client) CreateCharacter(ctx context.Context, accountID int64, slot int,
 }
 
 // CreateArchCharacter creates an ARCH twin in the first free account slot.
-func (c *Client) CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error) {
+func (c *Client) CreateArchCharacter(ctx context.Context, accountID int64, name string, class, mortalFace, mortalSlot, mortalLevel int) (int, bool, error) {
 	resp, err := c.api.CreateArchCharacter(ctx, &dbv1.CreateArchCharacterRequest{
-		AccountId:  accountID,
-		Name:       name,
-		Class:      int32(class),
-		MortalFace: int32(mortalFace),
-		MortalSlot: int32(mortalSlot),
+		AccountId:   accountID,
+		Name:        name,
+		Class:       int32(class),
+		MortalFace:  int32(mortalFace),
+		MortalSlot:  int32(mortalSlot),
+		MortalLevel: int32(mortalLevel),
 	})
 	if err != nil {
 		return 0, false, fmt.Errorf("dbclient: create arch character: %w", err)
@@ -199,6 +200,25 @@ func (c *Client) SaveOnShutdown(ctx context.Context, save world.CharacterSave) e
 		return fmt.Errorf("dbclient: save character: %w", err)
 	}
 	return nil
+}
+
+// QuoteKingdomCape fetches the database-owned sapphire prices.
+func (c *Client) QuoteKingdomCape(ctx context.Context) (world.KingdomCapeQuote, error) {
+	resp, err := c.api.QuoteKingdomCape(ctx, &dbv1.QuoteKingdomCapeRequest{})
+	if err != nil {
+		return world.KingdomCapeQuote{}, fmt.Errorf("dbclient: quote kingdom cape: %w", err)
+	}
+	return world.KingdomCapeQuote{Revision: resp.GetRevision(), HekalotiaCost: int(resp.GetHekalotiaCost()), AkeloniaCost: int(resp.GetAkeloniaCost())}, nil
+}
+
+// PurchaseKingdomCape commits a staged payment and cape at an expected revision.
+func (c *Client) PurchaseKingdomCape(ctx context.Context, expectedRevision int64, kingdom uint8, save world.CharacterSave) (world.KingdomCapeQuote, bool, error) {
+	resp, err := c.api.PurchaseKingdomCape(ctx, &dbv1.PurchaseKingdomCapeRequest{AccountId: save.AccountID, ExpectedRevision: expectedRevision, Kingdom: int32(kingdom), Character: characterSaveToProto(save)})
+	if err != nil {
+		return world.KingdomCapeQuote{}, false, fmt.Errorf("dbclient: purchase kingdom cape: %w", err)
+	}
+	q := resp.GetQuote()
+	return world.KingdomCapeQuote{Revision: q.GetRevision(), HekalotiaCost: int(q.GetHekalotiaCost()), AkeloniaCost: int(q.GetAkeloniaCost())}, resp.GetOk(), nil
 }
 
 // LoadCargo loads the account-shared warehouse (gold + items) for world
@@ -612,40 +632,42 @@ func castleQuestStateFromProto(st *dbv1.CastleQuestState) world.CastleQuestState
 // the equipment from a score that was never stored (issue #232).
 func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 	st := world.CharacterState{
-		Slot:         int(c.GetSlot()),
-		Name:         c.GetName(),
-		Class:        int(c.GetClass()),
-		Level:        int(c.GetLevel()),
-		Exp:          c.GetExp(),
-		HP:           c.GetHp(),
-		MaxHP:        c.GetMaxHp(),
-		MP:           c.GetMp(),
-		MaxMP:        c.GetMaxMp(),
-		Coin:         c.GetCoin(),
-		Clan:         uint8(c.GetClan()),
-		GuildID:      uint16(c.GetGuildId()),
-		GuildLevel:   uint8(c.GetGuildLevel()),
-		Citizen:      uint8(c.GetCitizen()),
-		ClassMaster:  uint8(c.GetClassMaster()),
-		CelLv40:      uint8(c.GetCelestialLv40()),
-		ArchLv355:    uint8(c.GetArchLv355()),
-		ArchLv370:    uint8(c.GetArchLv370()),
-		CelLv90:      uint8(c.GetCelestialLv90()),
-		CelCircle:    uint8(c.GetCelestialCircle()),
-		TerraMistica: uint8(c.GetMortalTerraMistica()),
-		Soul:         uint8(c.GetSoul()),
-		Fame:         c.GetFame(),
-		PKPoint:      uint8(c.GetPkPoint()),
-		Guilty:       uint8(c.GetGuilty()),
-		CurKill:      uint8(c.GetCurKill()),
-		TotKill:      uint16(c.GetTotKill()),
-		Str:          int16(c.GetStr()),
-		Int:          int16(c.GetInt()),
-		Dex:          int16(c.GetDex()),
-		Con:          int16(c.GetCon()),
-		LastCity:     int16(c.GetLastCity()),
-		SaveX:        int16(c.GetSaveX()),
-		SaveY:        int16(c.GetSaveY()),
+		Slot:               int(c.GetSlot()),
+		Name:               c.GetName(),
+		Class:              int(c.GetClass()),
+		Level:              int(c.GetLevel()),
+		Exp:                c.GetExp(),
+		HP:                 c.GetHp(),
+		MaxHP:              c.GetMaxHp(),
+		MP:                 c.GetMp(),
+		MaxMP:              c.GetMaxMp(),
+		Coin:               c.GetCoin(),
+		Clan:               uint8(c.GetClan()),
+		GuildID:            uint16(c.GetGuildId()),
+		GuildLevel:         uint8(c.GetGuildLevel()),
+		Citizen:            uint8(c.GetCitizen()),
+		ClassMaster:        uint8(c.GetClassMaster()),
+		CelLv40:            uint8(c.GetCelestialLv40()),
+		ArchLv355:          uint8(c.GetArchLv355()),
+		ArchLv370:          uint8(c.GetArchLv370()),
+		MortalLevel:        uint16(c.GetMortalLevel()),
+		CelestialArchLevel: uint8(c.GetCelestialArchLevel()),
+		CelLv90:            uint8(c.GetCelestialLv90()),
+		CelCircle:          uint8(c.GetCelestialCircle()),
+		TerraMistica:       uint8(c.GetMortalTerraMistica()),
+		Soul:               uint8(c.GetSoul()),
+		Fame:               c.GetFame(),
+		PKPoint:            uint8(c.GetPkPoint()),
+		Guilty:             uint8(c.GetGuilty()),
+		CurKill:            uint8(c.GetCurKill()),
+		TotKill:            uint16(c.GetTotKill()),
+		Str:                int16(c.GetStr()),
+		Int:                int16(c.GetInt()),
+		Dex:                int16(c.GetDex()),
+		Con:                int16(c.GetCon()),
+		LastCity:           int16(c.GetLastCity()),
+		SaveX:              int16(c.GetSaveX()),
+		SaveY:              int16(c.GetSaveY()),
 
 		ScoreBonus:      uint16(c.GetScoreBonus()),
 		SpecialBonus:    uint16(c.GetSpecialBonus()),
@@ -748,19 +770,21 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		// Tier state: class_master (transformations) + the celestial quest gates.
 		// The load side never trusted class_master=0 (defaults to MORTAL); saving it
 		// here is what makes a tier change survive relog.
-		ClassMaster:     int32(s.ClassMaster),
-		CelestialLv40:   int32(s.CelLv40),
-		ArchLv355:       int32(s.ArchLv355),
-		ArchLv370:       int32(s.ArchLv370),
-		CelestialLv90:   int32(s.CelLv90),
-		CelestialCircle: int32(s.CelCircle),
-		PkPoint:         int32(s.PKPoint),
-		Guilty:          int32(s.Guilty),
-		CurKill:         int32(s.CurKill),
-		TotKill:         uint32(s.TotKill),
-		Special:         make([]int32, len(s.BaseSpecial)),
-		SkillBar:        make([]uint32, len(s.SkillBar)),
-		ShortSkill:      make([]uint32, len(s.ShortSkill)),
+		ClassMaster:        int32(s.ClassMaster),
+		CelestialLv40:      int32(s.CelLv40),
+		ArchLv355:          int32(s.ArchLv355),
+		ArchLv370:          int32(s.ArchLv370),
+		MortalLevel:        int32(s.MortalLevel),
+		CelestialArchLevel: int32(s.CelestialArchLevel),
+		CelestialLv90:      int32(s.CelLv90),
+		CelestialCircle:    int32(s.CelCircle),
+		PkPoint:            int32(s.PKPoint),
+		Guilty:             int32(s.Guilty),
+		CurKill:            int32(s.CurKill),
+		TotKill:            uint32(s.TotKill),
+		Special:            make([]int32, len(s.BaseSpecial)),
+		SkillBar:           make([]uint32, len(s.SkillBar)),
+		ShortSkill:         make([]uint32, len(s.ShortSkill)),
 	}
 	for i, v := range s.BaseSpecial {
 		c.Special[i] = int32(v)

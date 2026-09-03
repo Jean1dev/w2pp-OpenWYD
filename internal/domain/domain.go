@@ -34,59 +34,68 @@ type Account struct {
 
 // Character is one of an account's up to four characters.
 type Character struct {
-	Slot            int
-	Name            string
-	Class           uint8
-	Clan            uint8
-	GuildID         uint16
-	GuildLevel      uint8
-	Level           int32
-	Exp             int64
-	Coin            int32
-	Str             int16
-	Int             int16
-	Dex             int16
-	Con             int16
-	ScoreBonus      uint16
-	SpecialBonus    uint16
-	SkillBonus      uint16
-	Special         [4]int16 // BaseScore.Special[4]: allocated mastery points
-	MaxHp           int32
-	MaxMp           int32
-	Hp              int32
-	Mp              int32
-	Critical        uint8
-	RegenHP         uint16
-	RegenMP         uint16
-	ResistFire      int8
-	ResistIce       int8
-	ResistThunder   int8
-	ResistMagic     int8
-	LearnedSkill    int32
-	SecLearnedSkill int32
-	Magic           uint32
-	SaveX           int16
-	SaveY           int16
-	LastCity        int16  // last city (0..3); login spawn = that city's default area
-	Citizen         uint8  // MobExtra.Citizen
-	ClassMaster     uint8  // MobExtra.ClassMaster
-	CelLv40         uint8  // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
-	CelLv90         uint8  // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
-	CelCircle       uint8  // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
-	TerraMistica    uint8  // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
-	ArchLv355       uint8  // MobExtra.QuestInfo.Arch.Level355
-	ArchLv370       uint8  // MobExtra.QuestInfo.Arch.Level370
-	Soul            uint8  // MobExtra.Soul
-	Fame            int32  // MobExtra.Fame
-	PKPoint         uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
-	Guilty          uint8  // KILL_MARK slot: PvP "red nick" decay counter
-	CurKill         uint8  // current PvP kill streak (MobName[13])
-	TotKill         uint16 // lifetime PvP kills (MobName[14..15])
-	SkillBar        [4]uint8
-	ShortSkill      [16]uint8
-	Equip           []Item // owner_kind = char_equip
-	Carry           []Item // owner_kind = char_carry
-	Affects         []Affect
+	Slot               int
+	Name               string
+	Class              uint8
+	Clan               uint8
+	GuildID            uint16
+	GuildLevel         uint8
+	Level              int32
+	Exp                int64
+	Coin               int32
+	Str                int16
+	Int                int16
+	Dex                int16
+	Con                int16
+	ScoreBonus         uint16
+	SpecialBonus       uint16
+	SkillBonus         uint16
+	Special            [4]int16 // BaseScore.Special[4]: allocated mastery points
+	MaxHp              int32
+	MaxMp              int32
+	Hp                 int32
+	Mp                 int32
+	Critical           uint8
+	RegenHP            uint16
+	RegenMP            uint16
+	ResistFire         int8
+	ResistIce          int8
+	ResistThunder      int8
+	ResistMagic        int8
+	LearnedSkill       int32
+	SecLearnedSkill    int32
+	Magic              uint32
+	SaveX              int16
+	SaveY              int16
+	LastCity           int16  // last city (0..3); login spawn = that city's default area
+	Citizen            uint8  // MobExtra.Citizen
+	ClassMaster        uint8  // MobExtra.ClassMaster
+	CelLv40            uint8  // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
+	CelLv90            uint8  // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
+	CelCircle          uint8  // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
+	TerraMistica       uint8  // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
+	ArchLv355          uint8  // MobExtra.QuestInfo.Arch.Level355
+	ArchLv370          uint8  // MobExtra.QuestInfo.Arch.Level370
+	MortalLevel        uint16 // MobExtra.QuestInfo.Arch.MortalLevel
+	CelestialArchLevel uint8  // MobExtra.QuestInfo.Celestial.ArchLevel
+	Soul               uint8  // MobExtra.Soul
+	Fame               int32  // MobExtra.Fame
+	PKPoint            uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
+	Guilty             uint8  // KILL_MARK slot: PvP "red nick" decay counter
+	CurKill            uint8  // current PvP kill streak (MobName[13])
+	TotKill            uint16 // lifetime PvP kills (MobName[14..15])
+	SkillBar           [4]uint8
+	ShortSkill         [16]uint8
+	Equip              []Item // owner_kind = char_equip
+	Carry              []Item // owner_kind = char_carry
+	Affects            []Affect
+}
+
+// KingdomCapeQuote is the persisted, versioned sapphire price snapshot.
+type KingdomCapeQuote struct {
+	Revision      int64
+	HekalotiaCost int32
+	AkeloniaCost  int32
 }
 
 // RankingEntry is a web-facing character ranking projection. Rank is assigned

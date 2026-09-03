@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -438,7 +439,7 @@ func TestUseEntradaTerritorio(t *testing.T) {
 // carry slot 0, at the given tier/level (issue #222).
 func idealStoneDB(classMaster uint8, lvl int) *fakeDB {
 	db := newDB()
-	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster, Level: lvl}
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster, Level: lvl, MortalLevel: 99}
 	st.Carry[0] = world.Item{Index: idealStoneItem}
 	db.loadResult = st
 	return db
@@ -458,22 +459,14 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
 	send(t, c, protocol.MsgUseItem, body.Encode())
 
-	expect(t, c, protocol.MsgSendItem) // Pedra Ideal removed from carry
-	ty, payload, ok := readMaybe(t, c)
-	if !ok || ty != protocol.MsgUpdateScore {
-		t.Fatalf("got %#x ok=%v, want UpdateScore after Celestial conversion", ty, ok)
+	seenLogout := false
+	for !seenLogout {
+		ty, _, ok := readMaybe(t, c)
+		if !ok {
+			t.Fatal("connection ended before Celestial logout confirmation")
+		}
+		seenLogout = ty == protocol.MsgCNFCharacterLogout
 	}
-	// The fixture has zero STR/DEX/Special and no damage-bearing gear. A fresh
-	// Celestial therefore has only its level term (1+MAX_LEVEL); the Mortal/Arch
-	// BaseScore.Damage=5 must have been reset before this score was emitted.
-	if want := level.MaxLevel + 1; scoreDamage(payload) != want {
-		t.Errorf("Celestial Damage = %d, want %d (zero base + level term)", scoreDamage(payload), want)
-	}
-	expect(t, c, protocol.MsgCombineComplete) // unlock signal
-	expect(t, c, protocol.MsgMotion)          // unlock emote
-
-	send(t, c, protocol.MsgCharacterLogout, nil)
-	expect(t, c, protocol.MsgCNFCharacterLogout)
 	char, n := db.lastSavedChar()
 	if n == 0 {
 		t.Fatal("character was never saved")
@@ -481,8 +474,8 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	if char.ClassMaster != classMasterCelestial {
 		t.Errorf("saved ClassMaster = %d, want %d (celestial)", char.ClassMaster, classMasterCelestial)
 	}
-	if char.Level != 1 {
-		t.Errorf("saved Level = %d, want 1 (reset)", char.Level)
+	if char.Level != 0 {
+		t.Errorf("saved Level = %d, want 0 (legacy zero-based reset)", char.Level)
 	}
 	if char.Exp != 0 {
 		t.Errorf("saved Exp = %d, want 0 (reset)", char.Exp)
@@ -493,13 +486,22 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	if hasItem(char.Carry, idealStoneItem) {
 		t.Error("saved carry still has the Pedra Ideal; want consumed")
 	}
+	if char.CelestialArchLevel != 5 {
+		t.Errorf("saved Arch band = %d, want 5", char.CelestialArchLevel)
+	}
+	if !hasItem(char.Equip, 3502) || !hasItem(char.Equip, 3199) {
+		t.Errorf("saved Celestial equipment = %+v, want body 3502 and neutral cape 3199", char.Equip)
+	}
+	if char.SpecialBonus != 855 || char.LearnedSkill != 1<<30 {
+		t.Errorf("saved skills = bonus %d mask %d", char.SpecialBonus, char.LearnedSkill)
+	}
 }
 
 // TestUseIdealStoneRequiresMaxArchLevel verifies an Arch below the tier cap is
 // rejected: no tier change, the item stays put, and the client gets a slot resync
 // instead of the unlock signals.
 func TestUseIdealStoneRequiresMaxArchLevel(t *testing.T) {
-	db := idealStoneDB(classMasterArch, int(level.MaxLevel)-1)
+	db := idealStoneDB(classMasterArch, 354)
 	addr, stop, _ := startServerClock(t, db)
 	defer stop()
 	c := enterWorld(t, addr)
@@ -533,6 +535,90 @@ func TestUseIdealStoneRequiresMaxArchLevel(t *testing.T) {
 	}
 	if char.ClassMaster != classMasterArch {
 		t.Errorf("saved ClassMaster = %d, want %d (unchanged, still arch)", char.ClassMaster, classMasterArch)
+	}
+}
+
+func TestCelestialArchBandsAndEquipment(t *testing.T) {
+	tests := []struct {
+		level int32
+		band  uint8
+		body  int16
+	}{
+		{355, 1, 3500}, {369, 1, 3500}, {370, 2, 3500}, {379, 2, 3500},
+		{380, 3, 3501}, {397, 3, 3501}, {398, 4, 3501}, {399, 5, 3502}, {450, 5, 3502},
+	}
+	d := New(Config{})
+	for _, tc := range tests {
+		e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: tc.level, MortalLevel: 99, Clan: clanHekalotia}
+		e.Equip[0] = world.Item{Index: 21}
+		e.Carry[0] = world.Item{Index: idealStoneItem}
+		d.buildCelestialSnapshot(&e, 0)
+		if e.CelestialArchLevel != tc.band || e.Equip[1].Index != tc.body {
+			t.Errorf("level %d => band/body %d/%d, want %d/%d", tc.level, e.CelestialArchLevel, e.Equip[1].Index, tc.band, tc.body)
+		}
+		if e.Level != 0 || e.Exp != 0 || e.BaseAC != 230 || e.BaseDamage != 0 {
+			t.Errorf("level %d reset incomplete: %+v", tc.level, e)
+		}
+		if e.BaseStr != 8 || e.BaseInt != 4 || e.BaseDex != 7 || e.BaseCon != 6 || e.BaseMaxHP != 80 || e.BaseMaxMP != 45 {
+			t.Errorf("level %d class base mismatch", tc.level)
+		}
+		if e.SpecialBonus != 855 || e.LearnedSkill != 1<<30 || e.Equip[capeEquipSlot].Index != 3197 {
+			t.Errorf("level %d celestial state mismatch", tc.level)
+		}
+		if !e.Carry[0].Empty() {
+			t.Errorf("level %d Ideal Stone not consumed", tc.level)
+		}
+		if e.Equip[0].Effects[1] != (world.Effect{Effect: 98, Value: 3}) || e.Equip[0].Effects[2] != (world.Effect{Effect: 106, Value: 21}) {
+			t.Errorf("level %d body effects mismatch: %+v", tc.level, e.Equip[0])
+		}
+	}
+}
+
+func TestCelestialClassBases(t *testing.T) {
+	want := [4][6]int32{{8, 4, 7, 6, 80, 45}, {5, 8, 5, 5, 60, 65}, {6, 6, 9, 5, 70, 55}, {8, 9, 13, 6, 75, 60}}
+	d := New(Config{})
+	for class, base := range want {
+		e := world.Entity{Class: uint8(class), ClassMaster: classMasterArch, Level: 399, MortalLevel: 99}
+		e.Carry[0] = world.Item{Index: idealStoneItem, Effects: [3]world.Effect{{Effect: 61, Value: 3}}}
+		d.buildCelestialSnapshot(&e, 0)
+		got := [6]int32{int32(e.BaseStr), int32(e.BaseInt), int32(e.BaseDex), int32(e.BaseCon), e.BaseMaxHP, e.BaseMaxMP}
+		if got != base {
+			t.Errorf("class %d base = %v, want %v", class, got, base)
+		}
+	}
+}
+
+func TestUseIdealStonePersistenceFailurePreservesArch(t *testing.T) {
+	db := idealStoneDB(classMasterArch, 399)
+	db.saveErr = errors.New("injected save failure")
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+	seenStone := false
+	for {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		if ty == protocol.MsgCNFCharacterLogout {
+			t.Fatal("failed persistence returned player to selection")
+		}
+		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == idealStoneItem {
+			seenStone = true
+			break
+		}
+	}
+	if !seenStone {
+		t.Fatal("failed persistence did not restore the visible Ideal Stone")
+	}
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	save, n := db.lastSavedChar()
+	if n == 0 || save.ClassMaster != classMasterArch || !hasItem(save.Carry, idealStoneItem) {
+		t.Fatalf("post-failure save = %+v count=%d, want unchanged Arch with stone", save, n)
 	}
 }
 

@@ -31,6 +31,8 @@ const (
 	AccountService_ListCharacters_FullMethodName          = "/db.v1.AccountService/ListCharacters"
 	AccountService_LoadCharacter_FullMethodName           = "/db.v1.AccountService/LoadCharacter"
 	AccountService_SaveCharacter_FullMethodName           = "/db.v1.AccountService/SaveCharacter"
+	AccountService_QuoteKingdomCape_FullMethodName        = "/db.v1.AccountService/QuoteKingdomCape"
+	AccountService_PurchaseKingdomCape_FullMethodName     = "/db.v1.AccountService/PurchaseKingdomCape"
 	AccountService_CreateCharacter_FullMethodName         = "/db.v1.AccountService/CreateCharacter"
 	AccountService_CreateArchCharacter_FullMethodName     = "/db.v1.AccountService/CreateArchCharacter"
 	AccountService_DeleteCharacter_FullMethodName         = "/db.v1.AccountService/DeleteCharacter"
@@ -72,6 +74,8 @@ type AccountServiceClient interface {
 	LoadCharacter(ctx context.Context, in *LoadCharacterRequest, opts ...grpc.CallOption) (*LoadCharacterResponse, error)
 	// SaveCharacter persists one character's state (_MSG_DBSaveMob / SavingQuit).
 	SaveCharacter(ctx context.Context, in *SaveCharacterRequest, opts ...grpc.CallOption) (*SaveCharacterResponse, error)
+	QuoteKingdomCape(ctx context.Context, in *QuoteKingdomCapeRequest, opts ...grpc.CallOption) (*QuoteKingdomCapeResponse, error)
+	PurchaseKingdomCape(ctx context.Context, in *PurchaseKingdomCapeRequest, opts ...grpc.CallOption) (*PurchaseKingdomCapeResponse, error)
 	// CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
 	CreateCharacter(ctx context.Context, in *CreateCharacterRequest, opts ...grpc.CallOption) (*CreateCharacterResponse, error)
 	// CreateArchCharacter creates the ARCH twin in the first free account slot
@@ -171,6 +175,26 @@ func (c *accountServiceClient) SaveCharacter(ctx context.Context, in *SaveCharac
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SaveCharacterResponse)
 	err := c.cc.Invoke(ctx, AccountService_SaveCharacter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) QuoteKingdomCape(ctx context.Context, in *QuoteKingdomCapeRequest, opts ...grpc.CallOption) (*QuoteKingdomCapeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QuoteKingdomCapeResponse)
+	err := c.cc.Invoke(ctx, AccountService_QuoteKingdomCape_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) PurchaseKingdomCape(ctx context.Context, in *PurchaseKingdomCapeRequest, opts ...grpc.CallOption) (*PurchaseKingdomCapeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PurchaseKingdomCapeResponse)
+	err := c.cc.Invoke(ctx, AccountService_PurchaseKingdomCape_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -441,6 +465,8 @@ type AccountServiceServer interface {
 	LoadCharacter(context.Context, *LoadCharacterRequest) (*LoadCharacterResponse, error)
 	// SaveCharacter persists one character's state (_MSG_DBSaveMob / SavingQuit).
 	SaveCharacter(context.Context, *SaveCharacterRequest) (*SaveCharacterResponse, error)
+	QuoteKingdomCape(context.Context, *QuoteKingdomCapeRequest) (*QuoteKingdomCapeResponse, error)
+	PurchaseKingdomCape(context.Context, *PurchaseKingdomCapeRequest) (*PurchaseKingdomCapeResponse, error)
 	// CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
 	CreateCharacter(context.Context, *CreateCharacterRequest) (*CreateCharacterResponse, error)
 	// CreateArchCharacter creates the ARCH twin in the first free account slot
@@ -517,6 +543,12 @@ func (UnimplementedAccountServiceServer) LoadCharacter(context.Context, *LoadCha
 }
 func (UnimplementedAccountServiceServer) SaveCharacter(context.Context, *SaveCharacterRequest) (*SaveCharacterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveCharacter not implemented")
+}
+func (UnimplementedAccountServiceServer) QuoteKingdomCape(context.Context, *QuoteKingdomCapeRequest) (*QuoteKingdomCapeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QuoteKingdomCape not implemented")
+}
+func (UnimplementedAccountServiceServer) PurchaseKingdomCape(context.Context, *PurchaseKingdomCapeRequest) (*PurchaseKingdomCapeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PurchaseKingdomCape not implemented")
 }
 func (UnimplementedAccountServiceServer) CreateCharacter(context.Context, *CreateCharacterRequest) (*CreateCharacterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateCharacter not implemented")
@@ -682,6 +714,42 @@ func _AccountService_SaveCharacter_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AccountServiceServer).SaveCharacter(ctx, req.(*SaveCharacterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_QuoteKingdomCape_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuoteKingdomCapeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).QuoteKingdomCape(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_QuoteKingdomCape_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).QuoteKingdomCape(ctx, req.(*QuoteKingdomCapeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_PurchaseKingdomCape_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PurchaseKingdomCapeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).PurchaseKingdomCape(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_PurchaseKingdomCape_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).PurchaseKingdomCape(ctx, req.(*PurchaseKingdomCapeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1158,6 +1226,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveCharacter",
 			Handler:    _AccountService_SaveCharacter_Handler,
+		},
+		{
+			MethodName: "QuoteKingdomCape",
+			Handler:    _AccountService_QuoteKingdomCape_Handler,
+		},
+		{
+			MethodName: "PurchaseKingdomCape",
+			Handler:    _AccountService_PurchaseKingdomCape_Handler,
 		},
 		{
 			MethodName: "CreateCharacter",

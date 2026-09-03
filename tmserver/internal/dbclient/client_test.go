@@ -50,6 +50,12 @@ func (f *fakeAPI) SaveCharacter(_ context.Context, req *dbv1.SaveCharacterReques
 	f.saved = req
 	return &dbv1.SaveCharacterResponse{Ok: true}, nil
 }
+func (f *fakeAPI) QuoteKingdomCape(_ context.Context, _ *dbv1.QuoteKingdomCapeRequest, _ ...grpc.CallOption) (*dbv1.QuoteKingdomCapeResponse, error) {
+	return &dbv1.QuoteKingdomCapeResponse{Revision: 1, HekalotiaCost: 8, AkeloniaCost: 8}, nil
+}
+func (f *fakeAPI) PurchaseKingdomCape(_ context.Context, _ *dbv1.PurchaseKingdomCapeRequest, _ ...grpc.CallOption) (*dbv1.PurchaseKingdomCapeResponse, error) {
+	return &dbv1.PurchaseKingdomCapeResponse{Ok: true, Quote: &dbv1.QuoteKingdomCapeResponse{Revision: 2, HekalotiaCost: 9, AkeloniaCost: 7}}, nil
+}
 func (f *fakeAPI) CreateCharacter(_ context.Context, _ *dbv1.CreateCharacterRequest, _ ...grpc.CallOption) (*dbv1.CreateCharacterResponse, error) {
 	return &dbv1.CreateCharacterResponse{Ok: f.createOK, CharacterId: 7}, nil
 }
@@ -272,7 +278,7 @@ func TestLoadCharacterMapping(t *testing.T) {
 
 func TestCreateArchCharacterMapping(t *testing.T) {
 	api := &fakeAPI{archOK: true, archSlot: 2}
-	slot, ok, err := newClient(api).CreateArchCharacter(context.Background(), 7, "Hero", 3, 21, 0)
+	slot, ok, err := newClient(api).CreateArchCharacter(context.Background(), 7, "Hero", 3, 21, 0, 399)
 	if err != nil {
 		t.Fatalf("CreateArchCharacter: %v", err)
 	}
@@ -281,7 +287,7 @@ func TestCreateArchCharacterMapping(t *testing.T) {
 	}
 	req := api.archReq
 	if req.GetAccountId() != 7 || req.GetName() != "Hero" || req.GetClass() != 3 ||
-		req.GetMortalFace() != 21 || req.GetMortalSlot() != 0 {
+		req.GetMortalFace() != 21 || req.GetMortalSlot() != 0 || req.GetMortalLevel() != 399 {
 		t.Fatalf("arch request not mapped: %+v", req)
 	}
 }
@@ -291,7 +297,7 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 	save := world.CharacterSave{
 		AccountID: 1, Slot: 1, Level: 21, Coin: 600, HP: 150, MaxHP: 200,
 		SecLearnedSkill: 0x01020304, Soul: 3, Fame: 456, SaveX: 1234, SaveY: 5678,
-		ClassMaster: 3, CelLv40: 1, CelCircle: 1,
+		ClassMaster: 3, CelLv40: 1, CelCircle: 1, MortalLevel: 399, CelestialArchLevel: 5,
 		Carry: []world.SavedItem{{Slot: 3, Index: 1234, Eff1: 9, EffV1: 1}},
 	}
 	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {

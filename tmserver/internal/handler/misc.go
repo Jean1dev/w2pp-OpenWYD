@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -187,6 +188,11 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.quest256NPC(w, s, e, quest256Steps[4], itemEmblemaDoGuarda)
 		return
 	}
+	// QUEST_CAPAREAL (Merchant 100, EF_GRADE0 13): Royal Cape quest entry.
+	if npc.Merchant == 100 && npc.Grade == 13 {
+		d.royalCapeQuest(w, s, e)
+		return
+	}
 	// PERZEN (Merchant 100, EF_GRADE0 ∈ {7,8,9}): the item exchange.
 	if npc.Merchant == 100 && npc.Grade >= 7 && npc.Grade <= 9 {
 		d.perzenExchange(w, s, npc)
@@ -238,10 +244,158 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		return
 	}
 	if isKingQuestNPC(npc) {
-		d.kingArch(w, s, e, npc, int(confirm))
+		d.kingQuest(w, s, e, npc, int(confirm))
 		return
 	}
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
+}
+
+func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
+	if confirm != 0 && e.ClassMaster == classMasterMortal && e.Level >= 299 &&
+		e.Equip[idealStoneEquipSlot].Index == idealStoneItem &&
+		e.Equip[sephirotEquipSlot].Index >= archSephirotMin && e.Equip[sephirotEquipSlot].Index <= archSephirotMax {
+		d.kingArch(w, s, e, npc, confirm)
+		return
+	}
+	d.kingCapeService(w, s, e, npc, confirm)
+}
+
+func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
+	kingdom, mode := capeKingdomMode(e.Equip[capeEquipSlot].Index)
+	if kingdom != 0 && kingdom != npc.Clan {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	if mode >= 2 {
+		d.sendChatText(w, s, "A capa deste reino ja esta completa.")
+		return
+	}
+	target, ok := kingdomCapeTarget(e.ClassMaster, e.Level, e.Equip[capeEquipSlot].Index, npc.Clan)
+	if !ok || e.Level < 219 {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	p := w.Persistence()
+	w.Go(s, func() func(*world.World, *world.Session) {
+		quote, err := p.QuoteKingdomCape(context.Background())
+		return func(w *world.World, s *world.Session) {
+			if err != nil {
+				d.notify(w, s, NoticeReqNotMet)
+				return
+			}
+			cost := quote.HekalotiaCost
+			if npc.Clan == clanAkelonia {
+				cost = quote.AkeloniaCost
+			}
+			if confirm == 0 {
+				d.sendChatText(w, s, fmt.Sprintf("Sao necessarias %d safiras.", cost))
+				return
+			}
+			staged := *e
+			changed, exact := sapphirePaymentPlan(&staged, cost)
+			if !exact {
+				d.sendChatText(w, s, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
+				return
+			}
+			staged.Equip[capeEquipSlot] = world.Item{Index: target}
+			staged.Clan = npc.Clan
+			save := w.CharacterSaveFor(s, &staged)
+			w.Go(s, func() func(*world.World, *world.Session) {
+				_, committed, purchaseErr := p.PurchaseKingdomCape(context.Background(), quote.Revision, npc.Clan, save)
+				return func(w *world.World, s *world.Session) {
+					if purchaseErr != nil || !committed {
+						d.notify(w, s, NoticeReqNotMet)
+						return
+					}
+					*e = staged
+					for _, slot := range changed {
+						d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+					}
+					d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
+					d.refreshScore(e)
+					d.sendScore(w, s, e)
+				}
+			})
+		}
+	})
+}
+
+func capeKingdomMode(index int16) (uint8, int) {
+	switch index {
+	case 543, 3191, 3194, 3197:
+		return clanHekalotia, 2
+	case 544, 3192, 3195, 3198:
+		return clanAkelonia, 2
+	case 545, 734, 736:
+		return clanHekalotia, 1
+	case 546, 735, 737:
+		return clanAkelonia, 1
+	case 549, 3193, 3196:
+		return 0, 1
+	default:
+		return 0, 0
+	}
+}
+
+func kingdomCapeTarget(classMaster uint8, level int32, current int16, kingdom uint8) (int16, bool) {
+	if kingdom != clanHekalotia && kingdom != clanAkelonia {
+		return 0, false
+	}
+	if classMaster == classMasterCelestial {
+		if current != 3199 {
+			return 0, false
+		}
+		if kingdom == clanHekalotia {
+			return 3197, true
+		}
+		return 3198, true
+	}
+	if current == 3193 {
+		if kingdom == clanHekalotia {
+			return 3191, true
+		}
+		return 3192, true
+	}
+	if current == 3196 {
+		if kingdom == clanHekalotia {
+			return 3194, true
+		}
+		return 3195, true
+	}
+	_, mode := capeKingdomMode(current)
+	if mode == 0 {
+		if kingdom == clanHekalotia {
+			return 545, true
+		}
+		return 546, true
+	}
+	if level >= 255 {
+		if kingdom == clanHekalotia {
+			return 543, true
+		}
+		return 544, true
+	}
+	return 0, false
+}
+
+func sapphirePaymentPlan(e *world.Entity, cost int) ([]int, bool) {
+	remaining := cost
+	var changed []int
+	for i := 0; i < activeCarryLimit(e) && remaining >= 10; i++ {
+		if e.Carry[i].Index == sapphireUnit10 {
+			e.Carry[i] = world.Item{}
+			remaining -= 10
+			changed = append(changed, i)
+		}
+	}
+	for i := 0; i < activeCarryLimit(e) && remaining > 0; i++ {
+		if e.Carry[i].Index == sapphireUnit1 {
+			e.Carry[i] = world.Item{}
+			remaining--
+			changed = append(changed, i)
+		}
+	}
+	return changed, remaining == 0
 }
 
 const (
@@ -394,7 +548,7 @@ func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e, npc *world.En
 	s.Mode = world.UserWaitDB
 	p := w.Persistence()
 	w.Go(s, func() func(*world.World, *world.Session) {
-		slot, ok, err := p.CreateArchCharacter(context.Background(), accID, name, class, mortalFace, mortalSlot)
+		slot, ok, err := p.CreateArchCharacter(context.Background(), accID, name, class, mortalFace, mortalSlot, int(e.Level))
 		var chars []world.CharSummary
 		var listErr error
 		if err == nil && ok {
@@ -474,6 +628,20 @@ func (d *Dispatcher) capaverdeTeleport(w *world.World, s *world.Session, e *worl
 		return
 	}
 	d.doTeleport(w, s, 2245+int16(w.Rand().Intn(5)-3), 1576+int16(w.Rand().Intn(5)-3))
+}
+
+const (
+	royalCapeMinLevel = 199
+	royalCapeMaxLevel = 254
+)
+
+// royalCapeQuest handles the Royal Guard entry gate from _MSG_Quest.cpp.
+func (d *Dispatcher) royalCapeQuest(w *world.World, s *world.Session, e *world.Entity) {
+	if e.ClassMaster != classMasterMortal || e.Level < royalCapeMinLevel || e.Level >= royalCapeMaxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		return
+	}
+	d.doTeleport(w, s, 1740+int16(w.Rand().Intn(5)-3), 1725+int16(w.Rand().Intn(5)-3))
 }
 
 // capaverdeTrade handles CAPAVERDE_TRADE (Merchant 8, "Chefe_Treina."): the

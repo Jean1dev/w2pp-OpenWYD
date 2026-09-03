@@ -128,6 +128,21 @@ func (f *fakeStore) SaveCharacter(_ context.Context, _ int64, ch domain.Characte
 	return f.saveResult
 }
 
+func (f *fakeStore) QuoteKingdomCape(context.Context) (domain.KingdomCapeQuote, error) {
+	return domain.KingdomCapeQuote{Revision: 1, HekalotiaCost: 8, AkeloniaCost: 8}, nil
+}
+
+func (f *fakeStore) PurchaseKingdomCape(_ context.Context, _ int64, _ int64, kingdom uint8, ch domain.Character) (domain.KingdomCapeQuote, bool, error) {
+	f.savedChar = ch
+	q := domain.KingdomCapeQuote{Revision: 2, HekalotiaCost: 8, AkeloniaCost: 8}
+	if kingdom == 7 {
+		q.HekalotiaCost, q.AkeloniaCost = 9, 7
+	} else {
+		q.HekalotiaCost, q.AkeloniaCost = 7, 9
+	}
+	return q, true, nil
+}
+
 // LoadCargo returns the account-shared cargo. An account absent from byName/byID
 // is treated as missing (ErrNotFound), mirroring the live store keying on account.
 func (f *fakeStore) LoadCargo(_ context.Context, accountID int64) (int32, []domain.Item, error) {
@@ -351,7 +366,7 @@ func TestCreateArchCharacterOK(t *testing.T) {
 	fs := &fakeStore{archSlot: 2}
 	s := New(fs)
 	resp, err := s.CreateArchCharacter(context.Background(),
-		&dbv1.CreateArchCharacterRequest{AccountId: 1, Name: "hero", Class: 1, MortalFace: 21, MortalSlot: 0})
+		&dbv1.CreateArchCharacterRequest{AccountId: 1, Name: "hero", Class: 1, MortalFace: 21, MortalSlot: 0, MortalLevel: 399})
 	if err != nil {
 		t.Fatalf("CreateArchCharacter: %v", err)
 	}
@@ -362,6 +377,9 @@ func TestCreateArchCharacterOK(t *testing.T) {
 	ch := fs.archChar
 	if ch.Name != "hero" || ch.Class != 1 || ch.ClassMaster != classMasterArch {
 		t.Fatalf("arch character identity not mapped: %+v", ch)
+	}
+	if ch.MortalLevel != 399 {
+		t.Fatalf("MortalLevel = %d, want 399", ch.MortalLevel)
 	}
 	if len(ch.Equip) != 1 || ch.Equip[0].Slot != 0 || ch.Equip[0].Index != 27 {
 		t.Fatalf("arch body item = %+v, want slot 0 index 27", ch.Equip)
