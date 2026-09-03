@@ -36,9 +36,9 @@ type fakeDB struct {
 	archOK      bool
 	archErr     error
 	archReq     struct {
-		accountID               int64
-		name                    string
-		class, face, mortalSlot int
+		accountID                            int64
+		name                                 string
+		class, face, mortalSlot, mortalLevel int
 	}
 	deleted    int
 	loadResult world.CharacterState
@@ -54,6 +54,7 @@ type fakeDB struct {
 
 	mu           sync.Mutex
 	savedChars   []world.CharacterSave // captured SaveOnShutdown calls
+	saveErr      error                 // one-shot injected character-save failure
 	savedCargos  []world.CargoSave     // captured SaveCargo calls
 	drainSaves   []drainSave           // captured SaveCargoWithDeliveries calls
 	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
@@ -96,6 +97,11 @@ type drainSave struct {
 func (f *fakeDB) SaveOnShutdown(_ context.Context, save world.CharacterSave) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.saveErr != nil {
+		err := f.saveErr
+		f.saveErr = nil
+		return err
+	}
 	f.savedChars = append(f.savedChars, save)
 	return nil
 }
@@ -275,10 +281,10 @@ func (f *fakeDB) lastSavedChar() (world.CharacterSave, int) {
 	return f.savedChars[len(f.savedChars)-1], len(f.savedChars)
 }
 
-func (f *fakeDB) archRequest() (int, int64, string, int, int, int) {
+func (f *fakeDB) archRequest() (int, int64, string, int, int, int, int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.archCreated, f.archReq.accountID, f.archReq.name, f.archReq.class, f.archReq.face, f.archReq.mortalSlot
+	return f.archCreated, f.archReq.accountID, f.archReq.name, f.archReq.class, f.archReq.face, f.archReq.mortalSlot, f.archReq.mortalLevel
 }
 
 func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.LoginOutcome, error) {
@@ -307,7 +313,7 @@ func (f *fakeDB) CreateCharacter(context.Context, int64, int, string, int) (bool
 	return true, nil
 }
 
-func (f *fakeDB) CreateArchCharacter(_ context.Context, accountID int64, name string, class, mortalFace, mortalSlot int) (int, bool, error) {
+func (f *fakeDB) CreateArchCharacter(_ context.Context, accountID int64, name string, class, mortalFace, mortalSlot, mortalLevel int) (int, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.archCreated++
@@ -316,6 +322,7 @@ func (f *fakeDB) CreateArchCharacter(_ context.Context, accountID int64, name st
 	f.archReq.class = class
 	f.archReq.face = mortalFace
 	f.archReq.mortalSlot = mortalSlot
+	f.archReq.mortalLevel = mortalLevel
 	if f.archErr != nil {
 		return 0, false, f.archErr
 	}

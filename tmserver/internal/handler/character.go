@@ -282,6 +282,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// reads Lv40/Lv90 to unlock the 40/90 caps).
 		e.CelLv40, e.CelLv90, e.CelCircle = st.CelLv40, st.CelLv90, st.CelCircle
 		e.ArchLv355, e.ArchLv370 = st.ArchLv355, st.ArchLv370
+		e.MortalLevel, e.CelestialArchLevel = st.MortalLevel, st.CelestialArchLevel
 		e.TerraMistica = st.TerraMistica
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
@@ -629,6 +630,30 @@ func (d *Dispatcher) returnToCharacterSelection(w *world.World, s *world.Session
 				after(w, s)
 			}
 		})
+	})
+}
+
+// returnPersistedCharacterToSelection completes a transition whose character
+// snapshot was already committed off-loop. It deliberately does not save the
+// character again, avoiding a second failure point after publishing the snapshot.
+func (d *Dispatcher) returnPersistedCharacterToSelection(w *world.World, s *world.Session, after func(*world.World, *world.Session)) {
+	d.SessionEnd(w, s)
+	body := protocol.EncodeRemoveMobBody(2)
+	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(s.Conn)}, body)
+	})
+	w.SaveCargoThen(s, func(w *world.World, s *world.Session) {
+		if e := w.Entity(s.Conn); e != nil {
+			e.Mode = world.MobUserDock
+			e.ResetAffects()
+		}
+		s.AutoTrade = nil
+		s.TradeMode = 0
+		s.Mode = world.UserSelChar
+		w.Send(s, protocol.MsgCNFCharacterLogout, nil)
+		if after != nil {
+			after(w, s)
+		}
 	})
 }
 

@@ -812,8 +812,8 @@ func TestKingArchRejectsMissingPedraIdeal(t *testing.T) {
 	defer c.Close()
 
 	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
-	if ty, _, ok := readMaybe(t, c); ok {
-		t.Fatalf("missing Pedra Ideal produced %#x; want no-op", ty)
+	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk {
+		t.Fatalf("missing Pedra Ideal produced %#x, ok=%v; want rejection notice", ty, ok)
 	}
 }
 
@@ -960,10 +960,10 @@ func TestKingCreatesArchCharacter(t *testing.T) {
 		t.Fatalf("SendArchEffect parm=%d ok=%v, want slot 2", parm, ok)
 	}
 
-	created, accountID, name, class, face, mortalSlot := db.archRequest()
-	if created != 1 || accountID != 7 || name != "Hero" || class != 2 || face != 21 || mortalSlot != 0 {
-		t.Fatalf("arch request created=%d account=%d name=%q class=%d face=%d mortalSlot=%d",
-			created, accountID, name, class, face, mortalSlot)
+	created, accountID, name, class, face, mortalSlot, mortalLevel := db.archRequest()
+	if created != 1 || accountID != 7 || name != "Hero" || class != 2 || face != 21 || mortalSlot != 0 || mortalLevel != 299 {
+		t.Fatalf("arch request created=%d account=%d name=%q class=%d face=%d mortalSlot=%d mortalLevel=%d",
+			created, accountID, name, class, face, mortalSlot, mortalLevel)
 	}
 	save, n := db.lastSavedChar()
 	if n == 0 {

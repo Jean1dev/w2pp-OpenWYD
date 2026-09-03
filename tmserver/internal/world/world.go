@@ -349,8 +349,14 @@ func (w *World) SaveCharacterThen(s *Session, then func(*World, *Session)) {
 // characterSave snapshots a session's in-world entity into a CharacterSave. Only
 // world-authoritative fields are captured (see CharacterSave). Loop-only.
 func (w *World) characterSave(s *Session) CharacterSave {
-	cs := CharacterSave{AccountID: s.AccountID, Slot: s.Slot}
 	e := w.entities[s.Conn]
+	return w.CharacterSaveFor(s, e)
+}
+
+// CharacterSaveFor snapshots a staged entity without publishing it to the world.
+// Handlers use it for persistence-first operations such as kingdom cape purchases.
+func (w *World) CharacterSaveFor(s *Session, e *Entity) CharacterSave {
+	cs := CharacterSave{AccountID: s.AccountID, Slot: s.Slot}
 	if e == nil {
 		return cs
 	}
@@ -358,6 +364,7 @@ func (w *World) characterSave(s *Session) CharacterSave {
 	cs.ClassMaster = e.ClassMaster
 	cs.CelLv40, cs.CelLv90, cs.CelCircle = e.CelLv40, e.CelLv90, e.CelCircle
 	cs.ArchLv355, cs.ArchLv370 = e.ArchLv355, e.ArchLv370
+	cs.MortalLevel, cs.CelestialArchLevel = e.MortalLevel, e.CelestialArchLevel
 	cs.TerraMistica = e.TerraMistica
 	cs.LastCity = e.LastCity
 	cs.SaveX, cs.SaveY = e.SaveX, e.SaveY

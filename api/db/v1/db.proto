@@ -21,6 +21,8 @@ service AccountService {
   rpc LoadCharacter(LoadCharacterRequest) returns (LoadCharacterResponse);
   // SaveCharacter persists one character's state (_MSG_DBSaveMob / SavingQuit).
   rpc SaveCharacter(SaveCharacterRequest) returns (SaveCharacterResponse);
+  rpc QuoteKingdomCape(QuoteKingdomCapeRequest) returns (QuoteKingdomCapeResponse);
+  rpc PurchaseKingdomCape(PurchaseKingdomCapeRequest) returns (PurchaseKingdomCapeResponse);
   // CreateCharacter creates a character in a free slot (_MSG_DBCreateCharacter).
   rpc CreateCharacter(CreateCharacterRequest) returns (CreateCharacterResponse);
   // CreateArchCharacter creates the ARCH twin in the first free account slot
@@ -189,6 +191,8 @@ message Character {
   uint32 tot_kill = 43; // lifetime PvP kills
   int32 arch_lv355 = 44; // QuestInfo.Arch.Level355
   int32 arch_lv370 = 45; // QuestInfo.Arch.Level370
+  int32 mortal_level = 46; // QuestInfo.Arch.MortalLevel
+  int32 celestial_arch_level = 47; // QuestInfo.Celestial.ArchLevel band (1..5)
 }
 
 message Item {
@@ -220,6 +224,24 @@ message SaveCharacterRequest {
 }
 message SaveCharacterResponse { bool ok = 1; }
 
+message QuoteKingdomCapeRequest {}
+message QuoteKingdomCapeResponse {
+  int64 revision = 1;
+  int32 hekalotia_cost = 2;
+  int32 akelonia_cost = 3;
+}
+
+message PurchaseKingdomCapeRequest {
+  int64 account_id = 1;
+  int64 expected_revision = 2;
+  int32 kingdom = 3;
+  Character character = 4;
+}
+message PurchaseKingdomCapeResponse {
+  bool ok = 1;
+  QuoteKingdomCapeResponse quote = 2;
+}
+
 message CreateCharacterRequest {
   int64 account_id = 1;
   int32 slot = 2;
@@ -237,6 +259,7 @@ message CreateArchCharacterRequest {
   int32 class = 3;
   int32 mortal_face = 4;
   int32 mortal_slot = 5;
+  int32 mortal_level = 6;
 }
 message CreateArchCharacterResponse {
   bool ok = 1;

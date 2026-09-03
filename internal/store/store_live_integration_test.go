@@ -106,6 +106,8 @@ func TestLiveQueries(t *testing.T) {
 	ch.ClassMaster = 3 // Mortal → Celestial
 	ch.CelLv40 = 1
 	ch.CelCircle = 1
+	ch.MortalLevel = 399
+	ch.CelestialArchLevel = 5
 	// A PvP kill landed mid-session: karma state changed (issue #210).
 	ch.PKPoint = 68
 	ch.Guilty = 0
@@ -126,6 +128,9 @@ func TestLiveQueries(t *testing.T) {
 		t.Fatalf("tier state not persisted: class_master=%d lv40=%d lv90=%d circle=%d",
 			reloaded.ClassMaster, reloaded.CelLv40, reloaded.CelLv90, reloaded.CelCircle)
 	}
+	if reloaded.MortalLevel != 399 || reloaded.CelestialArchLevel != 5 {
+		t.Fatalf("progression metadata not persisted: mortal=%d arch-band=%d", reloaded.MortalLevel, reloaded.CelestialArchLevel)
+	}
 	// A Gema Estelar use mid-session (Vol 12) updates the warp save-point, which
 	// this in-game partial save must persist (issue #140) — it was previously in
 	// the untouched-columns list.
@@ -143,7 +148,7 @@ func TestLiveQueries(t *testing.T) {
 	// CreateArchCharacter chooses the first free slot and allows the legacy
 	// Mortal/Arch same-name pair because uniqueness is per ClassMaster.
 	archID, archSlot, err := s.CreateArchCharacter(ctx, accID, domain.Character{
-		Name: "Warrior", Class: 1, ClassMaster: 1,
+		Name: "Warrior", Class: 1, ClassMaster: 1, MortalLevel: 399,
 		Equip: []domain.Item{{Slot: 0, Index: 27}},
 	})
 	if err != nil {
@@ -158,6 +163,9 @@ func TestLiveQueries(t *testing.T) {
 	}
 	if arch.Name != "Warrior" || arch.ClassMaster != 1 || len(arch.Equip) != 1 || arch.Equip[0].Index != 27 {
 		t.Fatalf("arch not persisted correctly: %+v", arch)
+	}
+	if arch.MortalLevel != 399 {
+		t.Fatalf("arch MortalLevel = %d, want 399", arch.MortalLevel)
 	}
 	if err := s.DeleteCharacter(ctx, accID, 1); err != nil {
 		t.Fatalf("DeleteCharacter(arch): %v", err)
@@ -178,6 +186,58 @@ func TestLiveQueries(t *testing.T) {
 	}
 	if err := s.DeleteCharacter(ctx, accID, 1); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("DeleteCharacter(empty) = %v, want ErrNotFound", err)
+	}
+}
+
+func TestCelestialProgressionSurvivesRelogin(t *testing.T) {
+	s, ctx := freshStore(t)
+	accountID, err := s.SaveAccount(ctx, domain.Account{Name: "progression", PassHash: "hash", Characters: []domain.Character{{
+		Slot: 0, Name: "Hero", Class: 0, ClassMaster: 1, Level: 399, MortalLevel: 399,
+		Str: 400, Int: 300, Dex: 200, Con: 100, Hp: 2000, MaxHp: 2000, Mp: 900, MaxMp: 900,
+		Equip: []domain.Item{{Slot: 0, Index: 21}}, Carry: []domain.Item{{Slot: 0, Index: 1742}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch, err := s.LoadCharacter(ctx, accountID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch.ClassMaster, ch.Level, ch.Exp = 3, 0, 0
+	ch.CelestialArchLevel = 5
+	ch.Str, ch.Int, ch.Dex, ch.Con = 8, 4, 7, 6
+	ch.Hp, ch.MaxHp, ch.Mp, ch.MaxMp = 80, 80, 45, 45
+	ch.ScoreBonus, ch.SpecialBonus, ch.LearnedSkill = 0, 855, 1<<30
+	ch.Special, ch.SkillBar, ch.ShortSkill = [4]int16{}, [4]uint8{}, [16]uint8{}
+	ch.Carry = nil
+	ch.Equip = []domain.Item{{Slot: 0, Index: 21, Eff2: 98, EffV2: 3, Eff3: 106, EffV3: 21}, {Slot: 1, Index: 3502}, {Slot: 15, Index: 3199}}
+	if err := s.SaveCharacter(ctx, accountID, ch); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := s.LoadCharacter(ctx, accountID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.ClassMaster != 3 || reloaded.Level != 0 || reloaded.CelestialArchLevel != 5 || reloaded.MortalLevel != 399 {
+		t.Fatalf("reloaded progression = %+v", reloaded)
+	}
+	if reloaded.Str != 8 || reloaded.Int != 4 || reloaded.Dex != 7 || reloaded.Con != 6 || reloaded.MaxHp != 80 || reloaded.MaxMp != 45 {
+		t.Fatalf("reloaded score = %+v", reloaded)
+	}
+	if reloaded.SpecialBonus != 855 || reloaded.LearnedSkill != 1<<30 || len(reloaded.Carry) != 0 {
+		t.Fatalf("reloaded skills/carry = %+v", reloaded)
+	}
+	wantEquip := map[int]int16{0: 21, 1: 3502, 15: 3199}
+	for _, it := range reloaded.Equip {
+		if want, ok := wantEquip[it.Slot]; ok && it.Index == want {
+			delete(wantEquip, it.Slot)
+		}
+		if it.Slot == 0 && (it.Eff2 != 98 || it.EffV2 != 3 || it.Eff3 != 106 || it.EffV3 != 21) {
+			t.Fatalf("body effects not persisted: %+v", it)
+		}
+	}
+	if len(wantEquip) != 0 {
+		t.Fatalf("missing equipment after relogin: %v", wantEquip)
 	}
 }
 
