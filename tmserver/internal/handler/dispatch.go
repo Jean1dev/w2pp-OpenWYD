@@ -51,6 +51,7 @@ type Config struct {
 	OdinCatalog    combine.Catalog
 	CombineCatalog combine.Catalog
 	CompRate       *content.CompRate
+	QuestRates     *content.QuestRates
 
 	// BaseMobs are the per-class STRUCT_MOB templates (class index → raw 816 bytes,
 	// content.LoadBaseMobs). Used to render a character on entering the world with
@@ -151,6 +152,7 @@ type Dispatcher struct {
 	odinCatalog     combine.Catalog
 	combineCatalog  combine.Catalog
 	compRate        *content.CompRate
+	questRates      *content.QuestRates
 	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
 	summonMobs      [][]byte                     // BM evocation templates (summon id → STRUCT_MOB)
 	vineMob         []byte                       // Sephira Muro de Espinhos template
@@ -276,6 +278,7 @@ func New(cfg Config) *Dispatcher {
 		odinCatalog:      cfg.OdinCatalog,
 		combineCatalog:   cfg.CombineCatalog,
 		compRate:         cfg.CompRate,
+		questRates:       cfg.QuestRates,
 		baseMobs:         cfg.BaseMobs,
 		summonMobs:       cfg.SummonMobs,
 		vineMob:          cfg.VineMob,
@@ -316,6 +319,9 @@ func New(cfg Config) *Dispatcher {
 		// No content tree: fall back to the compiled g_pSancRate, like the original
 		// server before it reads SancRate.txt over it.
 		d.sancRate = content.DefaultSancRate()
+	}
+	if d.questRates == nil {
+		d.questRates = content.DefaultQuestRates()
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)

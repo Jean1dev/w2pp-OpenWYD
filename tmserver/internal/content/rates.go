@@ -12,6 +12,116 @@ import (
 	"strings"
 )
 
+const questTierCount = 5
+
+// QuestTierRate is one QuestsRate.txt row. Level minima are inclusive and
+// maxima exclusive, matching _MSG_UseItem.cpp's Vol-191 gate.
+type QuestTierRate struct {
+	MortalExp, ArchExp                     int64
+	Coin                                   int32
+	MortalMin, MortalMax, ArchMin, ArchMax int32
+}
+
+// QuestRates holds the five quest-item reward tiers (item 4117 + tier).
+type QuestRates struct {
+	tiers [questTierCount]QuestTierRate
+}
+
+var questRateDefaults = [questTierCount]QuestTierRate{
+	{MortalExp: 1000, ArchExp: 500, Coin: 2000, MortalMin: 39, MortalMax: 115, ArchMin: 39, ArchMax: 115},
+	{MortalExp: 2000, ArchExp: 1000, Coin: 4000, MortalMin: 115, MortalMax: 190, ArchMin: 115, ArchMax: 190},
+	{MortalExp: 3000, ArchExp: 1500, Coin: 6000, MortalMin: 190, MortalMax: 265, ArchMin: 190, ArchMax: 265},
+	{MortalExp: 4000, ArchExp: 2000, Coin: 8000, MortalMin: 265, MortalMax: 320, ArchMin: 265, ArchMax: 320},
+	{MortalExp: 5000, ArchExp: 2500, Coin: 10000, MortalMin: 320, MortalMax: 350, ArchMin: 320, ArchMax: 350},
+}
+
+// DefaultQuestRates returns the CReadFiles.cpp defaults used without -content.
+func DefaultQuestRates() *QuestRates { return &QuestRates{tiers: questRateDefaults} }
+
+// Tier returns a quest tier and whether the index is valid.
+func (q *QuestRates) Tier(tier int) (QuestTierRate, bool) {
+	if q == nil || tier < 0 || tier >= len(q.tiers) {
+		return QuestTierRate{}, false
+	}
+	return q.tiers[tier], true
+}
+
+// LoadQuestRates reads Common/Settings/QuestsRate.txt over legacy defaults.
+func LoadQuestRates(path string) (*QuestRates, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("content: open QuestsRate: %w", err)
+	}
+	defer f.Close()
+	return parseQuestRates(f)
+}
+
+func parseQuestRates(r io.Reader) (*QuestRates, error) {
+	q := DefaultQuestRates()
+	sc := bufio.NewScanner(r)
+	for line := 1; sc.Scan(); line++ {
+		fields := strings.Fields(sc.Text())
+		if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		kind := asciiUpper(fields[0])
+		var want int
+		switch kind {
+		case "EXP":
+			want = 4
+		case "COIN":
+			want = 3
+		case "LEVEL":
+			want = 6
+		default:
+			return nil, fmt.Errorf("content: QuestsRate line %d: malformed directive", line)
+		}
+		if len(fields) != want {
+			return nil, fmt.Errorf("content: QuestsRate line %d: malformed directive", line)
+		}
+		values := make([]int64, len(fields)-1)
+		for i := 1; i < len(fields); i++ {
+			v, err := strconv.ParseInt(fields[i], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("content: QuestsRate line %d: invalid integer %q", line, fields[i])
+			}
+			values[i-1] = v
+		}
+		tier := int(values[0])
+		if tier < 0 || tier >= questTierCount {
+			return nil, fmt.Errorf("content: QuestsRate line %d: tier %d out of range", line, tier)
+		}
+		r := &q.tiers[tier]
+		switch kind {
+		case "EXP":
+			if values[1] < 0 || values[1] >= 2_000_000_000 || values[2] < 0 || values[2] >= 2_000_000_000 {
+				return nil, fmt.Errorf("content: QuestsRate line %d: experience out of range", line)
+			}
+			r.MortalExp, r.ArchExp = values[1], values[2]
+		case "COIN":
+			if values[1] < 0 || values[1] > 2_000_000_000 {
+				return nil, fmt.Errorf("content: QuestsRate line %d: coin out of range", line)
+			}
+			r.Coin = int32(values[1])
+		case "LEVEL":
+			for _, v := range values[1:] {
+				if v < 0 || v >= 400 {
+					return nil, fmt.Errorf("content: QuestsRate line %d: level out of range", line)
+				}
+			}
+			if values[1] >= values[2] || values[3] >= values[4] {
+				return nil, fmt.Errorf("content: QuestsRate line %d: empty level range", line)
+			}
+			r.MortalMin, r.MortalMax = int32(values[1]), int32(values[2])
+			r.ArchMin, r.ArchMax = int32(values[3]), int32(values[4])
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("content: read QuestsRate: %w", err)
+	}
+	return q, nil
+}
+
 // CompRate holds the combine-recipe success rates (Common/Settings/CompRate.txt,
 // CReadFiles::ReadCompRate, game-rules.md §3.2). Lines are "Family Key Rate".
 type CompRate struct {

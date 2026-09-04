@@ -172,7 +172,7 @@ func isSplittable(index int16) bool {
 	case 412, 413, 414, 416, 419, 420, itemPedraDoSabio:
 		return true
 	}
-	return index >= 2390 && index <= 2419
+	return index >= 2390 && index <= 2419 || index >= itemQuestRewardBase && index <= itemQuestRewardLast
 }
 
 // itemPedraDoSabio is the Pedra do Sábio (ItemList.csv:2903), the Huntress
@@ -342,6 +342,7 @@ const (
 	volMagicBean         = 186
 	volPaint             = volMagicBean
 	volEntradaTerritorio = 188 // Entrada do Território (LAN) ticket (_MSG_UseItem.cpp:4202)
+	volQuestReward       = 191 // quest reward items 4117..4121 (_MSG_UseItem.cpp:2344)
 	volHuntingScroll     = 195 // Pedido de Caça: destination selected by MSG_UseItem.WarpID
 	volExpChest          = 198
 	volBuffKappa20h      = 200
@@ -383,6 +384,8 @@ const (
 	// distinguished by sIndex: (N)=4111, (M)=4112, (A)=4113. Tier = sIndex - base
 	// (_MSG_UseItem.cpp:4204).
 	itemEntradaTerritorioBase = 4111
+	itemQuestRewardBase       = 4117
+	itemQuestRewardLast       = 4121
 
 	itemHuntingScrollBase = 3432
 	itemHuntingScrollLast = 3437
@@ -509,6 +512,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useClasseItem(w, s, e, body, src)
 	case vol == volEntradaTerritorio:
 		d.useEntradaTerritorio(w, s, e, src)
+	case vol == volQuestReward:
+		d.useQuestReward(w, s, e, src)
 	case vol == volHuntingScroll:
 		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
@@ -925,6 +930,75 @@ func (d *Dispatcher) useEntradaTerritorio(w *world.World, s *world.Session, e *w
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 	d.doTeleport(w, s, x, y)
+}
+
+// useQuestReward handles the five Vol-191 quest trophies. Their row is the
+// contiguous item offset, and QuestsRate.txt supplies tier-specific rewards and
+// half-open level ranges. All mutation stays in the world loop.
+func (d *Dispatcher) useQuestReward(w *world.World, s *world.Session, e *world.Entity, src int) {
+	tier := int(e.Carry[src].Index) - itemQuestRewardBase
+	rate, ok := d.questRates.Tier(tier)
+	if !ok {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	questExp := rate.ArchExp
+	minLevel, maxLevel := rate.ArchMin, rate.ArchMax
+	if e.ClassMaster == classMasterMortal {
+		questExp = rate.MortalExp
+		minLevel, maxLevel = rate.MortalMin, rate.MortalMax
+	}
+	if e.Level < minLevel || e.Level >= maxLevel {
+		d.notify(w, s, NoticeReqNotMet)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+
+	if int64(e.Coin)+int64(rate.Coin) > maxCoin {
+		e.Coin = maxCoin
+	} else {
+		e.Coin += rate.Coin
+	}
+	d.grantDirectExp(w, s, e, questExp)
+	d.grantQuestPartyExp(w, e, questExp/10)
+
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendEtc(w, s, e) // coin changed even when EXP was already at its ceiling
+}
+
+func (d *Dispatcher) grantQuestPartyExp(w *world.World, consumer *world.Entity, share int64) {
+	if share <= 0 {
+		return
+	}
+	leaderID := consumer.Leader
+	if leaderID == 0 {
+		if partyMemberCount(consumer) == 0 {
+			return
+		}
+		leaderID = consumer.ID
+	}
+	leader := w.Entity(leaderID)
+	if leader == nil {
+		return
+	}
+
+	seen := map[int]bool{consumer.ID: true}
+	recipients := make([]int, 0, world.MaxParty+1)
+	recipients = append(recipients, leaderID)
+	recipients = append(recipients, leader.PartyList[:]...)
+	for _, conn := range recipients {
+		if conn <= 0 || conn >= world.MaxUser || seen[conn] {
+			continue
+		}
+		seen[conn] = true
+		rs, re := w.Session(conn), w.Entity(conn)
+		if rs == nil || rs.Mode != world.UserPlay || re == nil {
+			continue
+		}
+		d.grantDirectExp(w, rs, re, share)
+	}
 }
 
 // useHealPotion consumes an HP/MP potion (EF_VOLATILE 1), porting

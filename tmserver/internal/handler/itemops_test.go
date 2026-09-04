@@ -278,7 +278,7 @@ func TestTradingItemSameSlotNoop(t *testing.T) {
 }
 
 func TestIsSplittable(t *testing.T) {
-	for _, idx := range []int16{412, 413, 414, 416, 419, 420, 2390, 2400, 2419, itemPedraDoSabio} {
+	for _, idx := range []int16{412, 413, 414, 416, 419, 420, 2390, 2400, 2419, itemPedraDoSabio, 4117, 4118, 4119, 4120, 4121} {
 		if !isSplittable(idx) {
 			t.Errorf("isSplittable(%d) = false, want true", idx)
 		}

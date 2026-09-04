@@ -151,6 +151,7 @@ func run(logger *slog.Logger) error {
 	var heights *content.Grid
 	var sancRate *content.SancRate
 	var compRate *content.CompRate
+	var questRates *content.QuestRates
 	if *contentDir != "" {
 		c, err := loadContent(*contentDir, logger)
 		if err != nil {
@@ -168,6 +169,7 @@ func run(logger *slog.Logger) error {
 		heights = c.heights
 		sancRate = c.sanc
 		compRate = c.comp
+		questRates = c.quests
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -301,6 +303,7 @@ func run(logger *slog.Logger) error {
 		OdinCatalog:     odinCatalog,
 		CombineCatalog:  odinCatalog,
 		CompRate:        compRate,
+		QuestRates:      questRates,
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
 		CastleQuests:    castleQuests,
@@ -597,6 +600,10 @@ func loadContent(dir string, logger *slog.Logger) (*loadedContent, error) {
 	if err != nil {
 		return nil, err
 	}
+	quests, err := content.LoadQuestRates(filepath.Join(dir, "Common", "Settings", "QuestsRate.txt"))
+	if err != nil {
+		return nil, err
+	}
 	items, err := content.LoadItemList(filepath.Join(dir, "Common", "ItemList.csv"))
 	if err != nil {
 		return nil, err
@@ -633,7 +640,7 @@ func loadContent(dir string, logger *slog.Logger) (*loadedContent, error) {
 	} else if hm != nil || attr != nil {
 		logger.Warn("mob pathfinding disabled: need BOTH HeightMap.dat and AttributeMap.dat")
 	}
-	return &loadedContent{items: items, comp: comp, sanc: sanc, skills: skills, heights: heights}, nil
+	return &loadedContent{items: items, comp: comp, sanc: sanc, quests: quests, skills: skills, heights: heights}, nil
 }
 
 // loadedContent is what a mounted Release/ tree yields. It is a struct rather
@@ -642,6 +649,7 @@ type loadedContent struct {
 	items   *content.ItemList
 	comp    *content.CompRate
 	sanc    *content.SancRate
+	quests  *content.QuestRates
 	skills  *content.SkillData
 	heights *content.Grid
 }
