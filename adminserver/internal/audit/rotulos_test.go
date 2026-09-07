@@ -23,6 +23,7 @@ func TestTodaAcaoTemRotulo(t *testing.T) {
 		ActionRestartGame, ActionSafeRestart, ActionStopGame, ActionStartGame,
 		ActionCreateAccount, ActionSetXPRule, ActionClearXPRule,
 		ActionSetMountGrowth, ActionClearMountGrowth,
+		ActionSetMountAbsorb, ActionClearMountAbsorb,
 	}
 	for _, a := range acoes {
 		e := Entry{Action: a}

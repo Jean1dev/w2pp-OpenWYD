@@ -52,6 +52,8 @@ const (
 	ActionClearXPRule      = "CLEAR_XP_RULE"
 	ActionSetMountGrowth   = "SET_MOUNT_GROWTH"
 	ActionClearMountGrowth = "CLEAR_MOUNT_GROWTH"
+	ActionSetMountAbsorb   = "SET_MOUNT_ABSORB"
+	ActionClearMountAbsorb = "CLEAR_MOUNT_ABSORB"
 )
 
 // listLimit caps one page of the log.
@@ -251,7 +253,9 @@ var rotulos = map[string]string{
 	ActionSetXPRule:        "Mexeu na Mesa de XP",
 	ActionClearXPRule:      "Voltou uma tabela de XP ao legado",
 	ActionSetMountGrowth:   "Mexeu na taxa de crescimento de uma montaria",
-	ActionClearMountGrowth: "Voltou uma montaria ao padrão",
+	ActionClearMountGrowth: "Voltou a curva de uma montaria ao padrão",
+	ActionSetMountAbsorb:   "Mexeu na absorção de uma montaria",
+	ActionClearMountAbsorb: "Voltou a absorção de uma montaria ao padrão",
 }
 
 // Rotulo is the readable name of this entry's action.

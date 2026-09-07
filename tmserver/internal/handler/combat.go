@@ -275,6 +275,11 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		if dmg > 0 {
 			dmg = applyHuntressForceDamage(e, target, tid, dmg)
 			dmg = d.applyManaControl(w, e, target, tid, dmg)
+			// The victim's mount eats its share LAST, after every other adjustment,
+			// because that is where the legacy puts it (_MSG_Attack.cpp:1520, after
+			// reflect and the damage clamp). byPlayer is true: this whole path is one
+			// player swinging.
+			dmg = d.absorbBlow(w, target, dmg, true)
 			hpBefore := target.HP
 			target.HP -= int32(dmg)
 			if target.HP < 0 {

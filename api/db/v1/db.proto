@@ -682,6 +682,16 @@ service NpcConfigService {
   // There is no legacy curve to match: BASE_GetGrowthRate is absent from the
   // sources, so the shape is this server's balance decision.
   rpc ListMountGrowthRates(ListMountGrowthRatesRequest) returns (ListMountGrowthRatesResponse);
+
+  // ListMountAbsorb returns how much of a hit each adult mount eats instead of
+  // its owner (0035_mount_absorb), one number against players and one against
+  // monsters. Read once at boot, like every other content overlay here.
+  //
+  // The legacy absorbs a flat 25% either way (_MSG_Attack.cpp:1520-1533). The
+  // two numbers are this server's addition: they are what lets a lineage be a
+  // PvE mount or a PvP mount rather than one of thirty identical shields. A
+  // lineage with no row keeps 25/25 and plays exactly as the original did.
+  rpc ListMountAbsorb(ListMountAbsorbRequest) returns (ListMountAbsorbResponse);
 }
 
 message NpcConfigVersionRequest {}
@@ -932,6 +942,22 @@ message MountGrowthRate {
   int32 mount_index = 1;  // the ADULT mount, 2360..2389
   int32 band = 2;         // 0..5
   int32 rate = 3;         // 0..100
+}
+
+message ListMountAbsorbRequest {}
+message ListMountAbsorbResponse {
+  repeated MountAbsorb absorb = 1;
+}
+
+// MountAbsorb is one lineage's pair. Both numbers travel together because they
+// are the two halves of a single decision about what the mount is for.
+//
+// A lineage with NO row keeps the compiled default (25/25, the legacy) —
+// absence means "not configured", never "absorbs nothing".
+message MountAbsorb {
+  int32 mount_index = 1;  // the ADULT mount, 2360..2389
+  int32 absorb_pvp = 2;   // 0..100, against a player's blow
+  int32 absorb_pve = 3;   // 0..100, against a monster's
 }
 
 // XPConfigService serves the Mesa de XP — the panel-managed experience tables —

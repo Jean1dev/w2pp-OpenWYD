@@ -22,6 +22,9 @@ type Store interface {
 	ListMountGrowthRates(ctx context.Context) ([]domain.MountGrowthRate, error)
 	SetMountGrowthCurve(ctx context.Context, mountIndex int16, rates []int16, moderatorID int64, moderator string) error
 	ClearMountGrowthCurve(ctx context.Context, mountIndex int16, moderatorID int64) error
+	ListMountAbsorb(ctx context.Context) ([]domain.MountAbsorb, error)
+	SetMountAbsorb(ctx context.Context, mountIndex, pvp, pve int16, moderatorID int64, moderator string) error
+	ClearMountAbsorb(ctx context.Context, mountIndex int16, moderatorID int64) error
 }
 
 // CatalogReader supplies a catalog entry, for the lineage name. Same shape the
@@ -176,4 +179,59 @@ func AmagosToCap(rates [domain.MountGrowthBands]int16, defaultRate int16) (int, 
 		total += float64(domain.MountGrowthBandSize) / gain
 	}
 	return int(total + 0.5), true
+}
+
+// Absorb is one lineage's absorption pair as the panel shows it: how much of a
+// hit the mount eats instead of its rider, against a player and against a
+// monster.
+//
+// Configured is a flag and not a sentinel inside the numbers because 0 is a
+// legitimate setting — a lineage deliberately made to absorb nothing on one axis
+// — and collapsing the two would turn "still on the default" into "defenceless".
+type Absorb struct {
+	MountIndex  int16
+	DisplayName string
+	Configured  bool
+	PvP         int16
+	PvE         int16
+}
+
+// ListAbsorb returns every adult lineage, configured or not, in index order —
+// the same whole-roster answer ListCurves gives, for the same reason: the
+// question is "which mounts are still on the default?".
+func (s *Service) ListAbsorb(ctx context.Context) ([]Absorb, error) {
+	rows, err := s.store.ListMountAbsorb(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mountgrowth: list absorb: %w", err)
+	}
+	byMount := make(map[int16]domain.MountAbsorb, len(rows))
+	for _, r := range rows {
+		byMount[r.MountIndex] = r
+	}
+
+	out := make([]Absorb, 0, domain.MountAdultHi-domain.MountAdultLo+1)
+	for idx := int16(domain.MountAdultLo); idx <= domain.MountAdultHi; idx++ {
+		a := Absorb{MountIndex: idx, DisplayName: s.name(idx)}
+		if row, ok := byMount[idx]; ok {
+			a.Configured, a.PvP, a.PvE = true, row.PvP, row.PvE
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+// SetAbsorb writes one lineage's pair.
+func (s *Service) SetAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int16) error {
+	if err := s.store.SetMountAbsorb(ctx, mountIndex, pvp, pve, moderatorID, moderator); err != nil {
+		return fmt.Errorf("mountgrowth: set absorb %d: %w", mountIndex, err)
+	}
+	return nil
+}
+
+// ClearAbsorb drops the lineage's row so the compiled default applies again.
+func (s *Service) ClearAbsorb(ctx context.Context, moderatorID int64, mountIndex int16) error {
+	if err := s.store.ClearMountAbsorb(ctx, mountIndex, moderatorID); err != nil {
+		return fmt.Errorf("mountgrowth: clear absorb %d: %w", mountIndex, err)
+	}
+	return nil
 }

@@ -18,6 +18,9 @@ type MountGrowthAdmin interface {
 	List(ctx context.Context) ([]mountgrowth.Curve, error)
 	Set(ctx context.Context, moderatorID int64, moderator string, mountIndex int16, rates []int16) error
 	Clear(ctx context.Context, moderatorID int64, mountIndex int16) error
+	ListAbsorb(ctx context.Context) ([]mountgrowth.Absorb, error)
+	SetAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int16) error
+	ClearAbsorb(ctx context.Context, moderatorID int64, mountIndex int16) error
 }
 
 // MountGrowthAdminServer implements webv1.MountGrowthAdminServiceServer.
@@ -81,6 +84,50 @@ func (s *MountGrowthAdminServer) SetMountGrowthCurve(ctx context.Context, req *w
 func (s *MountGrowthAdminServer) ClearMountGrowthCurve(ctx context.Context, req *webv1.ClearMountGrowthCurveRequest) (*webv1.AdminAck, error) {
 	if err := s.admin.Clear(ctx, req.GetModeratorId(), int16(req.GetMountIndex())); err != nil {
 		return nil, status.Errorf(codes.Internal, "clear mount growth curve: %v", err)
+	}
+	return &webv1.AdminAck{Result: webv1.AdminResult_ADMIN_RESULT_OK}, nil
+}
+
+// ListMountAbsorb returns every lineage's absorption pair, configured or not.
+func (s *MountGrowthAdminServer) ListMountAbsorb(ctx context.Context, _ *webv1.ListMountAbsorbRequest) (*webv1.ListMountAbsorbResponse, error) {
+	rows, err := s.admin.ListAbsorb(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list mount absorb: %v", err)
+	}
+	out := make([]*webv1.AdminMountAbsorb, 0, len(rows))
+	for _, a := range rows {
+		out = append(out, &webv1.AdminMountAbsorb{
+			MountIndex:  int32(a.MountIndex),
+			DisplayName: a.DisplayName,
+			Configured:  a.Configured,
+			AbsorbPvp:   int32(a.PvP),
+			AbsorbPve:   int32(a.PvE),
+		})
+	}
+	return &webv1.ListMountAbsorbResponse{Absorb: out}, nil
+}
+
+// SetMountAbsorb writes one lineage's pair.
+func (s *MountGrowthAdminServer) SetMountAbsorb(ctx context.Context, req *webv1.SetMountAbsorbRequest) (*webv1.AdminAck, error) {
+	// Checked here and not only in the store: a value outside the range is a
+	// caller that disagrees about the model, and InvalidArgument says so where a
+	// storage error would read as a database problem.
+	for _, v := range [...]int32{req.GetAbsorbPvp(), req.GetAbsorbPve()} {
+		if v < 0 || v > 100 {
+			return nil, status.Errorf(codes.InvalidArgument, "absorb %d is outside 0..100", v)
+		}
+	}
+	if err := s.admin.SetAbsorb(ctx, req.GetModeratorId(), req.GetModerator(),
+		int16(req.GetMountIndex()), int16(req.GetAbsorbPvp()), int16(req.GetAbsorbPve())); err != nil {
+		return nil, status.Errorf(codes.Internal, "set mount absorb: %v", err)
+	}
+	return &webv1.AdminAck{Result: webv1.AdminResult_ADMIN_RESULT_OK}, nil
+}
+
+// ClearMountAbsorb drops the lineage's row so the default applies again.
+func (s *MountGrowthAdminServer) ClearMountAbsorb(ctx context.Context, req *webv1.ClearMountAbsorbRequest) (*webv1.AdminAck, error) {
+	if err := s.admin.ClearAbsorb(ctx, req.GetModeratorId(), int16(req.GetMountIndex())); err != nil {
+		return nil, status.Errorf(codes.Internal, "clear mount absorb: %v", err)
 	}
 	return &webv1.AdminAck{Result: webv1.AdminResult_ADMIN_RESULT_OK}, nil
 }

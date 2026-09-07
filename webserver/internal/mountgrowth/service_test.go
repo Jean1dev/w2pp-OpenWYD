@@ -7,7 +7,12 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
 
-type fakeStore struct{ rows []domain.MountGrowthRate }
+type fakeStore struct {
+	rows   []domain.MountGrowthRate
+	absorb []domain.MountAbsorb
+	salvo  []domain.MountAbsorb
+	limpo  []int16
+}
 
 func (f *fakeStore) ListMountGrowthRates(context.Context) ([]domain.MountGrowthRate, error) {
 	return f.rows, nil
@@ -16,6 +21,43 @@ func (f *fakeStore) SetMountGrowthCurve(context.Context, int16, []int16, int64, 
 	return nil
 }
 func (f *fakeStore) ClearMountGrowthCurve(context.Context, int16, int64) error { return nil }
+
+func (f *fakeStore) ListMountAbsorb(context.Context) ([]domain.MountAbsorb, error) {
+	return f.absorb, nil
+}
+func (f *fakeStore) SetMountAbsorb(_ context.Context, mountIndex, pvp, pve int16, _ int64, _ string) error {
+	f.salvo = append(f.salvo, domain.MountAbsorb{MountIndex: mountIndex, PvP: pvp, PvE: pve})
+	return nil
+}
+func (f *fakeStore) ClearMountAbsorb(_ context.Context, mountIndex int16, _ int64) error {
+	f.limpo = append(f.limpo, mountIndex)
+	return nil
+}
+
+// A absorção também lista a linhagem inteira, e uma linhagem sem linha volta
+// como não configurada — nunca como zero, que é uma escolha legítima e oposta.
+func TestListAbsorbMarksTheUnconfigured(t *testing.T) {
+	s := New(&fakeStore{absorb: []domain.MountAbsorb{{MountIndex: 2370, PvP: 60, PvE: 10}}})
+	rows, err := s.ListAbsorb(context.Background())
+	if err != nil {
+		t.Fatalf("ListAbsorb: %v", err)
+	}
+	if len(rows) != domain.MountAdultHi-domain.MountAdultLo+1 {
+		t.Fatalf("veio %d linhagens, want %d", len(rows), domain.MountAdultHi-domain.MountAdultLo+1)
+	}
+	for _, r := range rows {
+		switch r.MountIndex {
+		case 2370:
+			if !r.Configured || r.PvP != 60 || r.PvE != 10 {
+				t.Errorf("2370 = %+v, want configurada 60/10", r)
+			}
+		default:
+			if r.Configured {
+				t.Errorf("%d veio configurada sem ter linha: %+v", r.MountIndex, r)
+			}
+		}
+	}
+}
 
 // The roster is always whole: an operator balancing a set needs to see which
 // lineages are still on the default, and a list of only the saved rows cannot

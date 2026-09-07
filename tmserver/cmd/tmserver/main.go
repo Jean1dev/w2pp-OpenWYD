@@ -332,6 +332,25 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Mount absorption pairs (0035_mount_absorb), read beside the curves and for
+	// the same reason: an empty table changes nothing — every lineage falls back
+	// to the legacy's flat 25% on both axes — so there is no unseeded-database
+	// hazard and no switch to forget to turn on.
+	var mountAbsorb mountrate.AbsorbTable
+	if dbConn != nil {
+		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		absorb, ferr := dbclient.NewMountAbsorbSource(dbConn).Fetch(fetchCtx)
+		cancel()
+		if ferr != nil {
+			// Warn rather than fail, like the curves: what is lost is balance, and
+			// refusing to boot the game over it would be the worse trade.
+			logger.Warn("mount absorption not loaded; every lineage uses the legacy share", "err", ferr)
+		} else {
+			mountAbsorb = absorb
+			logger.Info("mount absorption loaded", "lineages", len(absorb))
+		}
+	}
+
 	// Moderator NPC-editing overlay (npc-editing-plan.md): the single switch is
 	// -npc-editing (W2PP_NPC_EDITING), off by default so an unseeded DB never makes
 	// the NPCGener.txt merchants vanish. When on, it MUST have a dbServer (the config
@@ -389,7 +408,7 @@ func run(logger *slog.Logger) error {
 	}
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemNames: itemNames, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
+		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, MountAbsorb: mountAbsorb, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		XPConfig:        xpConfig,

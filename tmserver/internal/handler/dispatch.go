@@ -139,6 +139,12 @@ type Config struct {
 	// levels. Nil (or a lineage absent from it) keeps defaultMountGrowthRate.
 	MountRates mountrate.Table
 
+	// MountAbsorb is how much of a hit each adult lineage eats instead of its
+	// rider, split by whether a player or a monster swung (0035_mount_absorb).
+	// Nil (or a lineage absent from it) keeps defaultMountAbsorb, the legacy's
+	// flat 25% on both axes.
+	MountAbsorb mountrate.AbsorbTable
+
 	// Heights is the walkability grid the mob AI paths over: HeightMap.dat with
 	// AttributeMap.dat already baked in (route.Bake, the boot-time
 	// BASE_ApplyAttribute). Read-only after boot, so sharing it with the loop is
@@ -203,6 +209,7 @@ type Dispatcher struct {
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	lang            *content.Language            // client string table (notification text)
 	mountRates      mountrate.Table              // mount growth curves (0030_mount_growth_rate)
+	mountAbsorb     mountrate.AbsorbTable        // mount absorption pairs (0035_mount_absorb)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	now             func() time.Time             // wall clock for calendar-gated guild ops
 	maxNightmare    int                          // Pesadelo runs per window per tier (Server.cpp:687)
@@ -364,6 +371,7 @@ func New(cfg Config) *Dispatcher {
 		spells:           cfg.Spells,
 		lang:             cfg.Language,
 		mountRates:       cfg.MountRates,
+		mountAbsorb:      cfg.MountAbsorb,
 		heights:          cfg.Heights,
 		now:              cfg.Now,
 		maxNightmare:     cfg.MaxNightmare,

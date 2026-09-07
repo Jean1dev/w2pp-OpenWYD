@@ -815,6 +815,25 @@ const (
 	MountAdultHi = 2389
 )
 
+// MountAbsorb is how much of a hit an adult mount eats instead of its owner,
+// split by who is swinging.
+//
+// The legacy absorbs a flat 25% (_MSG_Attack.cpp:1520-1533) and charges half of
+// what it absorbed to the mount's own HP (ProcessAdultMount, Server.cpp:4718).
+// Splitting that one number in two is what lets a lineage be a PvE mount or a
+// PvP mount instead of thirty identical shields.
+type MountAbsorb struct {
+	MountIndex int16
+	PvP        int16 // 0..100, against a player's blow
+	PvE        int16 // 0..100, against a monster's
+	UpdatedBy  string
+}
+
+// DefaultMountAbsorb is what a lineage nobody configured absorbs, on both axes.
+// It is the legacy's flat 25% (_MSG_Attack.cpp:1524), so an untouched database
+// plays exactly as the original did.
+const DefaultMountAbsorb = 25
+
 // MountGrowthBandFor maps a mount level to its band, clamped so a level past the
 // cap still reads the last band rather than falling off the table.
 func MountGrowthBandFor(level int) int16 {

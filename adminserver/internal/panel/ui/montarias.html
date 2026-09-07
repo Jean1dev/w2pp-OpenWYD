@@ -51,6 +51,20 @@
   .faixas-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   .linha-botoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .dica-curva { font-size: 12.5px; color: var(--ink-3); }
+
+  /* A divisa entre os dois assuntos da tabela. Uma linha, não uma cor de fundo:
+     as duas metades são igualmente importantes, e sombrear uma delas diria que
+     a outra é o assunto principal. */
+  table.curvas th.sep, table.curvas td.sep { border-left: 1px solid var(--rule); padding-left: 12px; }
+  table.curvas tr.grupos th {
+    font-size: 10.5px; letter-spacing: .06em; text-transform: none;
+    color: var(--ink-3); border-bottom: none; padding-bottom: 2px; font-weight: 500;
+  }
+  .bloco-abs { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  .rot-bloco {
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 8px;
+  }
 </style>
 </head>
 <body>
@@ -61,9 +75,11 @@
 
   <h1>Montarias</h1>
   <p class="sub">
-    Quanto um âmago rende. Cada linhagem tem a sua curva, e dentro da curva cada
-    faixa de vinte níveis tem a sua chance — é assim que uma montaria forte pode
-    subir fácil no começo e travar perto do topo.
+    Duas decisões por linhagem: <strong>quanto custa criar</strong> a montaria e
+    <strong>o que ela faz depois de criada</strong>. A curva de crescimento diz a
+    chance de cada âmago, faixa de vinte níveis por faixa; a absorção diz quanto
+    do golpe a montaria come no lugar do dono — e ela é separada por quem bateu,
+    que é o que deixa existir montaria de PvE e montaria de PvP.
   </p>
 
   {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
@@ -80,7 +96,23 @@
     A coluna <strong>Âmagos</strong> é essa conta somada nas seis faixas: quantos
     âmagos, em média, do nível 1 ao 120. É o número que faz 45% e 70% quererem
     dizer alguma coisa.
+  </div>
+
+  <div class="nota calma">
+    <strong>Como a absorção funciona.</strong> Quando o dono leva um golpe, a
+    montaria adulta come essa porcentagem dele — e paga por isso: <strong>metade
+    do que ela absorveu sai do HP dela</strong>. Uma montaria que chega a zero
+    para de absorver, perde a ração e deixa de dar os bônus até ser revivida e
+    alimentada de novo. É por isso que absorver muito não é de graça.
     <br><br>
+    Os dois números são independentes. <strong>Contra jogador</strong> vale
+    quando quem bateu foi outra pessoa; <strong>contra monstro</strong> vale para
+    tudo o mais, inclusive os pets dos outros. Uma linhagem de PvE pode ter 40 e
+    5; uma de PvP, 5 e 40.
+    <br><br>
+    O legado tinha um número só, <strong>{{.PadraoAbs}}% para qualquer um</strong>, e é
+    esse o padrão de quem nunca foi editado aqui. Zero é uma escolha legítima e
+    não é o mesmo que estar no padrão — a tela mostra qual é qual.
   </div>
 
   {{template "quando-vale" "reiniciar"}}
@@ -99,6 +131,10 @@
       <div class="val">{{.Padrao}}<small>%</small></div>
     </div>
     <div class="num-tile">
+      <div class="rot">Absorção editada</div>
+      <div class="val">{{.AbsEditadas}} <small>de {{len .Linhas}}</small></div>
+    </div>
+    <div class="num-tile">
       <div class="rot">Inalcançáveis</div>
       <div class="val">{{.Inalcancaveis}}</div>
     </div>
@@ -107,6 +143,15 @@
   <div class="tw">
     <table class="curvas">
       <thead>
+        {{/* Duas perguntas diferentes moram nesta tabela — quanto custa criar a
+             montaria, e o que ela faz depois de criada. A linha de grupo é o que
+             impede de lerem como uma lista só de dez números soltos. */}}
+        <tr class="grupos">
+          <th colspan="2"></th>
+          <th colspan="8">Crescimento &mdash; chance do âmago, por faixa de nível</th>
+          <th colspan="2" class="sep">Absorção &mdash; quanto do golpe a montaria come</th>
+          <th></th>
+        </tr>
         <tr>
           <th>Montaria</th>
           <th>Âmago</th>
@@ -118,6 +163,8 @@
           <th class="faixa">101–120</th>
           <th class="num">Âmagos</th>
           <th>Ritmo</th>
+          <th class="faixa sep">PvP</th>
+          <th class="faixa">PvE</th>
           <th></th>
         </tr>
       </thead>
@@ -129,6 +176,8 @@
           {{range .Faixas}}<td class="faixa {{if .Padrao}}padrao{{end}}">{{.Taxa}}%</td>{{end}}
           <td class="custo">{{if .Alcancavel}}{{.Amagos}}{{else}}&mdash;{{end}}</td>
           <td><span class="ritmo {{.Ritmo}}">{{.RitmoNome}}</span></td>
+          <td class="faixa sep {{if .AbsPadrao}}padrao{{end}}">{{.AbsPvP}}%</td>
+          <td class="faixa {{if .AbsPadrao}}padrao{{end}}">{{.AbsPvE}}%</td>
           <td>
             {{if .Aberta}}
               <a class="botao" href="/rates/montarias">Fechar</a>
@@ -139,7 +188,7 @@
         </tr>
         {{if .Aberta}}
         <tr class="editando" id="m{{.Indice}}">
-          <td class="editor" colspan="11">
+          <td class="editor" colspan="13">
             {{/* Os dois botões ficam lado a lado sem um form dentro do outro:
                  cada botão aponta para o seu form pelo atributo form=. Aninhar
                  formulários é inválido, e o painel não tem script para contornar
@@ -169,11 +218,45 @@
               <span class="dica-curva">Esta linhagem está no padrão de {{$.Padrao}}% em todas as faixas.</span>
               {{end}}
             </div>
+
+            {{/* A absorção é outra tabela no banco e outro botão aqui: dá para
+                 mexer na curva sem tocar na defesa, e vice-versa. Juntar as duas
+                 num "Gravar" só faria toda edição de taxa reescrever a defesa. */}}
+            <div class="bloco-abs">
+              <div class="rot-bloco">Absorção</div>
+              <form id="abs{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/absorcao">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <div class="faixas-form">
+                  <label>
+                    Contra jogador
+                    <input type="number" name="abs_pvp" min="0" max="100" value="{{.AbsPvP}}">
+                  </label>
+                  <label>
+                    Contra monstro
+                    <input type="number" name="abs_pve" min="0" max="100" value="{{.AbsPvE}}">
+                  </label>
+                </div>
+              </form>
+              {{if not .AbsPadrao}}
+              <form id="absPadrao{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/absorcao/limpar">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              </form>
+              {{end}}
+              <div class="linha-botoes">
+                <button class="principal" type="submit" form="abs{{.Indice}}">Gravar a absorção</button>
+                {{if not .AbsPadrao}}
+                <button class="perigo" type="submit" form="absPadrao{{.Indice}}">Voltar ao padrão</button>
+                <span class="dica-curva">Restaurar apaga os dois números; a linhagem volta a {{$.PadraoAbs}}% dos dois lados.</span>
+                {{else}}
+                <span class="dica-curva">Esta linhagem está no padrão do legado: {{$.PadraoAbs}}% contra qualquer um.</span>
+                {{end}}
+              </div>
+            </div>
           </td>
         </tr>
         {{end}}
       {{else}}
-        <tr><td colspan="11"><div class="vazio">Nenhuma linhagem de montaria veio do servidor.</div></td></tr>
+        <tr><td colspan="13"><div class="vazio">Nenhuma linhagem de montaria veio do servidor.</div></td></tr>
       {{end}}
       </tbody>
     </table>

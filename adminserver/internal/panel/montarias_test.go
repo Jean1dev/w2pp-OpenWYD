@@ -160,3 +160,111 @@ func TestRatesEntraNaPrimeiraAbaQueExiste(t *testing.T) {
 		t.Errorf("Location = %q, want /rates/montarias (sem Mesa de XP configurada)", destino)
 	}
 }
+
+// absorcoesDeTeste: uma linhagem no padrão do legado, uma virada para PvE e uma
+// virada para PvP — os três estados que as duas colunas existem para distinguir.
+func absorcoesDeTeste() []gamedata.MountAbsorb {
+	return []gamedata.MountAbsorb{
+		{MountIndex: 2360, DisplayName: "Sem Sela", Configured: false},
+		{MountIndex: 2370, DisplayName: "Andaluz", Configured: true, PvP: 60, PvE: 10},
+		{MountIndex: 2371, DisplayName: "Pesadelo", Configured: true, PvP: 0, PvE: 45},
+	}
+}
+
+func TestMontariasMostraOsDoisLadosDaAbsorcao(t *testing.T) {
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	get := signedIn(t, newTestPanelGame(t, newFakeAudit(), game))
+
+	body := get("/rates/montarias").Body.String()
+	if !strings.Contains(body, "60%") || !strings.Contains(body, "45%") {
+		t.Errorf("os números configurados não apareceram: %q", body)
+	}
+	// A linhagem que ninguém tocou mostra o padrão do legado, marcado como
+	// padrão. Sem essa marca, 25 herdado e 25 escolhido ficariam iguais na tela.
+	if !strings.Contains(body, "25%") {
+		t.Errorf("a linhagem sem configuração não mostrou o padrão do legado: %q", body)
+	}
+}
+
+func TestAbsorcaoZeroNaoViraPadrao(t *testing.T) {
+	// Pesadelo está configurado com PvP 0. Se o painel tratasse 0 como "não
+	// configurado", a tela mostraria 25 e o operador acharia que a gravação não
+	// pegou — quando na verdade a montaria realmente não defende de gente.
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	get := signedIn(t, newTestPanelGame(t, newFakeAudit(), game))
+
+	body := get("/rates/montarias?editar=2371").Body.String()
+	if !strings.Contains(body, `name="abs_pvp" min="0" max="100" value="0"`) {
+		t.Errorf("o editor não trouxe o zero configurado: %q", body)
+	}
+}
+
+func TestSetAbsorcaoGravaOsDoisNumerosEAudita(t *testing.T) {
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelGame(t, log, game))
+
+	rec := post("/rates/montarias/2370/absorcao", url.Values{
+		"csrf": {token}, "abs_pvp": {"70"}, "abs_pve": {"5"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body.String())
+	}
+	if got := game.absorbSalvo[2370]; got != [2]int32{70, 5} {
+		t.Errorf("gravou %v, want [70 5]", got)
+	}
+	recs := log.written
+	if len(recs) != 1 || recs[0].Action != audit.ActionSetMountAbsorb {
+		t.Errorf("auditoria = %+v, want um SET_MOUNT_ABSORB", recs)
+	}
+}
+
+func TestSetAbsorcaoRecusaForaDaFaixa(t *testing.T) {
+	game := newFakeGameData()
+	post, token := signedInPost(t, newTestPanelGame(t, newFakeAudit(), game))
+
+	for _, f := range []url.Values{
+		{"csrf": {token}, "abs_pvp": {"101"}, "abs_pve": {"10"}},
+		{"csrf": {token}, "abs_pvp": {"10"}, "abs_pve": {"-1"}},
+		{"csrf": {token}, "abs_pvp": {"dez"}, "abs_pve": {"10"}},
+		{"csrf": {token}, "abs_pve": {"10"}}, // pvp ausente: os dois andam juntos
+	} {
+		if rec := post("/rates/montarias/2370/absorcao", f); rec.Code != http.StatusBadRequest {
+			t.Errorf("%v: status = %d, want 400", f, rec.Code)
+		}
+	}
+	if len(game.absorbSalvo) != 0 {
+		t.Errorf("gravou mesmo com valor inválido: %v", game.absorbSalvo)
+	}
+}
+
+func TestLimparAbsorcaoApagaEmVezDeGravarOLegado(t *testing.T) {
+	// Restaurar apaga a linha. Gravar 25/25 seria uma configuração, e ela pararia
+	// de acompanhar o padrão no dia em que o padrão mudasse.
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelGame(t, log, game))
+
+	rec := post("/rates/montarias/2370/absorcao/limpar", url.Values{"csrf": {token}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body.String())
+	}
+	if len(game.absorbLimpo) != 1 || game.absorbLimpo[0] != 2370 {
+		t.Errorf("limpou %v, want [2370]", game.absorbLimpo)
+	}
+	if len(game.absorbSalvo) != 0 {
+		t.Errorf("restaurar gravou números: %v", game.absorbSalvo)
+	}
+	recs := log.written
+	if len(recs) != 1 || recs[0].Action != audit.ActionClearMountAbsorb {
+		t.Errorf("auditoria = %+v, want um CLEAR_MOUNT_ABSORB", recs)
+	}
+}

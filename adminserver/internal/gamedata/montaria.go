@@ -69,3 +69,63 @@ func (c *Client) ClearMountGrowthCurve(ctx context.Context, moderatorID int64, m
 	}
 	return resultErr(resp.GetResult())
 }
+
+// MountAbsorb is one lineage's absorption pair as the panel shows it: how much
+// of a hit the mount eats instead of its rider, against a player and against a
+// monster.
+//
+// Configured is a flag rather than a sentinel inside the numbers because 0 is a
+// legitimate setting — a lineage deliberately made to absorb nothing on one axis
+// — and collapsing the two would silently turn "still on the default" into
+// "defenceless".
+type MountAbsorb struct {
+	MountIndex  int32
+	DisplayName string
+	Configured  bool
+	PvP         int32
+	PvE         int32
+}
+
+// MountAbsorbs lists the whole roster of adult lineages, configured or not.
+func (c *Client) MountAbsorbs(ctx context.Context) ([]MountAbsorb, error) {
+	resp, err := c.mountGrowth.ListMountAbsorb(ctx, &webv1.ListMountAbsorbRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("gamedata: list mount absorb: %w", err)
+	}
+	out := make([]MountAbsorb, 0, len(resp.GetAbsorb()))
+	for _, a := range resp.GetAbsorb() {
+		out = append(out, MountAbsorb{
+			MountIndex:  a.GetMountIndex(),
+			DisplayName: a.GetDisplayName(),
+			Configured:  a.GetConfigured(),
+			PvP:         a.GetAbsorbPvp(),
+			PvE:         a.GetAbsorbPve(),
+		})
+	}
+	return out, nil
+}
+
+// SetMountAbsorb writes one lineage's two numbers, both at once. They are the
+// two halves of a single decision about what the mount is for, and the service
+// refuses to take one without the other.
+func (c *Client) SetMountAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int32) error {
+	resp, err := c.mountGrowth.SetMountAbsorb(ctx, &webv1.SetMountAbsorbRequest{
+		ModeratorId: moderatorID, Moderator: moderator,
+		MountIndex: mountIndex, AbsorbPvp: pvp, AbsorbPve: pve,
+	})
+	if err != nil {
+		return fmt.Errorf("gamedata: set mount absorb %d: %w", mountIndex, err)
+	}
+	return resultErr(resp.GetResult())
+}
+
+// ClearMountAbsorb drops the lineage's row so the compiled default applies again.
+func (c *Client) ClearMountAbsorb(ctx context.Context, moderatorID int64, mountIndex int32) error {
+	resp, err := c.mountGrowth.ClearMountAbsorb(ctx, &webv1.ClearMountAbsorbRequest{
+		ModeratorId: moderatorID, MountIndex: mountIndex,
+	})
+	if err != nil {
+		return fmt.Errorf("gamedata: clear mount absorb %d: %w", mountIndex, err)
+	}
+	return resultErr(resp.GetResult())
+}

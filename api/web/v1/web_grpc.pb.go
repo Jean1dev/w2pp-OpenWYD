@@ -3574,19 +3574,27 @@ const (
 	MountGrowthAdminService_ListMountGrowthCurves_FullMethodName = "/web.v1.MountGrowthAdminService/ListMountGrowthCurves"
 	MountGrowthAdminService_SetMountGrowthCurve_FullMethodName   = "/web.v1.MountGrowthAdminService/SetMountGrowthCurve"
 	MountGrowthAdminService_ClearMountGrowthCurve_FullMethodName = "/web.v1.MountGrowthAdminService/ClearMountGrowthCurve"
+	MountGrowthAdminService_ListMountAbsorb_FullMethodName       = "/web.v1.MountGrowthAdminService/ListMountAbsorb"
+	MountGrowthAdminService_SetMountAbsorb_FullMethodName        = "/web.v1.MountGrowthAdminService/SetMountAbsorb"
+	MountGrowthAdminService_ClearMountAbsorb_FullMethodName      = "/web.v1.MountGrowthAdminService/ClearMountAbsorb"
 )
 
 // MountGrowthAdminServiceClient is the client API for MountGrowthAdminService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// MountGrowthAdminService edits the mount growth curves (0030_mount_growth_rate)
-// from the staff panel: the chance an âmago raises an ADULT mount one level, per
-// lineage and per band of twenty levels.
+// MountGrowthAdminService edits what the staff panel can decide about a mount
+// lineage. Two things live here, because they are two columns of one screen:
 //
-// Whole-curve writes rather than per-band: the bands are read together and only
-// make sense together, and the shape is the thing being edited. A save that
-// landed band 3 and lost band 4 would leave a mount with a curve nobody chose.
+//   - the growth curve (0030_mount_growth_rate) — the chance an âmago raises an
+//     ADULT mount one level, per band of twenty levels;
+//   - the absorption pair (0035_mount_absorb) — how much of a hit the mount eats
+//     instead of its owner, against a player and against a monster.
+//
+// Writes are whole-object on both: the six bands are read together and only make
+// sense together, and the two absorption numbers are the two halves of one
+// decision about what the mount is for. A save that landed half of either would
+// leave a lineage nobody designed.
 type MountGrowthAdminServiceClient interface {
 	// ListMountGrowthCurves returns every adult lineage, configured or not, so the
 	// list screen can show the whole roster rather than only what someone has
@@ -3598,6 +3606,16 @@ type MountGrowthAdminServiceClient interface {
 	// applies again. Restoring is a delete, not a write of the default values:
 	// absence is what "not configured" means everywhere in this overlay.
 	ClearMountGrowthCurve(ctx context.Context, in *ClearMountGrowthCurveRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// ListMountAbsorb returns every adult lineage's absorption pair, configured or
+	// not, for the same reason the curve list does: the question an operator has is
+	// "which mounts are still on the default?", and a list of only what someone
+	// touched cannot answer it.
+	ListMountAbsorb(ctx context.Context, in *ListMountAbsorbRequest, opts ...grpc.CallOption) (*ListMountAbsorbResponse, error)
+	// SetMountAbsorb writes one lineage's two numbers.
+	SetMountAbsorb(ctx context.Context, in *SetMountAbsorbRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
+	// legacy) applies again.
+	ClearMountAbsorb(ctx context.Context, in *ClearMountAbsorbRequest, opts ...grpc.CallOption) (*AdminAck, error)
 }
 
 type mountGrowthAdminServiceClient struct {
@@ -3638,17 +3656,52 @@ func (c *mountGrowthAdminServiceClient) ClearMountGrowthCurve(ctx context.Contex
 	return out, nil
 }
 
+func (c *mountGrowthAdminServiceClient) ListMountAbsorb(ctx context.Context, in *ListMountAbsorbRequest, opts ...grpc.CallOption) (*ListMountAbsorbResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMountAbsorbResponse)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_ListMountAbsorb_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mountGrowthAdminServiceClient) SetMountAbsorb(ctx context.Context, in *SetMountAbsorbRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_SetMountAbsorb_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mountGrowthAdminServiceClient) ClearMountAbsorb(ctx context.Context, in *ClearMountAbsorbRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_ClearMountAbsorb_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MountGrowthAdminServiceServer is the server API for MountGrowthAdminService service.
 // All implementations must embed UnimplementedMountGrowthAdminServiceServer
 // for forward compatibility.
 //
-// MountGrowthAdminService edits the mount growth curves (0030_mount_growth_rate)
-// from the staff panel: the chance an âmago raises an ADULT mount one level, per
-// lineage and per band of twenty levels.
+// MountGrowthAdminService edits what the staff panel can decide about a mount
+// lineage. Two things live here, because they are two columns of one screen:
 //
-// Whole-curve writes rather than per-band: the bands are read together and only
-// make sense together, and the shape is the thing being edited. A save that
-// landed band 3 and lost band 4 would leave a mount with a curve nobody chose.
+//   - the growth curve (0030_mount_growth_rate) — the chance an âmago raises an
+//     ADULT mount one level, per band of twenty levels;
+//   - the absorption pair (0035_mount_absorb) — how much of a hit the mount eats
+//     instead of its owner, against a player and against a monster.
+//
+// Writes are whole-object on both: the six bands are read together and only make
+// sense together, and the two absorption numbers are the two halves of one
+// decision about what the mount is for. A save that landed half of either would
+// leave a lineage nobody designed.
 type MountGrowthAdminServiceServer interface {
 	// ListMountGrowthCurves returns every adult lineage, configured or not, so the
 	// list screen can show the whole roster rather than only what someone has
@@ -3660,6 +3713,16 @@ type MountGrowthAdminServiceServer interface {
 	// applies again. Restoring is a delete, not a write of the default values:
 	// absence is what "not configured" means everywhere in this overlay.
 	ClearMountGrowthCurve(context.Context, *ClearMountGrowthCurveRequest) (*AdminAck, error)
+	// ListMountAbsorb returns every adult lineage's absorption pair, configured or
+	// not, for the same reason the curve list does: the question an operator has is
+	// "which mounts are still on the default?", and a list of only what someone
+	// touched cannot answer it.
+	ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error)
+	// SetMountAbsorb writes one lineage's two numbers.
+	SetMountAbsorb(context.Context, *SetMountAbsorbRequest) (*AdminAck, error)
+	// ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
+	// legacy) applies again.
+	ClearMountAbsorb(context.Context, *ClearMountAbsorbRequest) (*AdminAck, error)
 	mustEmbedUnimplementedMountGrowthAdminServiceServer()
 }
 
@@ -3678,6 +3741,15 @@ func (UnimplementedMountGrowthAdminServiceServer) SetMountGrowthCurve(context.Co
 }
 func (UnimplementedMountGrowthAdminServiceServer) ClearMountGrowthCurve(context.Context, *ClearMountGrowthCurveRequest) (*AdminAck, error) {
 	return nil, status.Error(codes.Unimplemented, "method ClearMountGrowthCurve not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMountAbsorb not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) SetMountAbsorb(context.Context, *SetMountAbsorbRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetMountAbsorb not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) ClearMountAbsorb(context.Context, *ClearMountAbsorbRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClearMountAbsorb not implemented")
 }
 func (UnimplementedMountGrowthAdminServiceServer) mustEmbedUnimplementedMountGrowthAdminServiceServer() {
 }
@@ -3755,6 +3827,60 @@ func _MountGrowthAdminService_ClearMountGrowthCurve_Handler(srv interface{}, ctx
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MountGrowthAdminService_ListMountAbsorb_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMountAbsorbRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).ListMountAbsorb(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_ListMountAbsorb_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).ListMountAbsorb(ctx, req.(*ListMountAbsorbRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MountGrowthAdminService_SetMountAbsorb_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetMountAbsorbRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).SetMountAbsorb(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_SetMountAbsorb_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).SetMountAbsorb(ctx, req.(*SetMountAbsorbRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MountGrowthAdminService_ClearMountAbsorb_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearMountAbsorbRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).ClearMountAbsorb(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_ClearMountAbsorb_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).ClearMountAbsorb(ctx, req.(*ClearMountAbsorbRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MountGrowthAdminService_ServiceDesc is the grpc.ServiceDesc for MountGrowthAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3773,6 +3899,18 @@ var MountGrowthAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClearMountGrowthCurve",
 			Handler:    _MountGrowthAdminService_ClearMountGrowthCurve_Handler,
+		},
+		{
+			MethodName: "ListMountAbsorb",
+			Handler:    _MountGrowthAdminService_ListMountAbsorb_Handler,
+		},
+		{
+			MethodName: "SetMountAbsorb",
+			Handler:    _MountGrowthAdminService_SetMountAbsorb_Handler,
+		},
+		{
+			MethodName: "ClearMountAbsorb",
+			Handler:    _MountGrowthAdminService_ClearMountAbsorb_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

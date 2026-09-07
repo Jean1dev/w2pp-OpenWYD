@@ -27,6 +27,12 @@ const bandas = 6
 // servidor de jogo, e a tela precisa mostrar o custo de quem está no padrão.
 const padraoMontaria = 50
 
+// padraoAbsorcao espelha defaultMountAbsorb do tmServer, que por sua vez é o 25%
+// fixo do legado (_MSG_Attack.cpp:1524). Repetido aqui pela mesma razão que
+// padraoMontaria: o painel não importa o servidor de jogo, e a tela precisa
+// mostrar o número que vale para quem nunca foi configurado.
+const padraoAbsorcao = 25
+
 type montariaLinha struct {
 	Indice      int32
 	Nome        string
@@ -37,6 +43,12 @@ type montariaLinha struct {
 	Alcancavel  bool
 	Ritmo       string // a classe do CSS
 	RitmoNome   string // e a palavra que a pessoa lê
+	// A absorção vem de outra tabela e tem a sua própria noção de "configurada":
+	// dá para ter a curva editada e a absorção no padrão, e a tela precisa dizer
+	// qual das duas foi mexida.
+	AbsPvP    int32
+	AbsPvE    int32
+	AbsPadrao bool
 	// Aberta marca a linha que está sendo editada. É resolvida aqui e não no
 	// template porque comparar um índice com o texto da query dentro do HTML
 	// seria aritmética de string numa tela — o lugar errado para ela.
@@ -57,16 +69,37 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	absorcoes, err := h.cfg.GameData.MountAbsorbs(r.Context())
+	if err != nil {
+		h.recusaGameData(w, r, "ler a absorção das montarias", err)
+		return
+	}
+	porIndice := make(map[int32]gamedata.MountAbsorb, len(absorcoes))
+	for _, a := range absorcoes {
+		porIndice[a.MountIndex] = a
+	}
+
 	escolha := r.URL.Query().Get("editar")
 	linhas := make([]montariaLinha, 0, len(curvas))
 	for _, c := range curvas {
 		l := montariaParaTela(c)
 		l.Aberta = escolha == strconv.Itoa(int(c.MountIndex))
+		// Uma linhagem sem linha de absorção mostra o padrão, marcado como
+		// padrão — a mesma distinção que as faixas fazem, e pela mesma razão: 25
+		// herdado e 25 escolhido à mão não podem parecer iguais, ou restaurar
+		// deixa de parecer uma mudança.
+		l.AbsPvP, l.AbsPvE, l.AbsPadrao = padraoAbsorcao, padraoAbsorcao, true
+		if a, ok := porIndice[c.MountIndex]; ok && a.Configured {
+			l.AbsPvP, l.AbsPvE, l.AbsPadrao = a.PvP, a.PvE, false
+		}
 		linhas = append(linhas, l)
 	}
 
-	configuradas, inalcancaveis := 0, 0
+	configuradas, inalcancaveis, absEditadas := 0, 0, 0
 	for _, l := range linhas {
+		if !l.AbsPadrao {
+			absEditadas++
+		}
 		if l.Configurada {
 			configuradas++
 		}
@@ -81,6 +114,8 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		Linhas        []montariaLinha
 		Aviso         string
 		Padrao        int
+		PadraoAbs     int
+		AbsEditadas   int
 		Configuradas  int
 		Inalcancaveis int
 	}{
@@ -89,6 +124,8 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		Linhas:        linhas,
 		Aviso:         r.URL.Query().Get("aviso"),
 		Padrao:        padraoMontaria,
+		PadraoAbs:     padraoAbsorcao,
+		AbsEditadas:   absEditadas,
 		Configuradas:  configuradas,
 		Inalcancaveis: inalcancaveis,
 	})
@@ -228,6 +265,83 @@ func (h *Handler) limparMontaria(w http.ResponseWriter, r *http.Request) {
 func indiceMontaria(r *http.Request) (int32, bool) {
 	v, err := strconv.Atoi(r.PathValue("indice"))
 	if err != nil || v < 2360 || v > 2389 {
+		return 0, false
+	}
+	return int32(v), true
+}
+
+// setAbsorcao grava os dois números de uma linhagem.
+//
+// Os dois de uma vez, e não um campo por vez: são as duas metades de uma
+// decisão só — "esta montaria é de PvE" —, e gravar um sem o outro deixaria uma
+// linhagem que ninguém desenhou, forte contra monstro e forte contra gente por
+// descuido.
+func (h *Handler) setAbsorcao(w http.ResponseWriter, r *http.Request) {
+	indice, ok := indiceMontaria(r)
+	if !ok {
+		http.Error(w, "Índice de montaria inválido.", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		return
+	}
+	pvp, okPvP := absorcaoDoForm(r, "abs_pvp")
+	pve, okPvE := absorcaoDoForm(r, "abs_pve")
+	if !okPvP || !okPvE {
+		http.Error(w, "A absorção precisa de um número entre 0 e 100.", http.StatusBadRequest)
+		return
+	}
+
+	sess, _ := staffFrom(r.Context())
+	if err := h.cfg.GameData.SetMountAbsorb(r.Context(), sess.AccountID, sess.AccountName, indice, pvp, pve); err != nil {
+		h.recusaGameData(w, r, "gravar a absorção da montaria", err)
+		return
+	}
+	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
+		Action: audit.ActionSetMountAbsorb,
+		New:    map[string]any{"montaria": indice, "pvp": pvp, "pve": pve},
+	}); err != nil {
+		h.cfg.Logger.Error("mount absorb changed but NOT audited", "montaria", indice, "err", err)
+		http.Error(w, "A absorção foi salva, mas a auditoria falhou. Avise quem cuida do servidor.",
+			http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/rates/montarias?aviso=Absorção+salva", http.StatusSeeOther)
+}
+
+// limparAbsorcao devolve a linhagem ao padrão do legado. Apaga, não grava 25/25:
+// a ausência de linha é o que significa "não configurada" em todo este overlay, e
+// gravar o padrão seria uma configuração — que pararia de acompanhar o padrão se
+// ele mudasse.
+func (h *Handler) limparAbsorcao(w http.ResponseWriter, r *http.Request) {
+	indice, ok := indiceMontaria(r)
+	if !ok {
+		http.Error(w, "Índice de montaria inválido.", http.StatusBadRequest)
+		return
+	}
+	sess, _ := staffFrom(r.Context())
+	if err := h.cfg.GameData.ClearMountAbsorb(r.Context(), sess.AccountID, indice); err != nil {
+		h.recusaGameData(w, r, "restaurar a absorção da montaria", err)
+		return
+	}
+	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
+		Action: audit.ActionClearMountAbsorb,
+		New:    map[string]any{"montaria": indice},
+	}); err != nil {
+		h.cfg.Logger.Error("mount absorb cleared but NOT audited", "montaria", indice, "err", err)
+		http.Error(w, "A absorção foi restaurada, mas a auditoria falhou. Avise quem cuida do servidor.",
+			http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/rates/montarias?aviso=Absorção+restaurada", http.StatusSeeOther)
+}
+
+func absorcaoDoForm(r *http.Request, campo string) (int32, bool) {
+	v, err := strconv.Atoi(r.FormValue(campo))
+	if err != nil || v < 0 || v > 100 {
 		return 0, false
 	}
 	return int32(v), true

@@ -1708,6 +1708,7 @@ const (
 	NpcConfigService_ListMobTemplateStats_FullMethodName = "/db.v1.NpcConfigService/ListMobTemplateStats"
 	NpcConfigService_ListItemStats_FullMethodName        = "/db.v1.NpcConfigService/ListItemStats"
 	NpcConfigService_ListMountGrowthRates_FullMethodName = "/db.v1.NpcConfigService/ListMountGrowthRates"
+	NpcConfigService_ListMountAbsorb_FullMethodName      = "/db.v1.NpcConfigService/ListMountAbsorb"
 )
 
 // NpcConfigServiceClient is the client API for NpcConfigService service.
@@ -1751,6 +1752,15 @@ type NpcConfigServiceClient interface {
 	// There is no legacy curve to match: BASE_GetGrowthRate is absent from the
 	// sources, so the shape is this server's balance decision.
 	ListMountGrowthRates(ctx context.Context, in *ListMountGrowthRatesRequest, opts ...grpc.CallOption) (*ListMountGrowthRatesResponse, error)
+	// ListMountAbsorb returns how much of a hit each adult mount eats instead of
+	// its owner (0035_mount_absorb), one number against players and one against
+	// monsters. Read once at boot, like every other content overlay here.
+	//
+	// The legacy absorbs a flat 25% either way (_MSG_Attack.cpp:1520-1533). The
+	// two numbers are this server's addition: they are what lets a lineage be a
+	// PvE mount or a PvP mount rather than one of thirty identical shields. A
+	// lineage with no row keeps 25/25 and plays exactly as the original did.
+	ListMountAbsorb(ctx context.Context, in *ListMountAbsorbRequest, opts ...grpc.CallOption) (*ListMountAbsorbResponse, error)
 }
 
 type npcConfigServiceClient struct {
@@ -1811,6 +1821,16 @@ func (c *npcConfigServiceClient) ListMountGrowthRates(ctx context.Context, in *L
 	return out, nil
 }
 
+func (c *npcConfigServiceClient) ListMountAbsorb(ctx context.Context, in *ListMountAbsorbRequest, opts ...grpc.CallOption) (*ListMountAbsorbResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMountAbsorbResponse)
+	err := c.cc.Invoke(ctx, NpcConfigService_ListMountAbsorb_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NpcConfigServiceServer is the server API for NpcConfigService service.
 // All implementations must embed UnimplementedNpcConfigServiceServer
 // for forward compatibility.
@@ -1852,6 +1872,15 @@ type NpcConfigServiceServer interface {
 	// There is no legacy curve to match: BASE_GetGrowthRate is absent from the
 	// sources, so the shape is this server's balance decision.
 	ListMountGrowthRates(context.Context, *ListMountGrowthRatesRequest) (*ListMountGrowthRatesResponse, error)
+	// ListMountAbsorb returns how much of a hit each adult mount eats instead of
+	// its owner (0035_mount_absorb), one number against players and one against
+	// monsters. Read once at boot, like every other content overlay here.
+	//
+	// The legacy absorbs a flat 25% either way (_MSG_Attack.cpp:1520-1533). The
+	// two numbers are this server's addition: they are what lets a lineage be a
+	// PvE mount or a PvP mount rather than one of thirty identical shields. A
+	// lineage with no row keeps 25/25 and plays exactly as the original did.
+	ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error)
 	mustEmbedUnimplementedNpcConfigServiceServer()
 }
 
@@ -1876,6 +1905,9 @@ func (UnimplementedNpcConfigServiceServer) ListItemStats(context.Context, *ListI
 }
 func (UnimplementedNpcConfigServiceServer) ListMountGrowthRates(context.Context, *ListMountGrowthRatesRequest) (*ListMountGrowthRatesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMountGrowthRates not implemented")
+}
+func (UnimplementedNpcConfigServiceServer) ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMountAbsorb not implemented")
 }
 func (UnimplementedNpcConfigServiceServer) mustEmbedUnimplementedNpcConfigServiceServer() {}
 func (UnimplementedNpcConfigServiceServer) testEmbeddedByValue()                          {}
@@ -1988,6 +2020,24 @@ func _NpcConfigService_ListMountGrowthRates_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcConfigService_ListMountAbsorb_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMountAbsorbRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcConfigServiceServer).ListMountAbsorb(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcConfigService_ListMountAbsorb_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcConfigServiceServer).ListMountAbsorb(ctx, req.(*ListMountAbsorbRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NpcConfigService_ServiceDesc is the grpc.ServiceDesc for NpcConfigService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2014,6 +2064,10 @@ var NpcConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMountGrowthRates",
 			Handler:    _NpcConfigService_ListMountGrowthRates_Handler,
+		},
+		{
+			MethodName: "ListMountAbsorb",
+			Handler:    _NpcConfigService_ListMountAbsorb_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

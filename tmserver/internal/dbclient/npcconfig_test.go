@@ -36,6 +36,10 @@ func (f *fakeNpcConfigAPI) ListMountGrowthRates(context.Context, *dbv1.ListMount
 	return &dbv1.ListMountGrowthRatesResponse{}, nil
 }
 
+func (f *fakeNpcConfigAPI) ListMountAbsorb(context.Context, *dbv1.ListMountAbsorbRequest, ...grpc.CallOption) (*dbv1.ListMountAbsorbResponse, error) {
+	return &dbv1.ListMountAbsorbResponse{}, nil
+}
+
 func TestNpcConfigSnapshotMapsDisplayName(t *testing.T) {
 	template := merchantTemplateBytes("Default")
 	src := &NpcConfig{

@@ -121,6 +121,9 @@ type GameData interface {
 	MountGrowthCurves(ctx context.Context) ([]gamedata.MountGrowthCurve, error)
 	SetMountGrowthCurve(ctx context.Context, moderatorID int64, moderator string, mountIndex int32, rates []int32) error
 	ClearMountGrowthCurve(ctx context.Context, moderatorID int64, mountIndex int32) error
+	MountAbsorbs(ctx context.Context) ([]gamedata.MountAbsorb, error)
+	SetMountAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int32) error
+	ClearMountAbsorb(ctx context.Context, moderatorID int64, mountIndex int32) error
 }
 
 // Deliveries is the item mailbox. Kept as an interface for the same reason the
@@ -384,6 +387,8 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("GET /rates/montarias", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.montarias))))
 		mux.Handle("POST /rates/montarias/{indice}", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMontaria))))
 		mux.Handle("POST /rates/montarias/{indice}/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMontaria))))
+		mux.Handle("POST /rates/montarias/{indice}/absorcao", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setAbsorcao))))
+		mux.Handle("POST /rates/montarias/{indice}/absorcao/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparAbsorcao))))
 	}
 	// /rates entra na primeira aba que existe.
 	if destino := primeiraAbaDeRates(h.cfg); destino != "" {

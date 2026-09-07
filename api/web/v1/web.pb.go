@@ -10262,6 +10262,298 @@ func (x *ClearMountGrowthCurveRequest) GetMountIndex() int32 {
 	return 0
 }
 
+// AdminMountAbsorb is one lineage's absorption as the panel shows it: how much
+// of a hit the mount eats instead of its owner, against a player and against a
+// monster.
+//
+// configured is false when nobody has set this lineage and the compiled default
+// applies to both numbers. It is a separate flag rather than a sentinel in the
+// values because 0 is a legitimate setting — a mount deliberately made to
+// absorb nothing on one axis — and the two must not collapse.
+type AdminMountAbsorb struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MountIndex    int32                  `protobuf:"varint,1,opt,name=mount_index,json=mountIndex,proto3" json:"mount_index,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // catalog name, read-only
+	Configured    bool                   `protobuf:"varint,3,opt,name=configured,proto3" json:"configured,omitempty"`
+	AbsorbPvp     int32                  `protobuf:"varint,4,opt,name=absorb_pvp,json=absorbPvp,proto3" json:"absorb_pvp,omitempty"` // 0..100, meaningful only when configured
+	AbsorbPve     int32                  `protobuf:"varint,5,opt,name=absorb_pve,json=absorbPve,proto3" json:"absorb_pve,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminMountAbsorb) Reset() {
+	*x = AdminMountAbsorb{}
+	mi := &file_api_web_v1_web_proto_msgTypes[139]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminMountAbsorb) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminMountAbsorb) ProtoMessage() {}
+
+func (x *AdminMountAbsorb) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[139]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminMountAbsorb.ProtoReflect.Descriptor instead.
+func (*AdminMountAbsorb) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{139}
+}
+
+func (x *AdminMountAbsorb) GetMountIndex() int32 {
+	if x != nil {
+		return x.MountIndex
+	}
+	return 0
+}
+
+func (x *AdminMountAbsorb) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *AdminMountAbsorb) GetConfigured() bool {
+	if x != nil {
+		return x.Configured
+	}
+	return false
+}
+
+func (x *AdminMountAbsorb) GetAbsorbPvp() int32 {
+	if x != nil {
+		return x.AbsorbPvp
+	}
+	return 0
+}
+
+func (x *AdminMountAbsorb) GetAbsorbPve() int32 {
+	if x != nil {
+		return x.AbsorbPve
+	}
+	return 0
+}
+
+type ListMountAbsorbRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMountAbsorbRequest) Reset() {
+	*x = ListMountAbsorbRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[140]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMountAbsorbRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMountAbsorbRequest) ProtoMessage() {}
+
+func (x *ListMountAbsorbRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[140]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMountAbsorbRequest.ProtoReflect.Descriptor instead.
+func (*ListMountAbsorbRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{140}
+}
+
+type ListMountAbsorbResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Absorb        []*AdminMountAbsorb    `protobuf:"bytes,1,rep,name=absorb,proto3" json:"absorb,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMountAbsorbResponse) Reset() {
+	*x = ListMountAbsorbResponse{}
+	mi := &file_api_web_v1_web_proto_msgTypes[141]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMountAbsorbResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMountAbsorbResponse) ProtoMessage() {}
+
+func (x *ListMountAbsorbResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[141]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMountAbsorbResponse.ProtoReflect.Descriptor instead.
+func (*ListMountAbsorbResponse) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{141}
+}
+
+func (x *ListMountAbsorbResponse) GetAbsorb() []*AdminMountAbsorb {
+	if x != nil {
+		return x.Absorb
+	}
+	return nil
+}
+
+type SetMountAbsorbRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	Moderator     string                 `protobuf:"bytes,2,opt,name=moderator,proto3" json:"moderator,omitempty"`
+	MountIndex    int32                  `protobuf:"varint,3,opt,name=mount_index,json=mountIndex,proto3" json:"mount_index,omitempty"`
+	AbsorbPvp     int32                  `protobuf:"varint,4,opt,name=absorb_pvp,json=absorbPvp,proto3" json:"absorb_pvp,omitempty"` // 0..100
+	AbsorbPve     int32                  `protobuf:"varint,5,opt,name=absorb_pve,json=absorbPve,proto3" json:"absorb_pve,omitempty"` // 0..100
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetMountAbsorbRequest) Reset() {
+	*x = SetMountAbsorbRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[142]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetMountAbsorbRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetMountAbsorbRequest) ProtoMessage() {}
+
+func (x *SetMountAbsorbRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[142]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetMountAbsorbRequest.ProtoReflect.Descriptor instead.
+func (*SetMountAbsorbRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{142}
+}
+
+func (x *SetMountAbsorbRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *SetMountAbsorbRequest) GetModerator() string {
+	if x != nil {
+		return x.Moderator
+	}
+	return ""
+}
+
+func (x *SetMountAbsorbRequest) GetMountIndex() int32 {
+	if x != nil {
+		return x.MountIndex
+	}
+	return 0
+}
+
+func (x *SetMountAbsorbRequest) GetAbsorbPvp() int32 {
+	if x != nil {
+		return x.AbsorbPvp
+	}
+	return 0
+}
+
+func (x *SetMountAbsorbRequest) GetAbsorbPve() int32 {
+	if x != nil {
+		return x.AbsorbPve
+	}
+	return 0
+}
+
+type ClearMountAbsorbRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModeratorId   int64                  `protobuf:"varint,1,opt,name=moderator_id,json=moderatorId,proto3" json:"moderator_id,omitempty"`
+	MountIndex    int32                  `protobuf:"varint,2,opt,name=mount_index,json=mountIndex,proto3" json:"mount_index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClearMountAbsorbRequest) Reset() {
+	*x = ClearMountAbsorbRequest{}
+	mi := &file_api_web_v1_web_proto_msgTypes[143]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClearMountAbsorbRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClearMountAbsorbRequest) ProtoMessage() {}
+
+func (x *ClearMountAbsorbRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_web_v1_web_proto_msgTypes[143]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClearMountAbsorbRequest.ProtoReflect.Descriptor instead.
+func (*ClearMountAbsorbRequest) Descriptor() ([]byte, []int) {
+	return file_api_web_v1_web_proto_rawDescGZIP(), []int{143}
+}
+
+func (x *ClearMountAbsorbRequest) GetModeratorId() int64 {
+	if x != nil {
+		return x.ModeratorId
+	}
+	return 0
+}
+
+func (x *ClearMountAbsorbRequest) GetMountIndex() int32 {
+	if x != nil {
+		return x.MountIndex
+	}
+	return 0
+}
+
 var File_api_web_v1_web_proto protoreflect.FileDescriptor
 
 const file_api_web_v1_web_proto_rawDesc = "" +
@@ -11070,6 +11362,33 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x1cClearMountGrowthCurveRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x1f\n" +
 	"\vmount_index\x18\x02 \x01(\x05R\n" +
+	"mountIndex\"\xb4\x01\n" +
+	"\x10AdminMountAbsorb\x12\x1f\n" +
+	"\vmount_index\x18\x01 \x01(\x05R\n" +
+	"mountIndex\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1e\n" +
+	"\n" +
+	"configured\x18\x03 \x01(\bR\n" +
+	"configured\x12\x1d\n" +
+	"\n" +
+	"absorb_pvp\x18\x04 \x01(\x05R\tabsorbPvp\x12\x1d\n" +
+	"\n" +
+	"absorb_pve\x18\x05 \x01(\x05R\tabsorbPve\"\x18\n" +
+	"\x16ListMountAbsorbRequest\"K\n" +
+	"\x17ListMountAbsorbResponse\x120\n" +
+	"\x06absorb\x18\x01 \x03(\v2\x18.web.v1.AdminMountAbsorbR\x06absorb\"\xb7\x01\n" +
+	"\x15SetMountAbsorbRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x1c\n" +
+	"\tmoderator\x18\x02 \x01(\tR\tmoderator\x12\x1f\n" +
+	"\vmount_index\x18\x03 \x01(\x05R\n" +
+	"mountIndex\x12\x1d\n" +
+	"\n" +
+	"absorb_pvp\x18\x04 \x01(\x05R\tabsorbPvp\x12\x1d\n" +
+	"\n" +
+	"absorb_pve\x18\x05 \x01(\x05R\tabsorbPve\"]\n" +
+	"\x17ClearMountAbsorbRequest\x12!\n" +
+	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x1f\n" +
+	"\vmount_index\x18\x02 \x01(\x05R\n" +
 	"mountIndex*|\n" +
 	"\fCreateResult\x12\x1d\n" +
 	"\x19CREATE_RESULT_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -11196,11 +11515,14 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x14ItemStatAdminService\x12F\n" +
 	"\vGetItemStat\x12\x1a.web.v1.GetItemStatRequest\x1a\x1b.web.v1.GetItemStatResponse\x12A\n" +
 	"\x0eUpsertItemStat\x12\x1d.web.v1.UpsertItemStatRequest\x1a\x10.web.v1.AdminAck\x12A\n" +
-	"\x0eDeleteItemStat\x12\x1d.web.v1.DeleteItemStatRequest\x1a\x10.web.v1.AdminAck2\x9d\x02\n" +
+	"\x0eDeleteItemStat\x12\x1d.web.v1.DeleteItemStatRequest\x1a\x10.web.v1.AdminAck2\xfb\x03\n" +
 	"\x17MountGrowthAdminService\x12d\n" +
 	"\x15ListMountGrowthCurves\x12$.web.v1.ListMountGrowthCurvesRequest\x1a%.web.v1.ListMountGrowthCurvesResponse\x12K\n" +
 	"\x13SetMountGrowthCurve\x12\".web.v1.SetMountGrowthCurveRequest\x1a\x10.web.v1.AdminAck\x12O\n" +
-	"\x15ClearMountGrowthCurve\x12$.web.v1.ClearMountGrowthCurveRequest\x1a\x10.web.v1.AdminAckB3Z1github.com/jeanluca/w2pp-openwyd/api/web/v1;webv1b\x06proto3"
+	"\x15ClearMountGrowthCurve\x12$.web.v1.ClearMountGrowthCurveRequest\x1a\x10.web.v1.AdminAck\x12R\n" +
+	"\x0fListMountAbsorb\x12\x1e.web.v1.ListMountAbsorbRequest\x1a\x1f.web.v1.ListMountAbsorbResponse\x12A\n" +
+	"\x0eSetMountAbsorb\x12\x1d.web.v1.SetMountAbsorbRequest\x1a\x10.web.v1.AdminAck\x12E\n" +
+	"\x10ClearMountAbsorb\x12\x1f.web.v1.ClearMountAbsorbRequest\x1a\x10.web.v1.AdminAckB3Z1github.com/jeanluca/w2pp-openwyd/api/web/v1;webv1b\x06proto3"
 
 var (
 	file_api_web_v1_web_proto_rawDescOnce sync.Once
@@ -11215,7 +11537,7 @@ func file_api_web_v1_web_proto_rawDescGZIP() []byte {
 }
 
 var file_api_web_v1_web_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 139)
+var file_api_web_v1_web_proto_msgTypes = make([]protoimpl.MessageInfo, 144)
 var file_api_web_v1_web_proto_goTypes = []any{
 	(CreateResult)(0),                     // 0: web.v1.CreateResult
 	(AdminResult)(0),                      // 1: web.v1.AdminResult
@@ -11366,6 +11688,11 @@ var file_api_web_v1_web_proto_goTypes = []any{
 	(*ListMountGrowthCurvesResponse)(nil), // 146: web.v1.ListMountGrowthCurvesResponse
 	(*SetMountGrowthCurveRequest)(nil),    // 147: web.v1.SetMountGrowthCurveRequest
 	(*ClearMountGrowthCurveRequest)(nil),  // 148: web.v1.ClearMountGrowthCurveRequest
+	(*AdminMountAbsorb)(nil),              // 149: web.v1.AdminMountAbsorb
+	(*ListMountAbsorbRequest)(nil),        // 150: web.v1.ListMountAbsorbRequest
+	(*ListMountAbsorbResponse)(nil),       // 151: web.v1.ListMountAbsorbResponse
+	(*SetMountAbsorbRequest)(nil),         // 152: web.v1.SetMountAbsorbRequest
+	(*ClearMountAbsorbRequest)(nil),       // 153: web.v1.ClearMountAbsorbRequest
 }
 var file_api_web_v1_web_proto_depIdxs = []int32{
 	0,   // 0: web.v1.CreateAccountResponse.result:type_name -> web.v1.CreateResult
@@ -11464,129 +11791,136 @@ var file_api_web_v1_web_proto_depIdxs = []int32{
 	139, // 93: web.v1.GetItemStatResponse.stat:type_name -> web.v1.AdminItemStat
 	139, // 94: web.v1.UpsertItemStatRequest.stat:type_name -> web.v1.AdminItemStat
 	144, // 95: web.v1.ListMountGrowthCurvesResponse.curves:type_name -> web.v1.AdminMountGrowthCurve
-	10,  // 96: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
-	12,  // 97: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
-	14,  // 98: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
-	17,  // 99: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
-	20,  // 100: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
-	23,  // 101: web.v1.ItemCatalogService.ListItems:input_type -> web.v1.ListItemsRequest
-	28,  // 102: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
-	30,  // 103: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
-	32,  // 104: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
-	34,  // 105: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
-	35,  // 106: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
-	36,  // 107: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
-	37,  // 108: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
-	39,  // 109: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
-	42,  // 110: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
-	46,  // 111: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
-	50,  // 112: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
-	53,  // 113: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
-	56,  // 114: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
-	59,  // 115: web.v1.MobTemplateAdminService.ListMobTemplates:input_type -> web.v1.ListMobTemplatesRequest
-	63,  // 116: web.v1.MobTemplateAdminService.GetMobTemplateStat:input_type -> web.v1.GetMobTemplateStatRequest
-	66,  // 117: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:input_type -> web.v1.UpsertMobTemplateStatRequest
-	68,  // 118: web.v1.MobTemplateAdminService.SetMobTemplateEquip:input_type -> web.v1.SetMobTemplateEquipRequest
-	69,  // 119: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:input_type -> web.v1.DeleteMobTemplateStatRequest
-	70,  // 120: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
-	77,  // 121: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
-	80,  // 122: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
-	82,  // 123: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
-	84,  // 124: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
-	85,  // 125: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
-	86,  // 126: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
-	88,  // 127: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
-	90,  // 128: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
-	92,  // 129: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
-	95,  // 130: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
-	97,  // 131: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
-	99,  // 132: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
-	100, // 133: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
-	102, // 134: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
-	104, // 135: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
-	105, // 136: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
-	107, // 137: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
-	109, // 138: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
-	111, // 139: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
-	113, // 140: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
-	115, // 141: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
-	117, // 142: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
-	119, // 143: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
-	125, // 144: web.v1.DonateRevenueAdminService.GetRevenueSummary:input_type -> web.v1.GetRevenueSummaryRequest
-	128, // 145: web.v1.DonateRevenueAdminService.ListTopupOrders:input_type -> web.v1.ListTopupOrdersRequest
-	131, // 146: web.v1.DonateRevenueAdminService.ListTopBuyers:input_type -> web.v1.ListTopBuyersRequest
-	134, // 147: web.v1.DonateRevenueAdminService.ListDonateSpend:input_type -> web.v1.ListDonateSpendRequest
-	137, // 148: web.v1.DonateRevenueAdminService.SearchAccounts:input_type -> web.v1.SearchAccountsRequest
-	140, // 149: web.v1.ItemStatAdminService.GetItemStat:input_type -> web.v1.GetItemStatRequest
-	142, // 150: web.v1.ItemStatAdminService.UpsertItemStat:input_type -> web.v1.UpsertItemStatRequest
-	143, // 151: web.v1.ItemStatAdminService.DeleteItemStat:input_type -> web.v1.DeleteItemStatRequest
-	145, // 152: web.v1.MountGrowthAdminService.ListMountGrowthCurves:input_type -> web.v1.ListMountGrowthCurvesRequest
-	147, // 153: web.v1.MountGrowthAdminService.SetMountGrowthCurve:input_type -> web.v1.SetMountGrowthCurveRequest
-	148, // 154: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:input_type -> web.v1.ClearMountGrowthCurveRequest
-	11,  // 155: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
-	13,  // 156: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
-	16,  // 157: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
-	19,  // 158: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
-	22,  // 159: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
-	24,  // 160: web.v1.ItemCatalogService.ListItems:output_type -> web.v1.ListItemsResponse
-	29,  // 161: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
-	31,  // 162: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
-	33,  // 163: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
-	25,  // 164: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
-	25,  // 165: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
-	25,  // 166: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
-	25,  // 167: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
-	40,  // 168: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
-	43,  // 169: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
-	47,  // 170: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
-	51,  // 171: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
-	54,  // 172: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
-	57,  // 173: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
-	60,  // 174: web.v1.MobTemplateAdminService.ListMobTemplates:output_type -> web.v1.ListMobTemplatesResponse
-	64,  // 175: web.v1.MobTemplateAdminService.GetMobTemplateStat:output_type -> web.v1.GetMobTemplateStatResponse
-	67,  // 176: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:output_type -> web.v1.UpsertMobTemplateStatResponse
-	25,  // 177: web.v1.MobTemplateAdminService.SetMobTemplateEquip:output_type -> web.v1.AdminAck
-	25,  // 178: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:output_type -> web.v1.AdminAck
-	71,  // 179: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
-	78,  // 180: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
-	81,  // 181: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
-	83,  // 182: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
-	25,  // 183: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
-	25,  // 184: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
-	87,  // 185: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
-	89,  // 186: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
-	91,  // 187: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
-	93,  // 188: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
-	96,  // 189: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
-	98,  // 190: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
-	25,  // 191: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
-	25,  // 192: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
-	103, // 193: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
-	25,  // 194: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
-	106, // 195: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
-	108, // 196: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
-	110, // 197: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
-	112, // 198: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
-	114, // 199: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
-	116, // 200: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
-	118, // 201: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
-	120, // 202: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
-	126, // 203: web.v1.DonateRevenueAdminService.GetRevenueSummary:output_type -> web.v1.GetRevenueSummaryResponse
-	129, // 204: web.v1.DonateRevenueAdminService.ListTopupOrders:output_type -> web.v1.ListTopupOrdersResponse
-	132, // 205: web.v1.DonateRevenueAdminService.ListTopBuyers:output_type -> web.v1.ListTopBuyersResponse
-	135, // 206: web.v1.DonateRevenueAdminService.ListDonateSpend:output_type -> web.v1.ListDonateSpendResponse
-	138, // 207: web.v1.DonateRevenueAdminService.SearchAccounts:output_type -> web.v1.SearchAccountsResponse
-	141, // 208: web.v1.ItemStatAdminService.GetItemStat:output_type -> web.v1.GetItemStatResponse
-	25,  // 209: web.v1.ItemStatAdminService.UpsertItemStat:output_type -> web.v1.AdminAck
-	25,  // 210: web.v1.ItemStatAdminService.DeleteItemStat:output_type -> web.v1.AdminAck
-	146, // 211: web.v1.MountGrowthAdminService.ListMountGrowthCurves:output_type -> web.v1.ListMountGrowthCurvesResponse
-	25,  // 212: web.v1.MountGrowthAdminService.SetMountGrowthCurve:output_type -> web.v1.AdminAck
-	25,  // 213: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:output_type -> web.v1.AdminAck
-	155, // [155:214] is the sub-list for method output_type
-	96,  // [96:155] is the sub-list for method input_type
-	96,  // [96:96] is the sub-list for extension type_name
-	96,  // [96:96] is the sub-list for extension extendee
-	0,   // [0:96] is the sub-list for field type_name
+	149, // 96: web.v1.ListMountAbsorbResponse.absorb:type_name -> web.v1.AdminMountAbsorb
+	10,  // 97: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
+	12,  // 98: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
+	14,  // 99: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
+	17,  // 100: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
+	20,  // 101: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
+	23,  // 102: web.v1.ItemCatalogService.ListItems:input_type -> web.v1.ListItemsRequest
+	28,  // 103: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
+	30,  // 104: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
+	32,  // 105: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
+	34,  // 106: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
+	35,  // 107: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
+	36,  // 108: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
+	37,  // 109: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
+	39,  // 110: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
+	42,  // 111: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
+	46,  // 112: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
+	50,  // 113: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
+	53,  // 114: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
+	56,  // 115: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
+	59,  // 116: web.v1.MobTemplateAdminService.ListMobTemplates:input_type -> web.v1.ListMobTemplatesRequest
+	63,  // 117: web.v1.MobTemplateAdminService.GetMobTemplateStat:input_type -> web.v1.GetMobTemplateStatRequest
+	66,  // 118: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:input_type -> web.v1.UpsertMobTemplateStatRequest
+	68,  // 119: web.v1.MobTemplateAdminService.SetMobTemplateEquip:input_type -> web.v1.SetMobTemplateEquipRequest
+	69,  // 120: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:input_type -> web.v1.DeleteMobTemplateStatRequest
+	70,  // 121: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
+	77,  // 122: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
+	80,  // 123: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
+	82,  // 124: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
+	84,  // 125: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
+	85,  // 126: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
+	86,  // 127: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
+	88,  // 128: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
+	90,  // 129: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
+	92,  // 130: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
+	95,  // 131: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
+	97,  // 132: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
+	99,  // 133: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
+	100, // 134: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
+	102, // 135: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
+	104, // 136: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
+	105, // 137: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
+	107, // 138: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
+	109, // 139: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
+	111, // 140: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
+	113, // 141: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
+	115, // 142: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
+	117, // 143: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
+	119, // 144: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
+	125, // 145: web.v1.DonateRevenueAdminService.GetRevenueSummary:input_type -> web.v1.GetRevenueSummaryRequest
+	128, // 146: web.v1.DonateRevenueAdminService.ListTopupOrders:input_type -> web.v1.ListTopupOrdersRequest
+	131, // 147: web.v1.DonateRevenueAdminService.ListTopBuyers:input_type -> web.v1.ListTopBuyersRequest
+	134, // 148: web.v1.DonateRevenueAdminService.ListDonateSpend:input_type -> web.v1.ListDonateSpendRequest
+	137, // 149: web.v1.DonateRevenueAdminService.SearchAccounts:input_type -> web.v1.SearchAccountsRequest
+	140, // 150: web.v1.ItemStatAdminService.GetItemStat:input_type -> web.v1.GetItemStatRequest
+	142, // 151: web.v1.ItemStatAdminService.UpsertItemStat:input_type -> web.v1.UpsertItemStatRequest
+	143, // 152: web.v1.ItemStatAdminService.DeleteItemStat:input_type -> web.v1.DeleteItemStatRequest
+	145, // 153: web.v1.MountGrowthAdminService.ListMountGrowthCurves:input_type -> web.v1.ListMountGrowthCurvesRequest
+	147, // 154: web.v1.MountGrowthAdminService.SetMountGrowthCurve:input_type -> web.v1.SetMountGrowthCurveRequest
+	148, // 155: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:input_type -> web.v1.ClearMountGrowthCurveRequest
+	150, // 156: web.v1.MountGrowthAdminService.ListMountAbsorb:input_type -> web.v1.ListMountAbsorbRequest
+	152, // 157: web.v1.MountGrowthAdminService.SetMountAbsorb:input_type -> web.v1.SetMountAbsorbRequest
+	153, // 158: web.v1.MountGrowthAdminService.ClearMountAbsorb:input_type -> web.v1.ClearMountAbsorbRequest
+	11,  // 159: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
+	13,  // 160: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
+	16,  // 161: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
+	19,  // 162: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
+	22,  // 163: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
+	24,  // 164: web.v1.ItemCatalogService.ListItems:output_type -> web.v1.ListItemsResponse
+	29,  // 165: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
+	31,  // 166: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
+	33,  // 167: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
+	25,  // 168: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
+	25,  // 169: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
+	25,  // 170: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
+	25,  // 171: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
+	40,  // 172: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
+	43,  // 173: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
+	47,  // 174: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
+	51,  // 175: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
+	54,  // 176: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
+	57,  // 177: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
+	60,  // 178: web.v1.MobTemplateAdminService.ListMobTemplates:output_type -> web.v1.ListMobTemplatesResponse
+	64,  // 179: web.v1.MobTemplateAdminService.GetMobTemplateStat:output_type -> web.v1.GetMobTemplateStatResponse
+	67,  // 180: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:output_type -> web.v1.UpsertMobTemplateStatResponse
+	25,  // 181: web.v1.MobTemplateAdminService.SetMobTemplateEquip:output_type -> web.v1.AdminAck
+	25,  // 182: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:output_type -> web.v1.AdminAck
+	71,  // 183: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
+	78,  // 184: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
+	81,  // 185: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
+	83,  // 186: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
+	25,  // 187: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
+	25,  // 188: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
+	87,  // 189: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
+	89,  // 190: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
+	91,  // 191: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
+	93,  // 192: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
+	96,  // 193: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
+	98,  // 194: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
+	25,  // 195: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
+	25,  // 196: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
+	103, // 197: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
+	25,  // 198: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
+	106, // 199: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
+	108, // 200: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
+	110, // 201: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
+	112, // 202: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
+	114, // 203: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
+	116, // 204: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
+	118, // 205: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
+	120, // 206: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
+	126, // 207: web.v1.DonateRevenueAdminService.GetRevenueSummary:output_type -> web.v1.GetRevenueSummaryResponse
+	129, // 208: web.v1.DonateRevenueAdminService.ListTopupOrders:output_type -> web.v1.ListTopupOrdersResponse
+	132, // 209: web.v1.DonateRevenueAdminService.ListTopBuyers:output_type -> web.v1.ListTopBuyersResponse
+	135, // 210: web.v1.DonateRevenueAdminService.ListDonateSpend:output_type -> web.v1.ListDonateSpendResponse
+	138, // 211: web.v1.DonateRevenueAdminService.SearchAccounts:output_type -> web.v1.SearchAccountsResponse
+	141, // 212: web.v1.ItemStatAdminService.GetItemStat:output_type -> web.v1.GetItemStatResponse
+	25,  // 213: web.v1.ItemStatAdminService.UpsertItemStat:output_type -> web.v1.AdminAck
+	25,  // 214: web.v1.ItemStatAdminService.DeleteItemStat:output_type -> web.v1.AdminAck
+	146, // 215: web.v1.MountGrowthAdminService.ListMountGrowthCurves:output_type -> web.v1.ListMountGrowthCurvesResponse
+	25,  // 216: web.v1.MountGrowthAdminService.SetMountGrowthCurve:output_type -> web.v1.AdminAck
+	25,  // 217: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:output_type -> web.v1.AdminAck
+	151, // 218: web.v1.MountGrowthAdminService.ListMountAbsorb:output_type -> web.v1.ListMountAbsorbResponse
+	25,  // 219: web.v1.MountGrowthAdminService.SetMountAbsorb:output_type -> web.v1.AdminAck
+	25,  // 220: web.v1.MountGrowthAdminService.ClearMountAbsorb:output_type -> web.v1.AdminAck
+	159, // [159:221] is the sub-list for method output_type
+	97,  // [97:159] is the sub-list for method input_type
+	97,  // [97:97] is the sub-list for extension type_name
+	97,  // [97:97] is the sub-list for extension extendee
+	0,   // [0:97] is the sub-list for field type_name
 }
 
 func init() { file_api_web_v1_web_proto_init() }
@@ -11600,7 +11934,7 @@ func file_api_web_v1_web_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_web_v1_web_proto_rawDesc), len(file_api_web_v1_web_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   139,
+			NumMessages:   144,
 			NumExtensions: 0,
 			NumServices:   16,
 		},

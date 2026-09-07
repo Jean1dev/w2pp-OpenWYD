@@ -707,6 +707,12 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		// stream (the mastery term picks the damage factor's range).
 		Master: 0,
 	})
+	// The victim's mount eats its share before the HP comes off, the same place the
+	// legacy applies it on the monster side (Server.cpp:10024,
+	// ProcessSecMinTimer.cpp:2294). byPlayer is false — a pet counts as a monster
+	// here, which matches the legacy: its absorption block gates on the TARGET being
+	// a player and never asks what swung.
+	dmg = d.absorbBlow(w, target, dmg, false)
 	if dmg > 0 {
 		target.HP -= int32(dmg)
 		if target.HP < 0 {

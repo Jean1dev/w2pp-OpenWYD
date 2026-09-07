@@ -149,3 +149,40 @@ func ResolveHit(r Rand, in HitInput) int {
 	}
 	return dam
 }
+
+// MountAbsorb splits a landed blow between the victim and the adult mount it is
+// riding: the mount eats percent of it, and the rest reaches the rider
+// (_MSG_Attack.cpp:1520-1533).
+//
+// Returned separately because the two halves go to different places. The rider
+// takes the first; HALF of the second is charged to the mount's own HP
+// (ProcessAdultMount, Server.cpp:4718), which is what stops the mount from being
+// a free permanent shield — absorbing is what eventually kills it, and feeding
+// it again is the cost.
+//
+// The legacy hardcodes 25 here. This server reads the number per lineage and per
+// attacker kind (0035_mount_absorb), which is the whole point: a mount can be
+// built for PvE or for PvP. Percentages outside 0..100 are clamped rather than
+// refused — this runs inside the game loop on every hit, and a bad row must cost
+// balance, never a panic.
+func MountAbsorb(dam, percent int) (rider, mount int) {
+	if dam <= 0 || percent <= 0 {
+		return dam, 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	// The RIDER's share is the one computed directly, and the mount gets the
+	// remainder. Both details matter and neither is arbitrary:
+	//
+	// Direction — the legacy writes the surviving damage as (dam*3)>>2, which
+	// truncates what reaches the rider. Computing the mount's cut first and
+	// subtracting instead rounds the other way and pays the rider an extra point
+	// on most odd numbers (at 25% a 5-damage hit becomes 4 rather than 3).
+	//
+	// Remainder — taking the second half by subtraction is what makes the two
+	// always add back to dam exactly. Rounding both independently would let a
+	// point of damage vanish or double, on every hit in the game.
+	rider = dam * (100 - percent) / 100
+	return rider, dam - rider
+}

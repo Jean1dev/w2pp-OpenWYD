@@ -1424,13 +1424,18 @@ message DeleteItemStatRequest {
   int32 item_index = 2;
 }
 
-// MountGrowthAdminService edits the mount growth curves (0030_mount_growth_rate)
-// from the staff panel: the chance an âmago raises an ADULT mount one level, per
-// lineage and per band of twenty levels.
+// MountGrowthAdminService edits what the staff panel can decide about a mount
+// lineage. Two things live here, because they are two columns of one screen:
 //
-// Whole-curve writes rather than per-band: the bands are read together and only
-// make sense together, and the shape is the thing being edited. A save that
-// landed band 3 and lost band 4 would leave a mount with a curve nobody chose.
+//   - the growth curve (0030_mount_growth_rate) — the chance an âmago raises an
+//     ADULT mount one level, per band of twenty levels;
+//   - the absorption pair (0035_mount_absorb) — how much of a hit the mount eats
+//     instead of its owner, against a player and against a monster.
+//
+// Writes are whole-object on both: the six bands are read together and only make
+// sense together, and the two absorption numbers are the two halves of one
+// decision about what the mount is for. A save that landed half of either would
+// leave a lineage nobody designed.
 service MountGrowthAdminService {
   // ListMountGrowthCurves returns every adult lineage, configured or not, so the
   // list screen can show the whole roster rather than only what someone has
@@ -1442,6 +1447,17 @@ service MountGrowthAdminService {
   // applies again. Restoring is a delete, not a write of the default values:
   // absence is what "not configured" means everywhere in this overlay.
   rpc ClearMountGrowthCurve(ClearMountGrowthCurveRequest) returns (AdminAck);
+
+  // ListMountAbsorb returns every adult lineage's absorption pair, configured or
+  // not, for the same reason the curve list does: the question an operator has is
+  // "which mounts are still on the default?", and a list of only what someone
+  // touched cannot answer it.
+  rpc ListMountAbsorb(ListMountAbsorbRequest) returns (ListMountAbsorbResponse);
+  // SetMountAbsorb writes one lineage's two numbers.
+  rpc SetMountAbsorb(SetMountAbsorbRequest) returns (AdminAck);
+  // ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
+  // legacy) applies again.
+  rpc ClearMountAbsorb(ClearMountAbsorbRequest) returns (AdminAck);
 }
 
 message AdminMountGrowthCurve {
@@ -1471,6 +1487,40 @@ message SetMountGrowthCurveRequest {
 }
 
 message ClearMountGrowthCurveRequest {
+  int64 moderator_id = 1;
+  int32 mount_index = 2;
+}
+
+// AdminMountAbsorb is one lineage's absorption as the panel shows it: how much
+// of a hit the mount eats instead of its owner, against a player and against a
+// monster.
+//
+// configured is false when nobody has set this lineage and the compiled default
+// applies to both numbers. It is a separate flag rather than a sentinel in the
+// values because 0 is a legitimate setting — a mount deliberately made to
+// absorb nothing on one axis — and the two must not collapse.
+message AdminMountAbsorb {
+  int32 mount_index = 1;
+  string display_name = 2; // catalog name, read-only
+  bool configured = 3;
+  int32 absorb_pvp = 4; // 0..100, meaningful only when configured
+  int32 absorb_pve = 5;
+}
+
+message ListMountAbsorbRequest {}
+message ListMountAbsorbResponse {
+  repeated AdminMountAbsorb absorb = 1;
+}
+
+message SetMountAbsorbRequest {
+  int64 moderator_id = 1;
+  string moderator = 2;
+  int32 mount_index = 3;
+  int32 absorb_pvp = 4; // 0..100
+  int32 absorb_pve = 5; // 0..100
+}
+
+message ClearMountAbsorbRequest {
   int64 moderator_id = 1;
   int32 mount_index = 2;
 }

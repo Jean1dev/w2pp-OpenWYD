@@ -20,6 +20,7 @@ type NpcConfigStore interface {
 	ListMobTemplateStats(ctx context.Context) ([]domain.MobTemplateStat, error)
 	ListItemStats(ctx context.Context) ([]domain.ItemStat, error)
 	ListMountGrowthRates(ctx context.Context) ([]domain.MountGrowthRate, error)
+	ListMountAbsorb(ctx context.Context) ([]domain.MountAbsorb, error)
 }
 
 // NpcConfigServer implements dbv1.NpcConfigServiceServer. It is the read-only
@@ -235,4 +236,24 @@ func (s *NpcConfigServer) ListMountGrowthRates(ctx context.Context, _ *dbv1.List
 		})
 	}
 	return &dbv1.ListMountGrowthRatesResponse{Rates: out}, nil
+}
+
+// ListMountAbsorb returns the configured absorption pairs (0035_mount_absorb).
+// A lineage with no row simply does not appear, and the tmServer keeps the
+// compiled default (25/25, the legacy's flat share) for that mount — absence
+// means "not configured", never "absorbs nothing".
+func (s *NpcConfigServer) ListMountAbsorb(ctx context.Context, _ *dbv1.ListMountAbsorbRequest) (*dbv1.ListMountAbsorbResponse, error) {
+	rows, err := s.store.ListMountAbsorb(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list mount absorb: %v", err)
+	}
+	out := make([]*dbv1.MountAbsorb, 0, len(rows))
+	for _, a := range rows {
+		out = append(out, &dbv1.MountAbsorb{
+			MountIndex: int32(a.MountIndex),
+			AbsorbPvp:  int32(a.PvP),
+			AbsorbPve:  int32(a.PvE),
+		})
+	}
+	return &dbv1.ListMountAbsorbResponse{Absorb: out}, nil
 }
