@@ -273,11 +273,26 @@ func pesadeloAllowed(tier int, classMaster uint8, level int32) bool {
 // refusal path).
 func (d *Dispatcher) refusePesadelo(w *world.World, s *world.Session, e *world.Entity, src int, t pesaTier, n Notice) {
 	d.notify(w, s, n)
+	switch n {
 	// The class gate is the one refusal whose line depends on the door: the tier
 	// carries its own literal, because "wrong tier" is only useful advice when it
 	// names the tier that said no.
-	if n == NoticePesadeloClassNotAllowed {
+	case NoticePesadeloClassNotAllowed:
 		sendClientMessage(w, s, t.classMsg)
+
+	// The closed gate needs a line because the notice it rides on lies. Its text
+	// is the legacy's own _NN_CANT_USE_NIGHTMARE, "Pesadelo disponível entre 18h
+	// e 24h." — an hour-of-day rule this server does not have. The real rule is
+	// a four-minute window every twenty, staggered per tier, so a player who
+	// reads the notice at 20h and finds the door shut concludes the server is
+	// broken. Naming the tier and the countdown is the whole difference between
+	// "está quebrado" and "volto em três minutos".
+	case NoticePesadeloClosed:
+		wait := t.nextWindow(d.now())
+		sendClientMessage(w, s, fmt.Sprintf(
+			"Pesadelo %s fechado. Abre em %dm%02ds. A janela dura %d min e volta a cada %d.",
+			t.name, int(wait.Minutes()), int(wait.Seconds())%60,
+			pesaWindowMinutes, pesaWindowStride))
 	}
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 }

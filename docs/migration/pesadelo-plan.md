@@ -1,8 +1,8 @@
 # Pesadelo N/M/A — a masmorra instanciada por horário
 
-> Status: **IMPLEMENTADO** — entrada, agendamento, limite, limpeza da instância (jogadores **e**
-> monstros) e persistência das entradas do Arcano. Fora de escopo: a recompensa de EXP dentro da
-> masmorra (§6.4).
+> Status: **FECHADO** — entrada, agendamento, limite, limpeza da instância (jogadores **e**
+> monstros), persistência das entradas do Arcano, a recompensa de EXP própria de cada tier (§6.4) e
+> a porta dos fundos que o legado deixava aberta no Normal (§4).
 >
 > Origem: os três tiers existiam no conteúdo (regiões, itens, mapas) mas **nenhum handler no
 > servidor Go** — usar o pergaminho caía no `default` de `useItem` e devolvia "não pode usar aqui".
@@ -105,6 +105,20 @@ ele parece consumido até o próximo resync.
   `%1` é sempre 0 — é um no-op do legado, não um espalhamento.
 - **A 13ª linha das tabelas de posição foi descartada.** `MAX_PARTY` é 12, então o laço nunca lê
   `PesaAPosStandard[12]`.
+- **`inPesadelo` cobre os três tiers, e o legado cobre dois.** `_MSG_UseItem.cpp:1365-1368` (Gema
+  Estelar) e `:1424` (Portal) testam só (9,1) e (8,2) — o Normal, (10,2), fica de fora dos dois.
+  Isso é uma porta dos fundos: o segmento do N não está dentro de nenhum retângulo de cidade, então
+  a Gema salva ali sem obstáculo e o Pergaminho de Portal reentra na instância quando quiser,
+  passando por cima da janela de 4 minutos, do líder de party, da escada de classe e do teto de
+  runs — e o N é o tier Mortal, o mais cheio. `inPesadelo` passou a ler `pesaTierTable`, então cobre
+  os três e não pode mais divergir de onde os tiers ficam. O lado da Gema não muda nada na prática
+  (salvar no N já era permitido, por ausência de cidade; agora é permitido pelo carve-out).
+- **O contador não expulsa ninguém — e isso é do legado.** `NigthTime` é o que resta da janela de
+  entrada, não o tempo de permanência: quem entra às :00 vê 4 minutos, mas só é recolhido na
+  limpeza, às :19. Na prática se fica de **15 a 19 minutos** dentro. O legado é idêntico
+  (`_MSG_UseItem.cpp:2604-2614` calcula o contador; `ProcessSecMinTimer.cpp:1006-1035` é o único que
+  tira alguém de lá). Fica como está até virar decisão de produto — o conserto é ou mandar o tempo
+  até a limpeza no lugar do resto da janela, ou passar a expulsar no zero.
 
 ## 5. Configuração
 
@@ -168,10 +182,25 @@ cidade quebradas; são NPCs de masmorra.
 *Pesadelo Normal*, marcadas como verificadas, e o Arcano entrou como zona 9. O teste amarra cada uma
 ao **segmento**, não ao rótulo — é o segmento que prova a identificação.
 
-### 6.4 O que continua fora de escopo
+### 6.4 A EXP de dentro da masmorra — fechada
 
-**A recompensa dentro do Pesadelo não foi tocada.** `MobKilled.cpp:443/592/737` tem os ramos de EXP
-por mapa de Pesadelo; este trabalho é a entrada e o ciclo da instância. Ver `game-rules.md`.
+Os três ramos de `MobKilled.cpp` (`:443` A, `:592` M, `:737` N) foram portados em
+`internal/level/expzone.go` e são escolhidos pelo **mesmo segmento de 128 tiles** que esta tela usa
+para a limpeza. Antes disso as três instâncias pagavam a tabela do campo aberto. Ver `game-rules.md`
+§1 para as quatro diferenças (escala base, teto `eMob`, conteúdo da fada, tabelas ausentes).
+
+`TestPesadeloSegmentsMatchExpZones` amarra as duas tabelas: `pesaTierTable` e `level.ZoneForTile`
+guardam os mesmos seis números em pacotes diferentes, e mover um tier aqui sem mover lá faria as
+mortes voltarem calado para a tabela do campo.
+
+**Cuidado que sobra:** os ramos de Pesadelo usam a escala identidade em `int` de 32 bits, então um
+monstro com `Exp` acima de ~5,2 milhões **estoura e paga zero**. É comportamento do legado, portado
+como está — mas é o tipo de coisa que parece bug de servidor quando um chefe novo não dá nada.
+
+### 6.5 O que continua fora de escopo
+
+**O contador não expulsa ninguém.** Ver §4: é fiel ao legado, e é uma decisão de produto, não uma
+lacuna de porte.
 ## 7. Testes
 
 [`pesadelo_test.go`](../../tmserver/internal/handler/pesadelo_test.go) fixa o agendamento (o que
