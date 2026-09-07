@@ -914,15 +914,12 @@ func (h *Handler) auditoria(w http.ResponseWriter, r *http.Request) {
 		page
 		Entradas []auditoriaLinha
 		Alvo     int64
-		Limite   int
-		Truncado bool
 		Ordem    ordem
 		Extras   url.Values
 		Pagina   pagina
 		Falha    falhas
 	}{
-		h.pageFor(r, "auditoria"), linhas, alvo, h.cfg.Audit.Limit(),
-		false, o, r.URL.Query(), pag, falha,
+		h.pageFor(r, "auditoria"), linhas, alvo, o, r.URL.Query(), pag, falha,
 	})
 }
 

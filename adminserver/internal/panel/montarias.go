@@ -206,8 +206,10 @@ func (h *Handler) setMontaria(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Índice de montaria inválido.", http.StatusBadRequest)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
+		if err != nil {
+			http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		}
 		return
 	}
 	taxas := make([]int32, 0, bandas)
@@ -246,6 +248,12 @@ func (h *Handler) limparMontaria(w http.ResponseWriter, r *http.Request) {
 	indice, ok := indiceMontaria(r)
 	if !ok {
 		http.Error(w, "Índice de montaria inválido.", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
+		if err != nil {
+			http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		}
 		return
 	}
 	sess, _ := staffFrom(r.Context())
