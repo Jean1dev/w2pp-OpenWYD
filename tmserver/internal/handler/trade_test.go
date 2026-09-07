@@ -50,27 +50,31 @@ func tradeConfirm(t *testing.T, c net.Conn, opponent int, item world.Item, slot 
 	send(t, c, protocol.MsgTrade, body.Encode())
 }
 
-// linkTrade establishes the P2P trade link with opponent via an unconfirmed
-// _MSG_Trade offer (no items, MyCheck=0); the handler acks with an empty MsgTrade.
-// The trade window is established purely by 0x0383 — _MSG_TradingItem (0x0376) is
-// the item-slot swap, not a trade-open message.
-func linkTrade(t *testing.T, c net.Conn, opponent int) {
+// linkTrade establishes the P2P trade link via an unconfirmed _MSG_Trade offer
+// (no items, MyCheck=0). The trade window is established purely by 0x0383 —
+// _MSG_TradingItem (0x0376) is the item-slot swap, not a trade-open message.
+//
+// The frame goes to the PARTNER, not back to the sender: mirroring the offer is
+// what opens the other side's window, and an unconfirmed offer gets no answer at
+// all on the sending connection.
+func linkTrade(t *testing.T, from, to net.Conn, opponent int) {
 	t.Helper()
 	var body protocol.MsgTradeBody
 	body.OpponentID = uint16(opponent)
-	send(t, c, protocol.MsgTrade, body.Encode())
-	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgTrade {
-		t.Fatalf("linkTrade ack = %#x ok=%v, want MsgTrade", ty, ok)
+	send(t, from, protocol.MsgTrade, body.Encode())
+	if ty, _, ok := readMaybe(t, to); !ok || ty != protocol.MsgTrade {
+		t.Fatalf("the partner never got the offer: %#x ok=%v, want MsgTrade", ty, ok)
 	}
 }
 
-// firstResultIndex decodes the leading item index from a trade-result payload.
-func firstResultIndex(t *testing.T, payload []byte) int16 {
+// sentItemIndex decodes the item index from a MSG_SendItem body
+// (invType@0, slot@2, item@4).
+func sentItemIndex(t *testing.T, payload []byte) int16 {
 	t.Helper()
-	if len(payload) < 1 || payload[0] == 0 {
-		return 0
+	if len(payload) < 6 {
+		t.Fatalf("SendItem body too short: %d", len(payload))
 	}
-	return int16(binary.LittleEndian.Uint16(payload[1:3]))
+	return int16(binary.LittleEndian.Uint16(payload[4:6]))
 }
 
 func TestTradeSlotsAccessibleRequiresUnlockedCarry(t *testing.T) {
@@ -107,25 +111,31 @@ func TestTradeAtomicSwap(t *testing.T) {
 	b := enterWorldAs(t, addr, "tradeb") // conn 2, item 2200
 	defer b.Close()
 
-	// A confirms first → ack (empty result). This also serializes A before B.
+	// A confirms first → A's own client gets CNFCheck, and B is shown the offer.
+	// This also serializes A before B.
 	tradeConfirm(t, a, 2, world.Item{Index: 1100}, 0, 100)
-	if ty, p, ok := readMaybe(t, a); !ok || ty != protocol.MsgTrade || firstResultIndex(t, p) != 0 {
-		t.Fatalf("A ack = %#x idx=%d ok=%v, want empty MsgTrade ack", ty, firstResultIndex(t, p), ok)
+	if ty, _, ok := readMaybe(t, a); !ok || ty != protocol.MsgCNFCheck {
+		t.Fatalf("A ack = %#x ok=%v, want CNFCheck", ty, ok)
+	}
+	if ty, _, ok := readMaybe(t, b); !ok || ty != protocol.MsgTrade {
+		t.Fatalf("B was not shown A's offer: %#x ok=%v", ty, ok)
 	}
 
-	// B confirms → atomic swap → both get a result with the item they received.
+	// B confirms → atomic swap. Each side is re-synced with the slots the swap
+	// touched, so the item it received arrives as a MSG_SendItem.
 	tradeConfirm(t, b, 1, world.Item{Index: 2200}, 0, 50)
 
-	_, pa, oka := readMaybe(t, a)
-	_, pb, okb := readMaybe(t, b)
-	if !oka || !okb {
-		t.Fatalf("missing swap results: a=%v b=%v", oka, okb)
+	// Each side gave its only item from slot 0 and the incoming one lands right
+	// back in it, so one re-sync per side carries the swapped result.
+	if p, _ := readUntil(t, a, protocol.MsgSendItem); sentItemIndex(t, p) != 2200 {
+		t.Errorf("A's slot 0 = %d, want 2200 (B's item)", sentItemIndex(t, p))
 	}
-	if got := firstResultIndex(t, pa); got != 2200 {
-		t.Errorf("A received item %d, want 2200 (B's item)", got)
+	if p, _ := readUntil(t, b, protocol.MsgSendItem); sentItemIndex(t, p) != 1100 {
+		t.Errorf("B's slot 0 = %d, want 1100 (A's item)", sentItemIndex(t, p))
 	}
-	if got := firstResultIndex(t, pb); got != 1100 {
-		t.Errorf("B received item %d, want 1100 (A's item)", got)
+	// And both windows close.
+	if _, _, ok := readMaybe(t, a); !ok {
+		t.Error("A never got the trade closed")
 	}
 }
 
@@ -138,8 +148,8 @@ func TestTradeCancel(t *testing.T) {
 	defer b.Close()
 
 	// Establish the trade link from both sides (each gets its own ack).
-	linkTrade(t, a, 2)
-	linkTrade(t, b, 1)
+	linkTrade(t, a, b, 2)
+	linkTrade(t, b, a, 1)
 
 	// A cancels → both get QuitTrade.
 	send(t, a, protocol.MsgQuitTrade, nil)
@@ -161,8 +171,8 @@ func TestTradeDupCancelsOnDrop(t *testing.T) {
 	b := enterWorldAs(t, addr, "tradeb")
 	defer b.Close()
 
-	linkTrade(t, a, 2)
-	linkTrade(t, b, 1)
+	linkTrade(t, a, b, 2)
+	linkTrade(t, b, a, 1)
 
 	// A drops an item while trading → trade cancelled for both.
 	dropFrame(t, a, 0, 5, 5)

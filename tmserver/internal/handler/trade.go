@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/binary"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -62,8 +61,34 @@ func (d *Dispatcher) trade(w *world.World, s *world.Session, _ protocol.Header, 
 		d.executeSwap(w, s, other)
 		return
 	}
-	// First confirm: acknowledge (empty result); the swap fires on the second.
-	w.Send(s, protocol.MsgTrade, tradeResultPayload(nil))
+	if s.Trade.Confirmed {
+		// My check landed and theirs has not: the original answers the confirming
+		// side with the CNFCheck signal, not with a MSG_Trade
+		// (_MSG_Trade.cpp:246).
+		w.Send(s, protocol.MsgCNFCheck, nil)
+	} else {
+		// The offer changed, so whatever the other side had already confirmed is
+		// void — the legacy clears BOTH MyCheck flags here (_MSG_Trade.cpp:392).
+		other.Trade.Confirmed = false
+	}
+	d.mirrorOffer(w, other, s.Conn, body)
+}
+
+// mirrorOffer relays an offer to the opponent. This is the half that actually
+// makes a trade happen: it is what opens the other side's window on first
+// contact, what shows them each edit, and what shows them the final offer when
+// the first check is ticked. The original does it at all three of those points
+// (_MSG_Trade.cpp:248, 398, 421) by re-addressing the very frame it received —
+// ID becomes the recipient, OpponentID the sender — and putting the whole
+// MSG_Trade back on the wire.
+//
+// Without it the server only ever answered the player who clicked, so the
+// partner saw nothing, never confirmed, and the two-confirmation state that
+// triggers the swap was unreachable. The exchange code below was complete and
+// simply never ran.
+func (d *Dispatcher) mirrorOffer(w *world.World, other *world.Session, from int, body protocol.MsgTradeBody) {
+	body.OpponentID = uint16(from)
+	w.SendTo(other, protocol.Header{Type: protocol.MsgTrade, ID: uint16(other.Conn)}, body.Encode())
 }
 
 // executeSwap transfers both offers atomically (validate-all-then-apply-all):
@@ -88,16 +113,22 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 		d.removeTrade(w, a)
 		return
 	}
+	// The destination slots are remembered so the clients can be re-synced: the
+	// player who receives an item has no way to know which bag slot it landed in.
+	var gotB, gotA []int
 	for _, it := range aItems {
 		if dst := firstEmptyAccessibleCarry(eb); dst >= 0 {
 			eb.Carry[dst] = it
+			gotB = append(gotB, dst)
 		}
 	}
 	for _, it := range bItems {
 		if dst := firstEmptyAccessibleCarry(ea); dst >= 0 {
 			ea.Carry[dst] = it
+			gotA = append(gotA, dst)
 		}
 	}
+	gaveA, gaveB := a.Trade.Slots, b.Trade.Slots
 	ea.Coin += b.Trade.Money - a.Trade.Money
 	eb.Coin += a.Trade.Money - b.Trade.Money
 
@@ -108,10 +139,15 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 
 	a.Trade = world.TradeState{}
 	b.Trade = world.TradeState{}
-	// Result to each side carries the items they received (UNVERIFIED layout;
-	// the real handler re-sends inventory slots via _MSG_SendItem).
-	w.Send(a, protocol.MsgTrade, tradeResultPayload(bItems))
-	w.Send(b, protocol.MsgTrade, tradeResultPayload(aItems))
+	// A finished trade re-syncs the bag and closes both windows. The original
+	// ends with RemoveTrade on both sides (_MSG_Trade.cpp:383-384), and
+	// RemoveTrade is signal 900 — QuitTrade (Server.cpp:8132). It never sends a
+	// MSG_Trade carrying results: what stood here before was an invented payload,
+	// admitted as UNVERIFIED in its own comment, that no client reads.
+	d.syncTradedSlots(w, a, ea, gaveA, gotA)
+	d.syncTradedSlots(w, b, eb, gaveB, gotB)
+	w.Send(a, protocol.MsgQuitTrade, nil)
+	w.Send(b, protocol.MsgQuitTrade, nil)
 
 	d.recordTrade(w, a, b, ea.Name, eb.Name, ouroA, ouroB, aItems, bItems)
 
@@ -134,20 +170,25 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 	w.SaveCharacterAsync(b)
 }
 
-// tradeResultPayload encodes the received items as count + WireItems (placeholder
-// result body for testing/observability; UNVERIFIED real layout).
-func tradeResultPayload(items []world.Item) []byte {
-	b := make([]byte, 1+len(items)*protocol.ItemSize)
-	b[0] = byte(len(items))
-	for i, it := range items {
-		off := 1 + i*protocol.ItemSize
-		binary.LittleEndian.PutUint16(b[off:off+2], uint16(it.Index))
-		for e := 0; e < 3; e++ {
-			b[off+2+e*2] = it.Effects[e].Effect
-			b[off+3+e*2] = it.Effects[e].Value
+// syncTradedSlots re-sends every carry slot a swap touched: the ones that
+// emptied (what this side gave away) and the ones that filled (what it got). The
+// receiving client cannot infer which slot an incoming item landed in, and a bag
+// that disagrees with the server is how a trade "loses" an item that is really
+// there.
+// The two lists overlap far more often than not: firstEmptyAccessibleCarry hands
+// the incoming item the lowest free slot, which is usually the one just vacated.
+// Sending that slot twice would be harmless but says the trade moved two things.
+func (d *Dispatcher) syncTradedSlots(w *world.World, s *world.Session, e *world.Entity, gave, got []int) {
+	seen := make(map[int]bool, len(gave)+len(got))
+	for _, list := range [][]int{gave, got} {
+		for _, slot := range list {
+			if seen[slot] {
+				continue
+			}
+			seen[slot] = true
+			d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
 		}
 	}
-	return b
 }
 
 // quitTrade handles _MSG_QuitTrade (0x0384): cancel the trade.

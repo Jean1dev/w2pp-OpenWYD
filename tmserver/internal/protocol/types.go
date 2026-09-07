@@ -85,6 +85,7 @@ const (
 	MsgTradingItem         Type = 0x0376 // 886
 	MsgTrade               Type = 0x0383 // 899
 	MsgQuitTrade           Type = 0x0384 // 900
+	MsgCNFCheck            Type = 0x0386 // 902  S→C "your trade check landed" (_MSG_Trade.cpp:246)
 	MsgCombineItem         Type = 0x03A6 // 934  refino base (Anct)
 	MsgCombineItemEhre     Type = 0x02D3 // 723
 	MsgCombineItemTiny     Type = 0x03C0 // 960
