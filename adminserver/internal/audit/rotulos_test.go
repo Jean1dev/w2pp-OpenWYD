@@ -21,7 +21,7 @@ func TestTodaAcaoTemRotulo(t *testing.T) {
 		ActionSetMobStat, ActionClearMobStat, ActionSetItemStat, ActionClearItemStat,
 		ActionDeliverItem, ActionCancelDelivery, ActionKick, ActionBroadcast, ActionUnstuck, ActionSetWorldEvent, ActionHandleReport,
 		ActionRestartGame, ActionSafeRestart, ActionStopGame, ActionStartGame,
-		ActionCreateAccount, ActionSetXPRule, ActionClearXPRule,
+		ActionCreateAccount, ActionSetXPRule, ActionClearXPRule, ActionSetDungeonGate,
 		ActionSetMountGrowth, ActionClearMountGrowth,
 		ActionSetMountAbsorb, ActionClearMountAbsorb,
 	}

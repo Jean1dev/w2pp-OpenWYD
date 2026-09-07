@@ -49,6 +49,7 @@ const (
 	ActionStopGame         = "STOP_GAME"
 	ActionStartGame        = "START_GAME"
 	ActionSetXPRule        = "SET_XP_RULE"
+	ActionSetDungeonGate   = "SET_DUNGEON_GATE"
 	ActionClearXPRule      = "CLEAR_XP_RULE"
 	ActionSetMountGrowth   = "SET_MOUNT_GROWTH"
 	ActionClearMountGrowth = "CLEAR_MOUNT_GROWTH"
@@ -251,6 +252,7 @@ var rotulos = map[string]string{
 	ActionStopGame:         "Desligou o servidor",
 	ActionStartGame:        "Ligou o servidor",
 	ActionSetXPRule:        "Mexeu na Mesa de XP",
+	ActionSetDungeonGate:   "Abriu ou fechou uma masmorra",
 	ActionClearXPRule:      "Voltou uma tabela de XP ao legado",
 	ActionSetMountGrowth:   "Mexeu na taxa de crescimento de uma montaria",
 	ActionClearMountGrowth: "Voltou a curva de uma montaria ao padrão",

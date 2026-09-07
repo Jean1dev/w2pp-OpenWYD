@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -91,6 +92,10 @@ type pesaTier struct {
 	// spawn is PesaNPosStandard/PesaMPosStandard/PesaAPosStandard: the landing
 	// spot per party slot. N and M repeat one point; A spreads the party out.
 	spawn [world.MaxParty][2]int16
+	// gate is this tier's door in the panel: staff can shut one tier without
+	// touching the others (dungeon.Gate).
+	gate dungeon.Gate
+
 	// classMsg is what the door says when the wrong tier knocks. The legacy sends
 	// three different literals straight to SendClientMessage rather than going
 	// through the string table (_MSG_UseItem.cpp:2571/2667/2772), so they are
@@ -102,19 +107,19 @@ type pesaTier struct {
 // pesaTierTable indexes the three tiers. Positions are Server.cpp:381/398/415.
 var pesaTierTable = [pesaTiers]pesaTier{
 	pesaN: {
-		name: "N", vol: volPesadeloN, groupItem: itemPesadeloGrupoN,
+		name: "N", vol: volPesadeloN, groupItem: itemPesadeloGrupoN, gate: dungeon.PesadeloN,
 		classMsg: "Entrada permitida somente à Mortais",
 		stageX:   19, stageY: 15, segX: 10, segY: 2, openMinute: 0, // entra por Erion
 		spawn: repeatSpawn(1304, 335),
 	},
 	pesaM: {
-		name: "M", vol: volPesadeloM, groupItem: itemPesadeloGrupoM,
+		name: "M", vol: volPesadeloM, groupItem: itemPesadeloGrupoM, gate: dungeon.PesadeloM,
 		classMsg: "Entrada permitida somente à Archs",
 		stageX:   16, stageY: 16, segX: 8, segY: 2, openMinute: 5, // entra por Armia
 		spawn: repeatSpawn(1083, 308),
 	},
 	pesaA: {
-		name: "A", vol: volPesadeloA, groupItem: itemPesadeloGrupoA,
+		name: "A", vol: volPesadeloA, groupItem: itemPesadeloGrupoA, gate: dungeon.PesadeloA,
 		classMsg: "Entrada permitida somente à Celestiais",
 		stageX:   19, stageY: 13, segX: 9, segY: 1, openMinute: 10, // entra por Azran
 		// The legacy table has thirteen rows but the loop only ever reads
@@ -288,6 +293,15 @@ func (d *Dispatcher) refusePesadelo(w *world.World, s *world.Session, e *world.E
 	// broken. Naming the tier and the countdown is the whole difference between
 	// "está quebrado" and "volto em três minutos".
 	case NoticePesadeloClosed:
+		// Two different closures share this notice and they need different
+		// lines. A staff-closed door does NOT reopen on the schedule, and
+		// printing "abre em 6m12s" for one would send people back six minutes
+		// later to be refused again.
+		if !d.gateOpen(t.gate) {
+			sendClientMessage(w, s, fmt.Sprintf(
+				"Pesadelo %s está fechado pela administração. Não abre no horário.", t.name))
+			break
+		}
 		wait := t.nextWindow(d.now())
 		sendClientMessage(w, s, fmt.Sprintf(
 			"Pesadelo %s fechado. Abre em %dm%02ds. A janela dura %d min e volta a cada %d.",
@@ -316,6 +330,16 @@ func (d *Dispatcher) usePesadeloScroll(w *world.World, s *world.Session, e *worl
 		"account", s.AccountName, "tier", t.name, "vol", vol,
 		"x", e.X, "y", e.Y, "leader", e.Leader, "classMaster", e.ClassMaster)
 
+	// The staff door comes first, before the area check: somebody standing in
+	// the wrong city and somebody standing in the right one both need to be told
+	// the dungeon is shut, and telling them "you cannot use this here" would send
+	// them looking for the correct tile that does not exist today.
+	if !d.gateOpen(t.gate) {
+		d.log.Info("pesadelo refused: gate closed by staff",
+			"account", s.AccountName, "tier", t.name)
+		d.refusePesadelo(w, s, e, src, t, NoticePesadeloClosed)
+		return
+	}
 	if !t.staging(e.X, e.Y) {
 		d.log.Info("pesadelo refused: wrong area",
 			"account", s.AccountName, "tier", t.name, "x", e.X, "y", e.Y)
@@ -554,5 +578,16 @@ func (d *Dispatcher) tickPesadelo(w *world.World) {
 		despawned := d.despawnPesadeloMobs(w, tier)
 		d.clearArea(w, t.box())
 		d.log.Info("pesadelo wiped", "tier", t.name, "minute", minute, "mobs_despawned", despawned)
+
+		// The wipe minute IS one minute before the opening, so this is exactly
+		// where the announcement belongs — no second timer, and it can never
+		// drift away from the schedule it is announcing.
+		//
+		// It fires once per opening because the wipe does, and only for a door
+		// the staff left open and audible: announcing a dungeon nobody can enter
+		// would send the whole server to a closed gate.
+		if d.gateOpen(t.gate) && d.gateAnnounces(t.gate) {
+			broadcastNotice(w, fmt.Sprintf("Pesadelo %s abre em 1 minuto.", t.name))
+		}
 	}
 }

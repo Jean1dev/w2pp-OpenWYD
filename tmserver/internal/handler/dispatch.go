@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -162,6 +163,11 @@ type Config struct {
 	// for moderator edits. When nil, ExpEvents stays as the boot-time flags.
 	WorldEvents worldcfg.Source
 
+	// DungeonGates is the panel-managed door configuration for the instanced
+	// dungeons, polled live. When nil every door is open, which is the behaviour
+	// that predates the feature.
+	DungeonGates DungeonGateSource
+
 	// CastleQuests is the optional CastleQuest.txt table. Empty keeps the
 	// best-effort Castle/Zakum port disabled.
 	CastleQuests []content.CastleQuest
@@ -245,6 +251,14 @@ type Dispatcher struct {
 	worldEventVersion  int64
 	worldEventPolling  bool
 	worldEventPollTick int
+
+	// The instanced dungeons' doors, read LIVE (dungeongate.go). The zero value
+	// is every door open, which is how the server ran before this existed — so a
+	// tmServer without dbServer, or one whose read failed, keeps working.
+	dungeonGateSource   DungeonGateSource
+	dungeonGates        dungeon.Config
+	dungeonGatePolling  bool
+	dungeonGatePollTick int
 
 	// playersX/Y are per-tick scratch snapshots of in-play player positions
 	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
@@ -343,48 +357,49 @@ func New(cfg Config) *Dispatcher {
 		cfg.EventRNGSeed = worldEventRNGSeed
 	}
 	d := &Dispatcher{
-		cfg:              cfg,
-		log:              cfg.Log,
-		routes:           make(map[protocol.Type]handlerFunc),
-		fails:            make(map[string]int),
-		combineFamilies:  cfg.CombineFamilies,
-		odinCatalog:      cfg.OdinCatalog,
-		combineCatalog:   cfg.CombineCatalog,
-		compRate:         cfg.CompRate,
-		questRates:       cfg.QuestRates,
-		baseMobs:         cfg.BaseMobs,
-		summonMobs:       cfg.SummonMobs,
-		vineMob:          cfg.VineMob,
-		itemPrices:       cfg.ItemPrices,
-		itemNames:        cfg.ItemNames,
-		itemEffects:      cfg.ItemEffects,
-		itemReqs:         cfg.ItemReqs,
-		itemVolatiles:    cfg.ItemVolatiles,
-		itemDurations:    cfg.ItemDurations,
-		itemPos:          cfg.ItemPos,
-		itemUnique:       cfg.ItemUnique,
-		itemGrades:       cfg.ItemGrades,
-		itemExtra:        cfg.ItemExtra,
-		sancRate:         cfg.SancRate,
-		expEvents:        cfg.ExpEvents,
-		xpConfig:         cfg.XPConfig,
-		spells:           cfg.Spells,
-		lang:             cfg.Language,
-		mountRates:       cfg.MountRates,
-		mountAbsorb:      cfg.MountAbsorb,
-		heights:          cfg.Heights,
-		now:              cfg.Now,
-		maxNightmare:     cfg.MaxNightmare,
-		affectDur:        cfg.AffectDuration,
-		serverIndex:      cfg.ServerIndex,
-		guildWars:        make(map[uint16]uint16),
-		guildAllies:      make(map[uint16]uint16),
-		npcSource:        cfg.NpcConfig,
-		managedNPCs:      make(map[string]int),
-		worldEventSource: cfg.WorldEvents,
-		castleQuests:     cfg.CastleQuests,
-		eventRNG:         rng.NewSeeded(cfg.EventRNGSeed),
-		events:           worldEventState{forceWeather: weatherAuto},
+		cfg:               cfg,
+		log:               cfg.Log,
+		routes:            make(map[protocol.Type]handlerFunc),
+		fails:             make(map[string]int),
+		combineFamilies:   cfg.CombineFamilies,
+		odinCatalog:       cfg.OdinCatalog,
+		combineCatalog:    cfg.CombineCatalog,
+		compRate:          cfg.CompRate,
+		questRates:        cfg.QuestRates,
+		baseMobs:          cfg.BaseMobs,
+		summonMobs:        cfg.SummonMobs,
+		vineMob:           cfg.VineMob,
+		itemPrices:        cfg.ItemPrices,
+		itemNames:         cfg.ItemNames,
+		itemEffects:       cfg.ItemEffects,
+		itemReqs:          cfg.ItemReqs,
+		itemVolatiles:     cfg.ItemVolatiles,
+		itemDurations:     cfg.ItemDurations,
+		itemPos:           cfg.ItemPos,
+		itemUnique:        cfg.ItemUnique,
+		itemGrades:        cfg.ItemGrades,
+		itemExtra:         cfg.ItemExtra,
+		sancRate:          cfg.SancRate,
+		expEvents:         cfg.ExpEvents,
+		xpConfig:          cfg.XPConfig,
+		spells:            cfg.Spells,
+		lang:              cfg.Language,
+		mountRates:        cfg.MountRates,
+		mountAbsorb:       cfg.MountAbsorb,
+		heights:           cfg.Heights,
+		now:               cfg.Now,
+		maxNightmare:      cfg.MaxNightmare,
+		affectDur:         cfg.AffectDuration,
+		serverIndex:       cfg.ServerIndex,
+		guildWars:         make(map[uint16]uint16),
+		guildAllies:       make(map[uint16]uint16),
+		npcSource:         cfg.NpcConfig,
+		managedNPCs:       make(map[string]int),
+		worldEventSource:  cfg.WorldEvents,
+		dungeonGateSource: cfg.DungeonGates,
+		castleQuests:      cfg.CastleQuests,
+		eventRNG:          rng.NewSeeded(cfg.EventRNGSeed),
+		events:            worldEventState{forceWeather: weatherAuto},
 	}
 	d.events.tower = worldevents.NewTower(20)
 	for i := range d.guildZones {

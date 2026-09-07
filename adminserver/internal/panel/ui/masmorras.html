@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Masmorras — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  .abas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 20px; }
+  .abas a {
+    padding: 6px 13px; border: 1px solid var(--rule); border-radius: 3px;
+    font-size: 13.5px; color: var(--ink-2); text-decoration: none; background: var(--ground);
+  }
+  .abas a.on { color: var(--ink); border-color: var(--accent); font-weight: 600; }
+  .porta {
+    display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start;
+    padding: 16px 0; border-bottom: 1px solid var(--rule);
+  }
+  .porta:last-of-type { border-bottom: 0; }
+  .porta h3 { margin: 0 0 3px; font-size: 16px; }
+  .porta .meta { font-size: 12.5px; color: var(--ink-3); margin: 0; }
+  .porta .meta + .meta { margin-top: 2px; }
+  .interruptores { display: flex; flex-direction: column; gap: 7px; margin: 10px 0 0; }
+  .interruptores label { font-size: 13.5px; display: flex; gap: 7px; align-items: center; }
+  .estado { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; white-space: nowrap; }
+  .estado.sim { color: var(--accent); background: var(--chip-bg); }
+  .estado.nao { color: var(--danger); background: var(--danger-bg); }
+  td.quando { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.mudanca { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+  td.mudanca .de { color: var(--ink-3); }
+  .acao {
+    font-size: 11px; letter-spacing: .06em; font-family: ui-monospace, Consolas, monospace;
+    color: var(--ink); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+{{template "topbar" .}}
+
+<main>
+  <h1>Masmorras</h1>
+  <p class="sub">
+    Quem entra e quando. Abrir ou fechar uma porta <strong>vale na hora</strong>,
+    sem reiniciar o jogo — ao contrário de tudo que mexe em XP.
+  </p>
+
+  {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
+
+  <div class="abas">
+    {{range .Masmorras}}<a href="{{.URL}}" {{if .Ativa}}class="on"{{end}}>{{.Nome}}</a>{{end}}
+  </div>
+
+  {{range $m := .Masmorras}}
+  {{if $m.Ativa}}
+  <div class="caixa">
+    <h2>{{$m.Nome}}</h2>
+    <p class="sub">{{$m.Nota}}</p>
+
+    {{range $m.Portas}}
+    <div class="porta">
+      <div>
+        <h3>
+          {{if .Tier}}{{.Tier}}{{else}}{{.Nome}}{{end}}
+          <span class="estado {{if .Aberta}}sim{{else}}nao{{end}}">
+            {{if .Aberta}}aberta{{else}}fechada{{end}}
+          </span>
+          {{if not .Avisa}}<span class="estado nao">sem aviso</span>{{end}}
+        </h3>
+        {{if .Horarios}}<p class="meta">Janelas: {{.Horarios}}</p>{{end}}
+        {{if .TemZonaXP}}
+        <p class="meta">
+          XP: {{.Taxa}} — <a href="/rates/xp?zona={{.ZonaXP}}&amp;evolucao=2">ajustar na Mesa de XP</a>
+        </p>
+        {{else}}
+        <p class="meta">
+          XP: paga pela tabela do campo aberto. Não tem zona própria no legado.
+        </p>
+        {{end}}
+      </div>
+
+      <form method="post" action="/masmorras/porta">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="porta" value="{{.ID}}">
+        <input type="hidden" name="masmorra" value="{{$m.Slug}}">
+        <div class="interruptores">
+          <label>
+            <input type="checkbox" name="aberta" value="1" {{if .Aberta}}checked{{end}}>
+            deixa entrar
+          </label>
+          <label>
+            <input type="checkbox" name="avisa" value="1" {{if .Avisa}}checked{{end}}>
+            avisa 1 min antes de abrir
+          </label>
+          <button type="submit">Aplicar</button>
+        </div>
+      </form>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  {{end}}
+
+  <div class="caixa">
+    <h2>Histórico</h2>
+    <p class="sub">
+      Toda porta aberta ou fechada, mais recente primeiro. Vem da auditoria do
+      painel, que o banco não deixa alterar nem apagar.
+    </p>
+    {{if .Historico}}
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Mudança</th></tr>
+        </thead>
+        <tbody>
+          {{range .Historico}}
+          <tr>
+            <td class="quando">{{.CreatedAt.Format "02/01 15:04"}}</td>
+            <td>
+              {{if .ActorName}}{{.ActorName}}{{else}}conta {{.ActorID}}{{end}}
+              <span class="cargo">{{.ActorRole}}</span>
+            </td>
+            <td><span class="acao" title="{{.Action}}">{{.Rotulo}}</span></td>
+            <td class="mudanca">
+              {{if .Old}}<span class="de">{{.Old}}</span> &rarr; {{end}}
+              {{if .New}}{{.New}}{{else if not .Old}}—{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="vazio">Nenhuma porta foi mexida ainda.</div>
+    {{end}}
+  </div>
+</main>
+</body>
+</html>

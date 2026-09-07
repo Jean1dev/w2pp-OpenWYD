@@ -209,6 +209,7 @@ func run(logger *slog.Logger) error {
 	var persist world.Persistence = world.NopPersistence{}
 	var dbConn *grpc.ClientConn
 	var worldEvents worldcfg.Source
+	var dungeonGates handler.DungeonGateSource
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -218,6 +219,7 @@ func run(logger *slog.Logger) error {
 		dbConn = conn
 		persist = dbclient.New(conn)
 		worldEvents = dbclient.NewWorldEventConfig(conn)
+		dungeonGates = dbclient.NewDungeonGateSource(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -420,6 +422,7 @@ func run(logger *slog.Logger) error {
 		Language:        language,
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
+		DungeonGates:    dungeonGates,
 		CastleQuests:    castleQuests,
 		EventRNGSeed:    eventSeed,
 		MaxNightmare:    *maxNightmare,
@@ -517,6 +520,7 @@ func run(logger *slog.Logger) error {
 	}
 	if worldEvents != nil {
 		dispatch.ApplyWorldEventConfigBoot(w)
+		dispatch.ApplyDungeonGatesBoot()
 	}
 	dispatch.ApplyGuildStateBoot(w)
 

@@ -284,6 +284,7 @@ type Config struct {
 	Writer      Writer
 	Audit       AuditLog
 	MesaXP      MesaXP
+	Masmorras   Masmorras
 	Sessions    *session.Store
 	Logger      *slog.Logger
 	SecureOnly  bool // Secure flag on the cookie; false only for local HTTP dev
@@ -379,6 +380,12 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /auditoria/xp/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMesaXP))))
 		mux.Handle("POST /auditoria/xp/restaurar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.restaurarMesaXP))))
 		mux.Handle("POST /auditoria/xp/dificuldade", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.aplicarDificuldade))))
+	}
+	// Masmorras é a única tela do painel cuja mudança vale NA HORA, e por isso
+	// depende de outra coisa: a porta, não a Mesa de XP.
+	if h.cfg.Masmorras != nil {
+		mux.Handle("GET /masmorras", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.masmorras))))
+		mux.Handle("POST /masmorras/porta", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMasmorra))))
 	}
 	// As montarias vêm do webServer, não do banco, então dependem de outra
 	// coisa que a Mesa de XP — um painel sem webServer mostra Rates só com a
@@ -504,6 +511,7 @@ type page struct {
 	HasDenun  bool   // the report queue needs the database read
 	HasGuilda bool   // the guild pages need the database read
 	HasMesaXP bool   // the Mesa de XP needs the database read
+	HasMasm   bool   // the dungeon doors need the database read
 	HasRates  bool   // Rates existe se pelo menos uma das suas abas existir
 	HasMont   bool   // a aba de montarias vem do webServer, a de XP vem do banco
 	CSRF      string // every form that changes something carries this back
@@ -550,6 +558,7 @@ func (h *Handler) pageFor(r *http.Request, nav string) page {
 		HasDenun:  h.cfg.Denuncias != nil,
 		HasGuilda: h.cfg.Guildas != nil,
 		HasMesaXP: h.cfg.MesaXP != nil,
+		HasMasm:   h.cfg.Masmorras != nil,
 		HasRates:  primeiraAbaDeRates(h.cfg) != "",
 		HasMont:   h.cfg.GameData != nil,
 		CSRF:      sess.CSRF,

@@ -2424,3 +2424,163 @@ var XPConfigService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	DungeonGateService_DungeonGateVersion_FullMethodName = "/db.v1.DungeonGateService/DungeonGateVersion"
+	DungeonGateService_GetDungeonGates_FullMethodName    = "/db.v1.DungeonGateService/GetDungeonGates"
+)
+
+// DungeonGateServiceClient is the client API for DungeonGateService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DungeonGateService serves the instanced dungeons' doors to tmServer.
+//
+// Unlike XPConfigService this is POLLED: a door is an operational switch, not a
+// balance number, and "close the Místico now" that only takes effect after a
+// restart is useless. Same version-then-snapshot shape as
+// WorldEventConfigService, which tmServer already polls.
+type DungeonGateServiceClient interface {
+	// DungeonGateVersion returns the monotonic version. Asked every few seconds.
+	DungeonGateVersion(ctx context.Context, in *DungeonGateVersionRequest, opts ...grpc.CallOption) (*DungeonGateVersionResponse, error)
+	// GetDungeonGates returns every touched door. Doors absent from the reply are
+	// open and announced, which is how the server behaved before the table existed.
+	GetDungeonGates(ctx context.Context, in *GetDungeonGatesRequest, opts ...grpc.CallOption) (*GetDungeonGatesResponse, error)
+}
+
+type dungeonGateServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDungeonGateServiceClient(cc grpc.ClientConnInterface) DungeonGateServiceClient {
+	return &dungeonGateServiceClient{cc}
+}
+
+func (c *dungeonGateServiceClient) DungeonGateVersion(ctx context.Context, in *DungeonGateVersionRequest, opts ...grpc.CallOption) (*DungeonGateVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DungeonGateVersionResponse)
+	err := c.cc.Invoke(ctx, DungeonGateService_DungeonGateVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dungeonGateServiceClient) GetDungeonGates(ctx context.Context, in *GetDungeonGatesRequest, opts ...grpc.CallOption) (*GetDungeonGatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDungeonGatesResponse)
+	err := c.cc.Invoke(ctx, DungeonGateService_GetDungeonGates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DungeonGateServiceServer is the server API for DungeonGateService service.
+// All implementations must embed UnimplementedDungeonGateServiceServer
+// for forward compatibility.
+//
+// DungeonGateService serves the instanced dungeons' doors to tmServer.
+//
+// Unlike XPConfigService this is POLLED: a door is an operational switch, not a
+// balance number, and "close the Místico now" that only takes effect after a
+// restart is useless. Same version-then-snapshot shape as
+// WorldEventConfigService, which tmServer already polls.
+type DungeonGateServiceServer interface {
+	// DungeonGateVersion returns the monotonic version. Asked every few seconds.
+	DungeonGateVersion(context.Context, *DungeonGateVersionRequest) (*DungeonGateVersionResponse, error)
+	// GetDungeonGates returns every touched door. Doors absent from the reply are
+	// open and announced, which is how the server behaved before the table existed.
+	GetDungeonGates(context.Context, *GetDungeonGatesRequest) (*GetDungeonGatesResponse, error)
+	mustEmbedUnimplementedDungeonGateServiceServer()
+}
+
+// UnimplementedDungeonGateServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDungeonGateServiceServer struct{}
+
+func (UnimplementedDungeonGateServiceServer) DungeonGateVersion(context.Context, *DungeonGateVersionRequest) (*DungeonGateVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DungeonGateVersion not implemented")
+}
+func (UnimplementedDungeonGateServiceServer) GetDungeonGates(context.Context, *GetDungeonGatesRequest) (*GetDungeonGatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDungeonGates not implemented")
+}
+func (UnimplementedDungeonGateServiceServer) mustEmbedUnimplementedDungeonGateServiceServer() {}
+func (UnimplementedDungeonGateServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeDungeonGateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DungeonGateServiceServer will
+// result in compilation errors.
+type UnsafeDungeonGateServiceServer interface {
+	mustEmbedUnimplementedDungeonGateServiceServer()
+}
+
+func RegisterDungeonGateServiceServer(s grpc.ServiceRegistrar, srv DungeonGateServiceServer) {
+	// If the following call panics, it indicates UnimplementedDungeonGateServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DungeonGateService_ServiceDesc, srv)
+}
+
+func _DungeonGateService_DungeonGateVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DungeonGateVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DungeonGateServiceServer).DungeonGateVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DungeonGateService_DungeonGateVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DungeonGateServiceServer).DungeonGateVersion(ctx, req.(*DungeonGateVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DungeonGateService_GetDungeonGates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDungeonGatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DungeonGateServiceServer).GetDungeonGates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DungeonGateService_GetDungeonGates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DungeonGateServiceServer).GetDungeonGates(ctx, req.(*GetDungeonGatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DungeonGateService_ServiceDesc is the grpc.ServiceDesc for DungeonGateService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DungeonGateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.DungeonGateService",
+	HandlerType: (*DungeonGateServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "DungeonGateVersion",
+			Handler:    _DungeonGateService_DungeonGateVersion_Handler,
+		},
+		{
+			MethodName: "GetDungeonGates",
+			Handler:    _DungeonGateService_GetDungeonGates_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

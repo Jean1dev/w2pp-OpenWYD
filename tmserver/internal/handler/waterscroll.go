@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -228,6 +229,22 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 		"account", s.AccountName, "vol", vol, "variant", variant, "room", room,
 		"x", e.X, "y", e.Y, "leader", e.Leader)
 
+	// Gate 0: the staff door, before everything else — somebody in the wrong
+	// place and somebody in the right one both need to hear that the chain is
+	// shut, not where to stand.
+	//
+	// It only refuses a scroll used from OUTSIDE. A party already deep in the
+	// chain keeps its scrolls working: closing a dungeon should stop new runs,
+	// not strand the people who were let in a minute earlier with a corridor of
+	// rooms they can no longer open.
+	if gate := waterGate(variant); !d.gateOpen(gate) && !insideAnyWaterRoom(variant, e.X, e.Y) {
+		d.log.Info("water scroll refused: gate closed by staff",
+			"account", s.AccountName, "variant", variant)
+		sendClientMessage(w, s, fmt.Sprintf(
+			"%s está fechado pela administração.", gate.Name()))
+		d.refuseWaterScroll(w, s, e, src, NoticeCantUseHere)
+		return
+	}
 	// Gate 1: inside the dungeon, or on the staging tile that starts a chain.
 	if !insideAnyWaterRoom(variant, e.X, e.Y) && !onWaterStagingTile(e.X, e.Y) {
 		d.log.Info("water scroll refused: outside the dungeon",
@@ -639,5 +656,17 @@ func (d *Dispatcher) clearWaterRoom(w *world.World, variant, room int) {
 	}
 	if len(evicted) > 0 {
 		d.log.Info("water room expired", "variant", variant, "room", room, "evicted", len(evicted))
+	}
+}
+
+// waterGate maps a chain to its door in the panel.
+func waterGate(variant int) dungeon.Gate {
+	switch variant {
+	case waterM:
+		return dungeon.AguaM
+	case waterA:
+		return dungeon.AguaA
+	default:
+		return dungeon.AguaN
 	}
 }

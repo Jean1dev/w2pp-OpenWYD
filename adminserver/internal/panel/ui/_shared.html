@@ -434,7 +434,7 @@
          webServer e por isso partilham uma condição; Rates tem a sua porque a
          mesa de XP vem do banco e a de montarias vem do webServer, e a seção
          existe se pelo menos uma das duas existir. */}}
-    {{if or .HasItems .HasRates}}
+    {{if or .HasItems (or .HasRates .HasMasm)}}
     <span class="grupo">
       {{if .HasItems}}
       <a href="/itens" {{if eq .Nav "itens"}}class="on"{{end}}>Itens</a>
@@ -443,6 +443,10 @@
       <a href="/drops" {{if eq .Nav "drops"}}class="on"{{end}}>Drops</a>
       {{end}}
       {{if and .IsAdmin .HasRates}}<a href="/rates" {{if eq .Nav "rates"}}class="on"{{end}}>Rates</a>{{end}}
+      {{/* Masmorras fica com o conteúdo, e não com "Agora", porque a maior parte
+           dela é ajuste frio — quem entra, quanto paga. O que ela tem de vivo é
+           a porta, que vale na hora. */}}
+      {{if and .IsAdmin .HasMasm}}<a href="/masmorras" {{if eq .Nav "masmorras"}}class="on"{{end}}>Masmorras</a>{{end}}
     </span>
     {{end}}
 

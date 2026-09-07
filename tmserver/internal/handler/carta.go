@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -131,6 +132,14 @@ func (d *Dispatcher) useCartaDuelo(w *world.World, s *world.Session, e *world.En
 	d.log.Info("carta attempt", "account", s.AccountName, "card", card,
 		"x", e.X, "y", e.Y, "leader", e.Leader, "sala", d.events.cartaSala)
 
+	// The staff door first: telling somebody off the altar to go stand on it,
+	// when the dungeon is shut anyway, only wastes their walk.
+	if !d.gateOpen(dungeon.Carta) {
+		d.log.Info("carta refused: gate closed by staff", "account", s.AccountName)
+		sendClientMessage(w, s, "A Carta de Duelo está fechada pela administração.")
+		d.refuseCarta(w, s, e, src, NoticeCantUseHere)
+		return
+	}
 	if !cartaAltarBox.contains(e.X, e.Y) {
 		d.log.Info("carta refused: not on the altar",
 			"account", s.AccountName, "x", e.X, "y", e.Y)

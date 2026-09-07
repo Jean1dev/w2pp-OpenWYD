@@ -1054,3 +1054,22 @@ type CensusCompare struct {
 // the table would grow forever holding discarded potions from two years ago.
 // Thirty days covers the gap between a scam and the ticket it produces.
 const GroundRetentionDays = 30
+
+// DungeonGate is one instanced dungeon's door as the database holds it: whether
+// it lets people in, and whether the server announces its opening.
+//
+// Unlike everything the Mesa de XP stores, this is read LIVE — see migration
+// 0035 for why the two must not share a path.
+type DungeonGate struct {
+	Gate     int32
+	Open     bool
+	Announce bool
+}
+
+// DungeonGateConfig is every touched door plus the version they belong to. A
+// door absent from Gates is open and announced, which is how the server behaved
+// before this table existed.
+type DungeonGateConfig struct {
+	Version int64
+	Gates   []DungeonGate
+}

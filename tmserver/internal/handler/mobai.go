@@ -114,6 +114,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.tickWeather(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
 	d.pollWorldEventConfig(w)
+	d.pollDungeonGates(w)
 }
 
 type questArea struct {

@@ -172,6 +172,7 @@ func run(logger *slog.Logger) error {
 		Personagens: personagem.New(pool),
 		Eventos:     store.New(pool),
 		MesaXP:      store.New(pool),
+		Masmorras:   store.New(pool),
 		Denuncias:   store.New(pool),
 		Guildas:     store.New(pool),
 		Carteira:    donate.New(pool),

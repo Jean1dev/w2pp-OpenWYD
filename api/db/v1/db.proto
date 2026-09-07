@@ -1002,3 +1002,34 @@ message XPRule {
   bool has_cuts = 4;
   repeated XPCut cuts = 5;
 }
+
+// DungeonGateService serves the instanced dungeons' doors to tmServer.
+//
+// Unlike XPConfigService this is POLLED: a door is an operational switch, not a
+// balance number, and "close the Místico now" that only takes effect after a
+// restart is useless. Same version-then-snapshot shape as
+// WorldEventConfigService, which tmServer already polls.
+service DungeonGateService {
+  // DungeonGateVersion returns the monotonic version. Asked every few seconds.
+  rpc DungeonGateVersion(DungeonGateVersionRequest) returns (DungeonGateVersionResponse);
+  // GetDungeonGates returns every touched door. Doors absent from the reply are
+  // open and announced, which is how the server behaved before the table existed.
+  rpc GetDungeonGates(GetDungeonGatesRequest) returns (GetDungeonGatesResponse);
+}
+
+message DungeonGateVersionRequest {}
+message DungeonGateVersionResponse { int64 version = 1; }
+
+message GetDungeonGatesRequest {}
+message GetDungeonGatesResponse {
+  int64 version = 1;
+  repeated DungeonGate gates = 2;
+}
+
+// DungeonGate is one door. `gate` is the internal/dungeon.Gate index, appended
+// to and never reordered.
+message DungeonGate {
+  int32 gate = 1;
+  bool open = 2;
+  bool announce = 3;
+}
