@@ -34,6 +34,25 @@ const (
 	MaxParty       = 12   // party members (MAX_PARTY)
 	DefaultGridDim = 4096
 
+	// DefaultOutBuffer is the per-session outbound queue depth.
+	//
+	// It was 64, and 64 is smaller than a single ordinary event: teleporting
+	// into a populated area sends one MsgCreateMob per monster now in view plus
+	// one MsgRemoveMob per monster left behind, all enqueued from the same loop
+	// iteration. A Pesadelo room that has finished repopulating holds ~82
+	// monsters, so entering it queued about 125 frames against a 64-slot channel
+	// — the overflow branch fired and the player was DISCONNECTED at the moment
+	// of entry, every time, and the log said "queue full; dropping connection"
+	// as if the client were at fault.
+	//
+	// The drop itself is right and stays: a genuinely stuck client must never
+	// stall the single game loop. What was wrong is the threshold, which sat
+	// below the busiest legitimate burst instead of above it. 512 clears a full
+	// instance four times over and still catches a client that has stopped
+	// reading. The cost is the channel's own slots — about 24 KB per session at
+	// this depth, since the payloads were already allocated.
+	DefaultOutBuffer = 512
+
 	// KefraBossGenIndex is KEFRA_BOSS (Basedef.h:475), the NPCGener block with
 	// special fixed-range / fixed-position combat rules in CMob.cpp.
 	KefraBossGenIndex = 396
@@ -236,7 +255,7 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		cfg.GridDim = DefaultGridDim
 	}
 	if cfg.OutBuffer <= 0 {
-		cfg.OutBuffer = 64
+		cfg.OutBuffer = DefaultOutBuffer
 	}
 	if cfg.EventQueue <= 0 {
 		cfg.EventQueue = 1024
