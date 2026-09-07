@@ -391,6 +391,10 @@ const (
 	// volAmago is the mount-growth item (2390..2419), fed to the mount worn in
 	// Equip[14] (_MSG_UseItem.cpp:1564, amago.go).
 	volAmago = 16
+	// volCatalisador is the Catalisador group (3344..3350), applied to the cria
+	// worn in the mount slot: it grows it into the adult at once, if the catalyst
+	// serves that lineage (_MSG_UseItem.cpp:5013).
+	volCatalisador = 94
 	// volBirthAccelerator is the Acelerador de Nascimento (3438). It has NO legacy
 	// counterpart — _MSG_UseItem.cpp has no branch for EF_VOLATILE 196 — so the
 	// behaviour comes from the tooltip the shipped client draws for it: "Aumenta o
@@ -579,6 +583,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useBirthAccelerator(w, s, e, body, src)
 	case vol == volAmago:
 		d.useAmago(w, s, e, body, src)
+	case vol == volCatalisador:
+		d.useCatalisador(w, s, e, body, src)
 	case isWaterScrollVolatile(vol):
 		d.useWaterScroll(w, s, e, src, vol)
 	case isPesadeloVolatile(vol):
