@@ -963,3 +963,46 @@ func TestReinicioQueFalhaVoltaParaAPagina(t *testing.T) {
 		t.Errorf("o recado não diz o que houve: %q", destino)
 	}
 }
+
+// O que a hospedagem respondeu chega até a tela.
+//
+// Existe por um caso real: a Hanna apertou "ligar", a Railway recusou, e a
+// página imprimiu "A hospedagem recusou ligar o servidor." e mais nada. O
+// motivo estava no log do processo, que quem opera o painel não abre. Um botão
+// que falha sem dizer por quê é indistinguível de um botão quebrado.
+func TestARecusaDaHospedagemChegaNaTela(t *testing.T) {
+	plat := newFakePlatform()
+	plat.dep = plataforma.Deployment{ID: "dep-1", Status: "REMOVED", CreatedAt: time.Now()}
+	plat.redeployEr = errors.New("plataforma: api error: Deployment cannot be redeployed")
+	j := &fakeJogo{estado: estadoDeTeste(), plat: plat}
+	post, token := signedInPost(t, newTestPanelJogoPlat(t, j, plat))
+
+	rec := post("/servidor/ligar", url.Values{"csrf": {token}, "voltar": {"/servidor"}})
+	recado := rec.Header().Get("Location")
+
+	if !strings.Contains(recado, "cannot+be+redeployed") && !strings.Contains(recado, "cannot%20be%20redeployed") {
+		t.Errorf("o que a hospedagem disse não chegou na tela: %q", recado)
+	}
+	// E o estado do deployment junto: "recusou" sozinho não diz se o problema é
+	// permissão, deployment errado ou estado que não aceita a ação.
+	if !strings.Contains(recado, "REMOVED") {
+		t.Errorf("o recado não diz em que estado o deployment estava: %q", recado)
+	}
+}
+
+// "Não autorizado" numa AÇÃO, com um token que consegue LER o estado, é quase
+// sempre o tipo do token — e dizer isso poupa procurar no lugar errado.
+func TestNaoAutorizadoApontaParaOTipoDoToken(t *testing.T) {
+	msg := explicaPlataforma(errors.New("plataforma: api error: Not Authorized"))
+	if !strings.Contains(msg, "Not Authorized") {
+		t.Errorf("perdeu o texto da hospedagem: %q", msg)
+	}
+	if !strings.Contains(msg, "token de projeto") {
+		t.Errorf("não aponta para o tipo do token: %q", msg)
+	}
+	// Uma recusa comum não ganha o palpite, senão o palpite vira ruído.
+	outro := explicaPlataforma(errors.New("plataforma: api error: Deployment not found"))
+	if strings.Contains(outro, "token de projeto") {
+		t.Errorf("palpitou tipo de token numa recusa que não é de permissão: %q", outro)
+	}
+}

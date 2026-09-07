@@ -165,6 +165,39 @@ func explicaJogo(err error) string {
 	}
 }
 
+// explicaPlataforma diz o que a hospedagem respondeu, em vez de esconder.
+//
+// A mensagem da Railway já vinha até aqui — o cliente a embrulha em "plataforma:
+// api error: ..." — e as telas jogavam fora, imprimindo "a hospedagem recusou" e
+// mais nada. O motivo ficava só no log do processo, que quem opera o painel não
+// tem como abrir. Um botão que falha sem dizer por quê é indistinguível de um
+// botão quebrado, e foi assim que este passou dias parecendo quebrado.
+//
+// O texto da Railway não carrega segredo: são frases como "Not Authorized" ou
+// "Deployment not found". E estas rotas já são só de admin.
+func explicaPlataforma(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if i := strings.Index(msg, "api error: "); i >= 0 {
+		msg = msg[i+len("api error: "):]
+	}
+	msg = strings.TrimPrefix(msg, "plataforma: ")
+
+	// "Não autorizado" numa AÇÃO, vindo de um token que consegue LER o estado, é
+	// quase sempre o tipo do token: o de projeto lê e é recusado em parte das
+	// mutações. Dizer isso poupa uma tarde de procurar no lugar errado.
+	baixo := strings.ToLower(msg)
+	if strings.Contains(baixo, "not authorized") || strings.Contains(baixo, "unauthorized") ||
+		strings.Contains(baixo, "forbidden") || strings.Contains(baixo, "permission") {
+		return msg + " — o painel consegue LER o estado com este token, então a" +
+			" recusa é da ação, não da senha. Um token de projeto costuma ser" +
+			" recusado nas mutações; um token de conta (RAILWAY_API_TOKEN) não."
+	}
+	return msg
+}
+
 // avisoPadraoReinicio is what players are told when the operator writes nothing.
 const avisoPadraoReinicio = "O servidor vai reiniciar agora. Voce volta em cerca de um minuto."
 
@@ -199,18 +232,17 @@ func (h *Handler) reinicioSeguro(w http.ResponseWriter, r *http.Request) {
 	dep, err := h.cfg.Platform.Latest(r.Context())
 	if err != nil {
 		h.cfg.Logger.Error("safe restart: platform unavailable", "err", err)
-		http.Error(w, "Não consegui falar com a hospedagem, então não mexi no servidor.",
-			http.StatusBadGateway)
+		h.voltaComAviso(w, r, "/servidor",
+			"Não mexi no servidor: "+explicaPlataforma(err))
 		return
 	}
 
 	dren, err := h.cfg.Jogo.Drenar(r.Context(), aviso)
 	if err != nil {
 		h.cfg.Logger.Error("safe restart: drain failed; NOT restarting", "err", err)
-		http.Error(w,
-			"Esvaziei o servidor mas as gravações não confirmaram, então NÃO reiniciei. "+
-				"Espere um minuto e veja a aba Servidor antes de tentar de novo. Detalhe: "+explicaJogo(err),
-			http.StatusBadGateway)
+		h.voltaComAviso(w, r, "/servidor",
+			"NÃO reiniciei. "+explicaJogo(err)+
+				" Reiniciar sem esvaziar poderia duplicar ou perder item.")
 		return
 	}
 
@@ -272,8 +304,8 @@ func (h *Handler) desligarServidor(w http.ResponseWriter, r *http.Request) {
 	dep, err := h.cfg.Platform.LatestAny(r.Context())
 	if err != nil {
 		h.cfg.Logger.Error("shutdown: platform unavailable", "err", err)
-		http.Error(w, "Não consegui falar com a hospedagem, então não mexi no servidor.",
-			http.StatusBadGateway)
+		h.voltaComAviso(w, r, "/servidor",
+			"Não mexi no servidor: "+explicaPlataforma(err))
 		return
 	}
 
@@ -333,7 +365,8 @@ func (h *Handler) ligarServidor(w http.ResponseWriter, r *http.Request) {
 	dep, err := h.cfg.Platform.LatestAny(r.Context())
 	if err != nil {
 		h.cfg.Logger.Error("start: platform unavailable", "err", err)
-		http.Error(w, "Não consegui falar com a hospedagem.", http.StatusBadGateway)
+		h.voltaComAviso(w, r, "/servidor",
+			"Não liguei: "+explicaPlataforma(err))
 		return
 	}
 
@@ -343,14 +376,15 @@ func (h *Handler) ligarServidor(w http.ResponseWriter, r *http.Request) {
 		New:    map[string]any{"deployment": dep.ID, "estado_anterior": dep.Status},
 	}); err != nil {
 		h.cfg.Logger.Error("start NOT audited; refusing", "err", err)
-		http.Error(w, "Não consegui registrar a ação na auditoria, então não liguei.",
-			http.StatusInternalServerError)
+		h.voltaComAviso(w, r, "/servidor",
+			"Não consegui registrar a ação na auditoria, então não liguei.")
 		return
 	}
 
 	if err := h.cfg.Platform.Redeploy(r.Context(), dep.ID); err != nil {
-		h.cfg.Logger.Error("start refused", "deployment", dep.ID, "err", err)
-		http.Error(w, "A hospedagem recusou ligar o servidor.", http.StatusBadGateway)
+		h.cfg.Logger.Error("start refused", "deployment", dep.ID, "estado", dep.Status, "err", err)
+		h.voltaComAviso(w, r, "/servidor",
+			"A hospedagem recusou ligar (deployment "+dep.Status+"): "+explicaPlataforma(err))
 		return
 	}
 

@@ -1639,7 +1639,7 @@ func (h *Handler) statusServidor(r *http.Request) estadoServidor {
 	dep, err := h.cfg.Platform.LatestAny(r.Context())
 	if err != nil {
 		h.cfg.Logger.Warn("platform status unavailable", "err", err)
-		return estadoServidor{Erro: "Não consegui falar com a hospedagem."}
+		return estadoServidor{Erro: "Não consegui falar com a hospedagem: " + explicaPlataforma(err)}
 	}
 
 	est := estadoServidor{
@@ -1690,7 +1690,7 @@ func (h *Handler) reiniciar(w http.ResponseWriter, r *http.Request) {
 	dep, err := h.cfg.Platform.LatestAny(r.Context())
 	if err != nil {
 		h.cfg.Logger.Error("restart: could not find the deployment", "err", err)
-		h.voltaComAviso(w, r, destino, "Não consegui falar com a hospedagem, então não reiniciei.")
+		h.voltaComAviso(w, r, destino, "Não reiniciei: "+explicaPlataforma(err))
 		return
 	}
 
@@ -1738,7 +1738,7 @@ func (h *Handler) reiniciar(w http.ResponseWriter, r *http.Request) {
 	if err := h.cfg.Platform.Restart(r.Context(), dep.ID); err != nil {
 		h.cfg.Logger.Error("restart failed", "deployment", dep.ID, "estado", dep.Status, "err", err)
 		h.voltaComAviso(w, r, destino,
-			"A hospedagem recusou o reinício. O deployment está como "+dep.Status+".")
+			"A hospedagem recusou o reinício (deployment "+dep.Status+"): "+explicaPlataforma(err))
 		return
 	}
 

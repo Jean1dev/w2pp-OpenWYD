@@ -1558,6 +1558,7 @@ type fakePlatform struct {
 	restarts      []string
 	stops         []string
 	redeploys     []string
+	redeployEr    error
 	usouLatestAny int
 }
 
@@ -1597,6 +1598,9 @@ func (f *fakePlatform) Stop(_ context.Context, id string) error {
 func (f *fakePlatform) Redeploy(_ context.Context, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.redeployEr != nil {
+		return f.redeployEr
+	}
 	f.redeploys = append(f.redeploys, id)
 	return nil
 }
@@ -4038,14 +4042,15 @@ func TestReinicioSeguroNaoReiniciaSeAsGravacoesNaoConfirmam(t *testing.T) {
 	post, token := signedInPost(t, newTestPanelJogoPlat(t, j, plat))
 
 	rec := post("/servidor/reiniciar-seguro", url.Values{"csrf": {token}})
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("status = %d, want 502", rec.Code)
-	}
+	// O que prova a recusa é a hospedagem não ter recebido nada. A falha agora
+	// volta para a página do botão com o recado, em vez de responder uma tela de
+	// erro do navegador que tira a pessoa do painel.
 	if len(plat.restarts) != 0 {
 		t.Fatal("reiniciou mesmo sem as gravações confirmarem")
 	}
-	if !strings.Contains(rec.Body.String(), "NÃO reiniciei") {
-		t.Errorf("a mensagem não deixa claro que não reiniciou: %q", rec.Body.String())
+	recado := rec.Header().Get("Location")
+	if !strings.Contains(recado, "reiniciei") {
+		t.Errorf("o recado não deixa claro que não reiniciou: %q", recado)
 	}
 }
 
@@ -4286,11 +4291,12 @@ func TestLigarNaoLigaSemAuditoria(t *testing.T) {
 	}
 	post, token := signedInPost(t, h.Routes())
 
-	if rec := post("/servidor/ligar", url.Values{"csrf": {token}}); rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
-	}
+	rec := post("/servidor/ligar", url.Values{"csrf": {token}})
 	if len(plat.redeploys) != 0 {
 		t.Fatal("ligou sem registrar na auditoria")
+	}
+	if recado := rec.Header().Get("Location"); !strings.Contains(recado, "auditoria") {
+		t.Errorf("o recado não diz por que recusou: %q", recado)
 	}
 }
 
