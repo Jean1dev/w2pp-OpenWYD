@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
 
 const questTierCount = 5
@@ -27,13 +29,19 @@ type QuestRates struct {
 	tiers [questTierCount]QuestTierRate
 }
 
-var questRateDefaults = [questTierCount]QuestTierRate{
-	{MortalExp: 1000, ArchExp: 500, Coin: 2000, MortalMin: 39, MortalMax: 115, ArchMin: 39, ArchMax: 115},
-	{MortalExp: 2000, ArchExp: 1000, Coin: 4000, MortalMin: 115, MortalMax: 190, ArchMin: 115, ArchMax: 190},
-	{MortalExp: 3000, ArchExp: 1500, Coin: 6000, MortalMin: 190, MortalMax: 265, ArchMin: 190, ArchMax: 265},
-	{MortalExp: 4000, ArchExp: 2000, Coin: 8000, MortalMin: 265, MortalMax: 320, ArchMin: 265, ArchMax: 320},
-	{MortalExp: 5000, ArchExp: 2500, Coin: 10000, MortalMin: 320, MortalMax: 350, ArchMin: 320, ArchMax: 350},
-}
+// questRateDefaults are CReadFiles.cpp's, read from internal/domain so the
+// admin panel and the game cannot disagree about what an unedited quest pays.
+var questRateDefaults = func() [questTierCount]QuestTierRate {
+	var out [questTierCount]QuestTierRate
+	for i, d := range domain.QuestRewardDefaults {
+		out[i] = QuestTierRate{
+			MortalExp: d.MortalExp, ArchExp: d.ArchExp, Coin: d.Coin,
+			MortalMin: d.MortalMin, MortalMax: d.MortalMax,
+			ArchMin: d.ArchMin, ArchMax: d.ArchMax,
+		}
+	}
+	return out
+}()
 
 // DefaultQuestRates returns the CReadFiles.cpp defaults used without -content.
 func DefaultQuestRates() *QuestRates { return &QuestRates{tiers: questRateDefaults} }
@@ -379,3 +387,22 @@ func parseSancRate(r io.Reader) (*SancRate, error) {
 	}
 	return s, sc.Err()
 }
+
+// SetTier replaces one quest tier's reward. It is how the panel's overlay is
+// applied over the content file at boot (0036_quest_reward): the moderator's
+// row wins, and a tier nobody edited keeps whatever QuestsRate.txt gave it.
+//
+// It mutates the loaded table rather than wrapping it, for the same reason the
+// mob and item overlays do: everything downstream already reads QuestRates, and
+// a second lookup layer would be one more place for the two to disagree.
+// Applied once, before the dispatcher is built, so nothing reads it concurrently.
+func (q *QuestRates) SetTier(tier int, r QuestTierRate) bool {
+	if q == nil || tier < 0 || tier >= len(q.tiers) {
+		return false
+	}
+	q.tiers[tier] = r
+	return true
+}
+
+// QuestTierCount is how many quest trophies exist (items 4117..4121).
+const QuestTierCount = questTierCount

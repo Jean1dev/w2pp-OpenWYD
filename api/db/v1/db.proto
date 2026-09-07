@@ -1042,3 +1042,34 @@ message DungeonGate {
   bool open = 2;
   bool announce = 3;
 }
+
+// QuestRewardService serves the panel-managed quest-trophy payouts to tmServer.
+//
+// Read at BOOT, like XPConfigService and for the same reason: it is a balance
+// number, not an operational switch. Two players using the same trophy minutes
+// apart must not get different amounts.
+service QuestRewardService {
+  // GetQuestRewards returns every edited tier. Tiers absent from the reply keep
+  // whatever Common/Settings/QuestsRate.txt says.
+  rpc GetQuestRewards(GetQuestRewardsRequest) returns (GetQuestRewardsResponse);
+}
+
+message GetQuestRewardsRequest {}
+message GetQuestRewardsResponse {
+  int64 version = 1;
+  repeated QuestReward tiers = 2;
+}
+
+// QuestReward is one trophy's payout. `tier` is the item offset from 4117, so
+// 0 is the Cemitério and 4 the Elfos. The level band is half-open: min
+// inclusive, max exclusive, as the legacy gate reads it.
+message QuestReward {
+  int32 tier = 1;
+  int64 mortal_exp = 2;
+  int64 arch_exp = 3;
+  int32 coin = 4;
+  int32 mortal_min = 5;
+  int32 mortal_max = 6;
+  int32 arch_min = 7;
+  int32 arch_max = 8;
+}

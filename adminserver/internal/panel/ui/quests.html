@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Quests — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  .quest { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .quest:last-of-type { border-bottom: 0; }
+  .quest h3 { margin: 0 0 2px; font-size: 16px; }
+  .quest .meta { font-size: 12.5px; color: var(--ink-3); margin: 0 0 10px; }
+  .campos {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px 16px; margin: 0 0 10px;
+  }
+  .campos label { display: block; font-size: 12px; color: var(--ink-3); }
+  .campos input {
+    width: 100%; margin-top: 4px; padding: 6px 8px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  .campos input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .acoes-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .marca { font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+           padding: 2px 7px; border-radius: 3px; color: var(--accent); background: var(--chip-bg); }
+  .doarquivo { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  td.quando { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.mudanca { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+  td.mudanca .de { color: var(--ink-3); }
+  .acao {
+    font-size: 11px; letter-spacing: .06em; font-family: ui-monospace, Consolas, monospace;
+    color: var(--ink); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+{{template "topbar" .}}
+
+<main>
+  <h1>Recompensas de quest</h1>
+  <p class="sub">
+    Cemitério, Jardim dos Deuses, Coração do Kaizen, Hidras e Elfos deixam cair
+    um troféu. Usá-lo dá XP e ouro — e é a recompensa inteira dessas quests.
+  </p>
+
+  {{template "abas-rates" .}}
+
+  {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
+
+  <div class="nota calma">
+    <strong>Como funciona.</strong> Cada boss derruba um troféu (itens 4117 a
+    4121). O jogador clica nele e recebe XP e ouro de uma vez, sem NPC no meio.
+    A <strong>faixa de nível</strong> decide quem pode usar: mínimo incluído,
+    máximo excluído — fora dela o troféu recusa e diz que o nível não serve.
+    Mexer na XP sem mexer na faixa costuma não resolver nada, porque o problema
+    é frequentemente a faixa acabar cedo demais.
+    <br><br>
+    <strong>Vale no próximo reinício do jogo</strong>, como o resto do
+    balanceamento — dois jogadores usando o mesmo troféu com minutos de
+    diferença não podem receber valores diferentes.
+    {{if .Versao}}<br><br>Versão gravada: <strong>{{.Versao}}</strong>.{{end}}
+  </div>
+
+  <div class="caixa">
+    {{range .Quests}}
+    <div class="quest">
+      <h3>
+        {{.Nome}}
+        {{if .Editada}}<span class="marca">editada</span>{{end}}
+      </h3>
+      <p class="meta">
+        Boss: {{.Boss}} &middot; troféu: item {{.Item}}
+      </p>
+
+      <form method="post" action="/rates/quests">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="tier" value="{{.Tier}}">
+        <div class="campos">
+          <label>
+            XP para Mortal
+            <input type="number" name="mortal_exp" min="0" value="{{.Valores.MortalExp}}">
+          </label>
+          <label>
+            XP para Arch
+            <input type="number" name="arch_exp" min="0" value="{{.Valores.ArchExp}}">
+          </label>
+          <label>
+            Ouro
+            <input type="number" name="coin" min="0" value="{{.Valores.Coin}}">
+          </label>
+          <label>
+            Mortal: do nível
+            <input type="number" name="mortal_min" min="0" max="400" value="{{.Valores.MortalMin}}">
+          </label>
+          <label>
+            Mortal: até o nível
+            <input type="number" name="mortal_max" min="0" max="400" value="{{.Valores.MortalMax}}">
+          </label>
+          <label>
+            Arch: do nível
+            <input type="number" name="arch_min" min="0" max="400" value="{{.Valores.ArchMin}}">
+          </label>
+          <label>
+            Arch: até o nível
+            <input type="number" name="arch_max" min="0" max="400" value="{{.Valores.ArchMax}}">
+          </label>
+        </div>
+        <div class="acoes-linha">
+          <button type="submit">Gravar</button>
+          {{if .Editada}}
+          <span class="doarquivo">
+            No arquivo: {{.Padrao.MortalExp}} / {{.Padrao.ArchExp}} de XP,
+            {{.Padrao.Coin}} de ouro, níveis {{.Padrao.MortalMin}}–{{.Padrao.MortalMax}}
+          </span>
+          {{end}}
+        </div>
+      </form>
+
+      {{if .Editada}}
+      <form method="post" action="/rates/quests/limpar" style="margin-top:8px">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="tier" value="{{.Tier}}">
+        <button type="submit" class="perigo">Voltar ao valor do conteúdo</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+
+  <div class="caixa">
+    <h2>Histórico</h2>
+    <p class="sub">
+      Toda mudança de recompensa, mais recente primeiro. Vem da auditoria do
+      painel, que o banco não deixa alterar nem apagar.
+    </p>
+    {{if .Historico}}
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Mudança</th></tr>
+        </thead>
+        <tbody>
+          {{range .Historico}}
+          <tr>
+            <td class="quando">{{.CreatedAt.Format "02/01 15:04"}}</td>
+            <td>
+              {{if .ActorName}}{{.ActorName}}{{else}}conta {{.ActorID}}{{end}}
+              <span class="cargo">{{.ActorRole}}</span>
+            </td>
+            <td><span class="acao" title="{{.Action}}">{{.Rotulo}}</span></td>
+            <td class="mudanca">
+              {{if .Old}}<span class="de">{{.Old}}</span> &rarr; {{end}}
+              {{if .New}}{{.New}}{{else if not .Old}}—{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="vazio">Nenhuma recompensa foi mexida ainda.</div>
+    {{end}}
+  </div>
+</main>
+</body>
+</html>

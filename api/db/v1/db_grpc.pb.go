@@ -2630,3 +2630,121 @@ var DungeonGateService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	QuestRewardService_GetQuestRewards_FullMethodName = "/db.v1.QuestRewardService/GetQuestRewards"
+)
+
+// QuestRewardServiceClient is the client API for QuestRewardService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// QuestRewardService serves the panel-managed quest-trophy payouts to tmServer.
+//
+// Read at BOOT, like XPConfigService and for the same reason: it is a balance
+// number, not an operational switch. Two players using the same trophy minutes
+// apart must not get different amounts.
+type QuestRewardServiceClient interface {
+	// GetQuestRewards returns every edited tier. Tiers absent from the reply keep
+	// whatever Common/Settings/QuestsRate.txt says.
+	GetQuestRewards(ctx context.Context, in *GetQuestRewardsRequest, opts ...grpc.CallOption) (*GetQuestRewardsResponse, error)
+}
+
+type questRewardServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewQuestRewardServiceClient(cc grpc.ClientConnInterface) QuestRewardServiceClient {
+	return &questRewardServiceClient{cc}
+}
+
+func (c *questRewardServiceClient) GetQuestRewards(ctx context.Context, in *GetQuestRewardsRequest, opts ...grpc.CallOption) (*GetQuestRewardsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetQuestRewardsResponse)
+	err := c.cc.Invoke(ctx, QuestRewardService_GetQuestRewards_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// QuestRewardServiceServer is the server API for QuestRewardService service.
+// All implementations must embed UnimplementedQuestRewardServiceServer
+// for forward compatibility.
+//
+// QuestRewardService serves the panel-managed quest-trophy payouts to tmServer.
+//
+// Read at BOOT, like XPConfigService and for the same reason: it is a balance
+// number, not an operational switch. Two players using the same trophy minutes
+// apart must not get different amounts.
+type QuestRewardServiceServer interface {
+	// GetQuestRewards returns every edited tier. Tiers absent from the reply keep
+	// whatever Common/Settings/QuestsRate.txt says.
+	GetQuestRewards(context.Context, *GetQuestRewardsRequest) (*GetQuestRewardsResponse, error)
+	mustEmbedUnimplementedQuestRewardServiceServer()
+}
+
+// UnimplementedQuestRewardServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedQuestRewardServiceServer struct{}
+
+func (UnimplementedQuestRewardServiceServer) GetQuestRewards(context.Context, *GetQuestRewardsRequest) (*GetQuestRewardsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetQuestRewards not implemented")
+}
+func (UnimplementedQuestRewardServiceServer) mustEmbedUnimplementedQuestRewardServiceServer() {}
+func (UnimplementedQuestRewardServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeQuestRewardServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to QuestRewardServiceServer will
+// result in compilation errors.
+type UnsafeQuestRewardServiceServer interface {
+	mustEmbedUnimplementedQuestRewardServiceServer()
+}
+
+func RegisterQuestRewardServiceServer(s grpc.ServiceRegistrar, srv QuestRewardServiceServer) {
+	// If the following call panics, it indicates UnimplementedQuestRewardServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&QuestRewardService_ServiceDesc, srv)
+}
+
+func _QuestRewardService_GetQuestRewards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetQuestRewardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QuestRewardServiceServer).GetQuestRewards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: QuestRewardService_GetQuestRewards_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QuestRewardServiceServer).GetQuestRewards(ctx, req.(*GetQuestRewardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// QuestRewardService_ServiceDesc is the grpc.ServiceDesc for QuestRewardService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var QuestRewardService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.QuestRewardService",
+	HandlerType: (*QuestRewardServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetQuestRewards",
+			Handler:    _QuestRewardService_GetQuestRewards_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

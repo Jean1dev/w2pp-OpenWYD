@@ -46,6 +46,8 @@ var tabelasDeTeste = []string{
 	"mount_growth_rate",
 	"xp_rule_meta",
 	"xp_rule",
+	"quest_reward_meta",
+	"quest_reward",
 	"dungeon_gate_meta",
 	"dungeon_gate",
 	"affect",

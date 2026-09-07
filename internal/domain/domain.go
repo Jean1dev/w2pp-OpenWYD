@@ -1073,3 +1073,44 @@ type DungeonGateConfig struct {
 	Version int64
 	Gates   []DungeonGate
 }
+
+// QuestReward is one quest trophy's payout (items 4117..4121, EF_VOLATILE 191):
+// the XP and gold using it grants, plus the half-open level band that may use
+// it — min inclusive, max exclusive, as the legacy gate reads them.
+//
+// The bands live here rather than in a separate screen because they are the
+// other half of the same decision: doubling the Cemitério's XP means nothing if
+// its band still ends at 115.
+type QuestReward struct {
+	Tier      int32
+	MortalExp int64
+	ArchExp   int64
+	Coin      int32
+	MortalMin int32
+	MortalMax int32
+	ArchMin   int32
+	ArchMax   int32
+}
+
+// QuestRewardConfig is every edited trophy plus the version it belongs to. A
+// tier absent from Tiers keeps whatever the content file says.
+type QuestRewardConfig struct {
+	Version int64
+	Tiers   []QuestReward
+}
+
+// QuestRewardDefaults are the five trophies' payouts as CReadFiles.cpp ships
+// them, before Common/Settings/QuestsRate.txt or the panel change anything.
+//
+// They live here, in the package both sides already import, because both sides
+// need them and neither can import the other: tmServer builds its content table
+// from this, and the admin panel shows it as "what the file says" beside an
+// edited row. Two copies would be free to drift, and the drift would be silent —
+// the panel would claim the game pays something it does not.
+var QuestRewardDefaults = [5]QuestReward{
+	{Tier: 0, MortalExp: 1000, ArchExp: 500, Coin: 2000, MortalMin: 39, MortalMax: 115, ArchMin: 39, ArchMax: 115},
+	{Tier: 1, MortalExp: 2000, ArchExp: 1000, Coin: 4000, MortalMin: 115, MortalMax: 190, ArchMin: 115, ArchMax: 190},
+	{Tier: 2, MortalExp: 3000, ArchExp: 1500, Coin: 6000, MortalMin: 190, MortalMax: 265, ArchMin: 190, ArchMax: 265},
+	{Tier: 3, MortalExp: 4000, ArchExp: 2000, Coin: 8000, MortalMin: 265, MortalMax: 320, ArchMin: 265, ArchMax: 320},
+	{Tier: 4, MortalExp: 5000, ArchExp: 2500, Coin: 10000, MortalMin: 320, MortalMax: 350, ArchMin: 320, ArchMax: 350},
+}

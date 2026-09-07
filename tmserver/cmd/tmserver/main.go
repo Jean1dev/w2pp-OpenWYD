@@ -414,6 +414,45 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Quest-trophy payouts (0036_quest_reward): the panel's rows over whatever
+	// Common/Settings/QuestsRate.txt gave. Applied here, before the dispatcher is
+	// built from questRates, so nothing reads the table while it is being
+	// changed — the same moment the mob and item overlays land.
+	//
+	// A tier the panel never touched keeps the content file's numbers, so a
+	// database with no rows behaves exactly as before. A failed read is logged
+	// and does NOT stop the boot: the content file is a complete, working answer
+	// on its own, and refusing to start over an unreachable override would turn
+	// a balance edit into an outage.
+	if dbConn != nil && questRates != nil {
+		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cfg, ferr := dbclient.NewQuestRewardSource(dbConn).Fetch(fetchCtx)
+		cancel()
+		switch {
+		case ferr != nil:
+			logger.Error("quest rewards unreadable; using the content file", "err", ferr)
+		case len(cfg.Tiers) == 0:
+			logger.Info("quest rewards empty; using the content file", "version", cfg.Version)
+		default:
+			applied := 0
+			for _, q := range cfg.Tiers {
+				if questRates.SetTier(int(q.Tier), content.QuestTierRate{
+					MortalExp: q.MortalExp, ArchExp: q.ArchExp, Coin: q.Coin,
+					MortalMin: q.MortalMin, MortalMax: q.MortalMax,
+					ArchMin: q.ArchMin, ArchMax: q.ArchMax,
+				}) {
+					applied++
+					continue
+				}
+				// A row for a tier this build does not know about is skipped
+				// rather than folded into a neighbour: a newer panel may have
+				// written one, and guessing would pay the wrong quest.
+				logger.Warn("quest reward for an unknown tier ignored", "tier", q.Tier)
+			}
+			logger.Info("quest rewards loaded", "version", cfg.Version, "tiers", applied)
+		}
+	}
+
 	// Seed the world-event RNG from the wall clock so the weather sequence differs
 	// between boots (handler.worldEventRNGSeed explains why the fixed seed is only
 	// for tests). Zero means "use the fixed seed", so keep it out of range.

@@ -620,6 +620,7 @@
 <div class="abas-conta">
   {{if .HasMesaXP}}<a href="/rates/xp" {{if eq .Aba "xp"}}class="on"{{end}}>Experiência</a>{{end}}
   {{if .HasMesaXP}}<a href="/rates/progressao" {{if eq .Aba "progressao"}}class="on"{{end}}>Progressão</a>{{end}}
+  {{if .HasQuests}}<a href="/rates/quests" {{if eq .Aba "quests"}}class="on"{{end}}>Quests</a>{{end}}
   {{if .HasMont}}<a href="/rates/montarias" {{if eq .Aba "montarias"}}class="on"{{end}}>Montarias</a>{{end}}
 </div>
 {{end}}
