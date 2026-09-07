@@ -586,7 +586,15 @@ func (d *Dispatcher) tickPesadelo(w *world.World) {
 		// It fires once per opening because the wipe does, and only for a door
 		// the staff left open and audible: announcing a dungeon nobody can enter
 		// would send the whole server to a closed gate.
-		if d.gateOpen(t.gate) && d.gateAnnounces(t.gate) {
+		//
+		// The nil check is not a nicety. This line reaches EVERY player in the
+		// world, and the wipe lands on nine of every sixty minutes — so a server
+		// with no door source (a test, a local bring-up without dbServer) would
+		// have an unrelated broadcast injected into whatever it was doing, nine
+		// minutes an hour, only when the wall clock happened to be there. Tying
+		// the announcement to the feature that owns it keeps a server that never
+		// wired the doors exactly as silent as it was before.
+		if d.dungeonGateSource != nil && d.gateOpen(t.gate) && d.gateAnnounces(t.gate) {
 			broadcastNotice(w, fmt.Sprintf("Pesadelo %s abre em 1 minuto.", t.name))
 		}
 	}

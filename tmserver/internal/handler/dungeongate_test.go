@@ -156,3 +156,61 @@ func TestPesadeloVizinhoContinuaAberto(t *testing.T) {
 	}
 	t.Fatal("não recebi o contador da janela")
 }
+
+// TestAvisoDeUmMinutoSoComPortaConfigurada is the bug that broke CI, pinned.
+//
+// The announcement reaches EVERY player, and the wipe lands on nine of every
+// sixty minutes. A server with no door source — a test, a local bring-up with no
+// dbServer — would get an unrelated broadcast injected into whatever it was
+// doing, but only when the wall clock happened to sit on one of those minutes.
+// The suite passed all day and failed at :39 and :44.
+func TestAvisoDeUmMinutoSoComPortaConfigurada(t *testing.T) {
+	// :19 é minuto de limpeza do Pesadelo N — o aviso, se sai, sai aqui.
+	const wipeN = 19
+	if !pesaTierTable[pesaN].wipeMinute(wipeN) {
+		t.Fatalf("o minuto %d deixou de ser limpeza do N; o teste precisa acompanhar", wipeN)
+	}
+
+	semPorta := New(Config{
+		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Now: func() time.Time { return at(wipeN, 0) },
+	})
+	if semPorta.dungeonGateSource != nil {
+		t.Fatal("o dispatcher sem fonte não devia ter uma")
+	}
+
+	comPorta := New(Config{
+		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Now: func() time.Time { return at(wipeN, 0) },
+		DungeonGates: &fakeGateSource{cfg: dungeon.Config{
+			States: map[dungeon.Gate]dungeon.State{
+				dungeon.PesadeloN: {Open: true, Announce: true},
+			},
+		}},
+	})
+	comPorta.ApplyDungeonGatesBoot()
+
+	// A condição do anúncio, exatamente como o tick a avalia.
+	anuncia := func(d *Dispatcher) bool {
+		return d.dungeonGateSource != nil &&
+			d.gateOpen(pesaTierTable[pesaN].gate) &&
+			d.gateAnnounces(pesaTierTable[pesaN].gate)
+	}
+	if anuncia(semPorta) {
+		t.Error("um servidor sem porta configurada avisaria o mundo inteiro nove minutos por hora")
+	}
+	if !anuncia(comPorta) {
+		t.Error("com a porta aberta e audível o aviso não sairia")
+	}
+
+	// E calar a porta cala o aviso sem fechá-la.
+	comPorta.dungeonGates = dungeon.Config{States: map[dungeon.Gate]dungeon.State{
+		dungeon.PesadeloN: {Open: true, Announce: false},
+	}}
+	if anuncia(comPorta) {
+		t.Error("a porta muda continuou avisando")
+	}
+	if !comPorta.gateOpen(dungeon.PesadeloN) {
+		t.Error("calar o aviso também fechou a porta")
+	}
+}
