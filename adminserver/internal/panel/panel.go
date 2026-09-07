@@ -368,6 +368,9 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /rates/xp/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMesaXP))))
 		mux.Handle("POST /rates/xp/restaurar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.restaurarMesaXP))))
 		mux.Handle("POST /rates/xp/dificuldade", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.aplicarDificuldade))))
+		// Progressão reads the same Mesa the XP tab writes, so it rides the same
+		// condition: without a Mesa there is nothing to plan against.
+		mux.Handle("GET /rates/progressao", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.progressao))))
 		mux.Handle("GET /auditoria/xp", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.mesaXP))))
 		mux.Handle("POST /auditoria/xp", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMesaXP))))
 		mux.Handle("POST /auditoria/xp/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMesaXP))))

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Progressão — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  .grade-campos {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 18px; margin: 4px 0 6px;
+  }
+  .grade-campos label { display: block; font-size: 12.5px; color: var(--ink-3); }
+  .grade-campos input, .grade-campos select {
+    width: 100%; margin-top: 4px; padding: 7px 9px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  .grade-campos input:focus, .grade-campos select:focus {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  .parada {
+    display: grid; grid-template-columns: 1.5fr 1fr .55fr; gap: 12px;
+    align-items: end; padding: 10px 0; border-bottom: 1px solid var(--rule);
+  }
+  .parada:last-of-type { border-bottom: 0; }
+  .parada .num {
+    font-size: 12px; color: var(--ink-3); padding-bottom: 8px; white-space: nowrap;
+  }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .barra {
+    display: block; height: 6px; background: var(--chip-bg); border-radius: 3px;
+    overflow: hidden; margin-top: 5px; min-width: 90px;
+  }
+  .barra i { display: block; height: 100%; background: var(--accent); }
+  .erro-mob { color: var(--danger); font-size: 12px; }
+</style>
+</head>
+<body>
+{{template "topbar" .}}
+
+<main>
+  <h1>Progressão</h1>
+  <p class="sub">
+    Quanto tempo um jogador leva do nível 1 ao topo seguindo uma rota de verdade,
+    no ritmo que ele joga. A Mesa de XP mede uma morte; esta tela mede a subida.
+  </p>
+
+  {{template "abas-rates" .}}
+
+  {{if and .Estado.Perguntou (not .Estado.Valendo)}}
+  <div class="nota perigo">
+    A Mesa de XP tem alterações que o jogo ainda não leu. Esta conta usa o que
+    está <strong>gravado</strong>, e não o que os jogadores estão recebendo agora.
+  </div>
+  {{end}}
+
+  <div class="nota calma">
+    <strong>Como a conta é feita.</strong> A cada nível a rota rende o que a
+    melhor parada paga — é o que um jogador faz, muda de lugar quando outro passa
+    a render mais. Ela não conta caminhada, respawn, morte nem tempo parado, então
+    o número é um <strong>piso</strong>: na prática se leva mais. O que ela mede
+    bem é a forma da subida e a comparação entre duas rotas ou dois ajustes.
+  </div>
+
+  <form method="get" action="/rates/progressao">
+    <div class="caixa">
+      <h2>A rota</h2>
+      <p class="sub">
+        Um monstro por parada, com a zona onde ele é morto — a zona é o que
+        decide a tabela de XP, então o mesmo monstro rende diferente em cada uma.
+        "A partir do nível" é quando aquela parada entra na rota — sem isso o
+        plano manda o nível 1 direto para o monstro mais rico, que ele não teria
+        como matar.
+      </p>
+
+      {{range $i, $p := .Form.Paradas}}
+      <div class="parada">
+        <label>
+          Monstro {{if eq $i 0}}<span class="sub">(obrigatório)</span>{{end}}
+          <input type="text" name="mob" value="{{$p.Mob}}" list="monstros"
+                 placeholder="digite para procurar" autocomplete="off">
+          {{if $p.Aviso}}<span class="erro-mob">{{$p.Aviso}}</span>{{end}}
+          {{if $p.Exp}}<span class="sub">nível {{$p.Nivel}} · {{$p.Exp}} de XP</span>{{end}}
+        </label>
+        <label>
+          Zona
+          <select name="zona">
+            {{range $.Zonas}}
+            <option value="{{.ID}}" {{if eq .ID $p.Zona}}selected{{end}}>{{.Rotulo}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label>
+          A partir do nível
+          <input type="number" name="desde" min="0" max="399" value="{{$p.Desde}}">
+        </label>
+      </div>
+      {{end}}
+      <datalist id="monstros">
+        {{range .Monstros}}<option value="{{.}}"></option>{{end}}
+      </datalist>
+    </div>
+
+    <div class="caixa">
+      <h2>O jogador</h2>
+      <div class="grade-campos">
+        <label>
+          Evolução
+          <select name="evolucao">
+            <option value="2" {{if eq .Form.Evolucao 2}}selected{{end}}>Mortal</option>
+            <option value="1" {{if eq .Form.Evolucao 1}}selected{{end}}>Arch</option>
+          </select>
+        </label>
+        <label>
+          Horas por dia
+          <input type="number" name="horas" min="1" max="24" value="{{.Form.Horas}}">
+        </label>
+        <label>
+          Segundos por morte
+          <input type="number" name="segundos" min="1" max="3600" value="{{.Form.Segundos}}">
+        </label>
+        <label>
+          Meta, em dias
+          <input type="number" name="meta" min="1" max="3650" value="{{.Form.Meta}}">
+        </label>
+      </div>
+
+      <div class="grade-campos">
+        <label>
+          Baú de experiência
+          <select name="bau">
+            <option value="0" {{if eq .Form.Bau 0}}selected{{end}}>sem baú</option>
+            <option value="50" {{if eq .Form.Bau 50}}selected{{end}}>+50%</option>
+            <option value="100" {{if eq .Form.Bau 100}}selected{{end}}>+100%</option>
+            <option value="150" {{if eq .Form.Bau 150}}selected{{end}}>+150%</option>
+          </select>
+        </label>
+        <label>
+          Fada
+          <select name="fada">
+            {{$f := .Form.Fada}}
+            {{range .Fadas}}
+            <option value="{{.Index}}" {{if eq $f .Index}}selected{{end}}>{{.Nome}} — +{{.Bonus}}%</option>
+            {{end}}
+          </select>
+        </label>
+        <label>
+          Peças grau 7
+          <input type="number" name="grau7" min="0" max="16" value="{{.Form.Grau7}}">
+        </label>
+        <label>
+          Peças com gema 2
+          <input type="number" name="gemas" min="0" max="16" value="{{.Form.Gemas}}">
+        </label>
+      </div>
+
+      <div class="acoes">
+        <button type="submit" class="principal">Calcular</button>
+      </div>
+    </div>
+  </form>
+
+  {{if .Resultado.Vazia}}
+    <div class="vazio">{{.Resultado.Aviso}}</div>
+  {{else if .Resultado.Feita}}
+    <div class="caixa">
+      <h2>O resultado</h2>
+
+      <div class="numeros">
+        <div class="num-tile">
+          <div class="rot">Do 1 ao {{.Resultado.AteNiv}}</div>
+          <div class="val">{{.Resultado.DiasTexto}}</div>
+        </div>
+        <div class="num-tile">
+          <div class="rot">Tempo de jogo</div>
+          <div class="val">{{.Resultado.HorasTexto}}</div>
+        </div>
+        <div class="num-tile">
+          <div class="rot">Mortes</div>
+          <div class="val">{{.Resultado.Mortes}}</div>
+        </div>
+        <div class="num-tile">
+          <div class="rot">Ritmo</div>
+          <div class="val">{{.Form.Horas}} h/dia</div>
+        </div>
+      </div>
+
+      {{if .Resultado.Aviso}}
+      <div class="nota perigo"><strong>{{.Resultado.Aviso}}</strong></div>
+      {{end}}
+
+      {{if .Resultado.Veredito}}
+      <div class="nota {{if .Resultado.NoAlvo}}calma{{else}}perigo{{end}}">
+        {{.Resultado.Veredito}}
+        {{if not .Resultado.NoAlvo}}
+        <br><br>
+        Esse ajuste é exato, não aproximado: a taxa da Mesa de XP multiplica o
+        valor final da recompensa, então dividir a taxa pela metade dobra o tempo.
+        Aplique-o nas zonas da rota em <a href="/rates/xp">Experiência</a>.
+        {{end}}
+      </div>
+      {{end}}
+
+      {{if .Resultado.Paradas}}
+      <h3>Quem carrega a subida</h3>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Parada</th><th>Zona</th><th class="n">Mortes</th><th>Fatia</th></tr>
+          </thead>
+          <tbody>
+            {{range .Resultado.Paradas}}
+            <tr>
+              <td>{{.Rotulo}}</td>
+              <td>{{.Zona}}</td>
+              <td class="n">{{.Mortes}}</td>
+              <td>
+                {{.Fatia}}%
+                <span class="barra"><i style="width:{{.Fatia}}%"></i></span>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      <p class="sub">
+        Uma parada com 0% nunca é a melhor em nível nenhum — ou o monstro é baixo
+        demais, ou a zona dela paga menos que a das outras. Tirar da rota não muda
+        o resultado.
+      </p>
+      {{end}}
+
+      {{if .Resultado.Faixas}}
+      <h3>A subida, trecho a trecho</h3>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr>
+              <th>Níveis</th><th>Onde</th>
+              <th class="n">Mortes</th><th class="n">Tempo</th><th class="n">Dias</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Resultado.Faixas}}
+            <tr>
+              <td>{{.De}}–{{.Ate}}</td>
+              <td>{{.Onde}}</td>
+              <td class="n">{{.Mortes}}</td>
+              <td class="n">{{.Tempo}}</td>
+              <td class="n">{{.Dias}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
+    </div>
+  {{end}}
+</main>
+</body>
+</html>
