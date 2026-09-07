@@ -494,6 +494,74 @@
   </div>
 
   <div class="caixa">
+    <h2>Dificuldade de {{.Zona}}</h2>
+    <p class="sub">
+      Um clique põe a zona inteira — as três evoluções — num degrau da escada.
+      Mexe só na taxa; as tabelas de quebra que você editou ficam como estão.
+      Hoje esta zona está em <strong>{{.DifAtual}}</strong>.
+    </p>
+
+    {{if .Escada}}
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>Degrau</th>
+            <th class="n">Taxa</th>
+            <th class="n">1 → 400 Mortal</th>
+            <th class="n">1 → 400 Arch</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Escada}}
+          <tr>
+            <td>
+              <strong>{{.Nome}}</strong>
+              {{if .Atual}}<span class="cargo">em uso</span>{{end}}
+              {{if .Ideal}}<span class="cargo">nosso alvo</span>{{end}}
+              <div class="sub" style="margin:2px 0 0">{{.Nota}}</div>
+            </td>
+            <td class="n">{{.Taxa}}%</td>
+            <td class="n">
+              {{if .MortalMuro}}trava no {{.MortalMuro}}{{else}}{{.MortalTempo}}{{end}}
+            </td>
+            <td class="n">
+              {{if .ArchMuro}}trava no {{.ArchMuro}}{{else}}{{.ArchTempo}}{{end}}
+            </td>
+            <td>
+              {{if .Atual}}—{{else}}
+              <form method="post" action="/rates/xp/dificuldade">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="voltar" value="{{$.VoltarURL}}">
+                <input type="hidden" name="zona" value="{{$.Form.Zona}}">
+                <input type="hidden" name="dificuldade" value="{{.ID}}">
+                <button type="submit">aplicar</button>
+              </form>
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    <p class="sub">
+      Os tempos são <strong>matando só o monstro escolhido no simulador</strong>,
+      do nível 1 até o teto da evolução, a {{.Form.Segundos}}s por morte e com as
+      quests de evolução já feitas. Ninguém sobe assim — é uma régua, não uma
+      previsão. O que ela mede bem é a <strong>razão entre os degraus</strong>:
+      trocar o monstro muda todas as linhas juntas, e a comparação continua
+      valendo. "Trava no N" quer dizer que daquele nível em diante este monstro
+      não paga mais nada para aquela evolução, então o degrau não leva ao topo.
+    </p>
+    {{else}}
+    <div class="vazio">
+      Escolha um monstro no simulador para ver quanto tempo cada degrau custa.
+    </div>
+    {{end}}
+  </div>
+
+  <div class="caixa">
     <h2>Histórico</h2>
     <p class="sub">
       Toda mudança de tabela, mais recente primeiro. Vem da auditoria do painel,

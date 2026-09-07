@@ -239,6 +239,8 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		Estado      estadoMesa
 		Grupos      []opcaoGrupo
 		OutrasZonas []opcaoZona
+		Escada      []mesaDificuldade
+		DifAtual    string
 	}{
 		page:        h.pageFor(r, "rates"),
 		Aba:         "xp",
@@ -262,6 +264,8 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		Estado:      h.estadoDaMesa(r, cfg.Version),
 		Grupos:      gruposParaTela(),
 		OutrasZonas: outrasZonas(form.Zona),
+		Escada:      escadaDeDificuldade(form, cfg),
+		DifAtual:    nomeDaTaxa(cfg.RatePercent(zona, evo)),
 	})
 }
 
@@ -1085,4 +1089,170 @@ func (h *Handler) nomesDeMonstro(r *http.Request) []string {
 		}
 	}
 	return nomes
+}
+
+// --- a escada de dificuldade ----------------------------------------------
+
+// mesaDificuldade is one rung of level.Difficulties() priced against the mob
+// currently loaded in the simulator: what a Mortal and an Arch would spend
+// getting from level 1 to the cap if this dungeon were their whole curve.
+//
+// Two columns and not one because the ladder splits there: Pesadelo Normal is
+// the Mortal tier and Místico is the Arch one, so a single number would always
+// be the wrong half for somebody.
+type mesaDificuldade struct {
+	ID    string
+	Nome  string
+	Nota  string
+	Taxa  int32
+	Atual bool // this zone is already on this rung
+	Ideal bool // level.Difficulty.Recommended
+
+	MortalTempo, ArchTempo string
+	MortalMortes           int64
+	ArchMortes             int64
+	// MortalMuro / ArchMuro name the level where the climb stops paying, or 0
+	// when it reaches the cap. A rung that walls is not a difficulty setting,
+	// it is a dead end, and the table has to say so instead of printing a time
+	// nobody can actually reach.
+	MortalMuro, ArchMuro int32
+}
+
+// escadaDeDificuldade prices every rung for the mob in the form.
+//
+// The reference is that ONE mob, killed over and over, which is not how anybody
+// really levels — it is a yardstick, not a forecast. What makes it useful is
+// that it is the same yardstick for all six rungs, so the ratios between them
+// are honest even when the absolute hours are not.
+func escadaDeDificuldade(f mesaForm, cfg level.Config) []mesaDificuldade {
+	if f.MobExp <= 0 {
+		return nil
+	}
+	zona := level.Zone(f.Zona)
+	atual := cfg.RatePercent(zona, uint8(f.Evolucao))
+
+	out := make([]mesaDificuldade, 0, len(level.Difficulties()))
+	for _, d := range level.Difficulties() {
+		linha := mesaDificuldade{
+			ID: d.ID, Nome: d.Name, Nota: d.Note, Taxa: d.Percent,
+			Atual: d.Percent == atual, Ideal: d.Recommended,
+		}
+		for _, evo := range []uint8{level.TierMortal, level.TierArch} {
+			plano := planoDoTopo(f, cfg, zona, evo, d.Percent)
+			tempo := duracao(plano.TotalKills, f.Segundos)
+			if evo == level.TierMortal {
+				linha.MortalTempo, linha.MortalMortes, linha.MortalMuro = tempo, plano.TotalKills, plano.Wall
+			} else {
+				linha.ArchTempo, linha.ArchMortes, linha.ArchMuro = tempo, plano.TotalKills, plano.Wall
+			}
+		}
+		out = append(out, linha)
+	}
+	return out
+}
+
+// planoDoTopo walks one evolution from level 1 to its cap at a given rate.
+//
+// The tier's quest gates are forced open, unlike the simulator's own checkbox:
+// a wall at 355 because a quest is undone says nothing about the difficulty
+// setting, and would make every rung report the same dead end.
+func planoDoTopo(f mesaForm, cfg level.Config, zona level.Zone, evo uint8, taxa int32) level.Plan {
+	in := f.entrada(cfg)
+	in.Zone = zona
+	in.Tier = level.Tier{
+		ClassMaster: evo,
+		ArchLv355:   true, ArchLv370: true, CelLv40: true, CelLv90: true,
+	}
+	// A copy of the configuration with just this zone's rate replaced, so the
+	// row prices the rung and not whatever is saved.
+	sobrepostos := make(map[level.ConfigKey]level.Override, len(cfg.Overrides)+1)
+	for k, v := range cfg.Overrides {
+		sobrepostos[k] = v
+	}
+	chave := level.ConfigKey{Zone: zona, Tier: evo}
+	ov := sobrepostos[chave]
+	ov.RatePercent = taxa
+	sobrepostos[chave] = ov
+	in.Config = level.Config{Version: cfg.Version, Overrides: sobrepostos}
+
+	return level.PlanKills(in, 1)
+}
+
+// aplicarDificuldade puts one zone on a rung of the ladder, in a single action.
+//
+// It writes all three evolutions, because a difficulty that only moved one of
+// them would be a half-applied setting nobody could see the shape of. It touches
+// ONLY the rate: each row keeps whatever cut table it already had, since a
+// preset is a multiplier over the tables, not a replacement for them — writing
+// nil there would silently throw away hand-edited cuts.
+func (h *Handler) aplicarDificuldade(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
+		if err != nil {
+			http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		}
+		return
+	}
+	sess, _ := staffFrom(r.Context())
+
+	zonaID, err := strconv.Atoi(r.PostFormValue("zona"))
+	if err != nil || zonaID < 0 || zonaID >= len(level.Zones()) {
+		http.Error(w, "Zona inválida.", http.StatusBadRequest)
+		return
+	}
+	dif, ok := level.DifficultyByID(r.PostFormValue("dificuldade"))
+	if !ok {
+		http.Error(w, "Dificuldade desconhecida.", http.StatusBadRequest)
+		return
+	}
+
+	cfg, err := h.mesaConfig(r.Context())
+	if err != nil {
+		h.cfg.Logger.Error("mesa de XP read failed", "err", err)
+		http.Error(w, "Erro ao ler a Mesa de XP.", http.StatusInternalServerError)
+		return
+	}
+
+	zona := level.Zone(zonaID)
+	for _, evo := range level.Tiers() {
+		regra := domain.XPRule{Zone: int32(zonaID), Tier: int32(evo), RatePercent: dif.Percent}
+		// Carry the existing cut table across untouched. Cuts nil means "use the
+		// legacy table", which is the right thing for a row nobody has cut, and
+		// the wrong thing for a row somebody has.
+		if ov, editada := cfg.Overrides[level.ConfigKey{Zone: zona, Tier: evo}]; editada && ov.Cuts != nil {
+			regra.Cuts = make([]domain.XPCut, 0, len(ov.Cuts))
+			for _, c := range ov.Cuts {
+				regra.Cuts = append(regra.Cuts, domain.XPCut{UpTo: c.UpTo, Divisor: c.Divisor})
+			}
+		}
+		antes, err := h.cfg.MesaXP.UpsertXPRule(r.Context(), regra, sess.AccountID)
+		if err != nil {
+			h.cfg.Logger.Error("mesa de XP difficulty failed",
+				"zona", zonaID, "evolucao", evo, "dificuldade", dif.ID, "err", err)
+			http.Error(w, fmt.Sprintf(
+				"Erro ao gravar a evolução %s. As anteriores já foram gravadas.",
+				level.TierName(evo)), http.StatusInternalServerError)
+			return
+		}
+		if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+			ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
+			Action: audit.ActionSetXPRule,
+			Old:    regraParaAudit(antes), New: regraParaAudit(regra),
+		}); err != nil {
+			h.auditoriaFalhou(w, err)
+			return
+		}
+	}
+	h.voltarParaMesa(w, r, fmt.Sprintf(
+		"%s (%d%%) aplicado em %s, nas três evoluções. O jogo só passa a usar isto no próximo reinício.",
+		dif.Name, dif.Percent, zona.Name()))
+}
+
+// nomeDaTaxa names a rate that sits on a rung, or reports the bare percentage
+// when it does not. A hand-typed 37% is a perfectly good setting; it just has no
+// name, and inventing one would make the header disagree with the table.
+func nomeDaTaxa(taxa int32) string {
+	if d, ok := level.DifficultyForPercent(taxa); ok {
+		return d.Name
+	}
+	return fmt.Sprintf("%d%% (fora da escada)", taxa)
 }

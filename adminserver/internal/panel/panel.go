@@ -367,10 +367,12 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /rates/xp", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMesaXP))))
 		mux.Handle("POST /rates/xp/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMesaXP))))
 		mux.Handle("POST /rates/xp/restaurar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.restaurarMesaXP))))
+		mux.Handle("POST /rates/xp/dificuldade", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.aplicarDificuldade))))
 		mux.Handle("GET /auditoria/xp", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.mesaXP))))
 		mux.Handle("POST /auditoria/xp", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMesaXP))))
 		mux.Handle("POST /auditoria/xp/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMesaXP))))
 		mux.Handle("POST /auditoria/xp/restaurar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.restaurarMesaXP))))
+		mux.Handle("POST /auditoria/xp/dificuldade", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.aplicarDificuldade))))
 	}
 	// As montarias vêm do webServer, não do banco, então dependem de outra
 	// coisa que a Mesa de XP — um painel sem webServer mostra Rates só com a

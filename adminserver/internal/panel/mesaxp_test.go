@@ -856,3 +856,188 @@ func TestPaginaListaAsZonasDoDeserto(t *testing.T) {
 		t.Error("faltou dizer que as tabelas do deserto começam iguais às do campo")
 	}
 }
+
+// --- a escada de dificuldade ----------------------------------------------
+
+func TestEscadaPrecificaOsSeisDegraus(t *testing.T) {
+	f := mesaForm{
+		Zona: int(level.ZonePesadeloNormal), Evolucao: int(level.TierMortal),
+		MobExp: 200_000, MobNivel: 350, Nivel: 1, Segundos: 6, KefraViva: true,
+	}
+	escada := escadaDeDificuldade(f, level.Config{})
+	if len(escada) != len(level.Difficulties()) {
+		t.Fatalf("a escada tem %d degraus, a régua tem %d", len(escada), len(level.Difficulties()))
+	}
+	// The whole point of the table: harder rungs cost more kills, on both
+	// columns. A table that crossed itself would be worse than no table.
+	for i, d := range escada {
+		if d.MortalMortes <= 0 || d.ArchMortes <= 0 {
+			t.Fatalf("%s: mortal=%d arch=%d mortes", d.Nome, d.MortalMortes, d.ArchMortes)
+		}
+		if d.MortalMuro != 0 || d.ArchMuro != 0 {
+			t.Errorf("%s trava (mortal %d, arch %d) com um monstro que devia levar ao topo",
+				d.Nome, d.MortalMuro, d.ArchMuro)
+		}
+		if i > 0 {
+			if d.MortalMortes <= escada[i-1].MortalMortes {
+				t.Errorf("%s custa %d mortes de Mortal, não mais que %s (%d)",
+					d.Nome, d.MortalMortes, escada[i-1].Nome, escada[i-1].MortalMortes)
+			}
+			if d.ArchMortes <= escada[i-1].ArchMortes {
+				t.Errorf("%s custa %d mortes de Arch, não mais que %s (%d)",
+					d.Nome, d.ArchMortes, escada[i-1].Nome, escada[i-1].ArchMortes)
+			}
+		}
+	}
+}
+
+// TestEscadaIgnoraOsPortoesDeQuest: a wall at 355 because an Arch never did its
+// quest says nothing about the difficulty setting, and would make all six rungs
+// report the same dead end.
+func TestEscadaIgnoraOsPortoesDeQuest(t *testing.T) {
+	f := mesaForm{
+		Zona: int(level.ZonePesadeloNormal), Evolucao: int(level.TierMortal),
+		MobExp: 200_000, MobNivel: 350, Nivel: 1, Segundos: 6, KefraViva: true,
+		Quests: false, // o simulador está com as quests desmarcadas
+	}
+	for _, d := range escadaDeDificuldade(f, level.Config{}) {
+		if d.ArchMuro != 0 {
+			t.Fatalf("%s: o Arch travou no %d por causa da quest, não da dificuldade",
+				d.Nome, d.ArchMuro)
+		}
+	}
+}
+
+func TestEscadaSemMonstroNaoInventa(t *testing.T) {
+	if got := escadaDeDificuldade(mesaForm{Zona: 0, Evolucao: int(level.TierMortal)}, level.Config{}); got != nil {
+		t.Fatalf("sem monstro a escada devolveu %d linhas", len(got))
+	}
+}
+
+// TestEscadaMarcaODegrauEmUso is what keeps the table honest about the present:
+// the row already in force says so, and the others offer to be applied.
+func TestEscadaMarcaODegrauEmUso(t *testing.T) {
+	dif, _ := level.DifficultyByID("dificil")
+	cfg := level.Config{Overrides: map[level.ConfigKey]level.Override{
+		{Zone: level.ZonePesadeloNormal, Tier: level.TierMortal}: {RatePercent: dif.Percent},
+	}}
+	f := mesaForm{
+		Zona: int(level.ZonePesadeloNormal), Evolucao: int(level.TierMortal),
+		MobExp: 200_000, MobNivel: 350, Nivel: 1, Segundos: 6, KefraViva: true,
+	}
+	var emUso int
+	for _, d := range escadaDeDificuldade(f, cfg) {
+		if d.Atual {
+			emUso++
+			if d.ID != "dificil" {
+				t.Errorf("marcou %q como em uso, a zona está em %q", d.ID, dif.ID)
+			}
+		}
+	}
+	if emUso != 1 {
+		t.Errorf("%d degraus marcados como em uso, quero 1", emUso)
+	}
+	if got := nomeDaTaxa(dif.Percent); got != dif.Name {
+		t.Errorf("nomeDaTaxa(%d) = %q, quero %q", dif.Percent, got, dif.Name)
+	}
+	if got := nomeDaTaxa(37); got != "37% (fora da escada)" {
+		t.Errorf("nomeDaTaxa(37) = %q — uma taxa fora da escada não pode ganhar nome", got)
+	}
+}
+
+// TestAplicarDificuldadeEscreveAsTresEvolucoes is "tudo em uma alteração só": one
+// click puts the whole zone on a rung.
+func TestAplicarDificuldadeEscreveAsTresEvolucoes(t *testing.T) {
+	mesa := newFakeMesa()
+	log := newFakeAudit()
+	h := newTestPanelMesa(t, roleAdmin, mesa, log)
+	post, token := signedInPost(t, h)
+
+	zona := int32(level.ZonePesadeloNormal)
+	if rec := post("/rates/xp/dificuldade", url.Values{
+		"csrf": {token}, "zona": {strconv.Itoa(int(zona))}, "dificuldade": {"dificil"},
+	}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
+	}
+	dif, _ := level.DifficultyByID("dificil")
+	for _, evo := range level.Tiers() {
+		regra, ok := mesa.regras[[2]int32{zona, int32(evo)}]
+		if !ok {
+			t.Fatalf("a evolução %s não foi gravada", level.TierName(evo))
+		}
+		if regra.RatePercent != dif.Percent {
+			t.Errorf("%s ficou em %d%%, quero %d%%", level.TierName(evo), regra.RatePercent, dif.Percent)
+		}
+	}
+	if n := len(log.recorded()); n != len(level.Tiers()) {
+		t.Errorf("%d entradas de auditoria, quero uma por evolução (%d)", n, len(level.Tiers()))
+	}
+}
+
+// TestAplicarDificuldadeNaoApagaOsCortes is the trap this handler had to avoid:
+// a preset is a multiplier OVER the tables, and writing nil cuts would silently
+// throw away a hand-edited table.
+func TestAplicarDificuldadeNaoApagaOsCortes(t *testing.T) {
+	mesa := newFakeMesa()
+	zona := int32(level.ZonePesadeloNormal)
+	meus := []domain.XPCut{{UpTo: 200, Divisor: 1.5}, {UpTo: level.CutOpenEnded, Divisor: 4}}
+	mesa.regras[[2]int32{zona, int32(level.TierMortal)}] = domain.XPRule{
+		Zone: zona, Tier: int32(level.TierMortal), RatePercent: 100, Cuts: meus,
+	}
+
+	h := newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit())
+	post, token := signedInPost(t, h)
+	if rec := post("/rates/xp/dificuldade", url.Values{
+		"csrf": {token}, "zona": {strconv.Itoa(int(zona))}, "dificuldade": {"brutal"},
+	}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
+	}
+
+	regra := mesa.regras[[2]int32{zona, int32(level.TierMortal)}]
+	if len(regra.Cuts) != len(meus) {
+		t.Fatalf("a tabela de cortes ficou com %d degraus, tinha %d", len(regra.Cuts), len(meus))
+	}
+	for i := range meus {
+		if regra.Cuts[i] != meus[i] {
+			t.Errorf("corte %d virou %+v, era %+v", i, regra.Cuts[i], meus[i])
+		}
+	}
+	// A row that had no cuts must stay without them, and not inherit anybody's.
+	if outra := mesa.regras[[2]int32{zona, int32(level.TierArch)}]; outra.Cuts != nil {
+		t.Errorf("a evolução Arch ganhou cortes que nunca teve: %+v", outra.Cuts)
+	}
+}
+
+func TestAplicarDificuldadeRecusaEntradaInvalida(t *testing.T) {
+	mesa := newFakeMesa()
+	h := newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit())
+	post, token := signedInPost(t, h)
+
+	for _, caso := range []url.Values{
+		{"csrf": {token}, "zona": {"99"}, "dificuldade": {"dificil"}},
+		{"csrf": {token}, "zona": {"0"}, "dificuldade": {"inventada"}},
+		{"csrf": {token}, "zona": {"abacaxi"}, "dificuldade": {"dificil"}},
+	} {
+		if rec := post("/rates/xp/dificuldade", caso); rec.Code != http.StatusBadRequest {
+			t.Errorf("zona=%s dificuldade=%s: status = %d, quero 400",
+				caso.Get("zona"), caso.Get("dificuldade"), rec.Code)
+		}
+	}
+	if len(mesa.regras) != 0 {
+		t.Fatalf("gravou %d regras apesar dos erros", len(mesa.regras))
+	}
+}
+
+func TestModeradorNaoAplicaDificuldade(t *testing.T) {
+	mesa := newFakeMesa()
+	h := newTestPanelMesa(t, roleModerator, mesa, newFakeAudit())
+	post, token := signedInPost(t, h)
+	if rec := post("/rates/xp/dificuldade", url.Values{
+		"csrf": {token}, "zona": {"0"}, "dificuldade": {"brutal"},
+	}); rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, quero 403", rec.Code)
+	}
+	if len(mesa.regras) != 0 {
+		t.Fatal("um moderador conseguiu mexer na dificuldade")
+	}
+}
