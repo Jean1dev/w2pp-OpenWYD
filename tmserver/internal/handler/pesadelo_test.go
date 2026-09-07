@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -272,17 +273,64 @@ func TestPesadeloSegmentsMatchRegions(t *testing.T) {
 		})
 	}
 
-	// inPesadelo (item.go) covers only M and A — the segments the legacy Gema
-	// Estelar carve-out lists. Pinning that here documents the asymmetry instead
-	// of leaving it to be rediscovered.
-	if !inPesadelo(1083, 308) {
-		t.Error("inPesadelo should cover the M segment")
+	// inPesadelo (item.go) must cover all three segments, N included. The legacy
+	// lists only M and A, and the gap is a way in: nothing stops a Gema Estelar
+	// inside N, and a Pergaminho de Portal then re-enters the instance past the
+	// window, the leader gate, the class ladder and the run cap.
+	for tier := range pesaTierTable {
+		tr := pesaTierTable[tier]
+		x, y := tr.segX*128+40, tr.segY*128+40
+		if !inPesadelo(x, y) {
+			t.Errorf("inPesadelo(%d,%d) = false for tier %s — o Portal volta para dentro dela",
+				x, y, tr.name)
+		}
 	}
-	if !inPesadelo(1204, 152) {
-		t.Error("inPesadelo should cover the A segment")
+	// And nowhere else: a blanket true would block the Portal everywhere.
+	if inPesadelo(2086, 2093) {
+		t.Error("inPesadelo cobre Armia; o Portal pararia de funcionar no mundo inteiro")
 	}
-	if inPesadelo(1304, 335) {
-		t.Error("inPesadelo covers the N segment; the legacy carve-out lists only M and A")
+}
+
+// TestUsePortalScrollBlockedFromPesadeloNormal is the hole itself, end to end.
+// The Arcano case is already covered in item_test.go; this is the Normal
+// segment, the one the legacy leaves open. Save a point inside it and the
+// Pergaminho de Portal walks back in whenever it likes — past the four-minute
+// window, the leader gate, the class ladder and the run cap.
+func TestUsePortalScrollBlockedFromPesadeloNormal(t *testing.T) {
+	const portal = 776
+	// (1304, 335) is the N arrival point, inside segment (10,2).
+	db := gemaEstelarDB(5, 5, 1304, 335, world.Item{Index: portal})
+	addr, stop := startServerClockVol(t, db, map[int]int{portal: volPortalScroll})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	useItemFrame(t, c, 0)
+	if ty, p, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeCantUseHere {
+		t.Fatalf("notice = %#x/%v ok=%v, want NoticeCantUseHere", ty, noticeCode(t, p), ok)
+	}
+	if got := le16(expect(t, c, protocol.MsgSendItem)[4:6]); got != portal {
+		t.Errorf("slot 0 = %d, want o pergaminho devolvido intacto (%d)", got, portal)
+	}
+}
+
+// TestPesadeloSegmentsMatchExpZones ties the dungeon to the EXP table that pays
+// inside it. They are two tables in two packages that have to agree on the same
+// six numbers: move a tier here and its kills silently start paying open-field
+// rates, which is exactly the bug the zone port existed to fix.
+func TestPesadeloSegmentsMatchExpZones(t *testing.T) {
+	want := map[int]level.Zone{
+		pesaN: level.ZonePesadeloNormal,
+		pesaM: level.ZonePesadeloMistico,
+		pesaA: level.ZonePesadeloArcano,
+	}
+	for tier, zone := range want {
+		tr := pesaTierTable[tier]
+		x, y := int32(tr.segX)*128+40, int32(tr.segY)*128+40
+		if got := level.ZoneForTile(x, y); got != zone {
+			t.Errorf("o segmento do Pesadelo %s cai na zona de XP %q, quero %q",
+				tr.name, got.Name(), zone.Name())
+		}
 	}
 }
 

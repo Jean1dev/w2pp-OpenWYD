@@ -893,12 +893,29 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
 }
 
-// inPesadelo reports whether (x,y) falls in the Pesadelo_A or Pesadelo_M
-// instanced-dungeon zones (Release/TMsrv/run/Regions.txt rows 5-6), the same
-// 128-unit segment test _MSG_UseItem.cpp reuses for the Vol 12/13/174/175
-// tickets (Gema Estelar, Portal, and the two Pesadelo entry scrolls).
+// inPesadelo reports whether (x,y) falls in any of the three Pesadelo instance
+// segments. It reads pesaTierTable rather than repeating the coordinates, so a
+// tier that moves takes its Gema Estelar and Portal rules with it.
+//
+// DELIBERATE DIVERGENCE: the legacy tests only (9,1) and (8,2) — Arcano and
+// Místico — in both the Gema Estelar carve-out (_MSG_UseItem.cpp:1365-1368) and
+// the Portal block (:1424). Pesadelo NORMAL, segment (10,2), is missing from
+// both, and the omission is a way in: the N segment is not inside any city
+// rectangle, so a Gema Estelar saves there unopposed, and a Pergaminho de
+// Portal then walks straight back into the instance — past the four-minute
+// window, past the party-leader gate, past the class ladder and past the run
+// cap. N is the Mortal tier, the busiest one. Covering all three closes it.
+//
+// The Gema Estelar side of this changes nothing in practice: saving inside N
+// was already allowed (no city there), and now it is allowed by the carve-out
+// instead of by omission. The Portal side is the actual repair.
 func inPesadelo(x, y int16) bool {
-	return (x/128 == 9 && y/128 == 1) || (x/128 == 8 && y/128 == 2)
+	for tier := range pesaTierTable {
+		if pesaTierTable[tier].segment(x, y) {
+			return true
+		}
+	}
+	return false
 }
 
 // useRecallScroll consumes a Pergaminho do Retorno (EF_VOLATILE 11): the legacy
