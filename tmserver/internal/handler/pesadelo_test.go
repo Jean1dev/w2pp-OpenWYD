@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -383,8 +384,31 @@ func TestUsePesadeloScrollRefusedOutsideWindow(t *testing.T) {
 	if got := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); got != NoticePesadeloClosed {
 		t.Errorf("notice = %v, want NoticePesadeloClosed", got)
 	}
+	// The notice this rides on is the legacy's own text, "Pesadelo disponível
+	// entre 18h e 24h." — an hour-of-day rule this server does not have. At
+	// :10:00 the N door reopens at :20, so the line beside it has to say ten
+	// minutes, which is the only part a player can act on.
+	if got, want := decodePanel(expect(t, c, protocol.MsgMessagePanel)),
+		"Pesadelo N fechado. Abre em 10m00s. A janela dura 4 min e volta a cada 20."; got != want {
+		t.Errorf("panel = %q, want %q", got, want)
+	}
 	if got := le16(expect(t, c, protocol.MsgSendItem)[4:6]); got != itemPesadeloGrupoN {
 		t.Errorf("slot = %d, want the scroll returned uneaten", got)
+	}
+}
+
+// TestPesadeloClosedLineFitsThePanel guards the one way this line can fail in
+// production and nowhere else: MSG_MessagePanel truncates at 94 bytes, and the
+// tier name plus a two-digit countdown is the longest it gets.
+func TestPesadeloClosedLineFitsThePanel(t *testing.T) {
+	for tier := range pesaTierTable {
+		linha := fmt.Sprintf(
+			"Pesadelo %s fechado. Abre em %dm%02ds. A janela dura %d min e volta a cada %d.",
+			pesaTierTable[tier].name, 19, 59, pesaWindowMinutes, pesaWindowStride)
+		if n := len(protocol.ClientText(linha)); n > 94 {
+			t.Errorf("a linha do tier %s ocupa %d bytes, e o painel corta em 94: %q",
+				pesaTierTable[tier].name, n, linha)
+		}
 	}
 }
 
