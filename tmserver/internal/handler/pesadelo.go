@@ -479,16 +479,27 @@ func (d *Dispatcher) showNightmareTickets(w *world.World, s *world.Session) {
 // that into a timer. Since the schedule is server-side knowledge and the three
 // tiers stagger, this reports the useful thing directly: what is open now and
 // how long until the rest.
+//
+// Both lines name the state before the number. "abre em 5m32s" on its own reads
+// as a countdown, and the client's own timer widget sits at 0:0 whenever nothing
+// is running — put those two together and a closed door looks like a bug: the
+// counter is at zero, so surely it should be open. Saying FECHADO first removes
+// the reading.
+//
+// The open line says "para entrar" and not "restantes" for the same reason. That
+// number is what is left of the ENTRY window, not how long a run lasts: whoever
+// gets in stays until the wipe, one minute before this tier's next opening, which
+// is fifteen to nineteen minutes later.
 func (d *Dispatcher) showNightmareTime(w *world.World, s *world.Session) {
 	now := d.now()
 	for tier := range pesaTierTable {
 		t := pesaTierTable[tier]
 		if left, open := t.window(now); open {
-			sendClientMessage(w, s, fmt.Sprintf("Pesadelo %s: ABERTO, %ds restantes", t.name, left))
+			sendClientMessage(w, s, fmt.Sprintf("Pesadelo %s: ABERTO, %ds para entrar", t.name, left))
 			continue
 		}
 		wait := t.nextWindow(now)
-		sendClientMessage(w, s, fmt.Sprintf("Pesadelo %s: abre em %dm%02ds",
+		sendClientMessage(w, s, fmt.Sprintf("Pesadelo %s: FECHADO, abre em %dm%02ds",
 			t.name, int(wait.Minutes()), int(wait.Seconds())%60))
 	}
 }

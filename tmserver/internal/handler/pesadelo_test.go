@@ -807,3 +807,50 @@ func TestUsePesadeloScrollRefusedAboveLevelCap(t *testing.T) {
 		t.Errorf("slot = %d, want the scroll returned uneaten", got)
 	}
 }
+
+// TestNigDizOEstadoAntesDoNumero pins the wording of /nig, which is the whole
+// point of the line existing.
+//
+// "abre em 5m32s" read alone is a countdown, and the client's own timer widget
+// sits at 0:0 whenever nothing is running. Put together, a closed door looks
+// broken: the counter is at zero, so surely it should be open. The state has to
+// come first, and the open line has to say the number is time to ENTER — it is
+// what remains of the entry window, not how long a run lasts.
+func TestNigDizOEstadoAntesDoNumero(t *testing.T) {
+	// :14:28 — the exact clock from a player's report, where /nig read
+	// "N 5m32s / M 10m32s / A 15m32s" and the three doors were shut.
+	db := pesadeloDB(stageNX, stageNY, classMasterMortal, itemPesadeloGrupoN)
+	addr, stop := startPesadeloServer(t, db,
+		map[int]int{itemPesadeloGrupoN: volPesadeloN}, at(14, 28))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	whisperFrame(t, c, "nig", "")
+	want := []string{
+		"Pesadelo N: FECHADO, abre em 5m32s",
+		"Pesadelo M: FECHADO, abre em 10m32s",
+		"Pesadelo A: FECHADO, abre em 15m32s",
+	}
+	for _, quero := range want {
+		if got := decodePanel(expect(t, c, protocol.MsgMessagePanel)); got != quero {
+			t.Errorf("linha = %q, quero %q", got, quero)
+		}
+	}
+}
+
+// And an open tier reports what is left of the ENTRY window, said as such.
+func TestNigDizQuantoFaltaParaEntrar(t *testing.T) {
+	db := pesadeloDB(stageNX, stageNY, classMasterMortal, itemPesadeloGrupoN)
+	addr, stop := startPesadeloServer(t, db,
+		map[int]int{itemPesadeloGrupoN: volPesadeloN}, at(20, 30))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	whisperFrame(t, c, "nig", "")
+	if got, quero := decodePanel(expect(t, c, protocol.MsgMessagePanel)),
+		"Pesadelo N: ABERTO, 210s para entrar"; got != quero {
+		t.Errorf("linha = %q, quero %q", got, quero)
+	}
+}
