@@ -18,7 +18,43 @@ const (
 	ZoneAguaArcano                  // MobKilled.cpp:851  — bloco (10,27)
 	ZoneAguaMistico                 // MobKilled.cpp:1001 — bloco (9,28)
 	ZoneAguaNormal                  // MobKilled.cpp:1150 — bloco (8,27)
+
+	// The Deserto belt. NOT legacy branches — the legacy pays open-field rates
+	// across the whole desert, and these start out doing exactly the same
+	// (deserto* below reuse the field's own tables), so adding them changes no
+	// reward until somebody edits one. They exist because the desert is the
+	// busiest levelling ground in the content tree — 412 generator blocks — and
+	// the field table is the one lever that also moves everywhere else.
+	//
+	// They are matched by RECTANGLE, not by 128-tile block, which is why they
+	// could not simply be added to the switch above: Pilar, Manticora, Lugefer
+	// and Baixo all share block (10,13), so a block rule cannot tell them apart.
+	ZoneDesertoPilar
+	ZoneDesertoManticora
+	ZoneDesertoLugefer
+	ZoneDesertoBaixo
+	ZoneDesertoReino
 )
+
+// zoneRect is one named rectangle on the global grid, for zones the legacy
+// chose by block and we choose more finely.
+type zoneRect struct {
+	x1, y1, x2, y2 int32
+	zone           Zone
+}
+
+// zoneRects are consulted only after every legacy block rule has missed, so no
+// legacy branch can be stolen by one of them. Coordinates are the
+// Release/TMsrv/run/Regions.txt rows of the same name, transcribed rather than
+// read at runtime: internal/level does no I/O, and a reward table that changed
+// with the contents of a file on disk would be untestable.
+var zoneRects = []zoneRect{
+	{1137, 1669, 1282, 1786, ZoneDesertoPilar},
+	{1282, 1664, 1396, 1785, ZoneDesertoManticora},
+	{1283, 1788, 1397, 1910, ZoneDesertoLugefer},
+	{1397, 1671, 1521, 1785, ZoneDesertoBaixo},
+	{1522, 1675, 1669, 1787, ZoneDesertoReino},
+}
 
 // Name is the zone's name in the language the panel and the design docs use.
 func (z Zone) Name() string { return z.rule().name }
@@ -44,9 +80,15 @@ func ZoneForTile(x, y int32) Zone {
 		return ZoneAguaMistico
 	case bx == 8 && by == 27:
 		return ZoneAguaNormal
-	default:
-		return ZoneField
 	}
+	// Only after every legacy block has missed. These are ours, not the
+	// legacy's, and they must never shadow a branch MobKilled.cpp defines.
+	for _, r := range zoneRects {
+		if x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2 {
+			return r.zone
+		}
+	}
+	return ZoneField
 }
 
 type divKind uint8
@@ -167,30 +209,7 @@ var pesadeloArchBands = []expBand{
 // was read from, and expzone_test.go re-reads those lines out of the legacy
 // source, so an edit here that drifts from the legacy fails the test run.
 var zoneRules = [...]expRule{
-	ZoneField: {
-		name: "Campo", line: 1272,
-		capToEMob: true, fairyContent: true,
-		mortal: []expBand{ // :1289
-			{upTo: 200, kind: divNone},
-			{upTo: 300, div: 1.07, kind: divF32},
-			{upTo: 356, div: 1.25, kind: divF32},
-			{upTo: 370, div: 1.70, kind: divF64},
-			{upTo: 380, div: 2.10, kind: divF32},
-			{upTo: 390, div: 2.60, kind: divF64},
-			{upTo: 399, div: 4, kind: divInt},
-		},
-		arch: []expBand{ // :1313
-			{upTo: 200, kind: divNone},
-			{upTo: 300, div: 0.85, kind: divF32},
-			{upTo: 356, div: 0.90, kind: divF32},
-			{upTo: 360, div: 4.50, kind: divF32},
-			{upTo: 370, div: 5.90, kind: divF32},
-			{upTo: 380, div: 11, kind: divInt},
-			{upTo: 390, div: 17, kind: divInt},
-			{upTo: 400, div: 35, kind: divInt},
-		},
-		celestial: celestialBands,
-	},
+	ZoneField: campoRule(),
 
 	ZonePesadeloArcano: {
 		name: "Pesadelo Arcano", line: 443,
@@ -298,6 +317,62 @@ var zoneRules = [...]expRule{
 		// No Arch table (:1188): Arch keeps the undivided reward here.
 		celestial: celestialBands,
 	},
+
+	// The Deserto belt. Every one of these is the field's own branch with a
+	// different name — same flags, same three tables — because the legacy pays
+	// field rates across the whole desert and this must keep doing that until a
+	// moderator changes one. Splitting them apart is the point: the desert is
+	// where people level, and until now the only way to tune it was the field
+	// table, which also moves every other open-world mob in the game.
+	ZoneDesertoPilar:     desertoRule("Deserto Pilar"),
+	ZoneDesertoManticora: desertoRule("Deserto Manticora"),
+	ZoneDesertoLugefer:   desertoRule("Deserto Lugefer (Tauron)"),
+	ZoneDesertoBaixo:     desertoRule("Deserto Baixo"),
+	ZoneDesertoReino:     desertoRule("Deserto Reino"),
+}
+
+// desertoRule copies the field branch under a new name.
+//
+// A copy rather than a reference to zoneRules[ZoneField], because that entry is
+// still being built when this runs — Go initializes the composite literal as a
+// whole — and reading it here would take a zero value. The bands are shared
+// slices, which is safe: nothing mutates them, and a moderator's edit replaces
+// the table through Config.Overrides instead of writing into these.
+func desertoRule(name string) expRule {
+	f := campoRule()
+	f.name = name
+	return f
+}
+
+// campoRule is the field branch's own definition, kept as a function so both
+// ZoneField and the Deserto zones read from one source. If MobKilled.cpp's
+// field branch is ever corrected, the desert follows automatically rather than
+// drifting into a stale copy.
+func campoRule() expRule {
+	return expRule{
+		name: "Campo", line: 1272,
+		capToEMob: true, fairyContent: true,
+		mortal: []expBand{ // :1289
+			{upTo: 200, kind: divNone},
+			{upTo: 300, div: 1.07, kind: divF32},
+			{upTo: 356, div: 1.25, kind: divF32},
+			{upTo: 370, div: 1.70, kind: divF64},
+			{upTo: 380, div: 2.10, kind: divF32},
+			{upTo: 390, div: 2.60, kind: divF64},
+			{upTo: 399, div: 4, kind: divInt},
+		},
+		arch: []expBand{ // :1313
+			{upTo: 200, kind: divNone},
+			{upTo: 300, div: 0.85, kind: divF32},
+			{upTo: 356, div: 0.90, kind: divF32},
+			{upTo: 360, div: 4.50, kind: divF32},
+			{upTo: 370, div: 5.90, kind: divF32},
+			{upTo: 380, div: 11, kind: divInt},
+			{upTo: 390, div: 17, kind: divInt},
+			{upTo: 400, div: 35, kind: divInt},
+		},
+		celestial: celestialBands,
+	}
 }
 
 // rule returns the branch for a zone, falling back to the field for an

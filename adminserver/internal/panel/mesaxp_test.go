@@ -809,3 +809,50 @@ func TestMonstroInexistenteAvisaEmVezDeZerar(t *testing.T) {
 		t.Error("escondeu a XP de um monstro que não foi encontrado")
 	}
 }
+
+// The desert is five rectangles of one continuous farming ground; balancing it
+// a rectangle at a time is how the five drift apart.
+func TestGrupoDesertoAtingeOsCincoPedacos(t *testing.T) {
+	mesa := newFakeMesa()
+	post, token := signedInPost(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()))
+
+	rec := post("/rates/xp", url.Values{
+		"csrf": {token}, "zona": {strconv.Itoa(int(level.ZoneDesertoLugefer))}, "evolucao": {"2"},
+		"taxa": {"250"}, "grupo_deserto": {"1"},
+		"corte_nivel": {"acima"}, "corte_divisor": {"4"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
+	}
+	for _, z := range []level.Zone{
+		level.ZoneDesertoPilar, level.ZoneDesertoManticora, level.ZoneDesertoLugefer,
+		level.ZoneDesertoBaixo, level.ZoneDesertoReino,
+	} {
+		if got := mesa.regras[[2]int32{int32(z), 2}].RatePercent; got != 250 {
+			t.Errorf("%s ficou com taxa %d, quero 250", z.Name(), got)
+		}
+	}
+	// The open field is NOT part of the desert, and sweeping it in would change
+	// the pay of every open-world mob in the game.
+	if _, existe := mesa.regras[[2]int32{int32(level.ZoneField), 2}]; existe {
+		t.Error("o grupo do deserto gravou também o Campo — isso mexeria no mundo todo")
+	}
+}
+
+// The desert zones have to reach the page, or they exist only in the engine.
+func TestPaginaListaAsZonasDoDeserto(t *testing.T) {
+	corpo := abrirMesa(t, newTestPanelMesa(t, roleAdmin, newFakeMesa(), newFakeAudit()), "").Body.String()
+	for _, n := range []string{
+		"Deserto Pilar", "Deserto Manticora", "Deserto Lugefer (Tauron)",
+		"Deserto Baixo", "Deserto Reino", "Todo o Deserto",
+	} {
+		if !strings.Contains(corpo, n) {
+			t.Errorf("a página não lista %q", n)
+		}
+	}
+	// And the page must say the desert starts identical to the field, otherwise
+	// somebody reads five new tabs as five new rates already in effect.
+	if !strings.Contains(corpo, "começam idênticas às do campo") {
+		t.Error("faltou dizer que as tabelas do deserto começam iguais às do campo")
+	}
+}

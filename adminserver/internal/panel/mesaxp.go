@@ -540,6 +540,11 @@ var gruposDeZona = []struct {
 		level.ZonePesadeloArcano, level.ZonePesadeloMistico, level.ZonePesadeloNormal}},
 	{"agua", "Todas as Águas", []level.Zone{
 		level.ZoneAguaArcano, level.ZoneAguaMistico, level.ZoneAguaNormal}},
+	// The desert belt is five rectangles of one continuous farming ground, and
+	// balancing it a rectangle at a time is how the five drift apart.
+	{"deserto", "Todo o Deserto", []level.Zone{
+		level.ZoneDesertoPilar, level.ZoneDesertoManticora, level.ZoneDesertoLugefer,
+		level.ZoneDesertoBaixo, level.ZoneDesertoReino}},
 }
 
 // zonasDoForm is every zone this save must be written to: the one being edited,
