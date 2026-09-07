@@ -1,16 +1,15 @@
 package panel
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
-	"io"
-	"log/slog"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/gamedata"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/jogo"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/session"
