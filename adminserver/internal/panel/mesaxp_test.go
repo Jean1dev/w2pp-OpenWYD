@@ -2,6 +2,7 @@ package panel
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -27,10 +28,14 @@ type fakeMesa struct {
 	lerErr  error
 	gravErr error
 	ator    []int64
+	// falharApos faz a N-ésima gravação em diante estourar, para exercitar o
+	// meio-caminho de um save em grupo. -1 (o padrão) nunca falha.
+	falharApos int
+	gravacoes  int
 }
 
 func newFakeMesa() *fakeMesa {
-	return &fakeMesa{regras: map[[2]int32]domain.XPRule{}}
+	return &fakeMesa{regras: map[[2]int32]domain.XPRule{}, falharApos: -1}
 }
 
 func (f *fakeMesa) XPConfig(context.Context) (domain.XPConfig, error) {
@@ -52,6 +57,12 @@ func (f *fakeMesa) UpsertXPRule(_ context.Context, r domain.XPRule, ator int64) 
 	if f.gravErr != nil {
 		return domain.XPRule{}, f.gravErr
 	}
+	// Reproduz o que o Postgres fez em produção: a gravação de uma zona estoura
+	// no meio de um save em grupo, com as anteriores já commitadas.
+	if f.falharApos >= 0 && f.gravacoes >= f.falharApos {
+		return domain.XPRule{}, errors.New("fake: gravação recusada")
+	}
+	f.gravacoes++
 	antes, existia := f.regras[[2]int32{r.Zone, r.Tier}]
 	if !existia {
 		// What store.fetchXPRule returns for a branch with no override: the
@@ -1039,5 +1050,47 @@ func TestModeradorNaoAplicaDificuldade(t *testing.T) {
 	}
 	if len(mesa.regras) != 0 {
 		t.Fatal("um moderador conseguiu mexer na dificuldade")
+	}
+}
+
+// A group save that dies halfway has to name what already landed. The first
+// zone on the list is usually the one being edited, so a failure can leave the
+// open field carrying a rate meant for a dungeon — and "as anteriores já foram
+// gravadas" leaves somebody guessing which.
+func TestGravacaoParcialNomeiaOQueJaEntrou(t *testing.T) {
+	mesa := newFakeMesa()
+	mesa.falharApos = 1 // a primeira zona grava, a segunda estoura
+	post, token := signedInPost(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()))
+
+	rec := post("/rates/xp", url.Values{
+		"csrf": {token}, "zona": {strconv.Itoa(int(level.ZoneField))}, "evolucao": {"2"},
+		"taxa": {"900"}, "grupo_deserto": {"1"},
+		"corte_nivel": {"acima"}, "corte_divisor": {"4"},
+	})
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	corpo := rec.Body.String()
+	if !strings.Contains(corpo, "Campo") {
+		t.Errorf("o erro não diz que o Campo já foi gravado: %q", corpo)
+	}
+	if !strings.Contains(corpo, "continuam valendo") {
+		t.Errorf("o erro não avisa que o que entrou continua valendo: %q", corpo)
+	}
+}
+
+// And when nothing landed, it must say so — senão manda conferir zonas que
+// ninguém tocou.
+func TestFalhaNaPrimeiraZonaDizQueNadaEntrou(t *testing.T) {
+	mesa := newFakeMesa()
+	mesa.falharApos = 0
+	post, token := signedInPost(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()))
+
+	rec := post("/rates/xp", url.Values{
+		"csrf": {token}, "zona": {"0"}, "evolucao": {"2"}, "taxa": {"900"},
+		"corte_nivel": {"acima"}, "corte_divisor": {"4"},
+	})
+	if corpo := rec.Body.String(); !strings.Contains(corpo, "Nada foi gravado") {
+		t.Errorf("erro na primeira zona devia dizer que nada entrou: %q", corpo)
 	}
 }

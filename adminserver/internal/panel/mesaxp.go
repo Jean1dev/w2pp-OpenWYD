@@ -302,19 +302,28 @@ func (h *Handler) setMesaXP(w http.ResponseWriter, r *http.Request) {
 	// a grouped entry would make "put Água Místico back the way it was" a
 	// question the log cannot answer.
 	alvos := zonasDoForm(r, zona)
+	gravadas := make([]string, 0, len(alvos))
 	for _, z := range alvos {
 		regra := domain.XPRule{Zone: z, Tier: evo, RatePercent: int32(taxa), Cuts: cortes}
 		antes, err := h.cfg.MesaXP.UpsertXPRule(r.Context(), regra, sess.AccountID)
 		if err != nil {
 			h.cfg.Logger.Error("mesa de XP save failed", "zona", z, "evolucao", evo, "err", err)
-			// Partial application is reported, not hidden: some zones may already
-			// be written, and saying "erro" flat would send somebody redoing work
-			// that landed.
-			http.Error(w, fmt.Sprintf(
-				"Erro ao gravar a zona %s. As zonas anteriores da lista já foram gravadas.",
-				level.Zone(z).Name()), http.StatusInternalServerError)
+			// Partial application is named, not just admitted. Somebody reading
+			// "as anteriores já foram gravadas" still has to guess WHICH, and the
+			// first one on the list is usually the zone they were editing — so a
+			// group save that dies halfway can leave the open field carrying the
+			// rate meant for a dungeon, with nothing on screen saying so.
+			msg := fmt.Sprintf("Erro ao gravar a zona %s.", level.Zone(z).Name())
+			if len(gravadas) > 0 {
+				msg += fmt.Sprintf(" ATENÇÃO: estas já foram gravadas e continuam valendo: %s."+
+					" Confira cada uma antes de tentar de novo.", strings.Join(gravadas, ", "))
+			} else {
+				msg += " Nada foi gravado."
+			}
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
+		gravadas = append(gravadas, level.Zone(z).Name())
 		if err := h.cfg.Audit.Write(r.Context(), audit.Record{
 			ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
 			Action: audit.ActionSetXPRule,
