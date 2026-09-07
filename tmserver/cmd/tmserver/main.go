@@ -43,6 +43,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/mountrate"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/npccfg"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/route"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
@@ -453,6 +454,47 @@ func run(logger *slog.Logger) error {
 		}
 	}
 
+	// Drop-bonus ladders (0037_drop_bonus): the panel's rows over the legacy
+	// table. Read here, at boot, for the same reason as the quest payouts — it is
+	// balance, not operations, and two players killing the same mob minutes apart
+	// must not get items from different generations.
+	//
+	// It starts as the legacy ladder, so a database with no rows (or no dbServer
+	// at all) rolls exactly what the original did. A failed read is logged and
+	// does NOT stop the boot: refusing to start over an unreachable balance
+	// override would turn a tuning edit into an outage.
+	dropBonus := refine.TabelasPadrao()
+	if dbConn != nil {
+		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cfg, ferr := dbclient.NewDropBonusSource(dbConn).Fetch(fetchCtx)
+		cancel()
+		switch {
+		case ferr != nil:
+			logger.Error("drop bonus ladders unreadable; using the legacy table", "err", ferr)
+		default:
+			dropBonus.Ligado = cfg.Ligado
+			applied := 0
+			for _, f := range cfg.Faixas {
+				if dropBonus.Aplica(f) {
+					applied++
+					continue
+				}
+				// A band this build does not know is skipped rather than folded
+				// into a neighbour: a newer panel may have written it, and
+				// guessing would roll the wrong ladder for every drop in it.
+				logger.Warn("drop bonus band for an unknown distance ignored", "distancia", f.Distancia)
+			}
+			logger.Info("drop bonus ladders loaded",
+				"version", cfg.Version, "ligado", cfg.Ligado, "faixas", applied)
+			if !cfg.Ligado {
+				// Said out loud because the symptom — every dropped item coming
+				// out with empty effects — is exactly the bug this system was
+				// built to fix, and somebody will hunt it for an hour otherwise.
+				logger.Warn("drop bonus roll is OFF; dropped items keep the mob's own effects")
+			}
+		}
+	}
+
 	// Seed the world-event RNG from the wall clock so the weather sequence differs
 	// between boots (handler.worldEventRNGSeed explains why the fixed seed is only
 	// for tests). Zero means "use the fixed seed", so keep it out of range.
@@ -471,6 +513,7 @@ func run(logger *slog.Logger) error {
 		CombineCatalog:  odinCatalog,
 		CompRate:        compRate,
 		QuestRates:      questRates,
+		DropBonus:       &dropBonus,
 		Language:        language,
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,

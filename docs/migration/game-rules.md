@@ -305,6 +305,11 @@ teto 9). Em seguida, treze índices de material (412/413/419/420/753, 447-450, 6
 Nenhuma das três muda a **contagem** de chamadas de `rand()`, então a paridade de sequência
 se mantém.
 
+**Configurável desde 0037_drop_bonus:** as duas escadas (a magnitude e as faixas do refino) saem do
+banco, uma linha por distância de nível, lidas no boot como a Mesa de XP. O painel edita em
+`/rates/bonus-drop`, e o mesmo lugar tem o interruptor que devolve o servidor ao comportamento sem
+sorteio. Qual efeito cada peça recebe NÃO é editável: é conteúdo, e mexer nele mudaria o que o jogo é.
+
 **Ainda não modelado:** `pMob[conn].DropBonus` do matador (fada azul +32, fada vermelha +16, item
 Grade 5 +8, gema +8) chega como 0, igual ao placeholder que a taxa de drop já usa. Ele só alarga as
 chances do sorteio 1.

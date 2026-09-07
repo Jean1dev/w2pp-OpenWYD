@@ -3,6 +3,7 @@ package refine
 import (
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/itemeffect"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -140,7 +141,7 @@ func TestDropEscreveOsTresEspacos(t *testing.T) {
 			it.Effects[0] = c.marca
 			d := &dado{valores: c.valores}
 
-			Drop(&it, c.base, c.nivel, 0, false, d.roll)
+			TabelasPadrao().Drop(&it, c.base, c.nivel, 0, false, d.roll)
 
 			if it.Effects != c.quer {
 				t.Errorf("efeitos = %v, queria %v", it.Effects, c.quer)
@@ -176,7 +177,7 @@ func TestRefinoBateAsFaixas(t *testing.T) {
 				// The first four draws are fixed; only the fifth (the refine)
 				// varies, and anything the branch draws after it reads 0.
 				d := &dado{valores: []int{0, 0, 0, 0, sorte}}
-				Drop(&it, Base{Pos: posArmadura, ReqLvl: 100}, c.nivel, 0, false, d.roll)
+				TabelasPadrao().Drop(&it, Base{Pos: posArmadura, ReqLvl: 100}, c.nivel, 0, false, d.roll)
 
 				e := it.Effects[0]
 				switch {
@@ -214,7 +215,7 @@ func TestBonusEspecialNuncaLeFora(t *testing.T) {
 			// sets: 75..89 at distance 0 and 1, 85..99 at distance 2 and 3. Only
 			// 85..89 satisfies both. Draw 6 picks the type, draw 7 the value.
 			d := &dado{valores: []int{0, 0, 0, 0, 86, tipo, 0}}
-			Drop(&it, Base{Pos: posArmadura, ReqLvl: 100}, nivel, 0, false, d.roll)
+			TabelasPadrao().Drop(&it, Base{Pos: posArmadura, ReqLvl: 100}, nivel, 0, false, d.roll)
 
 			e := it.Effects[0]
 			if e.Effect != bonusTipo[tipo] {
@@ -241,7 +242,7 @@ func TestEscadaSomaCem(t *testing.T) {
 	for dist := range 4 {
 		visto := map[int]int{}
 		for sorte := range 100 {
-			visto[escada(dist, sorte)]++
+			visto[TabelasPadrao().escada(dist, sorte)]++
 		}
 		total := 0
 		for _, n := range visto {
@@ -270,7 +271,7 @@ func TestSegundoBonusUsaOProprioDado(t *testing.T) {
 	rodada := func(magnitude2 int) world.Effect {
 		it := world.Item{}
 		d := &dado{valores: []int{0, 3, 0, magnitude2, 50}}
-		Drop(&it, Base{Pos: posLuva, ReqLvl: 100}, 100, 0, false, d.roll)
+		TabelasPadrao().Drop(&it, Base{Pos: posLuva, ReqLvl: 100}, 100, 0, false, d.roll)
 		return it.Effects[2]
 	}
 
@@ -286,5 +287,66 @@ func TestSegundoBonusUsaOProprioDado(t *testing.T) {
 	}
 	if alto == baixo {
 		t.Error("o segundo bonus nao mudou com o proprio dado — defeito 1 voltou")
+	}
+}
+
+// TestTabelasDesligadasNaoTocamOItem is the one-click undo: with the roll off a
+// dropped item must come out exactly as the mob handed it over, which is how
+// this server behaved before the roll existed.
+func TestTabelasDesligadasNaoTocamOItem(t *testing.T) {
+	it := world.Item{Index: 419} // um material, que normalmente ganharia assinatura
+	d := &dado{valores: []int{1, 2, 3, 4, 5, 6}}
+
+	tab := TabelasPadrao()
+	tab.Ligado = false
+	tab.Drop(&it, Base{Pos: posArmadura, ReqLvl: 100, Indice: 419}, 400, 0, false, d.roll)
+
+	if it.Effects != ([3]world.Effect{}) {
+		t.Errorf("efeitos = %v, queria tudo vazio", it.Effects)
+	}
+	if d.usados != 0 {
+		t.Errorf("gastou %d dados com o sorteio desligado", d.usados)
+	}
+}
+
+// TestTabelaEditadaMudaOSorteio proves the panel's numbers actually reach the
+// roll — the whole point of making them configurable.
+func TestTabelaEditadaMudaOSorteio(t *testing.T) {
+	tab := TabelasPadrao()
+	// Refino +2 em 60% em vez de 6%, e a escada da magnitude toda no degrau 3.
+	tab.Aplica(domain.DropBonusBand{
+		Distancia: 0,
+		Limite:    [4]int32{100, 100, 100, 100},
+		Degrau:    [5]int32{3, 3, 3, 3, 3},
+		Refino:    [4]int32{60, 70, 80, 90},
+	})
+
+	it := world.Item{}
+	// Sorteio do refino em 50: com o legado (limite 6) sairia +1; com esta
+	// tabela sai +2.
+	d := &dado{valores: []int{0, 0, 99, 99, 50}}
+	tab.Drop(&it, Base{Pos: posArmadura, ReqLvl: 100}, 100, 0, false, d.roll)
+
+	if it.Effects[0] != (world.Effect{Effect: efSanc, Value: 2}) {
+		t.Errorf("refino = %v, queria +2 pela tabela editada", it.Effects[0])
+	}
+	// Degrau 3 vezes o multiplicador 10 da armadura, mais o degrau +1 da peça.
+	if it.Effects[1] != (world.Effect{Effect: 71, Value: 40}) {
+		t.Errorf("primeiro bonus = %v, queria {71 40}", it.Effects[1])
+	}
+}
+
+// TestAplicaRecusaFaixaDesconhecida: a newer panel may write a band this build
+// has no ladder for, and folding it into a neighbour would roll the wrong table
+// for every drop in it.
+func TestAplicaRecusaFaixaDesconhecida(t *testing.T) {
+	tab := TabelasPadrao()
+	for _, d := range []int32{-1, 4, 99} {
+		if tab.Aplica(domain.DropBonusBand{Distancia: d}) {
+			t.Errorf("aceitou a faixa %d", d)
+		}
+	}
+	if tab.Faixa != domain.DropBonusDefaults {
+		t.Error("uma faixa recusada mexeu na tabela mesmo assim")
 	}
 }

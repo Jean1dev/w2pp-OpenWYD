@@ -1,6 +1,7 @@
 package refine
 
 import (
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/itemeffect"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -88,6 +89,39 @@ var bonusFaixa = [10][2][2]int{
 	{{4, 12}, {4, 12}},
 }
 
+// Tabelas are the roll's two tunable ladders, one row per level-distance band,
+// plus the switch that turns the whole thing off (0037_drop_bonus).
+//
+// They are a value, not a package global, because the loop owns them: the boot
+// hands the dispatcher one copy and every drop rolls against that same copy for
+// the life of the process. Re-reading mid-run would let two players kill the
+// same mob minutes apart and get items from different generations, with nothing
+// on screen to explain it.
+type Tabelas struct {
+	// Ligado false makes Drop a no-op, so a dropped item comes out exactly as
+	// the mob's Carry entry — the way this server behaved before the roll
+	// existed. It is the one-click undo for a change this large.
+	Ligado bool
+	Faixa  [4]domain.DropBonusBand
+}
+
+// TabelasPadrao is the legacy ladder, with the roll on.
+func TabelasPadrao() Tabelas {
+	return Tabelas{Ligado: true, Faixa: domain.DropBonusDefaults}
+}
+
+// Aplica overwrites one band, reporting whether the distance is one this build
+// knows. A row for an unknown band is refused rather than folded into a
+// neighbour: a newer panel may have written it, and guessing would quietly roll
+// the wrong ladder.
+func (t *Tabelas) Aplica(b domain.DropBonusBand) bool {
+	if b.Distancia < 0 || int(b.Distancia) >= len(t.Faixa) {
+		return false
+	}
+	t.Faixa[b.Distancia] = b
+	return true
+}
+
 // Base is what the roll needs to know about the item from the catalog.
 type Base struct {
 	Unique  int                     // nUnique: the weapon class, for the arma branch
@@ -103,7 +137,10 @@ type Base struct {
 // (fairy, grade-5 equipment, gem), cristal the a3 flag the crystal path passes.
 // roll(n) must behave like rand()%n; the draw order below is the legacy's,
 // because a captured RNG sequence only reproduces if every draw happens.
-func Drop(dest *world.Item, base Base, nivel, dropBonus int, cristal bool, roll func(int) int) {
+func (t Tabelas) Drop(dest *world.Item, base Base, nivel, dropBonus int, cristal bool, roll func(int) int) {
+	if !t.Ligado {
+		return
+	}
 	adicional := dropBonus / 8
 	if adicional < 0 {
 		adicional = 0
@@ -146,7 +183,7 @@ func Drop(dest *world.Item, base Base, nivel, dropBonus int, cristal bool, roll 
 
 	nPos := base.Pos
 	if nPos&posGate != 0 && dest.Effects[0].Effect == 0 && nPos != posEscudo {
-		rolaBonus(dest, base, nPos, dist, adicional, marcaTeto, piso, cristal, roll)
+		t.rolaBonus(dest, base, nPos, dist, adicional, marcaTeto, piso, cristal, roll)
 	}
 
 	aplicaCatalogo(dest, base, roll)
@@ -154,7 +191,7 @@ func Drop(dest *world.Item, base Base, nivel, dropBonus int, cristal bool, roll 
 }
 
 // rolaBonus is the guarded block: the two bonus slots and then the refine slot.
-func rolaBonus(dest *world.Item, base Base, nPos, dist, adicional, marcaTeto int, piso, cristal bool, roll func(int) int) {
+func (t Tabelas) rolaBonus(dest *world.Item, base Base, nPos, dist, adicional, marcaTeto int, piso, cristal bool, roll func(int) int) {
 	// Draw 1 — which effect goes in slot 1. A smaller divisor is better odds,
 	// because the good outcomes are the low remainders.
 	div1 := 8 - adicional
@@ -186,7 +223,7 @@ func rolaBonus(dest *world.Item, base Base, nPos, dist, adicional, marcaTeto int
 	ef2, mult2, degrau2 := efeitoSlot2(nPos, base.Unique, sorte2%div2)
 
 	// Draw 3 — how big the first bonus is.
-	q1 := escada(dist, roll(100))
+	q1 := t.escada(dist, roll(100))
 	if piso && q1 < 4 {
 		q1 = 4
 	}
@@ -216,7 +253,7 @@ func rolaBonus(dest *world.Item, base Base, nPos, dist, adicional, marcaTeto int
 	// into the item. The result was that 2% of same-level drops silently lost
 	// their second bonus. The ladder is otherwise a twin of the one above, so
 	// reading it with its own draw is both the fix and the simpler code.
-	q2 := escada(dist, roll(100))
+	q2 := t.escada(dist, roll(100))
 	if piso && q2 < 3 {
 		q2 = 3
 	}
@@ -238,13 +275,13 @@ func rolaBonus(dest *world.Item, base Base, nPos, dist, adicional, marcaTeto int
 		}
 	}
 
-	rolaRefino(dest, dist, marcaTeto, cristal, roll)
+	t.rolaRefino(dest, dist, marcaTeto, cristal, roll)
 }
 
 // rolaRefino is draw 5: slot 0 becomes a refine level, a special bonus, or
 // nothing. It is the valuable one — refine +2 is 6% of every drop, and no
 // unmarked item can come out above that.
-func rolaRefino(dest *world.Item, dist, marcaTeto int, cristal bool, roll func(int) int) {
+func (t Tabelas) rolaRefino(dest *world.Item, dist, marcaTeto int, cristal bool, roll func(int) int) {
 	if dest.Effects[0].Effect != 0 {
 		return
 	}
@@ -252,12 +289,14 @@ func rolaRefino(dest *world.Item, dist, marcaTeto int, cristal bool, roll func(i
 	if cristal {
 		sorte /= 2
 	}
-	// The legacy assigns defaults and then overwrites them for every value dist
-	// can hold, so only these two sets are ever used.
-	dois, um, zero, especial := 6, 22, 75, 90
-	if dist >= 2 {
-		dois, um, zero, especial = 6, 35, 85, 100
+	if dist < 0 {
+		dist = 0
 	}
+	if dist >= len(t.Faixa) {
+		dist = len(t.Faixa) - 1
+	}
+	r := t.Faixa[dist].Refino
+	dois, um, zero, especial := int(r[0]), int(r[1]), int(r[2]), int(r[3])
 
 	switch {
 	case sorte < dois:
@@ -338,66 +377,28 @@ func subirGrade(dest *world.Item, teto, sorte int) {
 	dest.Effects[0].Value = uint8(nivel)
 }
 
-// escada turns a 0..99 draw into a magnitude step, per level distance. The
-// value written to the item is this step times the effect's multiplier, so step
-// 0 means the item gets nothing.
+// escada turns a 0..99 draw into a magnitude step, reading the band's own
+// ladder. The value written to the item is this step times the effect's
+// multiplier, so step 0 means the item gets nothing.
 //
-// DEFEITO 3 DO ORIGINAL: both ladders carry a full table for dist >= 4 that can
-// never run, because dist is clamped to 3 before the switch. It is left out
-// rather than ported, so nobody reads it as live behaviour.
-func escada(dist, sorte int) int {
-	switch dist {
-	case 1:
-		switch {
-		case sorte < 1:
-			return 5
-		case sorte < 5:
-			return 4
-		case sorte < 24:
-			return 3
-		case sorte < 65:
-			return 2
-		default:
-			return 1
-		}
-	case 2:
-		switch {
-		case sorte < 2:
-			return 5
-		case sorte < 16:
-			return 4
-		case sorte < 60:
-			return 3
-		default:
-			return 2
-		}
-	case 3:
-		switch {
-		case sorte < 2:
-			return 6
-		case sorte < 9:
-			return 5
-		case sorte < 45:
-			return 4
-		case sorte < 75:
-			return 3
-		default:
-			return 2
-		}
-	default: // dist 0
-		switch {
-		case sorte < 2:
-			return 4
-		case sorte < 6:
-			return 3
-		case sorte < 24:
-			return 2
-		case sorte < 55:
-			return 1
-		default:
-			return 0
+// DEFEITO 3 DO ORIGINAL: both legacy ladders carry a full table for distance
+// >= 4 that can never run, because the distance is clamped to 3 before the
+// switch. It is left out rather than ported, so nobody reads it as live
+// behaviour — and the clamp below is what keeps a band index in range.
+func (t Tabelas) escada(dist, sorte int) int {
+	if dist < 0 {
+		dist = 0
+	}
+	if dist >= len(t.Faixa) {
+		dist = len(t.Faixa) - 1
+	}
+	f := t.Faixa[dist]
+	for i, limite := range f.Limite {
+		if sorte < int(limite) {
+			return int(f.Degrau[i])
 		}
 	}
+	return int(f.Degrau[len(f.Degrau)-1])
 }
 
 // efeitoSlot1 is the first switch(nPos): which effect the first bonus grants,

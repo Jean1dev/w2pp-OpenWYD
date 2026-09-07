@@ -2748,3 +2748,123 @@ var QuestRewardService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	DropBonusService_GetDropBonus_FullMethodName = "/db.v1.DropBonusService/GetDropBonus"
+)
+
+// DropBonusServiceClient is the client API for DropBonusService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DropBonusService serves the panel-managed drop-bonus ladders to tmServer.
+//
+// Read at BOOT, like QuestRewardService and for the same reason: it is a balance
+// number, not an operational switch. Two players killing the same mob minutes
+// apart must not get items from different generations, with nothing on screen to
+// explain the difference.
+type DropBonusServiceClient interface {
+	// GetDropBonus returns every edited band plus whether the roll runs at all.
+	// Bands absent from the reply keep the legacy ladder.
+	GetDropBonus(ctx context.Context, in *GetDropBonusRequest, opts ...grpc.CallOption) (*GetDropBonusResponse, error)
+}
+
+type dropBonusServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDropBonusServiceClient(cc grpc.ClientConnInterface) DropBonusServiceClient {
+	return &dropBonusServiceClient{cc}
+}
+
+func (c *dropBonusServiceClient) GetDropBonus(ctx context.Context, in *GetDropBonusRequest, opts ...grpc.CallOption) (*GetDropBonusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDropBonusResponse)
+	err := c.cc.Invoke(ctx, DropBonusService_GetDropBonus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DropBonusServiceServer is the server API for DropBonusService service.
+// All implementations must embed UnimplementedDropBonusServiceServer
+// for forward compatibility.
+//
+// DropBonusService serves the panel-managed drop-bonus ladders to tmServer.
+//
+// Read at BOOT, like QuestRewardService and for the same reason: it is a balance
+// number, not an operational switch. Two players killing the same mob minutes
+// apart must not get items from different generations, with nothing on screen to
+// explain the difference.
+type DropBonusServiceServer interface {
+	// GetDropBonus returns every edited band plus whether the roll runs at all.
+	// Bands absent from the reply keep the legacy ladder.
+	GetDropBonus(context.Context, *GetDropBonusRequest) (*GetDropBonusResponse, error)
+	mustEmbedUnimplementedDropBonusServiceServer()
+}
+
+// UnimplementedDropBonusServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDropBonusServiceServer struct{}
+
+func (UnimplementedDropBonusServiceServer) GetDropBonus(context.Context, *GetDropBonusRequest) (*GetDropBonusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDropBonus not implemented")
+}
+func (UnimplementedDropBonusServiceServer) mustEmbedUnimplementedDropBonusServiceServer() {}
+func (UnimplementedDropBonusServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeDropBonusServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DropBonusServiceServer will
+// result in compilation errors.
+type UnsafeDropBonusServiceServer interface {
+	mustEmbedUnimplementedDropBonusServiceServer()
+}
+
+func RegisterDropBonusServiceServer(s grpc.ServiceRegistrar, srv DropBonusServiceServer) {
+	// If the following call panics, it indicates UnimplementedDropBonusServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DropBonusService_ServiceDesc, srv)
+}
+
+func _DropBonusService_GetDropBonus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDropBonusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DropBonusServiceServer).GetDropBonus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DropBonusService_GetDropBonus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DropBonusServiceServer).GetDropBonus(ctx, req.(*GetDropBonusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DropBonusService_ServiceDesc is the grpc.ServiceDesc for DropBonusService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DropBonusService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.DropBonusService",
+	HandlerType: (*DropBonusServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetDropBonus",
+			Handler:    _DropBonusService_GetDropBonus_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

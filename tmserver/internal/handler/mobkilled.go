@@ -145,7 +145,7 @@ func (d *Dispatcher) rolarBonusDrop(w *world.World, it *world.Item, nivelMob int
 	// yet, so the bonus is 0 here for the same reason the drop rate above passes
 	// 0. It only widens the odds of the first bonus; every other table is
 	// unaffected.
-	refine.Drop(it, refine.Base{
+	d.dropBonus.Drop(it, refine.Base{
 		Unique:  d.itemUnique[idx],
 		ReqLvl:  int(d.itemReqs[idx].Lvl),
 		Pos:     d.itemPos[idx],

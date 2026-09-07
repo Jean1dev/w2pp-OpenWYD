@@ -24,39 +24,42 @@ import (
 // Action names. Kept as constants so a typo becomes a compile error rather than
 // a row nobody can filter for later.
 const (
-	ActionSetRole          = "SET_ROLE"
-	ActionSetBlocked       = "SET_BLOCKED"
-	ActionSetVip           = "SET_VIP"
-	ActionSetItemPrice     = "SET_ITEM_PRICE"
-	ActionRestartGame      = "RESTART_GAME"
-	ActionSetNpcShop       = "SET_NPC_SHOP"
-	ActionSetNpc           = "SET_NPC"
-	ActionDeleteNpc        = "DELETE_NPC"
-	ActionSetMobStat       = "SET_MOB_STAT"
-	ActionClearMobStat     = "CLEAR_MOB_STAT"
-	ActionSetItemStat      = "SET_ITEM_STAT"
-	ActionClearItemStat    = "CLEAR_ITEM_STAT"
-	ActionDeliverItem      = "DELIVER_ITEM"
-	ActionCancelDelivery   = "CANCEL_DELIVERY"
-	ActionSetPassword      = "SET_PASSWORD"
-	ActionCreateAccount    = "CREATE_ACCOUNT"
-	ActionKick             = "KICK"
-	ActionUnstuck          = "UNSTUCK"
-	ActionSetWorldEvent    = "SET_WORLD_EVENT"
-	ActionHandleReport     = "HANDLE_REPORT"
-	ActionBroadcast        = "BROADCAST"
-	ActionSafeRestart      = "SAFE_RESTART"
-	ActionStopGame         = "STOP_GAME"
-	ActionStartGame        = "START_GAME"
-	ActionSetXPRule        = "SET_XP_RULE"
-	ActionSetDungeonGate   = "SET_DUNGEON_GATE"
-	ActionSetQuestReward   = "SET_QUEST_REWARD"
-	ActionClearQuestReward = "CLEAR_QUEST_REWARD"
-	ActionClearXPRule      = "CLEAR_XP_RULE"
-	ActionSetMountGrowth   = "SET_MOUNT_GROWTH"
-	ActionClearMountGrowth = "CLEAR_MOUNT_GROWTH"
-	ActionSetMountAbsorb   = "SET_MOUNT_ABSORB"
-	ActionClearMountAbsorb = "CLEAR_MOUNT_ABSORB"
+	ActionSetRole            = "SET_ROLE"
+	ActionSetBlocked         = "SET_BLOCKED"
+	ActionSetVip             = "SET_VIP"
+	ActionSetItemPrice       = "SET_ITEM_PRICE"
+	ActionRestartGame        = "RESTART_GAME"
+	ActionSetNpcShop         = "SET_NPC_SHOP"
+	ActionSetNpc             = "SET_NPC"
+	ActionDeleteNpc          = "DELETE_NPC"
+	ActionSetMobStat         = "SET_MOB_STAT"
+	ActionClearMobStat       = "CLEAR_MOB_STAT"
+	ActionSetItemStat        = "SET_ITEM_STAT"
+	ActionClearItemStat      = "CLEAR_ITEM_STAT"
+	ActionDeliverItem        = "DELIVER_ITEM"
+	ActionCancelDelivery     = "CANCEL_DELIVERY"
+	ActionSetPassword        = "SET_PASSWORD"
+	ActionCreateAccount      = "CREATE_ACCOUNT"
+	ActionKick               = "KICK"
+	ActionUnstuck            = "UNSTUCK"
+	ActionSetWorldEvent      = "SET_WORLD_EVENT"
+	ActionHandleReport       = "HANDLE_REPORT"
+	ActionBroadcast          = "BROADCAST"
+	ActionSafeRestart        = "SAFE_RESTART"
+	ActionStopGame           = "STOP_GAME"
+	ActionStartGame          = "START_GAME"
+	ActionSetXPRule          = "SET_XP_RULE"
+	ActionSetDungeonGate     = "SET_DUNGEON_GATE"
+	ActionSetQuestReward     = "SET_QUEST_REWARD"
+	ActionClearQuestReward   = "CLEAR_QUEST_REWARD"
+	ActionSetDropBonus       = "SET_DROP_BONUS"
+	ActionClearDropBonus     = "CLEAR_DROP_BONUS"
+	ActionSetDropBonusLigado = "SET_DROP_BONUS_LIGADO"
+	ActionClearXPRule        = "CLEAR_XP_RULE"
+	ActionSetMountGrowth     = "SET_MOUNT_GROWTH"
+	ActionClearMountGrowth   = "CLEAR_MOUNT_GROWTH"
+	ActionSetMountAbsorb     = "SET_MOUNT_ABSORB"
+	ActionClearMountAbsorb   = "CLEAR_MOUNT_ABSORB"
 )
 
 // listLimit caps one page of the log.
@@ -229,39 +232,42 @@ func compact(raw []byte) string {
 // English constants in a Portuguese panel is a page nobody reads — which defeats
 // the log, whose whole purpose is being read after something went wrong.
 var rotulos = map[string]string{
-	ActionSetRole:          "Mudou o cargo",
-	ActionSetBlocked:       "Bloqueou ou desbloqueou",
-	ActionSetVip:           "Mexeu no VIP",
-	ActionSetPassword:      "Trocou a senha",
-	ActionCreateAccount:    "Criou uma conta",
-	ActionSetItemPrice:     "Mudou o preço de um item",
-	ActionSetNpcShop:       "Mudou a loja de um NPC",
-	ActionSetNpc:           "Editou um NPC",
-	ActionDeleteNpc:        "Apagou um NPC",
-	ActionSetMobStat:       "Editou os atributos de um monstro",
-	ActionClearMobStat:     "Restaurou um monstro",
-	ActionSetItemStat:      "Editou os atributos de um item",
-	ActionClearItemStat:    "Restaurou um item",
-	ActionDeliverItem:      "Entregou um item",
-	ActionCancelDelivery:   "Cancelou uma entrega",
-	ActionKick:             "Derrubou uma conta",
-	ActionUnstuck:          "Desatolou um personagem",
-	ActionSetWorldEvent:    "Mexeu nos eventos do servidor",
-	ActionHandleReport:     "Tratou uma denúncia",
-	ActionBroadcast:        "Mandou um aviso para todos",
-	ActionRestartGame:      "Reiniciou o servidor",
-	ActionSafeRestart:      "Reiniciou com segurança",
-	ActionStopGame:         "Desligou o servidor",
-	ActionStartGame:        "Ligou o servidor",
-	ActionSetXPRule:        "Mexeu na Mesa de XP",
-	ActionSetDungeonGate:   "Abriu ou fechou uma masmorra",
-	ActionSetQuestReward:   "Mudou a recompensa de uma quest",
-	ActionClearQuestReward: "Voltou a recompensa de uma quest ao conteúdo",
-	ActionClearXPRule:      "Voltou uma tabela de XP ao legado",
-	ActionSetMountGrowth:   "Mexeu na taxa de crescimento de uma montaria",
-	ActionClearMountGrowth: "Voltou a curva de uma montaria ao padrão",
-	ActionSetMountAbsorb:   "Mexeu na absorção de uma montaria",
-	ActionClearMountAbsorb: "Voltou a absorção de uma montaria ao padrão",
+	ActionSetRole:            "Mudou o cargo",
+	ActionSetBlocked:         "Bloqueou ou desbloqueou",
+	ActionSetVip:             "Mexeu no VIP",
+	ActionSetPassword:        "Trocou a senha",
+	ActionCreateAccount:      "Criou uma conta",
+	ActionSetItemPrice:       "Mudou o preço de um item",
+	ActionSetNpcShop:         "Mudou a loja de um NPC",
+	ActionSetNpc:             "Editou um NPC",
+	ActionDeleteNpc:          "Apagou um NPC",
+	ActionSetMobStat:         "Editou os atributos de um monstro",
+	ActionClearMobStat:       "Restaurou um monstro",
+	ActionSetItemStat:        "Editou os atributos de um item",
+	ActionClearItemStat:      "Restaurou um item",
+	ActionDeliverItem:        "Entregou um item",
+	ActionCancelDelivery:     "Cancelou uma entrega",
+	ActionKick:               "Derrubou uma conta",
+	ActionUnstuck:            "Desatolou um personagem",
+	ActionSetWorldEvent:      "Mexeu nos eventos do servidor",
+	ActionHandleReport:       "Tratou uma denúncia",
+	ActionBroadcast:          "Mandou um aviso para todos",
+	ActionRestartGame:        "Reiniciou o servidor",
+	ActionSafeRestart:        "Reiniciou com segurança",
+	ActionStopGame:           "Desligou o servidor",
+	ActionStartGame:          "Ligou o servidor",
+	ActionSetXPRule:          "Mexeu na Mesa de XP",
+	ActionSetDungeonGate:     "Abriu ou fechou uma masmorra",
+	ActionSetQuestReward:     "Mudou a recompensa de uma quest",
+	ActionClearQuestReward:   "Voltou a recompensa de uma quest ao conteúdo",
+	ActionSetDropBonus:       "Mudou a escada do bônus de drop",
+	ActionClearDropBonus:     "Voltou a escada do bônus de drop ao legado",
+	ActionSetDropBonusLigado: "Ligou ou desligou o sorteio de bônus de drop",
+	ActionClearXPRule:        "Voltou uma tabela de XP ao legado",
+	ActionSetMountGrowth:     "Mexeu na taxa de crescimento de uma montaria",
+	ActionClearMountGrowth:   "Voltou a curva de uma montaria ao padrão",
+	ActionSetMountAbsorb:     "Mexeu na absorção de uma montaria",
+	ActionClearMountAbsorb:   "Voltou a absorção de uma montaria ao padrão",
 }
 
 // Rotulo is the readable name of this entry's action.

@@ -48,6 +48,8 @@ var tabelasDeTeste = []string{
 	"xp_rule",
 	"quest_reward_meta",
 	"quest_reward",
+	"drop_bonus_meta",
+	"drop_bonus",
 	"dungeon_gate_meta",
 	"dungeon_gate",
 	"affect",

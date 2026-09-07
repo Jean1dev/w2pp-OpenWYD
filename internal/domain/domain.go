@@ -1114,3 +1114,62 @@ var QuestRewardDefaults = [5]QuestReward{
 	{Tier: 3, MortalExp: 4000, ArchExp: 2000, Coin: 8000, MortalMin: 265, MortalMax: 320, ArchMin: 265, ArchMax: 320},
 	{Tier: 4, MortalExp: 5000, ArchExp: 2500, Coin: 10000, MortalMin: 320, MortalMax: 350, ArchMin: 320, ArchMax: 350},
 }
+
+// DropBonusBand is the drop-time bonus roll's tunable numbers for one
+// level-distance band (0 = mob at the item's level, 3 = 74+ levels above).
+//
+// The two ladders it holds are the ones that decide how a drop feels. Which
+// effect each piece gets is NOT here: that is content, fixed per equip slot by
+// SetItemBonus's own switch, and changing it would change what the game is
+// rather than how generous it is.
+//
+// Both ladders read the same way: a 0..99 draw is compared against the limits in
+// order, and the first limit it falls under picks the outcome.
+//
+//	magnitude:  < Limite[0] → Degrau[0], < Limite[1] → Degrau[1], … else Degrau[4]
+//	refino:     < Refino[0] → +2, < Refino[1] → +1, < Refino[2] → +0,
+//	            < Refino[3] → bônus especial, else nada
+//
+// A limit of 100 makes everything after it unreachable, which is how the legacy
+// expresses "this band never rolls nothing" — its distant bands set the last
+// refine limit to 100 exactly for that.
+type DropBonusBand struct {
+	Distancia int32
+	Limite    [4]int32 // magnitude thresholds, ascending
+	Degrau    [5]int32 // the five steps those thresholds separate
+	Refino    [4]int32 // refine thresholds, ascending
+}
+
+// DropBonusConfig is every edited band plus the version it belongs to, and
+// whether the roll runs at all. A band absent from Faixas keeps its default.
+//
+// Ligado exists because the roll was missing for the whole life of this rewrite:
+// turning it off has to stay one click, not a redeploy, in case it lands badly
+// on a live server.
+type DropBonusConfig struct {
+	Version int64
+	Ligado  bool
+	Faixas  []DropBonusBand
+}
+
+// DropBonusDefaults are the ladders exactly as SetItemBonus ships them
+// (Server.cpp:2151-2262 for the magnitude, :2482-2512 for the refine).
+//
+// They live here, in the package both sides import, for the same reason
+// QuestRewardDefaults do: tmServer rolls with them and the panel shows them
+// beside an edited row, and two copies would be free to drift silently.
+//
+// Reading the magnitude rows: distance 0 tops out at step 4 and has a 45% chance
+// of step 0, which is why so many same-level drops come out empty. Distance 3
+// cannot produce step 0 at all. Distance 2 has only four outcomes in the
+// original, written here as a fifth limit of 100 so every band has one shape.
+//
+// Reading the refine rows: the first number is the +2 chance and it is 6 in
+// every band — the legacy never varies it. What the distance changes is the +1
+// slice, which nearly doubles, and whether "nada" exists at all.
+var DropBonusDefaults = [4]DropBonusBand{
+	{Distancia: 0, Limite: [4]int32{2, 6, 24, 55}, Degrau: [5]int32{4, 3, 2, 1, 0}, Refino: [4]int32{6, 22, 75, 90}},
+	{Distancia: 1, Limite: [4]int32{1, 5, 24, 65}, Degrau: [5]int32{5, 4, 3, 2, 1}, Refino: [4]int32{6, 22, 75, 90}},
+	{Distancia: 2, Limite: [4]int32{2, 16, 60, 100}, Degrau: [5]int32{5, 4, 3, 2, 2}, Refino: [4]int32{6, 35, 85, 100}},
+	{Distancia: 3, Limite: [4]int32{2, 9, 45, 75}, Degrau: [5]int32{6, 5, 4, 3, 2}, Refino: [4]int32{6, 35, 85, 100}},
+}

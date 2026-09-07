@@ -1073,3 +1073,41 @@ message QuestReward {
   int32 arch_min = 7;
   int32 arch_max = 8;
 }
+
+// DropBonusService serves the panel-managed drop-bonus ladders to tmServer.
+//
+// Read at BOOT, like QuestRewardService and for the same reason: it is a balance
+// number, not an operational switch. Two players killing the same mob minutes
+// apart must not get items from different generations, with nothing on screen to
+// explain the difference.
+service DropBonusService {
+  // GetDropBonus returns every edited band plus whether the roll runs at all.
+  // Bands absent from the reply keep the legacy ladder.
+  rpc GetDropBonus(GetDropBonusRequest) returns (GetDropBonusResponse);
+}
+
+message GetDropBonusRequest {}
+message GetDropBonusResponse {
+  int64 version = 1;
+  // Whether the drop-time bonus roll runs. It defaults TRUE, and exists so a
+  // server can switch the roll off in one click instead of a redeploy — it was
+  // missing for the whole life of the rewrite, so landing it is a real change.
+  bool ligado = 2;
+  repeated DropBonusBand faixas = 3;
+}
+
+// DropBonusBand is one level-distance band's two ladders. `distancia` is 0 when
+// the mob is at the item's own level and 3 when it is 74+ levels above.
+//
+// Both ladders read the same way: a 0..99 draw is compared against the limits in
+// order, and the first limit it falls under picks the outcome. A limit of 100
+// makes everything after it unreachable, which is how the legacy says "this band
+// never rolls nothing".
+message DropBonusBand {
+  int32 distancia = 1;
+  // Four magnitude thresholds, ascending, and the five steps they separate.
+  repeated int32 limite = 2;
+  repeated int32 degrau = 3;
+  // Four refine thresholds, ascending: +2, +1, +0, special bonus.
+  repeated int32 refino = 4;
+}

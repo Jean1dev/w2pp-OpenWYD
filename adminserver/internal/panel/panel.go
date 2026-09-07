@@ -287,6 +287,7 @@ type Config struct {
 	MesaXP      MesaXP
 	Masmorras   Masmorras
 	Quests      Quests
+	BonusDrop   BonusDrop
 	Sessions    *session.Store
 	Logger      *slog.Logger
 	SecureOnly  bool // Secure flag on the cookie; false only for local HTTP dev
@@ -385,6 +386,12 @@ func (h *Handler) Routes() http.Handler {
 	}
 	// As recompensas de quest têm tabela própria, então dependem dela e não da
 	// Mesa de XP — um painel sem a migração 0036 simplesmente não mostra a aba.
+	if h.cfg.BonusDrop != nil {
+		mux.Handle("GET /rates/bonus-drop", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.bonusDrop))))
+		mux.Handle("POST /rates/bonus-drop", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setBonusDrop))))
+		mux.Handle("POST /rates/bonus-drop/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparBonusDrop))))
+		mux.Handle("POST /rates/bonus-drop/ligar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.ligarBonusDrop))))
+	}
 	if h.cfg.Quests != nil {
 		mux.Handle("GET /rates/quests", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.quests))))
 		mux.Handle("POST /rates/quests", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setQuest))))
@@ -505,26 +512,27 @@ func (h *Handler) Routes() http.Handler {
 // page carries what every signed-in template needs: who is looking, with what
 // authority, and which nav entry to mark.
 type page struct {
-	Account   string
-	AccountID int64
-	Role      string
-	Nav       string
-	IsAdmin   bool   // hides nav entries the viewer would only be refused from
-	HasItems  bool   // the item pages exist only when a webServer is configured
-	HasTrocas bool   // the trade log exists only when a database read is configured
-	HasCenso  bool   // o censo de itens precisa da leitura do banco
-	HasChat   bool   // o registro de conversa precisa da leitura do banco
-	HasJogo   bool   // the live pages exist only when the game link is configured
-	HasSeguro bool   // the safe restart needs BOTH the game link and the hosting API
-	HasEvento bool   // the event switches need the database read
-	HasDenun  bool   // the report queue needs the database read
-	HasGuilda bool   // the guild pages need the database read
-	HasMesaXP bool   // the Mesa de XP needs the database read
-	HasMasm   bool   // the dungeon doors need the database read
-	HasQuests bool   // the quest rewards need the database read
-	HasRates  bool   // Rates existe se pelo menos uma das suas abas existir
-	HasMont   bool   // a aba de montarias vem do webServer, a de XP vem do banco
-	CSRF      string // every form that changes something carries this back
+	Account      string
+	AccountID    int64
+	Role         string
+	Nav          string
+	IsAdmin      bool   // hides nav entries the viewer would only be refused from
+	HasItems     bool   // the item pages exist only when a webServer is configured
+	HasTrocas    bool   // the trade log exists only when a database read is configured
+	HasCenso     bool   // o censo de itens precisa da leitura do banco
+	HasChat      bool   // o registro de conversa precisa da leitura do banco
+	HasJogo      bool   // the live pages exist only when the game link is configured
+	HasSeguro    bool   // the safe restart needs BOTH the game link and the hosting API
+	HasEvento    bool   // the event switches need the database read
+	HasDenun     bool   // the report queue needs the database read
+	HasGuilda    bool   // the guild pages need the database read
+	HasMesaXP    bool   // the Mesa de XP needs the database read
+	HasMasm      bool   // the dungeon doors need the database read
+	HasQuests    bool   // the quest rewards need the database read
+	HasBonusDrop bool   // the drop-bonus ladders need the database read
+	HasRates     bool   // Rates existe se pelo menos uma das suas abas existir
+	HasMont      bool   // a aba de montarias vem do webServer, a de XP vem do banco
+	CSRF         string // every form that changes something carries this back
 }
 
 // falhas records the secondary reads that did not answer.
@@ -558,21 +566,22 @@ func (h *Handler) pageFor(r *http.Request, nav string) page {
 	return page{
 		Account: sess.AccountName, AccountID: sess.AccountID, Role: role,
 		Nav: nav, IsAdmin: role == roleAdmin,
-		HasItems:  h.cfg.GameData != nil,
-		HasTrocas: h.cfg.Trocas != nil,
-		HasCenso:  h.cfg.Censo != nil,
-		HasChat:   h.cfg.Chat != nil,
-		HasJogo:   h.cfg.Jogo != nil,
-		HasSeguro: h.cfg.Jogo != nil && h.cfg.Platform != nil,
-		HasEvento: h.cfg.Eventos != nil,
-		HasDenun:  h.cfg.Denuncias != nil,
-		HasGuilda: h.cfg.Guildas != nil,
-		HasMesaXP: h.cfg.MesaXP != nil,
-		HasMasm:   h.cfg.Masmorras != nil,
-		HasQuests: h.cfg.Quests != nil,
-		HasRates:  primeiraAbaDeRates(h.cfg) != "",
-		HasMont:   h.cfg.GameData != nil,
-		CSRF:      sess.CSRF,
+		HasItems:     h.cfg.GameData != nil,
+		HasTrocas:    h.cfg.Trocas != nil,
+		HasCenso:     h.cfg.Censo != nil,
+		HasChat:      h.cfg.Chat != nil,
+		HasJogo:      h.cfg.Jogo != nil,
+		HasSeguro:    h.cfg.Jogo != nil && h.cfg.Platform != nil,
+		HasEvento:    h.cfg.Eventos != nil,
+		HasDenun:     h.cfg.Denuncias != nil,
+		HasGuilda:    h.cfg.Guildas != nil,
+		HasMesaXP:    h.cfg.MesaXP != nil,
+		HasMasm:      h.cfg.Masmorras != nil,
+		HasQuests:    h.cfg.Quests != nil,
+		HasBonusDrop: h.cfg.BonusDrop != nil,
+		HasRates:     primeiraAbaDeRates(h.cfg) != "",
+		HasMont:      h.cfg.GameData != nil,
+		CSRF:         sess.CSRF,
 	}
 }
 

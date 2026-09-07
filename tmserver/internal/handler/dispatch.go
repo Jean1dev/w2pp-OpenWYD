@@ -118,6 +118,17 @@ type Config struct {
 	// tree.
 	SancRate refine.RateTable
 
+	// DropBonus is the drop-time bonus roll's ladders (0037_drop_bonus), fetched
+	// once at boot over the legacy defaults. Nil means nobody supplied one — a
+	// test dispatcher, or a boot with no dbServer — and the legacy table is used.
+	//
+	// A pointer and not a value: "not supplied" has to be distinguishable from
+	// "supplied, and every number in it is zero". An all-zero table is a
+	// legitimate thing to save (the database accepts it), and sniffing the
+	// contents would silently roll the legacy ladder while the panel showed
+	// zeros — a disagreement nobody could explain from either screen.
+	DropBonus *refine.Tabelas
+
 	// ExpEvents toggles global EXP modifiers (MobKilled.cpp:537-549, Server.cpp defaults).
 	ExpEvents level.ExpEvents
 
@@ -210,6 +221,7 @@ type Dispatcher struct {
 	itemGrades      map[int]int                  // item index → Grade (ExpBonus)
 	itemExtra       map[int]int                  // item index → Extra (Anct/Adamantita combine result)
 	sancRate        refine.RateTable             // dust-refine success table (g_pSancRate)
+	dropBonus       refine.Tabelas               // drop-time bonus ladders (SetItemBonus)
 	expEvents       level.ExpEvents              // global EXP event flags
 	xpConfig        level.Config                 // panel-managed reward tables (Mesa de XP)
 	spells          *content.SkillData           // skill catalog (g_pSpell)
@@ -380,6 +392,7 @@ func New(cfg Config) *Dispatcher {
 		itemGrades:        cfg.ItemGrades,
 		itemExtra:         cfg.ItemExtra,
 		sancRate:          cfg.SancRate,
+		dropBonus:         dropBonusDe(cfg),
 		expEvents:         cfg.ExpEvents,
 		xpConfig:          cfg.XPConfig,
 		spells:            cfg.Spells,
@@ -417,6 +430,13 @@ func New(cfg Config) *Dispatcher {
 	}
 	if d.questRates == nil {
 		d.questRates = content.DefaultQuestRates()
+	}
+	if cfg.DropBonus == nil {
+		// Nobody supplied a table — a test dispatcher, or a boot that could not
+		// reach dbServer. The legacy ladder is a complete, working answer, and
+		// rolling an all-zero one would look exactly like the bug this whole
+		// change fixes.
+		d.dropBonus = refine.TabelasPadrao()
 	}
 	if d.combineFamilies == nil {
 		d.combineFamilies = make(map[protocol.Type]CombineFamily)
@@ -526,4 +546,13 @@ func formatType(t protocol.Type) string {
 	const hexdigits = "0123456789abcdef"
 	v := uint16(t)
 	return "0x" + string([]byte{hexdigits[v>>12&0xf], hexdigits[v>>8&0xf], hexdigits[v>>4&0xf], hexdigits[v&0xf]})
+}
+
+// dropBonusDe reads the optional table out of the config. A nil one is replaced
+// right after construction; this only keeps the struct literal readable.
+func dropBonusDe(cfg Config) refine.Tabelas {
+	if cfg.DropBonus == nil {
+		return refine.Tabelas{}
+	}
+	return *cfg.DropBonus
 }

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Bônus de drop — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  .faixa { padding: 20px 0; border-bottom: 1px solid var(--rule); }
+  .faixa:last-of-type { border-bottom: 0; }
+  .faixa h3 { margin: 0 0 2px; font-size: 16px; }
+  .faixa .meta { font-size: 12.5px; color: var(--ink-3); margin: 0 0 14px; max-width: 60ch; }
+  .escada { margin: 0 0 16px; }
+  .escada h4 {
+    margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .campos {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 12px 16px; margin: 0 0 10px;
+  }
+  .campos label { display: block; font-size: 12px; color: var(--ink-3); }
+  .campos input {
+    width: 100%; margin-top: 4px; padding: 6px 8px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  .campos input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* O resultado do que está gravado, para a pessoa ver a consequência do número
+     ao lado do próprio número. Sem isto a tela é oito caixas sem sentido. */
+  .resultado { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 4px; }
+  .fatia {
+    font-size: 12px; padding: 3px 9px; border-radius: 3px;
+    background: var(--chip-bg); color: var(--ink); white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .fatia b { font-weight: 600; }
+  .fatia .pct { color: var(--ink-3); }
+  .fatia.inativa { opacity: .45; text-decoration: line-through; }
+  .acoes-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .marca { font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+           padding: 2px 7px; border-radius: 3px; color: var(--accent); background: var(--chip-bg); }
+  .dolegado { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .interruptor { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .interruptor .estado { font-size: 14px; }
+  .interruptor .estado b { font-size: 15px; }
+  td.quando { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.mudanca { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+  td.mudanca .de { color: var(--ink-3); }
+  .acao {
+    font-size: 11px; letter-spacing: .06em; font-family: ui-monospace, Consolas, monospace;
+    color: var(--ink); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+{{template "topbar" .}}
+
+<main>
+  <h1>Bônus de drop</h1>
+  <p class="sub">
+    Todo equipamento que cai de monstro recebe efeitos próprios, sorteados na
+    hora. É o que faz duas espadas iguais saírem diferentes.
+  </p>
+
+  {{template "abas-rates" .}}
+
+  {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
+
+  <div class="nota calma">
+    <strong>Como funciona.</strong> Quando um monstro derruba um equipamento, o
+    servidor sorteia até três efeitos e escreve neles — é isso que dá dano,
+    crítico ou refino a uma cópia e não à outra. O que decide tudo é a
+    <strong>distância de nível</strong>: quanto mais acima do item estiver o
+    monstro, melhores as duas escadas abaixo.
+    <br><br>
+    <strong>Qual efeito cada peça recebe não se edita aqui</strong>, de
+    propósito: armadura e calça sempre dão crítico, luva sempre dá defesa, bota
+    sempre dá dano, e elmo e arma sorteiam entre duas ou três opções. Isso é
+    conteúdo — mexer nele mudaria o que o jogo é, não o quanto ele é generoso. A
+    lista inteira está em <span class="mono">docs/migration/game-rules.md</span>,
+    seção 2.4.
+    <br><br>
+    <strong>Vale no próximo reinício do jogo</strong>, como o resto do
+    balanceamento — dois jogadores matando o mesmo monstro com minutos de
+    diferença não podem receber itens de gerações diferentes.
+    {{if .Versao}}<br><br>Versão gravada: <strong>{{.Versao}}</strong>.{{end}}
+  </div>
+
+  <div class="caixa">
+    <h2>Interruptor</h2>
+    <form method="post" action="/rates/bonus-drop/ligar" class="interruptor">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      {{if .Ligado}}
+        <p class="estado">O sorteio está <b>ligado</b>. Item dropado ganha efeito próprio.</p>
+        <input type="hidden" name="ligado" value="0">
+        <button type="submit" class="perigo">Desligar o sorteio</button>
+      {{else}}
+        <p class="estado">O sorteio está <b>desligado</b>. Item dropado sai sem efeito nenhum.</p>
+        <input type="hidden" name="ligado" value="1">
+        <button type="submit" class="principal">Ligar o sorteio</button>
+      {{end}}
+    </form>
+    <p class="dica" style="margin-top:10px">
+      Desligar devolve o servidor ao comportamento que ele teve até agora: item
+      que cai de monstro sai idêntico ao comprado em NPC. Existe para ser um
+      clique e não um deploy, caso o sorteio caia mal com gente jogando.
+    </p>
+  </div>
+
+  <div class="caixa">
+    {{range .Faixas}}
+    <div class="faixa">
+      <h3>
+        {{.Nome}}
+        {{if .Editada}}<span class="marca">editada</span>{{end}}
+      </h3>
+      <p class="meta">{{.Explica}}</p>
+
+      <form method="post" action="/rates/bonus-drop">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="distancia" value="{{.Distancia}}">
+
+        <div class="escada">
+          <h4>Quanto vale o bônus</h4>
+          <div class="resultado">
+            {{range .Magnitude}}
+            <span class="fatia {{if .Inativa}}inativa{{end}}">
+              <b>{{.Valor}}</b> <span class="pct">{{.Chance}}%</span>
+            </span>
+            {{end}}
+          </div>
+          <p class="dica" style="margin:0 0 10px">
+            Um sorteio de 0 a 99 é comparado com os quatro limites em ordem; o
+            primeiro que ele não alcança escolhe o degrau. O valor que entra no
+            item é o degrau vezes o multiplicador da peça, então
+            <strong>degrau 0 quer dizer que o item não ganha nada</strong>.
+          </p>
+          <div class="campos">
+            <label>Limite 1<input name="limite1" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Limite 0}}"></label>
+            <label>Limite 2<input name="limite2" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Limite 1}}"></label>
+            <label>Limite 3<input name="limite3" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Limite 2}}"></label>
+            <label>Limite 4<input name="limite4" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Limite 3}}"></label>
+          </div>
+          <div class="campos">
+            <label>Degrau 1<input name="degrau1" type="number" min="0" max="20" step="1" inputmode="numeric" value="{{index .Valores.Degrau 0}}"></label>
+            <label>Degrau 2<input name="degrau2" type="number" min="0" max="20" step="1" inputmode="numeric" value="{{index .Valores.Degrau 1}}"></label>
+            <label>Degrau 3<input name="degrau3" type="number" min="0" max="20" step="1" inputmode="numeric" value="{{index .Valores.Degrau 2}}"></label>
+            <label>Degrau 4<input name="degrau4" type="number" min="0" max="20" step="1" inputmode="numeric" value="{{index .Valores.Degrau 3}}"></label>
+            <label>Degrau 5<input name="degrau5" type="number" min="0" max="20" step="1" inputmode="numeric" value="{{index .Valores.Degrau 4}}"></label>
+          </div>
+        </div>
+
+        <div class="escada">
+          <h4>Com que frequência sai refino</h4>
+          <div class="resultado">
+            {{range .Refino}}
+            <span class="fatia {{if .Inativa}}inativa{{end}}">
+              <b>{{.Rotulo}}</b> <span class="pct">{{.Chance}}%</span>
+            </span>
+            {{end}}
+          </div>
+          <p class="dica" style="margin:0 0 10px">
+            Mesma leitura. Um limite de 100 apaga tudo o que vem depois dele — é
+            assim que se diz "nesta faixa todo drop leva alguma coisa". Item sem
+            marca de grade nunca passa de +2 por este caminho, aconteça o que
+            acontecer com estes números.
+          </p>
+          <div class="campos">
+            <label>Até aqui, +2<input name="refino1" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Refino 0}}"></label>
+            <label>Até aqui, +1<input name="refino2" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Refino 1}}"></label>
+            <label>Até aqui, +0<input name="refino3" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Refino 2}}"></label>
+            <label>Até aqui, especial<input name="refino4" type="number" min="0" max="100" step="1" inputmode="numeric" value="{{index .Valores.Refino 3}}"></label>
+          </div>
+        </div>
+
+        <div class="acoes-linha">
+          <button type="submit" class="principal">Gravar esta faixa</button>
+          {{if .Editada}}
+          <span class="dolegado">
+            No legado: magnitude {{index .Padrao.Limite 0}}/{{index .Padrao.Limite 1}}/{{index .Padrao.Limite 2}}/{{index .Padrao.Limite 3}},
+            refino {{index .Padrao.Refino 0}}/{{index .Padrao.Refino 1}}/{{index .Padrao.Refino 2}}/{{index .Padrao.Refino 3}}
+          </span>
+          {{end}}
+        </div>
+      </form>
+
+      {{if .Editada}}
+      <form method="post" action="/rates/bonus-drop/limpar" style="margin-top:8px">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="distancia" value="{{.Distancia}}">
+        <button type="submit" class="perigo">Voltar ao valor do legado</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+
+  <div class="caixa">
+    <h2>Histórico</h2>
+    <p class="sub">
+      Toda mudança nas escadas e no interruptor, mais recente primeiro. Vem da
+      auditoria do painel, que o banco não deixa alterar nem apagar.
+    </p>
+    {{if .Historico}}
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Mudança</th></tr>
+        </thead>
+        <tbody>
+          {{range .Historico}}
+          <tr>
+            <td class="quando">{{.CreatedAt.Format "02/01 15:04"}}</td>
+            <td>
+              {{if .ActorName}}{{.ActorName}}{{else}}conta {{.ActorID}}{{end}}
+              <span class="cargo">{{.ActorRole}}</span>
+            </td>
+            <td><span class="acao" title="{{.Action}}">{{.Rotulo}}</span></td>
+            <td class="mudanca">
+              {{if .Old}}<span class="de">{{.Old}}</span> &rarr; {{end}}
+              {{if .New}}{{.New}}{{else if not .Old}}&mdash;{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="vazio">Nenhuma escada foi mexida ainda.</div>
+    {{end}}
+  </div>
+</main>
+</body>
+</html>
