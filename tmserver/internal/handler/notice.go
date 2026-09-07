@@ -175,6 +175,17 @@ const (
 	NoticeMountNotMatch
 	NoticeCantUpgradeMore
 	NoticeMountGrowth
+
+	// Party invite refusals (_MSG_SendReqParty.cpp / _MSG_AcceptParty.cpp).
+	// Every one of these is a SendClientMessage in the legacy and was a bare
+	// `return` here, which is why inviting somebody looked like a dead button:
+	// the click reached the server, the server decided no, and nothing on the
+	// screen said so. Appended at the end for the reason NoticeLevelLimit gives.
+	NoticePartyDropCurrentFirst
+	NoticePartyNotConnected
+	NoticePartyOtherMember
+	NoticePartyHasOwn
+	NoticePartyLevelLimit
 )
 
 // noticeKey maps a Notice to its key in the shipped client string table
@@ -254,6 +265,14 @@ var noticeKey = map[Notice]string{
 	// Pergaminho da Água.
 	NoticeSomeoneOnQuest:  "_NN_Someone_is_on_quest", // 295
 	NoticePartyLeaderOnly: "_NN_Party_Leader_Only",   // 229
+
+	// Grupo. The legacy answers every one of these with SendClientMessage, so a
+	// refused invite tells the player why instead of doing nothing.
+	NoticePartyDropCurrentFirst: "_NN_Dropped_Current_Party_First", // 121
+	NoticePartyNotConnected:     "_NN_Not_Connected",               // 91
+	NoticePartyOtherMember:      "_NN_Other_Partys_Member",         // 119
+	NoticePartyHasOwn:           "_NN_Have_Own_Party_Already",      // 120
+	NoticePartyLevelLimit:       "_NN_Party_Level_Limit",           // 215
 
 	// Pesadelo. Only these two are in the string table; the other refusals are
 	// literals the legacy passes straight to SendClientMessage (noticeText).

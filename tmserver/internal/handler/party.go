@@ -1,27 +1,49 @@
 package handler
 
 import (
+	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// partyDif is the max level difference allowed in a party (PARTY_DIF).
-//
-// UNVERIFIED: the value and the ClassMaster/MAX_CLEVEL tier adjustments
-// (lote2-party-guilda-guerra.md) are not documented; placeholder + simplified.
-const partyDif = 100
+// partyDif is the max level difference allowed in a party (PARTY_DIF,
+// Server.cpp:51). The legacy also reads it from gameconfig; 200 is the shipped
+// default, and it is the number Language.txt:215 quotes back to the player
+// ("diferença de 200 níveis"), so changing it here alone would make the game
+// contradict its own refusal message.
+const partyDif = 200
 
-// partyLevelOK applies the (simplified) party level rule shared by invite and
-// accept: same tier, very high level, or within partyDif (UNVERIFIED tiers).
+// partyLevelForParty is the legacy's tier-normalised level (_MSG_SendReqParty.cpp:69):
+//
+//	lvl = (ClassMaster == ARCH || ClassMaster == MORTAL) ? Level : Level + MAX_CLEVEL
+//
+// The celestial tiers restart their level count at 1 on a separate curve, so
+// their raw Level is not comparable to a Mortal's. Without the offset a
+// Celestial 10 reads as 370 levels below a Mortal 380 and the invite is refused,
+// when in progression terms they are two levels apart.
+func partyLevelForParty(e *world.Entity) int {
+	if e.ClassMaster == classMasterMortal || e.ClassMaster == classMasterArch {
+		return int(e.Level)
+	}
+	return int(e.Level) + int(level.MaxCLevel)
+}
+
+// partyLevelOK is the level guard shared by invite and accept
+// (_MSG_SendReqParty.cpp:71): same tier, either side past 1000 on the normalised
+// scale, or within PARTY_DIF of each other.
+//
+// The bound is asymmetric exactly as the legacy writes it —
+// `lvl >= leaderlv - PARTY_DIF && lvl < leaderlv + PARTY_DIF` — so the lower
+// edge is inclusive and the upper is not. a is the leader, b the invited.
 func partyLevelOK(a, b *world.Entity) bool {
-	if a.Level >= 1000 || b.Level >= 1000 || a.ClassMaster == b.ClassMaster {
+	if a.ClassMaster == b.ClassMaster {
 		return true
 	}
-	diff := int(a.Level) - int(b.Level)
-	if diff < 0 {
-		diff = -diff
+	leaderlv, lvl := partyLevelForParty(a), partyLevelForParty(b)
+	if lvl >= 1000 || leaderlv >= 1000 {
+		return true
 	}
-	return diff < partyDif
+	return lvl >= leaderlv-partyDif && lvl < leaderlv+partyDif
 }
 
 // sendReqParty handles _MSG_SendReqParty (0x037F): invite a player to a party.
@@ -38,18 +60,37 @@ func (d *Dispatcher) sendReqParty(w *world.World, s *world.Session, _ protocol.H
 		return
 	}
 	if e.Leader != 0 { // already a member elsewhere
+		d.notify(w, s, NoticePartyDropCurrentFirst)
 		return
 	}
 	target := int(body.Unk)
 	if target == 0 && body.Target != 0 {
 		target = int(body.Target)
 	}
-	other := w.Session(target)
-	te := w.Entity(target)
-	if target <= 0 || target >= world.MaxUser || other == nil || other.Mode != world.UserPlay || te == nil {
+	if target <= 0 || target >= world.MaxUser {
+		// Out of range is a malformed request, not a player decision: the legacy
+		// logs it and answers nothing, and so do we.
 		return
 	}
-	if isInParty(te) || !partyLevelOK(e, te) { // target already partied / level gate
+	other := w.Session(target)
+	te := w.Entity(target)
+	if other == nil || other.Mode != world.UserPlay || te == nil {
+		d.notify(w, s, NoticePartyNotConnected)
+		return
+	}
+	// The legacy separates the two: Leader set means the target belongs to
+	// somebody else's party, a non-empty PartyList means they lead their own.
+	// Different messages, and the player needs to know which.
+	if te.Leader != 0 {
+		d.notify(w, s, NoticePartyOtherMember)
+		return
+	}
+	if partyMemberCount(te) != 0 {
+		d.notify(w, s, NoticePartyHasOwn)
+		return
+	}
+	if !partyLevelOK(e, te) {
+		d.notify(w, s, NoticePartyLevelLimit)
 		return
 	}
 	te.LastReqParty = s.Conn // anti-forge gate for AcceptParty
@@ -84,7 +125,19 @@ func (d *Dispatcher) acceptParty(w *world.World, s *world.Session, _ protocol.He
 	if cstr(body.MobName[:]) != le.Name {
 		return
 	}
-	if isInParty(e) || le.Leader != 0 || !partyLevelOK(le, e) {
+	// Same refusals as the invite, and for the same reason: the accept can fail
+	// after the invite popup was shown, and a silent return there looks like the
+	// "Aceitar" button doing nothing.
+	if isInParty(e) {
+		d.notify(w, s, NoticePartyDropCurrentFirst)
+		return
+	}
+	if le.Leader != 0 {
+		d.notify(w, s, NoticePartyOtherMember)
+		return
+	}
+	if !partyLevelOK(le, e) {
+		d.notify(w, s, NoticePartyLevelLimit)
 		return
 	}
 	slot, ok := addMember(le, s.Conn)
