@@ -1212,46 +1212,47 @@ func TestAccountPageShowsVipEmailAndBalance(t *testing.T) {
 
 // fakeGameData stands in for the webServer link.
 type fakeGameData struct {
-	mu            sync.Mutex
-	itens         []gamedata.Item
-	setCalls      [][2]int64 // index, price
-	listErr       error
-	setErr        error
-	versao        string
-	npcs          []gamedata.NPC
-	npcsErr       error
-	shopErr       error
-	shopSaves     [][]gamedata.ShopItem
-	saved         []gamedata.NPC
-	visible       []bool
-	visibleFor    []int64
-	deleted       []int64
-	npcWriteErr   error
-	mobs          []gamedata.MobTemplate
-	mobRows       map[string]mobRow
-	mobSaved      []gamedata.MobStat
-	mobCleared    []string
-	mobErr        error
-	mobWriteErr   error
-	mobEquip      map[string][]gamedata.MobEquipItem // captured SaveMobEquip calls
-	itemRows      map[int32]itemRow
-	itemSaved     []gamedata.ItemStat
-	itemCleared   []int32
-	itemStatErr   error
-	itemWriteErr  error
-	drops         []gamedata.Drop
-	dropsPedidos  [][2]string
-	dropsErr      error
-	curvas        []gamedata.MountGrowthCurve
-	curvaSalva    map[int32][]int32
-	curvaLimpa    []int32
-	curvaErr      error
-	curvaGravaEr  error
-	absorbs       []gamedata.MountAbsorb
-	absorbSalvo   map[int32][2]int32
-	absorbLimpo   []int32
-	absorbErr     error
-	absorbGravaEr error
+	mu              sync.Mutex
+	itens           []gamedata.Item
+	setCalls        [][2]int64 // index, price
+	listErr         error
+	setErr          error
+	versao          string
+	npcs            []gamedata.NPC
+	npcsErr         error
+	shopErr         error
+	shopSaves       [][]gamedata.ShopItem
+	saved           []gamedata.NPC
+	visible         []bool
+	visibleFor      []int64
+	deleted         []int64
+	npcWriteErr     error
+	mobs            []gamedata.MobTemplate
+	mobRows         map[string]mobRow
+	mobSaved        []gamedata.MobStat
+	mobCleared      []string
+	mobErr          error
+	mobWriteErr     error
+	mobEquip        map[string][]gamedata.MobEquipItem // captured SaveMobEquip calls
+	itemRows        map[int32]itemRow
+	itemSaved       []gamedata.ItemStat
+	itemCleared     []int32
+	itemStatErr     error
+	itemWriteErr    error
+	drops           []gamedata.Drop
+	dropsPedidos    [][2]string
+	dropsErr        error
+	curvas          []gamedata.MountGrowthCurve
+	curvaSalva      map[int32][]int32
+	curvaLimpa      []int32
+	curvaErr        error
+	curvaGravaEr    error
+	absorbs         []gamedata.MountAbsorb
+	absorbSalvo     map[int32][2]int32
+	absorbLimpo     []int32
+	absorbErr       error
+	absorbGravaEr   error
+	versaoMontarias int64
 }
 
 func newFakeGameData() *fakeGameData {
@@ -2605,6 +2606,12 @@ func (f *fakeGameData) ClearMountAbsorb(_ context.Context, _ int64, mountIndex i
 	}
 	f.absorbLimpo = append(f.absorbLimpo, mountIndex)
 	return nil
+}
+
+func (f *fakeGameData) MountConfigVersion(_ context.Context) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.versaoMontarias, nil
 }
 
 // --- drops ---

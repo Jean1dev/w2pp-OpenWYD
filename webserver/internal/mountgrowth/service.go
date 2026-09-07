@@ -25,6 +25,7 @@ type Store interface {
 	ListMountAbsorb(ctx context.Context) ([]domain.MountAbsorb, error)
 	SetMountAbsorb(ctx context.Context, mountIndex, pvp, pve int16, moderatorID int64, moderator string) error
 	ClearMountAbsorb(ctx context.Context, mountIndex int16, moderatorID int64) error
+	MountConfigVersion(ctx context.Context) (int64, error)
 }
 
 // CatalogReader supplies a catalog entry, for the lineage name. Same shape the
@@ -234,4 +235,15 @@ func (s *Service) ClearAbsorb(ctx context.Context, moderatorID int64, mountIndex
 		return fmt.Errorf("mountgrowth: clear absorb %d: %w", mountIndex, err)
 	}
 	return nil
+}
+
+// ConfigVersion is when the mount overlay last changed, as unix seconds. The
+// panel holds it against the number the running game reports, which is the only
+// way the screen can say whether what it shows is what players are getting.
+func (s *Service) ConfigVersion(ctx context.Context) (int64, error) {
+	v, err := s.store.MountConfigVersion(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("mountgrowth: config version: %w", err)
+	}
+	return v, nil
 }

@@ -21,6 +21,7 @@ type NpcConfigStore interface {
 	ListItemStats(ctx context.Context) ([]domain.ItemStat, error)
 	ListMountGrowthRates(ctx context.Context) ([]domain.MountGrowthRate, error)
 	ListMountAbsorb(ctx context.Context) ([]domain.MountAbsorb, error)
+	MountConfigVersion(ctx context.Context) (int64, error)
 }
 
 // NpcConfigServer implements dbv1.NpcConfigServiceServer. It is the read-only
@@ -256,4 +257,14 @@ func (s *NpcConfigServer) ListMountAbsorb(ctx context.Context, _ *dbv1.ListMount
 		})
 	}
 	return &dbv1.ListMountAbsorbResponse{Absorb: out}, nil
+}
+
+// MountConfigVersion answers when the mount overlay last changed, as unix
+// seconds. Zero means nobody has ever configured a lineage.
+func (s *NpcConfigServer) MountConfigVersion(ctx context.Context, _ *dbv1.MountConfigVersionRequest) (*dbv1.MountConfigVersionResponse, error) {
+	v, err := s.store.MountConfigVersion(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "mount config version: %v", err)
+	}
+	return &dbv1.MountConfigVersionResponse{Version: v}, nil
 }

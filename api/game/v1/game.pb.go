@@ -619,8 +619,15 @@ type OverlaysResponse struct {
 	// Zero means the server booted with no Mesa at all: either it has no dbServer
 	// or the read failed, and it is running the legacy tables.
 	XpConfigVersion int64 `protobuf:"varint,4,opt,name=xp_config_version,json=xpConfigVersion,proto3" json:"xp_config_version,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// mount_config_version is when the mount overlay (curves + absorption) last
+	// changed, as unix seconds, as this process read it at boot. The panel
+	// compares it with the database to tell a saved-and-live screen from one whose
+	// save is still waiting for a restart. Zero means it booted without the
+	// overlay — no dbServer, or the read failed — and every lineage is on the
+	// compiled default.
+	MountConfigVersion int64 `protobuf:"varint,5,opt,name=mount_config_version,json=mountConfigVersion,proto3" json:"mount_config_version,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *OverlaysResponse) Reset() {
@@ -677,6 +684,13 @@ func (x *OverlaysResponse) GetNpcs() bool {
 func (x *OverlaysResponse) GetXpConfigVersion() int64 {
 	if x != nil {
 		return x.XpConfigVersion
+	}
+	return 0
+}
+
+func (x *OverlaysResponse) GetMountConfigVersion() int64 {
+	if x != nil {
+		return x.MountConfigVersion
 	}
 	return 0
 }
@@ -907,13 +921,14 @@ const file_api_game_v1_game_proto_rawDesc = "" +
 	"\tdelivered\x18\x02 \x01(\x05R\tdelivered\x12\x12\n" +
 	"\x04lost\x18\x03 \x01(\x05R\x04lost\x12%\n" +
 	"\x0echaracter_name\x18\x04 \x01(\tR\rcharacterName\"\x11\n" +
-	"\x0fOverlaysRequest\"\x8e\x01\n" +
+	"\x0fOverlaysRequest\"\xc0\x01\n" +
 	"\x10OverlaysResponse\x12\x1d\n" +
 	"\n" +
 	"item_stats\x18\x01 \x01(\bR\titemStats\x12\x1b\n" +
 	"\tmob_stats\x18\x02 \x01(\bR\bmobStats\x12\x12\n" +
 	"\x04npcs\x18\x03 \x01(\bR\x04npcs\x12*\n" +
-	"\x11xp_config_version\x18\x04 \x01(\x03R\x0fxpConfigVersion\",\n" +
+	"\x11xp_config_version\x18\x04 \x01(\x03R\x0fxpConfigVersion\x120\n" +
+	"\x14mount_config_version\x18\x05 \x01(\x03R\x12mountConfigVersion\",\n" +
 	"\x10BroadcastRequest\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"3\n" +
 	"\x11BroadcastResponse\x12\x1e\n" +

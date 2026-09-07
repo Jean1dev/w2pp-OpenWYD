@@ -197,6 +197,13 @@ type Overlays struct {
 	// saved table is live is to ask which version the process read. Zero means
 	// it booted without a Mesa and is running the legacy tables.
 	VersaoMesaXP int64
+
+	// VersaoMontarias é quando o overlay de montarias (curvas + absorção) mudou
+	// pela última vez, em segundos unix, como o processo leu no boot. Mesmo papel
+	// do campo acima e pelo mesmo motivo: uma linhagem sem configuração já É o
+	// comportamento do legado, então não há bandeira para ligar — só dá para
+	// saber perguntando que número o processo leu.
+	VersaoMontarias int64
 }
 
 // Ajustes asks which overlays are active.
@@ -212,6 +219,7 @@ func (c *Client) Ajustes(parent context.Context) (Overlays, error) {
 		AtributosDeMonstro: resp.GetMobStats(),
 		NPCs:               resp.GetNpcs(),
 		VersaoMesaXP:       resp.GetXpConfigVersion(),
+		VersaoMontarias:    resp.GetMountConfigVersion(),
 	}, nil
 }
 

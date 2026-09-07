@@ -117,6 +117,40 @@
 
   {{template "quando-vale" "reiniciar"}}
 
+  {{/* "Só vale depois de reiniciar" não diz se JÁ reiniciou, e é essa a pergunta
+       que custa caro: salvo-e-valendo e salvo-esperando-reinício são idênticos
+       nesta tela, e a diferença entre os dois é uma tarde de testes contra uma
+       curva que o servidor nunca leu. Então a página pergunta ao processo. */}}
+  {{if .Estado.Perguntou}}
+    {{if .Estado.SemOverlay}}
+    <div class="nota perigo">
+      <strong>O jogo não está usando estas tabelas.</strong> O servidor ligou sem
+      conseguir lê-las e está com o padrão em todas as trinta linhagens —
+      provavelmente subiu sem o dbServer, ou a leitura falhou no boot. Enquanto
+      isso não for resolvido, nada gravado aqui vale em jogo, nem depois de
+      reiniciar. Procure <code>mount growth curves not loaded</code> no log.
+    </div>
+    {{else if .Estado.Valendo}}
+    <div class="nota">
+      <strong>O que está nesta tela é o que o jogo está usando.</strong>
+      {{if .Estado.Quando}}
+        A última mudança foi em {{.Estado.Quando}}, e o servidor já ligou depois
+        dela.
+      {{else}}
+        Nenhuma linhagem foi configurada ainda, então todas estão no padrão — que
+        é o que o jogo está aplicando.
+      {{end}}
+    </div>
+    {{else}}
+    <div class="nota perigo">
+      <strong>Tem alteração esperando reinício.</strong> Foi gravada em
+      <strong>{{.Estado.Quando}}</strong>, mas o jogo está rodando o que leu em
+      <strong>{{.Estado.QuandoJogo}}</strong>. O que você vê abaixo ainda não
+      chegou em jogo: testar agora mede a configuração antiga, não esta.
+    </div>
+    {{end}}
+  {{end}}
+
   <div class="numeros">
     <div class="num-tile">
       <div class="rot">Linhagens</div>

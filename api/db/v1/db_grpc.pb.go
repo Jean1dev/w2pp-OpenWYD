@@ -1709,6 +1709,7 @@ const (
 	NpcConfigService_ListItemStats_FullMethodName        = "/db.v1.NpcConfigService/ListItemStats"
 	NpcConfigService_ListMountGrowthRates_FullMethodName = "/db.v1.NpcConfigService/ListMountGrowthRates"
 	NpcConfigService_ListMountAbsorb_FullMethodName      = "/db.v1.NpcConfigService/ListMountAbsorb"
+	NpcConfigService_MountConfigVersion_FullMethodName   = "/db.v1.NpcConfigService/MountConfigVersion"
 )
 
 // NpcConfigServiceClient is the client API for NpcConfigService service.
@@ -1761,6 +1762,11 @@ type NpcConfigServiceClient interface {
 	// PvE mount or a PvP mount rather than one of thirty identical shields. A
 	// lineage with no row keeps 25/25 and plays exactly as the original did.
 	ListMountAbsorb(ctx context.Context, in *ListMountAbsorbRequest, opts ...grpc.CallOption) (*ListMountAbsorbResponse, error)
+	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
+	// tmServer reads it beside the tables at boot and reports it back through the
+	// control channel, so the panel can tell "saved and live" from "saved, waiting
+	// for a restart" — two states that look identical on the screen otherwise.
+	MountConfigVersion(ctx context.Context, in *MountConfigVersionRequest, opts ...grpc.CallOption) (*MountConfigVersionResponse, error)
 }
 
 type npcConfigServiceClient struct {
@@ -1831,6 +1837,16 @@ func (c *npcConfigServiceClient) ListMountAbsorb(ctx context.Context, in *ListMo
 	return out, nil
 }
 
+func (c *npcConfigServiceClient) MountConfigVersion(ctx context.Context, in *MountConfigVersionRequest, opts ...grpc.CallOption) (*MountConfigVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MountConfigVersionResponse)
+	err := c.cc.Invoke(ctx, NpcConfigService_MountConfigVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NpcConfigServiceServer is the server API for NpcConfigService service.
 // All implementations must embed UnimplementedNpcConfigServiceServer
 // for forward compatibility.
@@ -1881,6 +1897,11 @@ type NpcConfigServiceServer interface {
 	// PvE mount or a PvP mount rather than one of thirty identical shields. A
 	// lineage with no row keeps 25/25 and plays exactly as the original did.
 	ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error)
+	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
+	// tmServer reads it beside the tables at boot and reports it back through the
+	// control channel, so the panel can tell "saved and live" from "saved, waiting
+	// for a restart" — two states that look identical on the screen otherwise.
+	MountConfigVersion(context.Context, *MountConfigVersionRequest) (*MountConfigVersionResponse, error)
 	mustEmbedUnimplementedNpcConfigServiceServer()
 }
 
@@ -1908,6 +1929,9 @@ func (UnimplementedNpcConfigServiceServer) ListMountGrowthRates(context.Context,
 }
 func (UnimplementedNpcConfigServiceServer) ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMountAbsorb not implemented")
+}
+func (UnimplementedNpcConfigServiceServer) MountConfigVersion(context.Context, *MountConfigVersionRequest) (*MountConfigVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MountConfigVersion not implemented")
 }
 func (UnimplementedNpcConfigServiceServer) mustEmbedUnimplementedNpcConfigServiceServer() {}
 func (UnimplementedNpcConfigServiceServer) testEmbeddedByValue()                          {}
@@ -2038,6 +2062,24 @@ func _NpcConfigService_ListMountAbsorb_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcConfigService_MountConfigVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MountConfigVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcConfigServiceServer).MountConfigVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcConfigService_MountConfigVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcConfigServiceServer).MountConfigVersion(ctx, req.(*MountConfigVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NpcConfigService_ServiceDesc is the grpc.ServiceDesc for NpcConfigService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2068,6 +2110,10 @@ var NpcConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMountAbsorb",
 			Handler:    _NpcConfigService_ListMountAbsorb_Handler,
+		},
+		{
+			MethodName: "MountConfigVersion",
+			Handler:    _NpcConfigService_MountConfigVersion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

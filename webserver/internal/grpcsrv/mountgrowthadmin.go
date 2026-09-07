@@ -21,6 +21,7 @@ type MountGrowthAdmin interface {
 	ListAbsorb(ctx context.Context) ([]mountgrowth.Absorb, error)
 	SetAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int16) error
 	ClearAbsorb(ctx context.Context, moderatorID int64, mountIndex int16) error
+	ConfigVersion(ctx context.Context) (int64, error)
 }
 
 // MountGrowthAdminServer implements webv1.MountGrowthAdminServiceServer.
@@ -130,4 +131,14 @@ func (s *MountGrowthAdminServer) ClearMountAbsorb(ctx context.Context, req *webv
 		return nil, status.Errorf(codes.Internal, "clear mount absorb: %v", err)
 	}
 	return &webv1.AdminAck{Result: webv1.AdminResult_ADMIN_RESULT_OK}, nil
+}
+
+// MountConfigVersion answers when the mount overlay last changed, as unix
+// seconds.
+func (s *MountGrowthAdminServer) MountConfigVersion(ctx context.Context, _ *webv1.MountConfigVersionRequest) (*webv1.MountConfigVersionResponse, error) {
+	v, err := s.admin.ConfigVersion(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "mount config version: %v", err)
+	}
+	return &webv1.MountConfigVersionResponse{Version: v}, nil
 }

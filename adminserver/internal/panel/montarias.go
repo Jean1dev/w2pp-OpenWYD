@@ -1,6 +1,8 @@
 package panel
 
 import (
+	"time"
+
 	"fmt"
 	"net/http"
 	"strconv"
@@ -116,6 +118,7 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		Padrao        int
 		PadraoAbs     int
 		AbsEditadas   int
+		Estado        estadoMontarias
 		Configuradas  int
 		Inalcancaveis int
 	}{
@@ -126,6 +129,7 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		Padrao:        padraoMontaria,
 		PadraoAbs:     padraoAbsorcao,
 		AbsEditadas:   absEditadas,
+		Estado:        h.estadoDasMontarias(r),
 		Configuradas:  configuradas,
 		Inalcancaveis: inalcancaveis,
 	})
@@ -345,4 +349,67 @@ func absorcaoDoForm(r *http.Request, campo string) (int32, bool) {
 		return 0, false
 	}
 	return int32(v), true
+}
+
+// estadoMontarias é o que o jogo RODANDO está usando, em oposição ao que esta
+// tela está editando.
+//
+// As tabelas de montaria não têm bandeira de boot para reportar — uma linhagem
+// sem configuração já É o comportamento do legado —, então a única forma honesta
+// de separar "salvo e valendo" de "salvo, esperando reinício" é perguntar ao
+// processo que versão ele leu. Sem isso os dois estados são idênticos na tela, e
+// é assim que alguém gasta quatrocentos âmagos testando uma curva que o servidor
+// nunca carregou.
+type estadoMontarias struct {
+	// Perguntou é false quando não há canal de controle configurado, ou o jogo
+	// não respondeu. Aí a página não promete nada.
+	Perguntou bool
+	Valendo   bool
+	// Pendente é quando o banco está à frente do que o processo leu.
+	Pendente bool
+	// Quando é a hora da última mudança gravada, e QuandoJogo a hora da versão
+	// que o processo carregou. Mostrar as duas é o que responde "entrou quando".
+	Quando     string
+	QuandoJogo string
+	// SemOverlay é o jogo que ligou sem ler as tabelas — sem dbServer, ou a
+	// leitura falhou. Aí NADA salvo aqui está valendo, reinício ou não.
+	SemOverlay bool
+}
+
+// estadoDasMontarias pergunta ao jogo que versão do overlay ele carregou.
+func (h *Handler) estadoDasMontarias(r *http.Request) estadoMontarias {
+	var e estadoMontarias
+	if h.cfg.Jogo == nil {
+		return e
+	}
+	noBanco, err := h.cfg.GameData.MountConfigVersion(r.Context())
+	if err != nil {
+		h.cfg.Logger.Warn("could not read the mount overlay version", "err", err)
+		return e
+	}
+	o, err := h.cfg.Jogo.Ajustes(r.Context())
+	if err != nil {
+		// Aviso, não erro: a edição continua gravando. O que se perde é poder
+		// dizer se ela está valendo.
+		h.cfg.Logger.Warn("could not ask the game which mount overlay it loaded", "err", err)
+		return e
+	}
+	e.Perguntou = true
+	e.Quando = horaCurta(noBanco)
+	e.QuandoJogo = horaCurta(o.VersaoMontarias)
+	// Banco em zero é ninguém ter configurado nada, e o jogo reporta zero
+	// também: isso é acordo, não ausência.
+	e.SemOverlay = o.VersaoMontarias == 0 && noBanco > 0
+	e.Valendo = !e.SemOverlay && o.VersaoMontarias == noBanco
+	e.Pendente = e.Perguntou && !e.Valendo && !e.SemOverlay
+	return e
+}
+
+// horaCurta formata um instante unix como a tela mostra, ou "" para zero — que
+// aqui quer dizer "nunca configurado", não meia-noite de 1970.
+func horaCurta(unix int64) string {
+	if unix <= 0 {
+		return ""
+	}
+	return time.Unix(unix, 0).Local().Format("02/01 15:04")
 }

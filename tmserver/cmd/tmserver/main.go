@@ -339,6 +339,7 @@ func run(logger *slog.Logger) error {
 	// to the legacy's flat 25% on both axes — so there is no unseeded-database
 	// hazard and no switch to forget to turn on.
 	var mountAbsorb mountrate.AbsorbTable
+	var mountConfigVersion int64
 	if dbConn != nil {
 		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		absorb, ferr := dbclient.NewMountAbsorbSource(dbConn).Fetch(fetchCtx)
@@ -350,6 +351,18 @@ func run(logger *slog.Logger) error {
 		} else {
 			mountAbsorb = absorb
 			logger.Info("mount absorption loaded", "lineages", len(absorb))
+		}
+		// The version is read in the same breath as the tables, so what this
+		// process reports is exactly what it is playing. Read separately it could
+		// drift by a save landing between the two calls, and the panel would then
+		// show a green light over a curve nobody is using.
+		verCtx, verCancel := context.WithTimeout(ctx, 10*time.Second)
+		ver, verr := dbclient.NewMountAbsorbSource(dbConn).Version(verCtx)
+		verCancel()
+		if verr != nil {
+			logger.Warn("mount config version not read; the panel cannot tell if a saved curve is live", "err", verr)
+		} else {
+			mountConfigVersion = ver
 		}
 	}
 
@@ -540,7 +553,8 @@ func run(logger *slog.Logger) error {
 				// The version this process actually booted with, not whatever
 				// the database holds now. That gap is the whole point: it is
 				// what tells the panel a save is still waiting for a restart.
-				XPConfigVersion: xpConfig.Version,
+				XPConfigVersion:    xpConfig.Version,
+				MountConfigVersion: mountConfigVersion,
 			})
 		if cerr != nil {
 			return fmt.Errorf("-control-addr is set but the API cannot start: %w", cerr)

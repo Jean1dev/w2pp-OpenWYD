@@ -154,6 +154,14 @@ message OverlaysResponse {
   // Zero means the server booted with no Mesa at all: either it has no dbServer
   // or the read failed, and it is running the legacy tables.
   int64 xp_config_version = 4;
+
+  // mount_config_version is when the mount overlay (curves + absorption) last
+  // changed, as unix seconds, as this process read it at boot. The panel
+  // compares it with the database to tell a saved-and-live screen from one whose
+  // save is still waiting for a restart. Zero means it booted without the
+  // overlay — no dbServer, or the read failed — and every lineage is on the
+  // compiled default.
+  int64 mount_config_version = 5;
 }
 
 message BroadcastRequest {

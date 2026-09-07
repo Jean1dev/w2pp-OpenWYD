@@ -7,7 +7,13 @@ import (
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
+	"io"
+	"log/slog"
+	"time"
+
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/gamedata"
+	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/jogo"
+	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/session"
 )
 
 // curvasDeTeste: uma linhagem no padrão, uma configurada em queda, e uma tão
@@ -266,5 +272,84 @@ func TestLimparAbsorcaoApagaEmVezDeGravarOLegado(t *testing.T) {
 	recs := log.written
 	if len(recs) != 1 || recs[0].Action != audit.ActionClearMountAbsorb {
 		t.Errorf("auditoria = %+v, want um CLEAR_MOUNT_ABSORB", recs)
+	}
+}
+
+// painelMontariasComJogo liga o canal de controle, que é o que permite a tela
+// dizer se o que está gravado é o que está valendo.
+func painelMontariasComJogo(t *testing.T, game *fakeGameData, versaoNoJogo int64) http.Handler {
+	t.Helper()
+	h, err := New(Config{
+		Accounts:   withTarget(roleAdmin),
+		Writer:     newFakeWriter(),
+		GameData:   game,
+		Jogo:       &fakeJogo{overlays: jogo.Overlays{VersaoMontarias: versaoNoJogo}},
+		Audit:      newFakeAudit(),
+		Sessions:   session.New(time.Hour),
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		SecureOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return h.Routes()
+}
+
+func montariasComJogo(t *testing.T, versaoNoBanco, versaoNoJogo int64) string {
+	t.Helper()
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	game.versaoMontarias = versaoNoBanco
+	get := signedIn(t, painelMontariasComJogo(t, game, versaoNoJogo))
+	return get("/rates/montarias").Body.String()
+}
+
+func TestMontariasDizQuandoAMudancaAindaNaoEntrou(t *testing.T) {
+	// O estado que custa caro: a curva está gravada, a tela mostra os números
+	// novos, e o jogo continua com os antigos. Sem esta frase os dois estados são
+	// idênticos na tela — e é assim que alguém testa uma tarde inteira contra uma
+	// configuração que o servidor nunca leu.
+	body := montariasComJogo(t, 1_700_000_500, 1_700_000_000)
+	if !strings.Contains(body, "esperando reinício") {
+		t.Errorf("a tela não avisou que a mudança está pendente: %q", body)
+	}
+	if strings.Contains(body, "é o que o jogo está usando") {
+		t.Errorf("a tela disse que estava valendo com o banco à frente: %q", body)
+	}
+}
+
+func TestMontariasDizQuandoJaEntrou(t *testing.T) {
+	body := montariasComJogo(t, 1_700_000_000, 1_700_000_000)
+	if !strings.Contains(body, "é o que o jogo está usando") {
+		t.Errorf("a tela não confirmou que está valendo: %q", body)
+	}
+	if strings.Contains(body, "esperando reinício") {
+		t.Errorf("a tela alarmou com as versões iguais: %q", body)
+	}
+}
+
+func TestMontariasDizQuandoOJogoNaoLeuNada(t *testing.T) {
+	// Zero no jogo com o banco à frente é o servidor que subiu sem conseguir ler
+	// as tabelas. Aí reiniciar não resolve, e mandar reiniciar seria mentira.
+	body := montariasComJogo(t, 1_700_000_000, 0)
+	if !strings.Contains(body, "não está usando estas tabelas") {
+		t.Errorf("a tela não avisou que o jogo subiu sem o overlay: %q", body)
+	}
+}
+
+func TestMontariasNaoPrometeNadaSemCanalDeControle(t *testing.T) {
+	// Sem canal para perguntar, a tela não pode afirmar nem uma coisa nem outra.
+	// Calar é o certo: a frase genérica do "quando-vale" continua lá.
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	get := signedIn(t, newTestPanelGame(t, newFakeAudit(), game))
+
+	body := get("/rates/montarias").Body.String()
+	for _, frase := range []string{"esperando reinício", "é o que o jogo está usando", "não está usando estas tabelas"} {
+		if strings.Contains(body, frase) {
+			t.Errorf("afirmou %q sem ter a quem perguntar: %q", frase, body)
+		}
 	}
 }

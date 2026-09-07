@@ -692,6 +692,12 @@ service NpcConfigService {
   // PvE mount or a PvP mount rather than one of thirty identical shields. A
   // lineage with no row keeps 25/25 and plays exactly as the original did.
   rpc ListMountAbsorb(ListMountAbsorbRequest) returns (ListMountAbsorbResponse);
+
+  // MountConfigVersion is when the mount overlay last changed, as unix seconds.
+  // tmServer reads it beside the tables at boot and reports it back through the
+  // control channel, so the panel can tell "saved and live" from "saved, waiting
+  // for a restart" — two states that look identical on the screen otherwise.
+  rpc MountConfigVersion(MountConfigVersionRequest) returns (MountConfigVersionResponse);
 }
 
 message NpcConfigVersionRequest {}
@@ -943,6 +949,9 @@ message MountGrowthRate {
   int32 band = 2;         // 0..5
   int32 rate = 3;         // 0..100
 }
+
+message MountConfigVersionRequest {}
+message MountConfigVersionResponse { int64 version = 1; }
 
 message ListMountAbsorbRequest {}
 message ListMountAbsorbResponse {

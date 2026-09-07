@@ -129,3 +129,15 @@ func (c *Client) ClearMountAbsorb(ctx context.Context, moderatorID int64, mountI
 	}
 	return resultErr(resp.GetResult())
 }
+
+// MountConfigVersion is when the mount overlay last changed, as unix seconds.
+// Compared with what the running game reports, it is what separates "salvo e
+// valendo" from "salvo, esperando reinício" — dois estados que a tela não
+// distingue de outra forma.
+func (c *Client) MountConfigVersion(ctx context.Context) (int64, error) {
+	resp, err := c.mountGrowth.MountConfigVersion(ctx, &webv1.MountConfigVersionRequest{})
+	if err != nil {
+		return 0, fmt.Errorf("gamedata: mount config version: %w", err)
+	}
+	return resp.GetVersion(), nil
+}

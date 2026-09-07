@@ -115,3 +115,31 @@ func fetchMountAbsorbJSON(ctx context.Context, tx pgx.Tx, mountIndex int16) ([]b
 	}
 	return js, nil
 }
+
+// MountConfigVersion is when the mount overlay last changed, as unix seconds —
+// the most recent updated_at across BOTH mount tables, or 0 when neither has a
+// row.
+//
+// A timestamp rather than a counter, and one number for both tables, because of
+// what the panel does with it. The tmServer reads these tables once at boot and
+// reports back the number it read; the panel compares. Equal means the screen is
+// showing what players are getting. Different means a save is sitting there
+// waiting for a restart — and those two states are otherwise indistinguishable
+// from the screen, which is exactly how someone spends four hundred âmagos
+// testing a curve the server never loaded.
+//
+// Both tables share one number because they share one restart: nobody restarts
+// the game for the curve and not for the absorption.
+func (s *Store) MountConfigVersion(ctx context.Context) (int64, error) {
+	var v int64
+	err := s.pool.QueryRow(ctx, `
+		SELECT coalesce(extract(epoch FROM max(quando))::bigint, 0) FROM (
+		    SELECT max(updated_at) AS quando FROM mount_growth_rate
+		    UNION ALL
+		    SELECT max(updated_at) AS quando FROM mount_absorb
+		) AS t`).Scan(&v)
+	if err != nil {
+		return 0, fmt.Errorf("store: mount config version: %w", err)
+	}
+	return v, nil
+}

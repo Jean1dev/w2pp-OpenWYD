@@ -49,3 +49,15 @@ func (s *MountAbsorbSource) Fetch(ctx context.Context) (mountrate.AbsorbTable, e
 	}
 	return table, nil
 }
+
+// Version reads when the mount overlay last changed, as unix seconds. The
+// tmServer carries this number through to the panel unchanged: the panel holds
+// it against the database to say whether a saved curve is the one being played,
+// which nothing else in the process can answer.
+func (s *MountAbsorbSource) Version(ctx context.Context) (int64, error) {
+	resp, err := s.api.MountConfigVersion(ctx, &dbv1.MountConfigVersionRequest{})
+	if err != nil {
+		return 0, fmt.Errorf("dbclient: mount config version: %w", err)
+	}
+	return resp.GetVersion(), nil
+}

@@ -3577,6 +3577,7 @@ const (
 	MountGrowthAdminService_ListMountAbsorb_FullMethodName       = "/web.v1.MountGrowthAdminService/ListMountAbsorb"
 	MountGrowthAdminService_SetMountAbsorb_FullMethodName        = "/web.v1.MountGrowthAdminService/SetMountAbsorb"
 	MountGrowthAdminService_ClearMountAbsorb_FullMethodName      = "/web.v1.MountGrowthAdminService/ClearMountAbsorb"
+	MountGrowthAdminService_MountConfigVersion_FullMethodName    = "/web.v1.MountGrowthAdminService/MountConfigVersion"
 )
 
 // MountGrowthAdminServiceClient is the client API for MountGrowthAdminService service.
@@ -3616,6 +3617,10 @@ type MountGrowthAdminServiceClient interface {
 	// ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
 	// legacy) applies again.
 	ClearMountAbsorb(ctx context.Context, in *ClearMountAbsorbRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
+	// The panel holds it against the number the running game reports, which is the
+	// only way the screen can say whether what it shows is what players get.
+	MountConfigVersion(ctx context.Context, in *MountConfigVersionRequest, opts ...grpc.CallOption) (*MountConfigVersionResponse, error)
 }
 
 type mountGrowthAdminServiceClient struct {
@@ -3686,6 +3691,16 @@ func (c *mountGrowthAdminServiceClient) ClearMountAbsorb(ctx context.Context, in
 	return out, nil
 }
 
+func (c *mountGrowthAdminServiceClient) MountConfigVersion(ctx context.Context, in *MountConfigVersionRequest, opts ...grpc.CallOption) (*MountConfigVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MountConfigVersionResponse)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_MountConfigVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MountGrowthAdminServiceServer is the server API for MountGrowthAdminService service.
 // All implementations must embed UnimplementedMountGrowthAdminServiceServer
 // for forward compatibility.
@@ -3723,6 +3738,10 @@ type MountGrowthAdminServiceServer interface {
 	// ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
 	// legacy) applies again.
 	ClearMountAbsorb(context.Context, *ClearMountAbsorbRequest) (*AdminAck, error)
+	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
+	// The panel holds it against the number the running game reports, which is the
+	// only way the screen can say whether what it shows is what players get.
+	MountConfigVersion(context.Context, *MountConfigVersionRequest) (*MountConfigVersionResponse, error)
 	mustEmbedUnimplementedMountGrowthAdminServiceServer()
 }
 
@@ -3750,6 +3769,9 @@ func (UnimplementedMountGrowthAdminServiceServer) SetMountAbsorb(context.Context
 }
 func (UnimplementedMountGrowthAdminServiceServer) ClearMountAbsorb(context.Context, *ClearMountAbsorbRequest) (*AdminAck, error) {
 	return nil, status.Error(codes.Unimplemented, "method ClearMountAbsorb not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) MountConfigVersion(context.Context, *MountConfigVersionRequest) (*MountConfigVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MountConfigVersion not implemented")
 }
 func (UnimplementedMountGrowthAdminServiceServer) mustEmbedUnimplementedMountGrowthAdminServiceServer() {
 }
@@ -3881,6 +3903,24 @@ func _MountGrowthAdminService_ClearMountAbsorb_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MountGrowthAdminService_MountConfigVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MountConfigVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).MountConfigVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_MountConfigVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).MountConfigVersion(ctx, req.(*MountConfigVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MountGrowthAdminService_ServiceDesc is the grpc.ServiceDesc for MountGrowthAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3911,6 +3951,10 @@ var MountGrowthAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClearMountAbsorb",
 			Handler:    _MountGrowthAdminService_ClearMountAbsorb_Handler,
+		},
+		{
+			MethodName: "MountConfigVersion",
+			Handler:    _MountGrowthAdminService_MountConfigVersion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

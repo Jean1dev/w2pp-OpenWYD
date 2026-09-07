@@ -11,6 +11,7 @@ type fakeStore struct {
 	rows   []domain.MountGrowthRate
 	absorb []domain.MountAbsorb
 	salvo  []domain.MountAbsorb
+	versao int64
 	limpo  []int16
 }
 
@@ -29,6 +30,7 @@ func (f *fakeStore) SetMountAbsorb(_ context.Context, mountIndex, pvp, pve int16
 	f.salvo = append(f.salvo, domain.MountAbsorb{MountIndex: mountIndex, PvP: pvp, PvE: pve})
 	return nil
 }
+func (f *fakeStore) MountConfigVersion(context.Context) (int64, error) { return f.versao, nil }
 func (f *fakeStore) ClearMountAbsorb(_ context.Context, mountIndex int16, _ int64) error {
 	f.limpo = append(f.limpo, mountIndex)
 	return nil

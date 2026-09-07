@@ -83,6 +83,12 @@ type Overlays struct {
 	// process which version it read. Zero means it booted without a Mesa —
 	// no dbServer, or the read failed — and is running the legacy tables.
 	XPConfigVersion int64
+
+	// MountConfigVersion is when the mount overlay (curves + absorption) last
+	// changed, as unix seconds, as this process read it at boot. Same job as the
+	// field above and for the same reason: the mount tables have no boot flag
+	// either, because an unconfigured lineage already IS the legacy behaviour.
+	MountConfigVersion int64
 }
 
 type Server struct {
@@ -119,10 +125,11 @@ func NewServer(w *world.World, token string, log *slog.Logger, tp Teleporter, ov
 // nothing bought.
 func (s *Server) Overlays(_ context.Context, _ *gamev1.OverlaysRequest) (*gamev1.OverlaysResponse, error) {
 	return &gamev1.OverlaysResponse{
-		ItemStats:       s.overlays.ItemStats,
-		MobStats:        s.overlays.MobStats,
-		Npcs:            s.overlays.NPCs,
-		XpConfigVersion: s.overlays.XPConfigVersion,
+		ItemStats:          s.overlays.ItemStats,
+		MobStats:           s.overlays.MobStats,
+		Npcs:               s.overlays.NPCs,
+		XpConfigVersion:    s.overlays.XPConfigVersion,
+		MountConfigVersion: s.overlays.MountConfigVersion,
 	}, nil
 }
 

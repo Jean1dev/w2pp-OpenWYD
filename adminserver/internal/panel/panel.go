@@ -124,6 +124,7 @@ type GameData interface {
 	MountAbsorbs(ctx context.Context) ([]gamedata.MountAbsorb, error)
 	SetMountAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int32) error
 	ClearMountAbsorb(ctx context.Context, moderatorID int64, mountIndex int32) error
+	MountConfigVersion(ctx context.Context) (int64, error)
 }
 
 // Deliveries is the item mailbox. Kept as an interface for the same reason the

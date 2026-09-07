@@ -1458,6 +1458,11 @@ service MountGrowthAdminService {
   // ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
   // legacy) applies again.
   rpc ClearMountAbsorb(ClearMountAbsorbRequest) returns (AdminAck);
+
+  // MountConfigVersion is when the mount overlay last changed, as unix seconds.
+  // The panel holds it against the number the running game reports, which is the
+  // only way the screen can say whether what it shows is what players get.
+  rpc MountConfigVersion(MountConfigVersionRequest) returns (MountConfigVersionResponse);
 }
 
 message AdminMountGrowthCurve {
@@ -1506,6 +1511,9 @@ message AdminMountAbsorb {
   int32 absorb_pvp = 4; // 0..100, meaningful only when configured
   int32 absorb_pve = 5;
 }
+
+message MountConfigVersionRequest {}
+message MountConfigVersionResponse { int64 version = 1; }
 
 message ListMountAbsorbRequest {}
 message ListMountAbsorbResponse {
