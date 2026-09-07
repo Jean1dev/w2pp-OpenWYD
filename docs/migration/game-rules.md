@@ -241,6 +241,74 @@ if evOn and evItem and evRate and evCurrentIndex < evEndIndex and rand()%evRate 
 Controlado por variáveis globais de evento (`evOn/evRate/evItem/evStartIndex/evEndIndex`) — viram
 config/feature-flags na stack nova.
 
+### 2.4. Bônus de drop — `SetItemBonus` (`Server.cpp:1777-2717`)
+
+Todo equipamento que um mob derruba passa por aqui antes de chegar ao inventário. É o que faz duas
+cópias do mesmo item saírem diferentes: o catálogo dá os números base, esta função dá a **uma cópia**
+os seus três pares de efeito. Portado em `tmserver/internal/refine/dropbonus.go`, chamado de
+`handler.rolarBonusDrop` no drop comum e no drop de evento.
+
+**Entradas.** `Level` (nível do mob), `a3` (modo cristal), `DropBonus` (fada/gema/Grade 5, dividido
+por 8 e limitado a 2, `CMob.cpp:701-864`), e um marcador `EF_GRADE0..5` (100-105) que o chamador
+pode deixar em `stEffect[0]`: o id vira a distância de nível e o valor vira o teto de refino.
+
+**Distância de nível** (`lvdif`), o número que escolhe todas as tabelas:
+
+```text
+if not a3 and Level >= 210: Level -= 47
+lvdif = (Level - ReqLvl + 1) / 25         # marcador de grade sobrescreve
+pForc = lvdif >= 4                        # piso garantido, medido ANTES do corte
+clamp lvdif to 0..3;  if a3: clamp to 0..2
+```
+
+**Portão.** Só entra se `nPos & 0xFE`, `stEffect[0]` vazio e `nPos != 128`. Rosto (bit 0), escudo
+puro (128) e tudo de acessório pra cima (256+) ficam de fora. O `case 128` da segunda tabela de
+efeitos é código morto no original.
+
+**Seis sorteios, nesta ordem** (a ordem é o que a paridade de RNG compara):
+
+| # | Sorteio | Papel |
+|---|---------|-------|
+| 1 | `rand()%101 % div` | qual efeito no espaço 2. `div` = 8−bônus (lvdif 0), 6−bônus (1 e 2), 4 (3), 3 (cristal) |
+| 2 | `rand()%100 % div` | qual efeito no espaço 3. `div` = 8/6/6/4, **sem** o bônus de drop |
+| 3 | `rand()%100` | magnitude do espaço 2 (escada por lvdif); +`rand()%128` se sair vazio |
+| 4 | `rand()%100` | magnitude do espaço 3; +`rand()%128` se sair vazio |
+| 5 | `rand()%100` | espaço 1: refino, bônus especial ou nada |
+| 6 | `rand()%100` | só quando 5 deu +2 e o marcador de grade tinha teto > 2 |
+
+Armadura, calça, luva e bota **não consultam** o sorteio 1: sempre recebem `EF_CRITICAL2`,
+`EF_CRITICAL2`, `EF_ACADD2` e `EF_DAMAGE2` respectivamente. Elmo e arma é que escolhem entre duas ou
+três opções. Bota com magnitude ≤ 0 grava `EF_DAMAGE2` com valor 0 em vez do marcador de nada — é a
+única peça que faz isso.
+
+Faixas do sorteio 5: `6/22/75/90` para lvdif 0 e 1, `6/35/85/100` para 2 e 3 — refino +2 sai em 6%
+sempre, e na faixa alta o resultado "nada" desaparece. **Item sem marcador de grade nunca passa de
++2**, o que é o freio do sistema inteiro.
+
+**Cauda.** Depois de tudo, os 12 efeitos do catálogo são varridos e três deles sobrescrevem
+`stEffect[0]`: `EF_SANC` (refino fixo), `EF_AMOUNT` (quantidade) e `EF_INCUBATE` (valor + `rand()%4`,
+teto 9). Em seguida, treze índices de material (412/413/419/420/753, 447-450, 692-695) recebem
+`EF_UNIQUE` com bytes aleatórios em todo espaço vazio — um carimbo de identidade por item que
+**nada no original lê de volta**.
+
+#### Três defeitos do original, corrigidos no port
+
+1. **Troca de variável no segundo bônus** (`:2420-2436`). No ramo `lvdif == 0` o teste externo lê o
+   sorteio do *primeiro* bônus e o `else` escreve na magnitude do *primeiro* bônus, que já foi
+   gravada. 2% dos drops de nível compatível perdiam o segundo bônus. O port usa o próprio sorteio.
+2. **Leitura fora da tabela** (`:2531-2534`). `g_pBonusValue` é `[10][2][2]` e é indexado por `lvdif`,
+   que chega a 3: em lvdif 2 e 3 lê as linhas do tipo seguinte, e no tipo 9 lê para fora do array,
+   em cima de `g_pBonusType`. O port limita o índice às linhas que existem.
+3. **Ramo morto** (`:2390-2415` e gêmeo). As duas escadas têm uma tabela completa para `lvdif >= 4`
+   que nunca roda, porque `lvdif` já foi cortado em 3. Não foi portada.
+
+Nenhuma das três muda a **contagem** de chamadas de `rand()`, então a paridade de sequência
+se mantém.
+
+**Ainda não modelado:** `pMob[conn].DropBonus` do matador (fada azul +32, fada vermelha +16, item
+Grade 5 +8, gema +8) chega como 0, igual ao placeholder que a taxa de drop já usa. Ele só alarga as
+chances do sorteio 1.
+
 ---
 
 ## 3. Refino / Combine (Anct e variantes)

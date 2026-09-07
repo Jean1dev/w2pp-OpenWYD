@@ -94,6 +94,11 @@ var nomesEfeito = map[uint8]string{
 	7: "Força", 8: "Inteligência", 9: "Destreza", 10: "Constituição",
 	11: "Maestria 1", 12: "Maestria 2", 13: "Maestria 3", 14: "Maestria 4",
 	42: "Crítico", 43: "Refino", 45: "HP %", 46: "MP %",
+	// Os que o sorteio de drop escreve na cópia (refine.Drop). Antes deste
+	// sorteio existir nenhum item os carregava, então nenhum tinha rótulo aqui e
+	// apareciam como "efeito 26". EF_UNIQUE é o marcador de espaço vazio: um
+	// número dele não quer dizer nada, e o rótulo precisa dizer isso.
+	26: "Velocidade de ataque", 59: "Sem efeito", 72: "Defesa 2", 73: "Dano 2",
 	49: "Resist. fogo", 50: "Resist. gelo", 51: "Resist. sagrada", 52: "Resist. raio",
 	53: "Defesa %", 54: "Todas as resistências", 60: "Ataque mágico",
 	67: "Bônus de dano", 68: "Bônus mágico", 71: "Crítico 2", 74: "Todas as maestrias",

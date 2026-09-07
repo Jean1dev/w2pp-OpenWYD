@@ -91,7 +91,7 @@ func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapsho
 	d.worldEventVersion = snap.Version
 }
 
-func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity) {
+func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity, nivelMob int) {
 	cfg := w.WorldEventConfig()
 	if !worldEventDropActive(cfg) {
 		return
@@ -108,6 +108,19 @@ func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity) {
 			{Effect: eventSerialRand, Value: uint8(w.Rand().Rand())},
 		}
 	}
+	// The event item goes through the same drop roll as ordinary loot, in the
+	// same place the legacy puts it: after the serial is stamped, before
+	// delivery (MobKilled.cpp:2752).
+	//
+	// An indexed event item arrives with all three slots already written, and
+	// the roll is gated on slot 0 being empty — so it skips the whole bonus
+	// block and the serial survives. Only a plain (unindexed) event item gets
+	// bonuses. The one thing that can still touch an indexed item is the tail
+	// override, if its catalog row carries EF_SANC/EF_AMOUNT/EF_INCUBATE; that
+	// is the legacy's behaviour too, and choosing such an item as an indexed
+	// event prize would break its numbering there as well.
+	d.rolarBonusDrop(w, &item, nivelMob)
+
 	slot := firstEmptyAccessibleCarry(reward)
 	if slot < 0 {
 		conn := -1

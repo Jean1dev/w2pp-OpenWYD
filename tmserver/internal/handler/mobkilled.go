@@ -6,6 +6,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/loot"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -82,7 +83,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		d.grantExp(w, ks, reward, mob)
 	}
 
-	d.tryWorldEventDrop(w, reward)
+	d.tryWorldEventDrop(w, reward, int(mob.Level))
 
 	// Item drop: each occupied loot slot rolls against its g_pDropRate odds.
 	for slot := range mob.Carry {
@@ -95,6 +96,11 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		// UNVERIFIED: killer.DropBonus (item/event bonus) → 0 placeholder.
 		rate := loot.EffectiveDropRate(slot, 0, int(mob.Level))
 		if loot.Drops(w.Rand(), rate) {
+			// The drop-time bonus roll, in the position the legacy gives it:
+			// after the rate succeeded, before the castle-key check and before
+			// delivery (MobKilled.cpp:2867). `it` is a copy of the mob's Carry
+			// entry, so the roll marks this drop and never the mob template.
+			d.rolarBonusDrop(w, &it, int(mob.Level))
 			if d.castleKeyDrop(w, reward, it) {
 				continue
 			}
@@ -121,6 +127,31 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// free its grid cell + entity slot, so the corpse disappears and it can't be
 	// retargeted. Without this the client keeps rendering the dead mob.
 	w.DespawnMob(mob.ID, 1)
+}
+
+// rolarBonusDrop gives one dropped item its own three effect pairs
+// (refine.Drop / SetItemBonus). Without it every copy of an item came out of a
+// mob identical to the catalog row, which is what left "atributo adicional"
+// reading zero on every drop.
+//
+// The legacy wraps this call in `reqlv < 140 || droprate % 2 != 1`, which reads
+// like a throttle on high-level items and is not one: droprate has already been
+// reduced to rand()%droprate and tested for zero by the time the block is
+// entered, so the second half is `0 % 2 != 1` and the whole condition is always
+// true. Nothing is gated, so nothing is ported.
+func (d *Dispatcher) rolarBonusDrop(w *world.World, it *world.Item, nivelMob int) {
+	idx := int(it.Index)
+	// UNVERIFIED: killer.DropBonus (fada, item Grade 5, gema) is not modelled
+	// yet, so the bonus is 0 here for the same reason the drop rate above passes
+	// 0. It only widens the odds of the first bonus; every other table is
+	// unaffected.
+	refine.Drop(it, refine.Base{
+		Unique:  d.itemUnique[idx],
+		ReqLvl:  int(d.itemReqs[idx].Lvl),
+		Pos:     d.itemPos[idx],
+		Efeitos: d.itemEffects[idx],
+		Indice:  idx,
+	}, nivelMob, 0, false, w.Rand().Intn)
 }
 
 // putMobDrop mirrors legacy PutItem for common mob loot. A full accessible Carry
