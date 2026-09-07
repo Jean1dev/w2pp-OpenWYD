@@ -1674,10 +1674,23 @@ func (h *Handler) reiniciar(w http.ResponseWriter, r *http.Request) {
 	}
 	sess, _ := staffFrom(r.Context())
 
-	dep, err := h.cfg.Platform.Latest(r.Context())
+	// Onde a pessoa estava, resolvido antes de qualquer coisa poder falhar: um
+	// erro tem de voltar para a página do botão, e não jogá-la para fora do
+	// painel numa tela de erro do navegador. O campo vem do formulário, então só
+	// os dois caminhos conhecidos são aceitos.
+	destino := "/"
+	if r.PostFormValue("voltar") == "/servidor" {
+		destino = "/servidor"
+	}
+
+	// LatestAny, não Latest: Latest filtra por deployment bem-sucedido, e o
+	// estado que a página mostra vem do LatestAny. Com os dois discordando, uma
+	// tela que diz "parado" mandava o reinício procurar um deployment
+	// bem-sucedido que, justamente por estar parado, não existe.
+	dep, err := h.cfg.Platform.LatestAny(r.Context())
 	if err != nil {
 		h.cfg.Logger.Error("restart: could not find the deployment", "err", err)
-		http.Error(w, "Não consegui falar com a hospedagem.", http.StatusBadGateway)
+		h.voltaComAviso(w, r, destino, "Não consegui falar com a hospedagem, então não reiniciei.")
 		return
 	}
 
@@ -1696,10 +1709,14 @@ func (h *Handler) reiniciar(w http.ResponseWriter, r *http.Request) {
 	if h.cfg.Jogo != nil {
 		if _, derr := h.cfg.Jogo.Drenar(r.Context(), avisoPadraoReinicio); derr != nil {
 			h.cfg.Logger.Error("restart: drain failed; NOT restarting", "err", derr)
-			http.Error(w,
-				"Esvaziei o servidor mas as gravações não confirmaram, então NÃO reiniciei. "+
-					"Reiniciar agora poderia duplicar ou perder item. Tente de novo em um minuto.",
-				http.StatusBadGateway)
+			// A mensagem antiga dizia "esvaziei o servidor mas as gravações não
+			// confirmaram" em TODOS os casos — inclusive quando a chamada nunca
+			// chegou ao jogo. Afirmar que esvaziou um servidor com o qual não se
+			// conseguiu falar é a pior coisa que esta tela poderia dizer, porque
+			// manda alguém procurar item perdido que não se perdeu.
+			h.voltaComAviso(w, r, destino,
+				"NÃO reiniciei. "+explicaJogo(derr)+
+					" Reiniciar sem esvaziar poderia duplicar ou perder item.")
 			return
 		}
 	}
@@ -1713,14 +1730,15 @@ func (h *Handler) reiniciar(w http.ResponseWriter, r *http.Request) {
 		New:    map[string]any{"deployment": dep.ID, "drenado": h.cfg.Jogo != nil},
 	}); err != nil {
 		h.cfg.Logger.Error("restart NOT audited; refusing", "err", err)
-		http.Error(w, "Não consegui registrar a ação na auditoria, então não reiniciei.",
-			http.StatusInternalServerError)
+		h.voltaComAviso(w, r, destino,
+			"Não consegui registrar a ação na auditoria, então não reiniciei.")
 		return
 	}
 
 	if err := h.cfg.Platform.Restart(r.Context(), dep.ID); err != nil {
-		h.cfg.Logger.Error("restart failed", "deployment", dep.ID, "err", err)
-		http.Error(w, "A hospedagem recusou o reinício.", http.StatusBadGateway)
+		h.cfg.Logger.Error("restart failed", "deployment", dep.ID, "estado", dep.Status, "err", err)
+		h.voltaComAviso(w, r, destino,
+			"A hospedagem recusou o reinício. O deployment está como "+dep.Status+".")
 		return
 	}
 
@@ -1730,13 +1748,18 @@ func (h *Handler) reiniciar(w http.ResponseWriter, r *http.Request) {
 	// always landing on the home page makes the Servidor tab feel like it threw
 	// the operator out. Only the two known paths are honoured — the field comes
 	// from the form, and an open redirect is not worth the convenience.
-	destino := "/"
-	if r.PostFormValue("voltar") == "/servidor" {
-		destino = "/servidor"
-	}
-	http.Redirect(w, r, destino+"?aviso="+url.QueryEscape(
-		"Reinício pedido. O servidor salva quem está online antes de sair e volta em cerca de um minuto."),
-		http.StatusSeeOther)
+	h.voltaComAviso(w, r, destino,
+		"Reinício pedido. O servidor salva quem está online antes de sair e volta em cerca de um minuto.")
+}
+
+// voltaComAviso manda a pessoa de volta para a página do botão, com o recado.
+//
+// Existe porque um botão que falha e responde uma página de erro crua do
+// navegador tira a pessoa do painel: sem menu, sem o estado do servidor, sem
+// caminho de volta a não ser o botão de voltar. O aviso aparece no lugar onde o
+// botão estava, que é onde ela está olhando.
+func (h *Handler) voltaComAviso(w http.ResponseWriter, r *http.Request, destino, aviso string) {
+	http.Redirect(w, r, destino+"?aviso="+url.QueryEscape(aviso), http.StatusSeeOther)
 }
 
 // idade words an elapsed time the way someone reads it out loud.

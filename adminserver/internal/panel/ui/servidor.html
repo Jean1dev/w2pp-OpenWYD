@@ -55,6 +55,42 @@
   </div>
   {{end}}
 
+  {{/* Quando a hospedagem não responde, esta tela ficava MUDA: o cartão inteiro
+       sumia, e com ele o estado, o botão de ligar e o de reiniciar. Sem nenhuma
+       explicação, porque o erro era calculado e nunca exibido aqui — a página
+       inicial mostrava, esta não. Quem olhasse concluiria que o recurso não
+       existe. Agora ela diz o que houve e continua oferecendo as ações: os dois
+       handlers consultam a hospedagem de novo na hora do clique, então uma
+       leitura que falhou ao carregar a página não quer dizer que o botão vai
+       falhar. */}}
+  {{if not .Servidor.Conhecido}}
+  <div class="reinicio-cartao">
+    <div class="nota perigo">
+      <strong>{{if .Servidor.Erro}}{{.Servidor.Erro}}{{else}}Não consegui falar com a hospedagem.{{end}}</strong>
+      <br><br>
+      Sem essa resposta eu não sei se o servidor está de pé, então não dá para
+      dizer qual botão você precisa. Os dois estão aqui: cada um pergunta à
+      hospedagem de novo quando você aperta, e diz o que aconteceu.
+    </div>
+    {{if .IsAdmin}}
+    <div class="linha" style="gap:10px;margin-top:14px">
+      <form method="post" action="/servidor/ligar">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="voltar" value="/servidor">
+        <button type="submit" class="principal">Tentar ligar</button>
+      </form>
+      <form method="post" action="/servidor/reiniciar">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="voltar" value="/servidor">
+        <button type="submit" class="perigo">Tentar reiniciar</button>
+      </form>
+    </div>
+    {{else}}
+    <p class="dica">Só um admin pode ligar ou reiniciar.</p>
+    {{end}}
+  </div>
+  {{end}}
+
   {{if .Servidor.Conhecido}}
   <div class="reinicio-cartao">
     {{template "estado-servidor" .Servidor}}

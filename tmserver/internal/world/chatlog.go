@@ -45,6 +45,14 @@ func (w *World) RegistraChat(l ChatLinha) {
 	if l.At.IsZero() {
 		l.At = time.Now()
 	}
+	if len(w.chatBuf) == 0 {
+		// A janela começa quando o lote começa a encher, não quando o último
+		// saiu. Medindo do último envio, um servidor que passou a madrugada
+		// calado mandava a primeira frase da manhã sozinha, sem esperar
+		// ninguém — e num mundo recém-criado, onde nunca houve envio, TODA
+		// primeira frase saía sozinha.
+		w.chatUltimo = l.At
+	}
 	w.chatBuf = append(w.chatBuf, l)
 
 	if len(w.chatBuf) > chatTeto {
@@ -99,7 +107,12 @@ func (w *World) EsvaziaChat() {
 	})
 }
 
-// chatTick flushes a partly-filled buffer. Called from the world tick.
+// chatTick flushes a buffer that has been waiting long enough. Called from the
+// world tick.
+//
+// The clock runs from the moment the batch started filling (RegistraChat sets
+// it), so a line waits at most chatIntervalo no matter how long the server was
+// quiet before it.
 func (w *World) chatTick(agora time.Time) {
 	if len(w.chatBuf) == 0 {
 		return

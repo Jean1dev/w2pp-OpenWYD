@@ -1722,11 +1722,13 @@ func TestRestartIsNotAttemptedWhenItCannotBeAudited(t *testing.T) {
 	post, token := signedInPost(t, h)
 
 	rec := post("/servidor/reiniciar", url.Values{"csrf": {token}})
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
-	}
 	if len(plat.restarts) != 0 {
 		t.Fatal("the server was restarted even though the action could not be recorded")
+	}
+	// The refusal now comes back as the panel's own page carrying the reason,
+	// rather than a bare browser error that drops the operator out of the panel.
+	if recado := rec.Header().Get("Location"); !strings.Contains(recado, "auditoria") {
+		t.Errorf("the operator is not told why it refused: %q", recado)
 	}
 }
 

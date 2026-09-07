@@ -13,6 +13,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/accounts"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/jogo"
+	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/plataforma"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/session"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
@@ -858,14 +859,19 @@ func TestDrenagemQueFalhaNaoReinicia(t *testing.T) {
 	post, token := signedInPost(t, h)
 
 	rec := post("/servidor/reiniciar", url.Values{"csrf": {token}})
-	if rec.Code == http.StatusSeeOther {
-		t.Fatal("reiniciou mesmo sem confirmar as gravações")
-	}
+	// O que prova a recusa é a hospedagem não ter recebido nada, não o status:
+	// a falha agora volta para a página do botão com o recado, em vez de jogar
+	// a pessoa para fora do painel numa tela de erro do navegador.
 	if plat.restartCount() != 0 {
 		t.Error("mandou reiniciar com as gravações em aberto")
 	}
-	if !strings.Contains(rec.Body.String(), "duplicar") {
-		t.Errorf("a mensagem não diz o que estava em risco: %q", rec.Body.String())
+	recado := rec.Header().Get("Location")
+	if !strings.Contains(recado, "duplicar") {
+		t.Errorf("o recado não diz o que estava em risco: %q", recado)
+	}
+	// E não pode afirmar que esvaziou: a chamada nem chegou no jogo.
+	if strings.Contains(recado, "Esvaziei") {
+		t.Errorf("disse que esvaziou um servidor com o qual não falou: %q", recado)
 	}
 }
 
@@ -887,5 +893,73 @@ func TestSemLigacaoComOJogoOReinicioAindaFunciona(t *testing.T) {
 	}
 	if plat.restartCount() != 1 {
 		t.Error("não reiniciou")
+	}
+}
+
+// --- os dois defeitos que a Hanna encontrou usando o painel de verdade ---
+
+// Com a hospedagem fora do ar, a tela do servidor ficava MUDA: o cartão inteiro
+// sumia — estado, botão de ligar e botão de reiniciar — e o erro, que existia,
+// nunca era mostrado. Quem olhasse concluiria que o painel não tem esses botões.
+func TestServidorSemAHospedagemNaoFicaMudo(t *testing.T) {
+	plat := newFakePlatform()
+	plat.latestErr = errors.New("token recusado")
+	j := &fakeJogo{estado: estadoDeTeste(), plat: plat}
+	get := getSignedIn(t, newTestPanelJogoPlat(t, j, plat), "/servidor")
+	body := get.Body.String()
+
+	if !strings.Contains(body, "hospedagem") {
+		t.Error("a página não diz que não conseguiu falar com a hospedagem")
+	}
+	// E continua oferecendo as duas ações: cada handler consulta a hospedagem de
+	// novo no clique, então uma leitura que falhou ao carregar não condena o
+	// botão.
+	if !strings.Contains(body, "/servidor/ligar") {
+		t.Error("sem o estado da hospedagem, a página não oferece ligar")
+	}
+	if !strings.Contains(body, "/servidor/reiniciar") {
+		t.Error("sem o estado da hospedagem, a página não oferece reiniciar")
+	}
+}
+
+// O reinício procurava um deployment BEM-SUCEDIDO enquanto a página lia
+// qualquer um. Com o servidor parado ou quebrado os dois discordavam: a tela
+// mostrava o estado e o botão não achava o que reiniciar.
+func TestReinicioAchaODeploymentParado(t *testing.T) {
+	plat := newFakePlatform()
+	plat.dep = plataforma.Deployment{ID: "dep-parado", Status: "REMOVED", CreatedAt: time.Now()}
+	j := &fakeJogo{estado: estadoDeTeste(), plat: plat}
+	h := newTestPanelJogoPlat(t, j, plat)
+	post, token := signedInPost(t, h)
+
+	post("/servidor/reiniciar", url.Values{"csrf": {token}})
+	if plat.usouLatestAny == 0 {
+		t.Error("o reinício ainda filtra por deployment bem-sucedido")
+	}
+	if plat.restartCount() != 1 {
+		t.Errorf("reinícios = %d, want 1: não achou o deployment parado", plat.restartCount())
+	}
+}
+
+// Um botão que falha não pode responder uma página de erro do navegador: sem
+// menu, sem estado, sem caminho de volta. O recado tem de aparecer onde o botão
+// estava.
+func TestReinicioQueFalhaVoltaParaAPagina(t *testing.T) {
+	plat := newFakePlatform()
+	plat.restartEr = errors.New("a hospedagem recusou")
+	j := &fakeJogo{estado: estadoDeTeste(), plat: plat}
+	h := newTestPanelJogoPlat(t, j, plat)
+	post, token := signedInPost(t, h)
+
+	rec := post("/servidor/reiniciar", url.Values{"csrf": {token}, "voltar": {"/servidor"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 de volta para a página", rec.Code)
+	}
+	destino := rec.Header().Get("Location")
+	if !strings.HasPrefix(destino, "/servidor?") {
+		t.Errorf("voltou para %q, e não para a página do botão", destino)
+	}
+	if !strings.Contains(destino, "recusou") {
+		t.Errorf("o recado não diz o que houve: %q", destino)
 	}
 }
