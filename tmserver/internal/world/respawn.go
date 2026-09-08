@@ -58,3 +58,23 @@ func (w *World) clearSeenAll(id int) {
 		delete(s.seen, id)
 	}
 }
+
+// SetRespawnDelayFor installs the per-generator delay policy for the individual
+// respawn queue. A nil hook (the default) means DefaultRespawnDelay everywhere.
+//
+// Only this queue is affected. The blocks with a positive MinuteGenerate never
+// reach it — their whole group is refilled by the minute timer instead — so a
+// pacing change has to move both, and the caller is responsible for the other
+// half. Wiring-time or loop-only.
+func (w *World) SetRespawnDelayFor(f func(genIndex int32) uint32) { w.respawnDelayFor = f }
+
+// respawnDelay is the wait for one generator's dead monster.
+func (w *World) respawnDelay(genIndex int32) uint32 {
+	if w.respawnDelayFor == nil {
+		return DefaultRespawnDelay
+	}
+	if d := w.respawnDelayFor(genIndex); d > 0 {
+		return d
+	}
+	return DefaultRespawnDelay
+}

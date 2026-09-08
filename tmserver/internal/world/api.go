@@ -294,7 +294,7 @@ func (w *World) DespawnMob(id int, removeType int32) {
 				RouteType: e.RouteType, SegX: e.SegListX, SegY: e.SegListY,
 				SegWait: e.SegWait, GenIndex: e.GenIndex,
 			},
-			due: w.Now() + DefaultRespawnDelay,
+			due: w.Now() + w.respawnDelay(int32(e.GenIndex)),
 		})
 	}
 	if cur, ok := w.grid.MobAt(int(e.X), int(e.Y)); ok && int(cur) == id {

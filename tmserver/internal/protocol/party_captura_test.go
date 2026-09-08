@@ -77,3 +77,129 @@ func TestDecodeAindaLeOTamanhoCheio(t *testing.T) {
 		t.Errorf("ida e volta deu %+v", v)
 	}
 }
+
+// MSG_Trade carries MSVC natural-alignment padding, because the struct sits
+// outside the pack(1) blocks of Basedef.h (last pop at 1850, struct at 2435).
+// The body is 144 bytes, not the 142 the fields add up to:
+//
+//	Item[15] 0..120 · InvenPos[15] 120..135 · <pad> 135
+//	TradeMoney 136..140 · MyCheck 140 · <pad> 141 · OpponentID 142..144
+//
+// The two filler bytes were missing, so money, the confirmation flag and the
+// opponent id were each read early. Nothing errored — the old length was
+// SHORTER than what the client sends, so the guard passed and the numbers were
+// quietly wrong, which is what a trade that "does not work" looks like.
+//
+// Built as raw bytes on purpose: an Encode→Decode round trip agrees with itself
+// at any offsets, and that is exactly why the existing trade tests stayed green
+// through the bug.
+func TestTradeLeOsCamposNosOffsetsDoLegado(t *testing.T) {
+	b := make([]byte, 144)
+	// Um item no slot 0, para provar que a área de itens não se moveu.
+	le.PutUint16(b[0:2], 1234)
+	b[tradeOffInvenPos] = 7                                   // InvenPos[0]
+	le.PutUint32(b[tradeOffMoney:tradeOffMoney+4], 5_000_000) // dinheiro
+	b[tradeOffMyCheck] = 1                                    // confirmado
+	le.PutUint16(b[tradeOffOpponentID:tradeOffOpponentID+2], 42)
+	// Os dois bytes de preenchimento ficam em zero, como o compilador os deixa.
+
+	var m MsgTradeBody
+	if err := m.Decode(b); err != nil {
+		t.Fatal(err)
+	}
+	if m.Item[0].Index != 1234 {
+		t.Errorf("Item[0].Index = %d, want 1234", m.Item[0].Index)
+	}
+	if m.InvenPos[0] != 7 {
+		t.Errorf("InvenPos[0] = %d, want 7", m.InvenPos[0])
+	}
+	if m.TradeMoney != 5_000_000 {
+		t.Errorf("TradeMoney = %d, want 5000000 — offset do dinheiro errado", m.TradeMoney)
+	}
+	if m.MyCheck != 1 {
+		t.Errorf("MyCheck = %d, want 1 — a confirmação é lida do byte errado", m.MyCheck)
+	}
+	if m.OpponentID != 42 {
+		t.Errorf("OpponentID = %d, want 42", m.OpponentID)
+	}
+}
+
+// sizeof(MSG_Trade) menos o cabeçalho: 144. Se isto mudar, os offsets acima
+// mudaram junto e a troca volta a ler campo trocado.
+func TestTradeTemOTamanhoDoLegado(t *testing.T) {
+	if MsgTradeBodySize != 144 {
+		t.Errorf("MsgTradeBodySize = %d, want 144 (sizeof com o preenchimento do MSVC)", MsgTradeBodySize)
+	}
+	if got := len((&MsgTradeBody{}).Encode()); got != 144 {
+		t.Errorf("Encode gerou %d bytes, want 144", got)
+	}
+}
+
+// O parceiro fica no fim, então um corpo que pare antes dele ainda serve — a
+// mesma tolerância do convite de grupo, e pelo mesmo motivo.
+func TestTradeAceitaCorpoSemOParceiro(t *testing.T) {
+	b := make([]byte, tradeBodyMin)
+	le.PutUint32(b[tradeOffMoney:tradeOffMoney+4], 99)
+	b[tradeOffMyCheck] = 1
+
+	var m MsgTradeBody
+	if err := m.Decode(b); err != nil {
+		t.Fatalf("corpo de %d bytes recusado: %v", len(b), err)
+	}
+	if m.TradeMoney != 99 || m.MyCheck != 1 {
+		t.Errorf("dinheiro/confirmação = %d/%d, want 99/1", m.TradeMoney, m.MyCheck)
+	}
+	if m.OpponentID != 0 {
+		t.Errorf("OpponentID = %d, want 0 — não veio no pacote", m.OpponentID)
+	}
+}
+
+// An attack echo forwarded to a bystander must carry the BYSTANDER's own mana,
+// experience and health — not the attacker's.
+//
+// Observed in game: a level-192 character standing beside a level-313 one was
+// told it gained 790.358.674 experience, which is exactly the 313's total
+// (856.823.079) minus the 192's own (66.464.405). The body carries the
+// attacker's totals and the legacy trusts the client to ignore them when the
+// ClientTick is not its own — but the tick is GetTickCount(), so two clients on
+// one machine tick almost identically and the guard fails.
+func TestEcoDeAtaqueLevaOsNumerosDeQuemRecebe(t *testing.T) {
+	b := make([]byte, 60)
+	le.PutUint32(b[attackOffCurrentMp:], 500)          // mana do atacante
+	le.PutUint64(b[attackOffCurrentExp:], 856_823_079) // XP do atacante
+	le.PutUint32(b[attackOffCurrentHp:], 3340)         // HP do atacante
+	le.PutUint16(b[30:32], 7)                          // AttackerID, tem que sobreviver
+
+	out := AttackEchoFor(b, 66_464_405)
+	if &out[0] == &b[0] {
+		t.Fatal("AttackEchoFor devolveu o mesmo buffer; o do atacante seria corrompido")
+	}
+	if got := le.Uint64(out[attackOffCurrentExp:]); got != 66_464_405 {
+		t.Errorf("XP no eco = %d, want 66464405 (a de quem recebe)", got)
+	}
+	// Vida e mana continuam sendo as de QUEM ATACA: é delas que o espectador
+	// desenha a barra de vida dele na tela. Trocá-las congelaria a barra de todo
+	// mundo nos números de quem está olhando.
+	if got := le.Uint32(out[attackOffCurrentMp:]); got != 500 {
+		t.Errorf("mana no eco = %d, want 500 (a de quem ataca)", got)
+	}
+	if got := le.Uint32(out[attackOffCurrentHp:]); got != 3340 {
+		t.Errorf("vida no eco = %d, want 3340 (a de quem ataca, para a barra dele)", got)
+	}
+	// Tudo que não é a experiência continua igual, senão o espectador perde o
+	// golpe que deveria ver.
+	if got := le.Uint16(out[30:32]); got != 7 {
+		t.Errorf("AttackerID = %d, want 7 — o resto do pacote não pode mudar", got)
+	}
+	if le.Uint32(b[attackOffCurrentMp:]) != 500 || le.Uint64(b[attackOffCurrentExp:]) != 856_823_079 {
+		t.Error("o buffer original foi alterado; ele ainda vai para o atacante")
+	}
+}
+
+// Um corpo curto demais para conter a experiência passa direto, sem estourar.
+func TestEcoDeAtaqueIgnoraCorpoCurto(t *testing.T) {
+	b := make([]byte, attackOffCurrentExp+4) // cabe metade do campo, não ele todo
+	if out := AttackEchoFor(b, 3); &out[0] != &b[0] {
+		t.Error("corpo curto devia voltar como veio")
+	}
+}

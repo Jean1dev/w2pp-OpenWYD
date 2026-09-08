@@ -497,6 +497,7 @@ func runServe(args []string, logger *slog.Logger) error {
 	dbv1.RegisterWorldEventConfigServiceServer(srv, grpcsrv.NewWorldEventConfig(st))
 	dbv1.RegisterXPConfigServiceServer(srv, grpcsrv.NewXPConfig(st))
 	dbv1.RegisterDungeonGateServiceServer(srv, grpcsrv.NewDungeonGate(st))
+	dbv1.RegisterSpawnRateServiceServer(srv, grpcsrv.NewSpawnRate(st))
 	dbv1.RegisterQuestRewardServiceServer(srv, grpcsrv.NewQuestReward(st))
 	dbv1.RegisterDropBonusServiceServer(srv, grpcsrv.NewDropBonus(st))
 

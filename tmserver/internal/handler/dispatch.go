@@ -17,6 +17,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/internal/spawnrate"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/mountrate"
@@ -179,6 +180,10 @@ type Config struct {
 	// that predates the feature.
 	DungeonGates DungeonGateSource
 
+	// SpawnRates is the panel-managed respawn pacing per area, polled live. When
+	// nil every generator keeps exactly the period NPCGener.txt gives it.
+	SpawnRates SpawnRateSource
+
 	// CastleQuests is the optional CastleQuest.txt table. Empty keeps the
 	// best-effort Castle/Zakum port disabled.
 	CastleQuests []content.CastleQuest
@@ -271,6 +276,15 @@ type Dispatcher struct {
 	dungeonGates        dungeon.Config
 	dungeonGatePolling  bool
 	dungeonGatePollTick int
+
+	// The per-area respawn pacing, also read LIVE (spawnrate.go). The zero value
+	// is the content file untouched. genAreas is the generator-index-to-area
+	// table, resolved once on first use.
+	spawnRateSource   SpawnRateSource
+	spawnRates        spawnrate.Config
+	spawnRatePolling  bool
+	spawnRatePollTick int
+	genAreas          []uint8
 
 	// playersX/Y are per-tick scratch snapshots of in-play player positions
 	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
@@ -410,6 +424,7 @@ func New(cfg Config) *Dispatcher {
 		managedNPCs:       make(map[string]int),
 		worldEventSource:  cfg.WorldEvents,
 		dungeonGateSource: cfg.DungeonGates,
+		spawnRateSource:   cfg.SpawnRates,
 		castleQuests:      cfg.CastleQuests,
 		eventRNG:          rng.NewSeeded(cfg.EventRNGSeed),
 		events:            worldEventState{forceWeather: weatherAuto},

@@ -48,6 +48,14 @@
   }
   table.cortes th:first-child, table.cortes td:first-child { width: 40%; }
   td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .campos-spawn { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-top: 14px; }
+  .campos-spawn label { font-size: 12px; color: var(--ink-3); }
+  .campos-spawn input {
+    width: 90px; margin: 4px 6px 0 0; padding: 6px 8px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  .campos-spawn input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* The zone the simulation is actually about, so the eye finds it in a table
      whose other rows are there only for comparison. */
   tr.atual > td { background: var(--chip-bg); font-weight: 600; }
@@ -267,6 +275,110 @@
       {{end}}
     </p>
   </div>
+
+  {{if .Spawn.Existe}}
+  <div class="caixa">
+    <h2>Tempo de spawn do {{.Spawn.Nome}}</h2>
+    <p class="sub">
+      Quanto tempo os monstros levam para voltar. É a outra metade do ritmo de
+      up: a tabela acima diz quanto vale cada morte, esta diz quantas mortes o
+      mapa oferece por hora. Vale para o <strong>{{.Spawn.Nome}} inteiro</strong>
+      — os {{.Spawn.Blocos}} grupos das cinco áreas — e não só para a zona
+      escolhida ali em cima.
+    </p>
+
+    <div class="nota calma">
+      <strong>Isto vale na hora.</strong> Diferente de tudo o mais nesta tela,
+      não espera reinício: o jogo relê o ritmo a cada poucos segundos. Um tempo
+      de spawn pode mudar com gente jogando sem injustiça nenhuma — o monstro só
+      aparece mais cedo ou mais tarde, e ninguém recebe nada diferente por isso.
+      <br><br>
+      <strong>Por que porcentagem e não minutos.</strong> Os grupos do
+      {{.Spawn.Nome}} não têm um tempo só: o arquivo de conteúdo escreveu uns em
+      2 minutos, outros em 3, outros em 4. Um número absoluto achataria os três
+      no mesmo e apagaria quem é chefe e quem é lixo. A porcentagem multiplica o
+      tempo de cada grupo, então a diferença entre eles continua de pé.
+      {{.Spawn.Neutro}}% é o arquivo intocado; 200% é o dobro da espera (up mais
+      lento); 50% é metade (up mais rápido).
+    </div>
+
+    <form method="post" action="/rates/xp/spawn">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="voltar" value="{{.VoltarURL}}">
+      <input type="hidden" name="area" value="{{.Spawn.Area}}">
+      <div class="campos-spawn">
+        <label>
+          Ritmo
+          <input type="number" name="percent" min="{{.Spawn.Min}}" max="{{.Spawn.Max}}"
+                 value="{{.Spawn.Percent}}"> %
+        </label>
+        <button type="submit">Gravar o ritmo</button>
+        {{if .Spawn.Editada}}<span class="marca">editado</span>{{end}}
+      </div>
+    </form>
+
+    <div class="tw" style="margin-top:14px">
+      <table>
+        <thead>
+          <tr>
+            <th>Grupos</th><th>No arquivo</th>
+            <th>Com {{.Spawn.Percent}}%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Spawn.Tempos}}
+          <tr>
+            <td class="n">{{.Blocos}}</td>
+            <td>{{.Antes}}{{if .Fila}} <span class="sub">(fila individual)</span>{{end}}</td>
+            <td>{{.Agora}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    <p class="legado" style="margin-top:10px">
+      A <strong>fila individual</strong> é outro mecanismo: esses grupos não têm
+      período de minuto nenhum no arquivo, então cada monstro morto volta sozinho
+      depois da espera, em vez de o grupo inteiro ser recomposto de uma vez. O
+      ritmo move os dois juntos — senão uma dúzia de grupos do deserto ficaria
+      para trás enquanto o resto desacelera.
+    </p>
+
+    {{if .Spawn.Editada}}
+    <form method="post" action="/rates/xp/spawn/limpar" style="margin-top:10px">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="voltar" value="{{.VoltarURL}}">
+      <input type="hidden" name="area" value="{{.Spawn.Area}}">
+      <button type="submit" class="perigo">Voltar ao ritmo do conteúdo</button>
+    </form>
+    {{end}}
+    {{if .SpawnHist}}
+    <h3 style="margin:18px 0 4px; font-size:14px">Histórico do ritmo</h3>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Quando</th><th>Quem</th><th>Mudança</th></tr>
+        </thead>
+        <tbody>
+          {{range .SpawnHist}}
+          <tr>
+            <td class="quando">{{.CreatedAt.Format "02/01 15:04"}}</td>
+            <td>
+              {{if .ActorName}}{{.ActorName}}{{else}}conta {{.ActorID}}{{end}}
+              <span class="cargo">{{.ActorRole}}</span>
+            </td>
+            <td class="mudanca">
+              {{if .Old}}<span class="de">{{.Old}}</span> &rarr; {{end}}
+              {{if .New}}{{.New}}{{else if not .Old}}—{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
 
   <div class="caixa">
     <h2>Simulador</h2>

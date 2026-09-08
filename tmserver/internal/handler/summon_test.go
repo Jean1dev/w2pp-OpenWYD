@@ -482,20 +482,38 @@ func TestEvocationSendsAddPartyForSummon(t *testing.T) {
 	t.Fatal("no CNFAddParty frame for summoned pet")
 }
 
-func TestEvocationDoesNotDuplicateExistingSummon(t *testing.T) {
+// TestEvocationRecastReplacesTheSet: re-casting wipes what is out and summons
+// the whole set again beside the caster.
+//
+// This asserts a DELIBERATE divergence, and the old test asserted the opposite
+// ("second cast spawns nothing, the existing pet counts"). The legacy tops up
+// and teleports strays home with the Effect=8 recall jump
+// (Server.cpp:3008-3020); this port never carried that recall, so a re-cast
+// could not bring anything back and the set just drifted. Re-summoning whole is
+// what the recall was reaching for, and it is what keeps the head count honest:
+// the set is always exactly `count`, never an accumulation.
+func TestEvocationRecastReplacesTheSet(t *testing.T) {
 	addr, stop, _ := startServerSummon(t, summonDB(30), nil, 0, 0)
 	defer stop()
 	c := enterWorld(t, addr)
 	defer c.Close()
 
 	skillAttackFrame(t, c, serverTime, 1, 56, damSkill)
-	if pets := collectPets(t, c, 500*time.Millisecond); len(pets) != 1 {
-		t.Fatalf("first cast pets = %d, want 1", len(pets))
+	primeiro := collectPets(t, c, 500*time.Millisecond)
+	if len(primeiro) != 1 {
+		t.Fatalf("first cast pets = %d, want 1", len(primeiro))
 	}
 
 	skillAttackFrame(t, c, serverTime+1000, 1, 56, damSkill)
-	if pets := collectPets(t, c, 500*time.Millisecond); len(pets) != 0 {
-		t.Fatalf("second cast spawned %d more pets, want 0 because existing summon counts", len(pets))
+	segundo := collectPets(t, c, 500*time.Millisecond)
+	if len(segundo) != 1 {
+		t.Fatalf("re-cast spawned %d pets, want 1 — the set comes back whole", len(segundo))
+	}
+	// And it is a NEW creature: the old one was reaped, not kept and topped up.
+	for id := range segundo {
+		if _, jaExistia := primeiro[id]; jaExistia {
+			t.Errorf("pet %d survived the re-cast; the old set has to go", id)
+		}
 	}
 }
 
@@ -978,5 +996,59 @@ func TestMonstroPodeRevidarNoPet(t *testing.T) {
 	})
 	if !validTarget(w, monstro, pet) {
 		t.Error("o monstro não pode revidar no pet — o pet virou escudo invulnerável")
+	}
+}
+
+// temInimigo diz se target já está na lista de inimigos de e.
+func temInimigo(e *world.Entity, targetID int) bool {
+	for _, id := range e.EnemyList {
+		if id == targetID {
+			return true
+		}
+	}
+	return false
+}
+
+// TestPetOcupadoAindaRecebeOAtacanteDoDono é o buraco que deixou a queixa passar.
+//
+// Um pet OCIOSO já defendia — TestSummonAssistsAgainstMob provava isso —, e
+// nenhum teste tinha um pet ocupado. Em jogo é raro estarem ociosos:
+// assim que a evocação voltou a funcionar, todos passaram a ter alvo. Aí a
+// guarda `pet.Target != 0` fazia o atacante do dono nunca entrar na lista de
+// inimigos, e ninguém se virava. O legado chama SetBattle em todo membro vivo da
+// party, faça ele o que estiver fazendo (Server.cpp:9964-9985); a escolha de
+// quem bater fica com a seleção de alvo, que pega o mais perto.
+//
+// O "dono" aqui é um mob e não um jogador porque commandSummons não distingue os
+// dois — ela só lê Leader/PartyList —, e o mundo não deixa um teste unitário
+// fabricar entidade de jogador.
+func TestPetOcupadoAindaRecebeOAtacanteDoDono(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 32}, log, nil, d.Handle)
+
+	novo := func(nome string, x, y int16) (int, *world.Entity) {
+		id := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate(nome), X: x, Y: y, GenIndex: -1})
+		if id < 0 {
+			t.Fatalf("não consegui criar %s", nome)
+		}
+		return id, w.Entity(id)
+	}
+
+	donoID, dono := novo("Dono", 10, 10)
+	petID, pet := novo("Tigre", 11, 10)
+	atacanteID, atacante := novo("Rato", 12, 10)
+
+	pet.Clan = summonClan
+	pet.Summoner = donoID
+	pet.Leader = donoID
+	pet.Target = atacanteID + 1 // ocupado com outra coisa
+	dono.PartyList[0] = petID
+	atacante.Clan = 5
+
+	d.commandSummons(w, donoID, atacante)
+
+	if !temInimigo(pet, atacanteID) {
+		t.Error("o pet ocupado não registrou quem bateu no dono — ele nunca vai se virar")
 	}
 }

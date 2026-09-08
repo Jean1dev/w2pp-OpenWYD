@@ -424,8 +424,22 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			"exp_bytes", fmt.Sprintf("% x", expField))
 	}
 	w.SendEcho(s, hdr, payload)
-	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
-		w.SendEcho(vs, hdr, payload)
+	// Bystanders get the same frame with THEIR OWN experience in it — that field
+	// and no other. CurrentHp and CurrentMp stay the attacker's, because a
+	// bystander draws the attacker's health bar from them.
+	//
+	// The legacy multicasts the buffer verbatim and trusts the client to drop
+	// CurrentExp when the ClientTick is not the one it sent. That is no
+	// guarantee: the tick is GetTickCount(), so two clients on one machine tick
+	// almost identically and the bystander takes the attacker's total as its
+	// own. In game that told a level-192 character it had gained 790.358.674
+	// experience — exactly the level-313's total minus its own.
+	w.ForEachInView(s.Conn, func(vs *world.Session, ve *world.Entity) {
+		eco := payload
+		if ve != nil {
+			eco = protocol.AttackEchoFor(payload, ve.Exp)
+		}
+		w.SendEcho(vs, hdr, eco)
 	})
 	for _, tid := range hpSyncTargets {
 		ts := w.Session(tid)

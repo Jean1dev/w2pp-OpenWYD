@@ -2868,3 +2868,163 @@ var DropBonusService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	SpawnRateService_SpawnRateVersion_FullMethodName = "/db.v1.SpawnRateService/SpawnRateVersion"
+	SpawnRateService_GetSpawnRates_FullMethodName    = "/db.v1.SpawnRateService/GetSpawnRates"
+)
+
+// SpawnRateServiceClient is the client API for SpawnRateService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// SpawnRateService serves the per-area monster respawn pacing to tmServer.
+//
+// POLLED, like DungeonGateService and unlike XPConfigService. A respawn period
+// is a dial the staff turns and watches, and unlike an experience table it can
+// change under a running server without anybody receiving a different reward for
+// the same act — the monster simply comes back sooner or later.
+type SpawnRateServiceClient interface {
+	// SpawnRateVersion returns the monotonic version. Asked every few seconds.
+	SpawnRateVersion(ctx context.Context, in *SpawnRateVersionRequest, opts ...grpc.CallOption) (*SpawnRateVersionResponse, error)
+	// GetSpawnRates returns every touched area. Areas absent from the reply run at
+	// exactly the period NPCGener.txt gives each of their blocks.
+	GetSpawnRates(ctx context.Context, in *GetSpawnRatesRequest, opts ...grpc.CallOption) (*GetSpawnRatesResponse, error)
+}
+
+type spawnRateServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSpawnRateServiceClient(cc grpc.ClientConnInterface) SpawnRateServiceClient {
+	return &spawnRateServiceClient{cc}
+}
+
+func (c *spawnRateServiceClient) SpawnRateVersion(ctx context.Context, in *SpawnRateVersionRequest, opts ...grpc.CallOption) (*SpawnRateVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SpawnRateVersionResponse)
+	err := c.cc.Invoke(ctx, SpawnRateService_SpawnRateVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *spawnRateServiceClient) GetSpawnRates(ctx context.Context, in *GetSpawnRatesRequest, opts ...grpc.CallOption) (*GetSpawnRatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSpawnRatesResponse)
+	err := c.cc.Invoke(ctx, SpawnRateService_GetSpawnRates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SpawnRateServiceServer is the server API for SpawnRateService service.
+// All implementations must embed UnimplementedSpawnRateServiceServer
+// for forward compatibility.
+//
+// SpawnRateService serves the per-area monster respawn pacing to tmServer.
+//
+// POLLED, like DungeonGateService and unlike XPConfigService. A respawn period
+// is a dial the staff turns and watches, and unlike an experience table it can
+// change under a running server without anybody receiving a different reward for
+// the same act — the monster simply comes back sooner or later.
+type SpawnRateServiceServer interface {
+	// SpawnRateVersion returns the monotonic version. Asked every few seconds.
+	SpawnRateVersion(context.Context, *SpawnRateVersionRequest) (*SpawnRateVersionResponse, error)
+	// GetSpawnRates returns every touched area. Areas absent from the reply run at
+	// exactly the period NPCGener.txt gives each of their blocks.
+	GetSpawnRates(context.Context, *GetSpawnRatesRequest) (*GetSpawnRatesResponse, error)
+	mustEmbedUnimplementedSpawnRateServiceServer()
+}
+
+// UnimplementedSpawnRateServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedSpawnRateServiceServer struct{}
+
+func (UnimplementedSpawnRateServiceServer) SpawnRateVersion(context.Context, *SpawnRateVersionRequest) (*SpawnRateVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SpawnRateVersion not implemented")
+}
+func (UnimplementedSpawnRateServiceServer) GetSpawnRates(context.Context, *GetSpawnRatesRequest) (*GetSpawnRatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSpawnRates not implemented")
+}
+func (UnimplementedSpawnRateServiceServer) mustEmbedUnimplementedSpawnRateServiceServer() {}
+func (UnimplementedSpawnRateServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeSpawnRateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SpawnRateServiceServer will
+// result in compilation errors.
+type UnsafeSpawnRateServiceServer interface {
+	mustEmbedUnimplementedSpawnRateServiceServer()
+}
+
+func RegisterSpawnRateServiceServer(s grpc.ServiceRegistrar, srv SpawnRateServiceServer) {
+	// If the following call panics, it indicates UnimplementedSpawnRateServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&SpawnRateService_ServiceDesc, srv)
+}
+
+func _SpawnRateService_SpawnRateVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SpawnRateVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpawnRateServiceServer).SpawnRateVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SpawnRateService_SpawnRateVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpawnRateServiceServer).SpawnRateVersion(ctx, req.(*SpawnRateVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpawnRateService_GetSpawnRates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSpawnRatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpawnRateServiceServer).GetSpawnRates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SpawnRateService_GetSpawnRates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpawnRateServiceServer).GetSpawnRates(ctx, req.(*GetSpawnRatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// SpawnRateService_ServiceDesc is the grpc.ServiceDesc for SpawnRateService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SpawnRateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.SpawnRateService",
+	HandlerType: (*SpawnRateServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SpawnRateVersion",
+			Handler:    _SpawnRateService_SpawnRateVersion_Handler,
+		},
+		{
+			MethodName: "GetSpawnRates",
+			Handler:    _SpawnRateService_GetSpawnRates_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

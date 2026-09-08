@@ -1111,3 +1111,34 @@ message DropBonusBand {
   // Four refine thresholds, ascending: +2, +1, +0, special bonus.
   repeated int32 refino = 4;
 }
+
+// SpawnRateService serves the per-area monster respawn pacing to tmServer.
+//
+// POLLED, like DungeonGateService and unlike XPConfigService. A respawn period
+// is a dial the staff turns and watches, and unlike an experience table it can
+// change under a running server without anybody receiving a different reward for
+// the same act — the monster simply comes back sooner or later.
+service SpawnRateService {
+  // SpawnRateVersion returns the monotonic version. Asked every few seconds.
+  rpc SpawnRateVersion(SpawnRateVersionRequest) returns (SpawnRateVersionResponse);
+  // GetSpawnRates returns every touched area. Areas absent from the reply run at
+  // exactly the period NPCGener.txt gives each of their blocks.
+  rpc GetSpawnRates(GetSpawnRatesRequest) returns (GetSpawnRatesResponse);
+}
+
+message SpawnRateVersionRequest {}
+message SpawnRateVersionResponse { int64 version = 1; }
+
+message GetSpawnRatesRequest {}
+message GetSpawnRatesResponse {
+  int64 version = 1;
+  repeated SpawnRate areas = 2;
+}
+
+// SpawnRate is one area's pacing. `area` is the internal/spawnrate.Area index,
+// appended to and never reordered. `percent` multiplies each generator's own
+// period, so 100 is the content file untouched and 200 is twice the wait.
+message SpawnRate {
+  int32 area = 1;
+  int32 percent = 2;
+}
