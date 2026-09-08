@@ -62,6 +62,14 @@ func CommandReference() CommandBus {
 				Summary: "Teleporta VOCÊ até um jogador online.",
 			},
 			{
+				Name: "pos", Aliases: []string{"xy"}, Args: "<x> <y>", Target: "você",
+				Summary: "Teleporta VOCÊ para uma coordenada do mapa.",
+				Notes: []string{
+					"É o goto para onde não há ninguém a quem seguir.",
+					"Fora do mapa o comando recusa e diz qual é o limite.",
+				},
+			},
+			{
 				Name: "summon", Aliases: []string{"puxar"}, Args: "<personagem>", Target: "outro jogador",
 				Summary: "Traz um jogador online até a SUA posição.",
 				Notes:   []string{"É o inverso do goto: aqui quem se move é o alvo."},
