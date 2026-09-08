@@ -146,7 +146,8 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		return false
 	}
 	face := summonTemplateFace(d.summonMobs[summonID])
-	existing := 0
+	// A lineage already out blocks a different one, as in the legacy: the roster
+	// is one creature at a time (GenerateSummon, Server.cpp:2991-2997).
 	for _, memberID := range le.PartyList {
 		if memberID < world.MaxUser {
 			continue
@@ -157,6 +158,40 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		}
 		if pet.EquipVisual[0] != face {
 			return false
+		}
+	}
+	// DELIBERATE DIVERGENCE: re-casting wipes what is out and summons the whole
+	// set again beside the caster.
+	//
+	// The legacy tops up instead — it counts what survives, teleports the strays
+	// back to the owner (the Effect=8 recall jump, Server.cpp:3008-3020) and
+	// spawns only the difference. This port never carried that recall, so a
+	// re-cast could not bring anything home: the set drifted across the map and
+	// the only way to regroup it was to let the pets time out. Topping up on top
+	// of that reads as a leak — cast, walk away, cast again, and the party fills
+	// with strays nobody can reach.
+	//
+	// Re-summoning whole is what the recall was reaching for and is what the cast
+	// looks like it does: the creatures you just paid for are the ones standing
+	// next to you. It also makes the head count mean something, because the set
+	// is always exactly `count` and never an accumulation.
+	d.despawnSummons(w, leaderID, func(pet *world.Entity) bool {
+		return pet.Summoner == s.Conn && pet.EquipVisual[0] == face
+	})
+
+	// What survives are the pets of OTHER members, and they still count against
+	// this cast: the head count belongs to the party, not to the caster
+	// (GenerateSummon walks the LEADER's whole PartyList, Server.cpp:2981-3027).
+	// Two evokers together share one set — recounted here, after the wipe, so the
+	// caster's own creatures are not counted against themselves.
+	existing := 0
+	for _, memberID := range le.PartyList {
+		if memberID < world.MaxUser {
+			continue
+		}
+		pet := w.Entity(memberID)
+		if pet == nil || pet.Clan != summonClan || pet.EquipVisual[0] != face {
+			continue
 		}
 		existing++
 	}
@@ -500,7 +535,18 @@ func (d *Dispatcher) commandSummons(w *world.World, ownerID int, target *world.E
 			continue // empty slot or player member
 		}
 		pet := w.Entity(m)
-		if pet == nil || pet.Summoner != ownerID || pet.HP <= 0 || pet.Target != 0 {
+		// No `pet.Target != 0` here, on purpose. The legacy calls SetBattle on
+		// EVERY live party member whatever it is doing (Server.cpp:9964-9985 when
+		// a mob strikes the owner, _MSG_Attack.cpp:1690-1720 when the owner
+		// strikes), and SetBattle only ADDS to the EnemyList — the pick is left to
+		// target selection, which takes the nearest.
+		//
+		// Skipping a busy pet is what made the set look deaf on defence: once the
+		// pets have something to hit they always have a target, so the owner's
+		// attacker never reached their list and nobody ever turned around. Idle
+		// pets defended, which is why the test caught nothing — it only ever had
+		// idle ones.
+		if pet == nil || pet.Summoner != ownerID || pet.HP <= 0 {
 			continue
 		}
 		if abs16(pet.X-target.X) <= battleDragBox && abs16(pet.Y-target.Y) <= battleDragBox {
