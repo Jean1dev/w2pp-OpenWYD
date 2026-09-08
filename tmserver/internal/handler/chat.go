@@ -77,7 +77,7 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 var teleportCmds = map[string][2]int16{
 	"armia": {2100, 2100}, "azran": {2500, 1716}, "erion": {2461, 2003},
 	"gelo": {3650, 3130}, "kefra": {2365, 3884}, "torre": {2506, 1878},
-	"red": {1744, 1880}, "blue": {1745, 1573}, "arch": {1706, 1723},
+	"arch":    {1706, 1723},
 	"selados": {1843, 3652}, "amagos": {3910, 2878}, "agua": {1966, 1770},
 	"noatun": {1052, 1726},
 }
@@ -93,14 +93,15 @@ const reinoCapeSlot = 15
 // "capa branca".
 const capaBrancaDoMonstroIndex = 550
 
-// /reino destinations (issue #208). A kingdom-aligned cape sends the player to their
-// own king — the same tiles as the /blue and /red commands in teleportCmds — while any
-// neutral cape (none at all, the Capa Branca do Monstro #550, the Manto do Aprendiz
-// "capa verde" #4006, …) lands in the kingdom city.
+// Kingdom command destinations remain fixed like the legacy /king and /kingdom
+// handlers. King and commerce destinations are intentionally distinct (issue #318).
 var (
-	reinoDestNeutral   = [2]int16{1706, 1724}
-	reinoDestHekalotia = [2]int16{1745, 1573} // Clan 7 (blue), same tile as /blue
-	reinoDestAkelonia  = [2]int16{1744, 1880} // Clan 8 (red), same tile as /red
+	kingDestHekalotia = [2]int16{1748, 1574}
+	kingDestAkelonia  = [2]int16{1748, 1880}
+
+	kingdomDestNeutral   = [2]int16{1702, 1726}
+	kingdomDestHekalotia = [2]int16{1690, 1618}
+	kingdomDestAkelonia  = [2]int16{1690, 1842}
 )
 
 // runCommand executes a chat slash command delivered as a whisper whose target name is
@@ -118,8 +119,12 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		}
 		return true
 	}
-	if cmd == "reino" {
-		d.teleportReino(w, s)
+	if cmd == "rei" || cmd == "king" {
+		d.teleportKing(w, s)
+		return true
+	}
+	if cmd == "reino" || cmd == "kingdom" {
+		d.teleportKingdom(w, s)
 		return true
 	}
 	if cmd == "buffs" {
@@ -183,31 +188,36 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 	return false
 }
 
-// teleportReino handles the /reino command: it routes the player by the kingdom their
-// cape belongs to (issue #208). A Hekalotia (blue) cape goes to Hekalotia's king, an
-// Akelonia (red) one to Akelonia's king, and anything else — no cape, capa branca,
-// capa verde, any other neutral cape — to the kingdom city. Nobody is refused.
-//
-// The command itself is not among the 55 legacy command regions enumerated from
-// _MSG_MessageWhisper.cpp (docs/migration/handlers) — a new addition (issue #127), not
-// a ported one. The Clan routing mirrors the legacy /kingdom (_MSG_MessageWhisper.cpp:868-881)
-// but lands on the king tiles instead of the legacy kingdom-city ones.
-func (d *Dispatcher) teleportReino(w *world.World, s *world.Session) {
+// teleportKing routes /rei and /king by the equipped cape. Neutral cape states
+// are handled no-ops because the legacy /king command has no neutral destination.
+func (d *Dispatcher) teleportKing(w *world.World, s *world.Session) {
 	e := w.Entity(s.Conn)
 	if e == nil {
 		return
 	}
-	// Clan 0 is passed on purpose: only the cape decides the destination. e.Clan can
-	// already be 7/8 from the guild/DB while the player wears no cape at all, and a
-	// capeless player belongs to the neutral destination.
-	dest := reinoDestNeutral
 	switch kingClanFromCape(0, e.Equip[reinoCapeSlot].Index) {
 	case clanHekalotia:
-		dest = reinoDestHekalotia
+		d.doTeleport(w, s, kingDestHekalotia[0], kingDestHekalotia[1])
 	case clanAkelonia:
-		dest = reinoDestAkelonia
+		d.doTeleport(w, s, kingDestAkelonia[0], kingDestAkelonia[1])
 	}
-	d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
+}
+
+// teleportKingdom routes /reino and /kingdom by the equipped cape. Kingdom
+// capes land by their commerce NPCs; neutral cape states land between kingdoms.
+func (d *Dispatcher) teleportKingdom(w *world.World, s *world.Session) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	dest := kingdomDestNeutral
+	switch kingClanFromCape(0, e.Equip[reinoCapeSlot].Index) {
+	case clanHekalotia:
+		dest = kingdomDestHekalotia
+	case clanAkelonia:
+		dest = kingdomDestAkelonia
+	}
+	d.doTeleport(w, s, dest[0], dest[1])
 }
 
 // clearBuffs removes every active buff/debuff (the /buffs command), recomputes the score
