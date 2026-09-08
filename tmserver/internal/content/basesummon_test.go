@@ -3,6 +3,8 @@ package content
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 )
 
 func TestLoadBaseSummons(t *testing.T) {
@@ -98,5 +100,32 @@ func TestEvocacoesLigamDaSkillAteOTemplate(t *testing.T) {
 	}
 	if len(visto) != bmSummonCount {
 		t.Errorf("as oito magias cobrem %d criaturas, want %d", len(visto), bmSummonCount)
+	}
+}
+
+// TestSummonsNaoHesitamNaBatalha trava o Int dos templates de evocação.
+//
+// A IA do mob decide se age no tique rolando contra o próprio Int
+// (mobBattle: `Int < rand(0..99)` faz pular o turno). Isso quer dizer que Int
+// abaixo de 100 não é "menos esperto": é uma fração dos turnos jogada fora, e
+// aparece em jogo como bicho lerdo sem nenhuma mensagem que explique.
+//
+// A Succubus vinha com 70 e perdia perto de um terço dos ataques — a última
+// magia da linha, com o pior aproveitamento de todas. O valor foi corrigido no
+// arquivo; este teste é o que impede a regressão passar de novo despercebida.
+func TestSummonsNaoHesitamNaBatalha(t *testing.T) {
+	templates, _, err := LoadBaseSummons(filepath.Join("..", "..", "..", "Release"))
+	if err != nil {
+		t.Skipf("BaseSummon tree unavailable: %v", err)
+	}
+	for i := 0; i < bmSummonCount; i++ {
+		if templates[i] == nil {
+			continue
+		}
+		b := protocol.ParseMobBasics(templates[i])
+		if b.Int < 100 {
+			t.Errorf("%s: Int %d — perde ~%d%% dos turnos na rolagem da IA",
+				baseSummonFiles[i], b.Int, 100-int(b.Int))
+		}
 	}
 }
