@@ -877,8 +877,10 @@ func TestSummonAssistsAgainstMob(t *testing.T) {
 	}
 }
 
-// alvoDeTeste cria uma entidade num mundo, com os campos que validTarget lê.
-func alvoDeTeste(w *world.World, id int, ajusta func(*world.Entity)) *world.Entity {
+// alvoDeTeste monta uma entidade solta com os campos que validTarget lê. Não
+// precisa de mundo: validTarget só consulta o World no ramo de alvo jogador, que
+// nenhum caso daqui alcança.
+func alvoDeTeste(id int, ajusta func(*world.Entity)) *world.Entity {
 	e := &world.Entity{ID: id, Mode: world.MobIdle, HP: 100, MaxHP: 100}
 	if ajusta != nil {
 		ajusta(e)
@@ -899,7 +901,7 @@ func TestPetNaoAtacaNpcDeCidadeNemOutroPet(t *testing.T) {
 	w := world.New(world.Config{GridDim: 16}, log, nil, d.Handle)
 
 	// O pet: Summoner preenchido é o que o identifica como pet em validTarget.
-	pet := alvoDeTeste(w, world.MaxUser+1, func(e *world.Entity) {
+	pet := alvoDeTeste(world.MaxUser+1, func(e *world.Entity) {
 		e.Summoner = 3
 		e.Clan = summonClan
 		e.SegmentX, e.SegmentY = 5, 5
@@ -923,7 +925,7 @@ func TestPetNaoAtacaNpcDeCidadeNemOutroPet(t *testing.T) {
 		// fonte de EnemyList.
 		{
 			nome: "npc de cidade",
-			alvo: alvoDeTeste(w, world.MaxUser+2, func(e *world.Entity) {
+			alvo: alvoDeTeste(world.MaxUser+2, func(e *world.Entity) {
 				e.NonCombatNPC = true
 				e.X, e.Y = 6, 5
 			}),
@@ -931,7 +933,7 @@ func TestPetNaoAtacaNpcDeCidadeNemOutroPet(t *testing.T) {
 		},
 		{
 			nome: "outro pet",
-			alvo: alvoDeTeste(w, world.MaxUser+3, func(e *world.Entity) {
+			alvo: alvoDeTeste(world.MaxUser+3, func(e *world.Entity) {
 				e.Summoner = 4
 				e.Clan = summonClan
 				e.X, e.Y = 6, 5
@@ -940,7 +942,7 @@ func TestPetNaoAtacaNpcDeCidadeNemOutroPet(t *testing.T) {
 		},
 		{
 			nome: "monstro comum",
-			alvo: alvoDeTeste(w, world.MaxUser+4, func(e *world.Entity) {
+			alvo: alvoDeTeste(world.MaxUser+4, func(e *world.Entity) {
 				e.Clan = 1
 				e.X, e.Y = 6, 5
 			}),
@@ -964,12 +966,12 @@ func TestMonstroPodeRevidarNoPet(t *testing.T) {
 	d := New(Config{Log: log})
 	w := world.New(world.Config{GridDim: 16}, log, nil, d.Handle)
 
-	monstro := alvoDeTeste(w, world.MaxUser+1, func(e *world.Entity) {
+	monstro := alvoDeTeste(world.MaxUser+1, func(e *world.Entity) {
 		e.Clan = 1
 		e.SegmentX, e.SegmentY = 5, 5
 		e.X, e.Y = 5, 5
 	})
-	pet := alvoDeTeste(w, world.MaxUser+2, func(e *world.Entity) {
+	pet := alvoDeTeste(world.MaxUser+2, func(e *world.Entity) {
 		e.Summoner = 3
 		e.Clan = summonClan
 		e.X, e.Y = 6, 5
