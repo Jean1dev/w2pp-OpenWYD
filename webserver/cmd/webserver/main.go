@@ -27,6 +27,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/attributemap"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/authz"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/characters"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/dailyreward"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/donaterevenue"
@@ -88,7 +89,32 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	srv := grpc.NewServer(grpc.Creds(creds))
+
+	// Who may call what (webserver/internal/authz). Until this existed the only
+	// gate was mutual TLS, which answers "is the caller one of our services" and
+	// not "which one, and may it do this" — and it degrades to no gate at all
+	// when no certificate is configured. Most of the services below administer
+	// the game, so that difference stops being free the moment a player-facing
+	// site becomes a second caller.
+	chaves := authz.Chaves{
+		Painel: os.Getenv("W2PP_WEB_TOKEN_PAINEL"),
+		Site:   os.Getenv("W2PP_WEB_TOKEN_SITE"),
+	}
+	if !chaves.Configurada() {
+		// Loud, and every boot, because the quiet version of this line is how
+		// the hole survived: the server starts, looks healthy, and serves
+		// DeleteNpc to whoever reaches the port. It still starts, because this
+		// build has to be deployable to a running server BEFORE the keys exist
+		// on either side; the build that refuses comes after.
+		logger.Warn("web-api sem chave: quem alcançar esta porta pode criar e apagar " +
+			"NPC, mudar preço e atributo de item e mexer em saldo de donate. " +
+			"Configure W2PP_WEB_TOKEN_PAINEL, e a mesma no painel.")
+	}
+	srv := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.UnaryInterceptor(authz.Interceptor(chaves)),
+		grpc.StreamInterceptor(authz.StreamInterceptor(chaves)),
+	)
 	st := store.New(pool)
 	npcAdmin := npcadmin.New(st)
 	npcAdmin.SetLogger(logger)
@@ -214,7 +240,8 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", *addr, err)
 	}
-	logger.Info("webserver serving", "addr", *addr, "mtls", *tlsCert != "")
+	logger.Info("webserver serving", "addr", *addr, "mtls", *tlsCert != "",
+		"chave_painel", chaves.Painel != "", "chave_site", chaves.Site != "")
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()

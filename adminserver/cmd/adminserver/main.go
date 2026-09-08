@@ -36,6 +36,9 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+
+	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/accounts"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
@@ -107,13 +110,24 @@ func run(logger *slog.Logger) error {
 		// network, exactly like tmServer's to dbServer. Give it mTLS the day
 		// that link gets it, not before — a lone service with certificates the
 		// others lack is a maintenance trap, not a security gain.
-		conn, err := grpc.NewClient(*webAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		// The key the web-api checks (webserver/internal/authz). Empty is the
+		// migration step and nothing more: the web-api lets an unkeyed caller
+		// through only while IT has no key configured either, so both sides can
+		// be updated before either starts enforcing.
+		chave := os.Getenv("W2PP_WEB_TOKEN_PAINEL")
+		conn, err := grpc.NewClient(*webAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(mandaChaveWeb(chave)))
 		if err != nil {
 			return fmt.Errorf("webserver dial: %w", err)
 		}
 		defer func() { _ = conn.Close() }()
 		game = gamedata.New(conn)
-		logger.Info("webServer wired", "addr", *webAddr)
+		logger.Info("webServer wired", "addr", *webAddr, "chave", chave != "")
+		if chave == "" {
+			logger.Warn("sem W2PP_WEB_TOKEN_PAINEL: as páginas de item e NPC vão " +
+				"parar de funcionar assim que o web-api passar a exigir a chave")
+		}
 	} else {
 		logger.Warn("no webServer configured; item pages are hidden",
 			"configuration", "W2PP_WEBSERVER")
@@ -242,4 +256,21 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// mandaChaveWeb attaches the panel's key to every call to the web-api.
+//
+// An empty key sends no header at all, rather than an empty one: the web-api
+// refuses a blank key on purpose, and sending one would turn "not configured
+// yet" into a confusing authentication failure instead of the pass-through the
+// migration step needs.
+func mandaChaveWeb(chave string) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any,
+		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption,
+	) error {
+		if chave != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, webv1.TokenHeader, chave)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }
