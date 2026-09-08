@@ -102,3 +102,25 @@ func TestEncodeSetHpMp(t *testing.T) {
 		t.Errorf("ReqHp/ReqMp = %d/%d, want 950/300", le.Uint32(b[8:]), le.Uint32(b[12:]))
 	}
 }
+
+// TestEncodeSetHpModeTemOTamanhoDoLegado trava o layout do MSG_SetHpMode.
+//
+// Errar o tamanho de um pacote não dá erro: o cliente lê o próximo a partir do
+// deslocamento errado e o que acontece depois é qualquer coisa. A struct é
+// _MSG (12) + unsigned int Hp (4) + short Mode (2), e o MSVC completa para 20
+// pelo alinhamento de 4 do Hp — o padding do fim faz parte do frame.
+func TestEncodeSetHpModeTemOTamanhoDoLegado(t *testing.T) {
+	b := EncodeSetHpMode(1234, 22)
+	if got := len(b) + HeaderSize; got != 20 {
+		t.Fatalf("frame = %d bytes, want 20 (sizeof MSG_SetHpMode)", got)
+	}
+	if hp := le.Uint32(b[0:]); hp != 1234 {
+		t.Errorf("Hp = %d, want 1234", hp)
+	}
+	if mode := le.Uint16(b[4:]); mode != 22 {
+		t.Errorf("Mode = %d, want 22 (USER_PLAY)", mode)
+	}
+	if b[6] != 0 || b[7] != 0 {
+		t.Errorf("o padding do fim veio sujo: %v", b[6:8])
+	}
+}

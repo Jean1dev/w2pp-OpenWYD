@@ -163,6 +163,7 @@ const (
 	MsgSendWarInfo        Type = 0x03A8 // 936  S→C guild war/ally status
 	MsgUpdateScore        Type = 0x0336 // 822  attributes/score update
 	MsgSetHpDam           Type = 0x018A // 394  S→C HP + floated heal/damage (affect ticks)
+	MsgSetHpMode          Type = 0x0292 // 658  S→C HP + CUser.Mode; the answer to a client acting while dead (SendFunc.cpp:1754)
 	MsgSetHpMp            Type = 0x0181 // 385
 	MsgSendArchEffect     Type = 0x03B4 // 948  S↔C arch-created effect (MSG_STANDARDPARM)
 	MsgStartTime          Type = 0x03A1 // 929  S→C countdown signal (MSG_STANDARDPARM, Basedef.h:2526)

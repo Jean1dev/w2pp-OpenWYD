@@ -58,7 +58,8 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		return // cannot attack while auto-trading
 	}
 	if s.Mode != world.UserPlay {
-		return // SendHpMode in the original
+		d.sendHpMode(w, s, 0)
+		return
 	}
 	e := w.Entity(s.Conn)
 	if e == nil {

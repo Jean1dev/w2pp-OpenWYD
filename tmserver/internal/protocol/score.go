@@ -100,6 +100,28 @@ func EncodeSetHpDam(hp, dam int32) []byte {
 	return b
 }
 
+// setHpModeSize is MSG_SetHpMode (0x0292, Basedef.h:2185-2191): HEADER + uint Hp
+// + short Mode, padded to 20 by the 4-byte alignment of Hp.
+//
+// It is what the legacy answers a client that acts while dead or out of play
+// (SendHpMode, SendFunc.cpp:1754, called right before AddCrackError in
+// _MSG_Action.cpp:27-37). The packet is the STOP: without it the client never
+// learns its own state, keeps sending, and every frame is another violation
+// until the session is dropped at the crack-error limit.
+const setHpModeSize = 20
+
+// EncodeSetHpMode builds the MSG_SetHpMode body. Send with HEADER.ID = the
+// player's conn, which is how the client knows the state describes itself.
+func EncodeSetHpMode(hp int32, mode int16) []byte {
+	b := make([]byte, setHpModeSize-HeaderSize)
+	le.PutUint32(b[0:], uint32(hp))
+	le.PutUint16(b[4:], uint16(mode))
+	// b[6:8] stays zero: the tail padding MSVC adds to reach sizeof 20. The
+	// client reads Mode at 16 and never looks past it, but the frame has to
+	// carry the full struct or the next message starts at the wrong offset.
+	return b
+}
+
 // setHpMpSize is MSG_SetHpMp (0x0181, G2C): HEADER + Hp + Mp + ReqHp + ReqMp =
 // 28 bytes (Basedef.h:2024). SendSetHpMp emits the player's current bars and
 // the server-owned request targets used by regen/potions.

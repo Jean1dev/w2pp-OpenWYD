@@ -30,10 +30,21 @@ const (
 // (GetEmptyMobGrid/BASE_GetRoute).
 func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
-		return // SendHpMode in the original; no world effect
+		d.sendHpMode(w, s, 0)
+		return // no world effect
 	}
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP == 0 {
+		// Tell the client its own state BEFORE counting the violation, as the
+		// legacy does (_MSG_Action.cpp:27-37 calls SendHpMode then
+		// AddCrackError). Without the packet a dead client never stops walking:
+		// each frame is another crack error and the tenth drops the session, so
+		// dying could disconnect you instead of just stopping you.
+		hp := int32(0)
+		if e != nil {
+			hp = e.HP
+		}
+		d.sendHpMode(w, s, hp)
 		w.AddCrackError(s, 5, 3) // acting while dead
 		return
 	}
@@ -369,4 +380,19 @@ func absDelta(a, b int16) int {
 		return -d
 	}
 	return d
+}
+
+// sendHpMode answers a client that acted while dead or out of play with its own
+// HP and mode (SendHpMode, SendFunc.cpp:1754).
+//
+// The legacy sends this on every such refusal and it is the only thing that
+// stops the client: it has no other way to learn the server considers it dead,
+// so it keeps walking, and each frame costs a crack error until the session is
+// dropped. Cheap to send and only on a refusal, so no hot path pays for it.
+func (d *Dispatcher) sendHpMode(w *world.World, s *world.Session, hp int32) {
+	if s == nil {
+		return
+	}
+	w.SendTo(s, protocol.Header{Type: protocol.MsgSetHpMode, ID: uint16(s.Conn)},
+		protocol.EncodeSetHpMode(hp, int16(s.Mode)))
 }
