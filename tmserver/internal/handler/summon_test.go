@@ -876,3 +876,105 @@ func TestSummonAssistsAgainstMob(t *testing.T) {
 		t.Fatal("monster never died to the pet")
 	}
 }
+
+// alvoDeTeste cria uma entidade num mundo, com os campos que validTarget lê.
+func alvoDeTeste(w *world.World, id int, ajusta func(*world.Entity)) *world.Entity {
+	e := &world.Entity{ID: id, Mode: world.MobIdle, HP: 100, MaxHP: 100}
+	if ajusta != nil {
+		ajusta(e)
+	}
+	return e
+}
+
+// TestPetNaoAtacaNpcDeCidadeNemOutroPet tranca as regras de mira do pet.
+//
+// Elas existiam em validTarget desde sempre, mas eram código MORTO: o pet nunca
+// entrava no laço de IA (o Merchant do template o marcava como NPC de serviço),
+// então nada disso rodava em servidor nenhum. Consertar aquilo é o que passou a
+// carregar estas guardas de verdade — e um pet que ataca gente dentro da cidade
+// é bem pior do que um pet parado.
+func TestPetNaoAtacaNpcDeCidadeNemOutroPet(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 16}, log, nil, d.Handle)
+
+	// O pet: Summoner preenchido é o que o identifica como pet em validTarget.
+	pet := alvoDeTeste(w, world.MaxUser+1, func(e *world.Entity) {
+		e.Summoner = 3
+		e.Clan = summonClan
+		e.SegmentX, e.SegmentY = 5, 5
+		e.X, e.Y = 5, 5
+	})
+
+	casos := []struct {
+		nome  string
+		alvo  *world.Entity
+		quer  bool
+		porqu string
+	}{
+		// Sem caso "jogador" aqui, de propósito. validTarget devolve false para um
+		// pet mirando jogador (mobai.go, `e.Summoner != 0`), mas um alvo sem sessão
+		// viva JÁ cai fora duas linhas depois, no SessionMode — então o caso
+		// passaria com a guarda removida, e um teste que não sabe falhar é pior do
+		// que teste nenhum: é garantia falsa, que foi o que deixou este bug chegar
+		// em produção. A trava de verdade é estrutural e está em outro arquivo: a
+		// única coisa que dá alvo a um pet é commandSummons, e ela só é alcançada
+		// nos ramos !IsPlayer de combat.go e affect_tick.go. Um pet não tem outra
+		// fonte de EnemyList.
+		{
+			nome: "npc de cidade",
+			alvo: alvoDeTeste(w, world.MaxUser+2, func(e *world.Entity) {
+				e.NonCombatNPC = true
+				e.X, e.Y = 6, 5
+			}),
+			quer: false, porqu: "lojista, banqueiro e dador de quest não podem apanhar",
+		},
+		{
+			nome: "outro pet",
+			alvo: alvoDeTeste(w, world.MaxUser+3, func(e *world.Entity) {
+				e.Summoner = 4
+				e.Clan = summonClan
+				e.X, e.Y = 6, 5
+			}),
+			quer: false, porqu: "pets não brigam entre si",
+		},
+		{
+			nome: "monstro comum",
+			alvo: alvoDeTeste(w, world.MaxUser+4, func(e *world.Entity) {
+				e.Clan = 1
+				e.X, e.Y = 6, 5
+			}),
+			quer: true, porqu: "é para isso que o bicho é evocado",
+		},
+	}
+	for _, c := range casos {
+		if got := validTarget(w, pet, c.alvo); got != c.quer {
+			t.Errorf("pet contra %s: validTarget = %v, want %v — %s", c.nome, got, c.quer, c.porqu)
+		}
+	}
+}
+
+// TestMonstroPodeRevidarNoPet é a contrapartida: o pet não é intocável.
+//
+// Antes da correção ele era — o mesmo Merchant que o tirava da IA também o
+// protegia de apanhar, e um bicho invulnerável parado no meio da briga é um
+// escudo de graça.
+func TestMonstroPodeRevidarNoPet(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 16}, log, nil, d.Handle)
+
+	monstro := alvoDeTeste(w, world.MaxUser+1, func(e *world.Entity) {
+		e.Clan = 1
+		e.SegmentX, e.SegmentY = 5, 5
+		e.X, e.Y = 5, 5
+	})
+	pet := alvoDeTeste(w, world.MaxUser+2, func(e *world.Entity) {
+		e.Summoner = 3
+		e.Clan = summonClan
+		e.X, e.Y = 6, 5
+	})
+	if !validTarget(w, monstro, pet) {
+		t.Error("o monstro não pode revidar no pet — o pet virou escudo invulnerável")
+	}
+}
