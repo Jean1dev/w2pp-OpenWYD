@@ -92,3 +92,37 @@ func TestProporcaoDeNivelValePorMembro(t *testing.T) {
 			"o distante devia render menos", longe, perto)
 	}
 }
+
+// A move packet may not carry a player further than one screen from where the
+// SERVER has them (_MSG_Action.cpp:160). Without this the server accepted any
+// destination inside the 4096 grid and teleported the entity there, so a client
+// that drifted stayed drifted — two players standing together each saw the
+// other somewhere else, and neither was ever corrected.
+func TestDistanciaDeUmPasso(t *testing.T) {
+	casos := []struct {
+		nome        string
+		alvo, atual int16
+		want        int
+	}{
+		{"parado", 1000, 1000, 0},
+		{"um passo", 1001, 1000, 1},
+		{"na borda da tela", 1033, 1000, viewGridX},
+		{"para trás, na borda", 967, 1000, viewGridX},
+		{"além da tela", 1034, 1000, viewGridX + 1},
+		{"do outro lado do mapa", 3000, 1000, 2000},
+	}
+	for _, c := range casos {
+		if got := absDelta(c.alvo, c.atual); got != c.want {
+			t.Errorf("%s: absDelta(%d,%d) = %d, want %d", c.nome, c.alvo, c.atual, got, c.want)
+		}
+	}
+}
+
+// A tela do legado é 33, e o limite de reencaixe é o dobro. Se estes números
+// mudarem, o movimento passa a recusar passos legítimos ou a deixar passar
+// saltos — os dois quebram o jogo de formas opostas.
+func TestOLimiteEhATelaDoLegado(t *testing.T) {
+	if viewGridX != 33 || viewGridY != 33 {
+		t.Errorf("viewGrid = %dx%d, want 33x33 (VIEWGRIDX/Y, Basedef.h:155)", viewGridX, viewGridY)
+	}
+}

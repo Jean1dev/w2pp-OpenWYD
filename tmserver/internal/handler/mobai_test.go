@@ -438,12 +438,19 @@ func TestGuardAggrosHostileMobInCityAtViewEdge(t *testing.T) {
 		{Template: guard, X: 2090, Y: 2095, GenIndex: -1},
 		{Template: hostile, X: 2091, Y: 2095, GenIndex: -1},
 	}
-	addr, stop := startServerMobAISpawns(t, combatDB(), 2200, spawns, nil)
+	// The character LOGS IN inside Armia instead of walking there. It used to
+	// send one move packet from the (5,5) spawn to 2075,2095 — two thousand
+	// tiles in a single step — which the server now refuses, as the legacy does
+	// (_MSG_Action.cpp:160, a destination beyond one screen is a crack). This
+	// test is about the guard acquiring a hostile, not about movement.
+	db := combatDB()
+	db.loadResult.X, db.loadResult.Y = 2075, 2095
+	addr, stop := startServerMobAISpawns(t, db, 2200, spawns, nil)
 	defer stop()
 
 	c := enterWorld(t, addr)
 	defer c.Close()
-	actionFrameAt(t, c, serverTime, 2075, 2095) // inside Armia, 15 tiles from guard
+	actionFrameAt(t, c, serverTime, 2076, 2095) // one step, inside Armia and in view of the guard
 
 	guardID := world.MaxUser
 	hostileID := world.MaxUser + 1

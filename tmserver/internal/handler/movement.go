@@ -26,8 +26,8 @@ const (
 // forwards the raw frame — preserving its Type — to old∪new view windows.
 //
 // UNVERIFIED / deferred (not reproduced here): Speed clamp vs AttackRun&0xF
-// (legacy clamps and continues), the >VIEWGRID jump correction (GetAction +
-// crack(1,5)) and the occupied-target-cell reroute (GetEmptyMobGrid/BASE_GetRoute).
+// (legacy clamps and continues) and the occupied-target-cell reroute
+// (GetEmptyMobGrid/BASE_GetRoute).
 func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
 	if s.Mode != world.UserPlay {
 		return // SendHpMode in the original; no world effect
@@ -92,6 +92,29 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	if outOfBounds(body.PosX, dim) || outOfBounds(body.PosY, dim) ||
 		outOfBounds(body.TargetX, dim) || outOfBounds(body.TargetY, dim) {
 		w.AddCrackError(s, 1, 100)
+		return
+	}
+	// The destination has to be within one screen of where the SERVER thinks the
+	// player is (_MSG_Action.cpp:160). Without this the server accepted any
+	// destination inside the 4096 grid and simply teleported the entity there —
+	// so a client that drifted stayed drifted, and two players standing together
+	// each saw the other somewhere else, permanently.
+	//
+	// Beyond TWO screens the legacy also drags the client back, by echoing an
+	// Action3 that starts and ends at the authoritative position. That is the
+	// resync that was missing: a refusal alone leaves the client believing its
+	// own version.
+	if dx, dy := absDelta(body.TargetX, e.X), absDelta(body.TargetY, e.Y); dx > viewGridX || dy > viewGridY {
+		if dx > 2*viewGridX || dy > 2*viewGridY {
+			d.log.Warn("movement: destination too far, resyncing the client",
+				"conn", s.Conn, "server_x", e.X, "server_y", e.Y,
+				"target_x", body.TargetX, "target_y", body.TargetY, "dx", dx, "dy", dy)
+			correction := protocol.MsgActionBody{
+				PosX: e.X, PosY: e.Y, Effect: 1, Speed: 6, TargetX: e.X, TargetY: e.Y,
+			}
+			w.SendTo(s, protocol.Header{Type: protocol.MsgAction3, ID: uint16(s.Conn)}, correction.Encode())
+		}
+		w.AddCrackError(s, 1, 5)
 		return
 	}
 	if !d.castleMoveAllowed(s.Conn, body.TargetX, body.TargetY) {
@@ -328,4 +351,22 @@ func standardParm(payload []byte) int {
 		return -1
 	}
 	return int(int32(binary.LittleEndian.Uint32(payload)))
+}
+
+// viewGridX and viewGridY are VIEWGRIDX/VIEWGRIDY (Basedef.h:155): one screen,
+// the furthest a single move packet may carry a player from where the server
+// has them. The client walks a long path in screen-sized steps, so a legitimate
+// move never exceeds this.
+const (
+	viewGridX = 33
+	viewGridY = 33
+)
+
+// absDelta is the distance between two coordinates on one axis.
+func absDelta(a, b int16) int {
+	d := int(a) - int(b)
+	if d < 0 {
+		return -d
+	}
+	return d
 }
