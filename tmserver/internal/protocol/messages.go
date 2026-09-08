@@ -390,26 +390,57 @@ type MsgTradeBody struct {
 	OpponentID uint16
 }
 
-// MsgTradeBodySize is the body length: 15*8 + 15 + 4 + 1 + 2.
-const MsgTradeBodySize = MaxTrade*ItemSize + MaxTrade + 4 + 1 + 2
+// Offsets inside the MSG_Trade body, with the MSVC natural-alignment padding
+// the struct really carries. MSG_Trade sits OUTSIDE the pack(1) blocks of
+// Basedef.h (the last pop is at line 1850, the struct at 2435), so the compiler
+// aligns each field to its own width:
+//
+//	Item[15]      0..120   (15 × 8, STRUCT_ITEM aligns to 2)
+//	InvenPos[15]  120..135
+//	<padding>     135      — int must start on a multiple of 4
+//	TradeMoney    136..140
+//	MyCheck       140..141
+//	<padding>     141      — unsigned short must start on a multiple of 2
+//	OpponentID    142..144
+//
+// The two filler bytes were missing, so money, the confirmation flag and the
+// opponent id were each read one or two bytes early — off the end of the field
+// before them. Nothing errored: the old length (142) is SHORTER than what the
+// client sends, so the guard passed and the numbers were quietly wrong.
+const (
+	tradeOffInvenPos   = MaxTrade * ItemSize             // 120
+	tradeOffMoney      = tradeOffInvenPos + MaxTrade + 1 // 136: 15 slots + 1 de preenchimento
+	tradeOffMyCheck    = tradeOffMoney + 4               // 140
+	tradeOffOpponentID = tradeOffMyCheck + 2             // 142 — 1 de MyCheck + 1 de preenchimento
+	tradeBodyFull      = tradeOffOpponentID + 2          // 144 = sizeof(MSG_Trade) - sizeof(_MSG)
+	tradeBodyMin       = tradeOffMyCheck + 1             // 141: tudo menos o id do parceiro
+)
+
+// MsgTradeBodySize is the body length the server WRITES: the full struct, as the
+// legacy sends it.
+const MsgTradeBodySize = tradeBodyFull
 
 // ItemSize is the wire STRUCT_ITEM size (8 bytes).
 const ItemSize = 8
 
 // Decode parses an MSG_Trade body.
 func (m *MsgTradeBody) Decode(b []byte) error {
-	if len(b) < MsgTradeBodySize {
-		return fmt.Errorf("protocol: MsgTradeBody.Decode: have %d, need %d", len(b), MsgTradeBodySize)
+	// Minimum, not exact: the client is free to stop before the trailing
+	// OpponentID, the way it stops early on the party invite
+	// (MsgSendReqPartyBodyMin). Only the read side may be short.
+	if len(b) < tradeBodyMin {
+		return fmt.Errorf("protocol: MsgTradeBody.Decode: have %d, need %d", len(b), tradeBodyMin)
 	}
 	for i := 0; i < MaxTrade; i++ {
 		m.Item[i] = decodeWireItem(b[i*ItemSize:])
 	}
-	off := MaxTrade * ItemSize
-	copy(m.InvenPos[:], b[off:off+MaxTrade])
-	off += MaxTrade
-	m.TradeMoney = int32(le.Uint32(b[off : off+4]))
-	m.MyCheck = b[off+4]
-	m.OpponentID = le.Uint16(b[off+5 : off+7])
+	copy(m.InvenPos[:], b[tradeOffInvenPos:tradeOffInvenPos+MaxTrade])
+	m.TradeMoney = int32(le.Uint32(b[tradeOffMoney : tradeOffMoney+4]))
+	m.MyCheck = b[tradeOffMyCheck]
+	m.OpponentID = 0
+	if len(b) >= tradeBodyFull {
+		m.OpponentID = le.Uint16(b[tradeOffOpponentID : tradeOffOpponentID+2])
+	}
 	return nil
 }
 
@@ -419,12 +450,10 @@ func (m *MsgTradeBody) Encode() []byte {
 	for i := 0; i < MaxTrade; i++ {
 		encodeWireItem(b[i*ItemSize:], m.Item[i])
 	}
-	off := MaxTrade * ItemSize
-	copy(b[off:off+MaxTrade], m.InvenPos[:])
-	off += MaxTrade
-	le.PutUint32(b[off:off+4], uint32(m.TradeMoney))
-	b[off+4] = m.MyCheck
-	le.PutUint16(b[off+5:off+7], m.OpponentID)
+	copy(b[tradeOffInvenPos:tradeOffInvenPos+MaxTrade], m.InvenPos[:])
+	le.PutUint32(b[tradeOffMoney:tradeOffMoney+4], uint32(m.TradeMoney))
+	b[tradeOffMyCheck] = m.MyCheck
+	le.PutUint16(b[tradeOffOpponentID:tradeOffOpponentID+2], m.OpponentID)
 	return b
 }
 
