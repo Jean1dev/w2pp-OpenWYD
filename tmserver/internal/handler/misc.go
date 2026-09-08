@@ -202,6 +202,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.mestreGrifo(w, s, e, npc)
 		return
 	}
+	// MESTREHAB (Merchant 31, _MSG_Quest.cpp:141): the Mestre de Habilidade, who
+	// refunds attribute points for a Retorno da Habilidade.
+	if npc.Merchant == 31 {
+		d.skillMasterReset(w, s, e, npc, confirm)
+		return
+	}
 	// CAPAVERDE_TELEPORT (Merchant 100, EF_GRADE0 14): apprentice-arena teleport
 	// (issue #139, _MSG_Quest.cpp:2168).
 	if npc.Merchant == 100 && npc.Grade == 14 {

@@ -48,6 +48,16 @@ var baseSIDCHM = [4][6]int32{
 	{8, 9, 13, 6, 75, 60}, // HT
 }
 
+// BaseAttributes returns the class starting Str/Int/Dex/Con — the floor a
+// character can never be reduced below, since those four points were never paid
+// for with distributable points. ScoreBonus measures spending against exactly
+// this row, so anything that refunds points has to stop here or it would hand
+// back points the character never had.
+func BaseAttributes(cls uint8) [4]int32 {
+	b := baseSIDCHM[validClass(cls)]
+	return [4]int32{b[0], b[1], b[2], b[3]}
+}
+
 // validClass guards the per-class tables against an out-of-range class (mobs or
 // corrupt data); callers get class 0 semantics rather than a panic.
 func validClass(cls uint8) int {
