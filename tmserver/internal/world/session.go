@@ -380,6 +380,15 @@ type Entity struct {
 	// buff from the Jóia do Poder (affect 8, bit 5), read into effective Magic.
 	AffHpAbs int32
 	AffMagic int32
+
+	// AffAccuracy is the attacker-side precision bonus: it is subtracted from the
+	// target's parry rate, in the same thousandths that formula already uses for the
+	// Dex/5 term, the +100 of skill bit 24 and the +500 of the Revelacao
+	// (GetFunc.cpp:686, _MSG_Attack.cpp:1410). SERVER RULE: the original writes this
+	// number into CMob::Accuracy (Basedef.cpp:4539) and never reads the field
+	// anywhere, so the Joia da Precisao is inert in the legacy — this port spends its
+	// 50 in the one place the legacy's own naming points at.
+	AffAccuracy int32
 	// AffDamageMultiPct is the legacy DAMAGEMULTI percentage (100 = neutral): a
 	// READ-time damage multiplier applied over Damage+AffDamage but before
 	// WeaponDamage, exactly where Basedef.cpp:4654 multiplies CurrentScore.Damage.

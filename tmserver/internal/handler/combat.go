@@ -1257,6 +1257,7 @@ func (d *Dispatcher) parryRate(attacker, target *world.Entity) int {
 	if attacker.Rsv&world.RsvCast != 0 {
 		attackDex += 500
 	}
+	attackDex += int(attacker.AffAccuracy)
 	return combat.ParryRate(int(effectiveDex(target)), target.Parry, attackDex, int(attacker.Rsv))
 }
 

@@ -1350,7 +1350,7 @@ var joiaPvPBit = map[int16]uint{
 	3204: 3, // Absorção
 	3205: 4, // Proteção
 	3206: 5, // Poder
-	3208: 6, // Precisão (Accuracy is a dead field in the legacy — icon only)
+	3208: 6, // Precisão (dead in the legacy; here it lowers the target's parry)
 	3209: 7, // Magia
 }
 

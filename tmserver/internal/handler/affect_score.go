@@ -38,7 +38,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 	e.AffDamage, e.AffAC, e.AffMaxHP, e.AffMaxMP, e.AffRunSpeed, e.AffAttackSpeed, e.AffExpBonus = 0, 0, 0, 0, 0, 0, 0
 	e.AffStr, e.AffInt, e.AffDex, e.AffCon, e.AffCritical = 0, 0, 0, 0, 0
 	e.AffForceDamage, e.AffForceMobDamage = 0, 0
-	e.AffHpAbs, e.AffMagic = 0, 0
+	e.AffHpAbs, e.AffMagic, e.AffAccuracy = 0, 0, 0
 	e.AffSpecial = [4]int16{}
 	e.AffResist = [4]int16{}
 	e.AffDamageMultiPct = 100
@@ -93,10 +93,11 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 				e.AffInt -= int16(level/10 + 20)
 			}
 		case 8: // Jóias PvP (Vol 242): each bit of Level is one jewel's bonus,
-			// ported from BASE_GetCurrentScore (Basedef.cpp:4478-4548). Bits 0 and
-			// 6 have no score effect (bit 0 is unread in the original; bit 6's
-			// Accuracy += 50 lands in CMob.Accuracy, a field the legacy combat
-			// never reads — parity is the buff icon only). The percent bonuses use
+			// ported from BASE_GetCurrentScore (Basedef.cpp:4478-4548). Bit 0
+			// (Sagacidade) has no score effect — the original never reads it. Bit 6
+			// (Precisão) writes Accuracy += 50 into a field the legacy combat also
+			// never reads; here it feeds the parry formula instead, see AffAccuracy.
+			// The percent bonuses use
 			// the legacy's quantized (x/100)*pct form and read the flat base, so
 			// stacked jewels add instead of compounding — a few points off when two
 			// percent jewels are up together, within buff tolerance.
@@ -104,6 +105,9 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 				for k := range e.AffResist {
 					e.AffResist[k] += 25
 				}
+			}
+			if level&(1<<6) != 0 { // Precisão: −50 no parry do alvo (regra nova)
+				e.AffAccuracy += 50
 			}
 			if level&(1<<2) != 0 { // Revelação: cast-while-hit
 				e.Rsv |= world.RsvCast

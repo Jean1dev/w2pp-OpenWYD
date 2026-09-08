@@ -64,16 +64,16 @@ func TestJoiaAffect8Bits(t *testing.T) {
 	}
 }
 
-// TestJoiaAffect8NoOpBits asserts the two jewels with no server-side stat
-// (Sagacidade bit 0, Precisão bit 6 — Accuracy is a dead field in the legacy)
-// leave the score untouched: they exist only as buff icons.
+// TestJoiaAffect8NoOpBits asserts the Sagacidade (bit 0) still leaves the score
+// untouched: the original never reads its flag, so it exists only as a buff icon.
 func TestJoiaAffect8NoOpBits(t *testing.T) {
-	for _, bit := range []uint{0, 6} {
+	for _, bit := range []uint{0} {
 		e := baseJoiaEntity()
 		e.Affect[0] = world.Affect{Type: affectPvP, Level: uint16(1) << bit}
 		applyAffectScore(e)
 		if e.Rsv != 0 || e.AffMaxHP != 0 || e.AffMaxMP != 0 || e.AffAC != 0 ||
-			e.AffDamage != 0 || e.AffMagic != 0 || e.AffHpAbs != 0 || e.AffResist != [4]int16{} {
+			e.AffDamage != 0 || e.AffMagic != 0 || e.AffHpAbs != 0 || e.AffAccuracy != 0 ||
+			e.AffResist != [4]int16{} {
 			t.Fatalf("bit %d changed score state: %+v", bit, e)
 		}
 	}
