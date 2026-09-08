@@ -16,28 +16,53 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
+// TestSummonCount trava o teto por criatura em Evocação 320, que é onde os
+// números do desenho foram medidos, e o degrau abaixo dele.
+//
+// O teto é o que impede uma maestria alta de estourar o desenho: sem ele a
+// conta continua crescendo e o Condor, com o menor divisor de todos, enche a
+// party sozinho.
 func TestSummonCount(t *testing.T) {
 	tests := []struct {
+		nome          string
 		iv, evo, want int
 	}{
-		{1, 60, 2},  // Condor: Evocação/30
-		{1, 29, 0},  // below the first threshold → nothing spawns (cast refunds)
-		{2, 90, 3},  // Javali: /30
-		{3, 120, 3}, // Lobo: /40
-		{5, 79, 1},  // Tigre: /40
-		{6, 160, 2}, // Gorila: /80
-		{7, 79, 0},  // Dragão Negro: /80
-		{8, 0, 1},   // Succubus: nunca menos de uma, mesmo sem Evocação
-		{8, 79, 1},  // abaixo de 80 ainda é uma
-		{8, 160, 2}, // /80 como o degrau de baixo
-		{8, 240, 3}, // o teto
-		{8, 400, 3}, // e não passa dele nem no máximo da maestria
-		{9, 0, 1},   // Invocação Final value 9: one zero-bonus template
-		{10, 400, 0},
+		// O teto de cada criatura, em Evocação 320.
+		{"Condor no teto", 1, 320, 12},
+		{"Javali no teto", 2, 320, 10},
+		{"Lobo no teto", 3, 320, 10},
+		{"Urso no teto", 4, 320, 9},
+		{"Tigre no teto", 5, 320, 8},
+		{"Gorila no teto", 6, 320, 6},
+		{"Dragão no teto", 7, 320, 5},
+		{"Succubus no teto", 8, 320, 4},
+
+		// Maestria no máximo não passa do teto.
+		{"Condor no máximo da maestria", 1, 400, 12},
+		{"Tigre no máximo da maestria", 5, 400, 8},
+		{"Succubus no máximo da maestria", 8, 400, 4},
+
+		// Abaixo do teto a maestria ainda manda.
+		{"Condor pela metade", 1, 160, 6},
+		{"Dragão pela metade", 7, 160, 2},
+		{"Succubus pela metade", 8, 160, 2},
+
+		// Sem maestria nenhuma não sai bicho — o lançamento devolve a mana.
+		{"Condor sem Evocação", 1, 0, 0},
+		{"Succubus sem Evocação", 8, 0, 0},
+		{"Succubus abaixo do primeiro degrau", 8, 79, 0},
+
+		// A Invocação Final não depende da maestria.
+		{"Invocação Final", 9, 0, 1},
+		{"Invocação Final com maestria", 9, 400, 1},
+
+		// Fora da faixa não invoca nada.
+		{"instanceValue inexistente", 10, 400, 0},
+		{"instanceValue zero", 0, 400, 0},
 	}
 	for _, tt := range tests {
 		if got := summonCount(tt.iv, tt.evo); got != tt.want {
-			t.Errorf("summonCount(%d, %d) = %d, want %d", tt.iv, tt.evo, got, tt.want)
+			t.Errorf("%s: summonCount(%d, %d) = %d, want %d", tt.nome, tt.iv, tt.evo, got, tt.want)
 		}
 	}
 }
@@ -431,7 +456,7 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 
 	pets := collectPets(t, c, time.Second)
 	if len(pets) != 2 {
-		t.Fatalf("pets spawned = %d, want 2 (Evocação 60 / 30)", len(pets))
+		t.Fatalf("pets spawned = %d, want 2 (Evocação 60 ÷ 26)", len(pets))
 	}
 	for id, payload := range pets {
 		if id < world.MaxUser {
@@ -444,11 +469,14 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 		if lvl != 50 {
 			t.Errorf("pet level = %d, want the owner's 50", lvl)
 		}
-		if dmg != 280 {
-			t.Errorf("pet damage = %d, want 280 (20 + 100·80%% + 60·300%%)", dmg)
+		// O Int do dono não entra mais na conta: summonBonus tem a parte do Int
+		// zerada, então o que sobra é a base do template mais a Evocação. O dono
+		// deste teste tem Int 100 e não muda nada aqui, o que é o ponto.
+		if dmg != 107 {
+			t.Errorf("pet damage = %d, want 107 (base 20 + 60·145%%)", dmg)
 		}
-		if hp != 440 {
-			t.Errorf("pet maxHP = %d, want 440 (100 + 100·100%% + 60·400%%)", hp)
+		if hp != 276 {
+			t.Errorf("pet maxHP = %d, want 276 (base 100 + 60·294%%)", hp)
 		}
 	}
 }
@@ -1137,5 +1165,71 @@ func TestSummonExpiradoSaiDoPainelDeGrupo(t *testing.T) {
 	}
 	if petsNoPainelDeGrupo && !saiuDoGrupo {
 		t.Error("o pet sumiu do chão mas continuou no painel de grupo (nenhum RemoveParty) — é assim que a lista enche de linha morta")
+	}
+}
+
+// TestEvocacoesBatemOsAlvosPorUnidade trava o que foi decidido, e não como foi
+// decidido.
+//
+// Os multiplicadores em summonBonus são meio, não fim: foram resolvidos
+// para estes números. Testar o multiplicador seria repetir a conta que o código
+// faz; testar o RESULTADO é o que percebe se alguém mexeu numa base, num
+// multiplicador ou na fórmula e mudou o bicho sem querer.
+//
+// A tolerância existe porque o multiplicador é inteiro e a divisão por 100
+// trunca: o alvo não fecha exato, fecha em cima.
+func TestEvocacoesBatemOsAlvosPorUnidade(t *testing.T) {
+	const evocacao = 320 // onde os alvos foram medidos
+	// O Int do dono não pode mais mudar nada: a parte do Int está zerada.
+	// 3.366 é o Int de um Mortal 399 com tudo em Int, o pior caso.
+	for _, ownerInt := range []int32{0, 300, 3366} {
+		for _, c := range []struct {
+			nome             string
+			summonID         int
+			baseDano, baseAC int32
+			baseHP           int32
+			alvoDano, alvoAC int32
+			alvoHP           int32
+		}{
+			{"Condor", 0, 35, 15, 60, 500, 400, 1000},
+			{"Javali", 1, 35, 20, 100, 300, 1200, 4000},
+			{"Lobo", 2, 70, 40, 100, 1000, 700, 2000},
+			{"Urso", 3, 70, 60, 100, 350, 1400, 5000},
+			{"Tigre", 4, 75, 30, 100, 1500, 800, 2400},
+			{"Gorila", 5, 50, 45, 200, 1200, 1000, 3000},
+			{"Dragão", 6, 100, 80, 350, 2000, 1200, 3500},
+			{"Succubus", 7, 150, 110, 240, 4000, 1000, 4200},
+		} {
+			b := summonBonus[c.summonID]
+			got := []struct {
+				stat        string
+				valor, alvo int32
+			}{
+				{"dano", c.baseDano + ownerInt*b.damInt/100 + evocacao*b.damEvo/100, c.alvoDano},
+				{"AC", c.baseAC + ownerInt*b.acInt/100 + evocacao*b.acEvo/100, c.alvoAC},
+				{"HP", c.baseHP + ownerInt*b.hpInt/100 + evocacao*b.hpEvo/100, c.alvoHP},
+			}
+			for _, g := range got {
+				if diff := g.valor - g.alvo; diff > 3 || diff < -3 {
+					t.Errorf("%s %s com Int %d = %d, alvo %d (diferença %d)",
+						c.nome, g.stat, ownerInt, g.valor, g.alvo, diff)
+				}
+			}
+		}
+	}
+}
+
+// TestIntDoDonoNaoMexeNasEvocacoes é a metade da decisão que o teste acima só
+// cobre de lado: com a parte do Int zerada, dois BMs com a mesma Evocação têm
+// bichos idênticos, seja o dono all-Int ou com 500 de Constituição.
+//
+// Era o contrário no legado — o Int carregava de 60% a 78% do dano —, e é por
+// isso que nenhum alvo de balanceamento era atingível antes.
+func TestIntDoDonoNaoMexeNasEvocacoes(t *testing.T) {
+	for i, b := range summonBonus {
+		if b.damInt != 0 || b.acInt != 0 || b.hpInt != 0 {
+			t.Errorf("summonBonus[%d] ainda escala pelo Int do dono: dano %d, AC %d, HP %d",
+				i, b.damInt, b.acInt, b.hpInt)
+		}
 	}
 }

@@ -68,69 +68,86 @@ const (
 	summonLeash     = 20
 )
 
-// summonBonus is pSummonBonus[0..8] (Basedef.cpp:745-756), the owner-scaling
-// percentages of the 8 BM evocations plus the zeroed value-9 template used by
-// Invocação Final: each stat gains Int*int/100 + Evo*evo/100 on top of the
-// BaseSummon template (Server.cpp:3073-3086; Evo = Evocação = Special[2]).
+// summonBonus is the owner-scaling of each evocation: the stat gains
+// Int*int/100 + Evo*evo/100 on top of the BaseSummon template
+// (Server.cpp:3073-3086; Evo = Evocação = Special[2]).
+//
+// DELIBERATE DIVERGENCE, em duas frentes.
+//
+// A parte do Int está ZERADA. O legado (pSummonBonus, Basedef.cpp:745-756) faz
+// o Int do dono pesar tanto quanto a Evocação, e num personagem real isso
+// desanda: um Mortal 399 tem entre 2.657 e 3.366 de Int, contra um teto de 400
+// de Evocação. O Int carregava de 60% a 78% do dano de todas as oito, o que
+// deixava a build decidindo mais que a maestria — dois BMs com a mesma Evocação
+// e Int diferente tinham bichos incomparáveis, e nenhum alvo de balanceamento
+// era atingível enquanto esse termo existisse.
+//
+// Os multiplicadores de Evocação foram resolvidos para os alvos por unidade
+// escolhidos por quem opera, medidos em Evocação 320. A progressão do legado
+// estava invertida: o Tigre (magia de nível 84) entregava mais dano total que o
+// Dragão (102) e quase quatro vezes a Succubus (220).
 var summonBonus = [9]struct {
 	damInt, damEvo int32
 	acInt, acEvo   int32
 	hpInt, hpEvo   int32
 }{
-	{80, 300, 50, 75, 100, 400},   // 0 Condor
-	{80, 250, 50, 150, 125, 400},  // 1 Javali
-	{80, 400, 50, 125, 125, 400},  // 2 Lobo
-	{80, 350, 50, 200, 150, 400},  // 3 Urso
-	{80, 500, 50, 175, 150, 400},  // 4 Tigre
-	{80, 450, 50, 250, 175, 400},  // 5 Gorila
-	{100, 500, 50, 250, 174, 400}, // 6 Dragão Negro
-	{130, 250, 60, 200, 180, 250}, // 7 Succubus
-	{0, 0, 0, 0, 0, 0},            // 8 Porco/Invocação Final: no owner scaling
+	// Int  Dano   Int    AC   Int     HP        alvo por unidade @ Evocação 320
+	{0, 145, 0, 120, 0, 294},   // 0 Condor      dano 500, AC 400, HP 1.000
+	{0, 83, 0, 369, 0, 1219},   // 1 Javali      dano 300, AC 1.200, HP 4.000
+	{0, 291, 0, 206, 0, 594},   // 2 Lobo        dano 1.000, AC 700, HP 2.000
+	{0, 88, 0, 419, 0, 1531},   // 3 Urso        dano 350, AC 1.400, HP 5.000
+	{0, 445, 0, 241, 0, 719},   // 4 Tigre       dano 1.500, AC 800, HP 2.400
+	{0, 359, 0, 298, 0, 875},   // 5 Gorila      dano 1.200, AC 1.000, HP 3.000
+	{0, 594, 0, 350, 0, 984},   // 6 Dragão      dano 2.000, AC 1.200, HP 3.500
+	{0, 1203, 0, 278, 0, 1238}, // 7 Succubus    dano 4.000, AC 1.000, HP 4.200
+	{0, 0, 0, 0, 0, 0},         // 8 Invocação Final: sem escalonamento nenhum
 }
 
-// succubusMax is how many Succubus one cast can put out.
+// summonHeads é quantas unidades cada criatura põe em campo, por Evocação.
 //
-// DELIBERATE DIVERGENCE: the legacy hardcodes one (_MSG_Attack.cpp:827). Three
-// is a balance call for this server — the Succubus is the last evocation, gated
-// behind level 220 and 240 of mana, and coming out alone made the cheapest
-// creature of all the better buy at every Evocação worth having.
-const succubusMax = 3
-
-// succubusPerEvocacao is how much Evocação each Succubus past the first costs.
+// DELIBERATE DIVERGENCE: o legado agrupa as oito em três divisores
+// (_MSG_Attack.cpp:817-828) — ÷30, ÷40, ÷80 —, e o resultado é uma progressão
+// invertida, com o Condor de nível 33 saindo dez a dez e a Succubus de nível 220
+// saindo sozinha. Aqui cada criatura tem o seu divisor e o seu TETO, escolhidos
+// por quem opera, e o teto é o que impede uma Evocação alta de estourar o
+// desenho: a conta cresce com a maestria até o número da criatura e para ali.
 //
-// Scaled rather than a flat three, so the number still answers to the mastery
-// like every other creature does. It is the same divisor as the tier below
-// (iv 6-7), which puts the third one at 240 — comfortably inside the range of
-// anyone who can cast the spell at all, without handing three to a character
-// who only just learned it.
-const succubusPerEvocacao = 80
+// Os divisores são calibrados para o teto cair exatamente em Evocação 320.
+var summonHeads = [9]struct{ divisor, teto int }{
+	{26, 12}, // 0 Condor
+	{32, 10}, // 1 Javali
+	{32, 10}, // 2 Lobo
+	{35, 9},  // 3 Urso
+	{40, 8},  // 4 Tigre
+	{53, 6},  // 5 Gorila
+	{64, 5},  // 6 Dragão Negro
+	{80, 4},  // 7 Succubus
+	{0, 1},   // 8 Invocação Final: sempre uma, sem depender da maestria
+}
 
-// summonCount is the evocation head-count rule (_MSG_Attack.cpp:817-828):
-// Evocação (Special[2]) buys more of the cheaper creatures.
+// summonCount é quantas unidades um lançamento põe em campo.
+//
+// instanceValue vem da linha do SkillData e o índice da criatura é ele menos um
+// (_MSG_Attack.cpp:830), então o teto acompanha o BICHO e não o nome da magia —
+// o que importa porque as skills 59 e 60 estão cruzadas com as criaturas no
+// conteúdo do legado.
 func summonCount(instanceValue, evocacao int) int {
-	switch instanceValue {
-	case 1, 2:
-		return evocacao / 30
-	case 3, 4, 5:
-		return evocacao / 40
-	case 6, 7:
-		return evocacao / 80
-	case 8:
-		// At least one whatever the mastery says: the legacy grants that, and a
-		// spell this expensive must never answer a cast with nothing.
-		n := evocacao / succubusPerEvocacao
-		if n < 1 {
-			n = 1
-		}
-		if n > succubusMax {
-			n = succubusMax
-		}
-		return n
-	case 9:
-		// Invocação Final: one zero-bonus template, untouched by the mastery.
-		return 1
+	i := instanceValue - 1
+	if i < 0 || i >= len(summonHeads) {
+		return 0
 	}
-	return 0
+	h := summonHeads[i]
+	if h.divisor <= 0 {
+		return h.teto
+	}
+	n := evocacao / h.divisor
+	if n > h.teto {
+		n = h.teto
+	}
+	if n < 0 {
+		n = 0
+	}
+	return n
 }
 
 // freeCellNear scans the rings around (x,y) for an unoccupied, walkable cell,
