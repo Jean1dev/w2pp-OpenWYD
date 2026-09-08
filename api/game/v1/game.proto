@@ -105,6 +105,16 @@ message UnstuckRequest {
   // account_name, not character, for the reason KickRequest gives: the panel
   // works in accounts.
   string account_name = 1;
+
+  // to_x/to_y send the character to an EXACT tile instead of the nearest city.
+  // Both zero (the default) keeps the rescue behaviour.
+  //
+  // It exists because the panel had no way to put somebody anywhere: rescuing a
+  // stuck player and reaching a place to look at it are the same operation with
+  // a different destination, and without this the only way into an area with no
+  // entry implemented is to have no way in at all.
+  int32 to_x = 2;
+  int32 to_y = 3;
 }
 message UnstuckResponse {
   // found is false when the account is not in the world. That is an answer, not

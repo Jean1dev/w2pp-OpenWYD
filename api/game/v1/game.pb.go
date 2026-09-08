@@ -310,7 +310,16 @@ type UnstuckRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// account_name, not character, for the reason KickRequest gives: the panel
 	// works in accounts.
-	AccountName   string `protobuf:"bytes,1,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	AccountName string `protobuf:"bytes,1,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	// to_x/to_y send the character to an EXACT tile instead of the nearest city.
+	// Both zero (the default) keeps the rescue behaviour.
+	//
+	// It exists because the panel had no way to put somebody anywhere: rescuing a
+	// stuck player and reaching a place to look at it are the same operation with
+	// a different destination, and without this the only way into an area with no
+	// entry implemented is to have no way in at all.
+	ToX           int32 `protobuf:"varint,2,opt,name=to_x,json=toX,proto3" json:"to_x,omitempty"`
+	ToY           int32 `protobuf:"varint,3,opt,name=to_y,json=toY,proto3" json:"to_y,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -350,6 +359,20 @@ func (x *UnstuckRequest) GetAccountName() string {
 		return x.AccountName
 	}
 	return ""
+}
+
+func (x *UnstuckRequest) GetToX() int32 {
+	if x != nil {
+		return x.ToX
+	}
+	return 0
+}
+
+func (x *UnstuckRequest) GetToY() int32 {
+	if x != nil {
+		return x.ToY
+	}
+	return 0
 }
 
 type UnstuckResponse struct {
@@ -903,9 +926,11 @@ const file_api_game_v1_game_proto_rawDesc = "" +
 	"\vKickRequest\x12!\n" +
 	"\faccount_name\x18\x01 \x01(\tR\vaccountName\"*\n" +
 	"\fKickResponse\x12\x1a\n" +
-	"\bsessions\x18\x01 \x01(\x05R\bsessions\"3\n" +
+	"\bsessions\x18\x01 \x01(\x05R\bsessions\"Y\n" +
 	"\x0eUnstuckRequest\x12!\n" +
-	"\faccount_name\x18\x01 \x01(\tR\vaccountName\"\xb6\x01\n" +
+	"\faccount_name\x18\x01 \x01(\tR\vaccountName\x12\x11\n" +
+	"\x04to_x\x18\x02 \x01(\x05R\x03toX\x12\x11\n" +
+	"\x04to_y\x18\x03 \x01(\x05R\x03toY\"\xb6\x01\n" +
 	"\x0fUnstuckResponse\x12\x14\n" +
 	"\x05found\x18\x01 \x01(\bR\x05found\x12%\n" +
 	"\x0echaracter_name\x18\x02 \x01(\tR\rcharacterName\x12\x15\n" +

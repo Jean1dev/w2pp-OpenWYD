@@ -1006,3 +1006,82 @@ func TestNaoAutorizadoApontaParaOTipoDoToken(t *testing.T) {
 		t.Errorf("palpitou tipo de token numa recusa que não é de permissão: %q", outro)
 	}
 }
+
+// Com X e Y o personagem vai para o ponto exato, não para a cidade. É a única
+// forma de alcançar uma área cuja entrada ainda não existe no jogo — sem isso,
+// um lugar sem quest implementada é um lugar onde ninguém consegue entrar.
+func TestDesatolarComDestinoVaiParaOPonto(t *testing.T) {
+	j := &fakeJogo{estado: estadoDeTeste()}
+	h := newTestPanelJogo(t, newFakeAudit(), j)
+	post, token := signedInPost(t, h)
+
+	rec := post("/servidor/desatolar", url.Values{
+		"csrf": {token}, "conta": {"ana"}, "para_x": {"1967"}, "para_y": {"1578"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (body: %s)", rec.Code, rec.Body.String())
+	}
+	if len(j.destinos) != 1 || j.destinos[0] != [2]int32{1967, 1578} {
+		t.Fatalf("destino = %v, want [[1967 1578]]", j.destinos)
+	}
+}
+
+// Caixas vazias mantêm o resgate. O botão não pode virar outra coisa só porque
+// ganhou dois campos.
+func TestDesatolarSemDestinoContinuaIndoParaACidade(t *testing.T) {
+	j := &fakeJogo{estado: estadoDeTeste()}
+	h := newTestPanelJogo(t, newFakeAudit(), j)
+	post, token := signedInPost(t, h)
+
+	post("/servidor/desatolar", url.Values{
+		"csrf": {token}, "conta": {"ana"}, "para_x": {""}, "para_y": {""},
+	})
+	if len(j.destinos) != 1 || j.destinos[0] != [2]int32{0, 0} {
+		t.Fatalf("destino = %v, want [[0 0]] (resgate)", j.destinos)
+	}
+}
+
+// Fora da grade é recusado em vez de aparado: uma coordenada digitada errado que
+// vira outro lugar em silêncio é pior do que uma que não passa.
+func TestDesatolarRecusaCoordenadaForaDaGrade(t *testing.T) {
+	for _, c := range []struct{ nome, x, y string }{
+		{"x acima do limite", "4096", "1000"},
+		{"y acima do limite", "1000", "4096"},
+		{"zero", "0", "1000"},
+		{"negativo", "-5", "1000"},
+		{"não é número", "abc", "1000"},
+	} {
+		j := &fakeJogo{estado: estadoDeTeste()}
+		h := newTestPanelJogo(t, newFakeAudit(), j)
+		post, token := signedInPost(t, h)
+
+		rec := post("/servidor/desatolar", url.Values{
+			"csrf": {token}, "conta": {"ana"}, "para_x": {c.x}, "para_y": {c.y},
+		})
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", c.nome, rec.Code)
+		}
+		if len(j.desatolados) != 0 {
+			t.Errorf("%s: mexeu no personagem mesmo com coordenada inválida", c.nome)
+		}
+	}
+}
+
+// Um eixo só é ambíguo: ninguém sabe se era para ir ao ponto ou à cidade.
+func TestDesatolarExigeOsDoisEixosJuntos(t *testing.T) {
+	for _, c := range []struct{ nome, x, y string }{
+		{"só X", "1967", ""},
+		{"só Y", "", "1578"},
+	} {
+		j := &fakeJogo{estado: estadoDeTeste()}
+		h := newTestPanelJogo(t, newFakeAudit(), j)
+		post, token := signedInPost(t, h)
+
+		rec := post("/servidor/desatolar", url.Values{
+			"csrf": {token}, "conta": {"ana"}, "para_x": {c.x}, "para_y": {c.y},
+		})
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", c.nome, rec.Code)
+		}
+	}
+}

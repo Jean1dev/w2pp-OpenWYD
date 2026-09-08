@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
@@ -412,7 +413,23 @@ func (h *Handler) desatolar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, err := h.cfg.Jogo.Desatolar(r.Context(), conta)
+	// An optional destination turns the rescue into "put this character here",
+	// which is the only way into an area the game has no entry for yet. Empty
+	// boxes keep the nearest-city behaviour.
+	paraX, errX := coordenadaDoForm(r, "para_x")
+	paraY, errY := coordenadaDoForm(r, "para_y")
+	if errX != nil || errY != nil {
+		http.Error(w, "As coordenadas precisam ser números entre 1 e 4095, ou ficar vazias.",
+			http.StatusBadRequest)
+		return
+	}
+	if (paraX == 0) != (paraY == 0) {
+		http.Error(w, "Informe X e Y juntos, ou deixe os dois vazios para mandar à cidade mais perto.",
+			http.StatusBadRequest)
+		return
+	}
+
+	d, err := h.cfg.Jogo.Desatolar(r.Context(), conta, paraX, paraY)
 	if err != nil {
 		h.cfg.Logger.Error("unstuck failed", "conta", conta, "err", err)
 		http.Error(w, explicaJogo(err), http.StatusBadGateway)
@@ -448,4 +465,20 @@ func (h *Handler) desatolar(w http.ResponseWriter, r *http.Request) {
 		"personagem", d.Personagem, "cidade", d.Cidade)
 	msg := fmt.Sprintf("%s foi para %s. Estava em %d, %d.", d.Personagem, d.Cidade, d.DeX, d.DeY)
 	http.Redirect(w, r, "/servidor?aviso="+urlQuery(msg), http.StatusSeeOther)
+}
+
+// coordenadaDoForm reads an optional map coordinate. Empty means "not given"
+// (zero); anything outside the 4096 grid is refused rather than clamped, because
+// a typo that silently becomes a different tile is worse than one that is
+// rejected.
+func coordenadaDoForm(r *http.Request, campo string) (int32, error) {
+	bruto := strings.TrimSpace(r.PostFormValue(campo))
+	if bruto == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(bruto)
+	if err != nil || n < 1 || n > 4095 {
+		return 0, fmt.Errorf("panel: coordenada %q inválida: %q", campo, bruto)
+	}
+	return int32(n), nil
 }

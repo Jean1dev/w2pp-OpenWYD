@@ -6,6 +6,15 @@
 <style>
   td.acao { white-space: nowrap; }
   td.acao .acoes { display: flex; gap: 7px; justify-content: flex-end; }
+  /* As caixas de destino ficam coladas no botão que as usa, para não parecerem
+     um campo solto da linha. */
+  form.ir-para { display: flex; gap: 4px; align-items: center; }
+  form.ir-para input {
+    width: 52px; padding: 4px 6px; font: inherit; font-size: 12.5px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums; text-align: right;
+  }
+  form.ir-para input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   td.acao form { margin: 0; }
   td.acao button { padding: 4px 9px; font-size: 12px; }
   .reinicio-cartao {
@@ -206,10 +215,18 @@
             <td class="acao">
               <div class="acoes">
               {{if .Jogando}}
-              <form method="post" action="/servidor/desatolar">
+              {{/* Os dois campos vazios mantêm o resgate (cidade mais perto).
+                   Preenchidos, mandam o personagem para o ponto exato — que é a
+                   única forma de alcançar uma área cuja entrada ainda não existe
+                   no jogo. */}}
+              <form method="post" action="/servidor/desatolar" class="ir-para">
                 <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <input type="hidden" name="conta" value="{{.Conta}}">
-                <button type="submit" title="Leva o personagem para a cidade mais perto">Desatolar</button>
+                <input name="para_x" inputmode="numeric" placeholder="X" size="4"
+                       title="Deixe vazio para mandar à cidade mais perto">
+                <input name="para_y" inputmode="numeric" placeholder="Y" size="4"
+                       title="Deixe vazio para mandar à cidade mais perto">
+                <button type="submit" title="Vazio: cidade mais perto. Com X e Y: vai para esse ponto">Ir</button>
               </form>
               {{end}}
               <form method="post" action="/servidor/derrubar">

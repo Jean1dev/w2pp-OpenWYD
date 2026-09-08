@@ -140,11 +140,16 @@ type Desatolo struct {
 	Cidade     string
 }
 
-// Desatolar moves a stuck character to the nearest city.
-func (c *Client) Desatolar(parent context.Context, conta string) (Desatolo, error) {
+// Desatolar moves a character out of where it is: to the nearest city when
+// paraX/paraY are zero, or to that exact tile otherwise.
+//
+// The explicit destination is the same operation with a different target, and it
+// is what lets staff reach a place the game has no entry for — an area whose
+// quest is not implemented has, by definition, no other way in.
+func (c *Client) Desatolar(parent context.Context, conta string, paraX, paraY int32) (Desatolo, error) {
 	ctx, cancel := c.ctx(parent)
 	defer cancel()
-	resp, err := c.api.Unstuck(ctx, &gamev1.UnstuckRequest{AccountName: conta})
+	resp, err := c.api.Unstuck(ctx, &gamev1.UnstuckRequest{AccountName: conta, ToX: paraX, ToY: paraY})
 	if err != nil {
 		return Desatolo{}, traduz(err, "desatolar o personagem")
 	}

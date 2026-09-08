@@ -205,7 +205,7 @@ type Deliveries interface {
 type Live interface {
 	Estado(ctx context.Context) (jogo.Estado, error)
 	Derrubar(ctx context.Context, conta string) (int32, error)
-	Desatolar(ctx context.Context, conta string) (jogo.Desatolo, error)
+	Desatolar(ctx context.Context, conta string, paraX, paraY int32) (jogo.Desatolo, error)
 	EntregarAgora(ctx context.Context, conta string) (jogo.Entrega, error)
 	Ajustes(ctx context.Context) (jogo.Overlays, error)
 	Avisar(ctx context.Context, msg string) (int32, error)

@@ -267,6 +267,16 @@ func (s *Server) Unstuck(ctx context.Context, req *gamev1.UnstuckRequest) (*game
 			return resp
 		}
 		destX, destY, _, cidade := world.NearestCitySpawn(ent.X, ent.Y)
+		// An explicit destination overrides the rescue. Bounds-checked here and
+		// not trusted from the wire: the panel is authenticated, but a typo in a
+		// coordinate box should not put a character outside the grid.
+		if x, y := req.GetToX(), req.GetToY(); x > 0 && y > 0 {
+			dim := int32(w.GridDim())
+			if x >= dim || y >= dim {
+				return resp // Found stays false: nothing moved
+			}
+			destX, destY, cidade = int16(x), int16(y), ""
+		}
 		resp.Found = true
 		resp.CharacterName = ent.Name
 		resp.FromX, resp.FromY = int32(ent.X), int32(ent.Y)

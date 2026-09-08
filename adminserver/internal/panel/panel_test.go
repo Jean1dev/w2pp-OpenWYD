@@ -3497,6 +3497,7 @@ type fakeJogo struct {
 	drenagens            []string
 	drenarErr            error
 	desatolados          []string
+	destinos             [][2]int32
 	desatolarErr         error
 	entregasAgora        []string
 	entregarErr          error
@@ -3527,17 +3528,26 @@ func (f *fakeJogo) Derrubar(_ context.Context, conta string) (int32, error) {
 	return f.sessoes, nil
 }
 
-func (f *fakeJogo) Desatolar(_ context.Context, conta string) (jogo.Desatolo, error) {
+func (f *fakeJogo) Desatolar(_ context.Context, conta string, paraX, paraY int32) (jogo.Desatolo, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.desatolarErr != nil {
 		return jogo.Desatolo{}, f.desatolarErr
 	}
 	f.desatolados = append(f.desatolados, conta)
+	f.destinos = append(f.destinos, [2]int32{paraX, paraY})
 	// Answers from whoever the fake world says is in play, so a test cannot
 	// assert an unstuck on somebody who was never there.
 	for _, p := range f.estado.Players {
 		if p.Conta == conta && p.Jogando {
+			// Um destino explícito responde com ele, sem cidade — é assim que o
+			// servidor distingue "levei ao ponto pedido" de "resgatei".
+			if paraX > 0 && paraY > 0 {
+				return jogo.Desatolo{
+					Achou: true, Personagem: p.Personagem,
+					DeX: p.X, DeY: p.Y, ParaX: paraX, ParaY: paraY,
+				}, nil
+			}
 			return jogo.Desatolo{
 				Achou: true, Personagem: p.Personagem,
 				DeX: p.X, DeY: p.Y, ParaX: 2090, ParaY: 2097, Cidade: "Armia",
