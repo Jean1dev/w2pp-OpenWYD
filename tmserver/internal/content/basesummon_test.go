@@ -34,3 +34,69 @@ func TestLoadBaseSummons(t *testing.T) {
 		t.Logf("optional summon missing: %s", name)
 	}
 }
+
+// TestEvocacoesLigamDaSkillAteOTemplate percorre as oito evocações do BM de
+// ponta a ponta contra o conteúdo REAL: a linha do SkillData, o InstanceValue, o
+// summonID que ele produz, e o template que esse id carrega.
+//
+// Existe porque toda falha da evocação nesta sessão veio da mesma coisa — um
+// teste montado sobre dados que o jogo não tem. O fixture do handler constrói o
+// STRUCT_MOB à mão e acertava por ser degenerado (Merchant zero, Equip zerado);
+// os arquivos de verdade trazem Merchant 16, e era ele que tirava o bicho do
+// laço de IA. Um teste que lê os arquivos é o único que fecha essa porta.
+func TestEvocacoesLigamDaSkillAteOTemplate(t *testing.T) {
+	sk, err := LoadSkillData(filepath.Join("..", "..", "..", "Release", "Common", "SkillData.csv"))
+	if err != nil {
+		t.Skipf("SkillData unavailable: %v", err)
+	}
+	templates, _, err := LoadBaseSummons(filepath.Join("..", "..", "..", "Release"))
+	if err != nil {
+		t.Skipf("BaseSummon tree unavailable: %v", err)
+	}
+
+	// As oito magias de evocação são as skills 56..63, em ordem.
+	const primeira, ultima = 56, 63
+	for idx := primeira; idx <= ultima; idx++ {
+		sp, ok := sk.Get(idx)
+		if !ok {
+			t.Errorf("skill %d não está no SkillData; a magia não tem como ser lançada", idx)
+			continue
+		}
+		// InstanceType 11 é o que roteia para GenerateSummon (_MSG_Attack.cpp:809).
+		// Sem ele a magia gasta mana e não faz nada.
+		if sp.InstanceType != 11 {
+			t.Errorf("skill %d (%s): InstanceType = %d, want 11", idx, sp.Name, sp.InstanceType)
+		}
+		// summonID = InstanceValue-1 (_MSG_Attack.cpp:830). Fora de 0..7 o
+		// GenerateSummon recusa calado e a magia some sem aviso.
+		sumID := sp.InstanceValue - 1
+		if sumID < 0 || sumID >= bmSummonCount {
+			t.Errorf("skill %d (%s): InstanceValue %d dá summonID %d, fora de 0..%d",
+				idx, sp.Name, sp.InstanceValue, sumID, bmSummonCount-1)
+			continue
+		}
+		if templates[sumID] == nil {
+			t.Errorf("skill %d (%s) aponta para o template %d (%s), que não carregou",
+				idx, sp.Name, sumID, baseSummonFiles[sumID])
+		}
+	}
+
+	// Cada uma das oito magias tem de cair num summonID diferente: duas magias no
+	// mesmo bicho significaria uma linhagem inalcançável.
+	visto := map[int]int{}
+	for idx := primeira; idx <= ultima; idx++ {
+		sp, ok := sk.Get(idx)
+		if !ok {
+			continue
+		}
+		sumID := sp.InstanceValue - 1
+		if antes, repetido := visto[sumID]; repetido {
+			t.Errorf("skills %d e %d apontam para o mesmo summonID %d (%s)",
+				antes, idx, sumID, baseSummonFiles[sumID])
+		}
+		visto[sumID] = idx
+	}
+	if len(visto) != bmSummonCount {
+		t.Errorf("as oito magias cobrem %d criaturas, want %d", len(visto), bmSummonCount)
+	}
+}
