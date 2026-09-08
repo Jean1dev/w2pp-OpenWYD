@@ -198,9 +198,14 @@ func setBattle(w *world.World, id int, e, target *world.Entity) {
 	if e.Mode == world.MobEmpty || (targetInWorld && target.Mode == world.MobEmpty) {
 		return
 	}
-	if targetInWorld && world.IsPlayer(target.ID) {
-		if m, ok := w.SessionMode(target.ID); !ok || m != world.UserPlay {
+	if world.IsPlayer(target.ID) {
+		if sameKingdom(e.Clan, target.Clan) {
 			return
+		}
+		if targetInWorld {
+			if m, ok := w.SessionMode(target.ID); !ok || m != world.UserPlay {
+				return
+			}
 		}
 	}
 	if abs16(e.X-target.X) > battleDragBox || abs16(e.Y-target.Y) > battleDragBox {
@@ -313,6 +318,10 @@ func selectTargetFromEnemyList(w *world.World, e *world.Entity) {
 			continue
 		}
 		if world.IsPlayer(enemyID) {
+			if sameKingdom(e.Clan, enemy.Clan) {
+				e.EnemyList[i] = 0
+				continue
+			}
 			if enemy.Rsv&world.RsvHide != 0 {
 				e.EnemyList[i] = 0
 				continue
@@ -615,6 +624,9 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 	if e.Summoner != 0 {
 		return false // pets never attack players (clan 4 is friendly, clan.go)
 	}
+	if sameKingdom(e.Clan, target.Clan) {
+		return false
+	}
 	if m, ok := w.SessionMode(target.ID); !ok || m != world.UserPlay {
 		return false
 	}
@@ -629,6 +641,15 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 // broadcasts it so nearby players see the damage. Damage is server-authoritative
 // via the shared combat formula. Player HP bars update from the Dam entry.
 func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) {
+	// Recheck at the HP-mutation boundary in case a target was retained or
+	// inserted through another battle path. Do this before cadence and RNG so a
+	// rejected allied strike changes neither AtkTick nor the parity stream.
+	if target == nil || world.IsPlayer(target.ID) && sameKingdom(e.Clan, target.Clan) {
+		if target != nil {
+			dropCurrentTarget(e, target.ID)
+		}
+		return
+	}
 	now := w.Now()
 	if now < e.AtkTick+mobAttackCadence {
 		return

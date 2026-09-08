@@ -331,7 +331,7 @@ func validThunderTarget(w *world.World, caster, target *world.Entity) bool {
 	if target.NonCombatNPC || target.Rsv&world.RsvHide != 0 || target.Clan == 4 || target.Clan == 6 {
 		return false
 	}
-	if (caster.Clan == 7 && target.Clan == 7) || (caster.Clan == 8 && target.Clan == 8) {
+	if sameKingdom(caster.Clan, target.Clan) {
 		return false
 	}
 	return !skillSameLeaderOrGuild(w, caster, target)

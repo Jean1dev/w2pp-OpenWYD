@@ -25,6 +25,13 @@ var (
 	kingdom2Room = areaBox{1676, 1816, 1776, 1892}
 )
 
+// sameKingdom reports the two explicit legacy kingdom alliances used by
+// _MSG_Attack's isFrag gate. Plain clan equality is not enough: the remaining
+// clans keep their distinct g_pClanTable and event semantics.
+func sameKingdom(a, b uint8) bool {
+	return a == b && (a == clanHekalotia || a == clanAkelonia)
+}
+
 // tickKingdomRvR ports the six-second kingdom wall pulse and the minute-delayed
 // throne-room clear state machines (ProcessSecMinTimer.cpp:1702-1713,2621-2643).
 func (d *Dispatcher) tickKingdomRvR(w *world.World) {
