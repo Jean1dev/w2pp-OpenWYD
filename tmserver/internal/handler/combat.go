@@ -273,6 +273,14 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			dmg = d.applyAirBladeProc(w, e, target, h.Type, &body, payload, dmg)
 		}
 		if dmg > 0 {
+			// Defesa de Evolução (tierdefense.go) — a server rule, not parity, so it
+			// has no legacy position to copy. It goes FIRST, before every other
+			// adjustment, because it is the defender's tier resisting the blow
+			// itself: everything after, the mount absorb included, should work on
+			// what actually got through. PvP only; a mob is not a Mortal.
+			if pvpHit {
+				dmg = applyTierDefense(e.ClassMaster, target.ClassMaster, dmg)
+			}
 			dmg = applyHuntressForceDamage(e, target, tid, dmg)
 			dmg = d.applyManaControl(w, e, target, tid, dmg)
 			// The victim's mount eats its share LAST, after every other adjustment,
