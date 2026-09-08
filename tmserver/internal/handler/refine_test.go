@@ -105,6 +105,12 @@ func TestRefineSuccessRaisesLevel(t *testing.T) {
 	if f.target().Effects[0] != (world.Effect{Effect: efSanc, Value: 1}) {
 		t.Errorf("Effects[0] = %+v, want {EF_SANC 1}", f.target().Effects[0])
 	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMessagePanel); got != 1 {
+		t.Errorf("message panels = %d, want 1", got)
+	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMotion); got != 1 {
+		t.Errorf("motions = %d, want 1", got)
+	}
 }
 
 // A failed dust refine never destroys or downgrades the item — that only happens
@@ -129,6 +135,12 @@ func TestRefineFailKeepsItemAndAccruesPity(t *testing.T) {
 	// does NOT accrue pity — the roll is 3-in-4.
 	if got := refine.Pity(f.target()); got != 0 {
 		t.Errorf("pity = %d, want 0 (rand()#2%%4 = 3 misses the <=2 window)", got)
+	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMessagePanel); got != 1 {
+		t.Errorf("message panels = %d, want 1", got)
+	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMotion); got != 1 {
+		t.Errorf("motions = %d, want 1", got)
 	}
 }
 
@@ -225,6 +237,12 @@ func TestRefineGates(t *testing.T) {
 			}
 			if f.e.Carry[0].Empty() {
 				t.Error("a refused refine consumed the dust")
+			}
+			if got := f.w.SentOfType(f.s, protocol.MsgMessagePanel); got != 1 {
+				t.Errorf("message panels = %d, want 1", got)
+			}
+			if got := f.w.SentOfType(f.s, protocol.MsgMotion); got != 0 {
+				t.Errorf("motions = %d, want 0 on rejection", got)
 			}
 		})
 	}
@@ -395,6 +413,66 @@ func TestRefineOverTheWire(t *testing.T) {
 			t.Fatalf("SendItem Effects[0] = %+v, want {EF_SANC 1} — the client renders THIS, not the server's copy", eff0)
 		}
 		return
+	}
+}
+
+func TestRefineFailureMotionMatchesLegacyFaceRule(t *testing.T) {
+	if got := refineFailureMotion(&world.Entity{}); got != refineMotionFailureBase {
+		t.Errorf("base-character failure motion = %d, want %d", got, refineMotionFailureBase)
+	}
+	withFace := &world.Entity{}
+	withFace.Equip[0] = world.Item{Index: 10}
+	if got := refineFailureMotion(withFace); got != refineMotionFailureFace {
+		t.Errorf("equipped-face failure motion = %d, want %d", got, refineMotionFailureFace)
+	}
+}
+
+// TestRefineFeedbackOverTheWire guards the issue #317 regression: the 7662
+// client needs a real MessagePanel body and Motion frame, not the placeholder
+// MessageBoxOk notice code previously emitted by the handler.
+func TestRefineFeedbackOverTheWire(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
+	st.Carry[0] = world.Item{Index: itemPoeiraLac}
+	st.Carry[1] = world.Item{Index: itemArmor}
+	db.loadResult = st
+
+	addr, stop := startRefineServer(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{
+		SourType: world.ItemPlaceCarry, SourPos: 0,
+		DestType: world.ItemPlaceCarry, DestPos: 1,
+	}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	var sawPanel, sawMotion bool
+	for i := 0; i < 12 && (!sawPanel || !sawMotion); i++ {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			t.Fatal("connection closed before refine feedback arrived")
+		}
+		switch ty {
+		case protocol.MsgMessagePanel:
+			if got := cstr(payload); got != refineMessageSuccess {
+				t.Fatalf("panel text = %q, want %q", got, refineMessageSuccess)
+			}
+			sawPanel = true
+		case protocol.MsgMessageBoxOk:
+			t.Fatal("refine feedback used the placeholder MessageBoxOk packet")
+		case protocol.MsgMotion:
+			motion := binary.LittleEndian.Uint16(payload[0:])
+			parm := binary.LittleEndian.Uint16(payload[2:])
+			if motion != refineMotionSuccess || parm != refineMotionSuccessParm {
+				t.Fatalf("motion = %d/%d, want %d/%d", motion, parm, refineMotionSuccess, refineMotionSuccessParm)
+			}
+			sawMotion = true
+		}
+	}
+	if !sawPanel || !sawMotion {
+		t.Fatalf("incomplete refine feedback: panel=%v motion=%v", sawPanel, sawMotion)
 	}
 }
 

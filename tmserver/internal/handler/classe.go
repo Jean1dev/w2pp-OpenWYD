@@ -44,22 +44,22 @@ func (d *Dispatcher) useClasseItem(w *world.World, s *world.Session, e *world.En
 	// activeCarryLimit(e) <= maxUnlockedCarry == 60 and yields nil above it —
 	// caught by the dst == nil return above.
 	if int(body.DestType) == world.ItemPlaceEquip {
-		// _NN_Only_To_Equips is the string Source sends here (:4972). It reads
-		// backwards for this gate — one of the legacy's many misfiled message
-		// ids — but the client shows it, so it is kept for parity.
-		d.notify(w, s, NoticeOnlyToEquips)
+		// The legacy used the backwards _NN_Only_To_Equips string here. Give the
+		// player an actionable error while preserving the inventory-only rule.
+		d.sendRefineMessage(w, s, classeMessageInventory)
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
 
 	mobType := d.itemAbility(*dst, efMobType)
 	if itemSanc(*dst) >= 10 || (mobType != 0 && mobType != 2) {
-		// Source sends no notice on this gate — just resyncs the dragged slot.
+		d.sendRefineMessage(w, s, classeMessageCantRefine)
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
 
 	if d.itemAbility(*dst, efItemLevel) != classeTier(e.Carry[src].Index) {
+		d.sendRefineMessage(w, s, classeMessageMismatch)
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
@@ -70,11 +70,14 @@ func (d *Dispatcher) useClasseItem(w *world.World, s *world.Session, e *world.En
 	// recorded in "Source/Lista de bugs.txt:6". Refuse and resync instead of
 	// destroying the item.
 	if !refine.ClasseBonus(dst, d.itemPos[int(dst.Index)], func(n int) int { return w.Rand().Intn(n) }, d.itemAbility) {
+		d.sendRefineMessage(w, s, classeMessageCantRefine)
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
 
 	d.sendSlot(w, s, int(body.DestType), int(body.DestPos), *dst)
+	d.sendRefineMessage(w, s, refineMessageSuccess)
+	d.sendRefineMotion(w, s, e.ID, refineMotionSuccess, refineMotionSuccessParm)
 	d.log.Info("classe item bonus reroll", "conn", s.Conn, "item", dst.Index, "effects", dst.Effects)
 	consumeOneItem(&e.Carry[src])
 	// The Classe slot is deliberately NOT re-sent on success, mirroring

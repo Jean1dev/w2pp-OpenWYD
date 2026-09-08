@@ -141,25 +141,25 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 	// EF_VOLATILE is a catalog property — no minted item carries it as an instance
 	// effect — so the two agree in practice.
 	if d.itemVolatiles[int(dst.Index)] != 0 {
-		d.refineReject(w, s, e, src, NoticeOnlyToEquips)
+		d.refineDustReject(w, s, e, src, refineMessageOnlyEquipment)
 		return
 	}
 	if d.itemAbility(*dst, efNoSanc) != 0 {
-		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		d.refineDustReject(w, s, e, src, refineMessageCantMore)
 		return
 	}
 
 	level := refine.Level(*dst)
 	// Ori cannot touch an item already at +6 or above (:203).
 	if vol == volDustOri && level >= oriMaxSanc {
-		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		d.refineDustReject(w, s, e, src, refineMessageCantMore)
 		return
 	}
 	// +9 is the dust path's wall. +10 is allowed through as the one special case
 	// (it becomes +11); +11 and up are refused (:802, where the legacy compares
 	// against the REF_11 sentinel).
 	if level == lacMaxSanc || level >= sancHardCap || (level >= lacMaxSanc && dst.Index == item769) {
-		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		d.refineDustReject(w, s, e, src, refineMessageCantMore)
 		return
 	}
 
@@ -171,7 +171,7 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 	// A never-refined item has nowhere to store a level yet. When all three effect
 	// slots hold real effects the legacy refuses to refine the item at all (:814).
 	if level == 0 && !refine.Bootstrap(dst) {
-		d.refineReject(w, s, e, src, NoticeCantRefineMore)
+		d.refineDustReject(w, s, e, src, refineMessageCantMore)
 		return
 	}
 
@@ -181,7 +181,7 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 	// UNVERIFIED: the legacy reads BaseScore.Level here; the Entity only carries
 	// CurrentScore.Level. They differ only via EF_LEVEL gear, never near 999.
 	if isEgg(*dst) && e.Level < incuLevelExempt && itemInstanceAbility(*dst, efIncuDelay) > 0 {
-		d.refineReject(w, s, e, src, NoticeIncuWaitMore)
+		d.refineDustReject(w, s, e, src, refineMessageIncubationWait)
 		return
 	}
 
@@ -214,8 +214,9 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 // game-rules.md §3.6.1); it's a migration design decision, not a port.
 func (d *Dispatcher) refineTintura(w *world.World, s *world.Session, e *world.Entity, dst *world.Item, body protocol.MsgUseItemBody, src int) {
 	dst.Index = int16(magicBeanBase + (int(dst.Index) - tinturaLo))
-	d.notify(w, s, NoticeRefineSuccess)
+	d.sendRefineMessage(w, s, refineMessageSuccess)
 	d.sendSlot(w, s, int(body.DestType), int(body.DestPos), *dst)
+	d.sendRefineMotion(w, s, e.ID, refineMotionSuccess, refineMotionSuccessParm)
 	consumeOneItem(&e.Carry[src])
 }
 
@@ -251,15 +252,14 @@ func (d *Dispatcher) refineSucceed(w *world.World, s *world.Session, e *world.En
 
 	d.refreshScore(e)
 	d.sendScore(w, s, e)
-	d.notify(w, s, NoticeRefineSuccess)
+	d.sendRefineMessage(w, s, refineMessageSuccess)
 
 	if isEgg(*dst) {
 		d.hatchEgg(w, s, t, level)
 	}
 
 	d.sendSlot(w, s, t.place, t.slot, *dst)
-	// SendEmotion(conn, 14, 3) — cosmetic, and no emotion packet exists in this
-	// port yet (_MSG_UseItem.cpp:920).
+	d.sendRefineMotion(w, s, e.ID, refineMotionSuccess, refineMotionSuccessParm)
 	consumeOneItem(&e.Carry[src])
 	// The dust slot is deliberately NOT re-sent: the client already removed the
 	// item it dragged, and the legacy only echoes the source back on the refusal
@@ -269,7 +269,7 @@ func (d *Dispatcher) refineSucceed(w *world.World, s *world.Session, e *world.En
 // refineFail applies a lost roll (_MSG_UseItem.cpp:929-974). The item survives
 // untouched — only the dust is spent and the pity counter grows.
 func (d *Dispatcher) refineFail(w *world.World, s *world.Session, e *world.Entity, t refineTarget, src, anvil, level, pity int) {
-	d.notify(w, s, NoticeFailToRefine)
+	d.sendRefineMessage(w, s, refineMessageFailure)
 	consumeOneItem(&e.Carry[src])
 
 	if w.Rand().Intn(pityRollModulo) <= pityRollMax {
@@ -288,7 +288,7 @@ func (d *Dispatcher) refineFail(w *world.World, s *world.Session, e *world.Entit
 		refine.Set(dst, level, pity)
 	}
 	d.sendSlot(w, s, t.place, t.slot, *dst)
-	// SendEmotion(conn, 15|20, 0) — cosmetic, not ported (:967).
+	d.sendRefineFailureMotion(w, s, e)
 }
 
 // hatchEgg is the mount-egg branch inlined in the refine success
@@ -317,7 +317,7 @@ func (d *Dispatcher) hatchEgg(w *world.World, s *world.Session, t refineTarget, 
 		Value:  uint8(w.Rand().Intn(hatchLifeSpan) + hatchLifeBase),
 	}
 	dst.Effects[2] = world.Effect{Effect: hatchMountFeed, Value: hatchMountKill}
-	d.notify(w, s, NoticeIncubated)
+	d.sendRefineMessage(w, s, refineMessageIncubated)
 	// MountProcess(conn, 0) is a no-op: with a NULL mount its IsEqual stays 1 and
 	// it returns immediately (Server.cpp:4639-4643). Nothing to port.
 	//
@@ -326,8 +326,15 @@ func (d *Dispatcher) hatchEgg(w *world.World, s *world.Session, t refineTarget, 
 	d.sendSlot(w, s, t.place, t.slot, *dst)
 }
 
-// refineReject refuses a refine and re-sends the DUST slot, so the client puts
+// refineDustReject refuses a dust refine and re-sends the DUST slot, so the client puts
 // the item it dragged back where it was (_MSG_UseItem.cpp:805).
+func (d *Dispatcher) refineDustReject(w *world.World, s *world.Session, e *world.Entity, src int, message string) {
+	d.sendRefineMessage(w, s, message)
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+}
+
+// refineReject is shared by refinement-like consumables that still use the
+// placeholder Notice system and are outside issue #317.
 func (d *Dispatcher) refineReject(w *world.World, s *world.Session, e *world.Entity, src int, n Notice) {
 	d.notify(w, s, n)
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
