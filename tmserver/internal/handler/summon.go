@@ -201,6 +201,18 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		mob.Clan = summonClan
 		mob.Leader = leaderID
 		mob.Summoner = s.Conn
+		// A summon is combat content, whatever its template's Merchant byte says.
+		// Every BaseSummon ships Merchant=16 (Dragao_Negro 64), and nonCombatNPC
+		// reads ANY non-zero value as a service NPC — which took the pet out of
+		// runsMobAI entirely (mobai.go:189). A pet outside the AI loop never
+		// attacks and never ticks its own lifespan affect, so it also never
+		// expires: one cause, both halves of the bug.
+		//
+		// The legacy protects only Merchant 1/4/43/100 (_MSG_Attack.cpp:339), so
+		// none of these ever qualified there. Cleared here and not in
+		// nonCombatNPC because widening that rule would un-shield ~376 spawn
+		// blocks at once — the same call the water dungeon deferred (world/api.go).
+		mob.NonCombatNPC = false
 		mob.Affect[0] = world.Affect{Type: affectSummonLife, Time: summonLifeTicks}
 		le.PartyList[slot] = id
 		if spawned == 0 {
@@ -335,6 +347,8 @@ func (d *Dispatcher) generateBabyMountSummon(w *world.World, s *world.Session, e
 	mob.Clan = summonClan
 	mob.Leader = leaderID
 	mob.Summoner = s.Conn
+	// Same Merchant-byte trap as the evocations; see generateSummon.
+	mob.NonCombatNPC = false
 	mountSanc := int32(mount.Effects[1].Effect)
 	if mountSanc > 100 {
 		mountSanc = 100

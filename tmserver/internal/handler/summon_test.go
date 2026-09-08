@@ -38,9 +38,9 @@ func TestSummonCount(t *testing.T) {
 	}
 }
 
-// summonTemplate builds an 816-byte BaseSummon-shaped STRUCT_MOB (same offsets
-// as aggressiveMob): known flat stats so the owner-scaling asserts are exact.
-func summonTemplate(name string) []byte {
+// plainMobTemplate builds an 816-byte STRUCT_MOB with known flat stats and no
+// Merchant byte — an ordinary monster. Skill-targeting tests want this one.
+func plainMobTemplate(name string) []byte {
 	b := make([]byte, 816)
 	copy(b[0:16], name)
 	const cs = 92
@@ -49,6 +49,21 @@ func summonTemplate(name string) []byte {
 	binary.LittleEndian.PutUint32(b[cs+16:], 100) // MaxHp
 	binary.LittleEndian.PutUint32(b[cs+24:], 100) // Hp
 	binary.LittleEndian.PutUint16(b[cs+34:], 99)  // Int: never hesitates in battle
+	return b
+}
+
+// summonTemplate is plainMobTemplate plus the Merchant byte every real
+// BaseSummon file carries (16; Dragao_Negro ships 64).
+//
+// The byte is the whole point of this helper existing separately. nonCombatNPC
+// treats ANY non-zero Merchant as a service NPC, and a pet marked that way drops
+// out of runsMobAI — it stops attacking AND stops ticking its own lifespan. The
+// summon fixture used to leave it at zero, so every test here passed while the
+// real evocations stood around doing nothing in game. Anything exercising the
+// summon path must build its template through this.
+func summonTemplate(name string) []byte {
+	b := plainMobTemplate(name)
+	b[92+12] = 16 // CurrentScore.Merchant
 	return b
 }
 

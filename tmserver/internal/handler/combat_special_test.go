@@ -142,10 +142,10 @@ func TestThunderTargetsSkipProtectedAndDeduplicate(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1, X: 5, Y: 5, Clan: 7}
-	first := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("First"), X: 4, Y: 4, GenIndex: -1})
-	second := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Second"), X: 1, Y: 1, GenIndex: -1})
-	clan4 := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Clan4"), X: 3, Y: 3, GenIndex: -1})
-	hidden := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Hidden"), X: 2, Y: 2, GenIndex: -1})
+	first := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("First"), X: 4, Y: 4, GenIndex: -1})
+	second := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Second"), X: 1, Y: 1, GenIndex: -1})
+	clan4 := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Clan4"), X: 3, Y: 3, GenIndex: -1})
+	hidden := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Hidden"), X: 2, Y: 2, GenIndex: -1})
 	w.Entity(clan4).Clan = 4
 	w.Entity(hidden).Rsv = world.RsvHide
 
@@ -166,7 +166,7 @@ func TestBeastAuraTickUsesSkill52(t *testing.T) {
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	s := &world.Session{Conn: 1, ReqMp: 500}
 	caster := &world.Entity{ID: 1, Class: 2, X: 5, Y: 5, HP: 1000, MP: 500, MaxMP: 500, Level: 50, Int: 100}
-	targetID := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Target"), X: 4, Y: 4, GenIndex: -1})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 4, Y: 4, GenIndex: -1})
 	target := w.Entity(targetID)
 	before := target.HP
 
@@ -381,7 +381,7 @@ func TestHuntressOnHitSpellsUseLegacySkillRows(t *testing.T) {
 		t.Fatalf("frost affect = %+v, want type 1 value 2 level 50", player.Affect[0])
 	}
 
-	mobID := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Target"), X: 5, Y: 5, GenIndex: -1})
+	mobID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 5, Y: 5, GenIndex: -1})
 	mob := w.Entity(mobID)
 	d.applyOnHitSpell(w, mob, mobID, 40, 200, 50)
 	if mob.Affect[0].Type != 20 || mob.Affect[0].Value != 10 || mob.Affect[0].Level != 50 {
@@ -429,7 +429,7 @@ func TestDivineFuryMovesTargetTowardCaster(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1, X: 5, Y: 5, Level: 100}
-	targetID := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Target"), X: 7, Y: 5, GenIndex: -1})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 7, Y: 5, GenIndex: -1})
 	target := w.Entity(targetID)
 
 	if !d.applyDivineFury(w, caster, target, targetID, 1000) {
@@ -453,7 +453,7 @@ func TestExterminarMotionMovesTargetNearCurrentCell(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1}
-	targetID := w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Target"), X: 8, Y: 8, GenIndex: -1})
+	targetID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 8, Y: 8, GenIndex: -1})
 	target := w.Entity(targetID)
 
 	if !d.applyExterminarMotion(w, caster, target, targetID) {
@@ -468,7 +468,7 @@ func TestExterminarMotionMovesTargetNearCurrentCell(t *testing.T) {
 }
 
 func TestCreateVineSpawnsWallMobAtTarget(t *testing.T) {
-	d := New(Config{VineMob: summonTemplate("Vine")})
+	d := New(Config{VineMob: plainMobTemplate("Vine")})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	body := &protocol.MsgAttackBody{TargetX: 4, TargetY: 4}
 
@@ -486,9 +486,9 @@ func TestCreateVineSpawnsWallMobAtTarget(t *testing.T) {
 }
 
 func TestCreateVineRejectsOccupiedTarget(t *testing.T) {
-	d := New(Config{VineMob: summonTemplate("Vine")})
+	d := New(Config{VineMob: plainMobTemplate("Vine")})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
-	w.SpawnMobAt(world.MobSpawn{Template: summonTemplate("Blocker"), X: 4, Y: 4, GenIndex: -1})
+	w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Blocker"), X: 4, Y: 4, GenIndex: -1})
 
 	if d.createVine(w, &protocol.MsgAttackBody{TargetX: 4, TargetY: 4}) {
 		t.Fatal("createVine accepted occupied target")
