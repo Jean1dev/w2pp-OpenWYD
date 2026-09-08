@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/hex"
+
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -46,17 +48,42 @@ func partyLevelOK(a, b *world.Entity) bool {
 	return lvl >= leaderlv-partyDif && lvl < leaderlv+partyDif
 }
 
+// recusaConvite logs an invite the server dropped without answering.
+//
+// The raw body goes in because every remaining silent path depends on what the
+// client actually put in the packet, and the struct layout is only verified
+// against Basedef.h — never against a capture. The three tests that cover this
+// message all build the body with the same Encode the server decodes with, so
+// they would pass just as happily if the client disagreed with both.
+//
+// It logs at Warn: an invite that never leaves the server is not routine, and
+// it reaches the player as a button that does nothing.
+func (d *Dispatcher) recusaConvite(s *world.Session, motivo string, payload []byte, args ...any) {
+	base := []any{"conn", s.Conn, "motivo", motivo, "tamanho", len(payload),
+		"corpo", hex.EncodeToString(payload)}
+	d.log.Warn("party invite dropped", append(base, args...)...)
+}
+
 // sendReqParty handles _MSG_SendReqParty (0x037F): invite a player to a party.
 func (d *Dispatcher) sendReqParty(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
+		d.recusaConvite(s, "quem convida nao esta em jogo", payload,
+			"temEntidade", e != nil, "modo", s.Mode)
 		return
 	}
+	// The refusals below are the ones the legacy answers with nothing but a
+	// server-side Log, so they are exactly the ones that reach a player as a
+	// dead button.
 	var body protocol.MsgSendReqPartyBody
 	if err := body.Decode(payload); err != nil {
+		d.recusaConvite(s, "corpo menor que o esperado", payload,
+			"esperado", protocol.MsgSendReqPartyBodySize, "err", err)
 		return
 	}
 	if int(body.PartyID) != s.Conn { // PartyID must be the inviter
+		d.recusaConvite(s, "PartyID nao bate com a sessao", payload,
+			"partyID", body.PartyID, "unk", body.Unk, "target", body.Target)
 		return
 	}
 	if e.Leader != 0 { // already a member elsewhere
@@ -69,7 +96,11 @@ func (d *Dispatcher) sendReqParty(w *world.World, s *world.Session, _ protocol.H
 	}
 	if target <= 0 || target >= world.MaxUser {
 		// Out of range is a malformed request, not a player decision: the legacy
-		// logs it and answers nothing, and so do we.
+		// logs it and answers nothing, and so do we — but it logs, and so must
+		// we, or an invite that never leaves the server looks like the network
+		// dropped it.
+		d.recusaConvite(s, "alvo fora de faixa", payload,
+			"alvo", target, "unk", body.Unk, "target", body.Target, "maxUser", world.MaxUser)
 		return
 	}
 	other := w.Session(target)
