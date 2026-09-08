@@ -2451,29 +2451,38 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	}
 }
 
-// affectMul returns the buff multiplier (×100) on MaxHp/MaxMp from active buffs:
-// Divine (+20%) or Vigor (+10%). 100 = no buff (captura §C).
-func affectMul(e *world.Entity) int32 {
-	switch {
-	case e.HasAffect(world.AffectDivine):
-		return 120
-	case e.HasAffect(world.AffectVigor):
-		return 110
+// buffScaleHpMp applies the Divine and Vigor boosts to a pool, in the order and
+// with the arithmetic the original uses (Basedef.cpp:4551-4597).
+//
+// Two things were wrong before, and they compounded. The old affectMul was a
+// SWITCH, so a player holding both buffs got the Divine and lost the Vigor
+// outright — on a 7708 mana pool that is 919 points missing. And it multiplied
+// as X*120/100 where the legacy divides first: ((X/100)*20) + X. The legacy form
+// is kept deliberately, quantised steps and all, because it is the number the
+// rest of the economy was balanced against.
+//
+// The clamp is the original's too: every one of these blocks stops at MAX_HP.
+func buffScaleHpMp(e *world.Entity, v int32) int32 {
+	if e.HasAffect(world.AffectDivine) {
+		v = min(v+(v/100)*20, level.MaxHPCap)
 	}
-	return 100
+	if e.HasAffect(world.AffectVigor) {
+		v = min(v+(v/100)*10, level.MaxHPCap)
+	}
+	return v
 }
 
 // effectiveMaxHP is the player's real max HP: (flat MaxHP + affect deltas) ×
 // EF_HPADD% × buff. Applied at read time (display/combat/regen), never stored
 // (captura §C,E).
 func effectiveMaxHP(e *world.Entity) int32 {
-	return (e.MaxHP + e.AffMaxHP) * (e.HpAddPct + 100) / 100 * affectMul(e) / 100
+	return buffScaleHpMp(e, (e.MaxHP+e.AffMaxHP)*(e.HpAddPct+100)/100)
 }
 
 // effectiveMaxMP is the player's real max MP: (flat MaxMP + affect deltas) ×
 // EF_MPADD% × buff.
 func effectiveMaxMP(e *world.Entity) int32 {
-	return (e.MaxMP + e.AffMaxMP) * (e.MpAddPct + 100) / 100 * affectMul(e) / 100
+	return buffScaleHpMp(e, (e.MaxMP+e.AffMaxMP)*(e.MpAddPct+100)/100)
 }
 
 // effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage
@@ -2488,7 +2497,10 @@ func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
 		dmg = dmg * e.AffDamageMultiPct / 100
 	}
 	if e.HasAffect(world.AffectDivine) {
-		dmg += dmg * 20 / 100
+		// (X/100)*20 + X, the legacy's quantised step (Basedef.cpp:4567) — not
+		// X*120/100. On 149 damage the two differ by 9, always in the player's
+		// favour, and the whole economy was tuned against the legacy form.
+		dmg += (dmg / 100) * 20
 	}
 	return dmg + d.weaponDamage(e)
 }

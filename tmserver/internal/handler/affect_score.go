@@ -24,7 +24,7 @@ const maxLegacyDamage int32 = 1_000_000_000
 // 29 (Soul attribute multiplier), 30/37 (ForceMobDamage/ForceDamage), 38/42
 // (HP↔MP swap), 39 (Baú de XP → AffExpBonus). Deferred (need systems we don't
 // model yet): 17/20/22 (periodic — handled by the tick engine), 34/35
-// (Divine/Vigor — already read-time via affectMul).
+// (Divine/Vigor — already read-time via buffScaleHpMp).
 func applyAffectScore(e *world.Entity) {
 	applyAffectScoreWithItemAbility(e, nil)
 }
@@ -72,7 +72,13 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			for k := range e.AffResist {
 				e.AffResist[k] -= int16(tval)
 			}
-		case 4: // combat scroll: +30 damage (its ×4 multi and +5 magic deferred)
+		case 4: // Kappa / Combatente / Mental / Sephira / Antídoto
+			// The original is DAMAGEMULTI += 4, Damage += 30, magic += 5
+			// (Basedef.cpp:3970). The multiplier was the part this port dropped, and
+			// it is the part that matters: Type 4 ignores Value, so all five potions
+			// give the same bonus and all five stack — twenty percent of damage that
+			// simply was not there.
+			e.AffDamageMultiPct += 4
 			e.AffDamage += 30
 			e.AffMagic += 5
 		case 5: // Fanatismo/Incapacitador: Dex *= (100-Value)%.
@@ -350,7 +356,28 @@ func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
 
 // effectiveMagic is the caster power the client/skill damage see: the flat Magic
 // plus the +20% Jóia do Poder buff (affect 8 bit 5, cached in AffMagic).
-func effectiveMagic(e *world.Entity) int32 { return int32(e.Magic) + e.AffMagic }
+// effectiveMagic mirrors effectiveDamage: the flat Magic plus affect deltas,
+// scaled by the same percentage multiplier and the same Divine boost.
+//
+// The Divine's +20% is parity — the original raises MOB.Magic alongside MaxHp,
+// MaxMp and Damage (Basedef.cpp:4574), and this port simply never read it, so
+// every caster was missing a fifth of its magic with the buff up.
+//
+// The DAMAGEMULTI share is a SERVER RULE: the original applies that multiplier
+// to CurrentScore.Damage only (Basedef.cpp:4654) and leaves Magic on flat adders.
+// The decision here is that a percentage damage bonus is a percentage damage
+// bonus — if the potions and transforms hand a warrior +20%, the caster gets the
+// same +20% on the number that is its damage.
+func effectiveMagic(e *world.Entity) int32 {
+	mg := int32(e.Magic) + e.AffMagic
+	if e.AffDamageMultiPct != 100 && e.AffDamageMultiPct > 0 {
+		mg = mg * e.AffDamageMultiPct / 100
+	}
+	if e.HasAffect(world.AffectDivine) {
+		mg += (mg / 100) * 20
+	}
+	return mg
+}
 
 // effectiveResist is the live resistance of element i (0 fire, 1 ice, 2 holy,
 // 3 thunder). The legacy clamps each resist to 0..100 at the END of
