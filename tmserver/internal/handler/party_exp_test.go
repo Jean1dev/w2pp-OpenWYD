@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
@@ -124,5 +127,33 @@ func TestDistanciaDeUmPasso(t *testing.T) {
 func TestOLimiteEhATelaDoLegado(t *testing.T) {
 	if viewGridX != 33 || viewGridY != 33 {
 		t.Errorf("viewGrid = %dx%d, want 33x33 (VIEWGRIDX/Y, Basedef.h:155)", viewGridX, viewGridY)
+	}
+}
+
+// Two messages carry "the experience you now have" to the client: the attack
+// echo (CurrentExp) and the kill confirmation (CNFMobKill.Exp). BOTH are
+// multicast to everyone who can see the kill, and BOTH used to carry the
+// killer's total — so a bystander's client read another character's number as
+// its own and showed the difference.
+//
+// Fixing only the echo left the symptom untouched, which is how this took a
+// second round: a level-193 beside a level-313 was still told it had gained
+// 788.982.153. This test names both places so the next one is not missed.
+func TestOsDoisCaminhosQueLevamXPAoCliente(t *testing.T) {
+	fonte := map[string]string{
+		"eco do ataque":        "tmserver/internal/handler/combat.go",
+		"confirmação da morte": "tmserver/internal/handler/mobkilled.go",
+	}
+	for nome, arquivo := range fonte {
+		b, err := os.ReadFile(filepath.Join("..", "..", "..", arquivo))
+		if err != nil {
+			t.Fatalf("%s: %v", nome, err)
+		}
+		// Cada um tem de escolher o número por destinatário. A marca é a
+		// entidade de quem recebe ser consultada dentro do laço de difusão.
+		if !bytes.Contains(b, []byte("ve *world.Entity")) {
+			t.Errorf("%s (%s) difunde sem olhar quem recebe; a XP de quem agiu "+
+				"vai chegar como se fosse a do vizinho", nome, arquivo)
+		}
 	}
 }

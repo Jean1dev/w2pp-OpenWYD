@@ -457,18 +457,32 @@ func (d *Dispatcher) announceMobKill(w *world.World, killer, mob *world.Entity, 
 	if mob == nil || killer == nil {
 		return
 	}
-	body := protocol.EncodeCNFMobKillBody(uint16(mob.ID), uint16(killer.ID), exp)
 	hdr := protocol.Header{Type: protocol.MsgCNFMobKill, ID: protocol.IDScene}
 	// Around the DYING mob, which is where GridMulticast is centred — everyone who
 	// can see the death, the killer included.
 	if ks := w.Session(killer.ID); ks != nil {
-		w.SendTo(ks, hdr, body)
+		w.SendTo(ks, hdr, protocol.EncodeCNFMobKillBody(uint16(mob.ID), uint16(killer.ID), exp))
 	}
-	w.ForEachInView(mob.ID, func(vs *world.Session, _ *world.Entity) {
+	// Everyone else is told the kill with THEIR OWN total, not the killer's.
+	//
+	// The Exp field is read as "the experience you now have", so sending the
+	// killer's total to a bystander made the client show the difference between
+	// two unrelated characters — a level-193 beside a level-313 was told it had
+	// gained 788.982.153. It is the same defect the attack echo had, in the
+	// second message that carries this number, and fixing only the echo left the
+	// symptom exactly as it was.
+	//
+	// It also fixes the other half: a party member who earns experience without
+	// swinging now sees it, because this is the packet that reaches them.
+	w.ForEachInView(mob.ID, func(vs *world.Session, ve *world.Entity) {
 		if vs.Conn == killer.ID {
 			return // already told above; ForEachInView excludes only the mob itself
 		}
-		w.SendTo(vs, hdr, body)
+		seu := exp
+		if ve != nil {
+			seu = ve.Exp
+		}
+		w.SendTo(vs, hdr, protocol.EncodeCNFMobKillBody(uint16(mob.ID), uint16(killer.ID), seu))
 	})
 }
 
