@@ -1924,6 +1924,8 @@ const (
 	efSanc       = 43 // EF_SANC: item refine ("anc"/joias) level — gates the +9 threshold, not a flat stat
 	efHpAdd      = 45 // EF_HPADD: % bonus to MaxHp (MaxHp*(HPADD+HPADD2+100)/100), captura §E
 	efMpAdd      = 46 // EF_MPADD: % bonus to MaxMp
+	efRegenHp    = 47 // EF_REGENHP: summed over equip into MOB.RegenHP (Basedef.cpp:3206)
+	efRegenMp    = 48 // EF_REGENMP: same, and the debuff-resist term (_MSG_Attack.cpp:1194)
 	efResist1    = 49 // EF_RESIST1..4: per-type resist/immunity, see itemResist
 	efResist2    = 50
 	efResist3    = 51
@@ -2217,6 +2219,10 @@ type equipBonus struct {
 	maxHP, maxMP         int32
 	hpAddPct, mpAddPct   int32
 	runSpeed             int32
+	// regenHP/regenMP are the EF_REGENHP/EF_REGENMP sums. They are NOT a score
+	// stat: the trickle reads them once every ten seconds, and regenMP doubles as
+	// the debuff-resist term in combat.
+	regenHP, regenMP int32
 	// criticalRaw is the pre-/4 EF_CRITICAL sum over the equipment
 	// (BASE_GetMobAbility(EF_CRITICAL), Basedef.cpp:3209) — see itemCritical.
 	criticalRaw int32
@@ -2259,6 +2265,10 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			for i := 1; i <= 3; i++ {
 				b.special[i] += int16(val)
 			}
+		case efRegenHp:
+			b.regenHP += val
+		case efRegenMp:
+			b.regenMP += val
 		case efAc, efAcAdd: // EF_AC + EF_ACADD, both summed straight into AC (captura §E)
 			b.ac += val
 		case efDamage:
@@ -2379,6 +2389,11 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	e.RunSpeedBonus = b.runSpeed
+	// Clamped to 0..255 as the legacy does before storing (Basedef.cpp:4657-4671):
+	// the field is an unsigned char there, and a negative sum would otherwise make
+	// the trickle drain and the resist roll easier.
+	e.RegenHP = min(max(b.regenHP, 0), 255)
+	e.RegenMP = min(max(b.regenMP, 0), 255)
 	// Critical is derived ENTIRELY from equipment on every refresh — there is no
 	// BaseCritical to add, and no subtraction in deriveBaseScore, because the legacy has
 	// no base term either (Basedef.cpp:3209). The /4 divides the SUM, not each item. Mobs

@@ -465,6 +465,22 @@ func inSafeCity(w *world.World, conn int) bool {
 	return e != nil && world.Village(e.X, e.Y) >= 0
 }
 
+// regenTrickle is one ten-second helping of passive HP/MP
+// (ProcessSecMinTimer.cpp:676-680): a flat Level+30 for everyone, plus the
+// equipment's EF_REGENHP/EF_REGENMP for the celestial tiers only.
+//
+// Mortal and Arch wear the same gear and get nothing extra from it. That is the
+// original's rule, kept rather than "corrected": it is one of the few things
+// that makes reaching the tier feel different to play.
+func regenTrickle(e *world.Entity) (hp, mp int32) {
+	hp, mp = e.Level+30, e.Level+30
+	if isCelestialTier(e.ClassMaster) {
+		hp += e.RegenHP
+		mp += e.RegenMP
+	}
+	return hp, mp
+}
+
 // naturalRegenTicks is the passive-regen cadence: the legacy trickle runs on
 // SecCounter%20 of a 500ms timer (ProcessSecMinTimer.cpp:780) = every 10s. Our
 // tick is 1s, so every 10th tick.
@@ -502,8 +518,9 @@ func (d *Dispatcher) regenPlayers(w *world.World) {
 		}
 		d.tickIncubation(w, s, e)
 		if d.tickCount%naturalRegenTicks == 0 {
-			s.ReqHp += e.Level + 30
-			s.ReqMp += e.Level + 30
+			hp, mp := regenTrickle(e)
+			s.ReqHp += hp
+			s.ReqMp += mp
 		}
 		// Both bars always drain; only the SEND is either/or. Keep these as separate
 		// statements — folding them into `if applyHp(...) else if applyMp(...)` would

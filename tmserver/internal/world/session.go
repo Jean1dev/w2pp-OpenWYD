@@ -331,6 +331,16 @@ type Entity struct {
 	// derivation by subtraction holds (captura-wyd-affect-divina.md §E).
 	HpAddPct, MpAddPct int32
 
+	// RegenHP/RegenMP are MOB.RegenHP/RegenMP (Basedef.h:1840): the EF_REGENHP /
+	// EF_REGENMP sum over equipment, clamped 0..255. Derived on every refreshScore
+	// like Critical and the resists — never persisted.
+	//
+	// RegenMP does two unrelated jobs, which is why it is a field and not a local:
+	// the ten-second trickle adds it for ClassMaster >= CELESTIAL
+	// (ProcessSecMinTimer.cpp:676-680), and it is a term in the debuff-resist roll
+	// for EVERYONE, at any tier (_MSG_Attack.cpp:1194).
+	RegenHP, RegenMP int32
+
 	// RunSpeedBonus is the summed EF_RUNSPEED from equipped gear (boots), cached by
 	// refreshScore and applied at read time by handler.attackRunOf to the move-speed
 	// (low) nibble of AttackRun.

@@ -636,12 +636,21 @@ func (d *Dispatcher) applyCastAffect(w *world.World, e, target *world.Entity, ti
 		if leader == tleader || guild == tguild {
 			return // allies never take hostile affects
 		}
-		// Resist roll: rand()%100 vs RegenMP + AffectResist + level advantage.
-		// UNVERIFIED: RegenMP is not modeled on the Entity yet (0); tier level
-		// adders (celestial +MAX_LEVEL) wait on the tier system.
+		// Resist roll (_MSG_Attack.cpp:1189-1195): the affect is RESISTED when the
+		// roll exceeds RegenMP + AffectResist + level advantage. Note the polarity
+		// — a bigger sum means a lower chance of resisting.
+		//
+		// Which makes the target's RegenMP read backwards: better mana regen makes
+		// you EASIER to debuff. That is what the original computes, so it is what
+		// this does; it was worth checking twice before porting, because a "fix"
+		// here would silently change every crowd-control fight in the game. Say so
+		// before inverting it.
+		//
+		// Still not modeled: the celestial +MAX_LEVEL adder on the two levels
+		// (:1182-1183), which belongs to the tier work.
 		if sp.AffectResist >= 1 && sp.AffectResist <= 4 {
 			difLevel := -(int(target.Level) - int(e.Level)) / 2
-			if w.Rand().Intn(100) > sp.AffectResist+difLevel {
+			if w.Rand().Intn(100) > int(target.RegenMP)+sp.AffectResist+difLevel {
 				return
 			}
 		}
