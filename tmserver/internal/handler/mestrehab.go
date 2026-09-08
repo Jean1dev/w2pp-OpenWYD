@@ -13,6 +13,25 @@ import (
 // it to the Mestre de Habilidade, exactly as its own tooltip says.
 const itemRetornoDaHabilidade = 3336
 
+// The sapphire payment the Mestre de Habilidade also takes: item 697 is one
+// Safira and 4131 is the Pacote_Safiras(10), which the original counts as ten
+// whatever its stack really holds (_MSG_Quest.cpp:1775) — it eats the whole item
+// either way, so a short pack is spent in the player's favour.
+const (
+	itemSafira       = 697
+	itemPacoteSafira = 4131
+	pacoteSafiraVale = 10
+)
+
+// statSapphireCost is the legacy StatSapphire config, which this server never had:
+// the number of sapphires one reset costs. sapphireRefundPoints is what that reset
+// gives back, and the pair is exactly what the shipped line _DN_Want_Stat_Init
+// promises — "100 pontos de atributos serão redistribuídos se trouxer %d safiras".
+const (
+	statSapphireCost     = 10
+	sapphireRefundPoints = 100
+)
+
 // retornoHabilidadePoints is how many attribute points the Mestre de Habilidade
 // hands back for one Retorno da Habilidade.
 //
@@ -41,32 +60,37 @@ const retornoHabilidadePoints = 1000
 func (d *Dispatcher) skillMasterReset(w *world.World, s *world.Session, e *world.Entity, npc *world.Entity, confirm int32) {
 	if confirm == 0 {
 		sendSay(w, npc, fmt.Sprintf(
-			"Traga o Retorno da Habilidade e devolverei %d pontos de atributo.", retornoHabilidadePoints))
+			"Traga o Retorno da Habilidade para %d pontos, ou %d safiras para %d.",
+			retornoHabilidadePoints, statSapphireCost, sapphireRefundPoints))
 		return
 	}
 
-	slot := -1
-	for i := 0; i < activeCarryLimit(e); i++ {
-		if e.Carry[i].Index == itemRetornoDaHabilidade {
-			slot = i
-			break
+	// The Retorno da Habilidade wins when both are in the bag: it is the paid item
+	// and it is worth ten times the sapphire reset, so spending the sapphires while
+	// it sits there would be the expensive mistake. The original picks it first for
+	// the same reason (_MSG_Quest.cpp:1788).
+	budget := int32(retornoHabilidadePoints)
+	cost := []int{}
+	if slot := retornoSlot(e); slot >= 0 {
+		cost = []int{slot}
+	} else {
+		cost = sapphireSlotsToSpend(e)
+		if cost == nil {
+			sendSay(w, npc, fmt.Sprintf(
+				"Traga o %s, ou %d safiras.", d.itemName(itemRetornoDaHabilidade), statSapphireCost))
+			return
 		}
-	}
-	if slot < 0 {
-		sendSay(w, npc, fmt.Sprintf("Você deve trazer o item %s.", d.itemName(itemRetornoDaHabilidade)))
-		return
+		budget = sapphireRefundPoints
 	}
 
-	refund, taken := refundBuild(e, retornoHabilidadePoints)
+	// Count the refund BEFORE charging: a character with nothing above the class
+	// base must not pay for zero points.
+	refund, taken := refundBuild(e, budget)
 	if refund == 0 {
-		// Nothing above the class base: the character has no points invested, so
-		// there is nothing to give back and the item must not be eaten for it.
 		sendSay(w, npc, "Você não tem pontos distribuídos para devolver.")
 		return
 	}
-
-	e.Carry[slot] = world.Item{}
-	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+	d.clearSlots(w, s, e, cost)
 
 	// Re-derive rather than add: ScoreBonus is a pure function of level, tier and
 	// the attributes we just lowered (character.go:361). Adding by hand here would
@@ -81,6 +105,65 @@ func (d *Dispatcher) skillMasterReset(w *world.World, s *world.Session, e *world
 		"conn", s.Conn, "name", e.Name, "refund", refund,
 		"str", taken[0], "int", taken[1], "dex", taken[2], "con", taken[3],
 		"score_bonus", e.ScoreBonus)
+}
+
+// retornoSlot is the bag slot holding a Retorno da Habilidade, or -1.
+func retornoSlot(e *world.Entity) int {
+	for i := 0; i < activeCarryLimit(e); i++ {
+		if e.Carry[i].Index == itemRetornoDaHabilidade {
+			return i
+		}
+	}
+	return -1
+}
+
+// countSapphires values a loose Safira at one and a Pacote at ten, the way the
+// original counts them.
+func countSapphires(e *world.Entity) int {
+	n := 0
+	for i := 0; i < activeCarryLimit(e); i++ {
+		switch e.Carry[i].Index {
+		case itemSafira:
+			n++
+		case itemPacoteSafira:
+			n += pacoteSafiraVale
+		}
+	}
+	return n
+}
+
+// sapphireSlotsToSpend picks exactly which slots pay for one reset. A Pacote is
+// only taken while ten are still owed, so settling a debt of four never eats a
+// whole pack when four loose stones would do — the original scans in the same
+// order (_MSG_Quest.cpp:1802-1816). Returns nil when the bag cannot pay.
+//
+// Kept separate from the spending so the choice can be tested on its own: it is
+// the part with a rule in it, and the part a mistake would be expensive in.
+func sapphireSlotsToSpend(e *world.Entity) []int {
+	owed := statSapphireCost
+	var slots []int
+	for i := 0; i < activeCarryLimit(e) && owed > 0; i++ {
+		switch {
+		case e.Carry[i].Index == itemSafira:
+			slots = append(slots, i)
+			owed--
+		case e.Carry[i].Index == itemPacoteSafira && owed >= pacoteSafiraVale:
+			slots = append(slots, i)
+			owed -= pacoteSafiraVale
+		}
+	}
+	if owed > 0 {
+		return nil
+	}
+	return slots
+}
+
+// clearSlots empties the chosen slots and tells the client about each one.
+func (d *Dispatcher) clearSlots(w *world.World, s *world.Session, e *world.Entity, slots []int) {
+	for _, i := range slots {
+		e.Carry[i] = world.Item{}
+		d.sendSlot(w, s, world.ItemPlaceCarry, i, e.Carry[i])
+	}
 }
 
 // refundBuild lowers the four attributes by up to budget points TOTAL and reports

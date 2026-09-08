@@ -117,3 +117,96 @@ func TestRefundedPointsComeFromTheDerivedTotal(t *testing.T) {
 		t.Errorf("estorno de %d, esperado 1000", refund)
 	}
 }
+
+// bmWithCon builds a BeastMaster holding `spent` points in CON and nothing else
+// above the class base.
+func bmWithCon(spent int16) *world.Entity {
+	e := &world.Entity{Class: 2, ClassMaster: classMasterMortal, Level: 400}
+	e.BaseStr, e.BaseInt, e.BaseDex = int16(bmBase[0]), int16(bmBase[1]), int16(bmBase[2])
+	e.BaseCon = int16(bmBase[3]) + spent
+	return e
+}
+
+// The sapphire reset is the cheap door: 10 sapphires for 100 points, which is the
+// price the shipped line _DN_Want_Stat_Init has always quoted.
+func TestSapphireResetIsWorthOneHundred(t *testing.T) {
+	e := bmWithCon(2000)
+	refund, _ := refundBuild(e, sapphireRefundPoints)
+	if refund != 100 {
+		t.Errorf("estorno por safira = %d, esperado %d", refund, sapphireRefundPoints)
+	}
+	if e.BaseCon != int16(bmBase[3])+1900 {
+		t.Errorf("CON ficou %d, esperado %d", e.BaseCon, int16(bmBase[3])+1900)
+	}
+}
+
+// A loose Safira counts one, a Pacote counts ten.
+func TestSapphireCounting(t *testing.T) {
+	cases := []struct {
+		name  string
+		carry []int16
+		want  int
+	}{
+		{"nenhuma", nil, 0},
+		{"quatro avulsas", []int16{itemSafira, itemSafira, itemSafira, itemSafira}, 4},
+		{"um pacote", []int16{itemPacoteSafira}, 10},
+		{"pacote e duas avulsas", []int16{itemPacoteSafira, itemSafira, itemSafira}, 12},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := bmWithCon(2000)
+			for i, idx := range tc.carry {
+				e.Carry[i] = world.Item{Index: idx}
+			}
+			if got := countSapphires(e); got != tc.want {
+				t.Errorf("contou %d safiras, esperado %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// Paying with loose stones must not swallow a whole Pacote: ten singles settle the
+// debt and the pack stays in the bag.
+func TestSapphirePaymentPrefersLooseStones(t *testing.T) {
+	e := bmWithCon(2000)
+	for i := 0; i < statSapphireCost; i++ {
+		e.Carry[i] = world.Item{Index: itemSafira}
+	}
+	e.Carry[statSapphireCost] = world.Item{Index: itemPacoteSafira}
+
+	slots := sapphireSlotsToSpend(e)
+	if slots == nil {
+		t.Fatal("a mochila tinha safiras de sobra e mesmo assim não pagou")
+	}
+	for _, i := range slots {
+		e.Carry[i] = world.Item{}
+	}
+
+	if e.Carry[statSapphireCost].Index != itemPacoteSafira {
+		t.Error("o pacote foi consumido quando as avulsas bastavam")
+	}
+	if left := countSapphires(e); left != pacoteSafiraVale {
+		t.Errorf("sobraram %d safiras, esperado %d (só o pacote)", left, pacoteSafiraVale)
+	}
+}
+
+// The Retorno da Habilidade is worth ten sapphire resets, so it must be the one
+// spent when both are in the bag — otherwise the cheap path burns first and the
+// player loses the expensive item's value.
+func TestRetornoWinsOverSapphiresWhenBothArePresent(t *testing.T) {
+	e := bmWithCon(2000)
+	e.Carry[0] = world.Item{Index: itemRetornoDaHabilidade}
+	e.Carry[1] = world.Item{Index: itemPacoteSafira}
+
+	if retornoSlot(e) < 0 {
+		t.Fatal("não achou o Retorno da Habilidade na mochila")
+	}
+	e.Carry[retornoSlot(e)] = world.Item{}
+
+	if e.Carry[0].Index == itemRetornoDaHabilidade {
+		t.Error("o Retorno da Habilidade não foi consumido")
+	}
+	if e.Carry[1].Index != itemPacoteSafira {
+		t.Error("as safiras foram gastas junto com o item premium")
+	}
+}
