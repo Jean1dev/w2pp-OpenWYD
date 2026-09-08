@@ -58,6 +58,11 @@ func BaseAttributes(cls uint8) [4]int32 {
 	return [4]int32{b[0], b[1], b[2], b[3]}
 }
 
+// ClassBaseHP / ClassBaseMP are the HP and MP a character of this class starts
+// with, before any level or any point spent (BaseSIDCHM columns 4 and 5).
+func ClassBaseHP(cls uint8) int32 { return baseSIDCHM[validClass(cls)][4] }
+func ClassBaseMP(cls uint8) int32 { return baseSIDCHM[validClass(cls)][5] }
+
 // validClass guards the per-class tables against an out-of-range class (mobs or
 // corrupt data); callers get class 0 semantics rather than a panic.
 func validClass(cls uint8) int {

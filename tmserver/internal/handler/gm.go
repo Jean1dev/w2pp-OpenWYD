@@ -55,6 +55,8 @@ func (d *Dispatcher) runGMCommand(w *world.World, s *world.Session, args []byte)
 		d.gmGoto(w, s, rest)
 	case "pos", "xy":
 		d.gmGotoPos(w, s, rest)
+	case "pools":
+		d.gmPools(w, s, rest)
 	case "summon", "puxar":
 		d.gmSummon(w, s, rest)
 	case "spawn":

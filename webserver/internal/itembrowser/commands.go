@@ -70,6 +70,15 @@ func CommandReference() CommandBus {
 				},
 			},
 			{
+				Name: "pools", Args: "[nome] [delta_hp delta_mp]", Target: "você ou outro",
+				Summary: "Mostra e corrige o HP/MP máximo guardado do personagem.",
+				Notes: []string{
+					"Sem números, só mostra; com dois, soma o delta a cada um.",
+					"O HP máximo é guardado, não recalculado: um valor errado nunca se conserta sozinho.",
+					"Ajusta por delta de propósito — recalcular roubaria os cristais de um Arch.",
+				},
+			},
+			{
 				Name: "summon", Aliases: []string{"puxar"}, Args: "<personagem>", Target: "outro jogador",
 				Summary: "Traz um jogador online até a SUA posição.",
 				Notes:   []string{"É o inverso do goto: aqui quem se move é o alvo."},
