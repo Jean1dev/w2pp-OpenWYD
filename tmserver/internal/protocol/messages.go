@@ -214,6 +214,24 @@ type MsgDropItemBody struct {
 // MsgDropItemBodySize is the body length.
 const MsgDropItemBodySize = 16
 
+// EncodeCNFDropItemBody builds the MSG_CNFDropItem body (Basedef.h:2236). It is
+// the SAME shape as the request — SourType, SourPos, Rotate, GridX, GridY — and
+// the server echoes it back with the position it actually used, which is not
+// always the one asked for: the floor cell may have been occupied.
+//
+// The client reads all five fields to place the object on the ground. Answering
+// with a short body does not truncate anything on its side — it reads past the
+// frame and takes whatever memory follows as the coordinates.
+func EncodeCNFDropItemBody(sourType, sourPos, rotate int32, gridX, gridY uint16) []byte {
+	b := make([]byte, MsgDropItemBodySize)
+	le.PutUint32(b[0:4], uint32(sourType))
+	le.PutUint32(b[4:8], uint32(sourPos))
+	le.PutUint32(b[8:12], uint32(rotate))
+	le.PutUint16(b[12:14], gridX)
+	le.PutUint16(b[14:16], gridY)
+	return b
+}
+
 // Decode parses an MSG_DropItem body.
 func (m *MsgDropItemBody) Decode(b []byte) error {
 	if len(b) < MsgDropItemBodySize {

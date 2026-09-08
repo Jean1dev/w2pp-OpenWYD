@@ -48,6 +48,9 @@ func (d *Dispatcher) dropItem(w *world.World, s *world.Session, _ protocol.Heade
 	if err := body.Decode(payload); err != nil {
 		return
 	}
+	// The low bound was missing: only the ceiling was tested. A negative tile made
+	// CreateGroundItem take a ground slot whose grid write is silently dropped
+	// (grid.go:67), leaking the slot on an item nobody could ever pick up.
 	if int(body.GridX) >= w.GridDim() || int(body.GridY) >= w.GridDim() {
 		d.notify(w, s, NoticeCantDropHere)
 		return
@@ -67,13 +70,29 @@ func (d *Dispatcher) dropItem(w *world.World, s *world.Session, _ protocol.Heade
 		return // non-droppable
 	}
 
-	id := w.CreateGroundItem(item, int16(body.GridX), int16(body.GridY))
+	// Resolve the cell BEFORE taking the item, the way the original does
+	// (_MSG_DropItem.cpp:58-67): GetEmptyItemGrid moves the drop to a free tile and
+	// refuses when the 3×3 around it is full. Writing onto an occupied cell used to
+	// overwrite the grid entry of the item already there, orphaning it — present in
+	// the ground table, absent from the map, unpickable.
+	gx, gy, ok := w.EmptyItemCell(int16(body.GridX), int16(body.GridY))
+	if !ok {
+		d.notify(w, s, NoticeCantDropHere)
+		return
+	}
+	id := w.CreateGroundItem(item, gx, gy)
 	if id < 0 {
 		return // floor full
 	}
 	e.Carry[slot] = world.Item{} // clear source
-	w.Send(s, protocol.MsgCNFDropItem, slotPayload(slot))
-	d.registraChao(w, s, world.GroundLargou, item, int16(body.GridX), int16(body.GridY), int32(id))
+	// The confirmation carries the whole request back, with the cell actually used
+	// (Basedef.h:2236). This used to send four bytes holding the slot number, which
+	// landed in SourType and left the client reading SourPos, Rotate, GridX and GridY
+	// off the end of the frame — it placed the object on whatever coordinates the
+	// memory after the buffer happened to hold.
+	w.Send(s, protocol.MsgCNFDropItem, protocol.EncodeCNFDropItemBody(
+		body.SourType, body.SourPos, body.Rotate, uint16(gx), uint16(gy)))
+	d.registraChao(w, s, world.GroundLargou, item, gx, gy, int32(id))
 	// UNVERIFIED: _MSG_CreateItem broadcast (ground spawn in view) — deferred.
 }
 

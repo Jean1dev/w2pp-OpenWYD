@@ -64,6 +64,29 @@ type GroundItem struct {
 // CreateGroundItem places item on the floor at (x,y) and indexes it in the
 // spatial grid. It returns the new ground id (∈ [1, MaxItem)) or -1 if the floor
 // is full. Loop-only.
+// EmptyItemCell resolves the floor cell a drop should really use, porting
+// GetEmptyItemGrid (GetFunc.cpp:2002): the asked-for tile when it is free, else
+// the first free one in the 3×3 around it, else no cell at all. The legacy also
+// rejects height 127 (a wall); this port has no height grid on this path yet, so
+// only occupancy is checked — an item may still land against a wall, which is a
+// cosmetic miss, not the dropped-into-nowhere this fixes.
+func (w *World) EmptyItemCell(x, y int16) (int16, int16, bool) {
+	if _, taken := w.grid.ItemAt(int(x), int(y)); !taken && w.grid.inBounds(int(x), int(y)) {
+		return x, y, true
+	}
+	for dy := int(y) - 1; dy <= int(y)+1; dy++ {
+		for dx := int(x) - 1; dx <= int(x)+1; dx++ {
+			if !w.grid.inBounds(dx, dy) {
+				continue
+			}
+			if _, taken := w.grid.ItemAt(dx, dy); !taken {
+				return int16(dx), int16(dy), true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
 func (w *World) CreateGroundItem(item Item, x, y int16) int {
 	for id := 1; id < MaxItem; id++ {
 		if w.ground[id] == nil {
