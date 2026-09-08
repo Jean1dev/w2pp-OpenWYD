@@ -538,13 +538,34 @@ type MsgSendReqPartyBody struct {
 	Target   int16
 }
 
-// MsgSendReqPartyBodySize is the body length.
+// MsgSendReqPartyBodySize is the body length the SERVER writes, matching
+// sizeof(MSG_SendReqParty) as SendFunc.cpp:1576 sends it.
 const MsgSendReqPartyBodySize = 36
+
+// MsgSendReqPartyBodyMin is the shortest body the server ACCEPTS: the real
+// client stops after `unk` and never sends the trailing `short Target` nor the
+// struct's tail padding. Reading and writing are different lengths here, and
+// conflating them refused every invite the client ever sent.
+const MsgSendReqPartyBodyMin = 32
 
 // Decode parses an MSG_SendReqParty body.
 func (m *MsgSendReqPartyBody) Decode(b []byte) error {
-	if len(b) < MsgSendReqPartyBodySize {
-		return fmt.Errorf("protocol: MsgSendReqPartyBody.Decode: have %d, need %d", len(b), MsgSendReqPartyBodySize)
+	// The client sends 32, not 36 — CONFIRMED BY CAPTURE, not by the header:
+	//
+	//	ff00 be00 8904 8904 0200 "TesteUP"+NUL*9 0000 01000000
+	//	 ^Class/Pos ^Lv  ^MaxHp/Hp  ^PartyID=2      ^pad ^unk=1
+	//
+	// It stops right after `unk`, leaving off the trailing `short Target` and the
+	// struct's tail padding. The server still SENDS 36 (SendFunc.cpp:1576 writes
+	// sizeof(MSG_SendReqParty)), so the two directions are genuinely different
+	// lengths and only the read side may be shortened.
+	//
+	// Requiring 36 here rejected every invite the real client ever sent, and the
+	// handler dropped it without a word — the party button did nothing, for
+	// everyone, always. The unit tests could not catch it: they build the body
+	// with Encode, which writes all 36.
+	if len(b) < MsgSendReqPartyBodyMin {
+		return fmt.Errorf("protocol: MsgSendReqPartyBody.Decode: have %d, need %d", len(b), MsgSendReqPartyBodyMin)
 	}
 	m.Class = b[0]
 	m.PartyPos = b[1]
@@ -554,7 +575,12 @@ func (m *MsgSendReqPartyBody) Decode(b []byte) error {
 	m.PartyID = int16(le.Uint16(b[8:10]))
 	copy(m.MobName[:], b[10:26])
 	m.Unk = int32(le.Uint32(b[28:32]))
-	m.Target = int16(le.Uint16(b[32:34]))
+	// Only when the sender actually carried it: the invited player rides in Unk
+	// (the legacy reads m->unk and nothing else), so Target is optional detail.
+	m.Target = 0
+	if len(b) >= MsgSendReqPartyBodySize-2 {
+		m.Target = int16(le.Uint16(b[32:34]))
+	}
 	return nil
 }
 
