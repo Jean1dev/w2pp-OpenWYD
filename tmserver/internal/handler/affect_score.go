@@ -76,9 +76,13 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			// The original is DAMAGEMULTI += 4, Damage += 30, magic += 5
 			// (Basedef.cpp:3970). The multiplier was the part this port dropped, and
 			// it is the part that matters: Type 4 ignores Value, so all five potions
-			// give the same bonus and all five stack — twenty percent of damage that
-			// simply was not there.
-			e.AffDamageMultiPct += 4
+			// give the same bonus and all five stack.
+			//
+			// DECIDED RATE: 5 per potion, not the legacy's 4, so the five reach the
+			// round +25% the item text promises. The multiplier is spent on the melee
+			// attack by effectiveDamage and on the spell by SkillBaseDamage — never
+			// inside Magic, where a constant term would dilute it unevenly.
+			e.AffDamageMultiPct += 5
 			e.AffDamage += 30
 			e.AffMagic += 5
 		case 5: // Fanatismo/Incapacitador: Dex *= (100-Value)%.
@@ -374,9 +378,6 @@ func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
 // same +20% on the number that is its damage.
 func effectiveMagic(e *world.Entity) int32 {
 	mg := int32(e.Magic) + e.AffMagic
-	if e.AffDamageMultiPct != 100 && e.AffDamageMultiPct > 0 {
-		mg = mg * e.AffDamageMultiPct / 100
-	}
 	if e.HasAffect(world.AffectDivine) {
 		mg += (mg / 100) * 20
 	}

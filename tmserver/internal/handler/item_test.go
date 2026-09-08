@@ -1911,13 +1911,13 @@ func TestUseLegacyBuffConsumables(t *testing.T) {
 		wantTime  uint32
 	}{
 		{"kappa", 787, volBuffKappa, legacyBuffKappa, 80},
-		{"kappa 30m", 3310, volBuffKappa30, legacyBuffKappa, affect1H / 2},
+		{"kappa (P) 59m", 3310, volBuffKappa30, legacyBuffKappa, affect59M},
 		{"kappa 20h", 3319, volBuffKappa20h, legacyBuffKappa, affect1H * 20},
 		{"combat", 1764, volBuffCombat, legacyBuffCombat, 80},
-		{"combat 60m", 3311, volBuffCombat60, legacyBuffCombat, affect1H},
+		{"combat (P) 59m", 3311, volBuffCombat60, legacyBuffCombat, affect59M},
 		{"combat 20h", 3320, volBuffCombat20h, legacyBuffCombat, affect1H * 20},
 		{"mental", 1765, volBuffMental, legacyBuffMental, 80},
-		{"mental 60m", 3312, volBuffMental60, legacyBuffMental, affect1H},
+		{"mental (P) 59m", 3312, volBuffMental60, legacyBuffMental, affect59M},
 		{"mental 20h", 3321, volBuffMental20h, legacyBuffMental, affect1H * 20},
 		{"sephira 7d", 3361, volBuffMental20h, legacyBuffSephira, affect1H * 168},
 		{"sephira 15d", 3362, volBuffMental20h, legacyBuffSephira, affect1H * 360},

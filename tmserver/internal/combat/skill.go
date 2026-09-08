@@ -24,6 +24,9 @@ type SkillCaster struct {
 	Damage  int // CurrentScore.Damage — skill 79 (Tempestade) reads it
 	Magic   int
 	Special int
+	// DamageMultiPct is the legacy DAMAGEMULTI (100 = neutral). It lands on the
+	// finished spell damage, NOT inside Magic — see the comment at its use site.
+	DamageMultiPct int
 }
 
 // ManaSpent is BASE_GetManaSpent (Basedef.cpp:6071): the spell's base cost
@@ -96,6 +99,17 @@ func SkillBaseDamage(skillnum int, sp SkillSpell, c SkillCaster, weather, weapon
 		// everyone gets the flat 5/4.
 		if (c.Class != 0 || skind != 1) && c.Class != 3 {
 			dam = (4*c.Magic + 100) * dam / 100
+			// SERVER RULE (see AffDamageMultiPct): the percentage damage buffs land
+			// HERE, on the finished spell, and not inside Magic. Magic is not damage —
+			// it reaches the spell as (4×Magic+100), a term with a constant in it, so
+			// scaling Magic by 1.12 does not scale damage by 1.12: it moves the total by
+			// +27% on a Magic of 64 and by +14% on a Magic of 500. The caster's own gear
+			// decided how much a potion was worth. Applied to the product instead, a
+			// buff worth +5% is +5% for every caster, and five potions stack to +25% the
+			// same way they do on a melee's attack.
+			if c.DamageMultiPct > 0 && c.DamageMultiPct != 100 {
+				dam = dam * c.DamageMultiPct / 100
+			}
 		}
 		dam = 5 * dam / 4
 

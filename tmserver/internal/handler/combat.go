@@ -743,6 +743,10 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		Damage:  int(d.effectiveDamage(e)),
 		Magic:   int(effectiveMagic(e)),
 		Special: cast.special,
+		// effectiveDamage above already carries the multiplier, so skill 79 (the only
+		// branch reading Damage) must not be handed it twice — SkillBaseDamage applies
+		// this one only on the magic branch, which reads Magic and never Damage.
+		DamageMultiPct: int(e.AffDamageMultiPct),
 	}
 	// CurrentWeather scales InstanceType 2/3/5 output (_MSG_Attack.cpp:520,594,972
 	// → BASE_GetSkillDamage). Weather 0 is neutral, so this is a no-op until a

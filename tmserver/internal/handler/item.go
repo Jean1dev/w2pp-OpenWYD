@@ -409,6 +409,7 @@ const (
 	volPerdaoScroll     = 203 // Pergaminho do Perdão (3343): wipes the chaos counter
 	// affect tick units (Basedef.h): one tick = 8s of real time.
 	affect1H          = 450
+	affect59M         = 443 // the (P) tier: 59min ÷ 8s = 442.5, rounded up so it reads 59M
 	affect1D          = 10800
 	affectExpChestInc = affect1H * 2
 	affectTimeCap     = 324000
@@ -776,10 +777,13 @@ func legacyBuffConsumableEffect(index int16) (value uint8, ticks uint32, ok bool
 	}
 
 	switch index {
-	case 3310:
-		ticks = affect1H / 2
-	case 3311, 3312:
-		ticks = affect1H
+	// The (P) tier is levelled at 59 minutes. The legacy gave the Kappa 30 and the
+	// other two 60 (_MSG_UseItem.cpp:1219-1300) — a split with no reason behind it,
+	// and the odd one out was the cheapest potion of the three.
+	case 3310, 3311, 3312:
+		ticks = affect59M
+	// The (S) tier keeps the legacy's 20 hours, which is what makes it worth the
+	// fifteenfold price of the (P).
 	case 3319, 3320, 3321:
 		ticks = affect1H * 20
 	case 3361:

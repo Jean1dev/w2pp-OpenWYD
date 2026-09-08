@@ -3,6 +3,7 @@ package handler
 import (
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -73,15 +74,15 @@ func TestDivineRaisesMagic(t *testing.T) {
 }
 
 // Type 4 ignores Value, so Kappa, Combatente, Mental, Sephira and Antídoto all
-// give the same bonus and all five stack. The multiplier is what this port
-// dropped: with all five up the original reaches DAMAGEMULTI 120.
+// give the same bonus and all five stack. The rate is a decided 5 per potion
+// rather than the legacy's 4, so the five reach a round +25%.
 func TestCombatPotionsStackTheirMultiplier(t *testing.T) {
 	e := &world.Entity{Magic: 500, Damage: 1000}
 	withAffects(e, 4, 4, 4, 4, 4)
 	applyAffectScore(e)
 
-	if e.AffDamageMultiPct != 120 {
-		t.Errorf("AffDamageMultiPct = %d, want 120 (five potions × 4)", e.AffDamageMultiPct)
+	if e.AffDamageMultiPct != 125 {
+		t.Errorf("AffDamageMultiPct = %d, want 125 (five potions × 5)", e.AffDamageMultiPct)
 	}
 	if e.AffDamage != 150 {
 		t.Errorf("AffDamage = %d, want 150 (five × 30)", e.AffDamage)
@@ -91,17 +92,47 @@ func TestCombatPotionsStackTheirMultiplier(t *testing.T) {
 	}
 }
 
-// SERVER RULE: a percentage damage bonus applies to magic as well. The original
-// multiplies only CurrentScore.Damage and leaves Magic on flat adders, which left
-// casters out of every percentage buff in the game.
-func TestPercentDamageBonusReachesMagic(t *testing.T) {
+// SERVER RULE: a percentage damage bonus is worth the same percentage to a caster
+// as it is to a melee. It must NOT be applied inside Magic: the spell reads Magic
+// as (4×Magic+100), a term with a constant in it, so scaling Magic by 1.25 moves
+// the damage by a figure that depends on the caster's gear — far more for a poor
+// Magic than for a rich one. Applied to the finished spell instead, the five
+// potions are +25% for everyone.
+func TestPercentDamageBonusIsTheSamePercentForEveryCaster(t *testing.T) {
+	spell := combat.SkillSpell{InstanceType: 2, InstanceValue: 400, AffectValue: 0}
+
+	for _, magic := range []int{64, 128, 500, 2000} {
+		caster := combat.SkillCaster{Class: 1, Level: 300, Int: 900, Magic: magic, Special: 200, DamageMultiPct: 100}
+		plain := combat.SkillBaseDamage(40, spell, caster, 0, 0)
+
+		caster.DamageMultiPct = 125 // the five potions
+		buffed := combat.SkillBaseDamage(40, spell, caster, 0, 0)
+
+		if want := plain * 125 / 100; buffed != want {
+			t.Errorf("magic %d: buffed spell = %d, want %d (+25%% of %d)", magic, buffed, want, plain)
+		}
+	}
+}
+
+// The multiplier must not reach Magic itself any more — the score the client shows
+// is the caster's real Magic, and the buff is spent on the damage.
+func TestPercentDamageBonusStaysOutOfMagic(t *testing.T) {
 	e := &world.Entity{Magic: 500}
 	withAffects(e, 4, 4, 4, 4, 4)
 	applyAffectScore(e)
 
-	// (500 + 25 flat) × 120% = 630
-	const want = (500 + 25) * 120 / 100
-	if got := effectiveMagic(e); got != want {
-		t.Errorf("effectiveMagic = %d, want %d — the multiplier must reach magic", got, want)
+	if got := effectiveMagic(e); got != 525 {
+		t.Errorf("effectiveMagic = %d, want 525 (500 + five × 5 flat, no multiplier)", got)
+	}
+}
+
+// Skill 79 (Tempestade) is the one branch that reads Damage, and effectiveDamage has
+// already spent the multiplier there. Handing it the multiplier again would square it.
+func TestTempestadeDoesNotTakeTheMultiplierTwice(t *testing.T) {
+	spell := combat.SkillSpell{InstanceType: 2, InstanceValue: 0}
+	caster := combat.SkillCaster{Class: 0, Level: 300, Damage: 10000, Magic: 100, DamageMultiPct: 125}
+
+	if got := combat.SkillBaseDamage(79, spell, caster, 0, 0); got != 18000 {
+		t.Errorf("Tempestade = %d, want 18000 (180%% of the 10000 Damage, which already carries the buff)", got)
 	}
 }
