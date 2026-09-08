@@ -46,7 +46,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		mode, ok := w.SessionMode(killer.Summoner)
 		if owner == nil || !world.IsPlayer(owner.ID) || !ok || mode != world.UserPlay {
 			sendDieAction(w, mob)
-			w.DespawnMob(mob.ID, 1)
+			d.despawnPet(w, mob.ID, mob, 1)
 			return
 		}
 		reward = owner
@@ -126,7 +126,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// Despawn: tell in-view clients the mob died (RemoveMob, type 1 = death) and
 	// free its grid cell + entity slot, so the corpse disappears and it can't be
 	// retargeted. Without this the client keeps rendering the dead mob.
-	w.DespawnMob(mob.ID, 1)
+	d.despawnPet(w, mob.ID, mob, 1)
 }
 
 // rolarBonusDrop gives one dropped item its own three effect pairs

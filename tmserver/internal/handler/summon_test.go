@@ -1052,3 +1052,53 @@ func TestPetOcupadoAindaRecebeOAtacanteDoDono(t *testing.T) {
 		t.Error("o pet ocupado não registrou quem bateu no dono — ele nunca vai se virar")
 	}
 }
+
+// TestSummonExpiradoSaiDoPainelDeGrupo cobre o que TestSummonExpires não vê.
+//
+// Aquele teste espera o MsgRemoveMob e dá por encerrado. Mas o painel de grupo
+// do cliente é alimentado por outro pacote, e a linha do pet só sai com um
+// MsgRemoveParty — sem ele o bicho some do chão e continua ocupando slot na
+// lista. Doze linhas mortas depois, o jogador vê "não expiram" e "acumulam", e
+// nenhum teste acusa nada: o que se lê ali é o mundo, e a mentira estava só na
+// tela.
+func TestSummonExpiradoSaiDoPainelDeGrupo(t *testing.T) {
+	addr, stop, _ := startServerSummon(t, summonDB(30), nil, 0, 0)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	skillAttackFrame(t, c, serverTime, 1, 56, damSkill)
+	pets := collectPets(t, c, 500*time.Millisecond)
+	if len(pets) != 1 {
+		t.Fatalf("pets = %d, want 1", len(pets))
+	}
+	var petID int
+	for id := range pets {
+		petID = id
+	}
+
+	saiuDoChao, saiuDoGrupo := false, false
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && (!saiuDoChao || !saiuDoGrupo) {
+		h, payload, ok := readMaybeHeaderRaw(t, c)
+		if !ok {
+			continue
+		}
+		switch h.Type {
+		case protocol.MsgRemoveMob:
+			if int(h.ID) == petID {
+				saiuDoChao = true
+			}
+		case protocol.MsgRemoveParty:
+			if len(payload) >= 2 && int(int16(binary.LittleEndian.Uint16(payload[0:2]))) == petID {
+				saiuDoGrupo = true
+			}
+		}
+	}
+	if !saiuDoChao {
+		t.Error("o pet não expirou (nenhum RemoveMob)")
+	}
+	if !saiuDoGrupo {
+		t.Error("o pet sumiu do chão mas continuou no painel de grupo (nenhum RemoveParty) — é assim que a lista enche de linha morta")
+	}
+}

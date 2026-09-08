@@ -778,7 +778,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 				d.mobKilled(w, e, target)
 			} else {
 				sendDieAction(w, target)
-				w.DespawnMob(target.ID, 1)
+				d.despawnPet(w, target.ID, target, 1)
 			}
 			dropCurrentTarget(e, target.ID)
 		} else {

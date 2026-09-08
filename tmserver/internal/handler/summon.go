@@ -465,7 +465,7 @@ func (d *Dispatcher) summonTick(w *world.World, id int, e *world.Entity) {
 		// (ProcessSecMinTimer.cpp:2381,2498); this lazy per-tick check covers
 		// every exit path in one place. Owner-death despawn is UNVERIFIED
 		// timing-wise (the original may keep the pet until the timer).
-		w.DespawnMob(id, 3)
+		d.despawnPet(w, id, e, 3)
 		return
 	}
 	// Lifespan: the Type-24 affect counts down on the same 8s phase the player
@@ -478,7 +478,7 @@ func (d *Dispatcher) summonTick(w *world.World, id int, e *world.Entity) {
 				af.Time--
 			}
 			if af.Time == 0 {
-				w.DespawnMob(id, 3)
+				d.despawnPet(w, id, e, 3)
 				return
 			}
 		}
@@ -553,4 +553,38 @@ func (d *Dispatcher) commandSummons(w *world.World, ownerID int, target *world.E
 			setBattle(w, m, pet, target)
 		}
 	}
+}
+
+// despawnPet takes a summon out of the world AND out of the party rows its
+// owner's client is drawing.
+//
+// DespawnMob alone is not enough. It frees the server-side PartyList slot and
+// sends MsgRemoveMob, but the client keeps the row in the group panel — the
+// legacy gets the removal from DeleteMob → RemoveParty (Server.cpp:7840), which
+// this port only ever did on the despawnSummons path.
+//
+// Every other way a pet leaves — its lifespan running out, the owner walking
+// off, a monster killing it — went straight to DespawnMob, so the rows piled up.
+// A player saw creatures that were already gone, the panel filled to its twelve
+// slots, and both halves read as bugs in the summon itself: "they never expire"
+// and "they keep accumulating". Server-side the count was right the whole time,
+// which is why nothing in the tests ever caught it — the tests read the world,
+// and the lie was only ever on the screen.
+func (d *Dispatcher) despawnPet(w *world.World, id int, pet *world.Entity, removeType int32) {
+	if pet != nil && pet.Summoner != 0 {
+		leaderID := pet.Leader
+		if leaderID == 0 {
+			leaderID = pet.Summoner
+		}
+		d.sendRemoveParty(w, pet.Summoner, id)
+		if leader := w.Entity(leaderID); leader != nil {
+			d.sendRemoveParty(w, leaderID, id)
+			for _, memberID := range leader.PartyList {
+				if memberID > 0 && world.IsPlayer(memberID) {
+					d.sendRemoveParty(w, memberID, id)
+				}
+			}
+		}
+	}
+	w.DespawnMob(id, removeType)
 }
