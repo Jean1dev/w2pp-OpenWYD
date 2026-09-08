@@ -852,6 +852,22 @@ func (d *Dispatcher) equipItem(w *world.World, s *world.Session, e *world.Entity
 		return // wrong slot for this item (e.g. a consumable into the body slot)
 	}
 	if !d.meetsEquipReq(e, e.Carry[src]) {
+		// NoticeReqNotMet carries no text, so this refusal reaches the player as
+		// a dead click. Log what was compared: players report having the points
+		// and the only way to tell a real shortfall from a stale attribute is to
+		// see both sides of the test.
+		if r, ok := d.itemReqs[int(e.Carry[src].Index)]; ok {
+			d.log.Warn("equip refused: requirement not met",
+				"conn", s.Conn, "item", e.Carry[src].Index,
+				"nivel", e.Level, "precisa_nivel", r.Lvl,
+				"str", e.Str, "precisa_str", r.Str,
+				"int", e.Int, "precisa_int", r.Int,
+				"dex", e.Dex, "precisa_dex", r.Dex,
+				"con", e.Con, "precisa_con", r.Con,
+				"base_str", e.BaseStr, "base_int", e.BaseInt,
+				"base_dex", e.BaseDex, "base_con", e.BaseCon,
+				"classMaster", e.ClassMaster)
+		}
 		d.notify(w, s, NoticeReqNotMet) // level/attributes too low for this item
 		return
 	}
