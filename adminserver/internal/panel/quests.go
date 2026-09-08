@@ -128,10 +128,6 @@ func (h *Handler) setQuest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if q.ArchExp, err = questInt64(r, "arch_exp"); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	coin, err := questInt64(r, "coin")
 	if err != nil || coin > maxCoinQuest {
 		http.Error(w, fmt.Sprintf("O ouro precisa ser um número entre 0 e %d.", maxCoinQuest), http.StatusBadRequest)
@@ -143,7 +139,6 @@ func (h *Handler) setQuest(w http.ResponseWriter, r *http.Request) {
 		dest *int32
 	}{
 		{"mortal_min", &q.MortalMin}, {"mortal_max", &q.MortalMax},
-		{"arch_min", &q.ArchMin}, {"arch_max", &q.ArchMax},
 	} {
 		n, err := questInt64(r, campo.nome)
 		if err != nil || n > maxNivelQuest {
@@ -153,10 +148,17 @@ func (h *Handler) setQuest(w http.ResponseWriter, r *http.Request) {
 		}
 		*campo.dest = int32(n)
 	}
+	// These quests are Mortal's alone on this server, so the form has no Arch
+	// fields and the game no longer reads those columns. They are mirrored from
+	// the Mortal band rather than zeroed for two reasons: the row's CHECK demands
+	// max > min, and if the rule is ever relaxed the values it starts from are
+	// sane instead of a band nobody can be inside.
+	q.ArchExp, q.ArchMin, q.ArchMax = q.MortalExp, q.MortalMin, q.MortalMax
+
 	// An inverted band refuses EVERYBODY, silently: the player clicks the trophy
 	// and nothing happens. The database rejects it too, but catching it here says
 	// which field is wrong instead of surfacing a constraint name.
-	if q.MortalMax <= q.MortalMin || q.ArchMax <= q.ArchMin {
+	if q.MortalMax <= q.MortalMin {
 		http.Error(w, "O nível máximo precisa ser maior que o mínimo: uma faixa "+
 			"invertida recusa todo mundo, sem dizer por quê.", http.StatusBadRequest)
 		return

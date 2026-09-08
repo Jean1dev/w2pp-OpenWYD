@@ -55,6 +55,10 @@
     Mexer na XP sem mexer na faixa costuma não resolver nada, porque o problema
     é frequentemente a faixa acabar cedo demais.
     <br><br>
+    Estas quests são <strong>só de Mortal</strong> neste servidor: o NPC não
+    entrega o bilhete a um Arch, o bilhete não teleporta e o troféu não paga —
+    nem comprado de quem fez a quest. O legado deixava Arch entrar; aqui não.
+    <br><br>
     <strong>Vale no próximo reinício do jogo</strong>, como o resto do
     balanceamento — dois jogadores usando o mesmo troféu com minutos de
     diferença não podem receber valores diferentes.
@@ -76,41 +80,32 @@
         <input type="hidden" name="csrf" value="{{$.CSRF}}">
         <input type="hidden" name="tier" value="{{.Tier}}">
         <div class="campos">
+          {{/* Só Mortal: as colunas de Arch continuam no banco, mas o jogo não
+               as lê mais, e um campo que não muda nada é pior que campo
+               nenhum. O handler copia a faixa de Mortal para elas. */}}
           <label>
-            XP para Mortal
+            XP
             <input type="number" name="mortal_exp" min="0" value="{{.Valores.MortalExp}}">
-          </label>
-          <label>
-            XP para Arch
-            <input type="number" name="arch_exp" min="0" value="{{.Valores.ArchExp}}">
           </label>
           <label>
             Ouro
             <input type="number" name="coin" min="0" value="{{.Valores.Coin}}">
           </label>
           <label>
-            Mortal: do nível
+            Do nível
             <input type="number" name="mortal_min" min="0" max="400" value="{{.Valores.MortalMin}}">
           </label>
           <label>
-            Mortal: até o nível
+            Até o nível
             <input type="number" name="mortal_max" min="0" max="400" value="{{.Valores.MortalMax}}">
-          </label>
-          <label>
-            Arch: do nível
-            <input type="number" name="arch_min" min="0" max="400" value="{{.Valores.ArchMin}}">
-          </label>
-          <label>
-            Arch: até o nível
-            <input type="number" name="arch_max" min="0" max="400" value="{{.Valores.ArchMax}}">
           </label>
         </div>
         <div class="acoes-linha">
           <button type="submit">Gravar</button>
           {{if .Editada}}
           <span class="doarquivo">
-            No arquivo: {{.Padrao.MortalExp}} / {{.Padrao.ArchExp}} de XP,
-            {{.Padrao.Coin}} de ouro, níveis {{.Padrao.MortalMin}}–{{.Padrao.MortalMax}}
+            No arquivo: {{.Padrao.MortalExp}} de XP, {{.Padrao.Coin}} de ouro,
+            níveis {{.Padrao.MortalMin}}–{{.Padrao.MortalMax}}
           </span>
           {{end}}
         </div>

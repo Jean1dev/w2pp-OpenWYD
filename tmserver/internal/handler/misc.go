@@ -900,7 +900,12 @@ func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Enti
 	// used to be a NoticeReqNotMet instead — a notice with no text on a path where
 	// the legacy is silent too, so clicking a quest NPC you did not qualify for
 	// was indistinguishable from clicking scenery.
-	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
+	// DELIBERATE DIVERGENCE: Mortal only — the same rule the ticket and the
+	// trophy enforce (useQuest256Ticket, useQuestReward). The legacy admits Arch
+	// here too; refusing at the NPC is what keeps an Arch from ever holding a
+	// ticket in the first place, so the other two gates are the backstop rather
+	// than the whole fence.
+	if e.ClassMaster != classMasterMortal {
 		d.say(w, npc, "_NN_Level_Limit2", "Seu nível não permite o uso disto.") // 340
 		return
 	}

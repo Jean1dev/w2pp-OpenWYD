@@ -650,7 +650,12 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 		d.removeTrade(w, s)
 		return true
 	}
-	if e.ClassMaster != classMasterMortal && e.ClassMaster != classMasterArch {
+	// DELIBERATE DIVERGENCE: Mortal only. The legacy admits Arch as well
+	// (_MSG_Quest.cpp:340 and its five siblings all read
+	// `!= MORTAL && != ARCH`), but an Arch at these levels is a reborn character
+	// far stronger than the Mortal the bands were drawn for, and letting it
+	// re-run the chain is the imbalance this rule exists to remove.
+	if e.ClassMaster != classMasterMortal {
 		d.notify(w, s, NoticeReqNotMet)
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
 		return true
@@ -1033,12 +1038,25 @@ func (d *Dispatcher) useQuestReward(w *world.World, s *world.Session, e *world.E
 		return
 	}
 
-	questExp := rate.ArchExp
-	minLevel, maxLevel := rate.ArchMin, rate.ArchMax
-	if e.ClassMaster == classMasterMortal {
-		questExp = rate.MortalExp
-		minLevel, maxLevel = rate.MortalMin, rate.MortalMax
+	// DELIBERATE DIVERGENCE: on this server the five Quest-256 chains belong to
+	// Mortal alone, so their trophy pays nobody else.
+	//
+	// The legacy is more permissive in two steps. Its own class gate here is
+	// COMMENTED OUT (_MSG_UseItem.cpp:2346), so any class can use the trophy;
+	// and what is left branches only on `== MORTAL`, which quietly hands every
+	// celestial tier the Arch numbers. Gating on Mortal closes the second hole
+	// as a side effect of closing the first.
+	//
+	// It has to be here and not only at the door: the trophy is a tradeable
+	// item, and a rule enforced only on entry is bypassed by buying one from
+	// somebody who did the quest.
+	if e.ClassMaster != classMasterMortal {
+		d.notify(w, s, NoticeReqNotMet)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
 	}
+	questExp := rate.MortalExp
+	minLevel, maxLevel := rate.MortalMin, rate.MortalMax
 	if e.Level < minLevel || e.Level >= maxLevel {
 		// _NN_Level_limit, the line the legacy sends here (_MSG_UseItem.cpp Vol
 		// 191). It used to be NoticeReqNotMet, which carries no text: a character

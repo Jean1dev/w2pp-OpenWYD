@@ -341,7 +341,7 @@ func TestJardineiroStartsQuest256WithRealTemplate(t *testing.T) {
 	}
 }
 
-func TestJardineiroAcceptsArch(t *testing.T) {
+func TestJardineiroRecusaArch(t *testing.T) {
 	tmpl := questNPCTemplate("Jardineiro", 100, 1, 0)
 	db := newDB()
 	st := baseMortalState(189)
@@ -354,8 +354,17 @@ func TestJardineiroAcceptsArch(t *testing.T) {
 	defer c.Close()
 
 	questFrame(t, c, npcID)
-	expect(t, c, protocol.MsgSendItem)
-	expectAction(t, c)
+	// Só Mortal faz estas quests neste servidor: o NPC não entrega o bilhete a
+	// um Arch. O legado entregava — os portões de _MSG_Quest.cpp leem
+	// `!= MORTAL && != ARCH` — mas um Arch nestes níveis é um personagem
+	// renascido, muito mais forte que o Mortal para quem as faixas foram
+	// desenhadas.
+	if _, _, ok := expectHeader(t, c, protocol.MsgMessageChat); !ok {
+		t.Fatal("o NPC recusou calado")
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("recusou e ainda produziu %#x", ty)
+	}
 }
 
 func TestJardineiroRejectsInvalidRequirements(t *testing.T) {
@@ -428,7 +437,7 @@ func TestCoveiroStartsQuest256WithRealTemplate(t *testing.T) {
 	}
 }
 
-func TestCoveiroAcceptsArch(t *testing.T) {
+func TestCoveiroRecusaArch(t *testing.T) {
 	tmpl := questNPCTemplate("Coveiro", 100, 0, 0)
 	db := newDB()
 	st := baseMortalState(114)
@@ -441,8 +450,17 @@ func TestCoveiroAcceptsArch(t *testing.T) {
 	defer c.Close()
 
 	questFrame(t, c, npcID)
-	expect(t, c, protocol.MsgSendItem)
-	expectAction(t, c)
+	// Só Mortal faz estas quests neste servidor: o NPC não entrega o bilhete a
+	// um Arch. O legado entregava — os portões de _MSG_Quest.cpp leem
+	// `!= MORTAL && != ARCH` — mas um Arch nestes níveis é um personagem
+	// renascido, muito mais forte que o Mortal para quem as faixas foram
+	// desenhadas.
+	if _, _, ok := expectHeader(t, c, protocol.MsgMessageChat); !ok {
+		t.Fatal("o NPC recusou calado")
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("recusou e ainda produziu %#x", ty)
+	}
 }
 
 func TestCoveiroRejectsInvalidRequirements(t *testing.T) {
@@ -1315,7 +1333,7 @@ func TestGuardaStartsQuest256WithRealTemplate(t *testing.T) {
 	}
 }
 
-func TestGuardaAcceptsArch(t *testing.T) {
+func TestGuardaRecusaArch(t *testing.T) {
 	tmpl := questNPCTemplate("Guarda", 100, 4, 0)
 	db := newDB()
 	st := baseMortalState(349)
@@ -1328,8 +1346,17 @@ func TestGuardaAcceptsArch(t *testing.T) {
 	defer c.Close()
 
 	questFrame(t, c, npcID)
-	expect(t, c, protocol.MsgSendItem)
-	expectAction(t, c)
+	// Só Mortal faz estas quests neste servidor: o NPC não entrega o bilhete a
+	// um Arch. O legado entregava — os portões de _MSG_Quest.cpp leem
+	// `!= MORTAL && != ARCH` — mas um Arch nestes níveis é um personagem
+	// renascido, muito mais forte que o Mortal para quem as faixas foram
+	// desenhadas.
+	if _, _, ok := expectHeader(t, c, protocol.MsgMessageChat); !ok {
+		t.Fatal("o NPC recusou calado")
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("recusou e ainda produziu %#x", ty)
+	}
 }
 
 func TestGuardaRejectsInvalidRequirements(t *testing.T) {
@@ -1398,7 +1425,7 @@ func TestPatrulhaKaizenStartsQuest256WithRealTemplate(t *testing.T) {
 	}
 }
 
-func TestPatrulhaKaizenAcceptsArch(t *testing.T) {
+func TestPatrulhaKaizenRecusaArch(t *testing.T) {
 	tmpl := questNPCTemplate("Patrulha_", 100, 2, 0)
 	db := newDB()
 	st := baseMortalState(264)
@@ -1411,8 +1438,17 @@ func TestPatrulhaKaizenAcceptsArch(t *testing.T) {
 	defer c.Close()
 
 	questFrame(t, c, npcID)
-	expect(t, c, protocol.MsgSendItem)
-	expectAction(t, c)
+	// Só Mortal faz estas quests neste servidor: o NPC não entrega o bilhete a
+	// um Arch. O legado entregava — os portões de _MSG_Quest.cpp leem
+	// `!= MORTAL && != ARCH` — mas um Arch nestes níveis é um personagem
+	// renascido, muito mais forte que o Mortal para quem as faixas foram
+	// desenhadas.
+	if _, _, ok := expectHeader(t, c, protocol.MsgMessageChat); !ok {
+		t.Fatal("o NPC recusou calado")
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("recusou e ainda produziu %#x", ty)
+	}
 }
 
 func TestPatrulhaKaizenRejectsInvalidRequirements(t *testing.T) {
@@ -1479,7 +1515,7 @@ func TestPatrulhaHidraStartsQuest256WithRealTemplate(t *testing.T) {
 	}
 }
 
-func TestPatrulhaHidraAcceptsArch(t *testing.T) {
+func TestPatrulhaHidraRecusaArch(t *testing.T) {
 	tmpl := questNPCTemplate("Patrulha", 100, 3, 0)
 	db := newDB()
 	st := baseMortalState(319)
@@ -1492,8 +1528,17 @@ func TestPatrulhaHidraAcceptsArch(t *testing.T) {
 	defer c.Close()
 
 	questFrame(t, c, npcID)
-	expect(t, c, protocol.MsgSendItem)
-	expectAction(t, c)
+	// Só Mortal faz estas quests neste servidor: o NPC não entrega o bilhete a
+	// um Arch. O legado entregava — os portões de _MSG_Quest.cpp leem
+	// `!= MORTAL && != ARCH` — mas um Arch nestes níveis é um personagem
+	// renascido, muito mais forte que o Mortal para quem as faixas foram
+	// desenhadas.
+	if _, _, ok := expectHeader(t, c, protocol.MsgMessageChat); !ok {
+		t.Fatal("o NPC recusou calado")
+	}
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Fatalf("recusou e ainda produziu %#x", ty)
+	}
 }
 
 func TestPatrulhaHidraRejectsInvalidRequirements(t *testing.T) {

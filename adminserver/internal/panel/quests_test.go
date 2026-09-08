@@ -124,9 +124,8 @@ func TestQuestsNaoTemJavaScript(t *testing.T) {
 func questForm(token string, tier string) url.Values {
 	return url.Values{
 		"csrf": {token}, "tier": {tier},
-		"mortal_exp": {"500000"}, "arch_exp": {"250000"}, "coin": {"1000000"},
+		"mortal_exp": {"500000"}, "coin": {"1000000"},
 		"mortal_min": {"39"}, "mortal_max": {"400"},
-		"arch_min": {"39"}, "arch_max": {"400"},
 	}
 }
 
@@ -140,8 +139,14 @@ func TestGravarUmaQuestEAuditar(t *testing.T) {
 		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
 	}
 	got := q.tiers[0]
-	if got.MortalExp != 500000 || got.ArchExp != 250000 || got.Coin != 1000000 {
+	if got.MortalExp != 500000 || got.Coin != 1000000 {
 		t.Errorf("gravou %+v", got)
+	}
+	// As quests são só de Mortal, então o formulário não tem campos de Arch e as
+	// colunas são espelhadas — não zeradas, senão a linha nasceria com uma faixa
+	// vazia que o banco recusa e que ninguém poderia reabrir.
+	if got.ArchExp != got.MortalExp || got.ArchMin != got.MortalMin || got.ArchMax != got.MortalMax {
+		t.Errorf("as colunas de Arch não espelharam as de Mortal: %+v", got)
 	}
 	if got.MortalMax != 400 {
 		t.Errorf("a faixa não foi gravada: %+v", got)
@@ -174,9 +179,8 @@ func TestFaixaInvertidaERecusada(t *testing.T) {
 	post, token := signedInPost(t, h)
 
 	for _, caso := range []struct{ nome, campo, valor string }{
-		{"mortal invertida", "mortal_max", "10"},
-		{"arch invertida", "arch_max", "10"},
-		{"mortal vazia", "mortal_max", "39"},
+		{"faixa invertida", "mortal_max", "10"},
+		{"faixa vazia", "mortal_max", "39"},
 	} {
 		t.Run(caso.nome, func(t *testing.T) {
 			f := questForm(token, "0")
