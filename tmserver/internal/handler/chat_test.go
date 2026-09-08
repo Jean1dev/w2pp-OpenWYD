@@ -78,23 +78,25 @@ func TestCommandNoatunTeleport(t *testing.T) {
 	}
 }
 
-// TestCommandReino verifies /reino routes by the cape's kingdom (issue #208): a
-// Hekalotia/Akelonia cape lands on that kingdom's king, every neutral cape (including
-// none at all) on the kingdom city. No cape is refused any more.
-func TestCommandReino(t *testing.T) {
+// TestCommandKingdomAliases verifies the Portuguese and English commerce commands
+// route by equipped cape to the fixed legacy destinations from issue #318.
+func TestCommandKingdomAliases(t *testing.T) {
 	tests := []struct {
-		name  string
-		cape  int16
-		wantX int16
-		wantY int16
+		name string
+		cmd  string
+		cape int16
+		want [2]int16
 	}{
-		{"no cape", 0, reinoDestNeutral[0], reinoDestNeutral[1]},
-		{"capa branca", capaBrancaDoMonstroIndex, reinoDestNeutral[0], reinoDestNeutral[1]},
-		{"capa verde", greenCapeItem, reinoDestNeutral[0], reinoDestNeutral[1]},
-		{"hekalotia base", 545, reinoDestHekalotia[0], reinoDestHekalotia[1]},
-		{"hekalotia elite", 3191, reinoDestHekalotia[0], reinoDestHekalotia[1]},
-		{"akelonia base", 546, reinoDestAkelonia[0], reinoDestAkelonia[1]},
-		{"akelonia elite", 3192, reinoDestAkelonia[0], reinoDestAkelonia[1]},
+		{"reino no cape", "reino", 0, kingdomDestNeutral},
+		{"kingdom white cape", "kingdom", capaBrancaDoMonstroIndex, kingdomDestNeutral},
+		{"reino green cape", "reino", greenCapeItem, kingdomDestNeutral},
+		{"kingdom other neutral cape", "kingdom", 100, kingdomDestNeutral},
+		{"reino hekalotia base", "reino", 545, kingdomDestHekalotia},
+		{"kingdom hekalotia elite", "kingdom", 3191, kingdomDestHekalotia},
+		{"reino hekalotia advanced", "reino", 3197, kingdomDestHekalotia},
+		{"kingdom akelonia base", "kingdom", 546, kingdomDestAkelonia},
+		{"reino akelonia elite", "reino", 3192, kingdomDestAkelonia},
+		{"kingdom akelonia advanced", "kingdom", 3198, kingdomDestAkelonia},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -108,7 +110,7 @@ func TestCommandReino(t *testing.T) {
 			a := enterWorldAs(t, addr, "tester")
 			defer a.Close()
 
-			whisperFrame(t, a, "reino", "")
+			whisperFrame(t, a, tc.cmd, "")
 			ty, payload, ok := readMaybe(t, a)
 			if !ok || ty != protocol.MsgAction {
 				t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
@@ -117,11 +119,77 @@ func TestCommandReino(t *testing.T) {
 			if err := body.Decode(payload); err != nil {
 				t.Fatalf("decode MsgAction: %v", err)
 			}
-			// doTeleport spreads the destination by rand%3 on each axis.
-			if body.TargetX < tc.wantX || body.TargetX > tc.wantX+2 ||
-				body.TargetY < tc.wantY || body.TargetY > tc.wantY+2 {
-				t.Errorf("/reino target = %d,%d, want within %d..%d,%d..%d",
-					body.TargetX, body.TargetY, tc.wantX, tc.wantX+2, tc.wantY, tc.wantY+2)
+			if body.TargetX != tc.want[0] || body.TargetY != tc.want[1] {
+				t.Errorf("/%s target = %d,%d, want %d,%d",
+					tc.cmd, body.TargetX, body.TargetY, tc.want[0], tc.want[1])
+			}
+		})
+	}
+}
+
+func TestCommandKingAliases(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmd      string
+		cape     int16
+		want     [2]int16
+		teleport bool
+	}{
+		{"rei hekalotia base", "rei", 545, kingDestHekalotia, true},
+		{"king hekalotia advanced", "king", 3197, kingDestHekalotia, true},
+		{"rei akelonia base", "rei", 546, kingDestAkelonia, true},
+		{"king akelonia advanced", "king", 3198, kingDestAkelonia, true},
+		{"rei no cape", "rei", 0, [2]int16{}, false},
+		{"king white cape", "king", capaBrancaDoMonstroIndex, [2]int16{}, false},
+		{"rei green cape", "rei", greenCapeItem, [2]int16{}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newDB()
+			db.loads = map[int64]world.CharacterState{
+				7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+					Equip: [world.MaxEquip]world.Item{reinoCapeSlot: {Index: tc.cape}}},
+			}
+			addr, stop, _ := startServerClock(t, db)
+			defer stop()
+			a := enterWorldAs(t, addr, "tester")
+			defer a.Close()
+
+			whisperFrame(t, a, tc.cmd, "")
+			ty, payload, ok := readMaybe(t, a)
+			if !tc.teleport {
+				if ok {
+					t.Fatalf("neutral /%s produced %#x; want handled no-op", tc.cmd, ty)
+				}
+				return
+			}
+			if !ok || ty != protocol.MsgAction {
+				t.Fatalf("got %#x ok=%v, want MsgAction (teleport)", ty, ok)
+			}
+			var body protocol.MsgActionBody
+			if err := body.Decode(payload); err != nil {
+				t.Fatalf("decode MsgAction: %v", err)
+			}
+			if body.TargetX != tc.want[0] || body.TargetY != tc.want[1] {
+				t.Errorf("/%s target = %d,%d, want %d,%d",
+					tc.cmd, body.TargetX, body.TargetY, tc.want[0], tc.want[1])
+			}
+		})
+	}
+}
+
+func TestCommandColorTeleportsRetired(t *testing.T) {
+	for _, cmd := range []string{"red", "blue"} {
+		t.Run(cmd, func(t *testing.T) {
+			addr, stop, _ := startServerClock(t, chatDB())
+			defer stop()
+			a := enterWorldAs(t, addr, "tester")
+			defer a.Close()
+
+			whisperFrame(t, a, cmd, "")
+			ty, payload, ok := readMaybe(t, a)
+			if !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, payload) != NoticeNotConnected {
+				t.Fatalf("/%s produced %#x ok=%v; want normal offline-whisper response", cmd, ty, ok)
 			}
 		})
 	}

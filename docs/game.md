@@ -11,10 +11,9 @@
 ✅ /gelo: se teleportará para a cidade de Gelo <br/>
 ✅ /kefra: se teleportará para a cidade de Kefra <br/>
 ✅ /noatun: se teleportará para Noatun <br/>
-✅ /red: se teleportará para o rei de Akelonia <br/>
-✅ /blue: se teleportará para o rei de Hekalotia <br/>
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>
-✅ /reino: teleporta de acordo com a capa — capa de Hekalotia (azul) leva ao rei de Hekalotia, capa de Akelonia (vermelha) ao rei de Akelonia, e qualquer capa neutra (sem capa, Capa Branca do Monstro #550, capa verde/Manto do Aprendiz #4006, …) à cidade dos reinos — comando novo, não existe na fonte legada <br/>
+✅ /rei ou /king: teleporta para o rei correspondente à capa equipada — Hekalotia (azul) vai para `(1748,1574)` e Akelonia (vermelha) para `(1748,1880)`; sem capa de reino, o comando não teleporta <br/>
+✅ /reino ou /kingdom: teleporta para a área de comércio correspondente à capa equipada — Hekalotia (azul) vai para `(1690,1618)`, Akelonia (vermelha) para `(1690,1842)`, e qualquer capa neutra (sem capa, Capa Branca do Monstro #550, capa verde/Manto do Aprendiz #4006, …) para o centro dos reinos em `(1702,1726)` <br/>
 ⏳ /crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) — sem coordenada na fonte legada <br/>
 ✅ /destravar40: destrava o level 40 do celestial (seta o gate `QuestInfo.Celestial.Lv40`; efetivo só para chars Celestial) <br/>
 ✅ /destravar90: destrava o level 90 do celestial (gate `Lv90` + dá a FuryStone item 3502) <br/>
@@ -65,7 +64,7 @@ usa Vento (5337). A pedra será consumida, a capa será substituída pela versã
 personagem retornará à seleção para recarregar a progressão.
 
 Faça as quest dos quatros cristais no seu Arch para liberar mais pontos.
-- Dê /red ou /blue para ir direto para o rei desejado.
+- Use /rei ou /king para ir ao rei correspondente à capa equipada.
 • Não precisa transformar o Lac, somente separe 10 que já vai funcionar
 
 Para destravar o lv 40 e 90 do Cele utilize o comando /destravar40 e /destravar90
