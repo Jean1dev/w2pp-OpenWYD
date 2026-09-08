@@ -21,7 +21,7 @@ const summonClan = 4
 
 // petsNoPainelDeGrupo decide se o cliente VÊ os pets na lista de grupo.
 //
-// Eles continuam na PartyList do líder de qualquer jeito — é lá que o servidor
+// Os pets continuam na PartyList do líder de qualquer jeito — é lá que o servidor
 // guarda quem é pet de quem, e é por ela que andam a defesa do dono, a limpeza
 // da re-invocação e a expiração. O que esta chave controla é só o que sai no
 // fio.
