@@ -427,6 +427,13 @@ func run(logger *slog.Logger) error {
 	// and does NOT stop the boot: the content file is a complete, working answer
 	// on its own, and refusing to start over an unreachable override would turn
 	// a balance edit into an outage.
+	//
+	// The snapshot is taken FIRST, and that order is the whole point: it is what
+	// the content file pays, which is where "voltar ao valor do conteúdo" lands.
+	// The panel used to guess that number from the constants compiled into its
+	// own binary, and on this content tree those are far smaller — so an edit
+	// that read as a raise on screen was a cut in game.
+	questContent := questContentSnapshot(questRates)
 	if dbConn != nil && questRates != nil {
 		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		cfg, ferr := dbclient.NewQuestRewardSource(dbConn).Fetch(fetchCtx)
@@ -647,6 +654,9 @@ func run(logger *slog.Logger) error {
 				// what tells the panel a save is still waiting for a restart.
 				XPConfigVersion:    xpConfig.Version,
 				MountConfigVersion: mountConfigVersion,
+				// What the content file pays, so the panel can stop guessing it
+				// from constants that this content tree does not use.
+				QuestContent: questContent,
 			})
 		if cerr != nil {
 			return fmt.Errorf("-control-addr is set but the API cannot start: %w", cerr)
@@ -986,4 +996,23 @@ func sancRow(s *content.SancRate, anvil int) []int {
 		row = append(row, s.Rate(anvil, i))
 	}
 	return row
+}
+
+// questContentSnapshot is what the content file pays per quest trophy, in the
+// shape the control channel reports. A nil QuestRates — the server booted with
+// no -content — returns nil, which the panel reads as "this process has no
+// content tree" rather than as a table of zeros.
+func questContentSnapshot(rates *content.QuestRates) []control.QuestTierContent {
+	tiers := rates.AllQuestTiers()
+	if len(tiers) == 0 {
+		return nil
+	}
+	out := make([]control.QuestTierContent, 0, len(tiers))
+	for i, t := range tiers {
+		out = append(out, control.QuestTierContent{
+			Tier: int32(i), MortalExp: t.MortalExp, Coin: t.Coin,
+			MortalMin: t.MortalMin, MortalMax: t.MortalMax,
+		})
+	}
+	return out
 }

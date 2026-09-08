@@ -406,3 +406,20 @@ func (q *QuestRates) SetTier(tier int, r QuestTierRate) bool {
 
 // QuestTierCount is how many quest trophies exist (items 4117..4121).
 const QuestTierCount = questTierCount
+
+// AllQuestTiers returns every quest tier as it currently stands.
+//
+// It exists so the boot can snapshot what the CONTENT FILE gave, before the
+// panel's own rows are applied over it, and hand that to the control channel.
+// The panel used to show the compiled CReadFiles.cpp defaults under the label
+// "no arquivo", which is a different — and on this content tree much smaller —
+// set of numbers; an edit made against that baseline reads as a raise when it is
+// really a cut.
+func (q *QuestRates) AllQuestTiers() []QuestTierRate {
+	if q == nil {
+		return nil
+	}
+	out := make([]QuestTierRate, len(q.tiers))
+	copy(out, q.tiers[:])
+	return out
+}

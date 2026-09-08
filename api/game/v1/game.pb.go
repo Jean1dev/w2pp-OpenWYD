@@ -649,8 +649,27 @@ type OverlaysResponse struct {
 	// overlay — no dbServer, or the read failed — and every lineage is on the
 	// compiled default.
 	MountConfigVersion int64 `protobuf:"varint,5,opt,name=mount_config_version,json=mountConfigVersion,proto3" json:"mount_config_version,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// quest_content is what Common/Settings/QuestsRate.txt gave THIS process,
+	// captured before the panel's own rows were applied over it.
+	//
+	// It exists because the panel was showing the wrong baseline. Its "no arquivo"
+	// line read domain.QuestRewardDefaults — the numbers compiled into the binary
+	// from CReadFiles.cpp — while the content file says something else entirely
+	// (30.000 of experience on the Cemitério, not 1.000). Two things went wrong
+	// because of it: an edit that looked like quadrupling a reward was really
+	// cutting it to a seventh, and "voltar ao valor do conteúdo" would have left
+	// the screen showing a number the game does not pay.
+	//
+	// The panel cannot read the file itself: adminServer is deliberately
+	// standalone and mounts no content tree. Asking the running process is also
+	// the stronger answer — it reports what is actually loaded, not what a file on
+	// some disk happens to say.
+	//
+	// Empty means the server booted with no content tree (-content unset), so it
+	// is running the compiled defaults and the panel should say exactly that.
+	QuestContent  []*QuestContentRate `protobuf:"bytes,6,rep,name=quest_content,json=questContent,proto3" json:"quest_content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *OverlaysResponse) Reset() {
@@ -718,6 +737,92 @@ func (x *OverlaysResponse) GetMountConfigVersion() int64 {
 	return 0
 }
 
+func (x *OverlaysResponse) GetQuestContent() []*QuestContentRate {
+	if x != nil {
+		return x.QuestContent
+	}
+	return nil
+}
+
+// QuestContentRate is one quest trophy as the content file defines it. Arch is
+// absent on purpose: these quests are Mortal's alone on this server, so an Arch
+// column would be a number nobody can reach.
+type QuestContentRate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tier          int32                  `protobuf:"varint,1,opt,name=tier,proto3" json:"tier,omitempty"`
+	MortalExp     int64                  `protobuf:"varint,2,opt,name=mortal_exp,json=mortalExp,proto3" json:"mortal_exp,omitempty"`
+	Coin          int32                  `protobuf:"varint,3,opt,name=coin,proto3" json:"coin,omitempty"`
+	MortalMin     int32                  `protobuf:"varint,4,opt,name=mortal_min,json=mortalMin,proto3" json:"mortal_min,omitempty"`
+	MortalMax     int32                  `protobuf:"varint,5,opt,name=mortal_max,json=mortalMax,proto3" json:"mortal_max,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QuestContentRate) Reset() {
+	*x = QuestContentRate{}
+	mi := &file_api_game_v1_game_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QuestContentRate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QuestContentRate) ProtoMessage() {}
+
+func (x *QuestContentRate) ProtoReflect() protoreflect.Message {
+	mi := &file_api_game_v1_game_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QuestContentRate.ProtoReflect.Descriptor instead.
+func (*QuestContentRate) Descriptor() ([]byte, []int) {
+	return file_api_game_v1_game_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *QuestContentRate) GetTier() int32 {
+	if x != nil {
+		return x.Tier
+	}
+	return 0
+}
+
+func (x *QuestContentRate) GetMortalExp() int64 {
+	if x != nil {
+		return x.MortalExp
+	}
+	return 0
+}
+
+func (x *QuestContentRate) GetCoin() int32 {
+	if x != nil {
+		return x.Coin
+	}
+	return 0
+}
+
+func (x *QuestContentRate) GetMortalMin() int32 {
+	if x != nil {
+		return x.MortalMin
+	}
+	return 0
+}
+
+func (x *QuestContentRate) GetMortalMax() int32 {
+	if x != nil {
+		return x.MortalMax
+	}
+	return 0
+}
+
 type BroadcastRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -727,7 +832,7 @@ type BroadcastRequest struct {
 
 func (x *BroadcastRequest) Reset() {
 	*x = BroadcastRequest{}
-	mi := &file_api_game_v1_game_proto_msgTypes[11]
+	mi := &file_api_game_v1_game_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -739,7 +844,7 @@ func (x *BroadcastRequest) String() string {
 func (*BroadcastRequest) ProtoMessage() {}
 
 func (x *BroadcastRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_game_v1_game_proto_msgTypes[11]
+	mi := &file_api_game_v1_game_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -752,7 +857,7 @@ func (x *BroadcastRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BroadcastRequest.ProtoReflect.Descriptor instead.
 func (*BroadcastRequest) Descriptor() ([]byte, []int) {
-	return file_api_game_v1_game_proto_rawDescGZIP(), []int{11}
+	return file_api_game_v1_game_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *BroadcastRequest) GetMessage() string {
@@ -772,7 +877,7 @@ type BroadcastResponse struct {
 
 func (x *BroadcastResponse) Reset() {
 	*x = BroadcastResponse{}
-	mi := &file_api_game_v1_game_proto_msgTypes[12]
+	mi := &file_api_game_v1_game_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -784,7 +889,7 @@ func (x *BroadcastResponse) String() string {
 func (*BroadcastResponse) ProtoMessage() {}
 
 func (x *BroadcastResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_game_v1_game_proto_msgTypes[12]
+	mi := &file_api_game_v1_game_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -797,7 +902,7 @@ func (x *BroadcastResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BroadcastResponse.ProtoReflect.Descriptor instead.
 func (*BroadcastResponse) Descriptor() ([]byte, []int) {
-	return file_api_game_v1_game_proto_rawDescGZIP(), []int{12}
+	return file_api_game_v1_game_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *BroadcastResponse) GetRecipients() int32 {
@@ -818,7 +923,7 @@ type DrainRequest struct {
 
 func (x *DrainRequest) Reset() {
 	*x = DrainRequest{}
-	mi := &file_api_game_v1_game_proto_msgTypes[13]
+	mi := &file_api_game_v1_game_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +935,7 @@ func (x *DrainRequest) String() string {
 func (*DrainRequest) ProtoMessage() {}
 
 func (x *DrainRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_game_v1_game_proto_msgTypes[13]
+	mi := &file_api_game_v1_game_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +948,7 @@ func (x *DrainRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainRequest.ProtoReflect.Descriptor instead.
 func (*DrainRequest) Descriptor() ([]byte, []int) {
-	return file_api_game_v1_game_proto_rawDescGZIP(), []int{13}
+	return file_api_game_v1_game_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DrainRequest) GetMessage() string {
@@ -863,7 +968,7 @@ type DrainResponse struct {
 
 func (x *DrainResponse) Reset() {
 	*x = DrainResponse{}
-	mi := &file_api_game_v1_game_proto_msgTypes[14]
+	mi := &file_api_game_v1_game_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -875,7 +980,7 @@ func (x *DrainResponse) String() string {
 func (*DrainResponse) ProtoMessage() {}
 
 func (x *DrainResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_game_v1_game_proto_msgTypes[14]
+	mi := &file_api_game_v1_game_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -888,7 +993,7 @@ func (x *DrainResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainResponse.ProtoReflect.Descriptor instead.
 func (*DrainResponse) Descriptor() ([]byte, []int) {
-	return file_api_game_v1_game_proto_rawDescGZIP(), []int{14}
+	return file_api_game_v1_game_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DrainResponse) GetNotified() int32 {
@@ -946,14 +1051,24 @@ const file_api_game_v1_game_proto_rawDesc = "" +
 	"\tdelivered\x18\x02 \x01(\x05R\tdelivered\x12\x12\n" +
 	"\x04lost\x18\x03 \x01(\x05R\x04lost\x12%\n" +
 	"\x0echaracter_name\x18\x04 \x01(\tR\rcharacterName\"\x11\n" +
-	"\x0fOverlaysRequest\"\xc0\x01\n" +
+	"\x0fOverlaysRequest\"\x80\x02\n" +
 	"\x10OverlaysResponse\x12\x1d\n" +
 	"\n" +
 	"item_stats\x18\x01 \x01(\bR\titemStats\x12\x1b\n" +
 	"\tmob_stats\x18\x02 \x01(\bR\bmobStats\x12\x12\n" +
 	"\x04npcs\x18\x03 \x01(\bR\x04npcs\x12*\n" +
 	"\x11xp_config_version\x18\x04 \x01(\x03R\x0fxpConfigVersion\x120\n" +
-	"\x14mount_config_version\x18\x05 \x01(\x03R\x12mountConfigVersion\",\n" +
+	"\x14mount_config_version\x18\x05 \x01(\x03R\x12mountConfigVersion\x12>\n" +
+	"\rquest_content\x18\x06 \x03(\v2\x19.game.v1.QuestContentRateR\fquestContent\"\x97\x01\n" +
+	"\x10QuestContentRate\x12\x12\n" +
+	"\x04tier\x18\x01 \x01(\x05R\x04tier\x12\x1d\n" +
+	"\n" +
+	"mortal_exp\x18\x02 \x01(\x03R\tmortalExp\x12\x12\n" +
+	"\x04coin\x18\x03 \x01(\x05R\x04coin\x12\x1d\n" +
+	"\n" +
+	"mortal_min\x18\x04 \x01(\x05R\tmortalMin\x12\x1d\n" +
+	"\n" +
+	"mortal_max\x18\x05 \x01(\x05R\tmortalMax\",\n" +
 	"\x10BroadcastRequest\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"3\n" +
 	"\x11BroadcastResponse\x12\x1e\n" +
@@ -988,7 +1103,7 @@ func file_api_game_v1_game_proto_rawDescGZIP() []byte {
 	return file_api_game_v1_game_proto_rawDescData
 }
 
-var file_api_game_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_api_game_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_api_game_v1_game_proto_goTypes = []any{
 	(*ListOnlineRequest)(nil),  // 0: game.v1.ListOnlineRequest
 	(*ListOnlineResponse)(nil), // 1: game.v1.ListOnlineResponse
@@ -1001,32 +1116,34 @@ var file_api_game_v1_game_proto_goTypes = []any{
 	(*DeliverNowResponse)(nil), // 8: game.v1.DeliverNowResponse
 	(*OverlaysRequest)(nil),    // 9: game.v1.OverlaysRequest
 	(*OverlaysResponse)(nil),   // 10: game.v1.OverlaysResponse
-	(*BroadcastRequest)(nil),   // 11: game.v1.BroadcastRequest
-	(*BroadcastResponse)(nil),  // 12: game.v1.BroadcastResponse
-	(*DrainRequest)(nil),       // 13: game.v1.DrainRequest
-	(*DrainResponse)(nil),      // 14: game.v1.DrainResponse
+	(*QuestContentRate)(nil),   // 11: game.v1.QuestContentRate
+	(*BroadcastRequest)(nil),   // 12: game.v1.BroadcastRequest
+	(*BroadcastResponse)(nil),  // 13: game.v1.BroadcastResponse
+	(*DrainRequest)(nil),       // 14: game.v1.DrainRequest
+	(*DrainResponse)(nil),      // 15: game.v1.DrainResponse
 }
 var file_api_game_v1_game_proto_depIdxs = []int32{
 	2,  // 0: game.v1.ListOnlineResponse.players:type_name -> game.v1.OnlinePlayer
-	0,  // 1: game.v1.GameControlService.ListOnline:input_type -> game.v1.ListOnlineRequest
-	3,  // 2: game.v1.GameControlService.Kick:input_type -> game.v1.KickRequest
-	11, // 3: game.v1.GameControlService.Broadcast:input_type -> game.v1.BroadcastRequest
-	5,  // 4: game.v1.GameControlService.Unstuck:input_type -> game.v1.UnstuckRequest
-	7,  // 5: game.v1.GameControlService.DeliverNow:input_type -> game.v1.DeliverNowRequest
-	9,  // 6: game.v1.GameControlService.Overlays:input_type -> game.v1.OverlaysRequest
-	13, // 7: game.v1.GameControlService.Drain:input_type -> game.v1.DrainRequest
-	1,  // 8: game.v1.GameControlService.ListOnline:output_type -> game.v1.ListOnlineResponse
-	4,  // 9: game.v1.GameControlService.Kick:output_type -> game.v1.KickResponse
-	12, // 10: game.v1.GameControlService.Broadcast:output_type -> game.v1.BroadcastResponse
-	6,  // 11: game.v1.GameControlService.Unstuck:output_type -> game.v1.UnstuckResponse
-	8,  // 12: game.v1.GameControlService.DeliverNow:output_type -> game.v1.DeliverNowResponse
-	10, // 13: game.v1.GameControlService.Overlays:output_type -> game.v1.OverlaysResponse
-	14, // 14: game.v1.GameControlService.Drain:output_type -> game.v1.DrainResponse
-	8,  // [8:15] is the sub-list for method output_type
-	1,  // [1:8] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	11, // 1: game.v1.OverlaysResponse.quest_content:type_name -> game.v1.QuestContentRate
+	0,  // 2: game.v1.GameControlService.ListOnline:input_type -> game.v1.ListOnlineRequest
+	3,  // 3: game.v1.GameControlService.Kick:input_type -> game.v1.KickRequest
+	12, // 4: game.v1.GameControlService.Broadcast:input_type -> game.v1.BroadcastRequest
+	5,  // 5: game.v1.GameControlService.Unstuck:input_type -> game.v1.UnstuckRequest
+	7,  // 6: game.v1.GameControlService.DeliverNow:input_type -> game.v1.DeliverNowRequest
+	9,  // 7: game.v1.GameControlService.Overlays:input_type -> game.v1.OverlaysRequest
+	14, // 8: game.v1.GameControlService.Drain:input_type -> game.v1.DrainRequest
+	1,  // 9: game.v1.GameControlService.ListOnline:output_type -> game.v1.ListOnlineResponse
+	4,  // 10: game.v1.GameControlService.Kick:output_type -> game.v1.KickResponse
+	13, // 11: game.v1.GameControlService.Broadcast:output_type -> game.v1.BroadcastResponse
+	6,  // 12: game.v1.GameControlService.Unstuck:output_type -> game.v1.UnstuckResponse
+	8,  // 13: game.v1.GameControlService.DeliverNow:output_type -> game.v1.DeliverNowResponse
+	10, // 14: game.v1.GameControlService.Overlays:output_type -> game.v1.OverlaysResponse
+	15, // 15: game.v1.GameControlService.Drain:output_type -> game.v1.DrainResponse
+	9,  // [9:16] is the sub-list for method output_type
+	2,  // [2:9] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_api_game_v1_game_proto_init() }
@@ -1040,7 +1157,7 @@ func file_api_game_v1_game_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_game_v1_game_proto_rawDesc), len(file_api_game_v1_game_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

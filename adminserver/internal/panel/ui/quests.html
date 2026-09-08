@@ -59,6 +59,18 @@
     entrega o bilhete a um Arch, o bilhete não teleporta e o troféu não paga —
     nem comprado de quem fez a quest. O legado deixava Arch entrar; aqui não.
     <br><br>
+    {{if .DoJogo}}
+    O número ao lado de uma linha editada é <strong>o que o conteúdo paga</strong>,
+    perguntado ao servidor que está rodando — é exatamente onde
+    &ldquo;voltar ao valor do conteúdo&rdquo; deixaria a recompensa.
+    {{else}}
+    <strong>Atenção:</strong> não consegui perguntar ao servidor o que o conteúdo
+    paga, então o número ao lado de uma linha editada é o
+    <strong>padrão compilado</strong>, que pode não ser o que este servidor usa.
+    Nesta árvore de conteúdo os dois são bem diferentes. Trate esse número como
+    referência fraca até o jogo responder.
+    {{end}}
+    <br><br>
     <strong>Vale no próximo reinício do jogo</strong>, como o resto do
     balanceamento — dois jogadores usando o mesmo troféu com minutos de
     diferença não podem receber valores diferentes.
@@ -104,11 +116,18 @@
           <button type="submit">Gravar</button>
           {{if .Editada}}
           <span class="doarquivo">
-            No arquivo: {{.Padrao.MortalExp}} de XP, {{.Padrao.Coin}} de ouro,
+            {{if $.DoJogo}}No conteúdo{{else}}Padrão do código{{end}}:
+            {{.Padrao.MortalExp}} de XP, {{.Padrao.Coin}} de ouro,
             níveis {{.Padrao.MortalMin}}–{{.Padrao.MortalMax}}
           </span>
           {{end}}
         </div>
+        {{if .Menor}}
+        <div class="nota perigo" style="margin-top:8px">
+          Esta linha paga <strong>menos</strong> que o conteúdo{{if .Vezes}} — {{.Vezes}} menos{{end}}.
+          Limpar a linha <em>aumentaria</em> a recompensa, não diminuiria.
+        </div>
+        {{end}}
       </form>
 
       {{if .Editada}}

@@ -209,6 +209,26 @@ type Overlays struct {
 	// comportamento do legado, então não há bandeira para ligar — só dá para
 	// saber perguntando que número o processo leu.
 	VersaoMontarias int64
+
+	// QuestsDoConteudo é o que o arquivo de conteúdo paga por troféu de quest,
+	// como o processo do jogo o leu — antes de as linhas do painel entrarem por
+	// cima. Vazio quer dizer que o servidor subiu sem árvore de conteúdo, e aí
+	// está rodando os padrões compilados.
+	//
+	// O painel mostrava, sob o rótulo "no arquivo", as constantes do próprio
+	// binário dele. Nesta árvore de conteúdo elas são muito menores, então uma
+	// edição que parecia aumentar a recompensa estava cortando.
+	QuestsDoConteudo []QuestDoConteudo
+}
+
+// QuestDoConteudo é um troféu de quest como o arquivo de conteúdo o define.
+// Arch não aparece porque estas quests são só de Mortal neste servidor.
+type QuestDoConteudo struct {
+	Tier      int32
+	MortalExp int64
+	Coin      int32
+	MortalMin int32
+	MortalMax int32
 }
 
 // Ajustes asks which overlays are active.
@@ -219,13 +239,20 @@ func (c *Client) Ajustes(parent context.Context) (Overlays, error) {
 	if err != nil {
 		return Overlays{}, traduz(err, "perguntar o que o servidor está lendo")
 	}
-	return Overlays{
+	ov := Overlays{
 		AtributosDeItem:    resp.GetItemStats(),
 		AtributosDeMonstro: resp.GetMobStats(),
 		NPCs:               resp.GetNpcs(),
 		VersaoMesaXP:       resp.GetXpConfigVersion(),
 		VersaoMontarias:    resp.GetMountConfigVersion(),
-	}, nil
+	}
+	for _, q := range resp.GetQuestContent() {
+		ov.QuestsDoConteudo = append(ov.QuestsDoConteudo, QuestDoConteudo{
+			Tier: q.GetTier(), MortalExp: q.GetMortalExp(), Coin: q.GetCoin(),
+			MortalMin: q.GetMortalMin(), MortalMax: q.GetMortalMax(),
+		})
+	}
+	return ov, nil
 }
 
 // Avisar sends a notice to everyone in play and reports how many got it.

@@ -28,10 +28,7 @@ type Quests interface {
 // questTierCount is how many trophies exist (items 4117..4121).
 const questTierCount = 5
 
-// questDefinicao names one trophy. The payout it ships with comes from
-// domain.QuestRewardDefaults — the same values tmServer builds its content table
-// from — so the "no arquivo" figure this screen shows beside an edited row is
-// the one the game would really pay, and cannot quietly drift from it.
+// questDefinicao names one trophy.
 type questDefinicao struct {
 	Tier int32
 	Nome string
@@ -50,12 +47,59 @@ var questDefinicoes = [questTierCount]questDefinicao{
 	{4, "Elfos", "Guarda do Submundo", 4121},
 }
 
-// questPadrao is what the content file pays for a tier.
-func questPadrao(tier int32) domain.QuestReward {
+// questCompilado is the payout compiled into this binary, from CReadFiles.cpp.
+//
+// It is the LAST resort and never the first: this server's content tree ships
+// Common/Settings/QuestsRate.txt, whose numbers are far larger, and the game
+// loads that file over these constants at boot. Showing these as "o arquivo" was
+// the bug this whole path exists to fix — an edit made against them reads as a
+// raise on screen while being a cut in game.
+func questCompilado(tier int32) domain.QuestReward {
 	if tier < 0 || int(tier) >= len(domain.QuestRewardDefaults) {
 		return domain.QuestReward{Tier: tier}
 	}
 	return domain.QuestRewardDefaults[tier]
+}
+
+// questBases is what an untouched tier pays, asked of the RUNNING GAME.
+//
+// The panel cannot read the content file: adminServer is deliberately
+// standalone and mounts no content tree. Asking the process is also the stronger
+// answer — it reports what is loaded, not what some file on some disk says.
+//
+// doJogo is false when there is no control channel, the game did not answer, or
+// it booted with no content tree. The screen must then say that the figures it
+// is showing are the compiled defaults and may not be what the game runs,
+// because a wrong baseline stated confidently is how this went wrong the first
+// time.
+func (h *Handler) questBases(ctx context.Context) (bases map[int32]domain.QuestReward, doJogo bool) {
+	bases = make(map[int32]domain.QuestReward, questTierCount)
+	for _, d := range questDefinicoes {
+		bases[d.Tier] = questCompilado(d.Tier)
+	}
+	if h.cfg.Jogo == nil {
+		return bases, false
+	}
+	o, err := h.cfg.Jogo.Ajustes(ctx)
+	if err != nil {
+		// Warn, not error: the screen still works and the edits still save.
+		// What is lost is the ability to name the baseline honestly.
+		h.cfg.Logger.Warn("could not ask the game what the quest content pays", "err", err)
+		return bases, false
+	}
+	if len(o.QuestsDoConteudo) == 0 {
+		return bases, false
+	}
+	for _, q := range o.QuestsDoConteudo {
+		if _, known := bases[q.Tier]; !known {
+			continue
+		}
+		bases[q.Tier] = domain.QuestReward{
+			Tier: q.Tier, MortalExp: q.MortalExp, Coin: q.Coin,
+			MortalMin: q.MortalMin, MortalMax: q.MortalMax,
+		}
+	}
+	return bases, true
 }
 
 // questView is one trophy as the screen shows it.
@@ -63,9 +107,18 @@ type questView struct {
 	questDefinicao
 	Valores domain.QuestReward
 	Editada bool
-	// Padrao is the content file's row, shown beside an edited one so the
-	// departure is visible without opening another screen.
+	// Padrao is what an untouched tier pays — where "Voltar ao valor do
+	// conteúdo" lands — shown beside an edited row so the departure is visible
+	// without opening another screen.
 	Padrao domain.QuestReward
+	// Menor marks a saved row paying LESS than the untouched one would. It is
+	// called out rather than left to arithmetic because it is the mistake this
+	// screen used to invite: with the wrong baseline on display, a cut looked
+	// like a raise.
+	Menor bool
+	// Vezes is how many times smaller, when Menor. Two numbers side by side do
+	// not say "seven times" to somebody skimming.
+	Vezes string
 }
 
 // quests renders the trophy payouts.
@@ -81,12 +134,18 @@ func (h *Handler) quests(w http.ResponseWriter, r *http.Request) {
 		gravadas[q.Tier] = q
 	}
 
+	bases, doJogo := h.questBases(r.Context())
+
 	linhas := make([]questView, 0, questTierCount)
 	for _, d := range questDefinicoes {
-		padrao := questPadrao(d.Tier)
+		padrao := bases[d.Tier]
 		v := questView{questDefinicao: d, Valores: padrao, Padrao: padrao}
 		if got, ok := gravadas[d.Tier]; ok {
 			v.Valores, v.Editada = got, true
+			if got.MortalExp < padrao.MortalExp && padrao.MortalExp > 0 {
+				v.Menor = true
+				v.Vezes = questVezesMenor(padrao.MortalExp, got.MortalExp)
+			}
 		}
 		linhas = append(linhas, v)
 	}
@@ -96,6 +155,7 @@ func (h *Handler) quests(w http.ResponseWriter, r *http.Request) {
 		Aba       string
 		Versao    int64
 		Quests    []questView
+		DoJogo    bool
 		Aviso     string
 		Historico []audit.Entry
 	}{
@@ -103,6 +163,7 @@ func (h *Handler) quests(w http.ResponseWriter, r *http.Request) {
 		Aba:       "quests",
 		Versao:    cfg.Version,
 		Quests:    linhas,
+		DoJogo:    doJogo,
 		Aviso:     r.URL.Query().Get("aviso"),
 		Historico: h.questsHistorico(r.Context()),
 	})
@@ -277,4 +338,19 @@ func questParaAudit(q domain.QuestReward, tinha bool) map[string]any {
 		"faixa_mortal": fmt.Sprintf("%d a %d", q.MortalMin, q.MortalMax),
 		"faixa_arch":   fmt.Sprintf("%d a %d", q.ArchMin, q.ArchMax),
 	}
+}
+
+// questVezesMenor renders how much smaller a saved payout is than the untouched
+// one, as "7,5×". A ratio says in one glance what two six-digit numbers side by
+// side do not.
+func questVezesMenor(padrao, gravado int64) string {
+	if gravado <= 0 {
+		return ""
+	}
+	v := float64(padrao) / float64(gravado)
+	if v < 1.05 {
+		return ""
+	}
+	s := fmt.Sprintf("%.1f", v)
+	return strings.Replace(s, ".", ",", 1) + "×"
 }

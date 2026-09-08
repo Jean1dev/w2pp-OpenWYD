@@ -89,6 +89,29 @@ type Overlays struct {
 	// field above and for the same reason: the mount tables have no boot flag
 	// either, because an unconfigured lineage already IS the legacy behaviour.
 	MountConfigVersion int64
+
+	// QuestContent is what Common/Settings/QuestsRate.txt gave this process,
+	// captured before the panel's rows were applied over it.
+	//
+	// It is here rather than derived by the panel because the panel cannot
+	// derive it: adminServer mounts no content tree, and the numbers compiled
+	// into the binary are NOT the ones this content tree ships. Reporting what
+	// the process actually loaded is also stronger than reading the file — a
+	// file on disk can differ from the one the running server read.
+	//
+	// Nil means the server booted without a content tree and is running the
+	// compiled defaults.
+	QuestContent []QuestTierContent
+}
+
+// QuestTierContent is one quest trophy as the content file defines it. Arch is
+// absent because these quests are Mortal's alone on this server.
+type QuestTierContent struct {
+	Tier      int32
+	MortalExp int64
+	Coin      int32
+	MortalMin int32
+	MortalMax int32
 }
 
 type Server struct {
@@ -124,13 +147,20 @@ func NewServer(w *world.World, token string, log *slog.Logger, tp Teleporter, ov
 // the panel wait behind player input to read a constant would be a cost with
 // nothing bought.
 func (s *Server) Overlays(_ context.Context, _ *gamev1.OverlaysRequest) (*gamev1.OverlaysResponse, error) {
-	return &gamev1.OverlaysResponse{
+	resp := &gamev1.OverlaysResponse{
 		ItemStats:          s.overlays.ItemStats,
 		MobStats:           s.overlays.MobStats,
 		Npcs:               s.overlays.NPCs,
 		XpConfigVersion:    s.overlays.XPConfigVersion,
 		MountConfigVersion: s.overlays.MountConfigVersion,
-	}, nil
+	}
+	for _, q := range s.overlays.QuestContent {
+		resp.QuestContent = append(resp.QuestContent, &gamev1.QuestContentRate{
+			Tier: q.Tier, MortalExp: q.MortalExp, Coin: q.Coin,
+			MortalMin: q.MortalMin, MortalMax: q.MortalMax,
+		})
+	}
+	return resp, nil
 }
 
 // Interceptor authenticates every call against the shared token.

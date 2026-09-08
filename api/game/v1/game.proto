@@ -172,6 +172,37 @@ message OverlaysResponse {
   // overlay — no dbServer, or the read failed — and every lineage is on the
   // compiled default.
   int64 mount_config_version = 5;
+
+  // quest_content is what Common/Settings/QuestsRate.txt gave THIS process,
+  // captured before the panel's own rows were applied over it.
+  //
+  // It exists because the panel was showing the wrong baseline. Its "no arquivo"
+  // line read domain.QuestRewardDefaults — the numbers compiled into the binary
+  // from CReadFiles.cpp — while the content file says something else entirely
+  // (30.000 of experience on the Cemitério, not 1.000). Two things went wrong
+  // because of it: an edit that looked like quadrupling a reward was really
+  // cutting it to a seventh, and "voltar ao valor do conteúdo" would have left
+  // the screen showing a number the game does not pay.
+  //
+  // The panel cannot read the file itself: adminServer is deliberately
+  // standalone and mounts no content tree. Asking the running process is also
+  // the stronger answer — it reports what is actually loaded, not what a file on
+  // some disk happens to say.
+  //
+  // Empty means the server booted with no content tree (-content unset), so it
+  // is running the compiled defaults and the panel should say exactly that.
+  repeated QuestContentRate quest_content = 6;
+}
+
+// QuestContentRate is one quest trophy as the content file defines it. Arch is
+// absent on purpose: these quests are Mortal's alone on this server, so an Arch
+// column would be a number nobody can reach.
+message QuestContentRate {
+  int32 tier = 1;
+  int64 mortal_exp = 2;
+  int32 coin = 3;
+  int32 mortal_min = 4;
+  int32 mortal_max = 5;
 }
 
 message BroadcastRequest {

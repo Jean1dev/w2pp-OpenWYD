@@ -2,6 +2,7 @@ package panel
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
+	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/jogo"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/session"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
@@ -106,7 +108,9 @@ func TestQuestsMostraAsCincoComOsValoresDoConteudo(t *testing.T) {
 			t.Errorf("a página não mostra %q", quero)
 		}
 	}
-	if strings.Contains(corpo, "editada") {
+	// O crachá, não a palavra: o texto explicativo da página fala em "linha
+	// editada", e casar a palavra solta dava falso positivo.
+	if strings.Contains(corpo, `<span class="marca">editada</span>`) {
 		t.Error("uma quest apareceu como editada num banco vazio")
 	}
 }
@@ -273,3 +277,120 @@ func TestSemQuestsNaoHaRota(t *testing.T) {
 		t.Fatal("a rota respondeu sem as quests configuradas")
 	}
 }
+
+// --- a linha de referência --------------------------------------------------
+//
+// O painel mostrava, sob o rótulo "No arquivo", as constantes compiladas no
+// próprio binário. Nesta árvore de conteúdo o QuestsRate.txt paga muito mais, e
+// o jogo carrega o arquivo por cima das constantes no boot. Consequência real:
+// gravar 4.000 no Cemitério olhando "no arquivo: 1000" parecia quadruplicar e
+// era cortar para um sétimo. Estes testes fixam a correção.
+
+func newTestPanelQuestsComJogo(t *testing.T, q Quests, log AuditLog, j Live) http.Handler {
+	t.Helper()
+	h, err := New(Config{
+		Accounts: withTarget(roleAdmin), Writer: newFakeWriter(), Audit: log, Quests: q,
+		Jogo: j, Sessions: session.New(time.Hour),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), SecureOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return h.Routes()
+}
+
+// conteudoDeVerdade são os números do Release/Common/Settings/QuestsRate.txt
+// deste servidor, que é o que o jogo responde.
+func conteudoDeVerdade() []jogo.QuestDoConteudo {
+	return []jogo.QuestDoConteudo{
+		{Tier: 0, MortalExp: 30000, Coin: 10000, MortalMin: 39, MortalMax: 115},
+		{Tier: 1, MortalExp: 60000, Coin: 20000, MortalMin: 115, MortalMax: 190},
+		{Tier: 2, MortalExp: 200000, Coin: 100000, MortalMin: 190, MortalMax: 265},
+		{Tier: 3, MortalExp: 500000, Coin: 250000, MortalMin: 265, MortalMax: 320},
+		{Tier: 4, MortalExp: 780000, Coin: 500000, MortalMin: 320, MortalMax: 350},
+	}
+}
+
+// TestReferenciaVemDoJogo: a página tem de mostrar o que o servidor carregou, e
+// não a constante do binário do painel.
+func TestReferenciaVemDoJogo(t *testing.T) {
+	q := newFakeQuests()
+	q.tiers[0] = domain.QuestReward{Tier: 0, MortalExp: 4000, Coin: 1500,
+		MortalMin: 39, MortalMax: 115, ArchExp: 4000, ArchMin: 39, ArchMax: 115}
+	j := &fakeJogo{overlays: jogo.Overlays{QuestsDoConteudo: conteudoDeVerdade()}}
+	corpo := semQuebras(abrirQuests(t, newTestPanelQuestsComJogo(t, q, newFakeAudit(), j)).Body.String())
+
+	if !strings.Contains(corpo, "No conteúdo: 30000 de XP") {
+		t.Error("a referência não veio do jogo — devia dizer 30000, o que o conteúdo paga")
+	}
+	if strings.Contains(corpo, "1000 de XP, 2000 de ouro") {
+		t.Error("a página ainda mostra a constante compilada como se fosse o conteúdo")
+	}
+}
+
+// TestAvisaQuandoAGravadaPagaMenos é o alerta que faltava: com a referência
+// errada na tela, um corte parecia aumento.
+func TestAvisaQuandoAGravadaPagaMenos(t *testing.T) {
+	q := newFakeQuests()
+	q.tiers[0] = domain.QuestReward{Tier: 0, MortalExp: 4000, Coin: 1500,
+		MortalMin: 39, MortalMax: 115, ArchExp: 4000, ArchMin: 39, ArchMax: 115}
+	j := &fakeJogo{overlays: jogo.Overlays{QuestsDoConteudo: conteudoDeVerdade()}}
+	corpo := abrirQuests(t, newTestPanelQuestsComJogo(t, q, newFakeAudit(), j)).Body.String()
+
+	if !strings.Contains(corpo, "paga <strong>menos</strong> que o conteúdo") {
+		t.Error("a página não avisa que a linha gravada paga menos que o conteúdo")
+	}
+	// 30000/4000 = 7,5 — a razão diz numa olhada o que dois números lado a lado
+	// não dizem.
+	if !strings.Contains(corpo, "7,5×") {
+		t.Error("a página não diz quantas vezes menor")
+	}
+	if !strings.Contains(corpo, "aumentaria") {
+		t.Error("a página não explica que limpar a linha subiria a recompensa")
+	}
+}
+
+// TestNaoAvisaQuandoAGravadaPagaMais: o alerta é sobre o corte acidental, e
+// disparar num aumento deliberado o tornaria ruído.
+func TestNaoAvisaQuandoAGravadaPagaMais(t *testing.T) {
+	q := newFakeQuests()
+	q.tiers[0] = domain.QuestReward{Tier: 0, MortalExp: 90000, Coin: 1500,
+		MortalMin: 39, MortalMax: 115, ArchExp: 90000, ArchMin: 39, ArchMax: 115}
+	j := &fakeJogo{overlays: jogo.Overlays{QuestsDoConteudo: conteudoDeVerdade()}}
+	corpo := abrirQuests(t, newTestPanelQuestsComJogo(t, q, newFakeAudit(), j)).Body.String()
+
+	if strings.Contains(corpo, "paga <strong>menos</strong> que o conteúdo") {
+		t.Error("avisou de corte numa linha que paga mais que o conteúdo")
+	}
+}
+
+// TestSemRespostaDoJogoAPaginaAvisa: sem o canal de controle a página ainda
+// funciona, mas não pode afirmar que aquele número é o do conteúdo — foi
+// justamente afirmar isso sem saber que causou o problema.
+func TestSemRespostaDoJogoAPaginaAvisa(t *testing.T) {
+	q := newFakeQuests()
+	q.tiers[0] = domain.QuestReward{Tier: 0, MortalExp: 4000, Coin: 1500,
+		MortalMin: 39, MortalMax: 115, ArchExp: 4000, ArchMin: 39, ArchMax: 115}
+	for _, caso := range []struct {
+		nome string
+		j    Live
+	}{
+		{"sem canal de controle", nil},
+		{"o jogo não respondeu", &fakeJogo{overlaysErr: errors.New("connection refused")}},
+		{"o jogo subiu sem conteúdo", &fakeJogo{overlays: jogo.Overlays{}}},
+	} {
+		t.Run(caso.nome, func(t *testing.T) {
+			corpo := abrirQuests(t, newTestPanelQuestsComJogo(t, q, newFakeAudit(), caso.j)).Body.String()
+			if !strings.Contains(corpo, "padrão compilado") {
+				t.Error("a página não avisa que a referência pode não ser a do servidor")
+			}
+			if strings.Contains(corpo, "No conteúdo:") {
+				t.Error("a página afirmou ser o conteúdo sem ter perguntado ao jogo")
+			}
+		})
+	}
+}
+
+// semQuebras colapsa espaço em branco para que uma asserção sobre uma frase não
+// dependa de onde o template quebrou a linha.
+func semQuebras(s string) string { return strings.Join(strings.Fields(s), " ") }
