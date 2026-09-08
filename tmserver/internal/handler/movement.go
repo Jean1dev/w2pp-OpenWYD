@@ -268,13 +268,25 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 	if e == nil || e.HP == 0 {
 		return
 	}
+	// The Elemental Zone is the one tile the original checks BEFORE resolving a
+	// route (_MSG_ReqTeleport.cpp:25-30): it is reached with the Pergaminho da Água
+	// and never on foot. The test is on the rounded tile, x/4 == 491 && y/4 == 443.
+	if int(e.X)/4 == 491 && int(e.Y)/4 == 443 {
+		d.notify(w, s, NoticeOnlyByWaterScroll)
+		return
+	}
 	destX, destY, cost, ok := world.TeleportDest(e.X, e.Y)
 	if !ok {
 		return // no teleport tile here
 	}
 	if cost > 0 {
 		if cost > e.Coin {
-			return // not enough money (the original shows a notice)
+			// _NN_Not_Enough_Money, which the original sends here
+			// (_MSG_ReqTeleport.cpp:64). Standing on the tile with 699 gold used to
+			// do nothing at all, and nothing at all is indistinguishable from a
+			// teleport that is simply broken.
+			d.notify(w, s, NoticeNotEnoughMoney)
+			return
 		}
 		e.Coin -= cost
 		d.sendEtc(w, s, e)

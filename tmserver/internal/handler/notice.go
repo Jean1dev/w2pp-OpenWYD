@@ -192,6 +192,12 @@ const (
 	// (_MSG_Trade.cpp:182, _MSG_SendAutoTrade.cpp:87). Appended at the end for the
 	// reason NoticeLevelLimit gives.
 	NoticeCantMoveItem
+
+	// NoticeOnlyByWaterScroll is _NN_Only_By_Water_Scroll (Language.txt:228): the
+	// Elemental Zone refuses a teleport tile, it is entered with the scroll
+	// (_MSG_ReqTeleport.cpp:27). Appended at the end for the reason NoticeLevelLimit
+	// gives.
+	NoticeOnlyByWaterScroll
 )
 
 // noticeKey maps a Notice to its key in the shipped client string table
@@ -291,7 +297,8 @@ var noticeKey = map[Notice]string{
 	NoticeCantUpgradeMore: "_NN_Cant_Upgrade_More", // 254
 	NoticeMountGrowth:     "_NN_Mount_Growth",      // 255
 
-	NoticeCantMoveItem: "_NN_Cant_MoveItem", // 379
+	NoticeCantMoveItem:      "_NN_Cant_MoveItem",        // 379
+	NoticeOnlyByWaterScroll: "_NN_Only_By_Water_Scroll", // 228
 }
 
 // noticeText is the compiled fallback for notices with no Language.txt line: the
