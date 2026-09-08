@@ -19,6 +19,24 @@ import (
 // summonClan marks a summoned pet (pMob.MOB.Clan = 4, Server.cpp:3168).
 const summonClan = 4
 
+// petsNoPainelDeGrupo decide se o cliente VÊ os pets na lista de grupo.
+//
+// Eles continuam na PartyList do líder de qualquer jeito — é lá que o servidor
+// guarda quem é pet de quem, e é por ela que andam a defesa do dono, a limpeza
+// da re-invocação e a expiração. O que esta chave controla é só o que sai no
+// fio.
+//
+// Desligado porque um BM com Evocação alta enche os doze slots de membro com os
+// próprios bichos e não sobra lugar para gente. O legado mostra os pets
+// (GenerateSummon manda SendAddParty, Server.cpp:3224-3229), então isto é
+// divergência deliberada.
+//
+// O risco mora do lado do cliente e só o jogo responde: se ele usa a linha de
+// grupo para saber que a criatura é aliada, tirá-la pode deixar o dono atacar os
+// próprios pets. Por isso a decisão é UMA constante e não uma reescrita —
+// voltar é trocar false por true.
+const petsNoPainelDeGrupo = false
+
 // affectSummonLife is the summon lifespan affect (Type 24 on a MOB — on a
 // player the same type is Samaritano, affectSamaritano in combat.go; the legacy
 // overloads it and disambiguates by idx >= MAX_USER, Server.cpp:5843).
@@ -70,9 +88,25 @@ var summonBonus = [9]struct {
 	{0, 0, 0, 0, 0, 0},            // 8 Porco/Invocação Final: no owner scaling
 }
 
+// succubusMax is how many Succubus one cast can put out.
+//
+// DELIBERATE DIVERGENCE: the legacy hardcodes one (_MSG_Attack.cpp:827). Three
+// is a balance call for this server — the Succubus is the last evocation, gated
+// behind level 220 and 240 of mana, and coming out alone made the cheapest
+// creature of all the better buy at every Evocação worth having.
+const succubusMax = 3
+
+// succubusPerEvocacao is how much Evocação each Succubus past the first costs.
+//
+// Scaled rather than a flat three, so the number still answers to the mastery
+// like every other creature does. It is the same divisor as the tier below
+// (iv 6-7), which puts the third one at 240 — comfortably inside the range of
+// anyone who can cast the spell at all, without handing three to a character
+// who only just learned it.
+const succubusPerEvocacao = 80
+
 // summonCount is the evocation head-count rule (_MSG_Attack.cpp:817-828):
-// Evocação (Special[2]) buys more of the cheaper creatures; the Succubus (iv 8)
-// is always exactly one.
+// Evocação (Special[2]) buys more of the cheaper creatures.
 func summonCount(instanceValue, evocacao int) int {
 	switch instanceValue {
 	case 1, 2:
@@ -81,7 +115,19 @@ func summonCount(instanceValue, evocacao int) int {
 		return evocacao / 40
 	case 6, 7:
 		return evocacao / 80
-	case 8, 9:
+	case 8:
+		// At least one whatever the mastery says: the legacy grants that, and a
+		// spell this expensive must never answer a cast with nothing.
+		n := evocacao / succubusPerEvocacao
+		if n < 1 {
+			n = 1
+		}
+		if n > succubusMax {
+			n = succubusMax
+		}
+		return n
+	case 9:
+		// Invocação Final: one zero-bonus template, untouched by the mastery.
 		return 1
 	}
 	return 0
@@ -250,10 +296,12 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		mob.NonCombatNPC = false
 		mob.Affect[0] = world.Affect{Type: affectSummonLife, Time: summonLifeTicks}
 		le.PartyList[slot] = id
-		if spawned == 0 {
-			d.sendAddParty(w, leaderID, leaderID, 0)
+		if petsNoPainelDeGrupo {
+			if spawned == 0 {
+				d.sendAddParty(w, leaderID, leaderID, 0)
+			}
+			d.sendSummonPartySlot(w, leaderID, id, slot+1)
 		}
-		d.sendSummonPartySlot(w, leaderID, id, slot+1)
 
 		// Reveal with CreateType|=3 (the summon-appear effect, Server.cpp:3210-3218).
 		body := protocol.EncodeCreateMobBody(createMobFrom(mob, 3))
@@ -335,9 +383,12 @@ func (d *Dispatcher) despawnSummons(w *world.World, leaderID int, match func(*wo
 	for _, id := range doomed {
 		// DespawnMob only sends MsgRemoveMob, so the party row has to be dropped
 		// explicitly or the client keeps the pet slot (legacy gets this from
-		// DeleteMob → RemoveParty, Server.cpp:7840).
-		for _, recipientID := range recipients {
-			d.sendRemoveParty(w, recipientID, id)
+		// DeleteMob → RemoveParty, Server.cpp:7840). Skipped when the rows were
+		// never sent: there is nothing on the client to drop.
+		if petsNoPainelDeGrupo {
+			for _, recipientID := range recipients {
+				d.sendRemoveParty(w, recipientID, id)
+			}
 		}
 		w.DespawnMob(id, 3)
 	}
@@ -395,8 +446,10 @@ func (d *Dispatcher) generateBabyMountSummon(w *world.World, s *world.Session, e
 	}
 	mob.HP = hp
 	leader.PartyList[slot] = id
-	d.sendAddParty(w, leaderID, leaderID, 0)
-	d.sendSummonPartySlot(w, leaderID, id, slot+1)
+	if petsNoPainelDeGrupo {
+		d.sendAddParty(w, leaderID, leaderID, 0)
+		d.sendSummonPartySlot(w, leaderID, id, slot+1)
+	}
 
 	body := protocol.EncodeCreateMobBody(createMobFrom(mob, 3))
 	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
@@ -571,7 +624,7 @@ func (d *Dispatcher) commandSummons(w *world.World, ownerID int, target *world.E
 // which is why nothing in the tests ever caught it — the tests read the world,
 // and the lie was only ever on the screen.
 func (d *Dispatcher) despawnPet(w *world.World, id int, pet *world.Entity, removeType int32) {
-	if pet != nil && pet.Summoner != 0 {
+	if petsNoPainelDeGrupo && pet != nil && pet.Summoner != 0 {
 		leaderID := pet.Leader
 		if leaderID == 0 {
 			leaderID = pet.Summoner

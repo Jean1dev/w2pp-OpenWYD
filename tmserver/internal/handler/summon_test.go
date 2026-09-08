@@ -27,7 +27,11 @@ func TestSummonCount(t *testing.T) {
 		{5, 79, 1},  // Tigre: /40
 		{6, 160, 2}, // Gorila: /80
 		{7, 79, 0},  // Dragão Negro: /80
-		{8, 0, 1},   // Succubus: always exactly one
+		{8, 0, 1},   // Succubus: nunca menos de uma, mesmo sem Evocação
+		{8, 79, 1},  // abaixo de 80 ainda é uma
+		{8, 160, 2}, // /80 como o degrau de baixo
+		{8, 240, 3}, // o teto
+		{8, 400, 3}, // e não passa dele nem no máximo da maestria
 		{9, 0, 1},   // Invocação Final value 9: one zero-bonus template
 		{10, 400, 0},
 	}
@@ -449,7 +453,17 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 	}
 }
 
-func TestEvocationSendsAddPartyForSummon(t *testing.T) {
+// TestEvocationNaoOcupaSlotDeMembro: o pet nasce, aparece no chão, e NÃO entra
+// na lista de grupo do cliente.
+//
+// Contrato invertido de propósito (petsNoPainelDeGrupo). A versão anterior deste
+// teste exigia o CNFAddParty do pet, que é o que o legado manda
+// (Server.cpp:3224-3229) — e é justamente o que enchia os doze slots de membro
+// com os bichos do próprio dono, sem sobrar lugar para gente.
+//
+// O pet continua na PartyList do líder no servidor: é lá que mora o vínculo, e
+// a contagem da re-invocação depende dele. O que mudou é só o que sai no fio.
+func TestEvocationNaoOcupaSlotDeMembro(t *testing.T) {
 	addr, stop, _ := startServerSummon(t, summonDB(30), nil, 0, 0)
 	defer stop()
 	c := enterWorld(t, addr)
@@ -457,29 +471,30 @@ func TestEvocationSendsAddPartyForSummon(t *testing.T) {
 
 	skillAttackFrame(t, c, serverTime, 1, 56, damSkill)
 
+	nasceu := false
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
 		ty, payload, ok := readMaybeRaw(t, c)
-		if !ok || ty != protocol.MsgCNFAddParty {
+		if !ok {
 			continue
 		}
-		if len(payload) != protocol.MsgCNFAddPartyBodySize {
-			t.Fatalf("CNFAddParty payload = %d, want %d", len(payload), protocol.MsgCNFAddPartyBodySize)
-		}
-		leaderConn := binary.LittleEndian.Uint16(payload[0:2])
-		partyID := binary.LittleEndian.Uint16(payload[8:10])
-		name := strings.TrimRight(string(payload[10:26]), "\x00")
-		if int(partyID) >= world.MaxUser {
-			if leaderConn != 30000 {
-				t.Fatalf("summon LeaderConn = %d, want 30000 for non-leader slot", leaderConn)
+		switch ty {
+		case protocol.MsgCreateMob:
+			if _, name, _, _, _ := petFromCreateMob(payload); strings.HasSuffix(name, "^") {
+				nasceu = true
 			}
-			if name != "Condor^" {
-				t.Fatalf("summon party name = %q, want Condor^", name)
+		case protocol.MsgCNFAddParty:
+			if len(payload) < 10 {
+				continue
 			}
-			return
+			if partyID := binary.LittleEndian.Uint16(payload[8:10]); int(partyID) >= world.MaxUser {
+				t.Fatalf("o pet %d entrou na lista de grupo do cliente e comeu um slot de membro", partyID)
+			}
 		}
 	}
-	t.Fatal("no CNFAddParty frame for summoned pet")
+	if !nasceu {
+		t.Error("nenhum pet apareceu no chão; o teste não chegou a exercer nada")
+	}
 }
 
 // TestEvocationRecastReplacesTheSet: re-casting wipes what is out and summons
@@ -798,8 +813,13 @@ func TestSummonDespawnsOnPartyDisband(t *testing.T) {
 	}
 }
 
-// TestSummonPartySlotClearedOnDespawn: DespawnMob only sends RemoveMob, so the
-// sweep has to drop the pet's party row too or the client keeps the slot.
+// TestSummonPartySlotClearedOnDespawn: o pet sai do mundo quando o vínculo
+// acaba, e a linha de grupo sai junto SE ela tiver sido mandada.
+//
+// As duas metades andam com petsNoPainelDeGrupo: com os pets fora do painel não
+// há linha para derrubar, e exigir o RemoveParty seria exigir um pacote que
+// ninguém mandou. O RemoveMob é cobrado nos dois modos — é ele que tira a
+// criatura do chão.
 func TestSummonPartySlotClearedOnDespawn(t *testing.T) {
 	addr, stop := summonPartySrv(t, summonDB(30))
 	defer stop()
@@ -808,17 +828,34 @@ func TestSummonPartySlotClearedOnDespawn(t *testing.T) {
 
 	pet := evokeOne(t, c, 1)
 	removePartyFrame(t, c, 1)
+
+	saiuDoChao, saiuDoGrupo := false, false
 	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
+	for time.Now().Before(deadline) && (!saiuDoChao || (petsNoPainelDeGrupo && !saiuDoGrupo)) {
 		h, payload, ok := readMaybeHeaderRaw(t, c)
 		if !ok {
 			continue
 		}
-		if h.Type == protocol.MsgRemoveParty && int(protocolLe16(payload[0:2])) == pet {
-			return
+		switch h.Type {
+		case protocol.MsgRemoveMob:
+			if int(h.ID) == pet {
+				saiuDoChao = true
+			}
+		case protocol.MsgRemoveParty:
+			if len(payload) >= 2 && int(protocolLe16(payload[0:2])) == pet {
+				saiuDoGrupo = true
+			}
 		}
 	}
-	t.Fatalf("no RemoveParty row for pet %d; the client keeps a ghost party slot", pet)
+	if !saiuDoChao {
+		t.Errorf("o pet %d ficou no chão depois de o vínculo acabar", pet)
+	}
+	if petsNoPainelDeGrupo && !saiuDoGrupo {
+		t.Errorf("o pet %d saiu do chão e continuou no painel de grupo", pet)
+	}
+	if !petsNoPainelDeGrupo && saiuDoGrupo {
+		t.Errorf("mandou RemoveParty do pet %d sem nunca ter mandado a linha", pet)
+	}
 }
 
 // TestSummonAssistsAgainstMob: a monster fight near the owner pulls the pet in
@@ -1079,7 +1116,7 @@ func TestSummonExpiradoSaiDoPainelDeGrupo(t *testing.T) {
 
 	saiuDoChao, saiuDoGrupo := false, false
 	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) && (!saiuDoChao || !saiuDoGrupo) {
+	for time.Now().Before(deadline) && (!saiuDoChao || (petsNoPainelDeGrupo && !saiuDoGrupo)) {
 		h, payload, ok := readMaybeHeaderRaw(t, c)
 		if !ok {
 			continue
@@ -1098,7 +1135,7 @@ func TestSummonExpiradoSaiDoPainelDeGrupo(t *testing.T) {
 	if !saiuDoChao {
 		t.Error("o pet não expirou (nenhum RemoveMob)")
 	}
-	if !saiuDoGrupo {
+	if petsNoPainelDeGrupo && !saiuDoGrupo {
 		t.Error("o pet sumiu do chão mas continuou no painel de grupo (nenhum RemoveParty) — é assim que a lista enche de linha morta")
 	}
 }
