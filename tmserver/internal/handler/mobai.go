@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/internal/spawnrate"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
@@ -115,6 +116,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
 	d.pollWorldEventConfig(w)
 	d.pollDungeonGates(w)
+	d.pollSpawnRates(w)
 }
 
 type questArea struct {
@@ -381,7 +383,12 @@ func (d *Dispatcher) generateMobs(w *world.World) {
 		if g == nil || g.MinuteGenerate <= 0 {
 			continue
 		}
-		if minute%g.MinuteGenerate != idx%g.MinuteGenerate {
+		// The block's own period, re-timed by the area dial (spawnrate.go).
+		// Scaling rather than replacing is what keeps a boss group scarcer than
+		// the trash around it: the desert alone mixes 2-, 3- and 4-minute
+		// blocks, and one flat number would erase that on the first click.
+		period := spawnrate.ScaleMinutes(g.MinuteGenerate, d.spawnPercentFor(w, idx))
+		if minute%period != idx%period {
 			continue
 		}
 		d.revealSpawned(w, w.GenerateMob(idx))

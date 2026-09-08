@@ -287,6 +287,7 @@ type Config struct {
 	MesaXP      MesaXP
 	Masmorras   Masmorras
 	Quests      Quests
+	Spawn       Spawn
 	BonusDrop   BonusDrop
 	Sessions    *session.Store
 	Logger      *slog.Logger
@@ -375,6 +376,13 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /rates/xp/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMesaXP))))
 		mux.Handle("POST /rates/xp/restaurar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.restaurarMesaXP))))
 		mux.Handle("POST /rates/xp/dificuldade", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.aplicarDificuldade))))
+		// O ritmo de spawn aparece na Mesa de XP, mas tem armazém próprio e vale
+		// NA HORA, ao contrário de tudo o mais naquela tela. Sem esse armazém a
+		// Mesa continua inteira, só sem a caixa de spawn.
+		if h.cfg.Spawn != nil {
+			mux.Handle("POST /rates/xp/spawn", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setSpawn))))
+			mux.Handle("POST /rates/xp/spawn/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparSpawn))))
+		}
 		// Progressão reads the same Mesa the XP tab writes, so it rides the same
 		// condition: without a Mesa there is nothing to plan against.
 		mux.Handle("GET /rates/progressao", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.progressao))))

@@ -211,6 +211,7 @@ func run(logger *slog.Logger) error {
 	var dbConn *grpc.ClientConn
 	var worldEvents worldcfg.Source
 	var dungeonGates handler.DungeonGateSource
+	var spawnRates handler.SpawnRateSource
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -221,6 +222,7 @@ func run(logger *slog.Logger) error {
 		persist = dbclient.New(conn)
 		worldEvents = dbclient.NewWorldEventConfig(conn)
 		dungeonGates = dbclient.NewDungeonGateSource(conn)
+		spawnRates = dbclient.NewSpawnRateSource(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -518,6 +520,7 @@ func run(logger *slog.Logger) error {
 		NpcConfig:       npcConfig,
 		WorldEvents:     worldEvents,
 		DungeonGates:    dungeonGates,
+		SpawnRates:      spawnRates,
 		CastleQuests:    castleQuests,
 		EventRNGSeed:    eventSeed,
 		MaxNightmare:    *maxNightmare,
@@ -616,7 +619,14 @@ func run(logger *slog.Logger) error {
 	if worldEvents != nil {
 		dispatch.ApplyWorldEventConfigBoot(w)
 		dispatch.ApplyDungeonGatesBoot()
+		dispatch.ApplySpawnRatesBoot()
 	}
+	// The individual respawn queue takes its delay from the same area dial the
+	// minute timer does, so the desert's dozen blocks without a minute period
+	// are not left running at 15s while everything around them slows down. It is
+	// installed unconditionally: with no source the hook reads 100% and returns
+	// exactly DefaultRespawnDelay.
+	dispatch.InstallRespawnDelay(w)
 	dispatch.ApplyGuildStateBoot(w)
 
 	// Admin control API (kick, broadcast, who is online). Off unless an address

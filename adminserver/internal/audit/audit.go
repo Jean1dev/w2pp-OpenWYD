@@ -50,6 +50,8 @@ const (
 	ActionStartGame          = "START_GAME"
 	ActionSetXPRule          = "SET_XP_RULE"
 	ActionSetDungeonGate     = "SET_DUNGEON_GATE"
+	ActionSetSpawnRate       = "SET_SPAWN_RATE"
+	ActionClearSpawnRate     = "CLEAR_SPAWN_RATE"
 	ActionSetQuestReward     = "SET_QUEST_REWARD"
 	ActionClearQuestReward   = "CLEAR_QUEST_REWARD"
 	ActionSetDropBonus       = "SET_DROP_BONUS"
@@ -258,6 +260,8 @@ var rotulos = map[string]string{
 	ActionStartGame:          "Ligou o servidor",
 	ActionSetXPRule:          "Mexeu na Mesa de XP",
 	ActionSetDungeonGate:     "Abriu ou fechou uma masmorra",
+	ActionSetSpawnRate:       "Mudou o tempo de spawn de uma área",
+	ActionClearSpawnRate:     "Voltou o tempo de spawn de uma área ao conteúdo",
 	ActionSetQuestReward:     "Mudou a recompensa de uma quest",
 	ActionClearQuestReward:   "Voltou a recompensa de uma quest ao conteúdo",
 	ActionSetDropBonus:       "Mudou a escada do bônus de drop",

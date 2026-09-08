@@ -52,6 +52,8 @@ var tabelasDeTeste = []string{
 	"drop_bonus",
 	"dungeon_gate_meta",
 	"dungeon_gate",
+	"spawn_rate_meta",
+	"spawn_rate",
 	"affect",
 	"item",
 	"character_pvp_stats",

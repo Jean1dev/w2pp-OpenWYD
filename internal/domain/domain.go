@@ -1173,3 +1173,23 @@ var DropBonusDefaults = [4]DropBonusBand{
 	{Distancia: 2, Limite: [4]int32{2, 16, 60, 100}, Degrau: [5]int32{5, 4, 3, 2, 2}, Refino: [4]int32{6, 35, 85, 100}},
 	{Distancia: 3, Limite: [4]int32{2, 9, 45, 75}, Degrau: [5]int32{6, 5, 4, 3, 2}, Refino: [4]int32{6, 35, 85, 100}},
 }
+
+// SpawnRate is one area's monster-respawn pacing as the database holds it: a
+// percentage applied to whatever period the content file gives each generator,
+// so the deliberate difference between a boss group and the trash around it
+// survives the edit. 100 is the content file untouched.
+//
+// Like DungeonGate and unlike the Mesa de XP, this is read LIVE — see migration
+// 0038 for why the two must not share a path.
+type SpawnRate struct {
+	Area    int32
+	Percent int32
+}
+
+// SpawnRateConfig is every touched area plus the version they belong to. An area
+// absent from Areas runs at 100%, which is how the server behaved before this
+// table existed.
+type SpawnRateConfig struct {
+	Version int64
+	Areas   []SpawnRate
+}

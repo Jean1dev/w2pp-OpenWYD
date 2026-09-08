@@ -246,6 +246,13 @@ type World struct {
 	// (the generateWorldCap gate). Loop-owned.
 	generators []*Generator
 	mobCount   int
+
+	// respawnDelayFor, when set, replaces DefaultRespawnDelay for one
+	// generator's dead monsters. It is a hook rather than a plain field because
+	// the pacing is configured per AREA and read live: the handler owns that
+	// configuration, and the world has no business knowing what a "deserto" is.
+	// Loop-only, like everything else here.
+	respawnDelayFor func(genIndex int32) uint32
 }
 
 // New creates a World with the given dependencies. A nil handler installs a

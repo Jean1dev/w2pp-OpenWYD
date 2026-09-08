@@ -241,6 +241,8 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		OutrasZonas []opcaoZona
 		Escada      []mesaDificuldade
 		DifAtual    string
+		Spawn       spawnView
+		SpawnHist   []audit.Entry
 	}{
 		page:        h.pageFor(r, "rates"),
 		Aba:         "xp",
@@ -266,6 +268,8 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		OutrasZonas: outrasZonas(form.Zona),
 		Escada:      escadaDeDificuldade(form, cfg),
 		DifAtual:    nomeDaTaxa(cfg.RatePercent(zona, evo)),
+		Spawn:       h.spawnDaZona(r.Context(), zona),
+		SpawnHist:   h.spawnHistorico(r.Context()),
 	})
 }
 
