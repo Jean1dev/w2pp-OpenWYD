@@ -210,3 +210,57 @@ func TestRetornoWinsOverSapphiresWhenBothArePresent(t *testing.T) {
 		t.Error("as safiras foram gastas junto com o item premium")
 	}
 }
+
+// THE POOL LEAK. Investing a point in CON raises BaseCon AND adds 2 to BaseMaxHP
+// (misc.go:63); INT does the same to BaseMaxMP. A refund that lowered only the
+// attribute left the pool behind, so the player kept the HP the points had bought
+// and could spend them again — the reported case: CON down to 134 and still
+// eleven thousand HP.
+func TestRefundGivesBackTheHPAndMPThePointsBought(t *testing.T) {
+	e := &world.Entity{Class: 2, ClassMaster: classMasterMortal, Level: 400}
+	e.BaseStr, e.BaseDex = int16(bmBase[0]), int16(bmBase[2])
+	e.BaseInt = int16(bmBase[1]) + 500
+	e.BaseCon = int16(bmBase[3]) + 1500
+	// The pools those 2000 points bought, exactly as applyScoreBonus builds them.
+	e.BaseMaxMP = 1000 + 2*500
+	e.BaseMaxHP = 1000 + 2*1500
+
+	_, taken := refundBuild(e, retornoHabilidadePoints)
+
+	// 500/2000 of the budget is INT, 1500/2000 is CON.
+	if taken[1] != 250 || taken[3] != 750 {
+		t.Fatalf("divisão = %v, esperado INT 250 e CON 750", taken)
+	}
+	if want := int32(1000 + 2*250); e.BaseMaxMP != want {
+		t.Errorf("BaseMaxMP = %d, esperado %d (devolveu %d de INT)", e.BaseMaxMP, want, taken[1])
+	}
+	if want := int32(1000 + 2*750); e.BaseMaxHP != want {
+		t.Errorf("BaseMaxHP = %d, esperado %d (devolveu %d de CON)", e.BaseMaxHP, want, taken[3])
+	}
+}
+
+// Round trip: refund and re-spend must land exactly where it started. Without the
+// pool half, each cycle would inflate HP and MP for free.
+func TestResetAndRespendIsNeutralOnThePools(t *testing.T) {
+	e := bmWithCon(2000)
+	e.BaseMaxHP = 1000 + 2*2000
+	e.BaseMaxMP = 800
+	e.ScoreBonus = 0
+	hpBefore, mpBefore := e.BaseMaxHP, e.BaseMaxMP
+
+	refund, taken := refundBuild(e, retornoHabilidadePoints)
+	if refund != 1000 {
+		t.Fatalf("estorno = %d, esperado 1000", refund)
+	}
+	// Re-spend every refunded point back into CON, the way applyScoreBonus does.
+	e.BaseCon += int16(taken[3])
+	e.BaseMaxHP += 2 * taken[3]
+
+	if e.BaseMaxHP != hpBefore {
+		t.Errorf("BaseMaxHP = %d depois de devolver e regastar, esperado %d — o ciclo cria vida",
+			e.BaseMaxHP, hpBefore)
+	}
+	if e.BaseMaxMP != mpBefore {
+		t.Errorf("BaseMaxMP = %d, esperado %d", e.BaseMaxMP, mpBefore)
+	}
+}

@@ -166,6 +166,13 @@ func (d *Dispatcher) clearSlots(w *world.World, s *world.Session, e *world.Entit
 	}
 }
 
+func maxInt32(a, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // refundBuild lowers the four attributes by up to budget points TOTAL and reports
 // how many it took, plus the split. It never goes below the class base, so a
 // character can only ever get back what it put in.
@@ -212,5 +219,13 @@ func refundBuild(e *world.Entity, budget int32) (int32, [4]int32) {
 	for i, p := range attrs {
 		*p = int16(int32(*p) - taken[i])
 	}
+	// Undo the OTHER half of the allocation. applyScoreBonus does two things per
+	// point (misc.go:56-64): it raises the attribute AND, for INT and CON, adds
+	// 2×points straight into BaseMaxMP/BaseMaxHP. Lowering only the attribute left
+	// the pool behind, so a reset handed back the points while keeping the HP and
+	// MP they had bought — spend them again and both grow for free, which turns the
+	// item into a pool printer instead of a respec.
+	e.BaseMaxMP = maxInt32(e.BaseMaxMP-2*taken[1], 0)
+	e.BaseMaxHP = maxInt32(e.BaseMaxHP-2*taken[3], 0)
 	return sum, taken
 }
