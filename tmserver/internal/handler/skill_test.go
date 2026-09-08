@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -745,5 +746,28 @@ func TestLearnSkillCelestialWaivers(t *testing.T) {
 		if got := reqLevel(cm, 220); got != 0 {
 			t.Errorf("celestial tier %d level requirement = %d, want 0", cm, got)
 		}
+	}
+}
+
+// The gold wall is the one refusal a player cannot see coming: the 8th skill's
+// fifty million appears on no tooltip — the client lists the level and the
+// mastery and stops there — so someone who meets every visible requirement
+// clicks and gets nothing back. It answered with the bare numeric notice until
+// now, which is exactly the shape of "clicked and nothing happened".
+func TestEighthSkillGoldRefusalSaysThePrice(t *testing.T) {
+	for _, msg := range []string{msgNotEnoughSkillPoint, msgEighthSkillCost} {
+		encoded := protocol.ClientText(msg)
+		if bytes.ContainsRune(encoded, '?') {
+			t.Errorf("%q carries a character outside the client's codepage", msg)
+		}
+	}
+	// The price has to survive formatting: %d against a 50-million constant is
+	// where a stray %s or a missing verb would show up.
+	got := fmt.Sprintf(msgEighthSkillCost, eighthSkillCoin)
+	if !strings.Contains(got, "50000000") {
+		t.Errorf("the refusal does not name the price: %q", got)
+	}
+	if len(protocol.ClientText(got)) > 94 {
+		t.Errorf("%q is %d bytes encoded, over the panel's 94", got, len(protocol.ClientText(got)))
 	}
 }

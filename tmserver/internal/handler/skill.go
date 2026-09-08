@@ -100,6 +100,8 @@ func (d *Dispatcher) learnSkill(w *world.World, s *world.Session, e *world.Entit
 			"conn", s.Conn, "account", s.AccountName, "skill", skillpos,
 			"cost", sp.SkillPoint, "have", e.SkillBonus, "affordable", affordable)
 		d.notify(w, s, NoticeNotEnoughSkillPoint)
+		sendClientMessage(w, s, fmt.Sprintf("%s (custa %d, você tem %d)",
+			msgNotEnoughSkillPoint, sp.SkillPoint, affordable))
 		return
 	}
 	isEighth := skillpos == 7 || skillpos == 15 || skillpos == 23
@@ -132,6 +134,11 @@ func (d *Dispatcher) learnSkill(w *world.World, s *world.Session, e *world.Entit
 				"conn", s.Conn, "account", s.AccountName, "skill", skillpos,
 				"gold", e.Coin, "needed", eighthSkillCoin)
 			d.notify(w, s, NoticeNotEnoughCoin)
+			// The 8th skill costs fifty million on top of its skill points, and
+			// nothing on screen says so — the tooltip lists the level and the
+			// mastery, never the gold. A player who meets every visible
+			// requirement clicks and gets silence.
+			sendClientMessage(w, s, fmt.Sprintf(msgEighthSkillCost, eighthSkillCoin))
 			return
 		}
 	}
@@ -305,4 +312,12 @@ const (
 	msgOnlyOneEighthSkill = "8ª Skill pode ser somente da 1ª Classe."
 	msgBeforeEighthSkill  = "É necessário aprender todas as skills antes da 8ª Skill."
 	msgOtherClassSkill    = "Essa habilidade não é da sua classe."
+
+	// The two that were missed when the other refusals were given a voice: they
+	// kept answering with the bare numeric notice, which the client does not
+	// render. The gold one is the worse of the pair — the 8th skill's fifty
+	// million appears on no tooltip, so a player who meets every requirement the
+	// client DOES show is refused by a cost nothing ever mentioned.
+	msgNotEnoughSkillPoint = "Não possui pontos suficientes." // Language.txt:108
+	msgEighthSkillCost     = "Você precisa de %d de ouro."    // Language.txt:204
 )
