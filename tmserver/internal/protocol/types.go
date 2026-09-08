@@ -12,6 +12,18 @@ type Type uint16
 // 1789): mob action chat and normal public chat are a fixed 96-byte C string.
 const MessageLength = 96
 
+// MessagePanelLength is MSG_MessagePanel.String's fixed-width C string
+// (Basedef.h:1528). Unlike chat messages, client notices reserve 128 bytes.
+const MessagePanelLength = 128
+
+// EncodeMessagePanelBody returns the fixed MSG_MessagePanel.String payload.
+// The zero-filled tail supplies the C-string terminator expected by the client.
+func EncodeMessagePanelBody(text string) []byte {
+	body := make([]byte, MessagePanelLength)
+	copy(body[:MessagePanelLength-1], text)
+	return body
+}
+
 // Direction flag bits (protocol-spec.md §2, Basedef.h:1212-1221).
 const (
 	FlagGame2Client Type = 0x0100 // TMSrv → client

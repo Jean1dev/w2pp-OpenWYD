@@ -2,6 +2,37 @@ package protocol
 
 import "testing"
 
+func TestEncodeMessagePanelBody(t *testing.T) {
+	t.Run("pads a short C string", func(t *testing.T) {
+		body := EncodeMessagePanelBody("Refinação falhou.")
+		if len(body) != MessagePanelLength {
+			t.Fatalf("body length = %d, want %d", len(body), MessagePanelLength)
+		}
+		if got := cTrimNUL(body); got != "Refinação falhou." {
+			t.Fatalf("text = %q, want %q", got, "Refinação falhou.")
+		}
+	})
+
+	t.Run("truncates to the legacy field", func(t *testing.T) {
+		text := make([]byte, MessagePanelLength+10)
+		for i := range text {
+			text[i] = 'x'
+		}
+		body := EncodeMessagePanelBody(string(text))
+		if len(body) != MessagePanelLength {
+			t.Fatalf("body length = %d, want %d", len(body), MessagePanelLength)
+		}
+		for i, b := range body[:MessagePanelLength-1] {
+			if b != 'x' {
+				t.Fatalf("body[%d] = %d, want 'x'", i, b)
+			}
+		}
+		if body[MessagePanelLength-1] != 0 {
+			t.Fatal("truncated panel text is not NUL-terminated")
+		}
+	})
+}
+
 // Legacy message-type direction flags (Basedef.h:1212-1221). These bits are
 // part of the value the client matches on, not metadata about it: every wire
 // type is a base number OR'd with its direction flags.

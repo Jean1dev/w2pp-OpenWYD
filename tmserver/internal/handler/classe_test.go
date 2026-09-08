@@ -119,6 +119,12 @@ func TestClasseBonusHelmRerollsSancAndEffects(t *testing.T) {
 	if got.Effects[1].Effect == 0 || got.Effects[2].Effect == 0 {
 		t.Errorf("bonus effects not set: %+v", got.Effects)
 	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMessagePanel); got != 1 {
+		t.Errorf("message panels = %d, want 1", got)
+	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMotion); got != 1 {
+		t.Errorf("motions = %d, want 1", got)
+	}
 }
 
 // classeSancCapForTest avoids importing the unexported refine.classeSancCap.
@@ -230,6 +236,12 @@ func TestClasseGates(t *testing.T) {
 			if f.e.Carry[0].Empty() {
 				t.Errorf("classe item unexpectedly consumed on a gate failure")
 			}
+			if got := f.w.SentOfType(f.s, protocol.MsgMessagePanel); got != 1 {
+				t.Errorf("message panels = %d, want 1", got)
+			}
+			if got := f.w.SentOfType(f.s, protocol.MsgMotion); got != 0 {
+				t.Errorf("motions = %d, want 0 on rejection", got)
+			}
 		})
 	}
 }
@@ -253,6 +265,12 @@ func TestClasseRejectsEquipDestination(t *testing.T) {
 	}
 	if f.e.Equip[1] != (world.Item{Index: itemChestT1}) {
 		t.Errorf("equipped target mutated: %+v", f.e.Equip[1])
+	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMessagePanel); got != 1 {
+		t.Errorf("message panels = %d, want 1", got)
+	}
+	if got := f.w.SentOfType(f.s, protocol.MsgMotion); got != 0 {
+		t.Errorf("motions = %d, want 0 on rejection", got)
 	}
 }
 
