@@ -1073,3 +1073,44 @@ func cTrimNUL(b []byte) string {
 	}
 	return string(b)
 }
+
+// Offsets of the attacker's own state inside an MSG_Attack/AttackOne/AttackTwo
+// body (Basedef.h:2452-2484, inside a pack(1) block so nothing is padded).
+const (
+	attackOffCurrentMp  = 4  // int
+	attackOffCurrentExp = 12 // long long
+	attackOffCurrentHp  = 40 // int
+	attackOffEnd        = 44 // fim do último campo de estado, para referência
+)
+
+// AttackEchoFor rewrites an attack echo so it carries the RECIPIENT's own
+// experience instead of the attacker's.
+//
+// ONLY the experience. CurrentHp and CurrentMp stay as the attacker's on
+// purpose: a bystander draws the attacker's health bar from them, and
+// overwriting those would freeze every other player's bar at the watcher's own
+// values. Experience is the one field with no such use — nobody renders another
+// player's experience — so it is the only one that can only do harm.
+//
+// The legacy multicasts the attacker's buffer verbatim (_MSG_Attack.cpp:1749)
+// and relies on the client to ignore CurrentExp when the packet's ClientTick is
+// not the one it sent. That is no guarantee: the tick is GetTickCount(), so two
+// clients on the SAME MACHINE tick almost identically and the bystander accepts
+// the attacker's total as its own. Observed in game — a level-192 character
+// beside a level-313 one was told it gained 790.358.674 experience, exactly the
+// 313's total minus the 192's.
+//
+// Writing the recipient's own value, rather than zeroing it, is what makes this
+// safe either way: a client that ignores the field is unaffected, and one that
+// applies it writes back the number it already had.
+//
+// Returns b unchanged when the body is too short to hold the field.
+func AttackEchoFor(b []byte, exp int64) []byte {
+	if len(b) < attackOffCurrentExp+8 {
+		return b
+	}
+	out := make([]byte, len(b))
+	copy(out, b)
+	le.PutUint64(out[attackOffCurrentExp:attackOffCurrentExp+8], uint64(exp))
+	return out
+}

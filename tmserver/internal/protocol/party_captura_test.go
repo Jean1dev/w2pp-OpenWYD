@@ -97,9 +97,9 @@ func TestTradeLeOsCamposNosOffsetsDoLegado(t *testing.T) {
 	b := make([]byte, 144)
 	// Um item no slot 0, para provar que a área de itens não se moveu.
 	le.PutUint16(b[0:2], 1234)
-	b[tradeOffInvenPos] = 7                            // InvenPos[0]
+	b[tradeOffInvenPos] = 7                                   // InvenPos[0]
 	le.PutUint32(b[tradeOffMoney:tradeOffMoney+4], 5_000_000) // dinheiro
-	b[tradeOffMyCheck] = 1                             // confirmado
+	b[tradeOffMyCheck] = 1                                    // confirmado
 	le.PutUint16(b[tradeOffOpponentID:tradeOffOpponentID+2], 42)
 	// Os dois bytes de preenchimento ficam em zero, como o compilador os deixa.
 
@@ -151,5 +151,55 @@ func TestTradeAceitaCorpoSemOParceiro(t *testing.T) {
 	}
 	if m.OpponentID != 0 {
 		t.Errorf("OpponentID = %d, want 0 — não veio no pacote", m.OpponentID)
+	}
+}
+
+// An attack echo forwarded to a bystander must carry the BYSTANDER's own mana,
+// experience and health — not the attacker's.
+//
+// Observed in game: a level-192 character standing beside a level-313 one was
+// told it gained 790.358.674 experience, which is exactly the 313's total
+// (856.823.079) minus the 192's own (66.464.405). The body carries the
+// attacker's totals and the legacy trusts the client to ignore them when the
+// ClientTick is not its own — but the tick is GetTickCount(), so two clients on
+// one machine tick almost identically and the guard fails.
+func TestEcoDeAtaqueLevaOsNumerosDeQuemRecebe(t *testing.T) {
+	b := make([]byte, 60)
+	le.PutUint32(b[attackOffCurrentMp:], 500)          // mana do atacante
+	le.PutUint64(b[attackOffCurrentExp:], 856_823_079) // XP do atacante
+	le.PutUint32(b[attackOffCurrentHp:], 3340)         // HP do atacante
+	le.PutUint16(b[30:32], 7)                          // AttackerID, tem que sobreviver
+
+	out := AttackEchoFor(b, 66_464_405)
+	if &out[0] == &b[0] {
+		t.Fatal("AttackEchoFor devolveu o mesmo buffer; o do atacante seria corrompido")
+	}
+	if got := le.Uint64(out[attackOffCurrentExp:]); got != 66_464_405 {
+		t.Errorf("XP no eco = %d, want 66464405 (a de quem recebe)", got)
+	}
+	// Vida e mana continuam sendo as de QUEM ATACA: é delas que o espectador
+	// desenha a barra de vida dele na tela. Trocá-las congelaria a barra de todo
+	// mundo nos números de quem está olhando.
+	if got := le.Uint32(out[attackOffCurrentMp:]); got != 500 {
+		t.Errorf("mana no eco = %d, want 500 (a de quem ataca)", got)
+	}
+	if got := le.Uint32(out[attackOffCurrentHp:]); got != 3340 {
+		t.Errorf("vida no eco = %d, want 3340 (a de quem ataca, para a barra dele)", got)
+	}
+	// Tudo que não é a experiência continua igual, senão o espectador perde o
+	// golpe que deveria ver.
+	if got := le.Uint16(out[30:32]); got != 7 {
+		t.Errorf("AttackerID = %d, want 7 — o resto do pacote não pode mudar", got)
+	}
+	if le.Uint32(b[attackOffCurrentMp:]) != 500 || le.Uint64(b[attackOffCurrentExp:]) != 856_823_079 {
+		t.Error("o buffer original foi alterado; ele ainda vai para o atacante")
+	}
+}
+
+// Um corpo curto demais para conter a experiência passa direto, sem estourar.
+func TestEcoDeAtaqueIgnoraCorpoCurto(t *testing.T) {
+	b := make([]byte, attackOffCurrentExp+4) // cabe metade do campo, não ele todo
+	if out := AttackEchoFor(b, 3); &out[0] != &b[0] {
+		t.Error("corpo curto devia voltar como veio")
 	}
 }
