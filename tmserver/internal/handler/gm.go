@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -52,6 +53,8 @@ func (d *Dispatcher) runGMCommand(w *world.World, s *world.Session, args []byte)
 		d.gmNotice(w, s, rest)
 	case "goto", "ir":
 		d.gmGoto(w, s, rest)
+	case "pos", "xy":
+		d.gmGotoPos(w, s, rest)
 	case "summon", "puxar":
 		d.gmSummon(w, s, rest)
 	case "spawn":
@@ -140,6 +143,48 @@ func (d *Dispatcher) gmGoto(w *world.World, s *world.Session, rest string) {
 		return
 	}
 	d.doTeleport(w, s, te.X, te.Y)
+}
+
+// gmGotoPos teleports the caller to a raw tile:
+//
+//	/gm pos <x> <y>
+//
+// This is the sibling of gmGoto for the case that command cannot serve — a place
+// with nobody standing in it. It deliberately checks ONLY that the tile exists.
+// Blocked terrain, a locked dungeon, a war zone, a room whose door is shut: those
+// are exactly the destinations a GM needs this for, so refusing them would leave
+// the command unable to do the one job it was asked for. The grid bound is not
+// negotiable in the same way — Grid.SetMob drops an out-of-bounds write silently
+// (grid.go:44), which would leave the character holding coordinates that no cell
+// on the map answers for.
+func (d *Dispatcher) gmGotoPos(w *world.World, s *world.Session, rest string) {
+	fields := strings.Fields(rest)
+	if len(fields) < 2 {
+		sendClientMessage(w, s, "Uso: /gm pos <x> <y>")
+		return
+	}
+	x, errX := strconv.Atoi(fields[0])
+	y, errY := strconv.Atoi(fields[1])
+	if errX != nil || errY != nil {
+		sendClientMessage(w, s, "Coordenada inválida. Uso: /gm pos <x> <y>")
+		return
+	}
+	dim := w.GridDim()
+	if x < 0 || y < 0 || x >= dim || y >= dim {
+		// Said out loud, with the bound: a GM who mistypes one digit gets a number to
+		// compare against instead of a command that looks broken.
+		sendClientMessage(w, s, fmt.Sprintf("Fora do mapa. O limite é 0..%d.", dim-1))
+		d.log.Warn("gm pos: out of bounds",
+			"account", s.AccountName, "x", x, "y", y, "dim", dim)
+		return
+	}
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	d.log.Info("gm pos", "account", s.AccountName, "name", e.Name,
+		"from_x", e.X, "from_y", e.Y, "to_x", x, "to_y", y)
+	d.doTeleport(w, s, int16(x), int16(y))
 }
 
 // gmSummon pulls a named online player to the caller's position.
