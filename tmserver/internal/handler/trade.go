@@ -19,22 +19,22 @@ func (d *Dispatcher) trade(w *world.World, s *world.Session, _ protocol.Header, 
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP == 0 || s.Mode != world.UserPlay {
 		w.AddCrackError(s, 5, 18)
-		d.removeTrade(w, s)
+		d.cancelTrade(w, s)
 		return
 	}
 	var body protocol.MsgTradeBody
 	if err := body.Decode(payload); err != nil {
-		d.removeTrade(w, s)
+		d.cancelTrade(w, s)
 		return
 	}
 	opp := int(body.OpponentID)
 	other := w.Session(opp)
 	if opp <= 0 || opp >= world.MaxUser || other == nil || other.Mode != world.UserPlay {
-		d.removeTrade(w, s)
+		d.cancelTrade(w, s)
 		return
 	}
 	if body.TradeMoney < 0 || body.TradeMoney > e.Coin {
-		d.removeTrade(w, s)
+		d.cancelTrade(w, s)
 		return
 	}
 
@@ -45,7 +45,16 @@ func (d *Dispatcher) trade(w *world.World, s *world.Session, _ protocol.Header, 
 		}
 		pos := int(body.InvenPos[i])
 		if pos < 0 || pos >= maxTradeSlot || !carrySlotAccessible(e, pos) || !sameItem(body.Item[i], e.Carry[pos]) {
-			d.removeTrade(w, s) // bounds or item changed during confirm
+			d.cancelTrade(w, s) // bounds or item changed during confirm
+			return
+		}
+		// EF_NOTRADE (ItemEffect.h:170) marks the 156 catalog rows that may never
+		// change hands — the Guarda sets, the Vanaheim/Æsir weapons, the Tivas and
+		// Njord lines. The original refuses at _MSG_Trade.cpp:180 and tells BOTH
+		// players why, because the one holding the item is not always the one who
+		// needs the explanation.
+		if d.itemAbility(e.Carry[pos], efNoTrade) != 0 {
+			d.refuseTrade(w, s, other, NoticeCantMoveItem)
 			return
 		}
 		slots = append(slots, pos)
@@ -97,11 +106,11 @@ func (d *Dispatcher) mirrorOffer(w *world.World, other *world.Session, from int,
 func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 	ea, eb := w.Entity(a.Conn), w.Entity(b.Conn)
 	if ea == nil || eb == nil {
-		d.removeTrade(w, a)
+		d.cancelTrade(w, a)
 		return
 	}
 	if !tradeSlotsAccessible(ea, a.Trade.Slots) || !tradeSlotsAccessible(eb, b.Trade.Slots) {
-		d.removeTrade(w, a)
+		d.cancelTrade(w, a)
 		return
 	}
 
@@ -110,7 +119,7 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 	if freeCarry(eb) < len(aItems) || freeCarry(ea) < len(bItems) {
 		putBack(ea, a.Trade.Slots, aItems) // not enough room → rollback
 		putBack(eb, b.Trade.Slots, bItems)
-		d.removeTrade(w, a)
+		d.cancelTrade(w, a)
 		return
 	}
 	// The destination slots are remembered so the clients can be re-synced: the
@@ -196,24 +205,65 @@ func (d *Dispatcher) quitTrade(w *world.World, s *world.Session, _ protocol.Head
 	if e := w.Entity(s.Conn); e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		w.AddCrackError(s, 10, 17)
 	}
-	d.removeTrade(w, s)
+	d.cancelTrade(w, s)
 }
 
-// removeTrade cancels any active trade on s and its opponent, notifying both.
-// It is also the anti-dup hook called when a player drops/uses/attacks mid-trade.
+// refuseTrade is the shape every named refusal takes in the original: one line of
+// text to each player, then the trade torn down on both sides
+// (_MSG_Trade.cpp:180-190 and its neighbours). Sending the text to the opponent
+// too is deliberate parity — from their seat the window simply vanishes, and
+// without the line they have no way to tell a refusal from a disconnect.
+func (d *Dispatcher) refuseTrade(w *world.World, s, other *world.Session, n Notice) {
+	d.notify(w, s, n)
+	if other != nil {
+		d.notify(w, other, n)
+	}
+	d.cancelTrade(w, s)
+	if other != nil && other.Trade.OpponentID == s.Conn {
+		d.cancelTrade(w, other)
+	}
+}
+
+// removeTrade is the anti-dup HOOK: the one called when a player drops, uses, or
+// moves an item, toggles PK, or walks away mid-trade. It stays silent when there is
+// no trade to cancel, because those callers fire on ordinary play and a QuitTrade on
+// every attack would be noise. The original guards the same way, but at the CALL
+// site — _MSG_PKMode.cpp:27 wraps its RemoveTrade in `if (Trade.OpponentID)`.
 func (d *Dispatcher) removeTrade(w *world.World, s *world.Session) {
 	// RemoveTrade in the original also closes an open personal shop (Server.cpp:8124);
 	// this is what makes walking/buying/item-ops/quit-trade tear the stall down.
-	d.closeAutoTrade(w, s)
 	if !s.Trade.Active {
+		d.closeAutoTrade(w, s)
 		return
 	}
+	d.cancelTrade(w, s)
+}
+
+// cancelTrade tears the trade down and ALWAYS answers, which is what RemoveTrade does
+// in the original: it clears the struct and sends signal 900 — 0x0384, this very
+// message — gated on nothing but USER_PLAY (Server.cpp:8114-8132).
+//
+// This is the half that was missing, and it is the whole bug behind "the client
+// freezes". Trade.Active is only set at the END of the offer handler, after every
+// check has passed, so a first offer refused for ANY reason — bad packet, opponent
+// gone, impossible gold, a slot out of range, an item swapped mid-confirm — went
+// through removeTrade while Active was still false and answered with nothing at all.
+// The window stayed open on a trade the server had already thrown away.
+//
+// So every path where the client is SITTING ON A REPLY uses this one; the anti-dup
+// hook above keeps the guard.
+func (d *Dispatcher) cancelTrade(w *world.World, s *world.Session) {
+	d.closeAutoTrade(w, s)
 	opp := s.Trade.OpponentID
 	s.Trade = world.TradeState{}
-	w.Send(s, protocol.MsgQuitTrade, nil)
+	if s.Mode == world.UserPlay {
+		w.Send(s, protocol.MsgQuitTrade, nil)
+	}
 	if other := w.Session(opp); other != nil && other.Trade.OpponentID == s.Conn {
 		other.Trade = world.TradeState{}
-		w.Send(other, protocol.MsgQuitTrade, nil)
+		if other.Mode == world.UserPlay {
+			w.Send(other, protocol.MsgQuitTrade, nil)
+		}
 	}
 }
 

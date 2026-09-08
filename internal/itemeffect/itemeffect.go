@@ -75,6 +75,11 @@ var efName = map[string]uint8{
 	// Refine gates (_MSG_UseItem.cpp dust path): EF_NOSANC marks an item that can
 	// never be refined; the two incubation effects drive the mount-egg branch.
 	"EF_NOSANC": 126, "EF_INCUBATE": 78, "EF_INCUDELAY": 84,
+	// EF_NOTRADE gates the trade window and the personal shop
+	// (_MSG_Trade.cpp:180, _MSG_SendAutoTrade.cpp:85). It is the same bug class as
+	// EF_ITEMTYPE above: 156 rows of ItemList.csv carry it, and while it was missing
+	// from this table every one of those items read 0 and traded freely.
+	"EF_NOTRADE": 127,
 }
 
 // EffectID returns the STRUCT_EFFECT id for an EF_<name> token, and whether the

@@ -186,6 +186,12 @@ const (
 	NoticePartyOtherMember
 	NoticePartyHasOwn
 	NoticePartyLevelLimit
+
+	// NoticeCantMoveItem is _NN_Cant_MoveItem (Language.txt:379), the refusal for an
+	// EF_NOTRADE item offered in a trade or put in a personal shop
+	// (_MSG_Trade.cpp:182, _MSG_SendAutoTrade.cpp:87). Appended at the end for the
+	// reason NoticeLevelLimit gives.
+	NoticeCantMoveItem
 )
 
 // noticeKey maps a Notice to its key in the shipped client string table
@@ -284,6 +290,8 @@ var noticeKey = map[Notice]string{
 	NoticeMountNotMatch:   "_NN_Mount_Not_Match",   // 256
 	NoticeCantUpgradeMore: "_NN_Cant_Upgrade_More", // 254
 	NoticeMountGrowth:     "_NN_Mount_Growth",      // 255
+
+	NoticeCantMoveItem: "_NN_Cant_MoveItem", // 379
 }
 
 // noticeText is the compiled fallback for notices with no Language.txt line: the
@@ -317,6 +325,10 @@ var noticeText = map[Notice]string{
 	NoticeAlreadyDone:  "Você já completou esta Quest.", // 71
 
 	NoticeLevelLimit: "Nível Insuficiente. Isto não pode ser utilizado.", // 298
+
+	// Without this fallback a server booted with no -content would refuse the trade
+	// and say nothing — which is the very failure this notice exists to end.
+	NoticeCantMoveItem: "Este item não pode ser movimentado.", // 379
 }
 
 // formatVerb matches a printf conversion, so a shipped line that interpolates

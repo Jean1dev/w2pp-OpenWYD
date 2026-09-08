@@ -108,10 +108,17 @@ func (d *Dispatcher) sendAutoTrade(w *world.World, s *world.Session, _ protocol.
 		// double-listing the same Cargo slot: a later slot that reuses pos would still
 		// match the (unchanged) Cargo item, but the buy path clears both on sale, so a
 		// duplicate reference just goes empty on the first purchase.
-		// TODO(#115): also reject EF_NOTRADE items — the effect id is not in our
-		// partial ItemEffect.h/catalog yet, so the blacklist is the only gate for now.
 		if !sameItem(ws.Item, cargo.Items[pos]) {
 			d.removeTrade(w, s)
+			return
+		}
+		// EF_NOTRADE, the same gate the trade window uses. The original refuses here
+		// too (_MSG_SendAutoTrade.cpp:85) and, unlike the trade path, only tells the
+		// owner and leaves the stall alone — there is no second player to inform.
+		// Without this the blacklist above was the only gate, and every Guarda set and
+		// Vanaheim weapon could be sold around the trade window.
+		if d.itemAbility(cargo.Items[pos], efNoTrade) != 0 {
+			d.notify(w, s, NoticeCantMoveItem)
 			return
 		}
 		shop.Slots[i].Item = cargo.Items[pos]
