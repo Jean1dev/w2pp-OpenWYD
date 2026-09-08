@@ -128,7 +128,16 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 		w.AddCrackError(s, 1, 5)
 		return
 	}
-	if !d.castleMoveAllowed(s.Conn, body.TargetX, body.TargetY) {
+	// A moderator is exempt, and that is a safety rule as much as a convenience.
+	// This refusal answers a move by teleporting the player back onto their own tile,
+	// which was harmless while walking was the only way in: the gate refuses the step
+	// that would ENTER. /gm pos puts a GM inside, and from there every movement packet
+	// becomes a full doTeleport with its own moveMulticast — a CreateMob/RemoveMob
+	// burst per frame of walking, for the GM and for everyone in view. enqueue drops a
+	// session outright once its out queue fills (world/world.go:755), so a GM standing
+	// in a castle room could take themselves and their neighbours off the server just
+	// by trying to walk out.
+	if s.AccessLevel < world.AccessModerator && !d.castleMoveAllowed(s.Conn, body.TargetX, body.TargetY) {
 		d.doTeleport(w, s, e.X, e.Y)
 		return
 	}

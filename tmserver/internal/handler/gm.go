@@ -182,9 +182,26 @@ func (d *Dispatcher) gmGotoPos(w *world.World, s *world.Session, rest string) {
 	if e == nil {
 		return
 	}
+	// Land on a FREE cell, never on top of whoever is already standing there.
+	// SetEntityPos (world/api.go:426) writes the mover into the grid cell without
+	// asking, and it only clears the OLD cell when the grid still names the mover —
+	// so landing on somebody overwrites them. Their e.X/e.Y still say this tile, but
+	// the grid says us: they vanish from every lookup that goes through the grid
+	// (mob aggro, view deltas, collision, the thunder sweep), and when we leave, the
+	// cell is cleared and the grid calls an occupied tile empty — permanently, until
+	// they walk. No other teleport could hit this: city spawns scatter by rand%15 and
+	// every scripted destination is a fixed empty point. Naming a tile by hand is new.
+	//
+	// EmptyCellNear scans rings out to 3, so the GM still arrives where they asked.
+	dx, dy, ok := w.EmptyCellNear(int16(x), int16(y))
+	if !ok {
+		sendClientMessage(w, s, "Não há espaço livre nessa coordenada.")
+		return
+	}
 	d.log.Info("gm pos", "account", s.AccountName, "name", e.Name,
-		"from_x", e.X, "from_y", e.Y, "to_x", x, "to_y", y)
-	d.doTeleport(w, s, int16(x), int16(y))
+		"from_x", e.X, "from_y", e.Y, "to_x", dx, "to_y", dy,
+		"asked_x", x, "asked_y", y)
+	d.doTeleport(w, s, dx, dy)
 }
 
 // gmSummon pulls a named online player to the caller's position.

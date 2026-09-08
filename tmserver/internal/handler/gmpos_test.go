@@ -51,11 +51,13 @@ func TestGMPosTeleportsToBareCoordinates(t *testing.T) {
 	}
 }
 
-// DELIBERATE: the command must not second-guess the destination. A GM asks for a
-// tile precisely because they cannot walk there — a shut dungeon, a war zone, a
-// room with no route. Here the destination already holds another player, the
-// cheapest "occupied tile" a test can build, and the teleport still has to happen.
-func TestGMPosDoesNotRefuseAnOccupiedTile(t *testing.T) {
+// The occupied tile. This test used to assert the GM landed exactly on the other
+// player, which passed while quietly corrupting the grid: SetEntityPos writes the
+// mover into the cell without asking, so the occupant stayed at those coordinates
+// while the grid named the GM — invisible to mob aggro, to collision, to every
+// lookup that goes through the grid. What the command owes the GM is arrival, not
+// that exact square, so it now lands beside them and the occupant keeps the cell.
+func TestGMPosDoesNotEvictTheOccupantOfATile(t *testing.T) {
 	addr, stop, _ := startServerClock(t, gmDB())
 	defer stop()
 	mod := enterWorldAs(t, addr, "mod")
@@ -68,12 +70,16 @@ func TestGMPosDoesNotRefuseAnOccupiedTile(t *testing.T) {
 	if _, _, ok := gmPosDest(t, mod, "12 13"); !ok {
 		t.Fatal("could not step off the shared tile")
 	}
-	x, y, ok := gmPosDest(t, mod, "5 5") // straight onto the victim
+
+	x, y, ok := gmPosDest(t, mod, "5 5") // straight at the victim
 	if !ok {
 		t.Fatal("an occupied tile was refused; the command exists to reach places like this")
 	}
-	if x != 5 || y != 5 {
-		t.Errorf("landed on (%d,%d), want (5,5)", x, y)
+	if x == 5 && y == 5 {
+		t.Error("landed ON the occupant, which overwrites them in the grid")
+	}
+	if abs16(x-5) > 3 || abs16(y-5) > 3 {
+		t.Errorf("landed on (%d,%d), too far from the (5,5) that was asked for", x, y)
 	}
 }
 
