@@ -1233,3 +1233,125 @@ func TestIntDoDonoNaoMexeNasEvocacoes(t *testing.T) {
 		}
 	}
 }
+
+// TestEvocacaoSobreviveAoRefreshScore é o bug que fazia a Succubus bater 1.
+//
+// refreshScore reconstrói o score do mob como BaseScore + equipamento, e roda em
+// mob também — qualquer afeto que caia no bicho dispara. Com o bônus da evocação
+// gravado só no score ATUAL, o primeiro afeto apagava tudo e a criatura voltava
+// ao número do arquivo: 150 de dano numa Succubus. Contra um chefe de AC 4.500 a
+// conta `dano − AC/2` cai abaixo de zero e o golpe vira o piso de 1.
+//
+// O teste chama refreshScore de propósito, que é o que nenhum teste fazia: todos
+// mediam o pet recém-nascido, no único instante em que o número ainda estava lá.
+func TestEvocacaoSobreviveAoRefreshScore(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	d := New(Config{
+		Log:        log,
+		Spells:     evokeSpell(),
+		SummonMobs: [][]byte{summonTemplate("Condor")},
+	})
+	w := world.New(world.Config{GridDim: 32}, log, nil, d.Handle)
+
+	// generateSummon guarda os pets na PartyList do LÍDER, e resolve o líder pelo
+	// mundo. Um teste unitário não consegue fabricar entidade de jogador, então o
+	// líder aqui é um mob de verdade — a função não distingue os dois, ela só lê
+	// Leader e PartyList.
+	liderID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Lider"), X: 5, Y: 5, GenIndex: -1})
+	if liderID < 0 {
+		t.Fatal("não consegui criar o líder")
+	}
+	dono := &world.Entity{
+		ID: 0, Mode: world.MobUser, Name: "Beast", X: 5, Y: 5,
+		HP: 1000, MaxHP: 1000, Level: 50, Int: 100, Leader: liderID,
+		BaseSpecial: [4]int16{0, 0, 320, 0}, Special: [4]int16{0, 0, 320, 0},
+	}
+	s := &world.Session{Conn: 0, Mode: world.UserPlay}
+	if !d.generateSummon(w, s, dono, 0, 1) {
+		t.Fatal("não evocou nada")
+	}
+
+	var pet *world.Entity
+	for _, m := range w.Entity(liderID).PartyList {
+		if m >= world.MaxUser {
+			pet = w.Entity(m)
+		}
+	}
+	if pet == nil {
+		t.Fatal("o pet não entrou na PartyList")
+	}
+
+	danoAoNascer, acAoNascer, hpAoNascer := pet.Damage, pet.AC, pet.MaxHP
+	if danoAoNascer <= summonBonus[0].damEvo {
+		t.Fatalf("o bônus nem chegou a ser aplicado: dano %d", danoAoNascer)
+	}
+
+	// O que acontece no jogo assim que qualquer afeto encosta no bicho.
+	d.refreshScore(pet)
+
+	if pet.Damage != danoAoNascer {
+		t.Errorf("dano caiu de %d para %d depois do refreshScore — o bônus estava só no score atual",
+			danoAoNascer, pet.Damage)
+	}
+	if pet.AC != acAoNascer {
+		t.Errorf("AC caiu de %d para %d depois do refreshScore", acAoNascer, pet.AC)
+	}
+	if pet.MaxHP != hpAoNascer {
+		t.Errorf("HP máximo caiu de %d para %d depois do refreshScore", hpAoNascer, pet.MaxHP)
+	}
+}
+
+// TestTrocarDeCriaturaDispensaOBandoAnterior: com gorilas em campo, lançar
+// tigre traz tigres — não um clique morto.
+//
+// O legado recusa (Server.cpp:2991-2997) e recusa CALADO, sem mensagem: o BM
+// gasta o gesto e não entende por que nada aconteceu. Como re-invocar a mesma
+// criatura já refaz o bando, a troca era a única porta que continuava fechada.
+func TestTrocarDeCriaturaDispensaOBandoAnterior(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	// Duas criaturas com faces distintas, que é o que a função compara.
+	condor := summonTemplate("Condor")
+	tigre := summonTemplate("Tigre")
+	// Equip[0] fica no deslocamento 140 (MobEquip): é a "face", e é por ela que
+	// generateSummon distingue uma linhagem da outra.
+	binary.LittleEndian.PutUint16(tigre[140:], 244)
+	d := New(Config{Log: log, SummonMobs: [][]byte{condor, tigre}})
+	w := world.New(world.Config{GridDim: 32}, log, nil, d.Handle)
+
+	liderID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Lider"), X: 5, Y: 5, GenIndex: -1})
+	if liderID < 0 {
+		t.Fatal("não consegui criar o líder")
+	}
+	dono := &world.Entity{
+		ID: 0, Mode: world.MobUser, X: 5, Y: 5, HP: 1000, MaxHP: 1000, Level: 50, Int: 100,
+		Leader: liderID, BaseSpecial: [4]int16{0, 0, 320, 0}, Special: [4]int16{0, 0, 320, 0},
+	}
+	s := &world.Session{Conn: 0, Mode: world.UserPlay}
+	lider := w.Entity(liderID)
+
+	if !d.generateSummon(w, s, dono, 0, 2) {
+		t.Fatal("a primeira evocação não saiu")
+	}
+	primeiros := map[int]bool{}
+	for _, m := range lider.PartyList {
+		if m >= world.MaxUser {
+			primeiros[m] = true
+		}
+	}
+	if len(primeiros) == 0 {
+		t.Fatal("nenhum pet na primeira evocação")
+	}
+
+	// Agora a OUTRA criatura, com a primeira ainda em campo.
+	if !d.generateSummon(w, s, dono, 1, 2) {
+		t.Fatal("trocar de criatura foi recusado — é o clique morto que o jogador vê")
+	}
+	for _, m := range lider.PartyList {
+		if m < world.MaxUser {
+			continue
+		}
+		if primeiros[m] {
+			t.Errorf("o pet %d da criatura anterior sobreviveu à troca", m)
+		}
+	}
+}

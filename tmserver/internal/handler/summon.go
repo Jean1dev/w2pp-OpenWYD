@@ -209,20 +209,22 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		return false
 	}
 	face := summonTemplateFace(d.summonMobs[summonID])
-	// A lineage already out blocks a different one, as in the legacy: the roster
-	// is one creature at a time (GenerateSummon, Server.cpp:2991-2997).
-	for _, memberID := range le.PartyList {
-		if memberID < world.MaxUser {
-			continue
-		}
-		pet := w.Entity(memberID)
-		if pet == nil || pet.Clan != summonClan {
-			continue
-		}
-		if pet.EquipVisual[0] != face {
-			return false
-		}
-	}
+	// DELIBERATE DIVERGENCE: trocar de criatura dispensa o bando anterior em vez
+	// de recusar a magia.
+	//
+	// O legado devolve 0 quando já existe summon de OUTRA face na party
+	// (GenerateSummon, Server.cpp:2991-2997) — e devolve calado, sem mensagem
+	// nenhuma. Em jogo isso é um clique morto: o BM com gorilas em campo lança
+	// tigre, gasta o gesto e não acontece nada, sem saber que precisa esperar os
+	// gorilas expirarem ou morrerem.
+	//
+	// Como re-invocar a MESMA criatura já refaz o bando (logo abaixo), recusar a
+	// troca era a única porta que continuava fechada. Dispensar é a mesma regra
+	// aplicada aos dois casos: o que você acabou de lançar é o que fica ao seu
+	// lado.
+	d.despawnSummons(w, leaderID, func(pet *world.Entity) bool {
+		return pet.Summoner == s.Conn && pet.EquipVisual[0] != face
+	})
 	// DELIBERATE DIVERGENCE: re-casting wipes what is out and summons the whole
 	// set again beside the caster.
 	//
@@ -292,9 +294,22 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		}
 		ownerInt := int32(e.Int)
 		evo := int32(effectiveSpecial(e, 2))
-		mob.Damage += ownerInt*bonus.damInt/100 + evo*bonus.damEvo/100
-		mob.AC += ownerInt*bonus.acInt/100 + evo*bonus.acEvo/100
-		mob.MaxHP += ownerInt*bonus.hpInt/100 + evo*bonus.hpEvo/100
+		// O bônus entra no BASE, não só no score atual, e essa distinção é a
+		// diferença entre a evocação funcionar e bater 1.
+		//
+		// refreshScore reconstrói o score do mob como BaseScore + equipamento, e
+		// roda em mob também: basta um afeto cair no bicho. Escrito só no atual,
+		// o bônus inteiro era apagado no primeiro afeto e a criatura voltava ao
+		// número do arquivo — 150 de dano numa Succubus, contra AC 4.500 de um
+		// chefe, o que cai abaixo de zero na conta e vira o piso de 1.
+		//
+		// O legado grava no BaseScore e deriva o atual depois
+		// (Server.cpp:3076-3088, BaseScore.Damage/Ac/MaxHp seguido de
+		// GetCurrentScore). Aqui é o mesmo: base primeiro, atual espelhando.
+		mob.BaseDamage += ownerInt*bonus.damInt/100 + evo*bonus.damEvo/100
+		mob.BaseAC += ownerInt*bonus.acInt/100 + evo*bonus.acEvo/100
+		mob.BaseMaxHP += ownerInt*bonus.hpInt/100 + evo*bonus.hpEvo/100
+		mob.Damage, mob.AC, mob.MaxHP = mob.BaseDamage, mob.BaseAC, mob.BaseMaxHP
 		mob.HP = mob.MaxHP
 		mob.Clan = summonClan
 		mob.Leader = leaderID
@@ -456,7 +471,10 @@ func (d *Dispatcher) generateBabyMountSummon(w *world.World, s *world.Session, e
 	if mountSanc > 100 {
 		mountSanc = 100
 	}
-	mob.Damage += 6 * mountSanc
+	// Base e atual juntos, pelo mesmo motivo da evocação: refreshScore reconstrói
+	// o atual a partir do base e apagaria o bônus da montaria.
+	mob.BaseDamage += 6 * mountSanc
+	mob.Damage = mob.BaseDamage
 	hp := int32(mountHP(mount))
 	if mob.MaxHP > 0 && hp > mob.MaxHP {
 		hp = mob.MaxHP
