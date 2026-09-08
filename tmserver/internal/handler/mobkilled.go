@@ -80,7 +80,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// Clan 4 mobs never award EXP: the legacy wraps the whole distribution in
 	// `MOB.Clan != 4` (MobKilled.cpp:402); gold and drops sit outside that gate.
 	if mob.Clan != 4 {
-		d.grantExp(w, ks, reward, mob)
+		d.grantPartyExp(w, ks, reward, mob)
 	}
 
 	d.tryWorldEventDrop(w, reward, int(mob.Level))
@@ -557,4 +557,76 @@ func tierGateBlocks(e *world.Entity) bool {
 			(e.Level == level.ArchGateLv370 && e.ArchLv370 == 0)
 	}
 	return false
+}
+
+// halfGridX and halfGridY are HALFGRIDX/HALFGRIDY (Basedef.h:157): the box the
+// legacy calls "near enough" when it splits a kill's experience across a party.
+// It is the same neighbourhood the client shows as the party's proximity status.
+const (
+	halfGridX = 16
+	halfGridY = 16
+)
+
+// grantPartyExp pays the kill's experience to the killer AND to every party
+// member standing near the corpse (MobKilled.cpp:433-1272).
+//
+// It is NOT a split. Each member runs the whole reward calculation on their OWN
+// level and tier, exactly as the legacy loops it — so a level-50 killing beside
+// a level-313 leader pays each of them what their own cut table says, and
+// neither number is derived from the other. That is why this calls the same
+// grantExp the solo path uses instead of dividing anything.
+//
+// Near enough is the legacy's own test: alive, and within HALFGRID of the mob.
+// A member across the map gets nothing, which is what stops a party from
+// parking somebody safe to farm.
+func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
+	leader := killer
+	if killer.Leader != 0 {
+		leader = w.Entity(killer.Leader)
+		if leader == nil {
+			// The leader vanished mid-kill; the killer still earns its own.
+			d.grantExp(w, ks, killer, mob)
+			return
+		}
+	}
+	if leader == killer && partyMemberCount(leader) == 0 {
+		d.grantExp(w, ks, killer, mob) // solo, the common case
+		return
+	}
+
+	// The leader plus its list, deduplicated — the killer is somewhere in there
+	// and must be paid exactly once.
+	pago := make(map[int]bool, world.MaxParty+1)
+	pagar := func(id int) {
+		if id <= 0 || pago[id] {
+			return
+		}
+		pago[id] = true
+		e := w.Entity(id)
+		if e == nil || e.HP <= 0 || !pertoDoMob(e, mob) {
+			return
+		}
+		d.grantExp(w, w.Session(id), e, mob)
+	}
+	pagar(leader.ID)
+	for _, id := range leader.PartyList {
+		pagar(id)
+	}
+	// The killer is normally in the list; pay it anyway if the party rows are
+	// out of step, so a bookkeeping slip never costs somebody the kill it made.
+	pagar(killer.ID)
+}
+
+// pertoDoMob is the legacy's proximity test for party experience: the member
+// must stand within HALFGRID of the corpse on both axes.
+func pertoDoMob(e, mob *world.Entity) bool {
+	dx := int(mob.X) - int(e.X)
+	dy := int(mob.Y) - int(e.Y)
+	if dx < 0 {
+		dx = -dx
+	}
+	if dy < 0 {
+		dy = -dy
+	}
+	return dx <= halfGridX && dy <= halfGridY
 }
