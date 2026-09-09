@@ -3,8 +3,10 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
@@ -34,8 +36,36 @@ func (d *Dispatcher) ApplyWorldEventConfigBoot(w *world.World) {
 		d.log.Warn("world event config boot load failed (will retry via poll)", "err", err)
 		return
 	}
+	daLinha := d.expEvents
 	d.applyWorldEventConfig(w, snap)
+	avisaDivergencia(d.log, daLinha, d.expEvents)
 	d.log.Info("world event config applied at boot", "version", snap.Version)
+}
+
+// avisaDivergencia names every exp switch the database overruled.
+//
+// The three switches exist twice: as a command-line option and as a column the
+// panel writes. The database wins, which is what makes the panel useful — but it
+// means a server deliberately started with -kefra-live silently loses it, and
+// the symptom is half the experience with nothing in the log to explain it. So
+// the log explains it.
+func avisaDivergencia(log *slog.Logger, daLinha, doBanco level.ExpEvents) {
+	if daLinha == doBanco {
+		return
+	}
+	for _, s := range []struct {
+		nome         string
+		linha, banco bool
+	}{
+		{"double-exp", daLinha.DoubleMode, doBanco.DoubleMode},
+		{"newbie-event", daLinha.NewbieEvent, doBanco.NewbieEvent},
+		{"kefra-live", daLinha.KefraLive, doBanco.KefraLive},
+	} {
+		if s.linha != s.banco {
+			log.Warn("the panel overruled a command-line exp switch",
+				"switch", s.nome, "command_line", s.linha, "panel", s.banco)
+		}
+	}
 }
 
 // pollWorldEventConfig reloads portal-managed event settings when the config
@@ -83,6 +113,9 @@ func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapsho
 	ev := snap.Event
 	d.expEvents.DoubleMode = ev.DoubleExpEnabled
 	d.setNewbieEvent(w, ev.NewbieEventEnabled)
+	// No side effects to run, unlike the newbie event: KefraLive is one branch
+	// in the reward pipeline and touches nothing that is already in the world.
+	d.expEvents.KefraLive = ev.KefraLiveEnabled
 	w.SetWorldEventConfig(world.EventConfig{
 		Version: snap.Version, Enabled: ev.Enabled, ItemIndex: ev.ItemIndex, Rate: ev.Rate,
 		StartIndex: ev.StartIndex, CurrentIndex: ev.CurrentIndex, EndIndex: ev.EndIndex,

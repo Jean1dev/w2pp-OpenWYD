@@ -133,7 +133,7 @@ func TestAdminSalvaOsInterruptores(t *testing.T) {
 	post, token := signedInPost(t, h)
 
 	rec := post("/eventos", url.Values{
-		"csrf": {token}, "xp_dobro": {"1"}, "chuva": {"1"},
+		"csrf": {token}, "xp_dobro": {"1"}, "kefra": {"1"}, "chuva": {"1"},
 		"item": {"1415"}, "chance": {"500"},
 		"primeiro": {"1"}, "atual": {"1"}, "ultimo": {"100"},
 		"numerado": {"1"}, "anunciar": {"1"},
@@ -152,6 +152,11 @@ func TestAdminSalvaOsInterruptores(t *testing.T) {
 	// sent is a checkbox somebody unticked.
 	if g.NewbieEventEnabled {
 		t.Error("o evento de novato ligou sozinho")
+	}
+	// KefraLive desmarcado corta a XP pela metade, então gravar errado aqui é a
+	// diferença entre o servidor pagar o dobro e a metade do que se pediu.
+	if !g.KefraLiveEnabled {
+		t.Error("o KefraLive foi marcado no formulário e não foi gravado")
 	}
 	if len(log.written) != 1 || log.written[0].Action != audit.ActionSetWorldEvent {
 		t.Fatalf("auditoria = %+v", log.written)

@@ -31,7 +31,7 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 	cfg := domain.WorldEventConfig{
 		Enabled: true, ItemIndex: 777, Rate: 2,
 		StartIndex: 100, CurrentIndex: 100, EndIndex: 200,
-		Indexed: true, NoticeEnabled: true, DoubleExpEnabled: true,
+		Indexed: true, NoticeEnabled: true, DoubleExpEnabled: true, KefraLiveEnabled: true,
 	}
 	if err := st.UpsertWorldEventConfig(ctx, cfg, modID); err != nil {
 		t.Fatalf("UpsertWorldEventConfig: %v", err)
@@ -43,6 +43,9 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 	got, err := st.WorldEventConfig(ctx)
 	if err != nil {
 		t.Fatalf("WorldEventConfig: %v", err)
+	}
+	if !got.KefraLiveEnabled {
+		t.Error("o KefraLive não voltou do banco; desligado ele corta a XP pela metade")
 	}
 	if got.ItemIndex != 777 || got.CurrentIndex != 100 || !got.DoubleExpEnabled {
 		t.Fatalf("config = %+v, want saved values", got)

@@ -38,6 +38,7 @@ func TestWorldEventConfigClientMapsSnapshotAndProgress(t *testing.T) {
 				Enabled: true, ItemIndex: 777, Rate: 2,
 				StartIndex: 10, CurrentIndex: 11, EndIndex: 20,
 				Indexed: true, NoticeEnabled: true, DoubleExpEnabled: true, NewbieEventEnabled: true,
+				KefraLiveEnabled: true,
 			},
 		},
 	}
@@ -52,7 +53,8 @@ func TestWorldEventConfigClientMapsSnapshotAndProgress(t *testing.T) {
 		t.Fatalf("Snapshot: %v", err)
 	}
 	if snap.Version != 5 || !snap.Event.Enabled || snap.Event.ItemIndex != 777 ||
-		snap.Event.CurrentIndex != 11 || !snap.Event.DoubleExpEnabled || !snap.Event.NewbieEventEnabled {
+		snap.Event.CurrentIndex != 11 || !snap.Event.DoubleExpEnabled || !snap.Event.NewbieEventEnabled ||
+		!snap.Event.KefraLiveEnabled {
 		t.Errorf("snapshot = %+v, want mapped event", snap)
 	}
 	applied, err := c.UpdateProgress(context.Background(), 5, 12)

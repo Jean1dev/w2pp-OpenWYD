@@ -120,6 +120,7 @@ func (h *Handler) setEventos(w http.ResponseWriter, r *http.Request) {
 		Enabled:            r.PostFormValue("chuva") != "",
 		DoubleExpEnabled:   r.PostFormValue("xp_dobro") != "",
 		NewbieEventEnabled: r.PostFormValue("novato") != "",
+		KefraLiveEnabled:   r.PostFormValue("kefra") != "",
 		Indexed:            r.PostFormValue("numerado") != "",
 		NoticeEnabled:      r.PostFormValue("anunciar") != "",
 	}
@@ -174,7 +175,8 @@ func (h *Handler) setEventos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.cfg.Logger.Info("world event config saved", "actor", sess.AccountName,
-		"xp_dobro", novo.DoubleExpEnabled, "novato", novo.NewbieEventEnabled, "chuva", novo.Enabled)
+		"xp_dobro", novo.DoubleExpEnabled, "novato", novo.NewbieEventEnabled,
+		"kefra", novo.KefraLiveEnabled, "chuva", novo.Enabled)
 
 	// The game polls this config, so the change is already on its way without a
 	// restart — the page says so, because the alternative is somebody restarting
@@ -186,6 +188,7 @@ func (h *Handler) setEventos(w http.ResponseWriter, r *http.Request) {
 func resumoEvento(c domain.WorldEventConfig) map[string]any {
 	return map[string]any{
 		"xp_dobro": c.DoubleExpEnabled, "novato": c.NewbieEventEnabled,
+		"kefra": c.KefraLiveEnabled,
 		"chuva": c.Enabled, "item": c.ItemIndex, "chance": c.Rate,
 		"primeiro": c.StartIndex, "atual": c.CurrentIndex, "ultimo": c.EndIndex,
 		"numerado": c.Indexed, "anunciar": c.NoticeEnabled,

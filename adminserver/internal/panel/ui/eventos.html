@@ -46,6 +46,10 @@
       <div class="val">{{if .Cfg.NewbieEventEnabled}}ligado{{else}}desligado{{end}}</div>
     </div>
     <div class="num-tile">
+      <div class="rot">Metade da XP</div>
+      <div class="val">{{if .Cfg.KefraLiveEnabled}}não{{else}}sim{{end}}</div>
+    </div>
+    <div class="num-tile">
       <div class="rot">Chuva de item</div>
       <div class="val">{{if .Caindo}}caindo{{else if .Cfg.Enabled}}parada{{else}}desligada{{end}}</div>
     </div>
@@ -93,6 +97,21 @@
             abaixo do nível 120 nascem com três quartos da vida. Ao
             <strong>desligar</strong>, toda troca em andamento é cancelada — as
             regras mudam no meio e deixar fechar seria pior.
+          </span>
+        </span>
+      </label>
+
+      <label class="interruptor">
+        <input type="checkbox" name="kefra" value="1"
+               {{if .Cfg.KefraLiveEnabled}}checked{{end}} {{if not .IsAdmin}}disabled{{end}}>
+        <span>
+          <span class="t">XP inteira (KefraLive)</span>
+          <span class="d">
+            <strong>Desmarcado, o servidor entrega metade da experiência</strong> —
+            e é assim que ele está desde sempre. Marcar não é um bônus: é parar
+            de cortar. Vale para todo mundo, em qualquer nível, e entra depois
+            do XP em dobro na conta. O nome é do código do jogo original, e foi
+            mantido para quem for procurar no log.
           </span>
         </span>
       </label>

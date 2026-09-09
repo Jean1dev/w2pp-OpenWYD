@@ -17,6 +17,7 @@ type EventConfig struct {
 	NoticeEnabled      bool
 	DoubleExpEnabled   bool
 	NewbieEventEnabled bool
+	KefraLiveEnabled   bool
 }
 
 // Snapshot is the full world config at a given version.

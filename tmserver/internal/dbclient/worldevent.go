@@ -62,5 +62,6 @@ func dbWorldEventToConfig(cfg *dbv1.WorldEventConfig) worldcfg.EventConfig {
 		StartIndex: cfg.GetStartIndex(), CurrentIndex: cfg.GetCurrentIndex(), EndIndex: cfg.GetEndIndex(),
 		Indexed: cfg.GetIndexed(), NoticeEnabled: cfg.GetNoticeEnabled(),
 		DoubleExpEnabled: cfg.GetDoubleExpEnabled(), NewbieEventEnabled: cfg.GetNewbieEventEnabled(),
+		KefraLiveEnabled: cfg.GetKefraLiveEnabled(),
 	}
 }

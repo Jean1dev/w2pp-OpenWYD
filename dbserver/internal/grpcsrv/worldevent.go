@@ -66,5 +66,6 @@ func worldEventConfigToDBProto(cfg domain.WorldEventConfig) *dbv1.WorldEventConf
 		StartIndex: cfg.StartIndex, CurrentIndex: cfg.CurrentIndex, EndIndex: cfg.EndIndex,
 		Indexed: cfg.Indexed, NoticeEnabled: cfg.NoticeEnabled,
 		DoubleExpEnabled: cfg.DoubleExpEnabled, NewbieEventEnabled: cfg.NewbieEventEnabled,
+		KefraLiveEnabled: cfg.KefraLiveEnabled,
 	}
 }

@@ -245,13 +245,18 @@ func TestApplyWorldEventConfigUpdatesExpAndDropState(t *testing.T) {
 			Enabled: true, ItemIndex: 777, Rate: 10,
 			StartIndex: 100, CurrentIndex: 101, EndIndex: 200,
 			Indexed: true, NoticeEnabled: true,
-			DoubleExpEnabled: true, NewbieEventEnabled: true,
+			DoubleExpEnabled: true, NewbieEventEnabled: true, KefraLiveEnabled: true,
 		},
 	}
 
 	d.applyWorldEventConfig(w, snap)
 	if !d.expEvents.DoubleMode || !d.expEvents.NewbieEvent {
 		t.Fatalf("exp events = %+v, want double+newbie enabled", d.expEvents)
+	}
+	// O terceiro interruptor, e o que mais dói errar: desligado, ele divide a
+	// experiência de todo mundo por dois.
+	if !d.expEvents.KefraLive {
+		t.Fatalf("exp events = %+v, o KefraLive do painel não foi aplicado", d.expEvents)
 	}
 	if !w.NewbieEvent() {
 		t.Fatal("world newbie spawn handicap was not enabled")

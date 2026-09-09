@@ -6343,8 +6343,11 @@ type WorldEventConfig struct {
 	NoticeEnabled      bool                   `protobuf:"varint,8,opt,name=notice_enabled,json=noticeEnabled,proto3" json:"notice_enabled,omitempty"`
 	DoubleExpEnabled   bool                   `protobuf:"varint,9,opt,name=double_exp_enabled,json=doubleExpEnabled,proto3" json:"double_exp_enabled,omitempty"`
 	NewbieEventEnabled bool                   `protobuf:"varint,10,opt,name=newbie_event_enabled,json=newbieEventEnabled,proto3" json:"newbie_event_enabled,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// When FALSE every PvE reward is halved (expreward.go step 11). Legacy
+	// KefraLive=0, which is what this server has always run.
+	KefraLiveEnabled bool `protobuf:"varint,11,opt,name=kefra_live_enabled,json=kefraLiveEnabled,proto3" json:"kefra_live_enabled,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *WorldEventConfig) Reset() {
@@ -6443,6 +6446,13 @@ func (x *WorldEventConfig) GetDoubleExpEnabled() bool {
 func (x *WorldEventConfig) GetNewbieEventEnabled() bool {
 	if x != nil {
 		return x.NewbieEventEnabled
+	}
+	return false
+}
+
+func (x *WorldEventConfig) GetKefraLiveEnabled() bool {
+	if x != nil {
+		return x.KefraLiveEnabled
 	}
 	return false
 }
@@ -9461,7 +9471,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x10expected_version\x18\x01 \x01(\x03R\x0fexpectedVersion\x12#\n" +
 	"\rcurrent_index\x18\x02 \x01(\x05R\fcurrentIndex\"<\n" +
 	" UpdateWorldEventProgressResponse\x12\x18\n" +
-	"\aapplied\x18\x01 \x01(\bR\aapplied\"\xe3\x02\n" +
+	"\aapplied\x18\x01 \x01(\bR\aapplied\"\x91\x03\n" +
 	"\x10WorldEventConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1d\n" +
 	"\n" +
@@ -9475,7 +9485,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x0enotice_enabled\x18\b \x01(\bR\rnoticeEnabled\x12,\n" +
 	"\x12double_exp_enabled\x18\t \x01(\bR\x10doubleExpEnabled\x120\n" +
 	"\x14newbie_event_enabled\x18\n" +
-	" \x01(\bR\x12newbieEventEnabled\"\x1d\n" +
+	" \x01(\bR\x12newbieEventEnabled\x12,\n" +
+	"\x12kefra_live_enabled\x18\v \x01(\bR\x10kefraLiveEnabled\"\x1d\n" +
 	"\x1bListMobTemplateStatsRequest\"T\n" +
 	"\x1cListMobTemplateStatsResponse\x124\n" +
 	"\toverrides\x18\x01 \x03(\v2\x16.db.v1.MobTemplateStatR\toverrides\"\xc7\x01\n" +

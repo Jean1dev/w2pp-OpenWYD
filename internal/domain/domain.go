@@ -274,6 +274,10 @@ type WorldEventConfig struct {
 	NoticeEnabled      bool
 	DoubleExpEnabled   bool
 	NewbieEventEnabled bool
+	// KefraLiveEnabled is the third exp switch, and the one that bites: FALSE
+	// halves every PvE reward (expreward.go step 11). False is the legacy value
+	// and the one this server has always run.
+	KefraLiveEnabled bool
 }
 
 // MobTemplateStat is a moderator-editable stat override for a raw STRUCT_MOB

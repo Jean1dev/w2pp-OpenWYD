@@ -57,6 +57,7 @@ func worldEventConfigToWebProto(cfg domain.WorldEventConfig) *webv1.WorldEventCo
 		StartIndex: cfg.StartIndex, CurrentIndex: cfg.CurrentIndex, EndIndex: cfg.EndIndex,
 		Indexed: cfg.Indexed, NoticeEnabled: cfg.NoticeEnabled,
 		DoubleExpEnabled: cfg.DoubleExpEnabled, NewbieEventEnabled: cfg.NewbieEventEnabled,
+		KefraLiveEnabled: cfg.KefraLiveEnabled,
 	}
 }
 
@@ -66,6 +67,7 @@ func webProtoToWorldEventConfig(cfg *webv1.WorldEventConfig) domain.WorldEventCo
 		StartIndex: cfg.GetStartIndex(), CurrentIndex: cfg.GetCurrentIndex(), EndIndex: cfg.GetEndIndex(),
 		Indexed: cfg.GetIndexed(), NoticeEnabled: cfg.GetNoticeEnabled(),
 		DoubleExpEnabled: cfg.GetDoubleExpEnabled(), NewbieEventEnabled: cfg.GetNewbieEventEnabled(),
+		KefraLiveEnabled: cfg.GetKefraLiveEnabled(),
 	}
 }
 
