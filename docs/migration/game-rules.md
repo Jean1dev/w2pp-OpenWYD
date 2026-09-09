@@ -74,11 +74,23 @@ UNK_3 = killer.extra.ClassMaster             # tier do personagem (party class)
 > Medido: um jogador de nível 200 recebe **zero** de um mob 399 e **1.271.111** de um mob 599.
 > O monstro que parece mais forte é o que paga.
 >
-> O conteúdo desta árvore traz **55 templates referenciados pelo NPCGener fora de 1..399**, sendo
-> 44 acima de 400 (o maior é 600) — o `599` nunca foi nível, era alguém escrevendo "mais forte que
-> 400". O boot avisa: procure `monster template level outside 1..399` no log. Corrigir os
-> templates é trabalho de dado, e o aviso existe para que a correção não se desfaça calada na
-> próxima importação de conteúdo.
+> O conteúdo desta árvore trazia **55 templates referenciados pelo NPCGener fora de 1..399** — o
+> `599` nunca foi nível, era alguém escrevendo "mais forte que 400". **43 foram corrigidos para
+> 399** e **12 continuam fora, de propósito**:
+>
+> - **8 objetivos de evento** (Torre, Torre_Runica, Torre_de_Thor, Torre_Guardia, Torre_Guardia_,
+>   Torre_Real, Arvore_de_Natal, Cristal), todos no nível 500. Baixar uma torre para 399 **não é
+>   neutro**: em 500 a escala de nível está desligada e a torre paga um valor fixo; em 399 a escala
+>   religa e ela passa a pagar XP cheia de fim de jogo para quem a derruba. Isso é pior que o estado
+>   atual, então é decisão de produto e não varredura de dado.
+> - **4 lojistas com estoque real e atributo de chefe**: Zakum_Inf (19 itens), Zakum_Inf_ (18),
+>   Imp_Inferno (10) e Sulrang (2). Mexer no nível deles mexe também no que vendem.
+>
+> Torre_Real está nos dois grupos: é torre e carrega byte de mercador.
+>
+> O boot avisa enquanto sobrar alguém fora: procure `monster template level outside 1..399` no log.
+> Hoje ele diz `templates=12 unscaled_above_400=12 with_merchant=5 highest_level=600`. O aviso
+> existe para que a correção não se desfaça calada na próxima importação de conteúdo.
 
 ### 1.2. Bônus de party (número de membros)
 
