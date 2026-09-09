@@ -378,7 +378,22 @@ preço zero guardado FORA das três abas não aparece para ninguém e continua c
 montado. É por isso que o aviso do boot conta duas linhas, vitrine e escondido — contar só a
 vitrine deixaria passar justamente o caso invisível.
 
-O boot avisa em `shop stock priced at zero` e `stock priced at zero OUTSIDE the shop window`.
+O boot conta isso em **três linhas**, e a terceira existe para as outras duas significarem algo:
+
+```
+shop stock priced at zero — the buyer pays nothing for it        items=27 slots=66
+stock priced at zero OUTSIDE the shop window — invisible…        items=3  slots=24
+class-master skill menu (not merchandise…)                       items=96 slots=96
+```
+
+As 96 são os livros de habilidade (`handler.SkillItemFirst..SkillItemLast`, 5000-5095, a faixa que
+o próprio `learnSkill` valida). Elas ficam no `Carry` do mestre de classe como mercadoria fica, mas
+não são: aprender custa **ponto de habilidade** e `learnSkill` não encosta no `Carry` — "comprar"
+uma põe uma linha inútil na mochila e não ensina nada. Contadas juntas, seriam 96 falsos fixos que
+impediriam o número de chegar a zero, e alarme que nunca zera vira paisagem.
+
+Os 3 de fora da janela não são exclusivos dela: aparecem também em vitrine. Ou seja, hoje nenhum
+item grátis mora **só** escondido — a linha existe para o dia em que morar.
 
 Preços fechados até aqui, sempre e só para o que está de fato numa vitrine: Cristal de Extração
 20.000.000 (5 dos 6 — o de Arma não está em loja), a série de Jóias 100 (o bloco vizinho 3206-3208

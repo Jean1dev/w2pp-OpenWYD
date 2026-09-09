@@ -53,11 +53,29 @@ func (d *Dispatcher) deriveSkillBonus(e *world.Entity) {
 	e.SkillBonus = uint16(rest)
 }
 
+// SkillItemFirst/SkillItemLast bound the catalog rows that are SKILLS rather than
+// merchandise: g_pItemList[5000+idx] holds a skill's learn requirements, and
+// learnSkill refuses anything outside the range.
+//
+// Exported because the range is the only way to tell a class master's menu from
+// a shop's stock. The 96 rows in that menu sit in the NPC's Carry like goods do,
+// but nothing about them is a purchase: learning costs SKILL POINTS and never
+// touches Carry, so "buying" one puts a useless row in the bag and teaches
+// nothing. A boot audit of unpriced stock has to count them apart or its number
+// never reaches zero.
+const (
+	SkillItemFirst = 5000
+	SkillItemLast  = 5095
+)
+
+// IsSkillItem reports whether a catalog index is a learnable skill row.
+func IsSkillItem(index int) bool { return index >= SkillItemFirst && index <= SkillItemLast }
+
 // learnSkill is ApplyBonus BonusType==2 (_MSG_ApplyBonus.cpp:131-249): learn the
 // skill g_pItemList index Detail (5000+idx) from a class-master NPC (TargetID).
 // Runs in the loop goroutine.
 func (d *Dispatcher) learnSkill(w *world.World, s *world.Session, e *world.Entity, detail int, targetID int) {
-	if d.spells == nil || detail < 5000 || detail > 5095 {
+	if d.spells == nil || !IsSkillItem(detail) {
 		d.log.Info("learn skill refused: detail out of range",
 			"conn", s.Conn, "account", s.AccountName, "detail", detail,
 			"catalog", d.spells != nil)
@@ -68,8 +86,8 @@ func (d *Dispatcher) learnSkill(w *world.World, s *world.Session, e *world.Entit
 			"conn", s.Conn, "account", s.AccountName, "detail", detail, "target", targetID)
 		return // learn requests must come through an NPC
 	}
-	skillclass := (detail - 5000) / content.MaxSkill
-	skillpos := (detail - 5000) % content.MaxSkill
+	skillclass := (detail - SkillItemFirst) / content.MaxSkill
+	skillpos := (detail - SkillItemFirst) % content.MaxSkill
 	if int(e.Class) != skillclass {
 		d.log.Info("learn skill refused: another class's skill",
 			"conn", s.Conn, "account", s.AccountName, "detail", detail,

@@ -752,7 +752,8 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	// isso é vitrine suja, não item grátis — coisa diferente e com outro conserto.
 	naVitrine := make(map[string]struct{})
 	escondido := make(map[string]struct{})
-	vagasVitrine, vagasEscondidas := 0, 0
+	cardapio := make(map[string]struct{})
+	vagasVitrine, vagasEscondidas, vagasCardapio := 0, 0, 0
 	ehVitrine := make(map[int]bool, 27)
 	for i := 0; i < 27; i++ {
 		ehVitrine[protocol.ShopSlot(i)] = true
@@ -816,6 +817,16 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 							continue
 						}
 						if preco, conhecido := itemPrices[idx]; !conhecido || preco != 0 {
+							continue
+						}
+						// O cardápio do mestre de classe não é mercadoria e nunca
+						// vai ganhar preço: aprender custa PONTO DE HABILIDADE e
+						// não encosta no Carry (handler.learnSkill). Contado à
+						// parte porque 96 falsos fixos fariam o número acima nunca
+						// chegar a zero, e alarme que nunca zera vira paisagem.
+						if handler.IsSkillItem(idx) {
+							cardapio[nomeItem(idx)] = struct{}{}
+							vagasCardapio++
 							continue
 						}
 						if ehVitrine[slot] {
@@ -933,6 +944,12 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		logger.Warn("stock priced at zero OUTSIDE the shop window — invisible, still buyable",
 			"items", len(escondido), "slots", vagasEscondidas,
 			"sample", sampleNames(escondido, 20))
+	}
+	if len(cardapio) > 0 {
+		// Info e não Warn: isto é o estado correto e permanente. Está aqui para
+		// que o número dos dois avisos acima seja lido sem desconto mental.
+		logger.Info("class-master skill menu (not merchandise: learning costs skill points)",
+			"items", len(cardapio), "slots", vagasCardapio)
 	}
 	if len(nivelForaDaFaixa) > 0 {
 		logger.Warn("monster template level outside 1..399 (the reward inverts: a stronger-looking mob pays more, see game-rules.md §1.1)",

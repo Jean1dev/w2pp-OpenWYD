@@ -275,12 +275,13 @@ func TestSpawnNPCsAvisaEstoqueDeGraca(t *testing.T) {
 	binary.LittleEndian.PutUint16(tmpl[carry+20*8:], 1001) // de graça, escondido
 	binary.LittleEndian.PutUint16(tmpl[carry+54*8:], 1002) // com preço, na vitrine
 	binary.LittleEndian.PutUint16(tmpl[carry+1*8:], 9999)  // fora do catálogo
+	binary.LittleEndian.PutUint16(tmpl[carry+2*8:], 5008)  // cardápio de habilidade
 	if err := os.WriteFile(filepath.Join(npcDir, "Lojista"), tmpl, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	precos := map[int]int32{1000: 0, 1001: 0, 1002: 500}
-	nomes := map[int]string{1000: "Presente", 1001: "Escondido", 1002: "Pago"}
+	precos := map[int]int32{1000: 0, 1001: 0, 1002: 500, 5008: 0}
+	nomes := map[int]string{1000: "Presente", 1001: "Escondido", 1002: "Pago", 5008: "Carga"}
 
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
@@ -293,6 +294,7 @@ func TestSpawnNPCsAvisaEstoqueDeGraca(t *testing.T) {
 		"Presente(1000)",
 		"OUTSIDE the shop window",
 		"Escondido(1001)",
+		"class-master skill menu",
 	} {
 		if !strings.Contains(got, quer) {
 			t.Fatalf("faltou %q no log:\n%s", quer, got)
@@ -304,6 +306,15 @@ func TestSpawnNPCsAvisaEstoqueDeGraca(t *testing.T) {
 		if strings.Contains(got, proibido) {
 			t.Errorf("o aviso citou %q, que não é item de graça:\n%s", proibido, got)
 		}
+	}
+	// O cardápio tem de SAIR da conta dos dois avisos, e não só ganhar linha
+	// própria: 96 falsos fixos fariam o número nunca chegar a zero, e alarme
+	// que nunca zera vira paisagem.
+	if !strings.Contains(got, "items=1 slots=1") {
+		t.Errorf("a vitrine devia ter UM item real; o livro não conta:\n%s", got)
+	}
+	if strings.Contains(got, "Carga(5008)") {
+		t.Errorf("o livro de habilidade foi contado como item de graça:\n%s", got)
 	}
 }
 
