@@ -396,6 +396,10 @@ type Entity struct {
 	// Damage after the affect pass, and the multiplier must cover it too.
 	AffDamageMultiPct int32
 	EquipExpBonus     int32 // from fairy slot + grade/gem gear (CMob.cpp:711-870)
+	// EquipDropBonus is the drop half of the same walk (CMob.cpp:700-870): the
+	// Fada Azul and Vermelha, Grade 5 pieces and gem-0 pieces. It widens the odds
+	// of an item falling AND the bonus rolled onto it when it does.
+	EquipDropBonus int32
 
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob/UpdateEquip
 	EquipAnct   [16]uint8  // refine/ancient glow overlay bytes paired with EquipVisual

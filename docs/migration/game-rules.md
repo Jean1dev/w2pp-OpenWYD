@@ -195,7 +195,7 @@ ocupado:
 for i in [0, MAX_CARRY):
     if target.Carry[i].sIndex == 0: continue
     droprate  = g_pDropRate[i]                         # taxa-base por slot (:2764)
-    dropbonus = g_pDropBonus[i] + killer.DropBonus     # bônus (evento + item) (:2765)
+    dropbonus = g_pDropBonus[i] + killer.DropBonus     # bônus do matador, handler/drop_bonus.go (:2765)
     if dropbonus != 100:
         dropbonus = 10000 / (dropbonus + 1)
         droprate  = dropbonus * droprate / 100         # bônus reduz o divisor (:2769-2770)
@@ -314,9 +314,18 @@ repolla). O painel edita em
 `/rates/bonus-drop`, e o mesmo lugar tem o interruptor que devolve o servidor ao comportamento sem
 sorteio. Qual efeito cada peça recebe NÃO é editável: é conteúdo, e mexer nele mudaria o que o jogo é.
 
-**Ainda não modelado:** `pMob[conn].DropBonus` do matador (fada azul +32, fada vermelha +16, item
-Grade 5 +8, gema +8) chega como 0, igual ao placeholder que a taxa de drop já usa. Ele só alarga as
-chances do sorteio 1.
+**Portado** em `handler/drop_bonus.go` (`CMob.cpp:700-870`): `pMob[conn].DropBonus` é a soma da fada
+(Azul +32; Vermelha +16, e só essas duas), mais 8 por peça Grade 5 e 8 por peça com gema 0, nos 16
+espaços de equipamento. Fica em `Entity.EquipDropBonus`, recalculado no mesmo `refreshScore` que já
+cuidava do bônus de experiência.
+
+Ele é lido em **dois** lugares, e são sorteios diferentes: a chance do item cair
+(`MobKilled.cpp:2765`) e o bônus rolado nele quando cai (`:2865`). O drop de **evento** fica de fora
+dos dois de propósito — o legado passa um zero literal ali (`:2752`), então o prêmio é o mesmo
+prêmio para todo mundo.
+
+Não existe fonte de afeto, aqui nem no legado: `BASE_GetCurrentScore` preenche `ExpBonus` e nunca
+encosta em `DropBonus`.
 
 ---
 

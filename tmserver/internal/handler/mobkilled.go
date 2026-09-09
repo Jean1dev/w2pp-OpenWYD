@@ -86,6 +86,11 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	d.tryWorldEventDrop(w, reward, int(mob.Level))
 
 	// Item drop: each occupied loot slot rolls against its g_pDropRate odds.
+	//
+	// The rewarder's DropBonus is read once, before the loop, because the legacy
+	// reads one number for the whole death — and because a bonus that could move
+	// between slots of the same kill would be a bug nobody could see.
+	bonusDrop := dropBonusDoMatador(reward)
 	for slot := range mob.Carry {
 		it := mob.Carry[slot]
 		// MobKilled.cpp only admits real droppable catalog entries here. Low
@@ -93,14 +98,13 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		if it.Index <= 390 || int(it.Index) >= maxItemList || it.Index == 454 {
 			continue
 		}
-		// UNVERIFIED: killer.DropBonus (item/event bonus) → 0 placeholder.
-		rate := loot.EffectiveDropRate(slot, 0, int(mob.Level))
+		rate := loot.EffectiveDropRate(slot, bonusDrop, int(mob.Level))
 		if loot.Drops(w.Rand(), rate) {
 			// The drop-time bonus roll, in the position the legacy gives it:
 			// after the rate succeeded, before the castle-key check and before
 			// delivery (MobKilled.cpp:2867). `it` is a copy of the mob's Carry
 			// entry, so the roll marks this drop and never the mob template.
-			d.rolarBonusDrop(w, &it, int(mob.Level))
+			d.rolarBonusDrop(w, &it, int(mob.Level), bonusDrop)
 			if d.castleKeyDrop(w, reward, it) {
 				continue
 			}
@@ -139,19 +143,18 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 // reduced to rand()%droprate and tested for zero by the time the block is
 // entered, so the second half is `0 % 2 != 1` and the whole condition is always
 // true. Nothing is gated, so nothing is ported.
-func (d *Dispatcher) rolarBonusDrop(w *world.World, it *world.Item, nivelMob int) {
+// bonusDoMatador is the rewarder's DropBonus (drop_bonus.go). It only widens the
+// odds of the FIRST bonus; every other table in the roll is unaffected. The
+// world-event drop passes 0 on purpose — see tryWorldEventDrop.
+func (d *Dispatcher) rolarBonusDrop(w *world.World, it *world.Item, nivelMob, bonusDoMatador int) {
 	idx := int(it.Index)
-	// UNVERIFIED: killer.DropBonus (fada, item Grade 5, gema) is not modelled
-	// yet, so the bonus is 0 here for the same reason the drop rate above passes
-	// 0. It only widens the odds of the first bonus; every other table is
-	// unaffected.
 	d.dropBonus.Drop(it, refine.Base{
 		Unique:  d.itemUnique[idx],
 		ReqLvl:  int(d.itemReqs[idx].Lvl),
 		Pos:     d.itemPos[idx],
 		Efeitos: d.itemEffects[idx],
 		Indice:  idx,
-	}, nivelMob, 0, false, w.Rand().Intn)
+	}, nivelMob, bonusDoMatador, false, w.Rand().Intn)
 }
 
 // putMobDrop mirrors legacy PutItem for common mob loot. A full accessible Carry

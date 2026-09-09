@@ -152,7 +152,11 @@ func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity, niv
 	// override, if its catalog row carries EF_SANC/EF_AMOUNT/EF_INCUBATE; that
 	// is the legacy's behaviour too, and choosing such an item as an indexed
 	// event prize would break its numbering there as well.
-	d.rolarBonusDrop(w, &item, nivelMob)
+	// Bonus 0, and not the winner's DropBonus: the legacy passes a literal zero
+	// for the event item (MobKilled.cpp:2752), so the prize is the same prize for
+	// everybody. Handing it the killer's bonus would make a numbered event item
+	// worth more for whoever happened to be wearing the right fairy.
+	d.rolarBonusDrop(w, &item, nivelMob, 0)
 
 	slot := firstEmptyAccessibleCarry(reward)
 	if slot < 0 {
