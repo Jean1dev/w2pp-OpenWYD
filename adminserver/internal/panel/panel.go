@@ -289,6 +289,7 @@ type Config struct {
 	Quests      Quests
 	Spawn       Spawn
 	BonusDrop   BonusDrop
+	Maquinas    Maquinas
 	Sessions    *session.Store
 	Logger      *slog.Logger
 	SecureOnly  bool // Secure flag on the cookie; false only for local HTTP dev
@@ -394,6 +395,15 @@ func (h *Handler) Routes() http.Handler {
 	}
 	// As recompensas de quest têm tabela própria, então dependem dela e não da
 	// Mesa de XP — um painel sem a migração 0036 simplesmente não mostra a aba.
+	// A Mesa das Máquinas tem armazém próprio, então depende só dele: um painel
+	// sem a migração 0040 simplesmente não mostra a aba, e cada máquina segue no
+	// CompRate.txt.
+	if h.cfg.Maquinas != nil {
+		mux.Handle("GET /rates/maquinas", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.maquinas))))
+		mux.Handle("POST /rates/maquinas", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaRate))))
+		mux.Handle("POST /rates/maquinas/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMaquinaRate))))
+		mux.Handle("POST /rates/maquinas/faixas", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaFaixas))))
+	}
 	if h.cfg.BonusDrop != nil {
 		mux.Handle("GET /rates/bonus-drop", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.bonusDrop))))
 		mux.Handle("POST /rates/bonus-drop", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setBonusDrop))))
@@ -524,20 +534,21 @@ type page struct {
 	AccountID    int64
 	Role         string
 	Nav          string
-	IsAdmin      bool   // hides nav entries the viewer would only be refused from
-	HasItems     bool   // the item pages exist only when a webServer is configured
-	HasTrocas    bool   // the trade log exists only when a database read is configured
-	HasCenso     bool   // o censo de itens precisa da leitura do banco
-	HasChat      bool   // o registro de conversa precisa da leitura do banco
-	HasJogo      bool   // the live pages exist only when the game link is configured
-	HasSeguro    bool   // the safe restart needs BOTH the game link and the hosting API
-	HasEvento    bool   // the event switches need the database read
-	HasDenun     bool   // the report queue needs the database read
-	HasGuilda    bool   // the guild pages need the database read
-	HasMesaXP    bool   // the Mesa de XP needs the database read
-	HasMasm      bool   // the dungeon doors need the database read
-	HasQuests    bool   // the quest rewards need the database read
-	HasBonusDrop bool   // the drop-bonus ladders need the database read
+	IsAdmin      bool // hides nav entries the viewer would only be refused from
+	HasItems     bool // the item pages exist only when a webServer is configured
+	HasTrocas    bool // the trade log exists only when a database read is configured
+	HasCenso     bool // o censo de itens precisa da leitura do banco
+	HasChat      bool // o registro de conversa precisa da leitura do banco
+	HasJogo      bool // the live pages exist only when the game link is configured
+	HasSeguro    bool // the safe restart needs BOTH the game link and the hosting API
+	HasEvento    bool // the event switches need the database read
+	HasDenun     bool // the report queue needs the database read
+	HasGuilda    bool // the guild pages need the database read
+	HasMesaXP    bool // the Mesa de XP needs the database read
+	HasMasm      bool // the dungeon doors need the database read
+	HasQuests    bool // the quest rewards need the database read
+	HasBonusDrop bool // the drop-bonus ladders need the database read
+	HasMaquinas  bool
 	HasRates     bool   // Rates existe se pelo menos uma das suas abas existir
 	HasMont      bool   // a aba de montarias vem do webServer, a de XP vem do banco
 	CSRF         string // every form that changes something carries this back
@@ -587,6 +598,7 @@ func (h *Handler) pageFor(r *http.Request, nav string) page {
 		HasMasm:      h.cfg.Masmorras != nil,
 		HasQuests:    h.cfg.Quests != nil,
 		HasBonusDrop: h.cfg.BonusDrop != nil,
+		HasMaquinas:  h.cfg.Maquinas != nil,
 		HasRates:     primeiraAbaDeRates(h.cfg) != "",
 		HasMont:      h.cfg.GameData != nil,
 		CSRF:         sess.CSRF,

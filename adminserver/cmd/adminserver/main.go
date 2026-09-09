@@ -190,6 +190,7 @@ func run(logger *slog.Logger) error {
 		Quests:      store.New(pool),
 		Spawn:       store.New(pool),
 		BonusDrop:   store.New(pool),
+		Maquinas:    store.New(pool),
 		Denuncias:   store.New(pool),
 		Guildas:     store.New(pool),
 		Carteira:    donate.New(pool),

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Máquinas — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  .intro { color: var(--ink-2); max-width: 68ch; }
+  .intro code { font-size: 12.5px; color: var(--ink); }
+
+  .linha {
+    display: grid; grid-template-columns: 1.6fr .7fr auto auto 1fr;
+    gap: 12px 16px; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--rule);
+  }
+  .linha:last-of-type { border-bottom: 0; }
+  .linha h3 { margin: 0; font-size: 14.5px; font-weight: 600; }
+  .linha .onde { font-size: 12px; color: var(--ink-3); }
+  .linha .nota { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-3); max-width: 74ch; margin: 0; }
+
+  .op {
+    display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+    padding: 2px 6px; border-radius: 2px; border: 1px solid currentColor; margin-left: 8px;
+  }
+  .op-add { color: var(--accent); }
+  .op-abs { color: var(--ink-3); }
+
+  .origem { font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; }
+  .origem-painel { color: var(--accent); }
+  .origem-arquivo { color: var(--ink-3); }
+
+  input[type="number"], input[type="text"] {
+    padding: 6px 8px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  input[type="number"] { width: 76px; text-align: right; }
+  input[type="text"] { width: 100%; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* A barra existe para a taxa ser lida como grandeza, não só como número: numa
+     coluna de dezesseis linhas o olho compara forma antes de comparar dígitos. */
+  .barra { position: relative; height: 6px; background: var(--ground); border-radius: 1px; min-width: 80px; }
+  .barra > i { position: absolute; inset: 0 auto 0 0; border-radius: 1px; background: var(--ink-3); }
+  .sev-alta > i { background: var(--ok, #4c9a56); }
+  .sev-media > i { background: var(--warn, #b3892a); }
+  .sev-baixa > i { background: var(--bad, #b0503f); }
+
+  .faixas { width: 100%; border-collapse: collapse; }
+  .faixas th {
+    text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600; padding: 0 12px 8px 0; border-bottom: 1px solid var(--rule);
+  }
+  .faixas td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+  .faixas tr:last-child td { border-bottom: 0; }
+  .faixas .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .efetiva { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .vazio { color: var(--ink-3); font-style: italic; padding: 14px 0; }
+  .acoes { margin-top: 14px; display: flex; gap: 10px; align-items: center; }
+  .sub { font-size: 12.5px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+{{template "topo" .}}
+<main class="wrap">
+  {{template "abas-rates" .}}
+
+  {{if .Aviso}}<p class="aviso">{{.Aviso}}</p>{{end}}
+
+  <h1>Mesa das Máquinas</h1>
+  <p class="intro">
+    A chance de sucesso de cada máquina de combinação. Uma linha em branco aqui
+    significa que a máquina continua lendo o <code>CompRate.txt</code>, e o
+    arquivo por sua vez cai no padrão de fábrica — nada aqui pode impedir uma
+    máquina de funcionar.
+  </p>
+  <p class="sub">Versão {{.Versao}} · vale sem reiniciar, como a Mesa de XP.</p>
+
+  <h2>Taxa por máquina</h2>
+  {{range .Linhas}}
+  <form class="linha" method="post" action="/rates/maquinas">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="familia" value="{{.Familia}}">
+    <input type="hidden" name="chave" value="{{.Chave}}">
+    <div>
+      <h3>{{.Nome}}{{if .Operacao}}<span class="op {{if eq .Operacao "ADD"}}op-add{{else}}op-abs{{end}}">{{.Operacao}}</span>{{end}}</h3>
+      <div class="onde">{{.Onde}} · {{.Familia}} {{.Chave}}</div>
+    </div>
+    <div class="origem {{if .NoBanco}}origem-painel{{else}}origem-arquivo{{end}}">
+      {{if .NoBanco}}painel{{else}}arquivo ({{.Padrao}}%){{end}}
+    </div>
+    <div><input type="number" name="taxa" min="0" max="100" value="{{.Valor}}" aria-label="Taxa de {{.Nome}}"></div>
+    <div>
+      <button type="submit">Salvar</button>
+      {{if .NoBanco}}
+      <button type="submit" formaction="/rates/maquinas/limpar" class="secundario">Usar o arquivo</button>
+      {{end}}
+    </div>
+    <div class="barra {{if ge .Valor 70}}sev-alta{{else if ge .Valor 35}}sev-media{{else}}sev-baixa{{end}}"><i style="width:{{.Valor}}%"></i></div>
+    {{if .Nota}}<p class="nota">{{.Nota}}</p>{{end}}
+  </form>
+  {{end}}
+
+  <h2>Faixas por conjunto — refino +10</h2>
+  <p class="intro">
+    O conjunto de um item sai do <b>ReqLvl</b>, o nível exigido para equipar. É o
+    único campo que separa tiers: 470 das 654 armas dividem o mesmo grau, então o
+    grau não serve de eixo. O nome da faixa é seu — "Armas C", "Armas D" — e o
+    multiplicador é em centésimos: 100 é neutro, 180 é 1,8×, 40 é 0,4×.
+    Apagar o nome de uma linha remove a faixa. Uma faixa que não cobre um item
+    deixa a máquina na taxa cheia, nunca em zero.
+  </p>
+
+  <h3>Armas</h3>
+  <form method="post" action="/rates/maquinas/faixas">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="tipo" value="arma">
+    <table class="faixas">
+      <thead>
+        <tr><th>Nome do conjunto</th><th class="num">ReqLvl de</th><th class="num">até</th><th class="num">Multiplicador</th><th class="num">Chance</th><th>Proporção</th></tr>
+      </thead>
+      <tbody>
+        {{range .Armas}}
+        <tr>
+          <td><input type="text" name="nome" value="{{.Nome}}" aria-label="Nome do conjunto"></td>
+          <td class="num"><input type="number" name="min" min="0" value="{{.Min}}" aria-label="ReqLvl mínimo"></td>
+          <td class="num"><input type="number" name="max" min="0" value="{{.Max}}" aria-label="ReqLvl máximo"></td>
+          <td class="num"><input type="number" name="mult" min="0" max="1000" value="{{.MultPct}}" aria-label="Multiplicador"></td>
+          <td class="num efetiva">{{.Efetiva}}%</td>
+          <td><div class="barra sev-{{.Severidade}}"><i style="width:{{.Efetiva}}%"></i></div></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="vazio">Nenhuma faixa de arma. A +10 usa a taxa cheia para qualquer arma.</td></tr>
+        {{end}}
+        <tr>
+          <td><input type="text" name="nome" value="" placeholder="nova faixa" aria-label="Nome da nova faixa"></td>
+          <td class="num"><input type="number" name="min" min="0" value="0" aria-label="ReqLvl mínimo"></td>
+          <td class="num"><input type="number" name="max" min="0" value="0" aria-label="ReqLvl máximo"></td>
+          <td class="num"><input type="number" name="mult" min="0" max="1000" value="100" aria-label="Multiplicador"></td>
+          <td class="num"></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="acoes"><button type="submit">Salvar faixas de armas</button></div>
+  </form>
+
+  <h3>Armaduras</h3>
+  <p class="sub">
+    Quebras próprias, e não as mesmas das armas: entre ReqLvl 200 e 249 o
+    catálogo tem 112 armas e uma única armadura.
+  </p>
+  <form method="post" action="/rates/maquinas/faixas">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="tipo" value="armadura">
+    <table class="faixas">
+      <thead>
+        <tr><th>Nome do conjunto</th><th class="num">ReqLvl de</th><th class="num">até</th><th class="num">Multiplicador</th><th class="num">Chance</th><th>Proporção</th></tr>
+      </thead>
+      <tbody>
+        {{range .Armadur}}
+        <tr>
+          <td><input type="text" name="nome" value="{{.Nome}}" aria-label="Nome do conjunto"></td>
+          <td class="num"><input type="number" name="min" min="0" value="{{.Min}}" aria-label="ReqLvl mínimo"></td>
+          <td class="num"><input type="number" name="max" min="0" value="{{.Max}}" aria-label="ReqLvl máximo"></td>
+          <td class="num"><input type="number" name="mult" min="0" max="1000" value="{{.MultPct}}" aria-label="Multiplicador"></td>
+          <td class="num efetiva">{{.Efetiva}}%</td>
+          <td><div class="barra sev-{{.Severidade}}"><i style="width:{{.Efetiva}}%"></i></div></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="vazio">Nenhuma faixa de armadura. A +10 usa a taxa cheia para qualquer peça.</td></tr>
+        {{end}}
+        <tr>
+          <td><input type="text" name="nome" value="" placeholder="nova faixa" aria-label="Nome da nova faixa"></td>
+          <td class="num"><input type="number" name="min" min="0" value="0" aria-label="ReqLvl mínimo"></td>
+          <td class="num"><input type="number" name="max" min="0" value="0" aria-label="ReqLvl máximo"></td>
+          <td class="num"><input type="number" name="mult" min="0" max="1000" value="100" aria-label="Multiplicador"></td>
+          <td class="num"></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="acoes"><button type="submit">Salvar faixas de armaduras</button></div>
+  </form>
+</main>
+{{template "rodape" .}}
+</body>
+</html>

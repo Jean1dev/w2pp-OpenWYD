@@ -57,6 +57,9 @@ const (
 	ActionSetDropBonus       = "SET_DROP_BONUS"
 	ActionClearDropBonus     = "CLEAR_DROP_BONUS"
 	ActionSetDropBonusLigado = "SET_DROP_BONUS_LIGADO"
+	ActionSetCombineRate     = "SET_COMBINE_RATE"
+	ActionClearCombineRate   = "CLEAR_COMBINE_RATE"
+	ActionSetCombineBands    = "SET_COMBINE_BANDS"
 	ActionClearXPRule        = "CLEAR_XP_RULE"
 	ActionSetMountGrowth     = "SET_MOUNT_GROWTH"
 	ActionClearMountGrowth   = "CLEAR_MOUNT_GROWTH"
@@ -265,6 +268,9 @@ var rotulos = map[string]string{
 	ActionSetQuestReward:     "Mudou a recompensa de uma quest",
 	ActionClearQuestReward:   "Voltou a recompensa de uma quest ao conteúdo",
 	ActionSetDropBonus:       "Mudou a escada do bônus de drop",
+	ActionSetCombineRate:     "Mudou a taxa de uma máquina",
+	ActionClearCombineRate:   "Devolveu a taxa de uma máquina ao arquivo",
+	ActionSetCombineBands:    "Mudou as faixas de conjunto de uma máquina",
 	ActionClearDropBonus:     "Voltou a escada do bônus de drop ao legado",
 	ActionSetDropBonusLigado: "Ligou ou desligou o sorteio de bônus de drop",
 	ActionClearXPRule:        "Voltou uma tabela de XP ao legado",

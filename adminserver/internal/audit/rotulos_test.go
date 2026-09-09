@@ -27,6 +27,7 @@ func TestTodaAcaoTemRotulo(t *testing.T) {
 		ActionSetDropBonus, ActionClearDropBonus, ActionSetDropBonusLigado,
 		ActionSetMountGrowth, ActionClearMountGrowth,
 		ActionSetMountAbsorb, ActionClearMountAbsorb,
+		ActionSetCombineRate, ActionClearCombineRate, ActionSetCombineBands,
 	}
 	for _, a := range acoes {
 		e := Entry{Action: a}
