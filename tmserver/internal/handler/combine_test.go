@@ -236,3 +236,50 @@ func TestCombineExtracaoClearsLastCatalyst(t *testing.T) {
 		t.Errorf("catalyst slot=%d idx=%d, want slot 1 cleared", slot, index)
 	}
 }
+
+// The mismatch refusal — the client describing an item the slot does not hold —
+// stayed mute after the other nineteen learned to speak, because the pass that
+// gave them a voice keyed on the line ending in the call and this one carries a
+// trailing comment. It is also the refusal a player hits most: it fires on a
+// single differing effect byte, which looks like the same item on the grid.
+func TestCombineMismatchIsRefusedOutLoud(t *testing.T) {
+	addr, stop := startServerCombine(t, combineDB(), 50)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	// Same index as the real slot, one effect the slot does not carry.
+	var body protocol.MsgCombineItemBody
+	body.Item[0] = protocol.WireItem{Index: 1100}
+	body.Item[0].Effects[0] = protocol.WireEffect{Effect: efSanc, Value: 9}
+	body.InvenPos[0] = 0
+	send(t, c, protocol.MsgCombineItem, body.Encode())
+
+	var sawText, sawComplete, sawItem bool
+	for {
+		ty, p, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgMessagePanel:
+			sawText = true
+		case protocol.MsgCombineComplete:
+			sawComplete = true
+			if parmOf(t, p) != combineInvalid {
+				t.Errorf("parm = %d, esperado invalid(0)", parmOf(t, p))
+			}
+		case protocol.MsgSendItem:
+			sawItem = true
+		}
+	}
+	if sawItem {
+		t.Error("a recusa consumiu item")
+	}
+	if !sawComplete {
+		t.Error("sem CombineComplete: a janela do cliente fica travada")
+	}
+	if !sawText {
+		t.Error("recusa sem texto — foi exatamente este caminho que sobrou mudo")
+	}
+}

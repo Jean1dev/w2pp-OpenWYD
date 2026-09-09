@@ -89,7 +89,23 @@ func (d *Dispatcher) resolveComboInputs(w *world.World, s *world.Session, e *wor
 			return items, slots, active, false
 		}
 		if !sameItem(body.Item[i], e.Carry[pos]) {
-			sendCombineComplete(w, s, combineInvalid) // changed/removed
+			// This one stayed mute when the other nineteen refusals learned to speak:
+			// the substitution that gave them a voice keyed on the line ENDING in the
+			// call, and this line carries a trailing comment. It is also the refusal a
+			// player is most likely to hit, because it fires whenever the item the
+			// client describes differs from the one in the slot by so much as one
+			// effect byte.
+			//
+			// Both sides go in the log because the mismatch is invisible from either
+			// alone: the same index with different effects reads as the same item to a
+			// person looking at the grid.
+			d.log.Info("combine recusado: item difere do inventário",
+				"conn", s.Conn, "celula", i, "slot", pos,
+				"pacote_index", body.Item[i].Index,
+				"pacote_efeitos", wireEffectsForLog(body.Item[i]),
+				"bolsa_index", e.Carry[pos].Index,
+				"bolsa_efeitos", itemEffectsForLog(e.Carry[pos]))
+			d.refuseCombine(w, s, msgWrongCombination)
 			return items, slots, active, false
 		}
 		items[i] = e.Carry[pos]
@@ -251,6 +267,24 @@ func extractionResultIndex(pos int) int16 {
 // short: a 2-byte body left the client reading Parm's high half out of the next
 // frame. HEADER.ID is ESCENE_FIELD, as SendClientSignalParm sets it
 // (SendFunc.cpp:300-310), not the sender's conn.
+// wireEffectsForLog / itemEffectsForLog render an item's three effect pairs as
+// a flat slice, so the two sides of a mismatch line up when read side by side.
+func wireEffectsForLog(wi protocol.WireItem) []int {
+	out := make([]int, 0, 6)
+	for i := 0; i < 3; i++ {
+		out = append(out, int(wi.Effects[i].Effect), int(wi.Effects[i].Value))
+	}
+	return out
+}
+
+func itemEffectsForLog(it world.Item) []int {
+	out := make([]int, 0, 6)
+	for i := 0; i < 3; i++ {
+		out = append(out, int(it.Effects[i].Effect), int(it.Effects[i].Value))
+	}
+	return out
+}
+
 func sendCombineComplete(w *world.World, s *world.Session, parm int32) {
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCombineComplete, ID: protocol.IDScene}, protocol.EncodeStandardParm(parm))
 }
