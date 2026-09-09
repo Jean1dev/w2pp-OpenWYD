@@ -43,8 +43,8 @@ func TestRateLookupIgnoresCase(t *testing.T) {
 	}
 }
 
-// Armas e armaduras têm tabelas separadas justamente porque se distribuem em
-// lugares opostos; uma faixa de arma não pode alcançar uma armadura.
+// Armas e armaduras têm tabelas separadas justamente porque ficam em pontas
+// opostas da escala; uma faixa de arma não pode alcançar uma armadura.
 func TestBandsDoNotCrossSlotKinds(t *testing.T) {
 	c := cfg()
 	if b, ok := c.BandFor(SlotWeapon, 120); !ok || b.Label != "Armas C" {
