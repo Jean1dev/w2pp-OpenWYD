@@ -717,6 +717,23 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	// (10M, MobKilled.cpp:1284) means the content tree wasn't restamped with
 	// cmd/exptool — players would gain nothing from those kills (issue #43).
 	const maxSaneMobExp = 10_000_000
+	// A monster level outside 1..MaxLevel is content nobody meant to ship, and it
+	// is invisible in play: nothing refuses the value and nothing in the log says
+	// it is there. What it does is invert the reward.
+	//
+	// GetExpApply scales the reward by the level ratio between killer and mob —
+	// but only while the mob is within reach of the player ceiling. Past that it
+	// gives up and returns the raw value (level.go: `target > MaxLevel+1`), so a
+	// level-200 player earns ZERO from a level-399 mob and 1.27 MILLION from a
+	// level-599 one. The stronger-looking monster is the one that pays.
+	//
+	// The 599 was never a level: it was somebody writing "stronger than 400".
+	//
+	// Two thresholds, one apart, and worth keeping apart: 401 and up is where the
+	// scaling stops; exactly 400 is still scaled but is already past the player
+	// cap, so it is a number to look at rather than a reward bug.
+	nivelForaDaFaixa := make(map[string]struct{})
+	semEscala, maiorNivel := 0, int32(0)
 	// loadedTemplate keeps the raw (pre-override) Merchant classification
 	// alongside the override-applied bytes: rawMerchant drives the
 	// DB-managed-merchant skip below, so a moderator's stat override (which
@@ -750,10 +767,27 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
 				t.bytes = mobstat.ApplyOverride(b, name, mobStatOverrides)
-				if mb := protocol.ParseMobBasics(t.bytes); mb.Merchant == 0 && mb.Level >= 1 &&
+				mb := protocol.ParseMobBasics(t.bytes)
+				if mb.Merchant == 0 && mb.Level >= 1 &&
 					(mb.Exp <= 0 || mb.Exp > maxSaneMobExp) {
 					logger.Warn("monster template has unbalanced Exp (run cmd/exptool)",
 						"npc", name, "level", mb.Level, "exp", mb.Exp)
+				}
+				// The Merchant guard above does NOT apply here. A service NPC is
+				// never killed, so its Exp is nobody's problem — but its level is
+				// still a number in the content, and two of the templates that
+				// ship at 599 (Zakum_Inf, Sulrang) carry a non-zero Merchant byte
+				// while being bosses. Skipping them would hide exactly the ones
+				// worth seeing. Level 0 on a shopkeeper is normal, so only the
+				// upper end is reported for those.
+				if mb.Level > level.MaxLevel || (mb.Merchant == 0 && mb.Level < 1) {
+					nivelForaDaFaixa[name] = struct{}{}
+					if mb.Level > level.MaxLevel+1 {
+						semEscala++
+					}
+					if mb.Level > maiorNivel {
+						maiorNivel = mb.Level
+					}
 				}
 			}
 			templates[name] = t
@@ -833,6 +867,13 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			"follower_blocks_degraded", missingFollowerBlocks,
 			"missing_follower_templates", len(missingFollowerNames),
 			"missing_follower_sample", sampleNames(missingFollowerNames, 10))
+	}
+	if len(nivelForaDaFaixa) > 0 {
+		logger.Warn("monster template level outside 1..399 (the reward inverts: a stronger-looking mob pays more, see game-rules.md §1.1)",
+			"templates", len(nivelForaDaFaixa),
+			"unscaled_above_400", semEscala,
+			"highest_level", maiorNivel,
+			"sample", sampleNames(nivelForaDaFaixa, 20))
 	}
 	logger.Info("npc template catalog", "layouts", stats)
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),

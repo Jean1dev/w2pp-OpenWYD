@@ -68,6 +68,18 @@ UNK_1 = 30                                   # constante base da fórmula  (:409
 UNK_3 = killer.extra.ClassMaster             # tier do personagem (party class)
 ```
 
+> **Nível de mob acima de 400 INVERTE a recompensa.** `GetExpApply` escala pela razão de níveis
+> entre matador e alvo, mas desiste quando o alvo passa do teto do jogador
+> (`internal/level/level.go`, `if target > MaxLevel+1 { return exp }`) e devolve o valor cru.
+> Medido: um jogador de nível 200 recebe **zero** de um mob 399 e **1.271.111** de um mob 599.
+> O monstro que parece mais forte é o que paga.
+>
+> O conteúdo desta árvore traz **55 templates referenciados pelo NPCGener fora de 1..399**, sendo
+> 44 acima de 400 (o maior é 600) — o `599` nunca foi nível, era alguém escrevendo "mais forte que
+> 400". O boot avisa: procure `monster template level outside 1..399` no log. Corrigir os
+> templates é trabalho de dado, e o aviso existe para que a correção não se desfaça calada na
+> próxima importação de conteúdo.
+
 ### 1.2. Bônus de party (número de membros)
 
 ```text
