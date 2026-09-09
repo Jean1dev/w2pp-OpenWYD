@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -371,5 +373,77 @@ func TestApplyNPCConfigBootHonoursContext(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
 		t.Errorf("returned after %s, want it to abort promptly", elapsed)
+	}
+}
+
+// TestAuditaEstoqueGratisLeOBanco is the check that exists because its absence
+// cost real money-shaped damage: five donate-credit items sat FREE in a live
+// shop for two days after being "removed", because the removal was made in the
+// template file and the live shop comes from npc_shop_item.
+func TestAuditaEstoqueGratisLeOBanco(t *testing.T) {
+	var logs bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	d := New(Config{
+		Log:        log,
+		ItemPrices: map[int]int32{1100: 0, 1101: 500, 1102: 0, 5008: 0},
+		ItemNames:  map[int]string{1100: "Presente", 1101: "Pago", 1102: "Sobreposto", 5008: "Carga"},
+		NpcConfig:  staticSource{},
+	})
+	w := world.New(world.Config{GridDim: 32}, log, world.NopPersistence{}, d.Handle)
+
+	d.applyNPCConfig(w, npccfg.Snapshot{
+		Version: 1,
+		Defs: []npccfg.Definition{{
+			Slug: "loja", Template: merchantTemplate("Keeper"), Enabled: true, X: 8, Y: 8, Merchant: 1,
+			Shop: []npccfg.ShopItem{
+				{Slot: 0, Index: 1100}, // de graça
+				{Slot: 1, Index: 1101}, // pago
+				{Slot: 2, Index: 1102}, // zero no catálogo, MAS precificado pelo painel
+				{Slot: 3, Index: 5008}, // livro de habilidade
+				{Slot: 4, Index: 9999}, // fora do catálogo
+			},
+		}},
+		// A sobreposição do painel tira o 1102 da conta: o preço que vale é este.
+		PriceOverrides: map[int]int32{1102: 700},
+	}, false)
+
+	got := logs.String()
+	if !strings.Contains(got, "from the DATABASE") {
+		t.Fatalf("não avisou sobre estoque grátis vindo do banco:\n%s", got)
+	}
+	if !strings.Contains(got, "items=1 slots=1 shops=1") {
+		t.Errorf("a conta devia ser UM item; só o 1100 é de graça de verdade:\n%s", got)
+	}
+	if !strings.Contains(got, "Presente(1100)") {
+		t.Errorf("faltou nomear o item de graça:\n%s", got)
+	}
+	for _, proibido := range []string{"Pago(1101)", "Sobreposto(1102)", "Carga(5008)", "9999"} {
+		if strings.Contains(got, proibido) {
+			t.Errorf("o aviso citou %q, que não é item de graça comprável:\n%s", proibido, got)
+		}
+	}
+}
+
+// TestAuditaEstoqueGratisIgnoraLojaDeTemplate: Shop nil quer dizer "usa o Carry
+// do template", e esse caso é do aviso do boot. Contar aqui somaria as duas
+// fontes e esconderia a discordância entre elas, que é o sintoma que interessa.
+func TestAuditaEstoqueGratisIgnoraLojaDeTemplate(t *testing.T) {
+	var logs bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	d := New(Config{Log: log, ItemPrices: map[int]int32{1100: 0}, NpcConfig: staticSource{}})
+	w := world.New(world.Config{GridDim: 32}, log, world.NopPersistence{}, d.Handle)
+
+	tmpl := merchantTemplate("Keeper")
+	binary.LittleEndian.PutUint16(tmpl[268:], 1100) // de graça, no Carry do template
+	d.applyNPCConfig(w, npccfg.Snapshot{
+		Version: 1,
+		Defs: []npccfg.Definition{{
+			Slug: "loja", Template: tmpl, Enabled: true, X: 8, Y: 8, Merchant: 1,
+			Shop: nil, // usa o Carry
+		}},
+	}, false)
+
+	if strings.Contains(logs.String(), "from the DATABASE") {
+		t.Errorf("contou loja que vem do template como se viesse do banco:\n%s", logs.String())
 	}
 }

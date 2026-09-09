@@ -395,6 +395,42 @@ impediriam o número de chegar a zero, e alarme que nunca zera vira paisagem.
 Os 3 de fora da janela não são exclusivos dela: aparecem também em vitrine. Ou seja, hoje nenhum
 item grátis mora **só** escondido — a linha existe para o dia em que morar.
 
+### O template NÃO é o que o jogador vê
+
+Com `-npc-editing` ligado — que é o estado de produção — os blocos de lojista do `NPCGener.txt` são
+**pulados** (`merchant_blocks_skipped=548` no log) e quem manda são as definições do
+`npc_definition`. `applyShop` **zera o Carry inteiro** e escreve os slots vindos do `npc_shop_item`.
+Consequência: **editar o `Carry` do arquivo de template não muda nada para um lojista.**
+
+Isso custou caro uma vez: cinco itens denominados em crédito de doação (as Cosmo Energia, `EF_DONATE`
+200 a 10000) ficaram **de graça** numa loja viva por dois dias depois de terem sido "removidos" — a
+remoção foi no arquivo, e a loja lia o banco. Foram apagados pelo painel em 09/09/2026, nos dois
+registros de `DonatesBars` (NPC 17 e 627), deixando cada loja só com o índice 5751, que não está no
+catálogo e por isso não é comprável.
+
+Por isso a contagem de estoque grátis existe **duas vezes, e nunca somada**:
+
+| Onde | O que responde | Quando roda |
+|---|---|---|
+| `main.spawnNPCs` | o que a IMAGEM traz no `Carry` dos templates | boot |
+| `handler.auditaEstoqueGratis` | o que está À VENDA agora, pelo `npc_shop_item` | boot e a cada salvamento do painel |
+
+Somar as duas esconderia justamente a discordância entre elas, que é o sintoma. A segunda usa o
+preço **efetivo** (`d.itemPrices`: catálogo com as sobreposições por item escritas por cima), então
+um item que o catálogo dá como zero mas o painel precificou não conta.
+
+### Três lojas do conteúdo não existem em produção
+
+`MileageTrader`, `Galaxy_Store*` e `Nordic_Store*` existem como arquivo em `Release/TMsrv/run/npc`,
+**não são referenciados pelo `NPCGener.txt` e não estão no `npc_definition`** (conferido no painel
+em 09/09/2026: a busca por Mileage, Galaxy e Nordic não devolve NPC nenhum). Ou seja: não nascem por
+caminho nenhum e nada que esteja no estoque delas está à venda.
+
+Isso vale para o **Selo Contratual (3444)**, o **Mandado de Exílio (5602)** e os quatro **Cartão de
+Classe (4021-4024)**: eles constam do estoque dessas lojas e portanto **nunca estiveram à venda de
+verdade**. Decisões tomadas sobre eles foram tomadas sobre item morto. Fica escrito para não
+voltar — e para lembrar que estoque de template só significa alguma coisa quando o NPC existe.
+
 Preços fechados até aqui, sempre e só para o que está de fato numa vitrine: Cristal de Extração
 20.000.000 (5 dos 6 — o de Arma não está em loja), a série de Jóias 100 (o bloco vizinho 3206-3208
 é a mesma coisa com outro nome e custa isso), Montarias copiando o homônimo já precificado

@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -234,6 +236,90 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 		}
 	}
 	d.npcVersion = snap.Version
+	d.auditaEstoqueGratis(snap)
+}
+
+// auditaEstoqueGratis conta o estoque de lojista a preço zero que vem do BANCO.
+//
+// Existe porque o aviso equivalente do boot (spawnNPCs) lê o Carry do template, e
+// com -npc-editing ligado o template NÃO é o que o jogador vê: as definições do
+// npc_definition substituem a loja inteira (applyShop zera o Carry e escreve os
+// slots do banco). Um item de graça que só exista no npc_shop_item é invisível
+// para aquele aviso — foi assim que cinco itens de crédito de doação ficaram de
+// graça num NPC depois de terem sido "removidos" no arquivo.
+//
+// As duas contagens NUNCA são somadas nem fundidas numa linha só. São fontes
+// diferentes que respondem perguntas diferentes: o do template diz o que a imagem
+// traz, este diz o que está à venda agora. Somar esconderia justamente a
+// discordância entre as duas, que é o sintoma que interessa.
+//
+// O preço é o EFETIVO: d.itemPrices já é o catálogo com as sobreposições por item
+// do painel escritas por cima (rebuildItemPrices, chamada no topo desta mesma
+// função), então um item que o catálogo dá como zero mas o painel precificou não
+// entra aqui — e vice-versa.
+func (d *Dispatcher) auditaEstoqueGratis(snap npccfg.Snapshot) {
+	gratis := make(map[int]struct{})
+	vagas, lojas, cardapio := 0, 0, 0
+	for _, def := range snap.Defs {
+		// Shop nil quer dizer "usa o Carry do próprio template": esse caso é do
+		// outro aviso, não deste. Lista vazia não-nil é loja esvaziada de
+		// propósito, e também não tem nada a contar.
+		if def.Merchant == 0 || def.Shop == nil {
+			continue
+		}
+		antes := vagas
+		for _, it := range def.Shop {
+			idx := int(it.Index)
+			if idx <= 0 {
+				continue
+			}
+			// Índice ausente do catálogo não conta: handler.buy sai no !ok e a
+			// compra é recusada. É vitrine suja, problema diferente.
+			preco, conhecido := d.itemPrices[idx]
+			if !conhecido || preco != 0 {
+				continue
+			}
+			// Livro de habilidade não é mercadoria e nunca vai ter preço.
+			if IsSkillItem(idx) {
+				cardapio++
+				continue
+			}
+			gratis[idx] = struct{}{}
+			vagas++
+		}
+		if vagas > antes {
+			lojas++
+		}
+	}
+	if len(gratis) > 0 {
+		d.log.Warn("shop stock priced at zero, from the DATABASE (npc_shop_item) — the buyer pays nothing",
+			"items", len(gratis), "slots", vagas, "shops", lojas,
+			"sample", d.amostraDeItens(gratis, 20))
+	}
+	if cardapio > 0 {
+		d.log.Info("class-master skill menu in the database (not merchandise)", "slots", cardapio)
+	}
+}
+
+// amostraDeItens nomeia até n itens, em ordem de índice, para o log.
+func (d *Dispatcher) amostraDeItens(idx map[int]struct{}, n int) []string {
+	ids := make([]int, 0, len(idx))
+	for i := range idx {
+		ids = append(ids, i)
+	}
+	sort.Ints(ids)
+	if len(ids) > n {
+		ids = ids[:n]
+	}
+	out := make([]string, 0, len(ids))
+	for _, i := range ids {
+		if nome := d.itemNames[i]; nome != "" {
+			out = append(out, fmt.Sprintf("%s(%d)", nome, i))
+			continue
+		}
+		out = append(out, strconv.Itoa(i))
+	}
+	return out
 }
 
 // npcTemplateWithDisplayName overlays the moderator display name onto a copy of
