@@ -70,7 +70,7 @@ func (d *Dispatcher) skillMasterReset(w *world.World, s *world.Session, e *world
 	// it sits there would be the expensive mistake. The original picks it first for
 	// the same reason (_MSG_Quest.cpp:1788).
 	budget := int32(retornoHabilidadePoints)
-	cost := []int{}
+	var cost []int
 	if slot := retornoSlot(e); slot >= 0 {
 		cost = []int{slot}
 	} else {

@@ -97,12 +97,12 @@ func (d *Dispatcher) sayPools(w *world.World, s *world.Session, e *world.Entity)
 		e.BaseCon, investedCon, e.BaseInt, investedInt, e.ClassMaster))
 }
 
-func clampPool(v, cap int32) int32 {
+func clampPool(v, teto int32) int32 {
 	if v < 1 {
 		return 1
 	}
-	if v > cap {
-		return cap
+	if v > teto {
+		return teto
 	}
 	return v
 }
