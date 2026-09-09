@@ -119,8 +119,8 @@ func putShort(ef *world.Effect, v uint16) {
 // the next attempt's odds.
 //
 // Only the standard-equipment path is ported (issue #103). The legacy's four
-// other dust branches — sealed items (:224), celestial/HC (:385), arch stones
-// (:514) and +10..+14 earrings (:716) — all roll rand()%115 with the -15 fold and
+// other dust branches — sealed items (:224), celestial/HC (:385)
+// and +10..+14 earrings (:716) — roll rand()%115 with the -15 fold and
 // destroy or reset the item on failure; they are deferred to their own issues.
 func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entity, body protocol.MsgUseItemBody, src, vol int) {
 	dst := d.itemSlot(w, s, e, int(body.DestType), int(body.DestPos))
@@ -142,6 +142,16 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 	// effect — so the two agree in practice.
 	if d.itemVolatiles[int(dst.Index)] != 0 {
 		d.refineReject(w, s, e, src, NoticeOnlyToEquips)
+		return
+	}
+	// The arch stones come BEFORE the EF_NOSANC gate, and on purpose. Their whole
+	// design is to be transmuted by dust, but issue #133 stamped EF_NOSANC across
+	// the whole 1740-1763 family to stop dust from touching the Sephirot and the
+	// Pedra da Imortalidade — and swept these eight up with it, which is why the
+	// player was told a transmutation stone could not be refined. Handling them
+	// here keeps that protection intact for everything else in the family.
+	if isPedraArch(dst.Index) {
+		d.refinePedraArch(w, s, e, dst, body, src)
 		return
 	}
 	if d.itemAbility(*dst, efNoSanc) != 0 {
