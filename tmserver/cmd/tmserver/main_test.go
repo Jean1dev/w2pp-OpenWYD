@@ -174,11 +174,16 @@ func TestSpawnNPCsAvisaNivelForaDaFaixa(t *testing.T) {
 		{"PrimeiroSemEscala", 401}, // aqui a escala desliga
 		{"Absurdo", 599},
 	}
+	// Um lojista com atributo de chefe, que e o caso real: entra na conta e e
+	// contado a parte, porque baixar o nivel dele mexe no que ele vende.
+	const lojista = "LojistaChefe"
 	var gener strings.Builder
 	for i, n := range niveis {
 		fmt.Fprintf(&gener, "# [%d]\n\tLeader: %s\n\tMinGroup: 0\n\tMaxGroup: 0\n\tMaxNumMob: 1\n\tStartX: %d\n\tStartY: 10\n\n",
 			i, n.nome, 10+i)
 	}
+	fmt.Fprintf(&gener, "# [%d]\n\tLeader: %s\n\tMinGroup: 0\n\tMaxGroup: 0\n\tMaxNumMob: 1\n\tStartX: 30\n\tStartY: 10\n\n",
+		len(niveis), lojista)
 	if err := os.WriteFile(filepath.Join(runDir, "NPCGener.txt"), []byte(gener.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -186,6 +191,11 @@ func TestSpawnNPCsAvisaNivelForaDaFaixa(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(npcDir, n.nome), testMobTemplateNivel(n.nome, n.nivel), 0o644); err != nil {
 			t.Fatal(err)
 		}
+	}
+	tmplLojista := testMobTemplateNivel(lojista, 599)
+	tmplLojista[92+12] = 16 // CurrentScore.Merchant
+	if err := os.WriteFile(filepath.Join(npcDir, lojista), tmplLojista, 0o644); err != nil {
+		t.Fatal(err)
 	}
 
 	var logs bytes.Buffer
@@ -196,10 +206,12 @@ func TestSpawnNPCsAvisaNivelForaDaFaixa(t *testing.T) {
 	got := logs.String()
 	for _, quer := range []string{
 		"monster template level outside 1..399",
-		"templates=3",          // 400, 401 e 599
-		"unscaled_above_400=2", // só 401 e 599
+		"templates=4",          // 400, 401, 599 e o lojista
+		"unscaled_above_400=3", // 401, 599 e o lojista
+		"with_merchant=1",      // só o lojista
 		"highest_level=599",
 		"Absurdo",
+		lojista,
 	} {
 		if !strings.Contains(got, quer) {
 			t.Fatalf("faltou %q no log:\n%s", quer, got)

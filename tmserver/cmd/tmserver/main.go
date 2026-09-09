@@ -733,7 +733,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	// scaling stops; exactly 400 is still scaled but is already past the player
 	// cap, so it is a number to look at rather than a reward bug.
 	nivelForaDaFaixa := make(map[string]struct{})
-	semEscala, maiorNivel := 0, int32(0)
+	semEscala, comMercador, maiorNivel := 0, 0, int32(0)
 	// loadedTemplate keeps the raw (pre-override) Merchant classification
 	// alongside the override-applied bytes: rawMerchant drives the
 	// DB-managed-merchant skip below, so a moderator's stat override (which
@@ -784,6 +784,15 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 					nivelForaDaFaixa[name] = struct{}{}
 					if mb.Level > level.MaxLevel+1 {
 						semEscala++
+					}
+					// Counted apart because it asks a different question. These
+					// are not monsters with a stray byte: they are shopkeepers
+					// with real stock AND boss stats (Zakum_Inf carries 19 items,
+					// Zakum_Inf_ 18, Imp_Inferno 10, Sulrang 2). Dropping one to
+					// 399 changes what it sells as well as what it pays, so it is
+					// somebody's decision and not a data sweep.
+					if mb.Merchant != 0 {
+						comMercador++
 					}
 					if mb.Level > maiorNivel {
 						maiorNivel = mb.Level
@@ -872,6 +881,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		logger.Warn("monster template level outside 1..399 (the reward inverts: a stronger-looking mob pays more, see game-rules.md §1.1)",
 			"templates", len(nivelForaDaFaixa),
 			"unscaled_above_400", semEscala,
+			"with_merchant", comMercador,
 			"highest_level", maiorNivel,
 			"sample", sampleNames(nivelForaDaFaixa, 20))
 	}
