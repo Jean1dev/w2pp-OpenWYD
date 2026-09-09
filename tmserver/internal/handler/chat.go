@@ -413,6 +413,13 @@ func (d *Dispatcher) sendChatText(w *world.World, s *world.Session, text string)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(s.Conn)}, payload)
 }
 
+// sendNPCChatText uses the speaker ID like legacy SendSay, but keeps personal
+// service replies private to the requesting session instead of multicasting.
+func (d *Dispatcher) sendNPCChatText(w *world.World, s *world.Session, npcID int, text string) {
+	payload := append([]byte(text), 0)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(npcID)}, payload)
+}
+
 // notifyPKPointDelta formats the _DD_PKPointPlus/_DD_PKPointMinus chat line:
 // the player's new displayed Chaos Points (PKPoint-75) plus the signed change
 // that just happened. Exact legacy string-table text isn't available in this
