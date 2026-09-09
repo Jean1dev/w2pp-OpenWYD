@@ -86,20 +86,28 @@ const (
 // escolhidos por quem opera, medidos em Evocação 320. A progressão do legado
 // estava invertida: o Tigre (magia de nível 84) entregava mais dano total que o
 // Dragão (102) e quase quatro vezes a Succubus (220).
+//
+// Os alvos de dano embutem o pedágio da AC. BASE_GetDamage cobra ac/2 POR
+// UNIDADE (combat.go), então um alvo por unidade escolhido em absoluto vira 1
+// contra qualquer coisa blindada: com os 500 de dano do Condor, um mob de AC
+// 1.300 já zera as doze cabeças. Os números aqui são o alvo desejado MAIS
+// 2.250, metade da AC 4.500 do Lugefer — a referência de elite escolhida por
+// quem opera. Contra alvo fraco isso passa do desenho, e é assim de propósito:
+// o pedágio é por unidade, então nenhuma calibragem serve as duas pontas.
 var summonBonus = [9]struct {
 	damInt, damEvo int32
 	acInt, acEvo   int32
 	hpInt, hpEvo   int32
 }{
 	// Int  Dano   Int    AC   Int     HP        alvo por unidade @ Evocação 320
-	{0, 145, 0, 120, 0, 294},   // 0 Condor      dano 500, AC 400, HP 1.000
-	{0, 83, 0, 369, 0, 1219},   // 1 Javali      dano 300, AC 1.200, HP 4.000
-	{0, 291, 0, 206, 0, 594},   // 2 Lobo        dano 1.000, AC 700, HP 2.000
-	{0, 88, 0, 419, 0, 1531},   // 3 Urso        dano 350, AC 1.400, HP 5.000
-	{0, 445, 0, 241, 0, 719},   // 4 Tigre       dano 1.500, AC 800, HP 2.400
-	{0, 359, 0, 298, 0, 875},   // 5 Gorila      dano 1.200, AC 1.000, HP 3.000
-	{0, 594, 0, 350, 0, 984},   // 6 Dragão      dano 2.000, AC 1.200, HP 3.500
-	{0, 1203, 0, 278, 0, 1238}, // 7 Succubus    dano 4.000, AC 1.000, HP 4.200
+	{0, 849, 0, 120, 0, 294},   // 0 Condor      dano 2.750, AC 400, HP 1.000
+	{0, 786, 0, 369, 0, 1219},  // 1 Javali      dano 2.550, AC 1.200, HP 4.000
+	{0, 994, 0, 206, 0, 594},   // 2 Lobo        dano 3.250, AC 700, HP 2.000
+	{0, 791, 0, 419, 0, 1531},  // 3 Urso        dano 2.600, AC 1.400, HP 5.000
+	{0, 1149, 0, 241, 0, 719},  // 4 Tigre       dano 3.750, AC 800, HP 2.400
+	{0, 1063, 0, 298, 0, 875},  // 5 Gorila      dano 3.450, AC 1.000, HP 3.000
+	{0, 1297, 0, 350, 0, 984},  // 6 Dragão      dano 4.250, AC 1.200, HP 3.500
+	{0, 1906, 0, 278, 0, 1238}, // 7 Succubus    dano 6.250, AC 1.000, HP 4.200
 	{0, 0, 0, 0, 0, 0},         // 8 Invocação Final: sem escalonamento nenhum
 }
 

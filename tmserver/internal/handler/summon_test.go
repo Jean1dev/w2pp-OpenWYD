@@ -472,8 +472,8 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 		// O Int do dono não entra mais na conta: summonBonus tem a parte do Int
 		// zerada, então o que sobra é a base do template mais a Evocação. O dono
 		// deste teste tem Int 100 e não muda nada aqui, o que é o ponto.
-		if dmg != 107 {
-			t.Errorf("pet damage = %d, want 107 (base 20 + 60·145%%)", dmg)
+		if dmg != 529 {
+			t.Errorf("pet damage = %d, want 529 (base 20 + 60·849%%)", dmg)
 		}
 		if hp != 276 {
 			t.Errorf("pet maxHP = %d, want 276 (base 100 + 60·294%%)", hp)
@@ -1191,14 +1191,14 @@ func TestEvocacoesBatemOsAlvosPorUnidade(t *testing.T) {
 			alvoDano, alvoAC int32
 			alvoHP           int32
 		}{
-			{"Condor", 0, 35, 15, 60, 500, 400, 1000},
-			{"Javali", 1, 35, 20, 100, 300, 1200, 4000},
-			{"Lobo", 2, 70, 40, 100, 1000, 700, 2000},
-			{"Urso", 3, 70, 60, 100, 350, 1400, 5000},
-			{"Tigre", 4, 75, 30, 100, 1500, 800, 2400},
-			{"Gorila", 5, 50, 45, 200, 1200, 1000, 3000},
-			{"Dragão", 6, 100, 80, 350, 2000, 1200, 3500},
-			{"Succubus", 7, 150, 110, 240, 4000, 1000, 4200},
+			{"Condor", 0, 35, 15, 60, 2750, 400, 1000},
+			{"Javali", 1, 35, 20, 100, 2550, 1200, 4000},
+			{"Lobo", 2, 70, 40, 100, 3250, 700, 2000},
+			{"Urso", 3, 70, 60, 100, 2600, 1400, 5000},
+			{"Tigre", 4, 75, 30, 100, 3750, 800, 2400},
+			{"Gorila", 5, 50, 45, 200, 3450, 1000, 3000},
+			{"Dragão", 6, 100, 80, 350, 4250, 1200, 3500},
+			{"Succubus", 7, 150, 110, 240, 6250, 1000, 4200},
 		} {
 			b := summonBonus[c.summonID]
 			got := []struct {

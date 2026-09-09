@@ -22,6 +22,7 @@ type MobBasics struct {
 	Str, Int, Dex, Con int16
 	Exp                int64    // STRUCT_MOB.Exp @32; for a monster this is its kill reward
 	Resist             [4]uint8 // STRUCT_MOB.Resist @806 — elemental skill resists
+	SkillBar           [4]uint8 // STRUCT_MOB.SkillBar @796 — the skills this mob casts (255 = empty slot)
 }
 
 // ParseMobBasics reads the spawn-relevant fields from a raw 816-byte STRUCT_MOB
@@ -53,6 +54,7 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 		Dex:       int16(le.Uint16(mob816[cs+36:])),
 		Con:       int16(le.Uint16(mob816[cs+38:])),
 		Resist:    [4]uint8(mob816[806:810]), // STRUCT_MOB.Resist @806 (skill mitigation)
+		SkillBar:  [4]uint8(mob816[796:800]), // STRUCT_MOB.SkillBar @796 (GetFunc.cpp:1569-1627)
 	}
 }
 

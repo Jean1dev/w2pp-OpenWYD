@@ -97,6 +97,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.guardQuest256Areas(w)
 	d.regenPlayers(w)
 	d.sweepAffects(w)
+	d.sweepMobAffects(w) // ProcessAffect for monsters (mobskill.go)
 	d.sweepGuilty(w)
 	d.sweepDuelInvites(w)
 	d.sweepDuelArena(w)
@@ -717,6 +718,15 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	}
 	e.AtkTick = now
 
+	// One rand()%100 per swing picks what the bar casts (mobskill.go). The heal
+	// slot spends the swing on itself and the blow never lands.
+	sk := rollMobSkill(w, d.spells, e)
+	if sk.heal {
+		if d.healMobSkill(w, id, e) {
+			return
+		}
+		sk = mobSkill{index: noSkill}
+	}
 	dmg := combat.ResolveHit(w.Rand(), combat.HitInput{
 		AttackerDamage: int(e.Damage) + int(d.weaponDamage(e)),
 		// effectiveAC, not the bare AC: the legacy reads the victim's
@@ -756,6 +766,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		TargetX:    uint16(target.X),
 		TargetY:    uint16(target.Y),
 		AttackerID: uint16(id),
+		SkillIndex: int16(sk.index),
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
 	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
@@ -768,6 +779,10 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		d.ensureSeenMob(w, vs, id)
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
 	})
+
+	// The skill rides along with the blow: the client draws it from SkillIndex
+	// above, the affect lands here (ProcessSecMinTimer.cpp:2196-2205).
+	d.applyMobSkill(w, e, target, sk)
 
 	// Mob targets: a pet's kill rewards its OWNER (MobKilled.cpp:181-190 credits
 	// the Summoner); a monster that downs a pet removes it for good (removeType

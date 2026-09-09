@@ -134,7 +134,8 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 		// BASE_GetCurrentScore adds the equipment on top at runtime (CMob.cpp:709).
 		BaseAC: b.Ac, BaseDamage: b.Damage, BaseMaxHP: b.MaxHp,
 		BaseStr: b.Str, BaseInt: b.Int, BaseDex: b.Dex, BaseCon: b.Con,
-		Template:  template, // retained for runtime respawn (world/respawn.go)
+		SkillBar:  b.SkillBar, // the mob casts from this bar on its swings (mobskill.go)
+		Template:  template,   // retained for runtime respawn (world/respawn.go)
 		RouteType: sp.RouteType, SegListX: sp.SegX, SegListY: sp.SegY, SegWait: sp.SegWait,
 		GenIndex: sp.GenIndex,
 		// The current waypoint doubles as the aggro/leash anchor (CMob.cpp:292);
