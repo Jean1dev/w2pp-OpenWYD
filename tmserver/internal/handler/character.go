@@ -570,6 +570,19 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	// SendScore in this path at all (ProcessDBMessage.cpp:1017-1037) — observers
 	// learn the newcomer's HP from CreateMob.
 	d.sendScoreSelf(w, s, self) // CurrentScore (attributes after equipment + active buffs)
+	// E a confirmação de HP/MP, que o UpdateScore acima NÃO substitui.
+	//
+	// O cliente desconta a mana LOCALMENTE ao lançar e só reconcilia a barra com
+	// um MSG_SetHpMp. Sem esta linha, um cliente que chegou com a conta desandada
+	// de uma sessão anterior continuava errado depois de relogar — e uma barra
+	// suficientemente negativa faz ELE recusar as magias sozinho (\"Mana
+	// insuficiente\"), sem mandar nada que nos desse a chance de corrigir. Entrar
+	// no mundo passa a ser o ponto de reconciliação garantido.
+	//
+	// Vai aqui, dentro da rajada do login, e não num batimento periódico: o
+	// servidor é silencioso quando nada acontece, e várias partes do jogo contam
+	// com isso.
+	d.sendSetHpMp(w, s, self)
 	if self.HasAnyAffect() {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
