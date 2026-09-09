@@ -167,13 +167,34 @@ func TestCombineInvalidRecipe(t *testing.T) {
 	defer c.Close()
 
 	combineFrame(t, c)
-	// Invalid recipe ⇒ CombineComplete(0) is the FIRST frame (inputs NOT consumed).
-	ty, p, ok := readMaybe(t, c)
-	if !ok || ty != protocol.MsgCombineComplete {
-		t.Fatalf("got %#x ok=%v, want CombineComplete with no prior SendItem", ty, ok)
+	// Invalid recipe: the inputs are NOT consumed, so no SendItem may precede the
+	// answer — but the answer is now two frames, not one. CombineComplete(0) alone
+	// draws nothing on the client, which is what made every refused combine look
+	// like a dead button; the line naming the reason comes with it, as it does in
+	// the original (_MSG_CombineItemAilyn.cpp:59).
+	var sawText, sawComplete bool
+	for {
+		ty, p, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		switch ty {
+		case protocol.MsgSendItem:
+			t.Error("receita inválida consumiu item")
+		case protocol.MsgMessagePanel:
+			sawText = true
+		case protocol.MsgCombineComplete:
+			sawComplete = true
+			if parmOf(t, p) != combineInvalid {
+				t.Errorf("parm = %d, want invalid(0)", parmOf(t, p))
+			}
+		}
 	}
-	if parmOf(t, p) != combineInvalid {
-		t.Errorf("parm = %d, want invalid(0)", parmOf(t, p))
+	if !sawComplete {
+		t.Error("nenhum CombineComplete: a janela do cliente fica travada")
+	}
+	if !sawText {
+		t.Error("recusa sem texto — indistinguível de máquina quebrada")
 	}
 }
 

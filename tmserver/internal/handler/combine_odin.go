@@ -78,7 +78,7 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 	// hazard this fork's single-owner/no-dup invariant (CLAUDE.md) can't
 	// allow. Require slot 1 to have been a real, validated input.
 	if (id == combine.OdinNoMatch || id == combine.OdinItemCelestial) && items[1].Empty() {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	var targetLevel, capeLevel int
@@ -86,18 +86,18 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 	case combine.OdinPlus12:
 		targetLevel = refine.Level(items[2])
 		if odinSecretaUneven(items[:]) || targetLevel >= 15 || d.itemAbility(items[2], efMobType) == 3 {
-			sendCombineComplete(w, s, combineInvalid)
+			d.refuseCombine(w, s, msgWrongCombination)
 			return
 		}
 	case combine.OdinDestraveLv40:
 		if e.Level != 39 || e.CelLv40 != 0 || e.ClassMaster != classMasterCelestial {
-			sendCombineComplete(w, s, combineInvalid)
+			d.refuseCombine(w, s, msgWrongCombination)
 			return
 		}
 	case combine.OdinCapaCelestial:
 		capeLevel = itemSanc(e.Equip[reinoCapeSlot])
 		if e.ClassMaster == classMasterMortal || e.ClassMaster == classMasterArch || capeLevel >= 9 {
-			sendCombineComplete(w, s, combineInvalid)
+			d.refuseCombine(w, s, msgWrongCombination)
 			return
 		}
 	}

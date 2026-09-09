@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
@@ -76,6 +78,13 @@ func (d *Dispatcher) resolveComboInputs(w *world.World, s *world.Session, e *wor
 		}
 		pos := int(body.InvenPos[i])
 		if !carrySlotAccessible(e, pos) {
+			// The one refusal that used to emit nothing at all — not even the bare
+			// CombineComplete — so the client's window stayed locked on a machine the
+			// server had already given up on. Reachable in ordinary play: a slot of the
+			// Bolsa do Andarilho while the bag is not active is out of range.
+			d.log.Info("combine recusado: slot inacessível",
+				"conn", s.Conn, "pos", pos, "limite", activeCarryLimit(e))
+			d.refuseCombine(w, s, msgWrongCombination)
 			d.removeTrade(w, s) // out of range → RemoveTrade (anti-cheat)
 			return items, slots, active, false
 		}
@@ -120,7 +129,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 	}
 	if rate == 0 {
 		// _NN_Wrong_Combination — inputs are NOT consumed.
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 
@@ -244,6 +253,30 @@ func extractionResultIndex(pos int) int16 {
 // (SendFunc.cpp:300-310), not the sender's conn.
 func sendCombineComplete(w *world.World, s *world.Session, parm int32) {
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCombineComplete, ID: protocol.IDScene}, protocol.EncodeStandardParm(parm))
+}
+
+// refuseCombine is what every machine owed the player and none of them paid.
+//
+// _MSG_CombineComplete with parm 0 only releases the client's window: nothing is
+// drawn, so a refusal looked exactly like a dead button. The original never sends
+// it bare — every refusal in every machine is preceded by a SendClientMessage
+// naming the reason (_MSG_CombineItemAilyn.cpp:48-49 and :59 are the two for the
+// +10 machine). Ten machines shared the same silence here.
+func (d *Dispatcher) refuseCombine(w *world.World, s *world.Session, text string) {
+	sendClientMessage(w, s, text)
+	sendCombineComplete(w, s, combineInvalid)
+}
+
+// msgWrongCombination is _NN_Wrong_Combination (Language.txt:271): the recipe on
+// the grid is not one the machine knows. It is by far the most common refusal —
+// the +10 machine alone wants seven filled cells, two identical items, a Pedra do
+// Sábio and four jewels chosen by the item's own grade.
+const msgWrongCombination = "Há algo de errado na combinação."
+
+// combineNeedsGold is _DN_D_Cost (Language.txt:204) built with the price, so the
+// player learns the number instead of guessing it.
+func combineNeedsGold(cost int32) string {
+	return fmt.Sprintf("Você precisa de %d Gold.", cost)
 }
 
 // sendCarrySlot pushes one carry slot's current contents to the client.

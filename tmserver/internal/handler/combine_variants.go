@@ -45,12 +45,24 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 		return
 	}
 	if e.Coin < ailynCost {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, combineNeedsGold(ailynCost))
 		return
 	}
 	rate := combine.MatchAilyn(d.combineCatalog, it[:], d.compRate.ChanceBase("Ailyn"))
 	if rate == 0 {
-		sendCombineComplete(w, s, combineInvalid)
+		// The +10 machine wants seven filled cells, cells 0 and 1 the SAME index, a
+		// Pedra do Sábio (1774) in cell 2 and four jewels chosen by the item's grade
+		// (5→2441 Diamante, 6→2442 Esmeralda, 7→2443 Coral, 8→2444 Garnet). Which of
+		// those the player missed is invisible from the outside, and a zeroed catalog
+		// (a server booted with no -content) rejects every recipe for everyone — the
+		// grade/pos fields tell those two apart at a glance.
+		d.log.Info("ailyn recusou a receita",
+			"conn", s.Conn,
+			"itens", []int16{it[0].Index, it[1].Index, it[2].Index, it[3].Index, it[4].Index, it[5].Index, it[6].Index},
+			"grade0", d.combineCatalog.Grade[int(it[0].Index)],
+			"pos0", d.combineCatalog.Pos[int(it[0].Index)],
+			"chance_base", d.compRate.ChanceBase("Ailyn"))
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 })
@@ -79,12 +91,12 @@ func (d *Dispatcher) combineItemTiny(w *world.World, s *world.Session, _ protoco
 		return
 	}
 	if e.Coin < tinyCost {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, combineNeedsGold(tinyCost))
 		return
 	}
 	rate := combine.MatchTiny(d.combineCatalog, it[:], d.compRate.ChanceBase("Tiny"))
 	if rate == 0 {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 })
@@ -113,7 +125,7 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 	}
 	rate := combine.MatchAgatha(d.combineCatalog, it[:], d.compRate.ChanceBase("Agatha"))
 	if rate == 0 {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 })
@@ -137,7 +149,7 @@ func (d *Dispatcher) combineItemShany(w *world.World, s *world.Session, _ protoc
 		return
 	}
 	if e.ClassMaster == classMasterMortal || (e.ClassMaster == classMasterArch && e.Level < 355) || !combine.MatchShany(it[:]) {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	consumePositions(w, s, e, sl, active, nil)
@@ -158,12 +170,12 @@ func (d *Dispatcher) combineItemAlquimia(w *world.World, s *world.Session, _ pro
 		return
 	}
 	if e.Class != 3 {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	id := combine.MatchAlquimia(it[:])
 	if id < 0 {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	consumePositions(w, s, e, sl, active, nil)
@@ -198,14 +210,14 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 			"arch355", e.ArchLv355, "arch370", e.ArchLv370,
 			"quest_level", questLevel, "level_ok", eligible,
 			"recipe_ok", combine.MatchLindy(it[:]), "slots", combineSlotSummary(it[:]))
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	// Fame is the extra price of the second unlock (_MSG_CombineItemLindy.cpp:55).
 	if questLevel == level.ArchGateLv370 && e.Fame <= 0 {
 		d.log.Info("lindy unlock refused: no fame",
 			"conn", s.Conn, "account", s.AccountName, "level", e.Level, "fame", e.Fame)
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	consumePositions(w, s, e, sl, active, nil)
@@ -296,15 +308,15 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 	}
 	id := combine.MatchEhre(it[:])
 	if id == 0 {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	if id == 5 && (e.Exp < 5_000_000 || e.ClassMaster == classMasterMortal || e.ClassMaster == classMasterArch || e.Level < 39) {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
 	if (id == 6 || id == 7) && e.Coin < 1_000_000 {
-		sendCombineComplete(w, s, combineInvalid)
+		d.refuseCombine(w, s, combineNeedsGold(0))
 		return
 	}
 	if id == 3 || id == 4 {
@@ -312,7 +324,7 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 		mp := d.itemAbility(it[2], efMpAdd2)
 		crit := d.itemAbility(it[2], efCritical2)
 		if hp >= 20 || mp >= 20 || crit >= 100 || (hp >= 10 && mp >= 10) || (hp >= 10 && crit >= 50) || (mp >= 10 && crit >= 50) {
-			sendCombineComplete(w, s, combineInvalid)
+			d.refuseCombine(w, s, msgWrongCombination)
 			return
 		}
 	}
