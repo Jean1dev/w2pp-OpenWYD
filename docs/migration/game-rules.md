@@ -89,7 +89,27 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 >   um celestial 199 entra como 599, e contra mob de nível 50 ou 100 o retorno é 0. É a régua
 >   funcionando, acontece igual no Campo (82 lá também no nível 199), e não se conserta.
 > - **Estouro** é o defeito, e é **fixo em 88 monstros, em qualquer nível**. No Campo esse número
->   é ZERO. Ele cai justamente sobre os monstros fortes — onde deveria pagar mais.
+>   é ZERO. Ele cai justamente sobre os monstros fortes — onde deveria pagar mais. Os 88 são
+>   homogêneos: todos nível 399 com `Exp` 2.990.849, cujo `ExpApply` bate o teto de 200%
+>   (5.981.698) e passa do limite de 3.414.123 que cabe no int32 no nível 199.
+>
+>   **Eram 56 até 09/09/2026, e o conserto de nível os levou a 88.** A correção que baixou 43
+>   monstros de 400+ para 399 (commit `a1180829`) está certa pelo que ela conserta — acima de 400 o
+>   `ExpApply` desiste de escalar e a recompensa inverte —, mas 32 daqueles monstros estavam em
+>   **401 ou mais**, e justamente por não serem escalados devolviam os 2.990.849 crus, que cabem
+>   sob o teto e pagavam. Em 399 eles passam a ser escalados até os 200%, estouram, e zeram. Os
+>   outros 11, que estavam exatamente em 400, já eram escalados e já estouravam.
+>
+>   Medido nas duas árvores, celestial 199 no Pesadelo Arcano:
+>
+>   | árvore | pagam | razão | estouro | cauda |
+>   |---|---:|---:|---:|---:|
+>   | antes (`a1180829^`) | 265 | 82 | 56 | 3 |
+>   | hoje | 233 | 82 | **88** | 3 |
+>
+>   Não é motivo para desfazer o conserto de nível: a inversão de recompensa que ele fecha vale
+>   para todo mundo, e o estouro só atinge celestial no Pesadelo. Mas sobe a prioridade de tratar
+>   o estouro, porque o raio dele cresceu 57%.
 > - **Cauda** é prêmio pequeno demais sobrevivendo à divisão inteira do ÷320 e virando zero. No
 >   Campo são 5 no nível 199 (Orc_Medico, Troll_Zumbi, Rei_Taurus e variantes), todos com o
 >   `ExpApply` já reduzido a algumas centenas.
