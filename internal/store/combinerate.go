@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 )
@@ -18,10 +19,26 @@ func (s *Store) CombineRateVersion(ctx context.Context) (int64, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, nil
 	}
+	if TabelaAusente(err) {
+		return 0, nil
+	}
 	if err != nil {
 		return 0, fmt.Errorf("store: combine rate version: %w", err)
 	}
 	return v, nil
+}
+
+// TabelaAusente reports the Postgres "relation does not exist" (42P01).
+//
+// It matters because the panel and the migrations live in different services:
+// only dbServer and webServer run store.Migrate, so between deploying this
+// table and the next dbServer boot the panel is talking to a database that does
+// not have it yet. That window is normal, and the honest answer during it is
+// "nothing is edited" — which is exactly true, and leaves every machine on
+// CompRate.txt — instead of an error page over a table that is about to appear.
+func TabelaAusente(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42P01"
 }
 
 // CombineRates returns every edited rate and band with the version they belong
@@ -67,13 +84,21 @@ func (s *Store) CombineRates(ctx context.Context) (domain.CombineRateConfig, err
 		defer brows.Close()
 		for brows.Next() {
 			var b domain.CombineBand
-			if err := brows.Scan(&b.SlotKind, &b.ReqLvlMin, &b.ReqLvlMax, &b.Label, &b.MultPct); err != nil {
+			// kind entra como int32 e só depois vira o tipo nomeado: ler direto no
+			// tipo nomeado depende de o driver aceitar SMALLINT nele, e o int32 não
+			// depende de nada.
+			var kind int32
+			if err := brows.Scan(&kind, &b.ReqLvlMin, &b.ReqLvlMax, &b.Label, &b.MultPct); err != nil {
 				return fmt.Errorf("store: scan combine band: %w", err)
 			}
+			b.SlotKind = domain.CombineSlotKind(kind)
 			cfg.Bands = append(cfg.Bands, b)
 		}
 		return brows.Err()
 	}); err != nil {
+		if TabelaAusente(err) {
+			return domain.CombineRateConfig{}, nil
+		}
 		return domain.CombineRateConfig{}, err
 	}
 	return cfg, nil
@@ -174,10 +199,12 @@ func (s *Store) SetCombineBands(ctx context.Context, kind domain.CombineSlotKind
 		}
 		for rows.Next() {
 			var b domain.CombineBand
-			if err := rows.Scan(&b.SlotKind, &b.ReqLvlMin, &b.ReqLvlMax, &b.Label, &b.MultPct); err != nil {
+			var lido int32 // nomeado depois, e não sombreia o kind do parâmetro
+			if err := rows.Scan(&lido, &b.ReqLvlMin, &b.ReqLvlMax, &b.Label, &b.MultPct); err != nil {
 				rows.Close()
 				return fmt.Errorf("store: scan combine band: %w", err)
 			}
+			b.SlotKind = domain.CombineSlotKind(lido)
 			before = append(before, b)
 		}
 		rows.Close()

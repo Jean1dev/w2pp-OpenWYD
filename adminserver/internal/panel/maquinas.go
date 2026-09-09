@@ -10,7 +10,25 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
+
+// msgSemTabela is what a moderator sees when the tables have been deployed but
+// the dbServer that creates them has not booted since. The read side degrades to
+// "nothing edited" instead, but a write has nowhere to go, and the honest answer
+// names the wait rather than leaving the operator suspecting their own input.
+const msgSemTabela = "A Mesa das Máquinas ainda não foi criada no banco. " +
+	"Ela nasce no próximo reinício do dbServer — até lá as máquinas seguem no CompRate.txt."
+
+// falhaAoGravarMaquina answers a write failure, telling the missing-table case
+// apart from a real fault so the moderator knows whether to retry or to wait.
+func (h *Handler) falhaAoGravarMaquina(w http.ResponseWriter, generica string, err error) {
+	if store.TabelaAusente(err) {
+		http.Error(w, msgSemTabela, http.StatusServiceUnavailable)
+		return
+	}
+	http.Error(w, generica, http.StatusInternalServerError)
+}
 
 // Maquinas is the store surface the Mesa das Máquinas needs.
 type Maquinas interface {
@@ -81,7 +99,16 @@ type faixaMaquina struct {
 // maquinas renders the Mesa das Máquinas.
 func (h *Handler) maquinas(w http.ResponseWriter, r *http.Request) {
 	cfg, err := h.cfg.Maquinas.CombineRates(r.Context())
-	if err != nil {
+	switch {
+	case store.TabelaAusente(err):
+		// The tables ship with this screen, but only dbServer and webServer run
+		// store.Migrate — so between the deploy and the next dbServer boot the
+		// panel is reading a database that does not have them yet. "Nothing
+		// edited" is the truthful answer for that window, and it is also what an
+		// empty table would say: every machine stays on CompRate.txt.
+		h.cfg.Logger.Warn("combine rate tables not created yet; showing defaults", "err", err)
+		cfg = domain.CombineRateConfig{}
+	case err != nil:
 		h.cfg.Logger.Error("combine rates read failed", "err", err)
 		http.Error(w, "Erro ao ler as taxas das máquinas.", http.StatusInternalServerError)
 		return
@@ -196,7 +223,7 @@ func (h *Handler) setMaquinaRate(w http.ResponseWriter, r *http.Request) {
 	antes, tinha, err := h.cfg.Maquinas.SetCombineRate(r.Context(), novo, sess.AccountID)
 	if err != nil {
 		h.cfg.Logger.Error("combine rate save failed", "familia", familia, "chave", chave, "err", err)
-		http.Error(w, "Erro ao gravar a taxa.", http.StatusInternalServerError)
+		h.falhaAoGravarMaquina(w, "Erro ao gravar a taxa.", err)
 		return
 	}
 	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
@@ -223,7 +250,7 @@ func (h *Handler) limparMaquinaRate(w http.ResponseWriter, r *http.Request) {
 	antes, tinha, err := h.cfg.Maquinas.DeleteCombineRate(r.Context(), familia, chave, sess.AccountID)
 	if err != nil {
 		h.cfg.Logger.Error("combine rate clear failed", "familia", familia, "err", err)
-		http.Error(w, "Erro ao limpar a taxa.", http.StatusInternalServerError)
+		h.falhaAoGravarMaquina(w, "Erro ao limpar a taxa.", err)
 		return
 	}
 	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
@@ -288,7 +315,7 @@ func (h *Handler) setMaquinaFaixas(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := h.cfg.Maquinas.SetCombineBands(r.Context(), kind, bands, sess.AccountID); err != nil {
 		h.cfg.Logger.Error("combine bands save failed", "tipo", tipo, "err", err)
-		http.Error(w, "Erro ao gravar as faixas.", http.StatusInternalServerError)
+		h.falhaAoGravarMaquina(w, "Erro ao gravar as faixas.", err)
 		return
 	}
 	if err := h.cfg.Audit.Write(r.Context(), audit.Record{

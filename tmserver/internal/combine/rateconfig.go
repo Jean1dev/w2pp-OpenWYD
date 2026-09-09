@@ -65,6 +65,20 @@ func NewRateConfig(version int64, rates []RateRow, bands []Band) RateConfig {
 	return c
 }
 
+// RateCount and BandCount are for the boot and reload log lines: an operator
+// reading them needs to tell "the table loaded and is empty" — every machine on
+// CompRate.txt — from "the table never loaded", which look identical in game.
+func (c RateConfig) RateCount() int { return len(c.rates) }
+
+// BandCount counts the bands across both slot kinds.
+func (c RateConfig) BandCount() int {
+	n := 0
+	for _, bs := range c.bands {
+		n += len(bs)
+	}
+	return n
+}
+
 // RateRow is one family/key rate as stored.
 type RateRow struct {
 	Family string

@@ -194,6 +194,11 @@ type Config struct {
 	// nil every generator keeps exactly the period NPCGener.txt gives it.
 	SpawnRates SpawnRateSource
 
+	// CombineRateSrc re-reads the Mesa das Máquinas while the server runs. Nil
+	// leaves CombineRates as the boot value for the life of the process, which
+	// is what a tmServer without dbServer gets.
+	CombineRateSrc CombineRateSource
+
 	// CastleQuests is the optional CastleQuest.txt table. Empty keeps the
 	// best-effort Castle/Zakum port disabled.
 	CastleQuests []content.CastleQuest
@@ -296,6 +301,12 @@ type Dispatcher struct {
 	spawnRatePolling  bool
 	spawnRatePollTick int
 	genAreas          []uint8
+
+	// The Mesa das Máquinas, read live the same way (combineratepoll.go).
+	// combineRates itself is declared above, next to the other combine tables.
+	combineRateSource   CombineRateSource
+	combineRatePolling  bool
+	combineRatePollTick int
 
 	// The Mesa de XP, also read LIVE (xpconfig.go). xpConfig is loop-owned like
 	// everything above; xpConfigVersion is the same number published for the
@@ -445,6 +456,7 @@ func New(cfg Config) *Dispatcher {
 		worldEventSource:  cfg.WorldEvents,
 		dungeonGateSource: cfg.DungeonGates,
 		spawnRateSource:   cfg.SpawnRates,
+		combineRateSource: cfg.CombineRateSrc,
 		xpConfigSource:    cfg.XPConfigs,
 		castleQuests:      cfg.CastleQuests,
 		eventRNG:          rng.NewSeeded(cfg.EventRNGSeed),

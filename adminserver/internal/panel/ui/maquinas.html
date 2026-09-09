@@ -61,8 +61,8 @@
 </style>
 </head>
 <body>
-{{template "topo" .}}
-<main class="wrap">
+{{template "topbar" .}}
+<main>
   {{template "abas-rates" .}}
 
   {{if .Aviso}}<p class="aviso">{{.Aviso}}</p>{{end}}
@@ -74,7 +74,8 @@
     arquivo por sua vez cai no padrão de fábrica — nada aqui pode impedir uma
     máquina de funcionar.
   </p>
-  <p class="sub">Versão {{.Versao}} · vale sem reiniciar, como a Mesa de XP.</p>
+  <p class="sub">Versão {{.Versao}}</p>
+  {{template "quando-vale" "segundos"}}
 
   <h2>Taxa por máquina</h2>
   {{range .Linhas}}
@@ -181,6 +182,5 @@
     <div class="acoes"><button type="submit">Salvar faixas de armaduras</button></div>
   </form>
 </main>
-{{template "rodape" .}}
 </body>
 </html>
