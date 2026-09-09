@@ -187,6 +187,16 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			writeDamage(payload, i, 0)
 			continue
 		}
+		// The legacy isFrag branch treats equal kingdom clans (7/7 or 8/8) as
+		// allied and leaves this target entry before SetBattle can run. Apply the
+		// gate before hit/effect resolution so an aggressive skill cannot leave
+		// damage, affects, EnemyList entries, or group battle state behind.
+		skillHit := cast.isSkill && claim == damSkill
+		combatHit := !skillHit || cast.spell.Aggressive != 0
+		if !world.IsPlayer(tid) && combatHit && sameKingdom(e.Clan, target.Clan) {
+			writeDamage(payload, i, 0)
+			continue
+		}
 		if !d.towerAttackAllowed(e, target) {
 			writeDamage(payload, i, 0)
 			continue
@@ -199,9 +209,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		}
 		// skillHit: this entry resolves through the skill pipeline; anything
 		// else (sentinel -2, 0, or an unknown claim) is melee.
-		skillHit := cast.isSkill && claim == damSkill
 		pvpHit := world.IsPlayer(tid) && tid != s.Conn
-		combatHit := !skillHit || cast.spell.Aggressive != 0
 		// PvP gate: combat damage (melee or an aggressive skill) requires the
 		// attacker to opt into PK mode (K key, _MSG_PKMode). Do not use
 		// world.Village as a town safe-zone approximation here: the legacy rule

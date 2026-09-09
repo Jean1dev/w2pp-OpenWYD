@@ -64,3 +64,17 @@ func TestTowerAttackRules(t *testing.T) {
 		t.Fatal("enemy guild was denied tower attack")
 	}
 }
+
+func TestTowerAttackRulesAreIndependentFromKingdom(t *testing.T) {
+	d := New(Config{})
+	monday := time.Date(2026, time.August, 3, 20, 0, 0, 0, time.Local)
+	d.events.tower.Step(monday, true)
+	target := &world.Entity{GenIndex: towerGenerator, Guild: 10, Clan: clanHekalotia}
+
+	if !d.towerAttackAllowed(&world.Entity{Guild: 11, Clan: clanHekalotia}, target) {
+		t.Fatal("enemy guild with the same kingdom was denied by Tower War gate")
+	}
+	if d.towerAttackAllowed(&world.Entity{Guild: 10, Clan: clanAkelonia}, target) {
+		t.Fatal("owner guild with a different kingdom was allowed by Tower War gate")
+	}
+}

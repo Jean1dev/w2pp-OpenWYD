@@ -572,6 +572,60 @@ func castEchoDamage(t *testing.T, c net.Conn, targetID, skillnum int) int32 {
 	return attackEchoDamage(t, c, serverTime, targetID, skillnum, -1)
 }
 
+func TestSameKingdomPlayerAttacksDoNotDamageOrEngageNPC(t *testing.T) {
+	for _, kingdom := range []uint8{clanHekalotia, clanAkelonia} {
+		name := map[uint8]string{clanHekalotia: "Hekalotia", clanAkelonia: "Akelonia"}[kingdom]
+		t.Run(name, func(t *testing.T) {
+			db := skillCombatDB(1 << 2)
+			db.loadResult.Clan = kingdom
+			addr, stop, w := startServerSkillsTargetMob(t, db, targetMobWithClan("Guard", kingdom, 0, 5000))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			if dmg := attackEchoDamage(t, c, serverTime, world.MaxUser, -1, damMelee); dmg != 0 {
+				t.Fatalf("allied melee damage = %d, want 0", dmg)
+			}
+			if dmg := attackEchoDamage(t, c, serverTime+1000, world.MaxUser, 2, damSkill); dmg != 0 {
+				t.Fatalf("allied aggressive skill damage = %d, want 0", dmg)
+			}
+			npc := w.Entity(world.MaxUser)
+			if npc == nil || npc.HP != 5000 || npc.Mode == world.MobCombat || npc.Target != 0 || enemyListContains(npc, 1) || npc.HasAnyAffect() {
+				t.Fatalf("allied NPC mutated: %+v", npc)
+			}
+		})
+	}
+}
+
+func TestKingdomCombatStillAllowsOpponentsAndNonKingdomRules(t *testing.T) {
+	tests := []struct {
+		name       string
+		playerClan uint8
+		npcClan    uint8
+	}{
+		{"opposing kingdoms", clanAkelonia, clanHekalotia},
+		{"equal non-kingdom clan", 5, 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := skillCombatDB(0)
+			db.loadResult.Clan = tt.playerClan
+			addr, stop, w := startServerSkillsTargetMob(t, db, targetMobWithClan("Target", tt.npcClan, 0, 5000))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			if dmg := attackEchoDamage(t, c, serverTime, world.MaxUser, -1, damMelee); dmg <= 0 {
+				t.Fatalf("valid attack damage = %d, want > 0", dmg)
+			}
+			npc := w.Entity(world.MaxUser)
+			if npc == nil || npc.HP >= 5000 || npc.Mode != world.MobCombat || npc.Target != 1 || !enemyListContains(npc, 1) {
+				t.Fatalf("valid target did not enter battle: %+v", npc)
+			}
+		})
+	}
+}
+
 // TestSkillMerchantTakesNoDamage: an untouchable NPC (Merchant != 0) is immune
 // to a damage skill — the per-target gate zeroes the hit (_MSG_Attack.cpp:333).
 func TestSkillMerchantTakesNoDamage(t *testing.T) {
