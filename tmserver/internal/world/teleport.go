@@ -30,6 +30,13 @@ var teleportTable = map[[2]int16]teleRoute{
 	{144, 3772}:  {2668, 2156, 0}, // Dungeon 1 → Armia Field (alt)
 	{1824, 1772}: {1172, 4080, 0}, // Azran Field → Underworld
 	{1172, 4080}: {1824, 1772, 0}, // Underworld → Azran Field
+	// GetFunc.cpp: both adjacent entrance blocks lead to floor 2; the return
+	// deliberately lands in the eastern block, not the western entrance.
+	{144, 3780}:  {1004, 4028, 0}, // Dungeon 1 → Dungeon 2
+	{148, 3780}:  {1004, 4028, 0}, // Dungeon 1 → Dungeon 2
+	{1004, 4028}: {148, 3780, 0},  // Dungeon 2 → Dungeon 1
+	{408, 4072}:  {1004, 4064, 0}, // Dungeon 1 → Dungeon 2 (alt)
+	{1004, 4064}: {408, 4072, 0},  // Dungeon 2 → Dungeon 1 (alt)
 }
 
 // TeleportDest resolves a teleport from (x,y): it rounds to the tile, looks up
