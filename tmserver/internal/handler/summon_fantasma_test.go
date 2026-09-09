@@ -32,4 +32,3 @@ func TestColeiraDoPetPassaDoAlcanceDeVista(t *testing.T) {
 	t.Logf("faixa cega: pet entre %d e %d tiles do dono sai sem que o DespawnMob o avise",
 		world.ViewRange+1, summonLeash)
 }
-
