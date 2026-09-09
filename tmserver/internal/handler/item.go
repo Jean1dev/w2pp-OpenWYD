@@ -2516,13 +2516,32 @@ func buffScaleHpMp(e *world.Entity, v int32) int32 {
 // EF_HPADD% × buff. Applied at read time (display/combat/regen), never stored
 // (captura §C,E).
 func effectiveMaxHP(e *world.Entity) int32 {
-	return buffScaleHpMp(e, (e.MaxHP+e.AffMaxHP)*(e.HpAddPct+100)/100)
+	return semNegativo(buffScaleHpMp(e, (e.MaxHP+e.AffMaxHP)*(e.HpAddPct+100)/100))
 }
 
 // effectiveMaxMP is the player's real max MP: (flat MaxMP + affect deltas) ×
 // EF_MPADD% × buff.
 func effectiveMaxMP(e *world.Entity) int32 {
-	return buffScaleHpMp(e, (e.MaxMP+e.AffMaxMP)*(e.MpAddPct+100)/100)
+	return semNegativo(buffScaleHpMp(e, (e.MaxMP+e.AffMaxMP)*(e.MpAddPct+100)/100))
+}
+
+// semNegativo floors a computed MAXIMUM at ZERO.
+//
+// A maximum is a ceiling, and setReqMp clamps the live bar DOWN to it — so a
+// maximum that goes negative drags the live value negative with it. Debuffs
+// stack into AffInt, Int counts twice toward MaxMp, and enough of them at once
+// turn the ceiling negative: that is how mana bars reached -46911/13089 across
+// every class. The source of that particular flood is fixed (mobai.go), but a
+// ceiling below zero is nonsense on any path, so it is refused here too.
+//
+// Zero, not one: a maximum of 0 is legitimate — an entity with no mana at all —
+// and flooring at 1 hands it a sliver of bar that regen then tries to fill,
+// which shows up as stray SetHpMp frames on characters that should send none.
+func semNegativo(v int32) int32 {
+	if v < 0 {
+		return 0
+	}
+	return v
 }
 
 // effectiveDamage is the attack power the client/combat see: the flat CurrentScore.Damage

@@ -26,6 +26,12 @@ func setReqMp(s *world.Session, e *world.Entity) {
 	if e.MP > maxMP {
 		e.MP = maxMP
 	}
+	// A bar never goes below empty. Without this the clamp above is one-way only
+	// in appearance: a negative ceiling pushed the live value negative, and it
+	// stayed there because nothing else floors it.
+	if e.MP < 0 {
+		e.MP = 0
+	}
 	if s.ReqMp < e.MP {
 		s.ReqMp = e.MP
 	}

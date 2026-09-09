@@ -729,7 +729,20 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 
 	// One rand()%100 per swing picks what the bar casts (mobskill.go). The heal
 	// slot spends the swing on itself and the blow never lands.
-	sk := rollMobSkill(w, d.spells, e)
+	//
+	// PETS ONLY. The bar itself is not a summon feature — 270 of the game own
+	// spawning templates carry one — but the legacy can never LAND its affect:
+	// the application is gated on sm.SkillParm == 0 and no mob attack ever leaves
+	// it at 0 (mobskill.go). Dropping that gate for every monster at once is what
+	// the divergence originally did, and it handed 270 templates a debuff they
+	// never had: players took Int drain from ordinary hunting, Int counts twice
+	// toward MaxMp, and mana bars went NEGATIVE across every class. The gate we
+	// actually wanted was "the creature is a summon", not "no gate".
+	var sk mobSkill
+	sk.index = noSkill
+	if e.Summoner != 0 {
+		sk = rollMobSkill(w, d.spells, e)
+	}
 	if sk.heal {
 		if d.healMobSkill(w, id, e) {
 			return
