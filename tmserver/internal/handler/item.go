@@ -1648,18 +1648,33 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	// Equip[1] is the armor slot. The legacy names this refusal explicitly
-	// (_NN_Cant_with_armor, _MSG_UseItem.cpp:3016-3019) — it is the one a player
-	// hits in practice, and it is fixed by simply taking the armor off.
-	if !e.Equip[1].Empty() {
-		d.log.Info("ideal stone refused: armor equipped",
-			"conn", s.Conn, "account", s.AccountName, "equip1", e.Equip[1].Index)
-		sendClientMessage(w, s, msgCantWithArmor)
+	// The whole set has to come off, not just the armor.
+	//
+	// The legacy checks Equip[1] alone (_NN_Cant_with_armor,
+	// _MSG_UseItem.cpp:3016-3019) and then clears only Equip[1] and Equip[15] on
+	// ascension (:3122-3160), so everything else — the mount in Equip[14], the
+	// weapon, the jewels — followed the character into level 0 still equipped.
+	// The Celestial arrived mounted and dressed as an Arch, and refreshScore
+	// derived its pools from that gear instead of the class base.
+	//
+	// Refusing is the way to fix that, not deleting: the alternative is a click
+	// that silently destroys a set worth months. The player takes the gear off,
+	// which is a step they can undo, and the Celestial is bare because there was
+	// nothing left to carry over. Equip[0] is exempt — it is the face, not gear.
+	if slot, ok := firstEquippedSlot(e); ok {
+		d.log.Info("ideal stone refused: gear equipped",
+			"conn", s.Conn, "account", s.AccountName, "slot", slot, "item", e.Equip[slot].Index)
+		if slot == 1 {
+			// The armor keeps the legacy's own wording: it is the slot a player
+			// hits first, and the string is the one the client already knows.
+			sendClientMessage(w, s, msgCantWithArmor)
+		}
+		sendClientMessage(w, s, msgIdealStoneUnequipAll)
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
 	staged := *e
-	d.buildCelestialSnapshot(&staged)
+	d.buildCelestialSnapshot(&staged, src)
 	save := w.CharacterSaveFor(s, &staged)
 	p := w.Persistence()
 	s.Mode = world.UserWaitDB
@@ -1688,28 +1703,37 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 	})
 }
 
+// firstEquippedSlot reports the lowest equipment slot holding an item, skipping
+// Equip[0]: that slot is the character's face, present on every character, and
+// nothing can be done about it.
+func firstEquippedSlot(e *world.Entity) (int, bool) {
+	for i := 1; i < world.MaxEquip; i++ {
+		if !e.Equip[i].Empty() {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 // buildCelestialSnapshot turns an Arch into the Celestial it will be when it
 // logs back in: class bases, the celestial body and clan cape, and nothing else.
 //
-// "Nothing else" is a deliberate divergence. The legacy clears only Equip[1] and
-// Equip[15] (_MSG_UseItem.cpp:3122-3160) and leaves the inventory and the other
-// twelve equipment slots exactly as the Arch had them — so the newborn Celestial
-// arrived at level 0 still mounted (Equip[14], the pig), still wearing Arch gear,
-// and refreshScore below then read thousands of HP and a mana pool out of that
-// gear instead of the class base. Here the Celestial is born bare, the way the
-// Arch is already born bare in its own new slot (completeKingArch).
+// The equipment slots are zeroed rather than trusted. useIdealStone already
+// refuses while anything is equipped, so by the time this runs they are empty —
+// but the whole reason the newborn Celestial used to arrive mounted and wearing
+// Arch gear is that the legacy clears only Equip[1] and Equip[15]
+// (_MSG_UseItem.cpp:3122-3160) and this port copied that. Zeroing here means a
+// future caller cannot reintroduce it.
 //
-// Two things survive the wipe on purpose: Equip[0], which is the face rather
-// than gear — it carries the appearance and the aura effects written further
-// down — and the carried gold, which is not worn and whose destruction is not
-// what a player means by "bare".
-func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity) {
+// The INVENTORY is deliberately left alone: bag items are the player's property
+// and are not what "bare" means. Equip[0] survives too — it is the face rather
+// than gear, and it carries the aura effects written further down.
+func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity, src int) {
 	archLevel := e.Level
 	e.CelestialArchLevel = celestialArchBand(archLevel)
 	e.ClassMaster, e.Level, e.Exp = classMasterCelestial, 0, 0
 	face := e.Equip[0]
 	e.Equip = [world.MaxEquip]world.Item{}
-	e.Carry = [world.MaxCarry]world.Item{}
 	e.Equip[0] = face
 	// The Arch's buffs and the deltas they left on the entity go with the Arch.
 	// Kept, they would still be inflating the pools in the score packet the
@@ -1748,8 +1772,7 @@ func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity) {
 	e.Equip[capeEquipSlot] = world.Item{Index: cape}
 	e.Equip[0].Effects[1] = world.Effect{Effect: 98, Value: 3}
 	e.Equip[0].Effects[2] = world.Effect{Effect: 106, Value: uint8(e.Equip[0].Index)}
-	// The Ideal Stone went with the rest of the inventory above; there is no
-	// separate consumeOneItem left to do.
+	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 }
 

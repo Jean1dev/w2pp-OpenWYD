@@ -273,7 +273,7 @@ func hasEffect(it *world.Item, eff, val uint8) bool {
 // declined transformation looked exactly like a broken one.
 func TestIdealStoneRefusalsAreExplained(t *testing.T) {
 	for _, msg := range []string{
-		msgCantWithArmor, msgIdealStoneArchOnly,
+		msgCantWithArmor, msgIdealStoneUnequipAll, msgIdealStoneArchOnly,
 		msgIdealStoneLevel, msgIdealStoneMortalLevel,
 	} {
 		if msg == "" {

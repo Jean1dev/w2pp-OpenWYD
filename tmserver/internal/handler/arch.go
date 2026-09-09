@@ -241,7 +241,12 @@ func applyQuestReset(e *world.Entity, arg string) (cleared string, ok bool) {
 // original enforces silently, which is what made a declined transformation
 // indistinguishable from a broken one.
 const (
-	msgCantWithArmor         = "No momento voce nao pode equipar arma e armadura."
+	msgCantWithArmor = "No momento voce nao pode equipar arma e armadura."
+	// The set has to come off before the stone is used, montaria and capa
+	// included. The alternative would be destroying it: the Celestial is born
+	// with the class base and nothing else, so anything still equipped would
+	// simply cease to exist.
+	msgIdealStoneUnequipAll  = "Retire TODOS os itens equipados, inclusive a montaria e a capa, antes de usar a Pedra Ideal."
 	msgIdealStoneArchOnly    = "Somente um Arch pode renascer como Celestial."
 	msgIdealStoneLevel       = "E preciso ser nivel 355 ou mais para renascer como Celestial."
 	msgIdealStoneMortalLevel = "Este personagem nao registrou o nivel de Mortal exigido (99) para renascer."

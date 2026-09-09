@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -571,7 +572,7 @@ func TestCelestialArchBandsAndEquipment(t *testing.T) {
 		e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: tc.level, MortalLevel: 99, Clan: clanHekalotia}
 		e.Equip[0] = world.Item{Index: 21}
 		e.Carry[0] = world.Item{Index: idealStoneItem}
-		d.buildCelestialSnapshot(&e)
+		d.buildCelestialSnapshot(&e, 0)
 		if e.CelestialArchLevel != tc.band || e.Equip[1].Index != tc.body {
 			t.Errorf("level %d => band/body %d/%d, want %d/%d", tc.level, e.CelestialArchLevel, e.Equip[1].Index, tc.band, tc.body)
 		}
@@ -599,7 +600,7 @@ func TestCelestialClassBases(t *testing.T) {
 	for class, base := range want {
 		e := world.Entity{Class: uint8(class), ClassMaster: classMasterArch, Level: 399, MortalLevel: 99}
 		e.Carry[0] = world.Item{Index: idealStoneItem, Effects: [3]world.Effect{{Effect: 61, Value: 3}}}
-		d.buildCelestialSnapshot(&e)
+		d.buildCelestialSnapshot(&e, 0)
 		got := [6]int32{int32(e.BaseStr), int32(e.BaseInt), int32(e.BaseDex), int32(e.BaseCon), e.BaseMaxHP, e.BaseMaxMP}
 		if got != base {
 			t.Errorf("class %d base = %v, want %v", class, got, base)
@@ -3221,24 +3222,29 @@ func TestChaoNaoRegistraDropRecusado(t *testing.T) {
 // clears only the armor and the cape, which left the newborn Celestial mounted
 // (Equip[14]) and carrying its whole inventory into level 0 — and left
 // refreshScore deriving HP and mana from that gear instead of the class base.
+//
+// useIdealStone refuses before it gets here while anything is equipped, so in
+// practice the slots are already empty; this pins the belt-and-braces so a
+// future caller cannot bring the old behaviour back. The inventory is the
+// opposite case: it must SURVIVE, minus the stone itself.
 func TestCelestialNasceSemNada(t *testing.T) {
 	d := New(Config{})
 	e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: 399, MortalLevel: 99, Clan: clanHekalotia}
 	e.Equip[0] = world.Item{Index: 21}                // rosto: fica
 	e.Equip[2] = world.Item{Index: 1000}              // arma
 	e.Equip[mountEquipSlot] = world.Item{Index: 3860} // o porquinho
-	for i := range e.Carry {
-		e.Carry[i] = world.Item{Index: int16(1200 + i)}
-	}
+	e.Carry[0] = world.Item{Index: idealStoneItem}
+	e.Carry[5] = world.Item{Index: 1234}
 	e.Coin = 5_000_000
 	e.AffMaxHP, e.AffMaxMP = 4000, 300
 
-	d.buildCelestialSnapshot(&e)
+	d.buildCelestialSnapshot(&e, 0)
 
-	for i, it := range e.Carry {
-		if !it.Empty() {
-			t.Fatalf("Carry[%d] = %d, o celestial devia nascer sem inventário", i, it.Index)
-		}
+	if !e.Carry[0].Empty() {
+		t.Errorf("Carry[0] = %d, a Pedra Ideal devia ter sido consumida", e.Carry[0].Index)
+	}
+	if e.Carry[5].Index != 1234 {
+		t.Errorf("Carry[5] = %d, o inventário é do jogador e não devia ser destruído", e.Carry[5].Index)
 	}
 	for i, it := range e.Equip {
 		switch i {
@@ -3268,5 +3274,60 @@ func TestCelestialNasceSemNada(t *testing.T) {
 	}
 	if e.Coin != 5_000_000 {
 		t.Errorf("Coin = %d, o ouro carregado não é roupa e devia ficar", e.Coin)
+	}
+}
+
+// TestPedraIdealRecusaComEquipamento pins the choice made when the Celestial
+// started arriving mounted and dressed as an Arch: the set has to come off
+// FIRST, and the refusal says so. Wiping the gear on ascension would have been
+// the other way to get a bare Celestial, and it would have meant a right-click
+// that silently destroys a set worth months.
+func TestPedraIdealRecusaComEquipamento(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000,
+		ClassMaster: classMasterArch, Level: int(level.MaxLevel), MortalLevel: 99}
+	st.Carry[0] = world.Item{Index: idealStoneResult}
+	st.Equip[mountEquipSlot] = world.Item{Index: 3860} // o porquinho
+	db.loadResult = st
+	addr, stop := startServerClockVol(t, db, pedraIdealVols())
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	body := protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}
+	send(t, c, protocol.MsgUseItem, body.Encode())
+
+	aviso := protocol.ClientText(msgIdealStoneUnequipAll)
+	sawAviso := false
+	for {
+		ty, payload, ok := readMaybe(t, c)
+		if !ok {
+			break
+		}
+		if ty == protocol.MsgCNFCharacterLogout {
+			t.Fatal("a transformação seguiu adiante com a montaria equipada")
+		}
+		if ty == protocol.MsgMessagePanel && bytes.Contains(payload, []byte(aviso)) {
+			sawAviso = true
+		}
+	}
+	if !sawAviso {
+		t.Error("o jogador não foi avisado para retirar o equipamento")
+	}
+
+	send(t, c, protocol.MsgCharacterLogout, nil)
+	expect(t, c, protocol.MsgCNFCharacterLogout)
+	char, n := db.lastSavedChar()
+	if n == 0 {
+		t.Fatal("character was never saved")
+	}
+	if char.ClassMaster != classMasterArch {
+		t.Errorf("ClassMaster = %d, want %d: a recusa deixa o Arch como estava", char.ClassMaster, classMasterArch)
+	}
+	if !hasItem(char.Carry, idealStoneResult) {
+		t.Error("a Pedra Ideal foi consumida numa recusa")
+	}
+	if !hasItem(char.Equip, 3860) {
+		t.Error("a montaria sumiu; uma recusa não pode destruir nada")
 	}
 }
