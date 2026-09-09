@@ -205,6 +205,20 @@ func ExpOverflow(in ExpRewardInput) (overflows bool, limit int64) {
 	return true, in.MobExp * maxIsExp / isExp
 }
 
+// CelestialLevelOffset is what ExpReward adds to a celestial character's level
+// before ANY cut or band is compared (MobKilled.cpp:452,
+// `myLevel += MAX_LEVEL + 1`). A celestial of character level 50 is compared as
+// 450, so a cut written at 120 is never reached: the celestial range is 401..599.
+//
+// Exported because the panel edits those tables and a moderator types character
+// levels. Without the translation the screen accepts a number that can never
+// match, saves it, and the whole table falls through to its last row — which is
+// exactly what happened to Pesadelo Arcano's celestial table in production.
+const CelestialLevelOffset int32 = MaxLevel + 1
+
+// IsCelestialTier reports whether a tier rides the shifted level space above.
+func IsCelestialTier(tier uint8) bool { return isCelestialTier(tier) }
+
 func isCelestialTier(classMaster uint8) bool {
 	switch classMaster {
 	case classCelestial, classCelestialCS, classSCelestial:

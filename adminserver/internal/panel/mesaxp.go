@@ -51,6 +51,9 @@ type mesaCorte struct {
 	Ate     string // empty for a spare row; "acima" for the open-ended one
 	Divisor string
 	Aberto  bool
+	// Morta marks a stored cut below its tier's floor: gravado, nunca alcançado.
+	// Só acontece em tabela celestial escrita antes da tradução existir.
+	Morta bool
 }
 
 type mesaBanda struct {
@@ -224,6 +227,7 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		historico = lista
 	}
 
+	cortes := cortesParaTela(cfg.Cuts(zona, evo), true, deslocamentoDaEvolucao(evo))
 	h.render(w, "mesaxp.html", struct {
 		page
 		Aba         string
@@ -251,6 +255,10 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		DifAtual    string
 		Spawn       spawnView
 		SpawnHist   []audit.Entry
+		// Celestial liga a explicação de que a caixa é nível de personagem, e
+		// TemCorteMorto o aviso de linha gravada abaixo do piso da evolução.
+		Celestial     bool
+		TemCorteMorto bool
 	}{
 		page:        h.pageFor(r, "rates"),
 		Aba:         "xp",
@@ -260,9 +268,9 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		Zona:        zona.Name(),
 		Evolucao:    level.TierName(evo),
 		Taxa:        cfg.RatePercent(zona, evo),
-		Cortes:      cortesParaTela(cfg.Cuts(zona, evo), true),
+		Cortes:      cortes,
 		Editada:     temRegra(cfg, zona, evo),
-		Legado:      cortesParaTela(level.LegacyCuts(zona, evo), false),
+		Legado:      cortesParaTela(level.LegacyCuts(zona, evo), false, deslocamentoDaEvolucao(evo)),
 		Form:        form,
 		Sim:         sim,
 		Historico:   historico,
@@ -278,6 +286,9 @@ func (h *Handler) mesaXP(w http.ResponseWriter, r *http.Request) {
 		DifAtual:    nomeDaTaxa(cfg.RatePercent(zona, evo)),
 		Spawn:       h.spawnDaZona(r.Context(), zona),
 		SpawnHist:   h.spawnHistorico(r.Context()),
+
+		Celestial:     level.IsCelestialTier(evo),
+		TemCorteMorto: temCorteMorto(cortes),
 	})
 }
 
@@ -302,7 +313,7 @@ func (h *Handler) setMesaXP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cortes, err := cortesDoForm(r)
+	cortes, err := cortesDoForm(r, deslocamentoDaEvolucao(uint8(evo)), tetoDaEvolucao(uint8(evo)))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -627,7 +638,7 @@ func evolucaoValida(t uint8) bool {
 // is how a cut is removed and how the spare rows stay harmless. The result is
 // always non-nil: saving the form means "this table is what I see", and an
 // empty table is a real answer, not "use the legacy's".
-func cortesDoForm(r *http.Request) ([]domain.XPCut, error) {
+func cortesDoForm(r *http.Request, desloc, teto int32) ([]domain.XPCut, error) {
 	niveis := r.PostForm["corte_nivel"]
 	divisores := r.PostForm["corte_divisor"]
 	cortes := make([]domain.XPCut, 0, len(niveis))
@@ -641,10 +652,14 @@ func cortesDoForm(r *http.Request) ([]domain.XPCut, error) {
 			ate = level.CutOpenEnded
 		} else {
 			n, err := strconv.Atoi(nivel)
-			if err != nil || n < 0 || n > int(level.CutOpenEnded) {
-				return nil, fmt.Errorf("a linha %d tem um nível inválido: %q", i+1, nivel)
+			if err != nil || n < 1 || int32(n) > teto {
+				// O teto é o da evolução, não o do int: um corte acima do nível
+				// máximo da evolução nunca é alcançado, e aceitá-lo calado é o
+				// defeito que esta tradução existe para fechar.
+				return nil, fmt.Errorf("a linha %d: o nível tem de estar entre 1 e %d, e veio %q",
+					i+1, teto, nivel)
 			}
-			ate = int32(n)
+			ate = int32(n) + desloc
 		}
 		var divisor float64
 		if i < len(divisores) {
@@ -990,14 +1005,44 @@ func temRegra(cfg level.Config, zona level.Zone, evo uint8) bool {
 	return ok
 }
 
-func cortesParaTela(cortes []level.Cut, comBrancos bool) []mesaCorte {
+// deslocamentoDaEvolucao is what has to be added to a level the moderator types
+// before it means anything to the reward pipeline, and subtracted before it is
+// shown back.
+//
+// For the three celestial tiers ExpReward compares against level+400
+// (level.CelestialLevelOffset), so a cut typed as 120 has to be stored as 520 to
+// ever match. Nobody using the panel knows about that sum, and nothing on screen
+// said so: the table saved fine, was ignored, and every kill fell through to the
+// last row. Pesadelo Arcano's celestial table in production is exactly that —
+// 119/149/169/179/189, copied from the legacy column beside it, all unreachable.
+//
+// Mortal and Arch are compared raw, so they translate by zero.
+func deslocamentoDaEvolucao(evo uint8) int32 {
+	if level.IsCelestialTier(evo) {
+		return level.CelestialLevelOffset
+	}
+	return 0
+}
+
+// tetoDaEvolucao is the highest level a character of this tier can reach, which
+// is what the typed number is validated against — 199 for celestial, 399 for the
+// rest (level.MaxLevelForTier).
+func tetoDaEvolucao(evo uint8) int32 { return level.MaxLevelForTier(evo) }
+
+func cortesParaTela(cortes []level.Cut, comBrancos bool, desloc int32) []mesaCorte {
 	out := make([]mesaCorte, 0, len(cortes)+linhasEmBranco)
 	for _, c := range cortes {
 		linha := mesaCorte{Divisor: strconv.FormatFloat(c.Divisor, 'f', -1, 64)}
-		if c.UpTo >= level.CutOpenEnded {
+		switch {
+		case c.UpTo >= level.CutOpenEnded:
 			linha.Ate, linha.Aberto = "acima", true
-		} else {
-			linha.Ate = strconv.Itoa(int(c.UpTo))
+		case c.UpTo-desloc >= 1:
+			linha.Ate = strconv.Itoa(int(c.UpTo - desloc))
+		default:
+			// Abaixo do piso da evolução: a linha existe gravada mas nunca é
+			// alcançada. Mostrar o número traduzido daria negativo, e mostrar o
+			// cru convidaria a copiá-lo de novo — que é como esta tabela nasceu.
+			linha.Ate, linha.Morta = strconv.Itoa(int(c.UpTo)), true
 		}
 		out = append(out, linha)
 	}
@@ -1007,6 +1052,17 @@ func cortesParaTela(cortes []level.Cut, comBrancos bool) []mesaCorte {
 		}
 	}
 	return out
+}
+
+// temCorteMorto reports whether any displayed row is a stored cut below its
+// tier's floor — gravado e nunca alcançado.
+func temCorteMorto(cortes []mesaCorte) bool {
+	for _, c := range cortes {
+		if c.Morta {
+			return true
+		}
+	}
+	return false
 }
 
 func abasEvolucao(f mesaForm, cfg level.Config) []mesaAba {

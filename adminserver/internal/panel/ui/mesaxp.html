@@ -4,6 +4,13 @@
 <title>Mesa de XP — Painel OpenWYD</title>
 {{template "head" .}}
 <style>
+  /* Linha gravada com nível abaixo do piso da evolução: existe no banco e o jogo
+     nunca a alcança. Fica visível para ser reescrita, não escondida. */
+  tr.morta input { border-color: var(--danger); }
+  tr.morta td:first-child::after {
+    content: "nunca alcançado";
+    display: block; font-size: 11px; color: var(--danger); margin-top: 3px;
+  }
   .abas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 4px; }
   .abas a {
     padding: 6px 12px; border: 1px solid var(--rule); border-radius: 3px;
@@ -202,6 +209,14 @@
         200 é o dobro exato do que o jogo pagaria.
       </p>
 
+          {{if .Celestial}}
+      <p class="sub">
+        Nesta evolução o nível vai de <strong>1 a 199</strong>, e é isso que você
+        escreve aqui: <strong>nível do personagem</strong>. Por dentro o jogo
+        compara essa evolução somando 400 ao nível, e o painel faz essa conta
+        sozinho ao salvar e desfaz ao mostrar. Não escreva o número somado.
+      </p>
+      {{end}}
       <div class="tw">
         <table class="cortes">
           <thead>
@@ -212,9 +227,10 @@
           </thead>
           <tbody>
             {{range .Cortes}}
-            <tr>
+            <tr{{if .Morta}} class="morta"{{end}}>
               <td><input type="text" name="corte_nivel" value="{{.Ate}}" inputmode="numeric"
-                         placeholder="nível ou &quot;acima&quot;"></td>
+                         placeholder="nível ou &quot;acima&quot;"
+                         {{if .Morta}}aria-invalid="true" title="Este nível está abaixo do piso desta evolução e nunca é alcançado."{{end}}></td>
               <td><input type="text" name="corte_divisor" value="{{.Divisor}}" inputmode="decimal"
                          placeholder="ex.: 1,25"></td>
             </tr>
@@ -229,6 +245,14 @@
         teto para a última quebra, a que pega todo mundo acima da anterior.
         Divisor 1 não muda nada — é como o legado escreve um degrau neutro.
       </p>
+      {{if .TemCorteMorto}}
+      <div class="nota perigo">
+        <strong>Esta tabela tem linha que nunca é alcançada.</strong> As linhas
+        marcadas estão gravadas com um número abaixo do piso desta evolução, então
+        o jogo passa direto por elas e usa a última. Reescreva o nível no lugar,
+        em nível de personagem, e salve — o painel cuida do resto.
+      </div>
+      {{end}}
 
       {{/* Apply the same table to other zones in one save. The three Pesadelo
            and the three Água are the same dungeon at three difficulties and get

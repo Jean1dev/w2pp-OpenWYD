@@ -1099,3 +1099,110 @@ func TestFalhaNaPrimeiraZonaDizQueNadaEntrou(t *testing.T) {
 		t.Errorf("erro na primeira zona devia dizer que nada entrou: %q", corpo)
 	}
 }
+
+// TestCorteCelestialGravaSomandoOs400 is the guard for the bug this translation
+// closes: ExpReward compares a celestial against level+400, so a cut typed as
+// 120 has to reach level.Config as 520 or it never matches anything.
+//
+// Before the translation the panel took 120, saved 120, said nothing, and every
+// kill fell through to the last row — a table that looked configured and was
+// inert. Pesadelo Arcano's celestial table in production is exactly that.
+func TestCorteCelestialGravaSomandoOs400(t *testing.T) {
+	mesa := newFakeMesa()
+	post, token := signedInPost(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()))
+
+	rec := post("/rates/xp", url.Values{
+		"csrf": {token}, "zona": {"0"}, "evolucao": {"3"}, // 3 = Celestial
+		"taxa":        {"100"},
+		"corte_nivel": {"120", "180", "acima"}, "corte_divisor": {"10", "20", "40"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
+	}
+	cortes := mesa.regras[[2]int32{0, 3}].Cuts
+	if len(cortes) != 3 {
+		t.Fatalf("gravou %d cortes, quero 3: %+v", len(cortes), cortes)
+	}
+	if cortes[0].UpTo != 520 || cortes[1].UpTo != 580 {
+		t.Errorf("gravou %d e %d, quero 520 e 580 (120+400 e 180+400)",
+			cortes[0].UpTo, cortes[1].UpTo)
+	}
+	// O aberto NÃO leva o deslocamento: ele já pega todo mundo acima.
+	if cortes[2].UpTo != level.CutOpenEnded {
+		t.Errorf("o corte aberto virou %d, tinha de continuar aberto", cortes[2].UpTo)
+	}
+}
+
+// TestCorteMortalNaoSomaNada: Mortal e Arch são comparados crus, então traduzir
+// ali seria o mesmo defeito ao contrário.
+func TestCorteMortalNaoSomaNada(t *testing.T) {
+	mesa := newFakeMesa()
+	post, token := signedInPost(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()))
+
+	rec := post("/rates/xp", url.Values{
+		"csrf": {token}, "zona": {"0"}, "evolucao": {"2"}, // 2 = Mortal
+		"taxa": {"100"}, "corte_nivel": {"120"}, "corte_divisor": {"10"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
+	}
+	if got := mesa.regras[[2]int32{0, 2}].Cuts[0].UpTo; got != 120 {
+		t.Errorf("Mortal gravou %d, tinha de gravar 120 sem somar nada", got)
+	}
+}
+
+// TestCorteCelestialVoltaTraduzidoNaTela fecha o ciclo: o que foi gravado como
+// 520 tem de aparecer como 120, senão a segunda edição soma 400 de novo.
+func TestCorteCelestialVoltaTraduzidoNaTela(t *testing.T) {
+	mesa := newFakeMesa()
+	mesa.regras[[2]int32{0, 3}] = domain.XPRule{
+		Zone: 0, Tier: 3, RatePercent: 100,
+		Cuts: []domain.XPCut{{UpTo: 520, Divisor: 10}, {UpTo: level.CutOpenEnded, Divisor: 40}},
+	}
+	corpo := abrirMesa(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()), "?zona=0&evolucao=3").Body.String()
+
+	if !strings.Contains(corpo, `value="120"`) {
+		t.Errorf("a tela não mostrou 120 para o corte gravado em 520")
+	}
+	if strings.Contains(corpo, `value="520"`) {
+		t.Errorf("a tela mostrou o número somado, que é o que o moderador não deve ver")
+	}
+}
+
+// TestCorteCelestialAbaixoDoPisoEhRecusado: aceitar calado é o defeito inteiro.
+func TestCorteCelestialAcimaDoTetoEhRecusado(t *testing.T) {
+	mesa := newFakeMesa()
+	post, token := signedInPost(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()))
+
+	// 250 não existe para um celestial: o teto da evolução é 199.
+	rec := post("/rates/xp", url.Values{
+		"csrf": {token}, "zona": {"0"}, "evolucao": {"3"},
+		"taxa": {"100"}, "corte_nivel": {"250"}, "corte_divisor": {"10"},
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, quero 400 (recusado)", rec.Code)
+	}
+	if _, gravou := mesa.regras[[2]int32{0, 3}]; gravou {
+		t.Error("gravou uma tabela com nível que a evolução nunca alcança")
+	}
+}
+
+// TestTabelaCelestialAntigaApareceMarcada: as linhas gravadas antes da tradução
+// (119/149/…) ficam abaixo do piso e nunca são alcançadas. A tela tem de dizer
+// isso, e não escondê-las nem mostrá-las como número negativo.
+func TestTabelaCelestialAntigaApareceMarcada(t *testing.T) {
+	mesa := newFakeMesa()
+	mesa.regras[[2]int32{int32(level.ZonePesadeloArcano), 3}] = domain.XPRule{
+		Zone: int32(level.ZonePesadeloArcano), Tier: 3, RatePercent: 100,
+		Cuts: []domain.XPCut{{UpTo: 119, Divisor: 10}, {UpTo: 149, Divisor: 20}},
+	}
+	url := "?zona=" + strconv.Itoa(int(level.ZonePesadeloArcano)) + "&evolucao=3"
+	corpo := abrirMesa(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()), url).Body.String()
+
+	if !strings.Contains(corpo, "nunca é alcançada") {
+		t.Errorf("a tela não avisou que a tabela tem linha morta")
+	}
+	if strings.Contains(corpo, `value="-281"`) {
+		t.Errorf("a tela mostrou o número negativo da tradução")
+	}
+}
