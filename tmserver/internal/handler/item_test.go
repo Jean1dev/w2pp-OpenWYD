@@ -3307,7 +3307,7 @@ func TestPedraIdealRecusaComEquipamento(t *testing.T) {
 		if ty == protocol.MsgCNFCharacterLogout {
 			t.Fatal("a transformação seguiu adiante com a montaria equipada")
 		}
-		if ty == protocol.MsgMessagePanel && bytes.Contains(payload, []byte(aviso)) {
+		if ty == protocol.MsgMessagePanel && bytes.Contains(payload, aviso) {
 			sawAviso = true
 		}
 	}
