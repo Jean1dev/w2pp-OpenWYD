@@ -571,7 +571,7 @@ func TestCelestialArchBandsAndEquipment(t *testing.T) {
 		e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: tc.level, MortalLevel: 99, Clan: clanHekalotia}
 		e.Equip[0] = world.Item{Index: 21}
 		e.Carry[0] = world.Item{Index: idealStoneItem}
-		d.buildCelestialSnapshot(&e, 0)
+		d.buildCelestialSnapshot(&e)
 		if e.CelestialArchLevel != tc.band || e.Equip[1].Index != tc.body {
 			t.Errorf("level %d => band/body %d/%d, want %d/%d", tc.level, e.CelestialArchLevel, e.Equip[1].Index, tc.band, tc.body)
 		}
@@ -599,7 +599,7 @@ func TestCelestialClassBases(t *testing.T) {
 	for class, base := range want {
 		e := world.Entity{Class: uint8(class), ClassMaster: classMasterArch, Level: 399, MortalLevel: 99}
 		e.Carry[0] = world.Item{Index: idealStoneItem, Effects: [3]world.Effect{{Effect: 61, Value: 3}}}
-		d.buildCelestialSnapshot(&e, 0)
+		d.buildCelestialSnapshot(&e)
 		got := [6]int32{int32(e.BaseStr), int32(e.BaseInt), int32(e.BaseDex), int32(e.BaseCon), e.BaseMaxHP, e.BaseMaxMP}
 		if got != base {
 			t.Errorf("class %d base = %v, want %v", class, got, base)
@@ -3213,5 +3213,60 @@ func TestChaoNaoRegistraDropRecusado(t *testing.T) {
 	db.mu.Unlock()
 	if n != 0 {
 		t.Errorf("ground rows = %d, want 0", n)
+	}
+}
+
+// TestCelestialNasceSemNada guards the divergence documented on
+// buildCelestialSnapshot: the Arch's belongings do not follow it. The legacy
+// clears only the armor and the cape, which left the newborn Celestial mounted
+// (Equip[14]) and carrying its whole inventory into level 0 — and left
+// refreshScore deriving HP and mana from that gear instead of the class base.
+func TestCelestialNasceSemNada(t *testing.T) {
+	d := New(Config{})
+	e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: 399, MortalLevel: 99, Clan: clanHekalotia}
+	e.Equip[0] = world.Item{Index: 21}                // rosto: fica
+	e.Equip[2] = world.Item{Index: 1000}              // arma
+	e.Equip[mountEquipSlot] = world.Item{Index: 3860} // o porquinho
+	for i := range e.Carry {
+		e.Carry[i] = world.Item{Index: int16(1200 + i)}
+	}
+	e.Coin = 5_000_000
+	e.AffMaxHP, e.AffMaxMP = 4000, 300
+
+	d.buildCelestialSnapshot(&e)
+
+	for i, it := range e.Carry {
+		if !it.Empty() {
+			t.Fatalf("Carry[%d] = %d, o celestial devia nascer sem inventário", i, it.Index)
+		}
+	}
+	for i, it := range e.Equip {
+		switch i {
+		case 0:
+			if it.Index != 21 {
+				t.Errorf("Equip[0] = %d, o rosto devia permanecer", it.Index)
+			}
+		case 1:
+			if it.Index != 3502 {
+				t.Errorf("Equip[1] = %d, want o corpo celestial 3502", it.Index)
+			}
+		case capeEquipSlot:
+			if it.Index != 3197 {
+				t.Errorf("Equip[%d] = %d, want a capa 3197", i, it.Index)
+			}
+		default:
+			if !it.Empty() {
+				t.Errorf("Equip[%d] = %d, o celestial devia nascer sem equipamento", i, it.Index)
+			}
+		}
+	}
+	if e.MaxHP != 80 || e.MaxMP != 45 {
+		t.Errorf("HP/MP = %d/%d, want a base da classe 80/45", e.MaxHP, e.MaxMP)
+	}
+	if e.AffMaxHP != 0 || e.AffMaxMP != 0 {
+		t.Errorf("os buffs do Arch sobreviveram: AffMaxHP=%d AffMaxMP=%d", e.AffMaxHP, e.AffMaxMP)
+	}
+	if e.Coin != 5_000_000 {
+		t.Errorf("Coin = %d, o ouro carregado não é roupa e devia ficar", e.Coin)
 	}
 }

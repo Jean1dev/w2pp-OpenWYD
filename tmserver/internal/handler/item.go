@@ -1659,7 +1659,7 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 		return
 	}
 	staged := *e
-	d.buildCelestialSnapshot(&staged, src)
+	d.buildCelestialSnapshot(&staged)
 	save := w.CharacterSaveFor(s, &staged)
 	p := w.Persistence()
 	s.Mode = world.UserWaitDB
@@ -1688,10 +1688,33 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 	})
 }
 
-func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity, src int) {
+// buildCelestialSnapshot turns an Arch into the Celestial it will be when it
+// logs back in: class bases, the celestial body and clan cape, and nothing else.
+//
+// "Nothing else" is a deliberate divergence. The legacy clears only Equip[1] and
+// Equip[15] (_MSG_UseItem.cpp:3122-3160) and leaves the inventory and the other
+// twelve equipment slots exactly as the Arch had them — so the newborn Celestial
+// arrived at level 0 still mounted (Equip[14], the pig), still wearing Arch gear,
+// and refreshScore below then read thousands of HP and a mana pool out of that
+// gear instead of the class base. Here the Celestial is born bare, the way the
+// Arch is already born bare in its own new slot (completeKingArch).
+//
+// Two things survive the wipe on purpose: Equip[0], which is the face rather
+// than gear — it carries the appearance and the aura effects written further
+// down — and the carried gold, which is not worn and whose destruction is not
+// what a player means by "bare".
+func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity) {
 	archLevel := e.Level
 	e.CelestialArchLevel = celestialArchBand(archLevel)
 	e.ClassMaster, e.Level, e.Exp = classMasterCelestial, 0, 0
+	face := e.Equip[0]
+	e.Equip = [world.MaxEquip]world.Item{}
+	e.Carry = [world.MaxCarry]world.Item{}
+	e.Equip[0] = face
+	// The Arch's buffs and the deltas they left on the entity go with the Arch.
+	// Kept, they would still be inflating the pools in the score packet the
+	// caller sends right after this returns.
+	e.ResetAffects()
 	bases := [4][6]int32{{8, 4, 7, 6, 80, 45}, {5, 8, 5, 5, 60, 65}, {6, 6, 9, 5, 70, 55}, {8, 9, 13, 6, 75, 60}}
 	class := int(e.Class)
 	if class < 0 || class >= len(bases) {
@@ -1725,7 +1748,8 @@ func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity, src int) {
 	e.Equip[capeEquipSlot] = world.Item{Index: cape}
 	e.Equip[0].Effects[1] = world.Effect{Effect: 98, Value: 3}
 	e.Equip[0].Effects[2] = world.Effect{Effect: 106, Value: uint8(e.Equip[0].Index)}
-	consumeOneItem(&e.Carry[src])
+	// The Ideal Stone went with the rest of the inventory above; there is no
+	// separate consumeOneItem left to do.
 	d.refreshScore(e)
 }
 
