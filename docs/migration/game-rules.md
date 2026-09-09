@@ -353,6 +353,29 @@ encosta em `DropBonus`.
 
 ---
 
+## 2.9. Loja de NPC — a vitrine NÃO são os 27 primeiros slots
+
+O estoque de um lojista é o `Carry[]` do próprio template, mas a vitrine tem **27 linhas em 3 abas
+de 9**, e as abas não são contíguas: `Carry[0..8]`, `[27..35]`, `[54..62]`
+(`protocol.ShopSlot`, `MAX_SHOPLIST` = 27 em `Basedef.h:142`). O `dbserver import-npcs` semeia o
+`npc_shop_item` pelo mesmo mapa, e a tabela só aceita `slot BETWEEN 0 AND 26`.
+
+Ler "os 27 primeiros" dá uma resposta errada nos dois sentidos: inclui `Carry[9..26]`, que não é
+vitrine, e exclui `[27..35]` e `[54..62]`, que são. Uma auditoria feita assim conclui que itens
+inteiros não estão à venda quando estão.
+
+**Preço 0 não quer dizer "não dá para comprar": quer dizer DE GRAÇA.** `handler.buy` aceita
+`Price == 0` e só recusa preço negativo ou ouro insuficiente — é fiel ao legado
+(`shop.go:83`). Então um item a zero na vitrine é entregue sem custo.
+
+Estado hoje, medido sobre os templates de `Release/TMsrv/run/npc`: **as 5 Cosmo Energia, os 4
+Cartão de Classe, o Selo Contratual (3444) e o Mandado de Exílio (5602) foram REMOVIDOS** do
+estoque de `DonatesBars`, `Galaxy_Store__`, `MileageTrader` e `Nordic_Store___`. Eles não podiam
+ser precificados em ouro: são a categoria que vai para a loja de doação do site, e um NPC não tem
+como cobrar em moeda de doação — **o tmServer não tem uma linha sequer sobre saldo de doação**,
+que existe só no adminServer, no webServer e no banco. Preço em ouro faria o NPC concorrer com a
+loja paga; zero fazia o NPC dar de graça.
+
 ## 3. Refino / Combine (Anct e variantes)
 
 São ~10 handlers `_MSG_CombineItem*` (Fase 1 §3.1). Compartilham o padrão: validar combinação →
