@@ -62,8 +62,8 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 > Os três Pesadelos usam base identidade (`identityBase`), e ali a conta
 > `(30+myLevel) * isExp / (30+myLevel)` passa por um `int32`. Como um celestial soma 400 ao nível,
 > o divisor fica grande e o teto de `MobExp` que cabe no int32 fica BAIXO: 2.491.280 no nível 1,
-> caindo para 1.707.061 no 199 (`level.ExpOverflow` calcula esse teto). Passou do teto, o filtro
-> de `(0, 10M]` devolve **zero**.
+> caindo para 1.707.061 no 199 (`level.ExpOverflow` calcula esse teto). Passou do teto, o resultado
+> escalado sai da janela e o prêmio é **zero**.
 >
 > Medido, celestial, mob de nível 399:
 >
@@ -72,16 +72,27 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 > | 2.000.000 | 3.188 até o nível ~112, depois **0** | 2.988 no nível 50 |
 > | 2.990.849 (o valor da curva no 399) | **0 em qualquer nível** | 4.469 no nível 50 |
 >
-> E o buraco cresce com o nível. Dos 406 monstros reais que o boot carrega, quantos pagam zero
-> para um celestial:
+> **NÃO é o filtro de 10M.** Ele nunca dispara aqui: a maior base possível para um celestial é
+> `450 × 5.981.698 / 629 = 4.279.434`, onde 5.981.698 é o teto de 200% do `ExpApply` e 629 é
+> `30 + 599`. Sobra mais que o dobro de folga até os 10 milhões.
 >
-> | nível | Pesadelo Arcano | Campo |
-> |---:|---:|---:|
-> | 1 | 105 | 16 |
-> | 100 | 135 | 47 |
-> | 199 | **173** | 87 |
+> **São três causas distintas, e só uma é defeito.** Dos 406 monstros reais que o boot carrega,
+> para um celestial no Pesadelo Arcano:
 >
-> (O Campo também tem mortos, por outro motivo: o `soloExpGate` de 10M.)
+> | nível | pagam | razão de nível | **estouro** | cauda |
+> |---:|---:|---:|---:|---:|
+> | 1 | 301 | 0 | **88** | 17 |
+> | 100 | 271 | 43 | **88** | 4 |
+> | 199 | 233 | 82 | **88** | 3 |
+>
+> - **Razão de nível** é o `ExpApply` devolvendo 0 porque o matador é forte demais para o alvo —
+>   um celestial 199 entra como 599, e contra mob de nível 50 ou 100 o retorno é 0. É a régua
+>   funcionando, acontece igual no Campo (82 lá também no nível 199), e não se conserta.
+> - **Estouro** é o defeito, e é **fixo em 88 monstros, em qualquer nível**. No Campo esse número
+>   é ZERO. Ele cai justamente sobre os monstros fortes — onde deveria pagar mais.
+> - **Cauda** é prêmio pequeno demais sobrevivendo à divisão inteira do ÷320 e virando zero. No
+>   Campo são 5 no nível 199 (Orc_Medico, Troll_Zumbi, Rei_Taurus e variantes), todos com o
+>   `ExpApply` já reduzido a algumas centenas.
 >
 > **Consequência prática:** mexer na tabela de cortes celestial do Pesadelo não muda nada hoje —
 > o zero acontece ANTES de a tabela ser consultada. A tabela gravada em Pesadelo Arcano
