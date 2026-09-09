@@ -212,6 +212,7 @@ func run(logger *slog.Logger) error {
 	var worldEvents worldcfg.Source
 	var dungeonGates handler.DungeonGateSource
 	var spawnRates handler.SpawnRateSource
+	var xpConfigs handler.XPConfigSource
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -223,6 +224,7 @@ func run(logger *slog.Logger) error {
 		worldEvents = dbclient.NewWorldEventConfig(conn)
 		dungeonGates = dbclient.NewDungeonGateSource(conn)
 		spawnRates = dbclient.NewSpawnRateSource(conn)
+		xpConfigs = dbclient.NewXPConfigSource(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -390,10 +392,11 @@ func run(logger *slog.Logger) error {
 		logger.Info("npc config overlay enabled (moderator editing)")
 	}
 
-	// Mesa de XP: the panel-managed reward tables (0030_xp_table). Read ONCE
-	// here, for the same reason the mob and item overlays are: the tables shape a
-	// grind, and swapping them under a running server would pay two players
-	// different experience for the same mob depending on when their kill landed.
+	// Mesa de XP: the panel-managed reward tables (0030_xp_table). Read here so
+	// the first kill of the boot already pays the configured rate rather than the
+	// legacy one until the first poll — the same reason the spawn pacing has a
+	// boot read next to its poll. Afterwards handler.pollXPConfig keeps it
+	// current; the rationale for reloading live is on dbclient.XPConfigSource.
 	//
 	// No flag guards it, because an unedited table IS the legacy behaviour — a
 	// server whose panel nobody touched runs exactly as before. A failed read is
@@ -401,9 +404,9 @@ func run(logger *slog.Logger) error {
 	// run the migration yet must still be able to start the game, and the legacy
 	// tables are the honest fallback.
 	var xpConfig level.Config
-	if dbConn != nil {
+	if xpConfigs != nil {
 		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		cfg, ferr := dbclient.NewXPConfigSource(dbConn).Fetch(fetchCtx)
+		cfg, ferr := xpConfigs.Fetch(fetchCtx)
 		cancel()
 		switch {
 		case ferr != nil:
@@ -517,6 +520,7 @@ func run(logger *slog.Logger) error {
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		XPConfig:        xpConfig,
+		XPConfigs:       xpConfigs,
 		CombineFamilies: combineFamilies,
 		OdinCatalog:     odinCatalog,
 		CombineCatalog:  odinCatalog,
@@ -649,10 +653,12 @@ func run(logger *slog.Logger) error {
 				ItemStats: *itemStatEditing,
 				MobStats:  *mobStatEditing,
 				NPCs:      *npcEditing,
-				// The version this process actually booted with, not whatever
-				// the database holds now. That gap is the whole point: it is
-				// what tells the panel a save is still waiting for a restart.
-				XPConfigVersion:    xpConfig.Version,
+				// The version this process is paying by RIGHT NOW, asked of
+				// the dispatcher rather than captured here. It used to be the
+				// boot value, and a captured value would now be a lie: the Mesa
+				// reloads while the server runs, so the panel would keep saying
+				// "waiting for a restart" forever after the first live reload.
+				XPConfigVersion:    dispatch.XPConfigVersion,
 				MountConfigVersion: mountConfigVersion,
 				// What the content file pays, so the panel can stop guessing it
 				// from constants that this content tree does not use.

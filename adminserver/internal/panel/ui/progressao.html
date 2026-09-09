@@ -47,9 +47,10 @@
   {{template "abas-rates" .}}
 
   {{if and .Estado.Perguntou (not .Estado.Valendo)}}
-  <div class="nota perigo">
-    A Mesa de XP tem alterações que o jogo ainda não leu. Esta conta usa o que
-    está <strong>gravado</strong>, e não o que os jogadores estão recebendo agora.
+  <div class="nota">
+    A Mesa de XP tem alteração que o jogo ainda não leu — ele relê sozinho a cada
+    15 segundos. Esta conta usa o que está <strong>gravado</strong>, e não o que
+    os jogadores estão recebendo neste instante.
   </div>
   {{end}}
 

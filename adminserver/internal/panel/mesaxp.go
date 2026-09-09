@@ -126,10 +126,14 @@ type mesaForm struct {
 // The Mesa has no boot flag to report — an unedited table is the legacy
 // behaviour, so there is nothing to switch on — which means the overlay warning
 // the other editors use does not apply here. What can be checked is stronger:
-// the version the process loaded, against the version in the database. Equal
-// means the screen is showing what players are getting; different means a save
-// is sitting there waiting for a restart, and those two states are otherwise
+// the version the process is paying by, against the version in the database.
+// Equal means the screen is showing what players are getting; different means a
+// save has not been picked up yet, and those two states are otherwise
 // indistinguishable.
+//
+// Since the Mesa reloads live (tmserver handler.pollXPConfig), "different" is
+// normally a few seconds old and clears itself. It only persists when the game
+// cannot read the tables at all, which is what SemMesa reports.
 type estadoMesa struct {
 	// Perguntou is false when there is no control channel configured, or the
 	// game did not answer. The page then promises nothing.
@@ -138,13 +142,13 @@ type estadoMesa struct {
 	NoBanco   int64
 	// Valendo is true when the game is running exactly what is on this screen.
 	Valendo bool
-	// SemMesa means the game booted with no Mesa at all — no dbServer, or the
-	// read failed — so it is on the legacy tables and NOTHING saved here is
-	// being applied, restart or no restart.
+	// SemMesa means the game has no Mesa at all — no dbServer, or every read so
+	// far failed — so it is on the legacy tables and NOTHING saved here is being
+	// applied. A failed read retries on its own; no dbServer never does.
 	SemMesa bool
 }
 
-// estadoDaMesa asks the running game which Mesa version it booted with.
+// estadoDaMesa asks the running game which Mesa version it is paying by.
 func (h *Handler) estadoDaMesa(r *http.Request, versaoNoBanco int64) estadoMesa {
 	e := estadoMesa{NoBanco: versaoNoBanco}
 	if h.cfg.Jogo == nil {
@@ -161,6 +165,10 @@ func (h *Handler) estadoDaMesa(r *http.Request, versaoNoBanco int64) estadoMesa 
 	e.NoJogo = o.VersaoMesaXP
 	// Version 0 in the database is a Mesa nobody has ever saved, which the game
 	// reports as 0 too. That is agreement, not absence.
+	//
+	// Version 0 in the game with rows in the database is the real failure, and
+	// it stays 0 only while the game cannot read them: every reload attempt that
+	// succeeds moves it off zero by itself.
 	e.SemMesa = o.VersaoMesaXP == 0 && versaoNoBanco > 0
 	e.Valendo = !e.SemMesa && o.VersaoMesaXP == versaoNoBanco
 	return e

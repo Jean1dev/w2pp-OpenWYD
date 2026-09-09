@@ -51,8 +51,11 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 > (`internal/level/xpconfig.go`, tabela `xp_rule` da migração 0030, tela `/auditoria/xp`):
 > por (zona, evolução) dá para substituir a tabela de quebras inteira e aplicar uma taxa
 > percentual, que multiplica o valor final **depois** de toda a conta do legado. Sem linha
-> gravada o comportamento é exatamente o legado. O tmServer lê no boot e não repolla — trocar
-> as tabelas com gente jogando pagaria valores diferentes para a mesma morte conforme a hora.
+> gravada o comportamento é exatamente o legado. O tmServer lê no boot e depois repolla a cada
+> 15 ticks (`handler/xpconfig.go`), como o ritmo de nascimento e a configuração de evento —
+> trocar as tabelas com gente jogando paga valores diferentes para a mesma morte na virada, que
+> é o mesmo degrau que ligar um evento de XP já dava, e em troca um valor errado se desfaz sem
+> derrubar o servidor.
 
 **Gate de clã:** toda a distribuição está dentro de `if (pMob[target].MOB.Clan != 4)`
 (`MobKilled.cpp:402`) — mob de clã 4 **nunca** dá EXP (gold/drop ficam fora do gate).
@@ -306,7 +309,8 @@ Nenhuma das três muda a **contagem** de chamadas de `rand()`, então a paridade
 se mantém.
 
 **Configurável desde 0037_drop_bonus:** as duas escadas (a magnitude e as faixas do refino) saem do
-banco, uma linha por distância de nível, lidas no boot como a Mesa de XP. O painel edita em
+banco, uma linha por distância de nível, lidas **só** no boot (ao contrário da Mesa de XP, que
+repolla). O painel edita em
 `/rates/bonus-drop`, e o mesmo lugar tem o interruptor que devolve o servidor ao comportamento sem
 sorteio. Qual efeito cada peça recebe NÃO é editável: é conteúdo, e mexer nele mudaria o que o jogo é.
 

@@ -13,6 +13,7 @@ package handler
 import (
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
@@ -133,10 +134,15 @@ type Config struct {
 	// ExpEvents toggles global EXP modifiers (MobKilled.cpp:537-549, Server.cpp defaults).
 	ExpEvents level.ExpEvents
 
-	// XPConfig is the Mesa de XP: the panel-managed reward tables, fetched once
-	// at boot. Its zero value is the pure legacy behaviour, which is what runs
+	// XPConfig is the Mesa de XP: the panel-managed reward tables, as read at
+	// boot. Its zero value is the pure legacy behaviour, which is what runs
 	// without -dbserver.
 	XPConfig level.Config
+
+	// XPConfigs re-reads the tables above while the server runs. Nil means the
+	// boot value is final for the life of the process, which is what a tmServer
+	// without dbServer gets.
+	XPConfigs XPConfigSource
 
 	// Spells is the SkillData.csv catalog (g_pSpell). When nil, skill casting is
 	// rejected and skill learning is refused (no costs are knowable without it).
@@ -286,6 +292,14 @@ type Dispatcher struct {
 	spawnRatePollTick int
 	genAreas          []uint8
 
+	// The Mesa de XP, also read LIVE (xpconfig.go). xpConfig is loop-owned like
+	// everything above; xpConfigVersion is the same number published for the
+	// control API, which reads it from another goroutine on purpose.
+	xpConfigSource   XPConfigSource
+	xpConfigPolling  bool
+	xpConfigPollTick int
+	xpConfigVersion  atomic.Int64
+
 	// playersX/Y are per-tick scratch snapshots of in-play player positions
 	// (mob-AI dormancy gate, mobai.go). Loop-only, reused to avoid allocation.
 	playersX, playersY []int16
@@ -425,10 +439,12 @@ func New(cfg Config) *Dispatcher {
 		worldEventSource:  cfg.WorldEvents,
 		dungeonGateSource: cfg.DungeonGates,
 		spawnRateSource:   cfg.SpawnRates,
+		xpConfigSource:    cfg.XPConfigs,
 		castleQuests:      cfg.CastleQuests,
 		eventRNG:          rng.NewSeeded(cfg.EventRNGSeed),
 		events:            worldEventState{forceWeather: weatherAuto},
 	}
+	d.xpConfigVersion.Store(cfg.XPConfig.Version)
 	d.events.tower = worldevents.NewTower(20)
 	for i := range d.guildZones {
 		d.guildZones[i].Zone = i

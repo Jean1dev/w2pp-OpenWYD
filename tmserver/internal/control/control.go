@@ -74,15 +74,21 @@ type Overlays struct {
 	MobStats  bool
 	NPCs      bool
 
-	// XPConfigVersion is the Mesa de XP version this process loaded at boot.
+	// XPConfigVersion reports the Mesa de XP version this process is paying by.
 	//
 	// It is not a flag like the three above, and that is exactly why it belongs
 	// here: the Mesa has no flag to report, because an unedited table already IS
 	// the legacy behaviour. So the only honest way for the panel to tell "saved
-	// and live" from "saved, waiting for a restart" is to ask the running
-	// process which version it read. Zero means it booted without a Mesa —
-	// no dbServer, or the read failed — and is running the legacy tables.
-	XPConfigVersion int64
+	// and live" from "saved but not applied" is to ask the running process which
+	// version it is using. Zero means it is running the legacy tables — no
+	// dbServer, or the boot read failed and no reload has succeeded since.
+	//
+	// A function and not an int64 because the Mesa reloads while the server runs
+	// (handler.pollXPConfig): a value captured at wiring time would go stale on
+	// the first reload and the panel would then report a restart that is not
+	// needed. Nil is allowed and reads as zero, which is what a server wired
+	// without a dispatcher gets.
+	XPConfigVersion func() int64
 
 	// MountConfigVersion is when the mount overlay (curves + absorption) last
 	// changed, as unix seconds, as this process read it at boot. Same job as the
@@ -142,16 +148,24 @@ func NewServer(w *world.World, token string, log *slog.Logger, tp Teleporter, ov
 
 // Overlays answers which moderator-editing overlays are active.
 //
-// It does NOT cross the game loop, unlike every other call here: these are boot
-// flags, fixed for the life of the process and never touched by gameplay. Making
-// the panel wait behind player input to read a constant would be a cost with
-// nothing bought.
+// It does NOT cross the game loop, unlike every other call here: three of these
+// are boot flags fixed for the life of the process, and the two versions are
+// published through atomics for exactly this reason. Making the panel wait
+// behind player input to read them would be a cost with nothing bought.
+// xpConfigVersion reads the live Mesa version, or zero when nothing published it.
+func (s *Server) xpConfigVersion() int64 {
+	if s.overlays.XPConfigVersion == nil {
+		return 0
+	}
+	return s.overlays.XPConfigVersion()
+}
+
 func (s *Server) Overlays(_ context.Context, _ *gamev1.OverlaysRequest) (*gamev1.OverlaysResponse, error) {
 	resp := &gamev1.OverlaysResponse{
 		ItemStats:          s.overlays.ItemStats,
 		MobStats:           s.overlays.MobStats,
 		Npcs:               s.overlays.NPCs,
-		XpConfigVersion:    s.overlays.XPConfigVersion,
+		XpConfigVersion:    s.xpConfigVersion(),
 		MountConfigVersion: s.overlays.MountConfigVersion,
 	}
 	for _, q := range s.overlays.QuestContent {

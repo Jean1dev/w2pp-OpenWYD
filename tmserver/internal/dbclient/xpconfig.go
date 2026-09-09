@@ -13,11 +13,24 @@ import (
 // XPConfigSource fetches the Mesa de XP — the panel-managed reward tables — from
 // dbServer's XPConfigService.
 //
-// It is fetched once at boot and not polled, for the same reason the mob stat
-// overlay is not: the reward tables shape a grind, and swapping them under a
-// running server would pay two players different experience for the same mob
-// depending on when each one's kill landed. Restart-to-apply is the honest
-// behaviour, and the panel says so.
+// It is read at boot and then polled, like the spawn pacing and the world-event
+// config next to it. That is a deliberate reversal of the earlier decision here,
+// which was restart-to-apply on the grounds that swapping the tables mid-flight
+// pays two players different experience for the same mob depending on when each
+// kill landed. That objection is true and it is not worth what it costs:
+//
+//   - The same unfairness already exists and is already shipped. Double-exp and
+//     the newbie event reload live (worldevent.go), and they move the very same
+//     number by the very same kind of step. Nobody has ever proposed restarting
+//     the server to start an event.
+//   - The Mesa is the main dial for the server's pace, so it is the one that
+//     gets turned repeatedly while somebody watches whether the pace came out
+//     right. Restart-to-apply makes every one of those turns cost a disconnect
+//     for everybody online, which is a far larger unfairness than two kills
+//     paying differently, and it also makes backing out of a bad value slow at
+//     the exact moment being slow hurts.
+//
+// So: the tables move live, and a mistake can be undone in fifteen seconds.
 type XPConfigSource struct {
 	api dbv1.XPConfigServiceClient
 }
@@ -25,6 +38,16 @@ type XPConfigSource struct {
 // NewXPConfigSource wraps a gRPC connection as an XPConfigSource.
 func NewXPConfigSource(conn grpc.ClientConnInterface) *XPConfigSource {
 	return &XPConfigSource{api: dbv1.NewXPConfigServiceClient(conn)}
+}
+
+// Version returns the monotonic version of the saved tables, which is what the
+// poll compares against so a reload only costs a full read when something moved.
+func (c *XPConfigSource) Version(ctx context.Context) (int64, error) {
+	resp, err := c.api.XPConfigVersion(ctx, &dbv1.XPConfigVersionRequest{})
+	if err != nil {
+		return 0, fmt.Errorf("dbclient: xp config version: %w", err)
+	}
+	return resp.GetVersion(), nil
 }
 
 // Fetch returns the configuration ready for level.ExpReward. A reply with no

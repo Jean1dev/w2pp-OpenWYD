@@ -118,38 +118,41 @@
     desta tela: a zona diz qual, e a quebra por nível diz quanto dividir.
     Por último os bônus de quem matou: baú, fada, peças e eventos.
     <br><br>
-    Mexer aqui vale para todo mundo naquela zona e naquela evolução.
-    E o reinício é de propósito: trocar a tabela com gente jogando pagaria
-    valores diferentes para a mesma morte conforme a hora.
+    Mexer aqui vale para todo mundo naquela zona e naquela evolução. Duas mortes
+    iguais podem render diferente bem na virada, do mesmo jeito que já acontece
+    quando um evento de XP começa; em troca, um valor errado se desfaz sem
+    derrubar ninguém.
     {{if .Versao}}<br><br>Versão gravada: <strong>{{.Versao}}</strong>.{{end}}
   </div>
 
-  {{template "quando-vale" "reiniciar"}}
+  {{template "quando-vale" "segundos"}}
 
   {{/* What the RUNNING game is paying, asked of the process itself. Saved-and-
-       live and saved-waiting-for-a-restart look identical on this screen and
-       differ by a week of wrong levelling, so the page states which one it is
-       instead of leaving it to be assumed. */}}
+       live and saved-but-not-picked-up look identical on this screen and differ
+       by a week of wrong levelling, so the page states which one it is instead
+       of leaving it to be assumed. */}}
   {{if .Estado.Perguntou}}
     {{if .Estado.SemMesa}}
     <div class="nota perigo">
-      <strong>O jogo não está usando esta Mesa.</strong> O servidor ligou sem
-      carregar tabela nenhuma e está rodando o legado — provavelmente subiu sem
-      o dbServer, ou a leitura falhou no boot. Enquanto isso não for resolvido,
-      nada que você gravar aqui vale em jogo, nem depois de reiniciar. Procure
-      <code>mesa de XP unreadable</code> no log do servidor.
+      <strong>O jogo não está usando esta Mesa.</strong> Ele não conseguiu
+      carregar tabela nenhuma e está rodando o legado. Enquanto isso não for
+      resolvido, nada que você gravar aqui vale em jogo. O servidor tenta de
+      novo sozinho a cada 15 segundos, então se este aviso não sair é porque
+      ele subiu sem o dbServer. Procure <code>mesa de XP unreadable</code> e
+      <code>mesa de XP reload failed</code> no log do servidor.
     </div>
     {{else if .Estado.Valendo}}
     <div class="nota">
       <strong>O que está nesta tela é o que o jogo está pagando.</strong>
-      O servidor ligou com a versão {{.Estado.NoJogo}}, a mesma que está gravada.
+      O servidor está na versão {{.Estado.NoJogo}}, a mesma que está gravada.
     </div>
     {{else}}
-    <div class="nota perigo">
-      <strong>Tem alteração esperando reinício.</strong> O jogo está pagando pela
-      versão <strong>{{.Estado.NoJogo}}</strong>, mas o gravado já é a
-      <strong>{{.Estado.NoBanco}}</strong>. O que você vê abaixo ainda não chegou
-      em jogo — vale no próximo reinício do servidor.
+    <div class="nota">
+      <strong>A alteração ainda não chegou em jogo.</strong> O jogo está pagando
+      pela versão <strong>{{.Estado.NoJogo}}</strong>, mas o gravado já é a
+      <strong>{{.Estado.NoBanco}}</strong>. Ele relê sozinho a cada 15 segundos:
+      atualize a página daqui a pouco. Se continuar assim, procure
+      <code>mesa de XP reload failed</code> no log do servidor.
     </div>
     {{end}}
   {{end}}

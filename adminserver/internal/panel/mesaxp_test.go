@@ -473,19 +473,24 @@ func newTestPanelMesaComLive(t *testing.T, mesa MesaXP, j Live) http.Handler {
 }
 
 // The state this whole check exists for: something was saved and the game has
-// not restarted. It is invisible on the screen otherwise — the table shows the
-// saved numbers either way — and the gap is a week of wrong levelling.
+// not picked it up. It is invisible on the screen otherwise — the table shows
+// the saved numbers either way — and the gap is a week of wrong levelling.
+//
+// Since the Mesa reloads live, this is normally a few seconds old. The page must
+// still say so: silence here reads as "already applied".
 func TestMesaAvisaQueOJogoAindaNaoLeu(t *testing.T) {
 	mesa := newFakeMesa()
 	mesa.versao = 9
 	j := &fakeJogo{overlays: jogo.Overlays{VersaoMesaXP: 7}}
 
 	corpo := abrirMesa(t, newTestPanelMesaComLive(t, mesa, j), "").Body.String()
-	if !strings.Contains(corpo, "esperando reinício") {
+	if !strings.Contains(corpo, "ainda não chegou em jogo") {
 		t.Error("o jogo está na versão 7 e o banco na 9; a página não avisou")
 	}
-	if !strings.Contains(corpo, "ainda não chegou") {
-		t.Error("faltou dizer que o que está na tela não é o que os jogadores recebem")
+	// Mandar reiniciar aqui seria pior que não avisar: manda derrubar todo mundo
+	// para resolver algo que se resolve sozinho em quinze segundos.
+	if strings.Contains(corpo, "reinício") || strings.Contains(corpo, "reiniciar o servidor") {
+		t.Error("a página mandou reiniciar por uma alteração que o jogo relê sozinho")
 	}
 }
 
@@ -500,14 +505,14 @@ func TestMesaConfirmaQuandoOJogoJaLeu(t *testing.T) {
 	if !strings.Contains(corpo, "é o que o jogo está pagando") {
 		t.Error("as versões batem; a página devia confirmar que está valendo")
 	}
-	if strings.Contains(corpo, "esperando reinício") {
-		t.Error("avisou de reinício pendente com as versões iguais")
+	if strings.Contains(corpo, "ainda não chegou em jogo") {
+		t.Error("avisou de alteração pendente com as versões iguais")
 	}
 }
 
-// A server that booted with no Mesa at all is the worst case, because a restart
-// does NOT fix it: it has no dbServer, or the read failed. Reporting it as
-// "waiting for a restart" would send somebody restarting forever.
+// A game with no Mesa at all is the worst case, because waiting does NOT fix it:
+// it has no dbServer. Reporting it as an ordinary pending change would leave
+// somebody refreshing the page forever.
 func TestMesaAvisaQuandoOJogoNaoCarregouNada(t *testing.T) {
 	mesa := newFakeMesa()
 	mesa.versao = 9
@@ -517,8 +522,8 @@ func TestMesaAvisaQuandoOJogoNaoCarregouNada(t *testing.T) {
 	if !strings.Contains(corpo, "não está usando esta Mesa") {
 		t.Error("o jogo subiu sem Mesa nenhuma; a página não avisou")
 	}
-	if strings.Contains(corpo, "esperando reinício") {
-		t.Error("chamou de reinício pendente um caso que reiniciar não resolve")
+	if strings.Contains(corpo, "ainda não chegou em jogo") {
+		t.Error("chamou de alteração pendente um caso que esperar não resolve")
 	}
 }
 
@@ -528,7 +533,7 @@ func TestMesaSemLigacaoComOJogoNaoAfirmaNada(t *testing.T) {
 	mesa.versao = 9
 	corpo := abrirMesa(t, newTestPanelMesa(t, roleAdmin, mesa, newFakeAudit()), "").Body.String()
 
-	for _, proibido := range []string{"é o que o jogo está pagando", "esperando reinício", "não está usando esta Mesa"} {
+	for _, proibido := range []string{"é o que o jogo está pagando", "ainda não chegou em jogo", "não está usando esta Mesa"} {
 		if strings.Contains(corpo, proibido) {
 			t.Errorf("sem canal com o jogo a página afirmou %q", proibido)
 		}
