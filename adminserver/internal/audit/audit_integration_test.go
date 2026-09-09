@@ -73,7 +73,11 @@ func TestWriteAndList(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 
-	all, err := s.List(ctx, 0)
+	// targetID 0 = todo mundo; limite e deslocamento zerados = a primeira
+	// página inteira. A assinatura ganhou paginação e este arquivo ficou para
+	// trás, o que ninguém viu porque nada compilava os testes de integração
+	// fora de internal/store.
+	all, err := s.List(ctx, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -97,7 +101,7 @@ func TestWriteAndList(t *testing.T) {
 		t.Errorf("payload lost: old=%q new=%q", all[0].Old, all[0].New)
 	}
 
-	filtered, err := s.List(ctx, alvo)
+	filtered, err := s.List(ctx, alvo, 0, 0)
 	if err != nil {
 		t.Fatalf("List filtered: %v", err)
 	}
@@ -121,7 +125,7 @@ func TestWriteWithoutTarget(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 
-	all, err := s.List(ctx, 0)
+	all, err := s.List(ctx, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -167,7 +171,7 @@ func TestTheLogCannotBeEditedOrDeleted(t *testing.T) {
 		t.Error("DELETE on the audit log succeeded; it must be refused")
 	}
 
-	entries, err := s.List(ctx, actor)
+	entries, err := s.List(ctx, actor, 0, 0)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
