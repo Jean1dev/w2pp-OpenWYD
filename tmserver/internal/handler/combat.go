@@ -1330,19 +1330,27 @@ func (d *Dispatcher) applyOnHitAffects(w *world.World, attacker, target *world.E
 		return
 	}
 	if attacker.Rsv&world.RsvFrost != 0 && w.Rand().Intn(2) == 0 {
-		d.applyOnHitSpell(w, target, tid, 36, effectiveSpecial(attacker, 1)+150, effectiveSpecial(attacker, 1))
+		d.applyOnHitSpell(w, target, tid, 36, effectiveSpecial(attacker, 1)+150, effectiveSpecial(attacker, 1), false)
 	}
 	if attacker.Rsv&world.RsvDrain != 0 && w.Rand().Intn(2) == 0 {
-		d.applyOnHitSpell(w, target, tid, 40, effectiveSpecial(attacker, 1)+150, effectiveSpecial(attacker, 1))
+		d.applyOnHitSpell(w, target, tid, 40, effectiveSpecial(attacker, 1)+150, effectiveSpecial(attacker, 1), false)
 	}
 }
 
-func (d *Dispatcher) applyOnHitSpell(w *world.World, target *world.Entity, tid, skillnum, delay, level int) {
+// aceitaMob abre a instalação do afeto em MONSTRO, e só o caminho do pet passa
+// true — ver SetAffectOnMob. Os procs de item de jogador continuam com a regra do
+// legado, que recusa alvo acima de MAX_USER.
+func (d *Dispatcher) applyOnHitSpell(w *world.World, target *world.Entity, tid, skillnum, delay, level int, aceitaMob bool) {
 	sp, ok := onHitSpell(d.spells, skillnum)
 	if !ok {
 		return
 	}
-	applied := target.SetAffect(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, level, d.affectDur)
+	var applied bool
+	if aceitaMob && !world.IsPlayer(target.ID) {
+		applied = target.SetAffectOnMob(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, level, d.affectDur)
+	} else {
+		applied = target.SetAffect(sp.AffectType, sp.AffectValue, sp.AffectTime, sp.Aggressive, delay, level, d.affectDur)
+	}
 	if target.SetTick(sp.TickType, sp.TickValue, sp.AffectTime, sp.Aggressive, delay, level, d.affectDur) {
 		applied = true
 	}

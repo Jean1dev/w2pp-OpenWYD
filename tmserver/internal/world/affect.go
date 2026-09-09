@@ -198,7 +198,29 @@ func (d AffectDuration) scale(ticks, baseTicks, aggressive int) int {
 // short 4-tick timer (the legacy's odd sType clamp) and skips the tuning, as does
 // the "infinite" sentinel. Returns false when nothing was applied.
 func (e *Entity) SetAffect(affectType, affectValue, affectTime, aggressive, time, level int, dur AffectDuration) bool {
-	if !IsPlayer(e.ID) || e.Merchant == 1 {
+	if !IsPlayer(e.ID) {
+		return false
+	}
+	return e.setAffect(affectType, affectValue, affectTime, aggressive, time, level, dur)
+}
+
+// SetAffectOnMob instala o mesmo afeto num MONSTRO.
+//
+// DIVERGÊNCIA DELIBERADA, e de alcance estreito de propósito. O legado recusa
+// qualquer alvo acima de MAX_USER (Server.cpp:9211), de modo que nenhum debuff
+// jamais grudou num monstro — nem os que os JOGADORES lançam. Não mexemos nessa
+// regra geral: SetAffect continua exatamente como era, e só o caminho do PET usa
+// esta variante, para entregar o Enfraquecer do Gorila que foi pedido.
+//
+// Largar a trava para todo mundo de uma vez já foi feito uma vez neste código e
+// derrubou a mana de todas as classes; o alcance aqui é uma criatura de
+// evocação batendo num monstro, e nada mais.
+func (e *Entity) SetAffectOnMob(affectType, affectValue, affectTime, aggressive, time, level int, dur AffectDuration) bool {
+	return e.setAffect(affectType, affectValue, affectTime, aggressive, time, level, dur)
+}
+
+func (e *Entity) setAffect(affectType, affectValue, affectTime, aggressive, time, level int, dur AffectDuration) bool {
+	if e.Merchant == 1 {
 		return false
 	}
 	if e.Rsv&RsvBlock != 0 && aggressive != 0 {

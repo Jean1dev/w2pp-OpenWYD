@@ -376,14 +376,14 @@ func TestHuntressOnHitSpellsUseLegacySkillRows(t *testing.T) {
 	})})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	player := &world.Entity{ID: 2}
-	d.applyOnHitSpell(w, player, player.ID, 36, 200, 50)
+	d.applyOnHitSpell(w, player, player.ID, 36, 200, 50, false)
 	if player.Affect[0].Type != 1 || player.Affect[0].Value != 2 || player.Affect[0].Level != 50 {
 		t.Fatalf("frost affect = %+v, want type 1 value 2 level 50", player.Affect[0])
 	}
 
 	mobID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 5, Y: 5, GenIndex: -1})
 	mob := w.Entity(mobID)
-	d.applyOnHitSpell(w, mob, mobID, 40, 200, 50)
+	d.applyOnHitSpell(w, mob, mobID, 40, 200, 50, false)
 	if mob.Affect[0].Type != 20 || mob.Affect[0].Value != 10 || mob.Affect[0].Level != 50 {
 		t.Fatalf("drain tick = %+v, want type 20 value 10 level 50", mob.Affect[0])
 	}
