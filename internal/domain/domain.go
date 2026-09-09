@@ -1209,3 +1209,43 @@ type SpawnRateConfig struct {
 	Version int64
 	Areas   []SpawnRate
 }
+
+// CombineRate is one key of CompRate.txt as the panel stores it: the family
+// (Ailyn, Agatha, Ehre, Compositor) and the key inside it. Absent from the table
+// means "use the file", and the file falls back to the compiled default.
+type CombineRate struct {
+	Family string
+	Key    string
+	Rate   int32 // 0..100, the same bound the legacy parser enforces
+}
+
+// CombineSlotKind is what a band applies to. Weapons and armour get separate
+// bands because they concentrate at opposite ends of the ReqLvl scale: between
+// 200 and 249 the catalog holds 112 weapons and a single piece of armour.
+type CombineSlotKind int32
+
+const (
+	CombineSlotWeapon CombineSlotKind = 1
+	CombineSlotArmour CombineSlotKind = 2
+)
+
+// CombineBand is one item band of the +10 machine: a multiplier over the
+// machine's own rate, chosen by the item's ReqLvl.
+//
+// ReqLvl is the axis because the grade does not separate tiers — 470 of the 654
+// weapons share grade 6, and the (N)/(M)/(A) variants of a piece all carry the
+// same grade with different ReqLvl.
+type CombineBand struct {
+	SlotKind  CombineSlotKind
+	ReqLvlMin int32
+	ReqLvlMax int32
+	Label     string // the moderator's own name for the band, e.g. "Armas C"
+	MultPct   int32  // hundredths; 100 neutral, 180 is 1.8x, 40 is 0.4x
+}
+
+// CombineRateConfig is the whole Mesa das Máquinas at one version.
+type CombineRateConfig struct {
+	Version int64
+	Rates   []CombineRate
+	Bands   []CombineBand
+}

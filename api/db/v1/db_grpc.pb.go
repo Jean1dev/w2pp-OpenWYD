@@ -3028,3 +3028,161 @@ var SpawnRateService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	CombineRateService_CombineRateVersion_FullMethodName = "/db.v1.CombineRateService/CombineRateVersion"
+	CombineRateService_GetCombineRates_FullMethodName    = "/db.v1.CombineRateService/GetCombineRates"
+)
+
+// CombineRateServiceClient is the client API for CombineRateService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// CombineRateService serves the Mesa das Máquinas — the panel-managed combine
+// rates — to tmServer. The legacy keeps these in CompRate.txt, a file edited by
+// hand and read once at boot; this carries the moderator's edits on top of it.
+// tmServer only reads. A family or key absent from the reply falls back to the
+// file, and the file falls back to the compiled default, so a server with no
+// dbServer behaves exactly as before.
+type CombineRateServiceClient interface {
+	// CombineRateVersion returns the monotonic moderator config version.
+	CombineRateVersion(ctx context.Context, in *CombineRateVersionRequest, opts ...grpc.CallOption) (*CombineRateVersionResponse, error)
+	// GetCombineRates returns every edited rate and band.
+	GetCombineRates(ctx context.Context, in *GetCombineRatesRequest, opts ...grpc.CallOption) (*GetCombineRatesResponse, error)
+}
+
+type combineRateServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCombineRateServiceClient(cc grpc.ClientConnInterface) CombineRateServiceClient {
+	return &combineRateServiceClient{cc}
+}
+
+func (c *combineRateServiceClient) CombineRateVersion(ctx context.Context, in *CombineRateVersionRequest, opts ...grpc.CallOption) (*CombineRateVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CombineRateVersionResponse)
+	err := c.cc.Invoke(ctx, CombineRateService_CombineRateVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *combineRateServiceClient) GetCombineRates(ctx context.Context, in *GetCombineRatesRequest, opts ...grpc.CallOption) (*GetCombineRatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCombineRatesResponse)
+	err := c.cc.Invoke(ctx, CombineRateService_GetCombineRates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CombineRateServiceServer is the server API for CombineRateService service.
+// All implementations must embed UnimplementedCombineRateServiceServer
+// for forward compatibility.
+//
+// CombineRateService serves the Mesa das Máquinas — the panel-managed combine
+// rates — to tmServer. The legacy keeps these in CompRate.txt, a file edited by
+// hand and read once at boot; this carries the moderator's edits on top of it.
+// tmServer only reads. A family or key absent from the reply falls back to the
+// file, and the file falls back to the compiled default, so a server with no
+// dbServer behaves exactly as before.
+type CombineRateServiceServer interface {
+	// CombineRateVersion returns the monotonic moderator config version.
+	CombineRateVersion(context.Context, *CombineRateVersionRequest) (*CombineRateVersionResponse, error)
+	// GetCombineRates returns every edited rate and band.
+	GetCombineRates(context.Context, *GetCombineRatesRequest) (*GetCombineRatesResponse, error)
+	mustEmbedUnimplementedCombineRateServiceServer()
+}
+
+// UnimplementedCombineRateServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCombineRateServiceServer struct{}
+
+func (UnimplementedCombineRateServiceServer) CombineRateVersion(context.Context, *CombineRateVersionRequest) (*CombineRateVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CombineRateVersion not implemented")
+}
+func (UnimplementedCombineRateServiceServer) GetCombineRates(context.Context, *GetCombineRatesRequest) (*GetCombineRatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCombineRates not implemented")
+}
+func (UnimplementedCombineRateServiceServer) mustEmbedUnimplementedCombineRateServiceServer() {}
+func (UnimplementedCombineRateServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeCombineRateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CombineRateServiceServer will
+// result in compilation errors.
+type UnsafeCombineRateServiceServer interface {
+	mustEmbedUnimplementedCombineRateServiceServer()
+}
+
+func RegisterCombineRateServiceServer(s grpc.ServiceRegistrar, srv CombineRateServiceServer) {
+	// If the following call panics, it indicates UnimplementedCombineRateServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CombineRateService_ServiceDesc, srv)
+}
+
+func _CombineRateService_CombineRateVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CombineRateVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CombineRateServiceServer).CombineRateVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CombineRateService_CombineRateVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CombineRateServiceServer).CombineRateVersion(ctx, req.(*CombineRateVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CombineRateService_GetCombineRates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCombineRatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CombineRateServiceServer).GetCombineRates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CombineRateService_GetCombineRates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CombineRateServiceServer).GetCombineRates(ctx, req.(*GetCombineRatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CombineRateService_ServiceDesc is the grpc.ServiceDesc for CombineRateService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CombineRateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.CombineRateService",
+	HandlerType: (*CombineRateServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CombineRateVersion",
+			Handler:    _CombineRateService_CombineRateVersion_Handler,
+		},
+		{
+			MethodName: "GetCombineRates",
+			Handler:    _CombineRateService_GetCombineRates_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

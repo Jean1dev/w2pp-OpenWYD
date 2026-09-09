@@ -287,3 +287,46 @@ func combineNeedsGold(cost int32) string {
 func sendCarrySlot(w *world.World, s *world.Session, e *world.Entity, slot int) {
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
 }
+
+// machineRate resolves a machine's success rate for one item, in the order the
+// Mesa das Máquinas defines:
+//
+//	painel (taxa da chave)  →  CompRate.txt  →  padrão compilado
+//
+// and then scales it by the band the item's ReqLvl falls in. Every layer is
+// optional: with no panel row the file wins, with no band the plain rate wins,
+// and a server with no dbServer at all behaves exactly as it did before any of
+// this existed.
+func (d *Dispatcher) machineRate(family string, target world.Item) int {
+	base := int32(d.compRate.ChanceBase(family))
+	if v, ok := d.combineRates.Rate(family, "ChanceBase"); ok {
+		base = v
+	}
+	return int(d.combineRates.Apply(base, d.slotKindOf(target), d.reqLvlOf(target)))
+}
+
+// machineKeyRate is machineRate for the families whose rate is named by the
+// recipe rather than by "ChanceBase" — the Ehre's seven, where the moderator
+// tunes each one on its own. No band applies: these are flat by design.
+func (d *Dispatcher) machineKeyRate(family, key string, fallback int) int {
+	if v, ok := d.combineRates.Rate(family, key); ok {
+		return int(v)
+	}
+	return fallback
+}
+
+// reqLvlOf is the item's equip level, which is the axis the bands are cut on.
+// An item the catalog does not know returns 0 and lands in whichever band covers
+// zero, or in none at all — never in an error.
+func (d *Dispatcher) reqLvlOf(it world.Item) int32 {
+	r, ok := d.itemReqs[int(it.Index)]
+	if !ok {
+		return 0
+	}
+	return int32(r.Lvl)
+}
+
+// slotKindOf reads the item's nPos to decide which band table applies.
+func (d *Dispatcher) slotKindOf(it world.Item) combine.SlotKind {
+	return combine.SlotKindForPos(int32(d.combineCatalog.Pos[int(it.Index)]))
+}

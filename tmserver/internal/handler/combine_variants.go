@@ -16,6 +16,20 @@ const (
 	tinyCost  int32 = 100_000_000
 )
 
+// ehreRateKey maps an Ehre recipe id to its key in CompRate.txt. Recipe 5 —
+// Safira + Safira + Refinação Abençoada — is absent on purpose: the legacy has
+// no key for it and computes the rate from the character's own level, so there
+// is nothing for a moderator to override.
+var ehreRateKey = map[int]string{
+	1: "Pacote_Ori",
+	2: "Misteriosa",
+	3: "Espiritual",
+	4: "Amunra",
+	6: "Traje_Montaria",
+	7: "Retirar_Traje_Montaria",
+	8: "Soul",
+}
+
 func (d *Dispatcher) variantInputs(w *world.World, s *world.Session, payload []byte) (*world.Entity, [protocol.MaxCombine]world.Item, [protocol.MaxCombine]int, []int, bool) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -48,7 +62,7 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 		d.refuseCombine(w, s, combineNeedsGold(ailynCost))
 		return
 	}
-	rate := combine.MatchAilyn(d.combineCatalog, it[:], d.compRate.ChanceBase("Ailyn"))
+	rate := combine.MatchAilyn(d.combineCatalog, it[:], d.machineRate("Ailyn", it[0]))
 	if rate == 0 {
 		// The +10 machine wants seven filled cells, cells 0 and 1 the SAME index, a
 		// Pedra do Sábio (1774) in cell 2 and four jewels chosen by the item's grade
@@ -61,7 +75,8 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 			"itens", []int16{it[0].Index, it[1].Index, it[2].Index, it[3].Index, it[4].Index, it[5].Index, it[6].Index},
 			"grade0", d.combineCatalog.Grade[int(it[0].Index)],
 			"pos0", d.combineCatalog.Pos[int(it[0].Index)],
-			"chance_base", d.compRate.ChanceBase("Ailyn"))
+			"chance_base", d.machineRate("Ailyn", it[0]),
+			"req_lvl", d.reqLvlOf(it[0]), "slot_kind", d.slotKindOf(it[0]))
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
@@ -94,7 +109,7 @@ func (d *Dispatcher) combineItemTiny(w *world.World, s *world.Session, _ protoco
 		d.refuseCombine(w, s, combineNeedsGold(tinyCost))
 		return
 	}
-	rate := combine.MatchTiny(d.combineCatalog, it[:], d.compRate.ChanceBase("Tiny"))
+	rate := combine.MatchTiny(d.combineCatalog, it[:], d.machineRate("Tiny", it[0]))
 	if rate == 0 {
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
@@ -123,7 +138,7 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 	if !ok {
 		return
 	}
-	rate := combine.MatchAgatha(d.combineCatalog, it[:], d.compRate.ChanceBase("Agatha"))
+	rate := combine.MatchAgatha(d.combineCatalog, it[:], d.machineKeyRate("Agatha", "ChanceBase", d.compRate.ChanceBase("Agatha")))
 	if rate == 0 {
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
@@ -153,7 +168,7 @@ func (d *Dispatcher) combineItemShany(w *world.World, s *world.Session, _ protoc
 		return
 	}
 	consumePositions(w, s, e, sl, active, nil)
-	if _, success := combine.Roll(w.Rand(), d.compRate.ChanceBase("Shany")); !success {
+	if _, success := combine.Roll(w.Rand(), d.machineKeyRate("Shany", "ChanceBase", d.compRate.ChanceBase("Shany"))); !success {
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
@@ -331,6 +346,12 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 	consumePositions(w, s, e, sl, active, nil)
 	rates := d.compRate.EhreRates()
 	rate := rates[id]
+	// A Mesa das Máquinas ganha do arquivo. O Ehre é a única família em que cada
+	// receita tem sua própria chave, e é por isso que o painel lista as sete: qual
+	// delas é a de absorção é vocabulário do servidor, não do código.
+	if key := ehreRateKey[id]; key != "" {
+		rate = d.machineKeyRate("Ehre", key, rate)
+	}
 	if id == 6 || id == 7 {
 		e.Coin -= 1_000_000
 		d.sendEtc(w, s, e)

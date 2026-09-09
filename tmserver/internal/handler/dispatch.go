@@ -139,6 +139,10 @@ type Config struct {
 	// without -dbserver.
 	XPConfig level.Config
 
+	// CombineRates is the Mesa das Máquinas: the panel's edits over CompRate.txt.
+	// The zero value means nothing was edited, and every machine runs on the file.
+	CombineRates combine.RateConfig
+
 	// XPConfigs re-reads the tables above while the server runs. Nil means the
 	// boot value is final for the life of the process, which is what a tmServer
 	// without dbServer gets.
@@ -217,6 +221,7 @@ type Dispatcher struct {
 	odinCatalog     combine.Catalog
 	combineCatalog  combine.Catalog
 	compRate        *content.CompRate
+	combineRates    combine.RateConfig
 	questRates      *content.QuestRates
 	baseMobs        map[int][]byte               // per-class STRUCT_MOB templates
 	summonMobs      [][]byte                     // BM evocation templates (summon id → STRUCT_MOB)
@@ -405,6 +410,7 @@ func New(cfg Config) *Dispatcher {
 		odinCatalog:       cfg.OdinCatalog,
 		combineCatalog:    cfg.CombineCatalog,
 		compRate:          cfg.CompRate,
+		combineRates:      cfg.CombineRates,
 		questRates:        cfg.QuestRates,
 		baseMobs:          cfg.BaseMobs,
 		summonMobs:        cfg.SummonMobs,

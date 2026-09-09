@@ -1154,3 +1154,55 @@ message SpawnRate {
   int32 area = 1;
   int32 percent = 2;
 }
+
+// CombineRateService serves the Mesa das Máquinas — the panel-managed combine
+// rates — to tmServer. The legacy keeps these in CompRate.txt, a file edited by
+// hand and read once at boot; this carries the moderator's edits on top of it.
+// tmServer only reads. A family or key absent from the reply falls back to the
+// file, and the file falls back to the compiled default, so a server with no
+// dbServer behaves exactly as before.
+service CombineRateService {
+  // CombineRateVersion returns the monotonic moderator config version.
+  rpc CombineRateVersion(CombineRateVersionRequest) returns (CombineRateVersionResponse);
+  // GetCombineRates returns every edited rate and band.
+  rpc GetCombineRates(GetCombineRatesRequest) returns (GetCombineRatesResponse);
+}
+
+message CombineRateVersionRequest {}
+message CombineRateVersionResponse { int64 version = 1; }
+
+message GetCombineRatesRequest {}
+message GetCombineRatesResponse {
+  int64 version = 1;
+  repeated CombineRate rates = 2;
+  repeated CombineBand bands = 3;
+}
+
+// CombineRate is one key of CompRate.txt: the family (Ailyn, Agatha, Ehre,
+// Compositor, …) and the key inside it (ChanceBase, Espiritual, Item_+9, …).
+// Ranges 0..100, the same bound the legacy parser enforces on the file.
+message CombineRate {
+  string family = 1;
+  string key = 2;
+  int32 rate = 3;
+}
+
+// CombineBand is one item band of the +10 machine, which the legacy has no
+// notion of: a multiplier over the machine's own rate, chosen by the item's
+// ReqLvl.
+//
+// ReqLvl is the axis because the grade does not separate tiers — 470 of the 654
+// weapons share grade 6 — and because weapons and armour concentrate in
+// opposite places, which is why the band is per slot_kind rather than one ruler
+// for both.
+//
+// mult_pct is in hundredths so no float crosses the wire: 100 is neutral, 180 is
+// 1.8x, 40 is 0.4x. label is the moderator's own name for the band ("Armas C"),
+// carried so the panel and the audit log speak the operator's vocabulary.
+message CombineBand {
+  int32 slot_kind = 1;    // 1 weapon, 2 armour
+  int32 req_lvl_min = 2;
+  int32 req_lvl_max = 3;
+  string label = 4;
+  int32 mult_pct = 5;
+}
