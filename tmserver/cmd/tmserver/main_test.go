@@ -48,7 +48,7 @@ func TestSpawnNPCsWarnsMissingTemplates(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
-	spawnNPCs(w, dir, false, nil, logger)
+	spawnNPCs(w, dir, false, nil, nil, nil, logger)
 
 	if g := w.GeneratorAt(0); g != nil {
 		t.Fatalf("missing leader generator = %#v, want skipped nil slot", g)
@@ -116,7 +116,7 @@ func TestSpawnNPCsResolvesLegacyTemplateNames(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
-	spawnNPCs(w, dir, false, nil, logger)
+	spawnNPCs(w, dir, false, nil, nil, nil, logger)
 
 	for i := 0; i < 2; i++ {
 		g := w.GeneratorAt(i)
@@ -201,7 +201,7 @@ func TestSpawnNPCsAvisaNivelForaDaFaixa(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
-	spawnNPCs(w, dir, false, nil, logger)
+	spawnNPCs(w, dir, false, nil, nil, nil, logger)
 
 	got := logs.String()
 	for _, quer := range []string{
@@ -244,9 +244,95 @@ func TestSpawnNPCsCaladoComTudoNaFaixa(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
-	spawnNPCs(w, dir, false, nil, logger)
+	spawnNPCs(w, dir, false, nil, nil, nil, logger)
 
 	if strings.Contains(logs.String(), "level outside") {
 		t.Errorf("avisou com todo mundo na faixa:\n%s", logs.String())
+	}
+}
+
+// TestSpawnNPCsAvisaEstoqueDeGraca cobre as duas contagens, e a segunda é a que
+// justifica o teste existir: um item de graça guardado fora das três abas da
+// vitrine não aparece para ninguém, e mesmo assim handler.buy o alcança, porque
+// valida só npcPos < MaxCarry. Contar só a vitrine deixaria passar o caso que
+// ninguém tem como ver.
+func TestSpawnNPCsAvisaEstoqueDeGraca(t *testing.T) {
+	dir := t.TempDir()
+	runDir := filepath.Join(dir, "TMsrv", "run")
+	npcDir := filepath.Join(runDir, "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const gener = "# [0]\n\tLeader: Lojista\n\tMinGroup: 0\n\tMaxGroup: 0\n\tMaxNumMob: 1\n\tStartX: 10\n\tStartY: 10\n"
+	if err := os.WriteFile(filepath.Join(runDir, "NPCGener.txt"), []byte(gener), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := testMobTemplateNivel("Lojista", 50)
+	tmpl[92+12] = 1 // CurrentScore.Merchant: sem isto o Carry é tabela de drop
+	// Carry[0] é aba 1 da vitrine; Carry[20] não é aba nenhuma; Carry[54] é aba 3.
+	const carry = 268
+	binary.LittleEndian.PutUint16(tmpl[carry+0*8:], 1000)  // de graça, na vitrine
+	binary.LittleEndian.PutUint16(tmpl[carry+20*8:], 1001) // de graça, escondido
+	binary.LittleEndian.PutUint16(tmpl[carry+54*8:], 1002) // com preço, na vitrine
+	binary.LittleEndian.PutUint16(tmpl[carry+1*8:], 9999)  // fora do catálogo
+	if err := os.WriteFile(filepath.Join(npcDir, "Lojista"), tmpl, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	precos := map[int]int32{1000: 0, 1001: 0, 1002: 500}
+	nomes := map[int]string{1000: "Presente", 1001: "Escondido", 1002: "Pago"}
+
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
+	spawnNPCs(w, dir, false, nil, precos, nomes, logger)
+
+	got := logs.String()
+	for _, quer := range []string{
+		"shop stock priced at zero",
+		"Presente(1000)",
+		"OUTSIDE the shop window",
+		"Escondido(1001)",
+	} {
+		if !strings.Contains(got, quer) {
+			t.Fatalf("faltou %q no log:\n%s", quer, got)
+		}
+	}
+	// O que tem preço não pode ser citado, e o que não está no catálogo também
+	// não: aquele não é item de graça, é vitrine suja, e tem outro conserto.
+	for _, proibido := range []string{"Pago(1002)", "9999"} {
+		if strings.Contains(got, proibido) {
+			t.Errorf("o aviso citou %q, que não é item de graça:\n%s", proibido, got)
+		}
+	}
+}
+
+// TestSpawnNPCsCaladoComTudoPago: log limpo é o estado normal depois que os
+// preços entrarem. Aviso que aparece sempre não avisa.
+func TestSpawnNPCsCaladoComTudoPago(t *testing.T) {
+	dir := t.TempDir()
+	runDir := filepath.Join(dir, "TMsrv", "run")
+	npcDir := filepath.Join(runDir, "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const gener = "# [0]\n\tLeader: Lojista\n\tMinGroup: 0\n\tMaxGroup: 0\n\tMaxNumMob: 1\n\tStartX: 10\n\tStartY: 10\n"
+	if err := os.WriteFile(filepath.Join(runDir, "NPCGener.txt"), []byte(gener), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := testMobTemplateNivel("Lojista", 50)
+	tmpl[92+12] = 1
+	binary.LittleEndian.PutUint16(tmpl[268:], 1002)
+	if err := os.WriteFile(filepath.Join(npcDir, "Lojista"), tmpl, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	w := world.New(world.Config{GridDim: 64}, logger, nil, nil)
+	spawnNPCs(w, dir, false, nil, map[int]int32{1002: 500}, nil, logger)
+
+	if strings.Contains(logs.String(), "priced at zero") {
+		t.Errorf("avisou com tudo pago:\n%s", logs.String())
 	}
 }

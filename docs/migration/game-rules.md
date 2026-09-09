@@ -368,6 +368,27 @@ inteiros não estão à venda quando estão.
 `Price == 0` e só recusa preço negativo ou ouro insuficiente — é fiel ao legado
 (`shop.go:83`). Então um item a zero na vitrine é entregue sem custo.
 
+Índice **ausente do catálogo** é outra coisa: `buy` sai no `!ok` do `itemPrices`, então não é item
+grátis, é vitrine suja. Aparece na lista que o cliente recebe e não pode ser comprado.
+
+**A compra alcança mais espaços do que a vitrine mostra.** `buy` valida só `npcPos < MaxCarry`,
+ou seja 0..63 — como o legado, que checa `TargetInvenPos >= MAX_CARRY` (`_MSG_Buy.cpp:49`) e indexa
+`Carry[TargetInvenPos]` direto, porque é o cliente que manda o slot cru. Consequência: um item a
+preço zero guardado FORA das três abas não aparece para ninguém e continua comprável por pacote
+montado. É por isso que o aviso do boot conta duas linhas, vitrine e escondido — contar só a
+vitrine deixaria passar justamente o caso invisível.
+
+O boot avisa em `shop stock priced at zero` e `stock priced at zero OUTSIDE the shop window`.
+
+Preços fechados até aqui, sempre e só para o que está de fato numa vitrine: Cristal de Extração
+20.000.000 (5 dos 6 — o de Arma não está em loja), a série de Jóias 100 (o bloco vizinho 3206-3208
+é a mesma coisa com outro nome e custa isso), Montarias copiando o homônimo já precificado
+(150.000 / 1.500.000 / 2.000.000), Medalhas coloridas 1.000.000 (3 das 6), Esfera da Sorte N/M/A
+200.000, e Entrada do Território **1.100.000 / 1.100.000 / 2.200.000** — este último não veio de
+âncora e sim do irmão funcional: é bilhete de teleporte descartável (`useEntradaTerritorio`,
+`EF_VOLATILE 188`), e o `Pedido_de_Caça` (`EF_VOLATILE 195`) já traz a escada pronta, 1.100.000 em
+Armia/Dung/SubM/Kult, 2.200.000 no Nipple e 3.300.000 no Kefra.
+
 Estado hoje, medido sobre os templates de `Release/TMsrv/run/npc`: **as 5 Cosmo Energia, os 4
 Cartão de Classe, o Selo Contratual (3444) e o Mandado de Exílio (5602) foram REMOVIDOS** do
 estoque de `DonatesBars`, `Galaxy_Store__`, `MileageTrader` e `Nordic_Store___`. Eles não podiam

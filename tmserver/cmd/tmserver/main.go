@@ -617,7 +617,7 @@ func run(logger *slog.Logger) error {
 	// the DB overlay is active, merchant blocks are skipped here (owned by
 	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
-		spawnNPCs(w, *contentDir, npcConfig != nil, mobStatOverrides, logger)
+		spawnNPCs(w, *contentDir, npcConfig != nil, mobStatOverrides, itemPrices, itemNames, logger)
 		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
@@ -707,7 +707,9 @@ func run(logger *slog.Logger) error {
 // front so the world is playable immediately. This burns the LCG at boot (one
 // stream for all spawns, like the original's global rand()); there is no legacy
 // boot rand order to diverge from.
-func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides map[string]mobstat.Override, logger *slog.Logger) {
+func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides map[string]mobstat.Override,
+	itemPrices map[int]int32, itemNames map[int]string, logger *slog.Logger,
+) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
@@ -734,6 +736,33 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	// cap, so it is a number to look at rather than a reward bug.
 	nivelForaDaFaixa := make(map[string]struct{})
 	semEscala, comMercador, maiorNivel := 0, 0, int32(0)
+
+	// Estoque de lojista a preço ZERO: o comprador não paga nada. handler.buy
+	// aceita Price == 0 e só recusa preço negativo ou ouro insuficiente, fiel ao
+	// legado — então isto é um item de presente, não um item indisponível.
+	//
+	// Duas contagens, e a segunda é a que ninguém veria de outro jeito: a vitrine
+	// mostra 27 linhas em 3 abas de 9 (protocol.ShopSlot), mas handler.buy valida
+	// só npcPos < MaxCarry e alcança os 64 espaços — como o legado
+	// (_MSG_Buy.cpp:49). Um item de graça guardado fora das abas não aparece para
+	// ninguém e continua comprável por pacote montado. Contar só a vitrine deixaria
+	// passar justamente o caso invisível.
+	//
+	// Índice ausente do catálogo NÃO conta aqui: buy sai no `!ok` do itemPrices, e
+	// isso é vitrine suja, não item grátis — coisa diferente e com outro conserto.
+	naVitrine := make(map[string]struct{})
+	escondido := make(map[string]struct{})
+	vagasVitrine, vagasEscondidas := 0, 0
+	ehVitrine := make(map[int]bool, 27)
+	for i := 0; i < 27; i++ {
+		ehVitrine[protocol.ShopSlot(i)] = true
+	}
+	nomeItem := func(idx int) string {
+		if n := itemNames[idx]; n != "" {
+			return fmt.Sprintf("%s(%d)", n, idx)
+		}
+		return strconv.Itoa(idx)
+	}
 	// loadedTemplate keeps the raw (pre-override) Merchant classification
 	// alongside the override-applied bytes: rawMerchant drives the
 	// DB-managed-merchant skip below, so a moderator's stat override (which
@@ -780,6 +809,24 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 				// while being bosses. Skipping them would hide exactly the ones
 				// worth seeing. Level 0 on a shopkeeper is normal, so only the
 				// upper end is reported for those.
+				if mb.Merchant != 0 {
+					for slot, c := range protocol.MobCarry(t.bytes) {
+						idx := int(c.Index)
+						if idx <= 0 {
+							continue
+						}
+						if preco, conhecido := itemPrices[idx]; !conhecido || preco != 0 {
+							continue
+						}
+						if ehVitrine[slot] {
+							naVitrine[nomeItem(idx)] = struct{}{}
+							vagasVitrine++
+						} else {
+							escondido[nomeItem(idx)] = struct{}{}
+							vagasEscondidas++
+						}
+					}
+				}
 				if mb.Level > level.MaxLevel || (mb.Merchant == 0 && mb.Level < 1) {
 					nivelForaDaFaixa[name] = struct{}{}
 					if mb.Level > level.MaxLevel+1 {
@@ -876,6 +923,16 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			"follower_blocks_degraded", missingFollowerBlocks,
 			"missing_follower_templates", len(missingFollowerNames),
 			"missing_follower_sample", sampleNames(missingFollowerNames, 10))
+	}
+	if len(naVitrine) > 0 {
+		logger.Warn("shop stock priced at zero — the buyer pays nothing for it",
+			"items", len(naVitrine), "slots", vagasVitrine,
+			"sample", sampleNames(naVitrine, 20))
+	}
+	if len(escondido) > 0 {
+		logger.Warn("stock priced at zero OUTSIDE the shop window — invisible, still buyable",
+			"items", len(escondido), "slots", vagasEscondidas,
+			"sample", sampleNames(escondido, 20))
 	}
 	if len(nivelForaDaFaixa) > 0 {
 		logger.Warn("monster template level outside 1..399 (the reward inverts: a stronger-looking mob pays more, see game-rules.md §1.1)",
