@@ -431,6 +431,9 @@ func (d *Dispatcher) despawnSummons(w *world.World, leaderID int, match func(*wo
 				d.sendRemoveParty(w, recipientID, id)
 			}
 		}
+		// O dono pode estar fora do alcance de vista do pet (coleira 20 > vista 16),
+		// e aí o RemoveMob do DespawnMob não chega nele. Ver removeMobParaODono.
+		removeMobParaODono(w, id, w.Entity(id))
 		w.DespawnMob(id, 3)
 	}
 }
@@ -684,5 +687,50 @@ func (d *Dispatcher) despawnPet(w *world.World, id int, pet *world.Entity, remov
 			}
 		}
 	}
+	removeMobParaODono(w, id, pet)
 	w.DespawnMob(id, removeType)
+}
+
+// removeMobParaODono avisa o DONO de que o pet saiu, sem passar pelo filtro de
+// distância.
+//
+// DespawnMob só manda MsgRemoveMob para quem está EM VISTA do bicho
+// (ForEachInView filtra por ViewRange=16), e a coleira do pet é MAIOR que isso:
+// summonLeash=20. Um pet entre 16 e 20 tiles do dono é apagado no servidor sem
+// que o dono seja avisado, e o cliente continua desenhando aquele bicho para
+// sempre. Cada re-lançamento deixa para trás os que estavam longe demais, e a
+// conta cresce: o jogador vê um zoológico de criaturas que já não existem.
+//
+// O legado não tinha esse buraco porque ele não APAGA os que sobraram — ele os
+// teleporta de volta para o dono antes de completar o bando (o pulo de Effect=8,
+// Server.cpp:3008-3020). Esse recall nunca foi portado; o wipe entrou no lugar
+// dele, e trouxe este efeito indesejado junto.
+//
+// Um RemoveMob repetido é inofensivo: o cliente descarta uma entidade que já não
+// tem. Faltar um não é.
+func removeMobParaODono(w *world.World, id int, pet *world.Entity) {
+	if pet == nil || pet.Summoner == 0 {
+		return
+	}
+	body := protocol.EncodeRemoveMobBody(0)
+	hdr := protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}
+	if s := w.Session(pet.Summoner); s != nil {
+		w.SendTo(s, hdr, body)
+	}
+	leaderID := pet.Leader
+	if leaderID == 0 {
+		leaderID = pet.Summoner
+	}
+	leader := w.Entity(leaderID)
+	if leader == nil {
+		return
+	}
+	for _, memberID := range leader.PartyList {
+		if memberID <= 0 || !world.IsPlayer(memberID) || memberID == pet.Summoner {
+			continue
+		}
+		if s := w.Session(memberID); s != nil {
+			w.SendTo(s, hdr, body)
+		}
+	}
 }
