@@ -261,13 +261,14 @@ func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.E
 }
 
 func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
+	npcID := npc.ID
 	kingdom, mode := capeKingdomMode(e.Equip[capeEquipSlot].Index)
 	if kingdom != 0 && kingdom != npc.Clan {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
 	if mode >= 2 {
-		d.sendChatText(w, s, "A capa deste reino ja esta completa.")
+		d.sendNPCChatText(w, s, npcID, "A capa deste reino ja esta completa.")
 		return
 	}
 	target, ok := kingdomCapeTarget(e.ClassMaster, e.Level, e.Equip[capeEquipSlot].Index, npc.Clan)
@@ -288,13 +289,13 @@ func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *w
 				cost = quote.AkeloniaCost
 			}
 			if confirm == 0 {
-				d.sendChatText(w, s, fmt.Sprintf("Sao necessarias %d safiras.", cost))
+				d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras.", cost))
 				return
 			}
 			staged := *e
 			changed, exact := sapphirePaymentPlan(&staged, cost)
 			if !exact {
-				d.sendChatText(w, s, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
+				d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
 				return
 			}
 			staged.Equip[capeEquipSlot] = world.Item{Index: target}
