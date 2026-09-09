@@ -1,6 +1,43 @@
 package world
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
+
+func TestTeleportDestDungeon(t *testing.T) {
+	// Independent legacy coordinates catch omissions as well as misrouting.
+	routes := []struct{ x, y, dx, dy int16 }{
+		{144, 3780, 1004, 4028},
+		{148, 3780, 1004, 4028},
+		{1004, 4028, 148, 3780},
+		{408, 4072, 1004, 4064},
+		{1004, 4064, 408, 4072},
+	}
+	for _, r := range routes {
+		for ox := int16(0); ox < 4; ox++ {
+			for oy := int16(0); oy < 4; oy++ {
+				x, y := r.x+ox, r.y+oy
+				t.Run(fmt.Sprintf("%d,%d", x, y), func(t *testing.T) {
+					dx, dy, cost, ok := TeleportDest(x, y)
+					if !ok || cost != 0 || dx < r.dx || dx > r.dx+2 || dy < r.dy || dy > r.dy+2 {
+						t.Fatalf("got (%d,%d), cost=%d ok=%v; want (%d..%d,%d..%d), free", dx, dy, cost, ok, r.dx, r.dx+2, r.dy, r.dy+2)
+					}
+				})
+			}
+		}
+	}
+	for _, p := range [][2]int16{
+		{143, 3780}, {152, 3780}, {144, 3779}, {148, 3784},
+		{407, 4072}, {412, 4072}, {408, 4071}, {408, 4076},
+		{1003, 4028}, {1008, 4028}, {1004, 4027}, {1004, 4032},
+		{1003, 4064}, {1008, 4064}, {1004, 4063}, {1004, 4068},
+	} {
+		if _, _, _, ok := TeleportDest(p[0], p[1]); ok {
+			t.Errorf("non-portal %v resolved a route", p)
+		}
+	}
+}
 
 func TestTeleportDest(t *testing.T) {
 	// Armia teleport tile → Noatum, cost 700 (rounds the position to the tile and
