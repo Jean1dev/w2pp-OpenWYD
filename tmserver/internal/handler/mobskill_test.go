@@ -179,3 +179,41 @@ func TestVenenoNaoMataOMob(t *testing.T) {
 		t.Errorf("HP = %d, o veneno devia parar no piso de 1", e.HP)
 	}
 }
+
+// TestPetCuraSoASiMesmo: a cura do Dragão é individual, nele mesmo.
+//
+// O legado escolhe o paciente entre o lançador e o LÍDER — que para um monstro
+// de grupo é outro monstro, mas para um pet é o JOGADOR. Seguir a regra ao pé da
+// letra punha o Dragão gastando os golpes do slot de cura no dono, e como o
+// gatilho é o paciente estar abaixo de 90% de vida, numa caçada isso é quase
+// sempre: o bicho quase parava de bater.
+func TestPetCuraSoASiMesmo(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 32}, slog.Default(), nil, nil)
+
+	// O "líder" do pet, ferido — em jogo é o jogador dono.
+	donoID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Dono"), X: 5, Y: 5, GenIndex: -1})
+	if donoID < 0 {
+		t.Fatal("não consegui criar o dono")
+	}
+	dono := w.Entity(donoID)
+	dono.MaxHP, dono.HP = 2708, 1000 // 37% de vida: bem abaixo do gatilho
+
+	pet := &world.Entity{ID: donoID + 1, HP: 3500, MaxHP: 3500, Summoner: donoID, Leader: donoID}
+
+	if d.healMobSkill(w, pet.ID, pet) {
+		t.Error("o pet curou com a própria vida cheia: está tratando o dono como paciente")
+	}
+	if dono.HP != 1000 {
+		t.Errorf("a vida do dono mudou para %d; a cura do pet é individual", dono.HP)
+	}
+
+	// E com a própria vida baixa, ele cura a si.
+	pet.HP = 1000
+	if !d.healMobSkill(w, pet.ID, pet) {
+		t.Fatal("o pet não curou a si mesmo com a vida baixa")
+	}
+	if pet.HP != 1000+3500/skillHealDivisor {
+		t.Errorf("vida do pet = %d, esperado %d", pet.HP, 1000+3500/skillHealDivisor)
+	}
+}

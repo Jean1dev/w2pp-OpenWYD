@@ -152,9 +152,20 @@ func (d *Dispatcher) healMobSkill(w *world.World, id int, e *world.Entity) bool 
 	if e == nil || e.MaxHP <= 0 {
 		return false
 	}
-	leaderID := e.Leader
-	if leaderID <= 0 {
-		leaderID = id
+	// Um PET cura só a si mesmo.
+	//
+	// O legado escolhe o paciente entre o lançador e o LÍDER, que para um monstro
+	// de grupo é outro monstro. Para um pet o líder é o JOGADOR, e seguir a regra
+	// ao pé da letra punha o Dragão gastando 40% dos golpes curando o dono — o
+	// gatilho é o paciente estar abaixo de 90% de vida, o que numa caçada é quase
+	// sempre, então o bicho quase parava de bater. E não era o que foi pedido: a
+	// cura do Dragão é individual, nele mesmo.
+	leaderID := id
+	if e.Summoner == 0 {
+		leaderID = e.Leader
+		if leaderID <= 0 {
+			leaderID = id
+		}
 	}
 	leader := w.Entity(leaderID)
 	if leader == nil || leader.MaxHP <= 0 {
