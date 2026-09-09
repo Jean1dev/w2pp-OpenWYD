@@ -57,6 +57,41 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 > é o mesmo degrau que ligar um evento de XP já dava, e em troca um valor errado se desfaz sem
 > derrubar o servidor.
 
+> **Celestial no Pesadelo recebe ZERO dos monstros bons, e a tabela de cortes não tem culpa.**
+>
+> Os três Pesadelos usam base identidade (`identityBase`), e ali a conta
+> `(30+myLevel) * isExp / (30+myLevel)` passa por um `int32`. Como um celestial soma 400 ao nível,
+> o divisor fica grande e o teto de `MobExp` que cabe no int32 fica BAIXO: 2.491.280 no nível 1,
+> caindo para 1.707.061 no 199 (`level.ExpOverflow` calcula esse teto). Passou do teto, o filtro
+> de `(0, 10M]` devolve **zero**.
+>
+> Medido, celestial, mob de nível 399:
+>
+> | mob vale | Pesadelo (os três) | Campo (controle) |
+> |---|---:|---:|
+> | 2.000.000 | 3.188 até o nível ~112, depois **0** | 2.988 no nível 50 |
+> | 2.990.849 (o valor da curva no 399) | **0 em qualquer nível** | 4.469 no nível 50 |
+>
+> E o buraco cresce com o nível. Dos 406 monstros reais que o boot carrega, quantos pagam zero
+> para um celestial:
+>
+> | nível | Pesadelo Arcano | Campo |
+> |---:|---:|---:|
+> | 1 | 105 | 16 |
+> | 100 | 135 | 47 |
+> | 199 | **173** | 87 |
+>
+> (O Campo também tem mortos, por outro motivo: o `soloExpGate` de 10M.)
+>
+> **Consequência prática:** mexer na tabela de cortes celestial do Pesadelo não muda nada hoje —
+> o zero acontece ANTES de a tabela ser consultada. A tabela gravada em Pesadelo Arcano
+> (119/149/169/179/189, inalcançável pelo deslocamento de 400) foi deixada como está por isso, e
+> não por estar certa.
+>
+> Quando o estouro for tratado, a tabela passa a importar **muito**, e aí ela precisa ser desenhada
+> junto com a do Campo: sem isso o Pesadelo fica cerca de 48x mais rápido e derruba o cronograma
+> de progressão inteiro. É uma tarefa só, e maior.
+
 **Gate de clã:** toda a distribuição está dentro de `if (pMob[target].MOB.Clan != 4)`
 (`MobKilled.cpp:402`) — mob de clã 4 **nunca** dá EXP (gold/drop ficam fora do gate).
 

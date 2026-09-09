@@ -145,6 +145,28 @@ Carregados na inicialização (detalhados nas Fases 2 e 4): `ItemList.csv/.bin`,
    do banco.
 4. Logs: `fLogFile`/`fChatLogFile`/`fItemLogFile` (TMSrv) — centralizar (stdout/JSON) na migração.
 
+### 5.1. "Que revisão está rodando agora?"
+
+Use a plataforma, não o log:
+
+```
+railway deployment list --service tmserver
+```
+
+O metadado do deploy traz `commitHash`, `commitAuthor` e `commitMessage`, e foi assim que se
+descobriu que um conserto já tinha subido enquanto o log dizia outra coisa.
+
+**O log NÃO responde isso, e é deliberado.** Todo serviço escreve
+`tmserver build revision=… built=…` no boot, mas na Railway sai `revision=unknown`: o valor viria
+do carimbo automático do Go (`debug.ReadBuildInfo`, `vcs.revision`), que precisa do `.git` no
+contexto do build, e o `.dockerignore` o exclui. Tirá-lo de lá foi medido e **não paga**: `.git`
+tem 224 MB contra 90 MB do resto do contexto, em cada build dos cinco serviços, e cresce sempre.
+A plataforma já sabe o commit e responde de graça pelo comando acima.
+
+O caminho barato, se um dia a Railway passar `RAILWAY_GIT_COMMIT_SHA`, é o build arg `GIT_COMMIT`
+que o Dockerfile já aceita — a variável existe nos cinco serviços, vazia. O `-ldflags` tem
+precedência sobre o carimbo automático, então basta preencher.
+
 > **Status da Fase 7: COMPLETO** para o catálogo de config e topologia. Parsing posicional exato de
 > `gameconfig.txt`/`Treasure`/`Guild.txt` deve ser confirmado contra `CReadFiles.cpp` ao
 > reimplementar o loader.
