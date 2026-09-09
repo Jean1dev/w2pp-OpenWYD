@@ -29,9 +29,10 @@ func TestTrocarDeCriaturaComOsTemplatesDeVerdade(t *testing.T) {
 
 	const (
 		gorila = 5
+		dragao = 6
 		condor = 0
 	)
-	if templates[gorila] == nil || templates[condor] == nil {
+	if templates[gorila] == nil || templates[dragao] == nil {
 		t.Skip("Gorila ou Condor ausente da árvore")
 	}
 
@@ -51,7 +52,7 @@ func TestTrocarDeCriaturaComOsTemplatesDeVerdade(t *testing.T) {
 	lider := w.Entity(liderID)
 
 	// Primeiro os gorilas.
-	if !d.generateSummon(w, s, dono, gorila, 3) {
+	if !d.generateSummon(w, s, dono, gorila, 6) {
 		t.Fatal("a evocação do Gorila não saiu")
 	}
 	gorilas := petsDoLider(lider)
@@ -61,7 +62,7 @@ func TestTrocarDeCriaturaComOsTemplatesDeVerdade(t *testing.T) {
 	t.Logf("gorilas: %v (face %d)", gorilas, w.Entity(gorilas[0]).EquipVisual[0])
 
 	// Agora o condor, com os gorilas ainda vivos: é o gesto que o jogador faz.
-	if !d.generateSummon(w, s, dono, condor, 3) {
+	if !d.generateSummon(w, s, dono, dragao, 5) {
 		t.Fatal("a troca para Condor foi recusada")
 	}
 
@@ -70,7 +71,7 @@ func TestTrocarDeCriaturaComOsTemplatesDeVerdade(t *testing.T) {
 		t.Fatal("nenhum pet em campo depois da troca")
 	}
 
-	faceCondor := summonTemplateFace(templates[condor])
+	faceCondor := summonTemplateFace(templates[dragao])
 	sobrouGorila := 0
 	for _, id := range depois {
 		pet := w.Entity(id)
