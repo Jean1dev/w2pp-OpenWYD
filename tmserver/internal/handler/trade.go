@@ -267,18 +267,63 @@ func (d *Dispatcher) cancelTrade(w *world.World, s *world.Session) {
 	}
 }
 
-// sameItem reports whether a wire item equals the inventory item (the memcmp
-// used to detect an item swapped in during confirmation).
+// sameItem reports whether a wire item is the same item as the one in the slot
+// (the memcmp that detects an item swapped in during confirmation).
+//
+// The quantity is compared by VALUE and not by byte, because the client and the
+// server spell one unit differently: dropping a Pedra do Sábio into a combine
+// grid arrives as EF_AMOUNT 1 while the slot holds no amount effect at all. Both
+// mean one stone — itemAmount already reads an absent amount as 1 — but a byte
+// comparison called them different items and refused the combine. That was the
+// whole reason the +10 machine did nothing: not the recipe, not the rate, a
+// stackable catalyst described two ways.
+//
+// Everything else stays byte-exact. This is an anti-dup check first: it exists to
+// catch an item swapped between the offer and the confirmation, and loosening it
+// beyond the amount would be loosening the one guard that makes trade safe.
 func sameItem(wi protocol.WireItem, it world.Item) bool {
 	if wi.Index != it.Index {
 		return false
 	}
-	for i := 0; i < 3; i++ {
-		if wi.Effects[i].Effect != it.Effects[i].Effect || wi.Effects[i].Value != it.Effects[i].Value {
+	if wireAmount(wi) != itemAmount(it) {
+		return false
+	}
+	we, wn := wireNonAmountEffects(wi)
+	ie, in := nonAmountEffects(it)
+	if wn != in {
+		return false
+	}
+	for i := 0; i < wn; i++ {
+		if we[i] != ie[i] {
 			return false
 		}
 	}
 	return true
+}
+
+// wireAmount is itemAmount for a wire item: an absent EF_AMOUNT means one.
+func wireAmount(wi protocol.WireItem) int {
+	for _, ef := range wi.Effects {
+		if ef.Effect == efAmount {
+			return int(ef.Value)
+		}
+	}
+	return 1
+}
+
+// wireNonAmountEffects is nonAmountEffects for a wire item, so the two sides are
+// compared on the same footing.
+func wireNonAmountEffects(wi protocol.WireItem) ([3]world.Effect, int) {
+	var out [3]world.Effect
+	n := 0
+	for _, ef := range wi.Effects {
+		if ef.Effect == 0 || ef.Effect == efAmount {
+			continue
+		}
+		out[n] = world.Effect{Effect: ef.Effect, Value: ef.Value}
+		n++
+	}
+	return out, n
 }
 
 func freeCarry(e *world.Entity) int {
