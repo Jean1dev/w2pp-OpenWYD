@@ -347,6 +347,7 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		body := protocol.EncodeCreateMobBody(createMobFrom(mob, 3))
 		w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 			if w.MarkSeen(vs, id) {
+				evictStaleMob(w, vs, id)
 				w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
 			}
 		})
@@ -497,6 +498,7 @@ func (d *Dispatcher) generateBabyMountSummon(w *world.World, s *world.Session, e
 	body := protocol.EncodeCreateMobBody(createMobFrom(mob, 3))
 	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 		if w.MarkSeen(vs, id) {
+			evictStaleMob(w, vs, id)
 			w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
 		}
 	})

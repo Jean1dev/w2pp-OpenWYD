@@ -430,19 +430,31 @@ func (d *Dispatcher) revealSpawned(w *world.World, ids []int) int {
 			if !w.MarkSeen(vs, id) {
 				return
 			}
-			// Evict any stale entity under this id first. Mob ids are recycled
-			// slots, and DespawnMob only tells players who were IN VIEW of the
-			// death — a party that had already moved on never hears about it and
-			// keeps drawing the old creature. The server forgets (clearSeenAll)
-			// while the client remembers, so a recycled id came back wearing the
-			// previous occupant's model: Imps with a Troll Ghoul's axe.
-			w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)},
-				protocol.EncodeRemoveMobBody(0))
+			// Imps with a Troll Ghoul.s axe came from skipping this.
+			evictStaleMob(w, vs, id)
 			w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
 			sent++
 		})
 	}
 	return sent
+}
+
+// evictStaleMob drops whatever entity a client still holds under this mob id,
+// and MUST run before any CreateMob for a recycled id.
+//
+// The client keys its own entity table on the mob id and keeps the entry past our
+// MsgRemoveMob — DespawnMob only reaches players who were IN VIEW of the death,
+// so anyone who had walked away keeps drawing the old creature forever. Told to
+// CREATE under an id it still believes in, the client does not rebuild the model:
+// it MOVES the creature it already has. The new mob then renders as the previous
+// occupant and never animates, which reads in game as "the old ones will not go
+// away and the new ones stand still".
+//
+// generateSummon was the one spawn path that created without this, which is why
+// swapping evocation showed the previous creature frozen on the field.
+func evictStaleMob(w *world.World, vs *world.Session, id int) {
+	w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)},
+		protocol.EncodeRemoveMobBody(0))
 }
 
 // ensureSeenMob announces mob id to vs when its client has not been told about
@@ -458,10 +470,7 @@ func (d *Dispatcher) ensureSeenMob(w *world.World, vs *world.Session, id int) {
 		return
 	}
 	w.MarkSeen(vs, id)
-	// Evict whatever the client still holds under this recycled id, as
-	// revealSpawned does, then create.
-	w.SendTo(vs, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)},
-		protocol.EncodeRemoveMobBody(0))
+	evictStaleMob(w, vs, id)
 	ty, body := createMobViewPacket(w, mob, 0)
 	w.SendTo(vs, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 }
