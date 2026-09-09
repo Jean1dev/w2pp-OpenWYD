@@ -76,9 +76,27 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		return
 	}
 
+	// MANA PREVISTA: toda recusa deste handler manda a mana autoritativa antes
+	// de sair.
+	//
+	// O cliente do WYD desconta a mana LOCALMENTE no instante em que o jogador
+	// lança, e só corrige quando o servidor manda MSG_SetHpMp. Uma recusa que sai
+	// calada deixa um buraco permanente na conta dele: a barra do cliente fica
+	// abaixo da verdade e nunca volta sozinha. Repetido — e a guarda de cadência
+	// recusa qualquer segundo lançamento dentro de 800ms, que é o que acontece quem
+	// testa magia em sequência — a barra chega a valores absurdamente negativos:
+	// -15108 num personagem cujo máximo é 5133, com a mana do SERVIDOR intacta o
+	// tempo todo. Foi por isso que grampear o valor no servidor não mudou nada: o
+	// servidor nunca esteve errado.
+	//
+	// O caminho de mana insuficiente logo abaixo sempre fez isso certo
+	// (sendSetHpMp antes do return); faltava nas recusas por crack error. O legado
+	// tem o mesmo cuidado, mandando SendHpMode antes de alguns desses códigos.
+
 	// Liveness: the dead may only act with the resurrect skill (99). Use <= 0 (not
 	// == 0) so a negative-HP edge can never slip an action through.
 	if e.HP <= 0 && int(body.SkillIndex) != combat.ResurrectSkill {
+		d.sendSetHpMp(w, s, e) // ver a nota sobre mana prevista, acima
 		w.AddCrackError(s, 1, 8)
 		return
 	}
@@ -89,10 +107,12 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	if tick != protocol.SkipCheckTick {
 		last := int64(s.LastAttackTick)
 		if int64(tick) < last+attackCadence {
+			d.sendSetHpMp(w, s, e)     // ver a nota sobre mana prevista, acima
 			w.AddCrackError(s, 1, 107) // too fast
 			return
 		}
 		if int64(tick) < last-100 {
+			d.sendSetHpMp(w, s, e)   // ver a nota sobre mana prevista, acima
 			w.AddCrackError(s, 4, 7) // tick too far in the past
 			return
 		}
@@ -120,9 +140,11 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		var ok bool
 		cast, ok = d.validateCast(w, s, e, skillnum, tick)
 		if !ok {
+			d.sendSetHpMp(w, s, e) // ver a nota sobre mana prevista, acima
 			return
 		}
 		if skillnum == 97 && !validateGuardianCannon(w, &body, payload) {
+			d.sendSetHpMp(w, s, e) // ver a nota sobre mana prevista, acima
 			return
 		}
 	}
