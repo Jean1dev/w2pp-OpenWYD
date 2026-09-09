@@ -616,6 +616,15 @@ message GuildZone {
   int32 city_tax = 6;
   int64 challenge_money = 7;
   int64 tax_vault = 8;
+
+  // Where a member of the OWNING guild respawns, wherever they died. Zero on
+  // either axis means "not configured" and falls back to the city spawn.
+  //
+  // The legacy reads these two in both respawn paths and never writes them, so
+  // they were always zero and its owning guild would have landed at the map
+  // corner. Carried here because the value now comes from the database.
+  int32 guild_spawn_x = 9;
+  int32 guild_spawn_y = 10;
 }
 
 message LoadGuildZonesRequest {}

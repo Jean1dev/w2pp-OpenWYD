@@ -4777,8 +4777,16 @@ type GuildZone struct {
 	CityTax        int32                  `protobuf:"varint,6,opt,name=city_tax,json=cityTax,proto3" json:"city_tax,omitempty"`
 	ChallengeMoney int64                  `protobuf:"varint,7,opt,name=challenge_money,json=challengeMoney,proto3" json:"challenge_money,omitempty"`
 	TaxVault       int64                  `protobuf:"varint,8,opt,name=tax_vault,json=taxVault,proto3" json:"tax_vault,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Where a member of the OWNING guild respawns, wherever they died. Zero on
+	// either axis means "not configured" and falls back to the city spawn.
+	//
+	// The legacy reads these two in both respawn paths and never writes them, so
+	// they were always zero and its owning guild would have landed at the map
+	// corner. Carried here because the value now comes from the database.
+	GuildSpawnX   int32 `protobuf:"varint,9,opt,name=guild_spawn_x,json=guildSpawnX,proto3" json:"guild_spawn_x,omitempty"`
+	GuildSpawnY   int32 `protobuf:"varint,10,opt,name=guild_spawn_y,json=guildSpawnY,proto3" json:"guild_spawn_y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GuildZone) Reset() {
@@ -4863,6 +4871,20 @@ func (x *GuildZone) GetChallengeMoney() int64 {
 func (x *GuildZone) GetTaxVault() int64 {
 	if x != nil {
 		return x.TaxVault
+	}
+	return 0
+}
+
+func (x *GuildZone) GetGuildSpawnX() int32 {
+	if x != nil {
+		return x.GuildSpawnX
+	}
+	return 0
+}
+
+func (x *GuildZone) GetGuildSpawnY() int32 {
+	if x != nil {
+		return x.GuildSpawnY
 	}
 	return 0
 }
@@ -9367,7 +9389,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x06guilds\x18\x01 \x03(\v2\f.db.v1.GuildR\x06guilds\"\x1b\n" +
 	"\x19ListGuildRelationsRequest\"P\n" +
 	"\x1aListGuildRelationsResponse\x122\n" +
-	"\trelations\x18\x01 \x03(\v2\x14.db.v1.GuildRelationR\trelations\"\xfa\x01\n" +
+	"\trelations\x18\x01 \x03(\v2\x14.db.v1.GuildRelationR\trelations\"\xc2\x02\n" +
 	"\tGuildZone\x12\x12\n" +
 	"\x04zone\x18\x01 \x01(\x05R\x04zone\x12!\n" +
 	"\fcharge_guild\x18\x02 \x01(\rR\vchargeGuild\x12'\n" +
@@ -9376,7 +9398,10 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\avictory\x18\x05 \x01(\x05R\avictory\x12\x19\n" +
 	"\bcity_tax\x18\x06 \x01(\x05R\acityTax\x12'\n" +
 	"\x0fchallenge_money\x18\a \x01(\x03R\x0echallengeMoney\x12\x1b\n" +
-	"\ttax_vault\x18\b \x01(\x03R\btaxVault\"\x17\n" +
+	"\ttax_vault\x18\b \x01(\x03R\btaxVault\x12\"\n" +
+	"\rguild_spawn_x\x18\t \x01(\x05R\vguildSpawnX\x12\"\n" +
+	"\rguild_spawn_y\x18\n" +
+	" \x01(\x05R\vguildSpawnY\"\x17\n" +
 	"\x15LoadGuildZonesRequest\"@\n" +
 	"\x16LoadGuildZonesResponse\x12&\n" +
 	"\x05zones\x18\x01 \x03(\v2\x10.db.v1.GuildZoneR\x05zones\"<\n" +

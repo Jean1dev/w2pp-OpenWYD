@@ -296,6 +296,17 @@ type GuildZone struct {
 	CityTax        uint8
 	ChallengeMoney int64
 	TaxVault       int64
+
+	// GuildSpawnX/Y is where a member of the OWNING guild respawns, wherever on
+	// the map they died. Zero on either axis means "not configured" and the
+	// city spawn is used instead.
+	//
+	// It rides on this struct — and not on a side table — because the tmServer
+	// persists the WHOLE zone whenever the tax changes (handler.persistGuildZone).
+	// A field missing here would be written back as zero on the next /guildtax,
+	// silently wiping the configured point.
+	GuildSpawnX int32
+	GuildSpawnY int32
 }
 
 // GuildTowerState stores the current GTorre owner.

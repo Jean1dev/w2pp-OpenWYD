@@ -799,7 +799,43 @@ func (d *Dispatcher) restart(w *world.World, s *world.Session, _ protocol.Header
 func (d *Dispatcher) recall(w *world.World, s *world.Session, e *world.Entity) {
 	e.QuestFlag = 0
 	rx, ry := world.CitySpawn(int(e.LastCity))
+	// Owning a city buys your guild its own respawn point, from anywhere on the
+	// map. The legacy meant to do this — Server.cpp:8514 reads GuildSpawnX/Y
+	// right here — but never assigned those fields, so its owning guild would
+	// have landed at (0,0). The point comes from the database instead.
+	if gx, gy, ok := d.guildSpawnFor(e.Guild); ok {
+		// A fixed tile needs a free neighbour: SetEntityPos overwrites whatever
+		// holds that grid cell, and a guild point is one exact tile that the
+		// whole guild returns to. Without this the second member to die erases
+		// the first from the grid. CitySpawn does not need it because the legacy
+		// scatters city respawns over a 15-tile box; this one is a single point.
+		if fx, fy, ok := w.EmptyCellNear(gx, gy); ok {
+			rx, ry = fx, fy
+		} else {
+			rx, ry = gx, gy
+		}
+	}
 	d.doTeleport(w, s, rx, ry)
+}
+
+// guildSpawnFor is the respawn point of the zone this guild owns, if it owns one
+// and that zone has a point configured.
+//
+// Zero on either axis is "not configured", not a coordinate: it is the column
+// default, and honouring it would drop the whole guild at the map corner — which
+// is exactly the legacy bug this replaces.
+func (d *Dispatcher) guildSpawnFor(guild uint16) (int16, int16, bool) {
+	if guild == 0 {
+		return 0, 0, false
+	}
+	for i := range d.guildZones {
+		z := &d.guildZones[i]
+		if z.ChargeGuild != guild || z.GuildSpawnX <= 0 || z.GuildSpawnY <= 0 {
+			continue
+		}
+		return int16(z.GuildSpawnX), int16(z.GuildSpawnY), true
+	}
+	return 0, 0, false
 }
 
 // mountEquipSlot is the mount equip slot (Equip[14]). Mounts are acquired in-game

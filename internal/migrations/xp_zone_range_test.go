@@ -3,6 +3,7 @@ package migrations_test
 import (
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
@@ -53,5 +54,38 @@ func TestCheckDeZonaCobreTodasAsZonas(t *testing.T) {
 		t.Errorf("o CHECK em %s aceita zone até %d, mas o código já tem a zona %d (%s). "+
 			"Gravar essa zona falha no banco e o painel só consegue dizer «erro ao gravar».",
 			origem, teto, maiorZona, level.Zone(maiorZona).Name())
+	}
+}
+
+// O ponto de renascimento da guild tem de caber na grade que o jogo usa. É a
+// mesma classe de erro que o CHECK de zone da Mesa de XP: o Go grava um valor
+// que o Postgres recusa, e a tela só consegue dizer "erro ao gravar".
+func TestCheckDoSpawnDeGuildCobreAGrade(t *testing.T) {
+	entradas, err := migrations.FS.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	achou := false
+	for _, e := range entradas {
+		nome := e.Name()
+		if len(nome) < 7 || nome[len(nome)-7:] != ".up.sql" {
+			continue
+		}
+		b, err := migrations.FS.ReadFile(nome)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), "guild_spawn_x") {
+			continue
+		}
+		achou = true
+		// A grade é 4096 tiles; o CHECK tem de admitir o mapa inteiro, senão um
+		// ponto legítimo no canto sul é recusado na hora de gravar.
+		if !strings.Contains(string(b), "4095") {
+			t.Errorf("%s define guild_spawn sem admitir a grade inteira (4095)", nome)
+		}
+	}
+	if !achou {
+		t.Fatal("nenhuma migração cria guild_spawn_x — o teste parou de vigiar o que devia")
 	}
 }

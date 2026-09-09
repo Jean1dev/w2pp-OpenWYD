@@ -580,6 +580,8 @@ func zoneToProto(z world.GuildZone) *dbv1.GuildZone {
 		CityTax:        int32(z.CityTax),
 		ChallengeMoney: z.ChallengeMoney,
 		TaxVault:       z.TaxVault,
+		GuildSpawnX:    z.GuildSpawnX,
+		GuildSpawnY:    z.GuildSpawnY,
 	}
 }
 
@@ -596,6 +598,8 @@ func zoneFromProto(z *dbv1.GuildZone) world.GuildZone {
 		CityTax:        uint8(z.GetCityTax()),
 		ChallengeMoney: z.GetChallengeMoney(),
 		TaxVault:       z.GetTaxVault(),
+		GuildSpawnX:    z.GetGuildSpawnX(),
+		GuildSpawnY:    z.GetGuildSpawnY(),
 	}
 }
 
