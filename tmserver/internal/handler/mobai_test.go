@@ -1391,3 +1391,29 @@ func TestMobIgnoresPlayerInCity(t *testing.T) {
 		}
 	}
 }
+
+// TestJogadorDesviaDeMonstro pins the dodge the monster path was missing. The
+// roll was always spent (ResolveHit consumes it) but fed a rate of zero, so no
+// player ever dodged a monster and every point of evasion — Dex or mount — did
+// nothing in PvE (Server.cpp:9924-9946 rolls GetParryRate for a player target).
+func TestJogadorDesviaDeMonstro(t *testing.T) {
+	d := New(Config{})
+	mob := &world.Entity{ID: world.MaxUser + 5, Dex: 50}
+	jogador := &world.Entity{ID: 1, Dex: 400}
+
+	sem := d.monsterParryRate(mob, jogador)
+	if sem <= 1 {
+		t.Fatalf("taxa de esquiva do jogador contra mob = %d, want acima do piso", sem)
+	}
+	// A mount's evasion (e.Parry, from mountBonusFor) has to reach the same
+	// roll: Svadilfari's 60 is the "6.0%" on its tooltip.
+	jogador.Parry = 60
+	if com := d.monsterParryRate(mob, jogador); com != sem+60 {
+		t.Errorf("com a evasão da montaria: %d, want %d (+60 = 6,0%%)", com, sem+60)
+	}
+	// A pet struck by a monster does not dodge (`Target < MAX_USER`).
+	pet := &world.Entity{ID: world.MaxUser + 9, Dex: 400}
+	if got := d.monsterParryRate(mob, pet); got != 0 {
+		t.Errorf("mob alvo esquivou com taxa %d, want 0", got)
+	}
+}

@@ -773,6 +773,15 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		// it later cannot silently hand monsters a damage bonus and shift the RNG
 		// stream (the mastery term picks the damage factor's range).
 		Master: 0,
+		// A player dodges monsters too (Server.cpp:9924-9946,
+		// ProcessSecMinTimer.cpp:2208-2226): the same GetParryRate the PvP path
+		// uses, fed the monster's Dex/5 as the attacker's accuracy. Left at zero,
+		// as it was, the roll still happened (ResolveHit always spends it) but
+		// could never succeed — so no player ever dodged a monster, and every
+		// point of evasion from Dex or from a mount was dead weight in PvE.
+		// Players only, as in the legacy: a pet struck by a monster does not dodge.
+		ParryRate:      d.monsterParryRate(e, target),
+		TargetRsvBlock: target.Rsv&world.RsvBlock != 0,
 	})
 	// The victim's mount eats its share before the HP comes off, the same place the
 	// legacy applies it on the monster side (Server.cpp:10024,
@@ -1190,4 +1199,15 @@ func donoParaReafirmarMana(e *world.Entity, sk mobSkill) (int, bool) {
 		return 0, false
 	}
 	return e.Summoner, true
+}
+
+// monsterParryRate is the chance, in thousandths, that target dodges a blow from
+// monster e. Only a player target rolls it (`Target < MAX_USER`,
+// Server.cpp:9924); the formula is the PvP one, since the legacy feeds both
+// paths the attacker's Dex/5 plus the same two bonuses.
+func (d *Dispatcher) monsterParryRate(e, target *world.Entity) int {
+	if !world.IsPlayer(target.ID) {
+		return 0
+	}
+	return d.parryRate(e, target)
 }
