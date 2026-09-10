@@ -1,6 +1,10 @@
 package world
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
+)
 
 type teleRoute struct {
 	dx, dy int16
@@ -19,6 +23,7 @@ var teleportTable = map[[2]int16]teleRoute{
 	{1044, 1724}: {2116, 2100, 0},   // Noatum → Armia
 	{1044, 1716}: {2480, 1716, 0},   // Noatum → Azran
 	{1044, 1708}: {2456, 2016, 0},   // Noatum → Erion
+	{2548, 1740}: {2281, 3688, 0},   // Azran → Vale (Fada do Vale, item 3916)
 	{1052, 1708}: {3650, 3110, 0},   // Noatum → Nippleheim
 	{3648, 3108}: {1054, 1710, 0},   // Nippleheim → Noatum
 	// Fields / dungeons (subset of GetTeleportPosition).
@@ -43,9 +48,25 @@ var teleportTable = map[[2]int16]teleRoute{
 // the route, and returns the destination (+rand%3 spread) and gold cost. ok is
 // false when there is no teleport tile at that position.
 func TeleportDest(x, y int16) (destX, destY int16, cost int32, ok bool) {
+	return teleportDest(x, y, false, nil)
+}
+
+// TeleportDestWithAccess resolves routes whose access can depend on equipped items.
+// The legacy Vale portal requires item 3916 in Equip[13].
+func TeleportDestWithAccess(x, y int16, hasFairy bool, random *rng.MSVC) (destX, destY int16, cost int32, ok bool) {
+	return teleportDest(x, y, hasFairy, random)
+}
+
+func teleportDest(x, y int16, hasFairy bool, random *rng.MSVC) (destX, destY int16, cost int32, ok bool) {
 	r, found := teleportTable[[2]int16{x &^ 3, y &^ 3}] // round down to a multiple of 4
-	if !found {
+	if !found || (x&^3 == 2548 && y&^3 == 1740 && !hasFairy) {
 		return 0, 0, 0, false
 	}
-	return r.dx + int16(rand.Intn(3)), r.dy + int16(rand.Intn(3)), r.cost, true
+	spread := func() int { return rand.Intn(3) }
+	// Keep existing route randomness unchanged; the Vale branch is the one
+	// newly ported from the legacy path and uses the world's MSVC stream.
+	if random != nil && x&^3 == 2548 && y&^3 == 1740 {
+		spread = func() int { return random.Intn(3) }
+	}
+	return r.dx + int16(spread()), r.dy + int16(spread()), r.cost, true
 }
