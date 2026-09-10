@@ -17,6 +17,15 @@ import (
 // window is deterministic).
 const serverTime = uint32(1_000_000)
 
+// relogioEmServerTime is a server clock that starts at serverTime and then runs
+// in real time. The attack handler checks each attack's ClientTick against the
+// server clock (_MSG_Attack.cpp:79-96), so a test client that stamps serverTime
+// needs a server whose clock is near it; the real clock is not.
+func relogioEmServerTime() func() uint32 {
+	inicio := time.Now()
+	return func() uint32 { return serverTime + uint32(time.Since(inicio).Milliseconds()) }
+}
+
 // startServerClock is like startServer but installs a controllable clock and
 // returns it so tests can simulate tick skew.
 func startServerClock(t *testing.T, persist world.Persistence) (string, func(), *atomic.Uint32) {

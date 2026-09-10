@@ -15,6 +15,51 @@ import (
 // ClientTick < LastAttackTick + 800 ⇒ AddCrackError(1,107).
 const attackCadence = 800
 
+// The attack's ClientTick must sit inside this band of the SERVER clock
+// (_MSG_Attack.cpp:79-96) — the same band the movement handler enforces
+// (movement.go). The cadence above only compares the client's tick with the
+// client's previous tick, so on its own it trusts a clock the client writes.
+const (
+	attackTickFutureWindow = 15000  // ClientTick > CurrentTime + 15000
+	attackTickPastWindow   = 120000 // ClientTick < CurrentTime - 120000
+)
+
+// playerMeleeReach is pUser.Range as the legacy leaves it: CMob.cpp:696-697
+// computes the EF_RANGE of the gear and then overwrites it with 23 for every
+// player, so the melee reach test "dis > Range || dis > 23" is dis > 23.
+const playerMeleeReach = 23
+
+// Names of the anti-cheat gates restored from the legacy attack handler, as
+// the refusal counter and the log count them.
+const (
+	travaJanela      = "janela"       // _MSG_Attack.cpp:79-96, ClientTick outside the server-clock band
+	travaDistancia   = "distancia"    // _MSG_Attack.cpp:424-426, melee reach
+	travaSegundoAlvo = "segundo_alvo" // the intent of _MSG_Attack.cpp:431, extra melee targets
+	travaTela        = "tela"         // _MSG_Attack.cpp:347-351, target off the attacker's screen
+)
+
+// recusarAtaque counts one refusal by a restored legacy gate and logs it per
+// account at the 1st, 10th, 100th… refusal: an honest client tripping a gate
+// has to show up right away, and a cheater hammering one must not flood the
+// log. The per-account total is logged again on disconnect
+// (world.logAttackRefusals).
+func (d *Dispatcher) recusarAtaque(s *world.Session, trava string, attrs ...any) {
+	if s.AttackRefusals == nil {
+		s.AttackRefusals = make(map[string]int, 2)
+	}
+	s.AttackRefusals[trava]++
+	n := s.AttackRefusals[trava]
+	for n%10 == 0 {
+		n /= 10
+	}
+	if n != 1 {
+		return
+	}
+	d.log.Warn("attack refused by a restored legacy gate",
+		append([]any{"gate", trava, "account", s.AccountName, "conn", s.Conn,
+			"refusals", s.AttackRefusals[trava]}, attrs...)...)
+}
+
 // Per-target Dam sentinel values (_MSG_Attack.cpp:355): the client marks each
 // entry melee or skill; any other non-zero claimed damage is a crack.
 const (
@@ -119,6 +164,24 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	}
 	s.LastAttackTick = tick
 	s.LastAttack = int(body.SkillIndex)
+
+	// FIDELIDADE AO LEGADO (restaurada): the attack's ClientTick must sit within
+	// [now-120000, now+15000] of the server clock, or the attack is refused with
+	// the same crack error as the cadence (_MSG_Attack.cpp:79-96). Without it the
+	// 800 ms cadence only compared the client's clock with itself: a client that
+	// wrote its own ticks 800 apart attacked as fast as it could send.
+	//
+	// Checked after LastAttackTick moves, in the legacy order (:75 before :79),
+	// so a forged tick far in the future also locks its own sender out of the
+	// cadence gate.
+	if tick != protocol.SkipCheckTick {
+		if t, now := int64(tick), int64(w.Now()); t > now+attackTickFutureWindow || t < now-attackTickPastWindow {
+			d.recusarAtaque(s, travaJanela, "client_tick", t, "server_now", now)
+			d.sendSetHpMp(w, s, e) // ver a nota sobre mana prevista, acima
+			w.AddCrackError(s, 1, 107)
+			return
+		}
+	}
 
 	skillnum := int(body.SkillIndex)
 	// REGRESSION GUARD (B12, TestMeleeAlwaysDamagesMob): the skill path (learn
@@ -257,6 +320,22 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			continue
 		}
 
+		// FIDELIDADE AO LEGADO (restaurada): a target outside the attacker's
+		// screen is dropped from the attack, and the attacker's client is told
+		// to remove it (_MSG_Attack.cpp:347-351; skill 42 is exempt there too).
+		// Of the restored attack gates this is the one that does not trust the
+		// client: both positions are the server's own. Without it anything in
+		// the world could be hit from anywhere.
+		if skillnum != 42 && (e.X < target.X-viewGridX || e.X > target.X+viewGridX ||
+			e.Y < target.Y-viewGridY || e.Y > target.Y+viewGridY) {
+			d.recusarAtaque(s, travaTela, "target", tid)
+			w.SendTo(s, protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(tid)}, protocol.EncodeRemoveMobBody(1))
+			// The view set has to agree with what the client was just told, or
+			// the target never comes back into view when the attacker walks up.
+			w.UnmarkSeen(s, tid)
+			continue
+		}
+
 		var dmg int
 		airBlade := 0 // the HT proc share, which the PvP quarter leaves whole
 		if skillHit {
@@ -282,6 +361,35 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				d.applyCastAffect(w, e, target, tid, cast)
 			}
 		} else {
+			// FIDELIDADE AO LEGADO (restaurada): melee farther than the reach is
+			// refused whole and in silence — no crack error, no echo
+			// (_MSG_Attack.cpp:424-426). The distance is the packet's own
+			// PosX/Y against TargetX/Y, as there; it stops a client that says
+			// where it is, not one that lies about it.
+			if mobDistance(int16(body.PosX), int16(body.PosY), int16(body.TargetX), int16(body.TargetY)) > playerMeleeReach {
+				d.recusarAtaque(s, travaDistancia,
+					"pos_x", body.PosX, "pos_y", body.PosY, "target_x", body.TargetX, "target_y", body.TargetY)
+				return
+			}
+			// DIVERGÊNCIA DELIBERADA DO LEGADO: from the second melee target on,
+			// only a Huntress (class 3) or a character with skill 0x40 learned
+			// may hit; for anyone else the extra targets are dropped in silence
+			// and counted. The legacy's line is
+			//   if (i > 0 && m->Size < sizeof(MSG_AttackTwo) && Class != 3 && !(LearnedSkill & 0x40))
+			// (_MSG_Attack.cpp:431), and its size clause makes it dead code:
+			// the target loop (:297-306) only reads a second entry from a packet
+			// bigger than AttackOne, so it could fire only on a malformed size
+			// between the two, while a full 13-target packet sailed through. Here
+			// the entry count is (len-48)/8, so read literally it would never
+			// fire at all. What comes back is the intent. Without the crack error
+			// the legacy attaches: whether the real client ever sends a second
+			// melee target for another class is unverified, and ten crack errors
+			// would drop an honest player — the counter says first.
+			if i > 0 && e.Class != 3 && e.LearnedSkill&0x40 == 0 {
+				d.recusarAtaque(s, travaSegundoAlvo, "target", tid)
+				writeDamage(payload, i, 0)
+				continue
+			}
 			if !doubleCriticalReady {
 				progress := body.Progress
 				doubleCritical, _ = combat.DoubleCritical(w.Rand(), attackRunOf(e), int(effectiveCritical(e)), &s.CriticalProgress, &progress)

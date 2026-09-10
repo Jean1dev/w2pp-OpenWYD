@@ -1,6 +1,7 @@
 package world
 
 import (
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -75,5 +76,27 @@ func TestEnqueueHighWater(t *testing.T) {
 	}
 	if s.sentFrames != 5 {
 		t.Fatalf("sentFrames = %d, want 5", s.sentFrames)
+	}
+}
+
+// The per-account refusal total is how an honest client tripping a restored
+// attack gate shows up after the fact. A session that never tripped one logs
+// nothing, so the line is never noise.
+func TestLogAttackRefusals(t *testing.T) {
+	var buf strings.Builder
+	w := New(Config{GridDim: 16}, slog.New(slog.NewTextHandler(&buf, nil)), nil, nil)
+
+	w.logAttackRefusals(&Session{Conn: 4, AccountName: "limpo"})
+	if buf.Len() != 0 {
+		t.Fatalf("sessão sem recusa foi ao log: %q", buf.String())
+	}
+
+	w.logAttackRefusals(&Session{Conn: 5, AccountName: "fulano",
+		AttackRefusals: map[string]int{"janela": 2, "distancia": 1}})
+	out := buf.String()
+	for _, quer := range []string{"session attack refusals", "account=fulano", `by_gate="distancia:1 janela:2"`} {
+		if !strings.Contains(out, quer) {
+			t.Errorf("faltou %q no log: %s", quer, out)
+		}
 	}
 }

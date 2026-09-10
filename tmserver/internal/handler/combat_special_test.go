@@ -224,7 +224,7 @@ func startServerCustomSpells(t *testing.T, persist world.Persistence, spells *co
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log, Spells: spells})
-	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	w := world.New(world.Config{GridDim: 16, Now: relogioEmServerTime()}, log, persist, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()
@@ -513,7 +513,7 @@ func startServerSkillsTargetMobAt(t *testing.T, persist world.Persistence, tmpl 
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log, Spells: testSpells()})
-	w := world.New(world.Config{GridDim: gridDim}, log, persist, d.Handle)
+	w := world.New(world.Config{GridDim: gridDim, Now: relogioEmServerTime()}, log, persist, d.Handle)
 	w.SpawnMob(tmpl, x, y)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

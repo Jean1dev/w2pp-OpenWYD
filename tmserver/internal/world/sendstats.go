@@ -67,6 +67,30 @@ func (w *World) logSendStats(s *Session) {
 	w.log.Info("session last sends", "conn", s.Conn, "tail", formatLastSends(&s.lastSent, s.lastSentIdx, time.Now().UnixMilli()))
 }
 
+// logAttackRefusals is the per-account total of attacks the restored legacy
+// anti-cheat gates refused this session. Nothing is logged for a session that
+// never tripped one, so a line here always means someone did.
+func (w *World) logAttackRefusals(s *Session) {
+	if len(s.AttackRefusals) == 0 {
+		return
+	}
+	gates := make([]string, 0, len(s.AttackRefusals))
+	for g := range s.AttackRefusals {
+		gates = append(gates, g)
+	}
+	sort.Strings(gates)
+	var b strings.Builder
+	for i, g := range gates {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(g)
+		b.WriteByte(':')
+		b.WriteString(strconv.Itoa(s.AttackRefusals[g]))
+	}
+	w.log.Warn("session attack refusals", "conn", s.Conn, "account", s.AccountName, "by_gate", b.String())
+}
+
 // formatByType renders a per-type count map as "0x0366:120 0x0181:80 …",
 // descending by count so the dominant traffic reads first.
 func formatByType(m map[protocol.Type]uint32) string {

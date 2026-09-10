@@ -342,7 +342,7 @@ func startServerSkillsWithConfig(t *testing.T, persist world.Persistence, cfg Co
 		cfg.Spells = testSpells()
 	}
 	d := New(cfg)
-	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	w := world.New(world.Config{GridDim: 16, Now: relogioEmServerTime()}, log, persist, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = w.Serve(ctx, ln); close(done) }()

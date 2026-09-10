@@ -34,6 +34,31 @@
 - Dano é **server-authoritative**: o servidor recalcula; os campos de dano enviados pelo cliente
   são sobrescritos. (Confirmar que nenhum campo de dano do cliente é confiado — risco de dup/cheat.)
 
+### Travas do legado no rewrite (`tmserver/internal/handler/combat.go`)
+Até a restauração, o rewrite só tinha a cadência de 800 ms, e ela compara o `ClientTick` com o
+tick anterior do próprio cliente. Um cliente alterado atacava na velocidade que quisesse, de
+qualquer distância e com até 13 alvos de corpo a corpo num pacote. Agora:
+
+| Trava | Legado | No rewrite | Recusa |
+|---|---|---|---|
+| `janela` | `:79-96` | fiel: `ClientTick` fora de `[agora-120000, agora+15000]` do relógio do **servidor** | `AddCrackError(1,107)`, sem eco. `LastAttackTick` já andou antes (ordem `:75`→`:79`), então quem adianta o relógio se tranca na cadência |
+| `distancia` | `:424-426` | fiel: distância `BASE_GetDistance` entre `PosX/Y` e `TargetX/Y` **do pacote** > 23 (o `Range` do jogador é sobrescrito com 23 em `CMob.cpp:696-697`) | o ataque inteiro, em silêncio. Só barra cliente que diz onde está |
+| `tela` | `:347-351` | fiel, com a exceção da skill 42: alvo a mais de 33 casas da posição **do servidor** de quem ataca | o alvo sai do ataque e o cliente de quem bateu recebe `RemoveMob` tipo 1. É a única trava que não depende do cliente |
+| `segundo_alvo` | `:431` | **divergência deliberada**: do segundo alvo de corpo a corpo em diante, só Caçadora (classe 3) ou quem tem a skill `0x40` | o alvo extra fica com dano 0, em silêncio, **sem** crack error |
+
+Sobre a `segundo_alvo`: a linha do legado tem `m->Size < sizeof(MSG_AttackTwo)`, e o laço de
+`:297-306` só lê a segunda entrada de um pacote maior que o AttackOne. Então ela só disparava num
+tamanho malformado entre os dois; o pacote cheio de 13 alvos passava. No rewrite a conta de entradas
+é `(len-48)/8`, e a letra nunca dispararia. O que voltou foi a intenção. O crack error do legado
+ficou de fora até se saber se o cliente real manda segundo alvo de corpo a corpo em outra classe:
+10 crack errors derrubam o jogador.
+
+Cada recusa conta por conta e por trava (`Session.AttackRefusals`). O log registra a 1ª, a 10ª e a
+100ª recusa (`attack refused by a restored legacy gate`) e o total na desconexão
+(`session attack refusals`). Uma linha dessas com conta de jogador honesto, principalmente na
+`janela`, que depende de campo do cliente 12000 ainda não confirmado por captura, é motivo pra
+reverter antes de virar suporte.
+
 ## Riscos (migração)
 - A fórmula de dano (`BASE_GetDamage`/`BASE_GetSkillDamage`, pipeline do golpe, acerto/parry/reflect)
   está documentada na **Fase 4 §4** (fonte real em `Basedef.cpp`/`_MSG_Attack.cpp`); usa `rand()` →

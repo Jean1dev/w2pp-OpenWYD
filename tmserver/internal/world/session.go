@@ -86,6 +86,12 @@ type Session struct {
 	LoginTick         uint32
 	LoggedFirstAction bool // first post-login _MSG_Action diagnostic was emitted
 
+	// AttackRefusals counts, per anti-cheat gate restored from the legacy
+	// attack handler, the attacks this session had refused (keyed by the gate's
+	// name). It is logged per account on disconnect: an honest client tripping
+	// a gate has to show up in the log, not as "não consigo bater" in support.
+	AttackRefusals map[string]int
+
 	// DuelTarget is CUser.RankingTarget: the conn I've most recently invited to a
 	// 1v1 duel (0 = none). DuelTargetExpiry is the wall-clock deadline (Unix
 	// seconds) for that pending invite — the legacy _MSG_ReqRanking.cpp has no

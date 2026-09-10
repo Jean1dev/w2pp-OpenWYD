@@ -159,6 +159,7 @@ func (w *World) removeSession(s *Session) {
 	// the client was sent last is the key evidence for a client-side freeze
 	// (docs/migration/investigacao-freeze-cliente.md).
 	w.logSendStats(s)
+	w.logAttackRefusals(s)
 	// Persist the live character (purchases/gold/stats) before tearing down.
 	// LeaveCharacter rather than SaveCharacterAsync: it does the same save and
 	// then releases the presence mark, in that order — see LeaveCharacter for why

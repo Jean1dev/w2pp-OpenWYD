@@ -211,6 +211,14 @@ func TestDuelWinByElimination(t *testing.T) {
 	defer a.Close()
 	defer b.Close()
 
+	// The arena spawns the two 42 tiles apart (duelSpawn1X/2X, Server.cpp:737-740),
+	// past the 33 a target may be from the attacker's screen (_MSG_Attack.cpp:
+	// 347-351), so A walks up first — as a duelist has to.
+	actionFrameBody(t, a, serverTime, protocol.MsgAction, protocol.MsgActionBody{
+		PosX: duelSpawn1X, PosY: duelSpawn1Y, Speed: 3,
+		TargetX: duelSpawn2X - 10, TargetY: duelSpawn2Y,
+	})
+
 	// A melees B with no PKMode toggle: the duel bypass (combat.go) must let it
 	// land anyway.
 	attackFrame(t, a, serverTime, 2, 0)
