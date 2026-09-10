@@ -814,6 +814,24 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	// The skill rides along with the blow: the client draws it from SkillIndex
 	// above, the affect lands here (ProcessSecMinTimer.cpp:2196-2205).
 	d.applyMobSkill(w, e, target, sk)
+	// A magia de um PET não custa mana a ninguém no servidor — mas o cliente do
+	// dono a desconta da barra DELE. Desde que as evocações ganharam magia, cada
+	// Enfraquecer de Gorila (70 de mana) sumia da barra do jogador: seis gorilas
+	// lançando em metade dos golpes são ~210 por segundo, e a barra chegava a
+	// -21000 em minutos. O servidor, com a mana cheia, não mandava correção
+	// nenhuma (o regen só fala quando a barra se move), então a do cliente
+	// afundava sem oposição até o eco da próxima magia do próprio jogador.
+	//
+	// Reafirmar a mana verdadeira logo depois de cada magia de pet corrige isso
+	// SEM depender de saber como o cliente desconta por dentro, e mantém a
+	// animação da magia do pet, que é o que se vê em jogo.
+	if donoID, ok := donoParaReafirmarMana(e, sk); ok {
+		if ds := w.Session(donoID); ds != nil {
+			if owner := w.Entity(donoID); owner != nil {
+				d.sendSetHpMp(w, ds, owner)
+			}
+		}
+	}
 
 	// Mob targets: a pet's kill rewards its OWNER (MobKilled.cpp:181-190 credits
 	// the Summoner); a monster that downs a pet removes it for good (removeType
@@ -1135,4 +1153,14 @@ func abs16(v int16) int {
 		return int(-v)
 	}
 	return int(v)
+}
+
+// donoParaReafirmarMana decide quem precisa receber a mana verdadeira depois de
+// um golpe: o DONO, e só quando quem bateu foi um pet que lançou magia. Golpe
+// seco não mexe na barra de ninguém, e monstro comum não tem dono.
+func donoParaReafirmarMana(e *world.Entity, sk mobSkill) (int, bool) {
+	if e == nil || e.Summoner == 0 || sk.index == noSkill || sk.heal {
+		return 0, false
+	}
+	return e.Summoner, true
 }
