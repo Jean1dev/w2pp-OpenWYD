@@ -431,6 +431,16 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		for i := range st.Equip {
 			equip[i] = itemToSel(st.Equip[i])
 		}
+		// Um BM que volta com a transformação ainda ativa nasce com o corpo da fera
+		// para ELE MESMO. O próprio cliente desenha o personagem pelo Equip[0]
+		// deste pacote, e o legado reescreve MOB.Equip[0].sIndex com a malha dentro
+		// do GetCurrentScore (Basedef.cpp:4106) antes de mandar o login. Só o
+		// índice muda, como lá; o item gravado continua intacto no banco.
+		if e := w.Entity(s.Conn); e != nil {
+			if value, _, ok := activeTransform(e); ok {
+				equip[0].Index = transMesh(value)
+			}
+		}
 		var carry [64]protocol.SelItem
 		for i := range st.Carry {
 			if i >= 64 {
