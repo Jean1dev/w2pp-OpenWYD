@@ -26,14 +26,18 @@ func TestGolpeDeMonstroNaoFalaDeVidaNemMana(t *testing.T) {
 		nome       string
 		quem, alvo *world.Entity
 		golpe      mobSkill
+		noPacote   int // SkillIndex que o cliente deve receber
 	}{
-		{"monstro de 30000 de vida bate no jogador", monstro, jogador, mobSkill{index: noSkill}},
-		{"pet bate seco em monstro", pet, monstro, mobSkill{index: noSkill}},
-		{"pet lança Enfraquecer em monstro", pet, monstro, mobSkill{index: 51}},
+		{"monstro de 30000 de vida bate no jogador", monstro, jogador, mobSkill{index: noSkill}, noSkill},
+		{"pet bate seco em monstro", pet, monstro, mobSkill{index: noSkill}, noSkill},
+		{"Gorila lança Enfraquecer: animação 5, vai no pacote", pet, monstro, mobSkill{index: 51}, 51},
+		{"Dragão lança Lança de Gelo: animação 4, vai no pacote", pet, monstro, mobSkill{index: 34}, 34},
+		{"Tigre lança veneno: animação 9, criatura não tem, vai seco", pet, monstro, mobSkill{index: 40}, noSkill},
+		{"Succubus lança meteoro: animação 8, criatura não tem, vai seco", pet, monstro, mobSkill{index: 35}, noSkill},
 	}
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
-			body := corpoDoGolpeDeMonstro(c.quem.ID, c.quem, c.alvo, c.golpe, 123)
+			body := corpoDoGolpeDeMonstro(c.quem.ID, c.quem, c.alvo, c.golpe, motionDoGolpe, 123)
 			b := body.Encode()
 			if v := int32(binary.LittleEndian.Uint32(b[4:8])); v != -1 {
 				t.Errorf("body@4 = %d; o cliente subtrai esse campo da mana de quem apanha de mob, tem de ser -1", v)
@@ -44,8 +48,8 @@ func TestGolpeDeMonstroNaoFalaDeVidaNemMana(t *testing.T) {
 			if req := int16(binary.LittleEndian.Uint16(b[46:48])); req != -1 {
 				t.Errorf("ReqMp@46 = %d; tem de ser -1", req)
 			}
-			if sk := int16(binary.LittleEndian.Uint16(b[44:46])); int(sk) != c.golpe.index {
-				t.Errorf("SkillIndex@44 = %d, esperado %d: a magia do pet vai ao cliente, golpe seco vai como -1", sk, c.golpe.index)
+			if sk := int16(binary.LittleEndian.Uint16(b[44:46])); int(sk) != c.noPacote {
+				t.Errorf("SkillIndex@44 = %d, esperado %d", sk, c.noPacote)
 			}
 			// Motion 0 é a pose parada no cliente: o bicho "batia" em pé.
 			if m := b[34]; m != 4 {

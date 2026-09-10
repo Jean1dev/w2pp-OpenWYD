@@ -801,7 +801,18 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		damageReqHp(w.Session(target.ID), target, int32(dmg))
 	}
 
-	body := corpoDoGolpeDeMonstro(id, e, target, sk, dmg)
+	motion := uint8(motionDoGolpe)
+	if e.Summoner != 0 {
+		if e.AndouDesdeOGolpe {
+			d.fecharTrajetoDoPet(w, id, e)
+		}
+		// 4 → 5 → 6: o cliente descarta a animação igual à que ainda está
+		// tocando (WYD.exe 0x507341), e é a mesma sequência que ele usa na
+		// cadeia de golpes (0x4f9999-0x4f9a2b).
+		motion = motionDoGolpe + e.GolpeSeq%3
+		e.GolpeSeq++
+	}
+	body := corpoDoGolpeDeMonstro(id, e, target, sk, motion, dmg)
 	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
 	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
 	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
@@ -881,11 +892,16 @@ const motionDoGolpe = 4
 // têm exatamente isso — a barra caía para MaxMp - 30000 a cada golpe: -16911 de
 // 13089 numa Foema, -20441 de 9559 num BM, até a próxima correção do servidor.
 //
-// SkillIndex leva a magia que o pet sorteou (mobskill.go), para o cliente
-// desenhá-la; golpe seco é noSkill. Só pet sorteia: monstro comum sai sempre
-// seco. A magia no pacote foi tirada uma vez (d8d6ca11) como suspeita da mana
-// negativa, e não era ela — era o +4 acima.
-func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, dmg int) protocol.MsgAttackBody {
+// SkillIndex leva a magia que o pet sorteou (mobskill.go), quando o modelo de
+// criatura tem animação para ela (magiaDesenhavelEmCriatura); golpe seco é
+// noSkill. Só pet sorteia: monstro comum sai sempre seco. A magia no pacote foi
+// tirada uma vez (d8d6ca11) como suspeita da mana negativa, e não era ela — era
+// o +4 acima.
+func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, motion uint8, dmg int) protocol.MsgAttackBody {
+	skill := noSkill
+	if magiaDesenhavelEmCriatura(sk.index) {
+		skill = sk.index
+	}
 	return protocol.MsgAttackBody{
 		CurrentHp:  semValorNoGolpe,
 		CurrentMp:  semValorNoGolpe,
@@ -895,10 +911,38 @@ func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, dmg int
 		TargetX:    uint16(target.X),
 		TargetY:    uint16(target.Y),
 		AttackerID: uint16(id),
-		Motion:     motionDoGolpe,
-		SkillIndex: int16(sk.index),
+		Motion:     motion,
+		SkillIndex: int16(skill),
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
+}
+
+// magiaDesenhavelEmCriatura diz se a magia pode ir no SkillIndex do golpe de uma
+// criatura. Com magia, o cliente ignora a Motion e tira a animação do próprio
+// SkillData (WYD.exe 0x5071a7): para modelo de criatura, a Lança de Gelo (34)
+// vira a animação 4 e o Enfraquecer (51) a 5 — golpes que todo bicho tem. O
+// meteoro (35) e o veneno (40) viram 8 e 9, que um modelo de criatura pode não
+// ter, e aí o cliente não desenha nada, sem cair na Motion (0x5028f7-0x50291c):
+// o pet matava sem animação. Essas vão como golpe seco; o efeito continua sendo
+// aplicado no servidor (applyMobSkill).
+func magiaDesenhavelEmCriatura(skill int) bool {
+	return skill == 34 || skill == 51
+}
+
+// fecharTrajetoDoPet encerra, no cliente, o trajeto do último movimento do pet
+// antes de um golpe.
+//
+// Enquanto o cliente acha que o bicho ainda não chegou ao destino do último
+// MsgAction, ele força a animação de andar/correr a cada quadro, por cima de
+// qualquer golpe (WYD.exe 0x4f84bc-0x4f85ee; a exceção para as animações de
+// ataque em 0x4f84da nunca é alcançada, porque o teste `anim != 2 || anim != 3`
+// é sempre verdadeiro). O pet que andou e logo bateu ficava "correndo parado":
+// o dano entrava e o golpe nunca aparecia. Um MsgAction que sai e chega na casa
+// onde o pet está dá ao cliente um trajeto já concluído.
+func (d *Dispatcher) fecharTrajetoDoPet(w *world.World, id int, e *world.Entity) {
+	body := protocol.MsgActionBody{PosX: e.X, PosY: e.Y, Speed: int32(velocidadeDoBicho(e)), TargetX: e.X, TargetY: e.Y}
+	d.moveMulticast(w, id, e.X, e.Y, protocol.MsgAction, body.Encode())
+	e.AndouDesdeOGolpe = false
 }
 
 func dropCurrentTarget(e *world.Entity, targetID int) {

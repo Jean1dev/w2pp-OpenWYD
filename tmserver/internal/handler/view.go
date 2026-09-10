@@ -33,6 +33,11 @@ func (d *Dispatcher) moveMulticast(w *world.World, moverID int, oldX, oldY int16
 	if mover == nil {
 		return
 	}
+	if mover.Summoner != 0 {
+		// O próximo golpe deste pet precisa fechar o trajeto no cliente antes
+		// (fecharTrajetoDoPet, mobai.go).
+		mover.AndouDesdeOGolpe = true
+	}
 	newX, newY := mover.X, mover.Y
 
 	var moverSess *world.Session // non-nil only for player movers

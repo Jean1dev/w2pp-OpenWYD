@@ -194,6 +194,10 @@ type Entity struct {
 	AtkTick        uint32
 	SpawnX, SpawnY int16
 	Range          int16
+	// AndouDesdeOGolpe marca que o pet recebeu um MsgAction depois do último
+	// golpe; GolpeSeq alterna a animação do golpe do pet (handler/mobai.go).
+	AndouDesdeOGolpe bool
+	GolpeSeq         uint8
 
 	// Mob roaming (CMob.h:47-69, StandingByProcessor/SetSegment). SegX/SegY are
 	// this INSTANCE's waypoints (already randomized ±SegmentRange at spawn,
