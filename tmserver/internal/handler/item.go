@@ -379,6 +379,13 @@ const (
 	// dispatcher — identify them by sIndex instead (_MSG_UseItem.cpp:3184,3325).
 	itemSeloDoGuerreiro = 4146
 	itemPedraMisteriosa = 4148
+	itemFlashPrateado   = 3451
+	itemFlashDourado    = 3452
+	itemFadaPrateada    = 3914
+	itemFadaDourada     = 3915
+	itemFadaVermelha3d  = 3902
+	itemFadaVermelha5d  = 3905
+	itemFadaVermelha7d  = 3908
 
 	// Entrada do Território (LAN) tickets — three tiers sharing EF_VOLATILE 188,
 	// distinguished by sIndex: (N)=4111, (M)=4112, (A)=4113. Tier = sIndex - base
@@ -411,6 +418,39 @@ var huntingScrollDestinations = [6][10][2]int16{
 // lumped it in with the genuinely-missing cases by mistake.
 const volClasses = 190
 
+// useFairyFlash transforms an equipped red fairy while retaining its effects
+// and absolute expiry. The Flash items have no EF_VOLATILE entry in the catalog.
+func (d *Dispatcher) useFairyFlash(w *world.World, s *world.Session, e *world.Entity, src int) {
+	target := &e.Equip[fairyEquipSlot]
+	if target.Index != itemFadaVermelha3d && target.Index != itemFadaVermelha5d && target.Index != itemFadaVermelha7d {
+		d.notify(w, s, NoticeReqNotMet)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	if target.ExpiresAt != 0 && time.Now().Unix() >= target.ExpiresAt {
+		d.notify(w, s, NoticeReqNotMet)
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
+	transformed, _ := fairyFlashTarget(e.Carry[src].Index)
+	target.Index = transformed
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceEquip, fairyEquipSlot, *target)
+	d.refreshEquip(w, s, e)
+}
+
+func fairyFlashTarget(index int16) (int16, bool) {
+	switch index {
+	case itemFlashPrateado:
+		return itemFadaPrateada, true
+	case itemFlashDourado:
+		return itemFadaDourada, true
+	default:
+		return 0, false
+	}
+}
+
 // potionDelay is the minimum ms between potion uses (_MSG_UseItem.cpp:105-115).
 // The original defaults to 100 and exposes it to the runtime config (Server.cpp:647,
 // :1463); we take the default — a config knob can follow if it's ever tuned.
@@ -440,6 +480,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	}
 	if e.Carry[src].Index == itemWandererBag {
 		d.useWandererBag(w, s, e, src)
+		return
+	}
+	if e.Carry[src].Index == itemFlashPrateado || e.Carry[src].Index == itemFlashDourado {
+		d.useFairyFlash(w, s, e, src)
 		return
 	}
 	if d.useQuest256Ticket(w, s, e, src) {
