@@ -156,20 +156,20 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 		sendCarrySlot(w, s, e, sl)
 	}
 
-	if _, success := combine.Roll(w.Rand(), rate); !success {
+	roll, success := combine.Roll(w.Rand(), rate)
+	if !success {
+		// Apply is pure — it only builds the result — so naming what the roll
+		// would have made costs nothing and draws nothing from the RNG.
+		d.announceComposicao(w, e.Name, fam.Apply(items).Index, roll, rate, false)
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 
 	ipos := slotByPos[active[0]]
 	e.Carry[ipos] = fam.Apply(items)
+	d.announceComposicao(w, e.Name, e.Carry[ipos].Index, roll, rate, true)
 	sendCombineComplete(w, s, combineSuccess)
 	sendCarrySlot(w, s, e, ipos)
-	// The Anct family is the Ancient combine, the one result worth telling the
-	// server about; the other families are routine crafting.
-	if fam.Name == anctFamilyName {
-		d.announceAncient(w, e.Name, e.Carry[ipos].Index)
-	}
 }
 
 // combineExtracao handles _MSG_CombineItemExtracao (0x02D4): Huntress extraction
@@ -311,6 +311,28 @@ const msgWrongCombination = "Há algo de errado na combinação."
 // player learns the number instead of guessing it.
 func combineNeedsGold(cost int32) string {
 	return fmt.Sprintf("Você precisa de %d Gold.", cost)
+}
+
+// msgCombineFailed is _NN_CombineFailed (Language.txt:269), what every machine
+// but the Odin composições says when the roll goes against the player.
+const msgCombineFailed = "Combinação de item falhou."
+
+// combineSucceeded and combineLost are the outcome twins of refuseCombine.
+//
+// Giving the refusals a voice left the two outcomes that matter most mute: after
+// the roll, success and failure went out as a bare _MSG_CombineComplete, so the
+// player watched the items and the gold vanish with no line saying which way it
+// went. Every legacy machine names the outcome in the chat right before that
+// signal — _MSG_CombineItemAilyn.cpp:128/145 for the +10 — and so does this now.
+func combineSucceeded(w *world.World, s *world.Session) {
+	sendClientMessage(w, s, msgProcessingComplete)
+	sendCombineComplete(w, s, combineSuccess)
+}
+
+// combineLost is combineSucceeded's other half; see there.
+func combineLost(w *world.World, s *world.Session) {
+	sendClientMessage(w, s, msgCombineFailed)
+	sendCombineComplete(w, s, combineFailed)
 }
 
 // sendCarrySlot pushes one carry slot's current contents to the client.

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
@@ -83,6 +84,13 @@ func TestSoulMessagesAreClientSafe(t *testing.T) {
 
 func startServerAilyn(t *testing.T, coin int32, validRecipe bool) (string, func()) {
 	t.Helper()
+	return startServerAilynRates(t, coin, validRecipe, combine.RateConfig{})
+}
+
+// startServerAilynRates is startServerAilyn with the Mesa das Máquinas loaded,
+// so a test can pin the roll's outcome the way a moderator would.
+func startServerAilynRates(t *testing.T, coin int32, validRecipe bool, rates combine.RateConfig) (string, func()) {
+	t.Helper()
 	root := filepath.Join("..", "..", "..", "Release", "Common")
 	items, err := content.LoadItemList(filepath.Join(root, "ItemList.csv"))
 	if err != nil {
@@ -118,7 +126,7 @@ func startServerAilyn(t *testing.T, coin int32, validRecipe bool) (string, func(
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cat := NewCombineCatalog(items, comp)
-	d := New(Config{Log: log, CombineCatalog: cat, CompRate: comp})
+	d := New(Config{Log: log, CombineCatalog: cat, CompRate: comp, CombineRates: rates})
 	w := world.New(world.Config{GridDim: 16}, log, db, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

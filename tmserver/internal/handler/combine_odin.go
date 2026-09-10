@@ -166,6 +166,7 @@ func (d *Dispatcher) odinComposicao(w *world.World, s *world.Session, e *world.E
 	if roll > rate {
 		e.Carry[baseSlot] = base
 		sendCarrySlot(w, s, e, baseSlot)
+		sendClientMessage(w, s, msgOdinComposicaoFalhou)
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
@@ -176,8 +177,21 @@ func (d *Dispatcher) odinComposicao(w *world.World, s *world.Session, e *world.E
 	refine.Set(&result, 0, 0)
 	e.Carry[baseSlot] = result
 	sendCarrySlot(w, s, e, baseSlot)
+	sendClientMessage(w, s, msgOdinComposicaoSucesso)
 	sendCombineComplete(w, s, combineSuccess)
 }
+
+// The Odin composições are the one place the legacy words the outcome itself
+// instead of using Language.txt (_MSG_CombineItemOdin.cpp:196, :234, :244). Two
+// things from those lines are left out on purpose: the "%d/%d" suffix, which
+// prints the player's roll against the machine's chance — a debug leftover that
+// would now publish whatever rate a moderator set on the panel — and the
+// _SS_Combin_12Succ notice, which is the literal text " !!!" sent to every
+// player online.
+const (
+	msgOdinComposicaoSucesso = "Sucesso ao combinar."
+	msgOdinComposicaoFalhou  = "Falha ao combinar."
+)
 
 // odinPlus12 is id 2, the "+11→+15" refine tier. Per the issue #138 plan
 // (the live failure branch is a byte-identical copy of the success branch,
@@ -208,12 +222,12 @@ func (d *Dispatcher) odinPlus12(w *world.World, s *world.Session, e *world.Entit
 // of these recipes restores anything (_MSG_CombineItemOdin.cpp:517-650).
 func (d *Dispatcher) odinFreshResult(w *world.World, s *world.Session, e *world.Entity, slot int, result int16, roll, id int) {
 	if roll > odinRate[id] {
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
 	e.Carry[slot] = world.Item{Index: result}
 	sendCarrySlot(w, s, e, slot)
-	sendCombineComplete(w, s, combineSuccess)
+	combineSucceeded(w, s)
 }
 
 // odinDestraveLv40 is id 4: no item is produced, only the Celestial level-40
@@ -222,9 +236,12 @@ func (d *Dispatcher) odinFreshResult(w *world.World, s *world.Session, e *world.
 // CelLv40==0 and ClassMaster==Celestial.
 func (d *Dispatcher) odinDestraveLv40(w *world.World, s *world.Session, e *world.Entity, roll int) {
 	if roll > odinRate[combine.OdinDestraveLv40] {
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
+	// The caller's pre-gate already guaranteed the unlock goes through, so the
+	// line can go first, where _MSG_CombineItemOdin.cpp:534 puts it.
+	sendClientMessage(w, s, msgProcessingComplete)
 	d.destravarCelestialFor(w, s, e, false) // sends its own MsgCombineComplete + persists
 }
 
@@ -235,15 +252,21 @@ func (d *Dispatcher) odinDestraveLv40(w *world.World, s *world.Session, e *world
 // computed level, the cape's current refine level.
 func (d *Dispatcher) odinCapaCelestial(w *world.World, s *world.Session, e *world.Entity, roll, level int) {
 	if roll > odinRate[combine.OdinCapaCelestial] {
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
 	cape := &e.Equip[reinoCapeSlot]
 	if !refine.Bootstrap(cape) {
+		// Three effect slots already taken, none of them a sanc: the legacy says
+		// _NN_Cant_Refine_More (_MSG_CombineItemOdin.cpp:667) and returns without
+		// releasing the window. The line is kept; the window is released.
+		if text, ok := d.noticeLine(NoticeCantRefineMore); ok {
+			sendClientMessage(w, s, text)
+		}
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	refine.Set(cape, level+1, 0)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, reinoCapeSlot, itemToSel(*cape)))
-	sendCombineComplete(w, s, combineSuccess)
+	combineSucceeded(w, s)
 }

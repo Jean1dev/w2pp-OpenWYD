@@ -46,13 +46,71 @@ func (d *Dispatcher) announceCelestial(w *world.World, name string) {
 	d.log.Info("announce celestial", "name", name)
 }
 
-// announceAncient says a player pulled an Ancient item out of a combine.
-func (d *Dispatcher) announceAncient(w *world.World, name string, item int16) {
+// The three machines players gather around — the +10, the compositor and the
+// Agatha — announce EVERY roll to the whole server, win or lose, with the number
+// drawn against the chance it had to beat: "Fulano falhou em 47/41 ao passar
+// Espada para +10."
+//
+// DELIBERATE DIVERGENCE, asked for by the server's staff: the legacy tells only
+// the player, and only some machines print the "%d/%d" at all (as a debug
+// suffix, _MSG_CombineItem.cpp:105). Here it is the point — a failure in front of
+// everyone is what makes the next success worth watching.
+//
+// The chance printed is the one the roll actually compared against, after the
+// Mesa das Máquinas and its band for that item, so two items on the same machine
+// can read /41 and /30. It is taken from the call site, never recomputed here,
+// so the line can never disagree with the outcome it reports.
+//
+// The announcement replaces the player's own outcome line on these machines: the
+// broadcast reaches them too, and the same news twice in a row is noise.
+
+// rollText is the "47/41": the number drawn, then the chance — the order the
+// legacy prints them in. A roll at or under the chance succeeds (combine.Roll).
+func rollText(roll, chance int) string {
+	return fmt.Sprintf("%d/%d", roll, chance)
+}
+
+// announceMais10 is the +10 machine's (Ailyn) line.
+func (d *Dispatcher) announceMais10(w *world.World, name string, item int16, roll, chance int, success bool) {
 	if name == "" {
 		return
 	}
-	broadcastNotice(w, fmt.Sprintf("[EVENTO] %s conseguiu um item ANCIENTE: %s!", name, d.itemName(item)))
-	d.log.Info("announce ancient", "name", name, "item", item)
+	if success {
+		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s passar %s para +10!", name, rollText(roll, chance), d.itemName(item)))
+	} else {
+		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao passar %s para +10.", name, rollText(roll, chance), d.itemName(item)))
+	}
+	d.log.Info("announce +10", "name", name, "item", item, "roll", roll, "chance", chance, "success", success)
+}
+
+// announceComposicao is the compositor's line. item is what the combine makes —
+// on a failure, what it would have made — because "compor Espada Anciente" is
+// the news, not the name of the +9 that went into it.
+func (d *Dispatcher) announceComposicao(w *world.World, name string, item int16, roll, chance int, success bool) {
+	if name == "" {
+		return
+	}
+	if success {
+		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s compor %s!", name, rollText(roll, chance), d.itemName(item)))
+	} else {
+		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao compor %s.", name, rollText(roll, chance), d.itemName(item)))
+	}
+	d.log.Info("announce composição", "name", name, "item", item, "roll", roll, "chance", chance, "success", success)
+}
+
+// announceAgatha is the ADD machine's line. It names the item that receives the
+// ADD and never the ADD itself: which bonus a player just moved onto their
+// weapon is theirs to show, not the server's to publish.
+func (d *Dispatcher) announceAgatha(w *world.World, name string, item int16, roll, chance int, success bool) {
+	if name == "" {
+		return
+	}
+	if success {
+		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s passar o ADD para %s!", name, rollText(roll, chance), d.itemName(item)))
+	} else {
+		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao passar o ADD para %s.", name, rollText(roll, chance), d.itemName(item)))
+	}
+	d.log.Info("announce agatha", "name", name, "item", item, "roll", roll, "chance", chance, "success", success)
 }
 
 // announceRefine says a player took an item to +10 or beyond.

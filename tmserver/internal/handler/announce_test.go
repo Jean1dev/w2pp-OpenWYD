@@ -31,7 +31,11 @@ func TestAnnounceIgnoresEmptyName(_ *testing.T) {
 	d := announceDispatcher()
 	d.announceArch(nil, "")
 	d.announceCelestial(nil, "")
-	d.announceAncient(nil, "", 4038)
+	for _, ok := range []bool{true, false} {
+		d.announceMais10(nil, "", 4038, 47, 41, ok)
+		d.announceComposicao(nil, "", 4038, 47, 41, ok)
+		d.announceAgatha(nil, "", 4038, 47, 41, ok)
+	}
 	d.announceRefine(nil, "", 4038, 12)
 }
 

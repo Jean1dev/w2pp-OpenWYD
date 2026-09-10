@@ -109,6 +109,29 @@ func readUntil(t *testing.T, c net.Conn, want protocol.Type) (payload []byte, pr
 	return nil, nil
 }
 
+// readOutcome is readUntil for the roll's result, where two kinds of frame share
+// the stretch before CombineComplete: the SendItem of each consumed slot, and the
+// line the player reads naming the outcome. The tests need them apart.
+func readOutcome(t *testing.T, c net.Conn) (complete []byte, sendItems [][]byte, texts []string) {
+	t.Helper()
+	for i := 0; i < 16; i++ {
+		ty, p, ok := readMaybe(t, c)
+		if !ok {
+			t.Fatalf("did not receive %#x", protocol.MsgCombineComplete)
+		}
+		switch ty {
+		case protocol.MsgCombineComplete:
+			return p, sendItems, texts
+		case protocol.MsgMessagePanel:
+			texts = append(texts, decodePanel(p))
+		default:
+			sendItems = append(sendItems, p)
+		}
+	}
+	t.Fatalf("too many frames before %#x", protocol.MsgCombineComplete)
+	return nil, nil, nil
+}
+
 func TestCombineSuccess(t *testing.T) {
 	addr, stop := startServerCombine(t, combineDB(), 50) // first roll 41 <= 50 ⇒ success
 	defer stop()
@@ -116,9 +139,14 @@ func TestCombineSuccess(t *testing.T) {
 	defer c.Close()
 
 	combineFrame(t, c)
-	p, preceding := readUntil(t, c, protocol.MsgCombineComplete)
+	p, preceding, texts := readOutcome(t, c)
 	if parmOf(t, p) != combineSuccess {
 		t.Errorf("parm = %d, want success(1)", parmOf(t, p))
+	}
+	// The compositor announces every roll to the server, the player included:
+	// who, the roll against this family's fixed 50, and what came out.
+	if want := "Hero conseguiu em 41/50 compor #9999!"; len(texts) != 1 || texts[0] != want {
+		t.Errorf("texto antes do CombineComplete = %q, want [%q]", texts, want)
 	}
 	// Both inputs are cleared before the roll, each with its own SendItem.
 	if len(preceding) != 2 {
@@ -147,9 +175,15 @@ func TestCombineConsumesOnFail(t *testing.T) {
 	defer c.Close()
 
 	combineFrame(t, c)
-	p, preceding := readUntil(t, c, protocol.MsgCombineComplete)
+	p, preceding, texts := readOutcome(t, c)
 	if parmOf(t, p) != combineFailed {
 		t.Errorf("parm = %d, want failed(2)", parmOf(t, p))
+	}
+	// The inputs are gone by now; the line is the only thing that tells a lost
+	// roll from a machine that ate the items — and it goes to the whole server,
+	// naming what the roll would have made.
+	if want := "Hero falhou em 41/30 ao compor #9999."; len(texts) != 1 || texts[0] != want {
+		t.Errorf("texto antes do CombineComplete = %q, want [%q]", texts, want)
 	}
 	// The inputs were consumed before the roll ⇒ SendItem updates were sent.
 	if len(preceding) != 2 {

@@ -83,7 +83,9 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 })
 	e.Coin -= ailynCost
 	d.sendEtc(w, s, e)
-	if _, success := combine.Roll(w.Rand(), rate); !success {
+	roll, success := combine.Roll(w.Rand(), rate)
+	if !success {
+		d.announceMais10(w, e.Name, it[0].Index, roll, rate, false)
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
@@ -96,6 +98,7 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 	e.Carry[sl[0]] = result
 	e.Carry[sl[1]] = world.Item{}
 	sendCarrySlot(w, s, e, sl[1])
+	d.announceMais10(w, e.Name, result.Index, roll, rate, true)
 	sendCombineComplete(w, s, combineSuccess)
 	sendCarrySlot(w, s, e, sl[0])
 }
@@ -118,7 +121,7 @@ func (d *Dispatcher) combineItemTiny(w *world.World, s *world.Session, _ protoco
 	if _, success := combine.Roll(w.Rand(), rate); !success {
 		e.Carry[sl[0]] = world.Item{}
 		sendCarrySlot(w, s, e, sl[0])
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
 	result := it[0]
@@ -129,7 +132,7 @@ func (d *Dispatcher) combineItemTiny(w *world.World, s *world.Session, _ protoco
 	e.Coin -= tinyCost
 	d.sendEtc(w, s, e)
 	sendCarrySlot(w, s, e, sl[1])
-	sendCombineComplete(w, s, combineSuccess)
+	combineSucceeded(w, s)
 	sendCarrySlot(w, s, e, sl[0])
 }
 
@@ -144,7 +147,9 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 		return
 	}
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 })
-	if _, success := combine.Roll(w.Rand(), rate); !success {
+	roll, success := combine.Roll(w.Rand(), rate)
+	if !success {
+		d.announceAgatha(w, e.Name, it[0].Index, roll, rate, false)
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
@@ -154,6 +159,7 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 	e.Carry[sl[0]] = result
 	e.Carry[sl[1]] = world.Item{}
 	sendCarrySlot(w, s, e, sl[1])
+	d.announceAgatha(w, e.Name, result.Index, roll, rate, true)
 	sendCombineComplete(w, s, combineSuccess)
 	sendCarrySlot(w, s, e, sl[0])
 }
@@ -169,14 +175,14 @@ func (d *Dispatcher) combineItemShany(w *world.World, s *world.Session, _ protoc
 	}
 	consumePositions(w, s, e, sl, active, nil)
 	if _, success := combine.Roll(w.Rand(), d.machineKeyRate("Shany", "ChanceBase", d.compRate.ChanceBase("Shany"))); !success {
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
 	if !d.putMobDrop(w, e, world.Item{Index: 633}) {
 		sendCombineComplete(w, s, combineFailed)
 		return
 	}
-	sendCombineComplete(w, s, combineSuccess)
+	combineSucceeded(w, s)
 }
 
 func (d *Dispatcher) combineItemAlquimia(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
@@ -196,12 +202,12 @@ func (d *Dispatcher) combineItemAlquimia(w *world.World, s *world.Session, _ pro
 	consumePositions(w, s, e, sl, active, nil)
 	rate := (effectiveSpecial(e, 2) + 1) / 6
 	if _, success := combine.Roll(w.Rand(), rate); !success {
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
 	e.Carry[sl[0]] = world.Item{Index: int16(3200 + id)}
 	sendCarrySlot(w, s, e, sl[0])
-	sendCombineComplete(w, s, combineSuccess)
+	combineSucceeded(w, s)
 }
 
 func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
@@ -384,7 +390,7 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 			e.Carry[sl[2]] = it[2]
 			sendCarrySlot(w, s, e, sl[2])
 		}
-		sendCombineComplete(w, s, combineFailed)
+		combineLost(w, s)
 		return
 	}
 	if id == 8 {
@@ -397,6 +403,7 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 		// are consumed either way, as in the original.
 		if soul := ehreSoul(it[0].Index, it[1].Index, it[2].Index); soul != 0 {
 			e.Soul = soul
+			sendClientMessage(w, s, msgProcessingComplete) // _MSG_CombineItemEhre.cpp:351
 		} else {
 			d.log.Info("ehre soul: no recipe for this stone order",
 				"conn", s.Conn, "account", s.AccountName,
@@ -442,7 +449,7 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 		result.Effects[2].Value = 0
 	}
 	e.Carry[out] = result
-	sendCombineComplete(w, s, combineSuccess)
+	combineSucceeded(w, s)
 	sendCarrySlot(w, s, e, out)
 }
 
