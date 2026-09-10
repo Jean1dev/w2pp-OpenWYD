@@ -206,6 +206,16 @@ func setBattle(w *world.World, id int, e, target *world.Entity) {
 	if e == nil || target == nil || id <= 0 || target.ID <= 0 || id >= world.MaxMob || target.ID >= world.MaxMob || id == target.ID {
 		return
 	}
+	// Jogador nunca entra em combate de mob: o legado só age com
+	// `mob >= MAX_USER` (Server.cpp:8027). Sem esta guarda, o monstro que acertava
+	// uma evocação arrastava o grupo DELA para a luta — e o líder desse grupo é o
+	// BM. O Mode do jogador virava MobCombat, e o mundo deixa de tratar como
+	// jogador em campo quem não está em MobUser (ForEachPlaying): o BM parava de
+	// receber os golpes, os passos e as pessoas em volta, enquanto dano e XP
+	// continuavam chegando pela sessão. Era o "entra em combate e fode tudo".
+	if id < world.MaxUser {
+		return
+	}
 	targetInWorld := w.Entity(target.ID) != nil
 	if e.Mode == world.MobEmpty || (targetInWorld && target.Mode == world.MobEmpty) {
 		return
