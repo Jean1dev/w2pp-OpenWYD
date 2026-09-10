@@ -249,6 +249,13 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			writeDamage(payload, i, 0)
 			continue
 		}
+		// Evocação do próprio grupo não apanha de quem a evocou nem dos
+		// companheiros de grupo. O cliente em modo PK põe os pets do BM na lista de
+		// alvos da magia de área, e o BM matava as próprias criaturas.
+		if combatHit && evocacaoDoMesmoGrupo(e, target) {
+			writeDamage(payload, i, 0)
+			continue
+		}
 
 		var dmg int
 		airBlade := 0 // the HT proc share, which the PvP quarter leaves whole
@@ -626,6 +633,30 @@ func foemaMultiBuffTargetCap(special int) int {
 		return 2
 	}
 	return n
+}
+
+// evocacaoDoMesmoGrupo diz se target é uma evocação do grupo do atacante: a
+// criatura do próprio BM, ou a de um companheiro de grupo.
+//
+// É o recorte, para evocações, da regra do legado
+// `if (leader == mobleader || Guild == MobGuild) dam = 0;`
+// (_MSG_Attack.cpp:1334). Ali o pet tem como líder o líder do grupo do dono
+// (summon.go), então cai no `leader == mobleader`. O port só levou essa regra aos
+// afetos (applyCastAffect), não ao dano. A regra inteira, que também protege
+// companheiros de grupo e de guilda em PvP, fica de fora de propósito: mudaria o
+// PK entre jogadores, e o pedido foi só sobre as evocações.
+func evocacaoDoMesmoGrupo(a, b *world.Entity) bool {
+	if b.Summoner == 0 || world.IsPlayer(b.ID) {
+		return false
+	}
+	if b.Summoner == a.ID {
+		return true
+	}
+	leader := a.Leader
+	if leader == 0 {
+		leader = a.ID
+	}
+	return b.Leader != 0 && b.Leader == leader
 }
 
 func skillSameLeaderOrGuild(w *world.World, a, b *world.Entity) bool {
