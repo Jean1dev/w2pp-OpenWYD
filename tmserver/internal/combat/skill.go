@@ -175,7 +175,12 @@ func SkillBaseDamage(skillnum int, sp SkillSpell, c SkillCaster, weather, weapon
 // (_MSG_Attack.cpp:569): dam = (150-resist)*dam/100. InstanceType 1 reads
 // Resist[0]; types 2-5 read Resist[InstanceType-2]. A mob's resist counts
 // half. Other InstanceTypes pass through unchanged.
-func SkillResistScale(dam, instanceType int, resist [4]int16, targetIsPlayer bool) int {
+//
+// mobBase replaces the 150 against a MONSTER only (combatrule.MobResistBase):
+// the legacy 150 hands a low-resist monster +50% over the spell's own number,
+// which is the part of the hit the player never sees on the "Atq Mágico". A
+// player target always keeps the legacy 150. A mobBase of 0 means the legacy.
+func SkillResistScale(dam, instanceType int, resist [4]int16, targetIsPlayer bool, mobBase int) int {
 	var r int
 	switch {
 	case instanceType == 1:
@@ -185,8 +190,12 @@ func SkillResistScale(dam, instanceType int, resist [4]int16, targetIsPlayer boo
 	default:
 		return dam
 	}
+	base := 150
 	if !targetIsPlayer {
 		r /= 2
+		if mobBase > 0 {
+			base = mobBase
+		}
 	}
-	return (150 - r) * dam / 100
+	return (base - r) * dam / 100
 }

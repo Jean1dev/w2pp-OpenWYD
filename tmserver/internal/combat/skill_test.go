@@ -136,7 +136,7 @@ func TestSkillResistScale(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := SkillResistScale(tt.dam, tt.itype, resist, tt.targetPlayer)
+			got := SkillResistScale(tt.dam, tt.itype, resist, tt.targetPlayer, 0)
 			if got != tt.want {
 				t.Errorf("SkillResistScale(%d, type %d) = %d, want %d",
 					tt.dam, tt.itype, got, tt.want)
@@ -153,8 +153,32 @@ func TestSkillResistScale(t *testing.T) {
 		const base, affResist = int16(40), int16(30)
 		boosted := [4]int16{0, base + affResist, 0, 0} // type 3 → index 1
 		// (150-70)*100/100 = 80, vs 110 with base 40 alone.
-		if got := SkillResistScale(100, 3, boosted, true); got != 80 {
+		if got := SkillResistScale(100, 3, boosted, true, 0); got != 80 {
 			t.Errorf("boosted resist scale = %d, want 80", got)
 		}
 	})
+}
+
+// TestSkillResistScaleMobBase: a base configurada vale só contra monstro. Contra
+// jogador o 150 do legado fica, porque é a regra que o PvP inteiro supõe.
+func TestSkillResistScaleMobBase(t *testing.T) {
+	resist := [4]int16{10, 0, 0, 0}
+	tests := []struct {
+		name   string
+		player bool
+		base   int
+		want   int
+	}{
+		{"mob, legado", false, 150, 145},          // (150 − 10/2)
+		{"mob, sem o bônus", false, 100, 95},      // (100 − 5)
+		{"mob, 0 é o legado", false, 0, 145},      // base ausente
+		{"jogador ignora a base", true, 100, 140}, // (150 − 10)
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SkillResistScale(100, 1, resist, tt.player, tt.base); got != tt.want {
+				t.Errorf("SkillResistScale = %d, want %d", got, tt.want)
+			}
+		})
+	}
 }

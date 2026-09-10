@@ -768,7 +768,7 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		// effectiveDamage above already carries the multiplier, so skill 79 (the only
 		// branch reading Damage) must not be handed it twice — SkillBaseDamage applies
 		// this one only on the magic branch, which reads Magic and never Damage.
-		DamageMultiPct: int(e.AffDamageMultiPct),
+		DamageMultiPct: d.spellDamageMultiPct(e),
 		// The client picks its branch from the character's face, and only a
 		// Mortal's face has %10 <= 5 — ClassMaster says the same thing without
 		// being fooled by a BM transformation swapping the face mid-fight.
@@ -805,7 +805,7 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		for k := range resist {
 			resist[k] = effectiveResist(target, k)
 		}
-		return combat.SkillResistScale(dmg, sp.InstanceType, resist, world.IsPlayer(tid))
+		return combat.SkillResistScale(dmg, sp.InstanceType, resist, world.IsPlayer(tid), int(d.combatRules.MobResistBase))
 	case sp.InstanceType == 6:
 		if target.Clan == 4 {
 			return 0

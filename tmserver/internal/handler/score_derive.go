@@ -285,6 +285,9 @@ func (d *Dispatcher) classWeaponMagic(e *world.Entity) int32 {
 		}
 		weaponBonus += int32((float64(e.Dex)*w.dexK + float64(e.Int)*w.intK) / 100)
 	}
+	// The panel's share of the term (combatrule.WeaponIntMagicPct). Scaled on the
+	// sum, after the legacy's per-term truncation, so 100 is Kersef to the point.
+	weaponBonus = weaponBonus * d.combatRules.WeaponIntMagicPct / 100
 	if weaponBonus == 0 {
 		return 0
 	}

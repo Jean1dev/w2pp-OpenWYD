@@ -3,6 +3,7 @@ package handler
 import (
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/combatrule"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -175,6 +176,7 @@ func TestClassWeaponMagic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := New(Config{ItemUnique: map[int]int{weapon: tt.unique}, ItemPos: map[int]int{weapon: tt.pos}})
+			d.combatRules = combatrule.Kersef() // the ported term, at full strength
 			e := &world.Entity{ID: 1, Class: tt.class, Dex: 321, Int: 654, LearnedSkill: tt.learnedSkills}
 			e.Equip[weaponSlotR] = world.Item{Index: weapon}
 			if got := d.classWeaponMagic(e); got != tt.want {
@@ -194,6 +196,7 @@ func TestClassWeaponMagicIssue280(t *testing.T) {
 		ItemUnique:  map[int]int{weapon: 47},
 		ItemPos:     map[int]int{weapon: nPosWeapon2},
 	})
+	d.combatRules = combatrule.Kersef() // the ported term, at full strength
 	e := &world.Entity{
 		ID:           1,
 		Class:        1,

@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/combatrule"
 	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
@@ -201,6 +202,11 @@ type Config struct {
 	// nil every generator keeps exactly the period NPCGener.txt gives it.
 	SpawnRates SpawnRateSource
 
+	// CombatRules seeds the combat knobs (internal/combatrule). Nil — or a rule
+	// outside the ranges — runs combatrule.Default, the rule decided for this
+	// server; CombatRuleSrc then keeps it in step with the panel.
+	CombatRules *combatrule.Rules
+
 	// CombineRateSrc re-reads the Mesa das Máquinas while the server runs. Nil
 	// leaves CombineRates as the boot value for the life of the process, which
 	// is what a tmServer without dbServer gets.
@@ -304,6 +310,10 @@ type Dispatcher struct {
 	// The per-area respawn pacing, also read LIVE (spawnrate.go). The zero value
 	// is the content file untouched. genAreas is the generator-index-to-area
 	// table, resolved once on first use.
+	// The combat knobs (internal/combatrule), read LIVE like the spawn pacing. The
+	// zero value is NOT a valid rule, so New seeds it with combatrule.Default.
+	combatRules combatrule.Rules
+
 	spawnRateSource   SpawnRateSource
 	spawnRates        spawnrate.Config
 	spawnRatePolling  bool
@@ -465,6 +475,7 @@ func New(cfg Config) *Dispatcher {
 		worldEventSource:  cfg.WorldEvents,
 		dungeonGateSource: cfg.DungeonGates,
 		spawnRateSource:   cfg.SpawnRates,
+		combatRules:       combatRulesDe(cfg),
 		combineRateSource: cfg.CombineRateSrc,
 		xpConfigSource:    cfg.XPConfigs,
 		castleQuests:      cfg.CastleQuests,

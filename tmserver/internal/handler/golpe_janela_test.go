@@ -28,7 +28,7 @@ func TestGolpeUsaAContaDaJanela(t *testing.T) {
 	}
 	esperado := func(bruto int) int {
 		dmg := combat.SkillDamage(rng.New(), bruto, 0, 0)
-		return combat.SkillResistScale(dmg, 2, [4]int16{}, false)
+		return combat.SkillResistScale(dmg, 2, [4]int16{}, false, 150)
 	}
 	bm := func(tier uint8, magic int16, learned int32) *world.Entity {
 		return &world.Entity{ID: 1, Class: 2, Level: 349, Int: 2377, Magic: magic,
