@@ -120,9 +120,54 @@ func TestReadItemListETable(t *testing.T) {
 		t.Errorf("pisos de refinação = % X, want % X", got, wantFloors)
 	}
 	for idx, want := range map[int]Tier{1103: Epico, 811: Lendario, 0: None, 2360: None} {
-		if got := Tier(tab[fileHeaderSize+idx]); got != want {
+		if got := Tier(tab[fileHeaderSize+idx] &^ refinableBit); got != want {
 			t.Errorf("tabela[%d] = %v, want %v", idx, got, want)
 		}
+	}
+	if tab[fileHeaderSize+1103]&refinableBit == 0 {
+		t.Error("armadura sem a marca de refinável")
+	}
+}
+
+func TestClassifyAcessoriosEConsumiveis(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		it   Item
+		want Tier
+	}{
+		{"anel lv 47", Item{Index: 501, Pos: 256, Name: "Anel de Hercules"}, Comum},
+		{"colar lv 306", Item{Index: 640, Pos: 256, Name: "Colar de Mana"}, Epico},
+		{"capa do Campeão", Item{Index: 572, Pos: 32768, Name: "Manto do Campeao"}, Mitico},
+		{"traje de 30 dias", Item{Index: 4150, Pos: 4096, Name: "Conjunto Yin-Yang(30dias)"}, Raro},
+		{"medalha de guilda fica sem", Item{Index: 508, Pos: 4096, Name: "Medalha da Guilda"}, None},
+		{"acessório fora da lista fica sem", Item{Index: 542, Pos: 3840, Name: "Pedra Lunar"}, None},
+		{"poção", Item{Index: 400, Name: "Poção de Cura"}, Comum},
+		{"poção com prazo", Item{Index: 3379, Name: "Poção Divina(7dias)"}, Raro},
+		{"Garnet", Item{Index: 2444, Name: "Garnet"}, Epico},
+		{"Pedra Ideal", Item{Index: 5338, Name: "Pedra Ideal"}, Lendario},
+		{"livro de skill", Item{Index: 5501, Name: "Livro de Skill Bênção Divina"}, Epico},
+		{"skill em forma de item", Item{Index: 5001, Name: "Toque Sagrado"}, None},
+		// A ordem decide: evocação antes de pergaminho, material antes de entrada.
+		{"Pergaminho da Ressurreição é evocação", Item{Index: 3463, Name: "Pergaminho da Ressurreição"}, Raro},
+		{"Escritura de Oriharucon é material", Item{Index: 3445, Name: "Escritura de Oriharucon"}, Raro},
+		{"Escritura do Pesadelo é entrada", Item{Index: 5137, Name: "Escritura do Pesadelo"}, Incomum},
+		{"sobra do catálogo", Item{Index: 634, Name: "not used"}, None},
+	} {
+		if got := Classify(tc.it); got != tc.want {
+			t.Errorf("%s: Classify = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	if Refinable(Item{Pos: 0}) {
+		t.Error("consumível marcado como refinável")
+	}
+	if !Refinable(Item{Pos: 512}) {
+		t.Error("amuleto sem a marca de refinável")
+	}
+}
+
+func TestDecodeName(t *testing.T) {
+	if got := decodeName([]byte("Po\xe7\xe3o_de_Cura\x00lixo")); got != "Poção de Cura" {
+		t.Errorf("decodeName = %q", got)
 	}
 }
 

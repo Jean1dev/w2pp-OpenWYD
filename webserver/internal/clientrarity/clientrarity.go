@@ -18,16 +18,18 @@
 // Refinement raises it further, per item, so it cannot be in the per-index
 // table: the table carries the floor each refinement guarantees (+11 and +12
 // Épico, +13 Lendário, +14 Mítico, +15 Divino) and GamePatch.dll takes the
-// higher of the two for the item under the mouse.
+// higher of the two for the item under the mouse — for equipment and
+// accessories, which are the items that take a +N.
 //
-// Only equipment is classified: armour (helm, body, legs, gloves, boots) and
-// weapons and shields. Mounts are not here; GamePatch.dll ranks them from
-// GamePatch.txt, by name, because their tiers were chosen one by one.
+// Accessories and consumables carry nothing the rule could read, so they are
+// ranked by group in rules.go. Mounts are not here; GamePatch.dll ranks them
+// from GamePatch.txt, by name, because their tiers were chosen one by one.
 package clientrarity
 
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
 )
 
 // Tier is a rarity step, in the order the tooltip ranks them. The byte values
@@ -114,9 +116,24 @@ var exceptions = map[int]Tier{
 
 // Classify is the tier of one catalog item.
 func Classify(it Item) Tier {
-	if !isEquipment(it.Pos) {
-		return None
+	switch {
+	case isEquipment(it.Pos):
+		return classifyEquipment(it)
+	case isAccessory(it.Pos):
+		return classifyAccessory(it)
+	case it.Pos == 0:
+		return classifyConsumable(it)
 	}
+	return None // montaria, rosto e o que mais não se equipa nem se usa
+}
+
+// Refinable reports whether refinement can raise the item's tier: equipment
+// and accessories take +N, consumables do not.
+func Refinable(it Item) bool {
+	return isEquipment(it.Pos) || isAccessory(it.Pos)
+}
+
+func classifyEquipment(it Item) Tier {
 	if t, ok := exceptions[it.Index]; ok {
 		return t
 	}
@@ -212,11 +229,7 @@ func ReadItemList(il []byte) ([]Item, error) {
 			Pos:      int(uint16(short(offPos))),
 			Grade:    short(offGrade),
 		}
-		n := 0
-		for n < nameBytes && rec[n] != 0 {
-			n++
-		}
-		it.Name = string(rec[:n])
+		it.Name = decodeName(rec[:nameBytes])
 		for s := 0; s < effectSlots; s++ {
 			if short(offEffects+4*s) == efMobType {
 				it.MobType = short(offEffects + 4*s + 2)
@@ -228,9 +241,31 @@ func ReadItemList(il []byte) ([]Item, error) {
 	return items, nil
 }
 
+// decodeName turns a catalog name into the text the groups match: the client's
+// Windows-1252 bytes as runes (names only use its Latin-1 half) and "_" as the
+// space the tooltip draws.
+func decodeName(raw []byte) string {
+	var sb strings.Builder
+	for _, c := range raw {
+		switch c {
+		case 0:
+			return sb.String()
+		case '_':
+			sb.WriteByte(' ')
+		default:
+			sb.WriteRune(rune(c))
+		}
+	}
+	return sb.String()
+}
+
+// refinableBit marks, in a table byte, an item whose tier refinement raises.
+const refinableBit = 0x80
+
 // Table is GamePatchItens.bin: the magic "GPRI", the item count as a
 // little-endian uint16, the number of refinement floors (6) and the floors
-// for +10 … +15 as Tier bytes, then one Tier byte per item index.
+// for +10 … +15 as Tier bytes, then one byte per item index — the Tier in the
+// low bits and refinableBit when refinement applies to it.
 func Table(items []Item) []byte {
 	out := make([]byte, fileHeaderSize+itemCount)
 	copy(out, fileMagic)
@@ -240,9 +275,15 @@ func Table(items []Item) []byte {
 		out[7+i] = byte(t)
 	}
 	for _, it := range items {
-		if it.Index >= 0 && it.Index < itemCount {
-			out[fileHeaderSize+it.Index] = byte(Classify(it))
+		if it.Index < 0 || it.Index >= itemCount {
+			continue
 		}
+		t := Classify(it)
+		b := byte(t)
+		if t != None && Refinable(it) {
+			b |= refinableBit
+		}
+		out[fileHeaderSize+it.Index] = b
 	}
 	return out
 }

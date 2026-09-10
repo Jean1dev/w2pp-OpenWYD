@@ -38,7 +38,12 @@ do ItemList (regra em `webserver/internal/clientrarity`):
 | Incomum | verde | arma lv 100–149 |
 | Comum | cinza | armadura (N); arma até lv 99 |
 
-A refinação ergue o nível, nunca o baixa: +11 e +12 no mínimo Épico, +13
+Acessórios (anel, amuleto, orbe, pedra, familiar, capa) e consumíveis não têm
+letra no catálogo: vão por grupo, na lista de `rules.go` do mesmo pacote. Item
+que nenhum grupo pega fica com o tooltip do cliente.
+
+A refinação ergue o nível — de equipamento e acessório, nunca de consumível —,
+e nunca o baixa: +11 e +12 no mínimo Épico, +13
 Lendário, +14 Mítico, +15 Divino. Os pisos vão no cabeçalho do arquivo, e o DLL
 lê a refinação do item sob o mouse como `BASE_GetItemSanc`.
 

@@ -616,8 +616,9 @@ const Rarity* RarityOf(const char* title) {
 // --- Raridade dos equipamentos ----------------------------------------------------
 //
 // GamePatchItens.bin, escrito pelo gerador (webserver/internal/clientrarity, onde
-// a regra mora): "GPRI", a quantidade de itens em uint16 e um byte de nível por
-// índice de item — 0 deixa o tooltip do cliente como está. Sem o arquivo, só as
+// a regra mora): "GPRI", a quantidade de itens em uint16, os pisos de refinação
+// e um byte por índice de item — o nível nos 7 bits de baixo (0 deixa o tooltip
+// do cliente como está) e 0x80 quando a refinação o ergue. Sem o arquivo, só as
 // montarias ganham borda.
 
 struct Tier {
@@ -720,8 +721,12 @@ const Tier* ItemTier(int item, int refine) {
     if (item < 0 || item >= g_itemTierCount) {
         return nullptr;
     }
-    int t = g_itemTiers[item];
-    if (t > 0 && refine >= 10 && refine < 10 + kRefineFloors && g_refineFloor[refine - 10] > t) {
+    // O nível nos 7 bits de baixo; o bit alto diz se a refinação vale para ele
+    // (equipamento e acessório sim, consumível não).
+    const BYTE b = g_itemTiers[item];
+    int t = b & 0x7F;
+    const bool refinable = (b & 0x80) != 0;
+    if (t > 0 && refinable && refine >= 10 && refine < 10 + kRefineFloors && g_refineFloor[refine - 10] > t) {
         t = g_refineFloor[refine - 10];
     }
     return t > 0 && t < ARRAYSIZE(kTiers) ? &kTiers[t] : nullptr;
