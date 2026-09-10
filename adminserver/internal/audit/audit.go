@@ -52,6 +52,8 @@ const (
 	ActionSetDungeonGate     = "SET_DUNGEON_GATE"
 	ActionSetSpawnRate       = "SET_SPAWN_RATE"
 	ActionClearSpawnRate     = "CLEAR_SPAWN_RATE"
+	ActionSetCombatRule      = "SET_COMBAT_RULE"
+	ActionClearCombatRule    = "CLEAR_COMBAT_RULE"
 	ActionSetQuestReward     = "SET_QUEST_REWARD"
 	ActionClearQuestReward   = "CLEAR_QUEST_REWARD"
 	ActionSetDropBonus       = "SET_DROP_BONUS"
@@ -268,6 +270,8 @@ var rotulos = map[string]string{
 	ActionSetDungeonGate:     "Abriu ou fechou uma masmorra",
 	ActionSetSpawnRate:       "Mudou o tempo de spawn de uma área",
 	ActionClearSpawnRate:     "Voltou o tempo de spawn de uma área ao conteúdo",
+	ActionSetCombatRule:      "Mudou a regra de combate",
+	ActionClearCombatRule:    "Voltou a regra de combate ao padrão",
 	ActionSetQuestReward:     "Mudou a recompensa de uma quest",
 	ActionClearQuestReward:   "Voltou a recompensa de uma quest ao conteúdo",
 	ActionSetDropBonus:       "Mudou a escada do bônus de drop",

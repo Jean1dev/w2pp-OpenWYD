@@ -3230,3 +3230,165 @@ var CombineRateService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	CombatRuleService_CombatRuleVersion_FullMethodName = "/db.v1.CombatRuleService/CombatRuleVersion"
+	CombatRuleService_GetCombatRule_FullMethodName     = "/db.v1.CombatRuleService/GetCombatRule"
+)
+
+// CombatRuleServiceClient is the client API for CombatRuleService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// CombatRuleService serves the combat rule (internal/combatrule) to tmServer:
+// how much Magic a weapon draws from INT, whether the percentage damage buffs
+// reach spells, and the resist base of a spell against a monster.
+//
+// POLLED, like SpawnRateService. These are knobs the staff tune by watching a
+// fight, and restart-to-apply would charge a disconnect for everyone online per
+// turn. tmServer re-derives every online player's score when the rule moves, so
+// the new Magic reaches the client window at once.
+type CombatRuleServiceClient interface {
+	// CombatRuleVersion returns the monotonic version. Asked every few seconds.
+	CombatRuleVersion(ctx context.Context, in *CombatRuleVersionRequest, opts ...grpc.CallOption) (*CombatRuleVersionResponse, error)
+	// GetCombatRule returns the rule and the version it belongs to.
+	GetCombatRule(ctx context.Context, in *GetCombatRuleRequest, opts ...grpc.CallOption) (*GetCombatRuleResponse, error)
+}
+
+type combatRuleServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCombatRuleServiceClient(cc grpc.ClientConnInterface) CombatRuleServiceClient {
+	return &combatRuleServiceClient{cc}
+}
+
+func (c *combatRuleServiceClient) CombatRuleVersion(ctx context.Context, in *CombatRuleVersionRequest, opts ...grpc.CallOption) (*CombatRuleVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CombatRuleVersionResponse)
+	err := c.cc.Invoke(ctx, CombatRuleService_CombatRuleVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *combatRuleServiceClient) GetCombatRule(ctx context.Context, in *GetCombatRuleRequest, opts ...grpc.CallOption) (*GetCombatRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCombatRuleResponse)
+	err := c.cc.Invoke(ctx, CombatRuleService_GetCombatRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CombatRuleServiceServer is the server API for CombatRuleService service.
+// All implementations must embed UnimplementedCombatRuleServiceServer
+// for forward compatibility.
+//
+// CombatRuleService serves the combat rule (internal/combatrule) to tmServer:
+// how much Magic a weapon draws from INT, whether the percentage damage buffs
+// reach spells, and the resist base of a spell against a monster.
+//
+// POLLED, like SpawnRateService. These are knobs the staff tune by watching a
+// fight, and restart-to-apply would charge a disconnect for everyone online per
+// turn. tmServer re-derives every online player's score when the rule moves, so
+// the new Magic reaches the client window at once.
+type CombatRuleServiceServer interface {
+	// CombatRuleVersion returns the monotonic version. Asked every few seconds.
+	CombatRuleVersion(context.Context, *CombatRuleVersionRequest) (*CombatRuleVersionResponse, error)
+	// GetCombatRule returns the rule and the version it belongs to.
+	GetCombatRule(context.Context, *GetCombatRuleRequest) (*GetCombatRuleResponse, error)
+	mustEmbedUnimplementedCombatRuleServiceServer()
+}
+
+// UnimplementedCombatRuleServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCombatRuleServiceServer struct{}
+
+func (UnimplementedCombatRuleServiceServer) CombatRuleVersion(context.Context, *CombatRuleVersionRequest) (*CombatRuleVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CombatRuleVersion not implemented")
+}
+func (UnimplementedCombatRuleServiceServer) GetCombatRule(context.Context, *GetCombatRuleRequest) (*GetCombatRuleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCombatRule not implemented")
+}
+func (UnimplementedCombatRuleServiceServer) mustEmbedUnimplementedCombatRuleServiceServer() {}
+func (UnimplementedCombatRuleServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeCombatRuleServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CombatRuleServiceServer will
+// result in compilation errors.
+type UnsafeCombatRuleServiceServer interface {
+	mustEmbedUnimplementedCombatRuleServiceServer()
+}
+
+func RegisterCombatRuleServiceServer(s grpc.ServiceRegistrar, srv CombatRuleServiceServer) {
+	// If the following call panics, it indicates UnimplementedCombatRuleServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CombatRuleService_ServiceDesc, srv)
+}
+
+func _CombatRuleService_CombatRuleVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CombatRuleVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CombatRuleServiceServer).CombatRuleVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CombatRuleService_CombatRuleVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CombatRuleServiceServer).CombatRuleVersion(ctx, req.(*CombatRuleVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CombatRuleService_GetCombatRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCombatRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CombatRuleServiceServer).GetCombatRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CombatRuleService_GetCombatRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CombatRuleServiceServer).GetCombatRule(ctx, req.(*GetCombatRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CombatRuleService_ServiceDesc is the grpc.ServiceDesc for CombatRuleService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CombatRuleService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.CombatRuleService",
+	HandlerType: (*CombatRuleServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CombatRuleVersion",
+			Handler:    _CombatRuleService_CombatRuleVersion_Handler,
+		},
+		{
+			MethodName: "GetCombatRule",
+			Handler:    _CombatRuleService_GetCombatRule_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

@@ -120,6 +120,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.pollSpawnRates(w)
 	d.pollXPConfig(w)
 	d.pollCombineRates(w)
+	d.pollCombatRules(w)
 }
 
 type questArea struct {

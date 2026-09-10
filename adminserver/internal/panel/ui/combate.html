@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Regra de combate — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  .estado-regra { font-size: 14px; margin: 0 0 14px; }
+  .estado-regra b { font-size: 15px; }
+  .marca { font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+           padding: 2px 7px; border-radius: 3px; color: var(--accent); background: var(--chip-bg); }
+  td.botao { max-width: 46ch; }
+  td.botao .nome { font-weight: 600; color: var(--ink); }
+  td.botao .explica { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.45; }
+  td.valor { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.valor.agora { font-weight: 600; color: var(--ink); }
+  .campos-regra {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px 24px; margin: 0 0 16px;
+  }
+  .campos-regra label.num { display: block; font-size: 12.5px; color: var(--ink-3); }
+  .campos-regra input[type=number] {
+    width: 100%; margin-top: 4px; padding: 6px 8px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  .campos-regra input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .campos-regra fieldset { border: 0; margin: 0; padding: 0; }
+  .campos-regra legend { font-size: 12.5px; color: var(--ink-3); padding: 0; margin-bottom: 6px; }
+  .campos-regra fieldset label { display: flex; gap: 7px; align-items: center; font-size: 13.5px; margin-bottom: 4px; }
+  .campos-regra .faixa { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+  .acoes-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .acoes-linha form { margin: 0; }
+  td.quando { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.mudanca { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+  td.mudanca .de { color: var(--ink-3); }
+  .acao {
+    font-size: 11px; letter-spacing: .06em; font-family: ui-monospace, Consolas, monospace;
+    color: var(--ink); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+{{template "topbar" .}}
+
+<main>
+  <h1>Regra de combate</h1>
+  <p class="sub">
+    Quanto um mago bate neste servidor: de onde vem a Magia, o que multiplica a
+    magia e quanto a resistência do monstro pesa.
+  </p>
+
+  {{template "abas-rates" .}}
+
+  {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
+
+  {{template "quando-vale" "segundos"}}
+
+  <div class="nota calma">
+    <strong>O padrão é a regra decidida para este servidor</strong>, não o que
+    veio portado do Kersef. Com o Kersef, uma FM Mortal +11 com tudo ligado
+    tirava ~56,7K de um Tauron e a +15 batia igual, porque o INT já tinha colado
+    a Magia no teto. Com o padrão, a +11 tira ~21K e a +15 ~28,6K.
+    <br><br>
+    Ao gravar, a Magia de quem está online é refeita na hora e a janela
+    (<span class="mono">Atq Mágico</span>) já mostra o número novo — ninguém
+    precisa relogar.
+  </div>
+
+  <div class="caixa">
+    <h2>Em vigor</h2>
+    <p class="estado-regra">
+      {{if .Combate.Configurada}}
+        <b>Gravada pela equipe.</b> O jogo usa os números abaixo, e não o padrão.
+      {{else}}
+        <b>O padrão.</b> Ninguém gravou uma regra; o jogo usa a decidida para o servidor.
+      {{end}}
+      {{if .Combate.Versao}}<span class="dica">Versão {{.Combate.Versao}}.</span>{{end}}
+    </p>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Botão</th><th>Em vigor</th><th>Padrão</th><th>Kersef</th></tr>
+        </thead>
+        <tbody>
+          {{range .Combate.Botoes}}
+          <tr>
+            <td class="botao">
+              <div class="nome">{{.Nome}} {{if .Mudado}}<span class="marca">fora do padrão</span>{{end}}</div>
+              <div class="explica">{{.Explica}}</div>
+            </td>
+            <td class="valor agora">{{.Agora}}</td>
+            <td class="valor">{{.Padrao}}</td>
+            <td class="valor">{{.Kersef}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="caixa">
+    <h2>Gravar uma regra</h2>
+    <p class="sub">
+      Os três vão juntos: são uma decisão só sobre o que a magia é aqui.
+    </p>
+    <form method="post" action="/rates/combate">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="campos-regra">
+        <label class="num">Magia da arma por INT (%)
+          <input name="arma" type="number" min="{{.Combate.MinArma}}" max="{{.Combate.MaxArma}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.WeaponIntMagicPct}}">
+          <span class="faixa">{{.Combate.MinArma}} a {{.Combate.MaxArma}}. 0 = só equipamento, montaria e buffs.</span>
+        </label>
+        <fieldset>
+          <legend>Multiplicador de dano na magia</legend>
+          <label><input type="radio" name="multi" value="0" required {{if not .Combate.Regra.SpellDamageMulti}}checked{{end}}> Desligado — só o golpe físico (legado)</label>
+          <label><input type="radio" name="multi" value="1" {{if .Combate.Regra.SpellDamageMulti}}checked{{end}}> Ligado — também a magia (Kersef)</label>
+        </fieldset>
+        <label class="num">Resistência de monstro à magia (base)
+          <input name="resist" type="number" min="{{.Combate.MinResist}}" max="{{.Combate.MaxResist}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.MobResistBase}}">
+          <span class="faixa">{{.Combate.MinResist}} a {{.Combate.MaxResist}}. 150 = legado; contra jogador é sempre 150.</span>
+        </label>
+      </div>
+      <button type="submit" class="principal">Gravar a regra</button>
+    </form>
+  </div>
+
+  <div class="caixa">
+    <h2>Atalhos</h2>
+    <p class="sub">
+      Para comparar numa luta de verdade e voltar. Os dois gravam na auditoria
+      como qualquer outra mudança.
+    </p>
+    <div class="acoes-linha">
+      <form method="post" action="/rates/combate">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="arma" value="{{.Combate.Kersef.WeaponIntMagicPct}}">
+        <input type="hidden" name="multi" value="{{if .Combate.Kersef.SpellDamageMulti}}1{{else}}0{{end}}">
+        <input type="hidden" name="resist" value="{{.Combate.Kersef.MobResistBase}}">
+        <button type="submit">Usar a regra do Kersef</button>
+      </form>
+      {{if .Combate.Configurada}}
+      <form method="post" action="/rates/combate/limpar">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button type="submit" class="perigo">Voltar ao padrão</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="caixa">
+    <h2>Histórico</h2>
+    <p class="sub">
+      Toda mudança na regra, mais recente primeiro. Vem da auditoria do painel,
+      que o banco não deixa alterar nem apagar.
+    </p>
+    {{if .Historico}}
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Mudança</th></tr>
+        </thead>
+        <tbody>
+          {{range .Historico}}
+          <tr>
+            <td class="quando">{{.CreatedAt.Format "02/01 15:04"}}</td>
+            <td>
+              {{if .ActorName}}{{.ActorName}}{{else}}conta {{.ActorID}}{{end}}
+              <span class="cargo">{{.ActorRole}}</span>
+            </td>
+            <td><span class="acao" title="{{.Action}}">{{.Rotulo}}</span></td>
+            <td class="mudanca">
+              {{if .Old}}<span class="de">{{.Old}}</span> &rarr; {{end}}
+              {{if .New}}{{.New}}{{else if not .Old}}&mdash;{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="vazio">Ninguém mexeu na regra de combate ainda.</div>
+    {{end}}
+  </div>
+</main>
+</body>
+</html>

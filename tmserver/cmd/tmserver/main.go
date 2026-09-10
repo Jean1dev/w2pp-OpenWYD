@@ -215,6 +215,7 @@ func run(logger *slog.Logger) error {
 	var spawnRates handler.SpawnRateSource
 	var xpConfigs handler.XPConfigSource
 	var combineRates handler.CombineRateSource
+	var combatRules handler.CombatRuleSource
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -228,6 +229,7 @@ func run(logger *slog.Logger) error {
 		spawnRates = dbclient.NewSpawnRateSource(conn)
 		xpConfigs = dbclient.NewXPConfigSource(conn)
 		combineRates = dbclient.NewCombineRateSource(conn)
+		combatRules = dbclient.NewCombatRuleSource(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -549,6 +551,7 @@ func run(logger *slog.Logger) error {
 		DungeonGates:    dungeonGates,
 		SpawnRates:      spawnRates,
 		CombineRateSrc:  combineRates,
+		CombatRuleSrc:   combatRules,
 		CastleQuests:    castleQuests,
 		EventRNGSeed:    eventSeed,
 		MaxNightmare:    *maxNightmare,
@@ -649,6 +652,7 @@ func run(logger *slog.Logger) error {
 		dispatch.ApplyDungeonGatesBoot()
 		dispatch.ApplySpawnRatesBoot()
 		dispatch.ApplyCombineRatesBoot()
+		dispatch.ApplyCombatRulesBoot()
 	}
 	// The individual respawn queue takes its delay from the same area dial the
 	// minute timer does, so the desert's dozen blocks without a minute period

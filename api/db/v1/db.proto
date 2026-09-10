@@ -1227,3 +1227,41 @@ message CombineBand {
   string label = 4;
   int32 mult_pct = 5;
 }
+
+// CombatRuleService serves the combat rule (internal/combatrule) to tmServer:
+// how much Magic a weapon draws from INT, whether the percentage damage buffs
+// reach spells, and the resist base of a spell against a monster.
+//
+// POLLED, like SpawnRateService. These are knobs the staff tune by watching a
+// fight, and restart-to-apply would charge a disconnect for everyone online per
+// turn. tmServer re-derives every online player's score when the rule moves, so
+// the new Magic reaches the client window at once.
+service CombatRuleService {
+  // CombatRuleVersion returns the monotonic version. Asked every few seconds.
+  rpc CombatRuleVersion(CombatRuleVersionRequest) returns (CombatRuleVersionResponse);
+  // GetCombatRule returns the rule and the version it belongs to.
+  rpc GetCombatRule(GetCombatRuleRequest) returns (GetCombatRuleResponse);
+}
+
+message CombatRuleVersionRequest {}
+message CombatRuleVersionResponse { int64 version = 1; }
+
+message GetCombatRuleRequest {}
+
+// GetCombatRuleResponse is the one rule row. configured=false means nobody has
+// saved a rule, and tmServer then runs combatrule.Default() whatever the three
+// fields say — they carry the default too, but a reader must not depend on it:
+// their zero values are not a rule (a resist base of 0 is outside its range).
+message GetCombatRuleResponse {
+  int64 version = 1;
+  bool configured = 2;
+  // 0..100: the share of the weapon's (DEX×k + INT×k)/100 Magic term. 100 is
+  // Kersef, 0 leaves Magic to equipment, mount and buffs.
+  int32 weapon_int_magic_pct = 3;
+  // Whether DAMAGEMULTI (potions, Assalto, Meditação, transforms) multiplies
+  // spells too. The legacy applies it to the melee hit only.
+  bool spell_damage_multi = 4;
+  // 50..150: the constant in a spell's resist scale against a MONSTER,
+  // (base − resist/2)%. The legacy is 150; against a player 150 always stays.
+  int32 mob_resist_base = 5;
+}

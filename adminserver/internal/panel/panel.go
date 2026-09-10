@@ -291,6 +291,7 @@ type Config struct {
 	Masmorras   Masmorras
 	Quests      Quests
 	Spawn       Spawn
+	Combate     Combate
 	BonusDrop   BonusDrop
 	Maquinas    Maquinas
 	Sessions    *session.Store
@@ -407,6 +408,13 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /rates/maquinas/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMaquinaRate))))
 		mux.Handle("POST /rates/maquinas/faixas", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaFaixas))))
 		mux.Handle("POST /rates/maquinas/etiqueta", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaEtiqueta))))
+	}
+	// A regra de combate tem armazém próprio, como as máquinas, e vale em até 15
+	// segundos: o tmServer relê a versão e refaz o score de quem está online.
+	if h.cfg.Combate != nil {
+		mux.Handle("GET /rates/combate", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.combate))))
+		mux.Handle("POST /rates/combate", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setCombate))))
+		mux.Handle("POST /rates/combate/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparCombate))))
 	}
 	if h.cfg.BonusDrop != nil {
 		mux.Handle("GET /rates/bonus-drop", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.bonusDrop))))
@@ -556,6 +564,7 @@ type page struct {
 	HasQuests    bool // the quest rewards need the database read
 	HasBonusDrop bool // the drop-bonus ladders need the database read
 	HasMaquinas  bool
+	HasCombate   bool   // a regra de combate precisa da leitura do banco
 	HasRates     bool   // Rates existe se pelo menos uma das suas abas existir
 	HasMont      bool   // a aba de montarias vem do webServer, a de XP vem do banco
 	CSRF         string // every form that changes something carries this back
@@ -606,6 +615,7 @@ func (h *Handler) pageFor(r *http.Request, nav string) page {
 		HasQuests:    h.cfg.Quests != nil,
 		HasBonusDrop: h.cfg.BonusDrop != nil,
 		HasMaquinas:  h.cfg.Maquinas != nil,
+		HasCombate:   h.cfg.Combate != nil,
 		HasRates:     primeiraAbaDeRates(h.cfg) != "",
 		HasMont:      h.cfg.GameData != nil,
 		CSRF:         sess.CSRF,

@@ -207,6 +207,11 @@ type Config struct {
 	// server; CombatRuleSrc then keeps it in step with the panel.
 	CombatRules *combatrule.Rules
 
+	// CombatRuleSrc is the panel-managed combat rule (0044_combat_rule), polled
+	// live. Nil leaves CombatRules as the rule for the life of the process,
+	// which is what a tmServer without dbServer gets.
+	CombatRuleSrc CombatRuleSource
+
 	// CombineRateSrc re-reads the Mesa das Máquinas while the server runs. Nil
 	// leaves CombineRates as the boot value for the life of the process, which
 	// is what a tmServer without dbServer gets.
@@ -310,15 +315,21 @@ type Dispatcher struct {
 	// The per-area respawn pacing, also read LIVE (spawnrate.go). The zero value
 	// is the content file untouched. genAreas is the generator-index-to-area
 	// table, resolved once on first use.
-	// The combat knobs (internal/combatrule), read LIVE like the spawn pacing. The
-	// zero value is NOT a valid rule, so New seeds it with combatrule.Default.
-	combatRules combatrule.Rules
-
 	spawnRateSource   SpawnRateSource
 	spawnRates        spawnrate.Config
 	spawnRatePolling  bool
 	spawnRatePollTick int
 	genAreas          []uint8
+
+	// The combat knobs (internal/combatrule), read LIVE like the spawn pacing
+	// (combatrule.go). The zero value is NOT a valid rule, so New seeds it with
+	// combatrule.Default. combatRuleVersion is the version the rule came from,
+	// zero until the first read.
+	combatRules        combatrule.Rules
+	combatRuleSource   CombatRuleSource
+	combatRuleVersion  int64
+	combatRulePolling  bool
+	combatRulePollTick int
 
 	// The Mesa das Máquinas, read live the same way (combineratepoll.go).
 	// combineRates itself is declared above, next to the other combine tables.
@@ -476,6 +487,7 @@ func New(cfg Config) *Dispatcher {
 		dungeonGateSource: cfg.DungeonGates,
 		spawnRateSource:   cfg.SpawnRates,
 		combatRules:       combatRulesDe(cfg),
+		combatRuleSource:  cfg.CombatRuleSrc,
 		combineRateSource: cfg.CombineRateSrc,
 		xpConfigSource:    cfg.XPConfigs,
 		castleQuests:      cfg.CastleQuests,

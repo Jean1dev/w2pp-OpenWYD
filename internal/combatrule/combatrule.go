@@ -62,3 +62,24 @@ func (r Rules) Valid() bool {
 	return r.WeaponIntMagicPct >= MinWeaponIntMagicPct && r.WeaponIntMagicPct <= MaxWeaponIntMagicPct &&
 		r.MobResistBase >= MinMobResistBase && r.MobResistBase <= MaxMobResistBase
 }
+
+// Config is the rule as the panel left it (migration 0044_combat_rule), plus the
+// version tmServer polls to notice an edit.
+//
+// Configured separates "somebody saved these numbers" from "nobody saved
+// anything", which the screen and the audit log must not blur even when the
+// numbers happen to match: the first is a decision somebody can be asked about,
+// the second is whatever Default() says in the build that is running.
+type Config struct {
+	Version    int64
+	Configured bool
+	// Rules is the rule in force. When Configured is false it is Default(), so
+	// every reader can take it as is instead of re-deciding the fallback.
+	Rules Rules
+}
+
+// Unconfigured is the Config of a server nobody has touched: the decided
+// default, at the given version.
+func Unconfigured(version int64) Config {
+	return Config{Version: version, Rules: Default()}
+}

@@ -499,6 +499,7 @@ func runServe(args []string, logger *slog.Logger) error {
 	dbv1.RegisterCombineRateServiceServer(srv, grpcsrv.NewCombineRate(st))
 	dbv1.RegisterDungeonGateServiceServer(srv, grpcsrv.NewDungeonGate(st))
 	dbv1.RegisterSpawnRateServiceServer(srv, grpcsrv.NewSpawnRate(st))
+	dbv1.RegisterCombatRuleServiceServer(srv, grpcsrv.NewCombatRule(st))
 	dbv1.RegisterQuestRewardServiceServer(srv, grpcsrv.NewQuestReward(st))
 	dbv1.RegisterDropBonusServiceServer(srv, grpcsrv.NewDropBonus(st))
 

@@ -25,6 +25,15 @@ func TestValid(t *testing.T) {
 	}
 }
 
+// TestSemConfiguracaoEOPadrao: um servidor em que ninguém gravou nada roda a
+// regra decidida, e não o valor zero — que nem é uma regra válida.
+func TestSemConfiguracaoEOPadrao(t *testing.T) {
+	c := Unconfigured(7)
+	if c.Configured || c.Version != 7 || c.Rules != Default() {
+		t.Errorf("Unconfigured(7) = %+v, want versão 7, não configurada, regra padrão", c)
+	}
+}
+
 // TestPadraoEADecisao prende os números decididos em 2026-09-10. Mudar o padrão
 // muda o dano de todo mago do servidor sem ninguém tocar no painel.
 func TestPadraoEADecisao(t *testing.T) {

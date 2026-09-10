@@ -189,6 +189,7 @@ func run(logger *slog.Logger) error {
 		Masmorras:   store.New(pool),
 		Quests:      store.New(pool),
 		Spawn:       store.New(pool),
+		Combate:     store.New(pool),
 		BonusDrop:   store.New(pool),
 		Maquinas:    store.New(pool),
 		Denuncias:   store.New(pool),

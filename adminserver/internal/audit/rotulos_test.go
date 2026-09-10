@@ -24,6 +24,7 @@ func TestTodaAcaoTemRotulo(t *testing.T) {
 		ActionCreateAccount, ActionSetXPRule, ActionClearXPRule, ActionSetDungeonGate,
 		ActionSetQuestReward, ActionClearQuestReward,
 		ActionSetSpawnRate, ActionClearSpawnRate,
+		ActionSetCombatRule, ActionClearCombatRule,
 		ActionSetDropBonus, ActionClearDropBonus, ActionSetDropBonusLigado,
 		ActionSetMountGrowth, ActionClearMountGrowth,
 		ActionSetMountAbsorb, ActionClearMountAbsorb,
