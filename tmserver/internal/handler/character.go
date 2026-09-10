@@ -271,6 +271,18 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 			st.HP = 1 // guard a broken/zero MaxHP so the player can still act
 		}
 	}
+	// E a mana nunca entra negativa. O HP acima já tinha guarda; o MP não, e o
+	// pacote de login (Mp: st.MP, logo abaixo) manda o valor CRU do banco. Um MP
+	// negativo gravado — sobra do período em que debuff de monstro drenava a
+	// mana antes de existir piso (cfb4131f) — chegava ao cliente em todo login, e
+	// o cliente animava a barra devagar a partir dele: -19929 logo na tela de
+	// boas-vindas, subindo tique a tique. O servidor já não produz MP negativo em
+	// jogo (toda escrita tem guarda ou piso); o que faltava era não CONFIAR no que
+	// foi gravado antes disso. O primeiro save depois deste login já grava o valor
+	// saneado.
+	if st.MP < 0 {
+		st.MP = 0
+	}
 	// Login position follows the legacy split: STRUCT_MOB.SPX/SPY is the Gema
 	// Estelar warp save-point (st.SaveX/SaveY, rehydrated onto the entity below),
 	// while MSG_CNFCharacterLogin.PosX/PosY is the actual world-entry tile
