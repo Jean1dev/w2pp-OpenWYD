@@ -19,8 +19,8 @@ Andaluz B = Divina, dourado
 ```
 
 Nome como aparece no título do tooltip; depois do `=`, o nome do nível e a
-família de cor da borda: `cinza`, `verde`, `azul`, `dourado`, `laranja` ou
-`vermelho`. Montaria fora do arquivo fica com borda cinza e sem linha de nível.
+família de cor da borda: `cinza`, `verde`, `azul`, `roxo`, `dourado`, `laranja`
+ou `vermelho`. Montaria fora do arquivo fica com borda cinza e sem linha de nível.
 
 ## Como o desenho funciona
 

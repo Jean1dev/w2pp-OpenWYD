@@ -9,10 +9,10 @@
 // exatamente o que está compilado no cliente, e por isso não é recompilado).
 //
 // O que ele faz: envolve a função que monta o tooltip de item (0x416A80). O
-// cliente monta tudo normalmente; no fim, se o tooltip tiver alguma linha de
-// "Absorção" — só montaria tem —, as linhas ganham a paleta da montaria, o fundo
-// troca de cor e uma borda é desenhada em volta. Espada, armadura e todo o resto
-// continuam como o cliente desenha.
+// cliente monta tudo normalmente; no fim, se o item for uma montaria adulta
+// (2360-2389, índice lido do slot sob o mouse), as linhas ganham a paleta da
+// montaria, o fundo troca de cor e uma borda é desenhada em volta. Espada,
+// armadura e todo o resto continuam como o cliente desenha.
 //
 // Como ele sabe o texto de cada linha sem decifrar onde o controle guarda a
 // string: intercepta o método SetText (vtable +0x80) das 13 linhas do tooltip e
@@ -41,6 +41,17 @@ constexpr int kSetColorSlot = 0x84 / 4;
 
 // Os oito primeiros bytes da função: push ebp / mov ebp,esp / mov eax,0x1498.
 constexpr BYTE kExpectedPrologue[8] = {0x55, 0x8B, 0xEC, 0xB8, 0x98, 0x14, 0x00, 0x00};
+
+// Onde a função pega o slot sob o mouse: logo depois da chamada virtual +0xB8
+// (x, y), "mov [ebp-8], eax / mov eax, [0x6F0AB0]". Um desvio ali anota o índice
+// do item do slot — [slot+0x670] é o STRUCT_ITEM, e o índice é o primeiro word,
+// lido pelo próprio cliente em 0x416BA6. É assim que o tooltip sabe que é de
+// montaria, com ou sem linha de absorção.
+constexpr DWORD kSlotHookAt = 0x416B4E;
+constexpr DWORD kSlotHookBack = 0x416B56;
+constexpr BYTE kExpectedSlotBytes[8] = {0x89, 0x45, 0xF8, 0xA1, 0xB0, 0x0A, 0x6F, 0x00};
+constexpr int kAdultMountLo = 2360; // Porco
+constexpr int kAdultMountHi = 2389; // Pantera Negra
 
 // A paleta do tooltip de montaria, em ARGB. O título não tem rótulo: é o nome do
 // item, e fica com a sua cor sempre que o tooltip for de montaria.
@@ -90,6 +101,11 @@ bool g_lineUsed[kTracked];     // a linha recebeu texto não vazio neste tooltip
 char g_title[64];              // o nome do item, como o cliente o escreveu no título
 DWORD g_clientColor[kTracked]; // a cor que o próprio cliente escolheu
 bool g_tooltipHasAbsorb = false;
+// O índice do item do tooltip, anotado pelo desvio em kSlotHookAt; -1 sem item.
+// Sem o desvio (bytes de outra build), a montaria é reconhecida pela linha de
+// absorção, como antes.
+int g_tooltipItem = -1;
+bool g_slotHooked = false;
 // O cliente chama a função do tooltip o tempo todo — umas vinte vezes por quadro
 // desenhado —, e quase sempre ela sai logo no começo sem montar nada. Só a
 // chamada que escreve texto nas linhas monta um tooltip; as outras não podem
@@ -280,6 +296,7 @@ const Family kFamilies[] = {
     {"cinza", {58, 62, 68}, {176, 182, 190}},
     {"verde", {28, 74, 44}, {110, 231, 150}},
     {"azul", {43, 68, 89}, {116, 185, 242}},
+    {"roxo", {66, 32, 104}, {196, 148, 255}},
     {"dourado", {110, 76, 18}, {255, 214, 102}},
     {"laranja", {115, 52, 14}, {255, 158, 72}},
     {"vermelho", {105, 18, 26}, {255, 92, 92}},
@@ -486,7 +503,7 @@ void HookTooltipPanel() {
 //
 // O nome é o do título do tooltip; depois do "=" vêm o nome do nível, que
 // aparece numa linha do tooltip ("Montaria nível Divina"), e a família de cor
-// da borda (cinza, verde, azul, dourado, laranja, vermelho). O arquivo é texto
+// da borda (cinza, verde, azul, roxo, dourado, laranja, vermelho). O arquivo é texto
 // no código de página do cliente (Windows-1252). Montaria que não está nele fica
 // com a borda cinza e sem a linha de nível.
 
@@ -667,7 +684,15 @@ void __cdecl BeforeTooltip() {
     }
     g_title[0] = 0;
     g_tooltipHasAbsorb = false;
+    g_tooltipItem = -1;
     g_tooltipBuilt = false;
+}
+
+bool IsMountTooltip() {
+    if (!g_slotHooked) {
+        return g_tooltipHasAbsorb;
+    }
+    return g_tooltipItem >= kAdultMountLo && g_tooltipItem <= kAdultMountHi;
 }
 
 void __cdecl AfterTooltip() {
@@ -676,7 +701,7 @@ void __cdecl AfterTooltip() {
     if (!g_tooltipBuilt) {
         return; // chamada que não montou tooltip: o que está na tela continua valendo
     }
-    g_mountTooltip = g_tooltipHasAbsorb;
+    g_mountTooltip = IsMountTooltip();
     const Rarity* rarity = g_mountTooltip ? RarityOf(g_title) : nullptr;
     g_family = rarity != nullptr ? rarity->family : kDefaultFamily;
     void* panel = TooltipPanel();
@@ -684,8 +709,8 @@ void __cdecl AfterTooltip() {
         PanelColor(panel) = g_mountTooltip ? kColorBackground : g_panelOriginalColor;
     }
     PlaceLevelLine(rarity);
-    // Só o tooltip de montaria tem "Absorção"; nos outros a paleta não entra.
-    if (!g_tooltipHasAbsorb) {
+    // A paleta é só do tooltip de montaria.
+    if (!g_mountTooltip) {
         return;
     }
     g_applying = true;
@@ -731,6 +756,43 @@ __declspec(naked) void TooltipHook() {
     }
 }
 
+// Anota o índice do item do slot e refaz as duas instruções que o desvio cobriu.
+// ecx está livre aqui: o cliente o sobrescreve na instrução seguinte.
+__declspec(naked) void SlotHook() {
+    __asm {
+        mov dword ptr [ebp - 0x8], eax
+        mov g_tooltipItem, -1
+        test eax, eax
+        jz done
+        mov ecx, dword ptr [eax + 0x670]
+        test ecx, ecx
+        jz done
+        movsx ecx, word ptr [ecx]
+        mov g_tooltipItem, ecx
+    done:
+        mov eax, dword ptr ds:[0x6F0AB0]
+        push 0x416B56 // kSlotHookBack; literal pelo mesmo motivo do trampolim
+        ret
+    }
+}
+
+bool InstallSlotHook() {
+    BYTE* target = reinterpret_cast<BYTE*>(kSlotHookAt);
+    if (memcmp(target, kExpectedSlotBytes, sizeof(kExpectedSlotBytes)) != 0) {
+        return false;
+    }
+    DWORD oldProtect = 0;
+    if (!VirtualProtect(target, sizeof(kExpectedSlotBytes), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+        return false;
+    }
+    target[0] = 0xE9; // jmp rel32
+    *reinterpret_cast<DWORD*>(target + 1) = reinterpret_cast<DWORD>(&SlotHook) - (kSlotHookAt + 5);
+    target[5] = target[6] = target[7] = 0x90; // o resto das duas instruções cobertas
+    VirtualProtect(target, sizeof(kExpectedSlotBytes), oldProtect, &oldProtect);
+    FlushInstructionCache(GetCurrentProcess(), target, sizeof(kExpectedSlotBytes));
+    return true;
+}
+
 bool InstallTooltipHook() {
     BYTE* target = reinterpret_cast<BYTE*>(kTooltipFunc);
     if (memcmp(target, kExpectedPrologue, sizeof(kExpectedPrologue)) != 0) {
@@ -753,7 +815,9 @@ bool InstallTooltipHook() {
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);
-        InstallTooltipHook();
+        if (InstallTooltipHook()) {
+            g_slotHooked = InstallSlotHook();
+        }
     }
     return TRUE;
 }
