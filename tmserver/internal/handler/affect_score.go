@@ -230,10 +230,9 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 
 // applyConHpBuff is the CON/MaxHP buff shape shared by affect 14 (Possuído,
 // Basedef.cpp:4053 / Buff Loop.txt:127) and affect 24 (Samaritano, by the issue
-// #267 divergence). MaxHP is added EXPLICITLY because Con feeds nothing in this
-// model: refreshScore builds MaxHP from BaseMaxHP + equipment (item.go), never
-// from Con, exactly like the legacy, whose Con→HP derivation runs before the
-// buff loop (Basedef.cpp:3152).
+// #267 divergence). MaxHP is added EXPLICITLY because refreshScore converts only
+// equipment CON to HP before the buff loop (Basedef.cpp:3152). Affect-granted
+// CON must supply its own HP delta without entering that conversion again.
 //
 // Not ported from Basedef.cpp:4056: `if (ClassMaster != MORTAL && != ARCH) value
 // *= 3`, along with that file's *22 / *125% multipliers — those are private-server
