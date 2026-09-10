@@ -2719,15 +2719,35 @@ func (d *Dispatcher) sendScoreSelf(w *world.World, s *world.Session, e *world.En
 // always sends all fields; a partial refresh would zero the client's state.
 // Hold is not modeled yet (0).
 func (d *Dispatcher) sendEtc(w *world.World, s *world.Session, e *world.Entity) {
-	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtc(protocol.UpdateEtcData{
+	w.Send(s, protocol.MsgUpdateEtc, protocol.EncodeUpdateEtc(etcData(e)))
+}
+
+// etcData is the MSG_UpdateEtc payload for a player.
+func etcData(e *world.Entity) protocol.UpdateEtcData {
+	return protocol.UpdateEtcData{
 		Exp:          e.Exp,
 		Learn:        int64(e.LearnedSkill),
 		ScoreBonus:   e.ScoreBonus,
 		SpecialBonus: e.SpecialBonus,
 		SkillBonus:   e.SkillBonus,
-		Magic:        uint16(e.Magic),
+		Magic:        etcMagic(e),
 		Coin:         e.Coin,
-	}))
+	}
+}
+
+// etcMagic is the Magic MSG_UpdateEtc carries, and it has to be the SAME value
+// UpdateScore sends: both packets write the one field the client shows as "Atq
+// Mágico". The legacy sends MOB.Magic in both (SendFunc.cpp:1279 and :1336), and
+// there MOB.Magic already includes the Buff Loop — the Divina's +20%, the
+// potions' +5 — so our equivalent is effectiveMagic, not the flat e.Magic.
+//
+// Sending the flat value made the window drop every magic buff whenever an
+// UpdateEtc arrived, which is every experience gain: a caster with the Divina up
+// saw its Atq Mágico fall back after each kill, and the next score push put it
+// back. The field is an unsigned short on the wire, so it is clamped rather than
+// allowed to wrap.
+func etcMagic(e *world.Entity) uint16 {
+	return uint16(min(max(effectiveMagic(e), 0), 65535))
 }
 
 // tradingItem handles _MSG_TradingItem (0x0376): the client's universal
