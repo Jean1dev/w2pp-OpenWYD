@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -43,6 +44,7 @@ func (d *Dispatcher) inviteGuild(w *world.World, s *world.Session, _ protocol.He
 		return
 	}
 	if d.now().Weekday() == time.Sunday {
+		sendClientMessage(w, s, msgGuildDomingoConvite) // _MSG_InviteGuild.cpp:61
 		return
 	}
 	other, te := w.Session(target), w.Entity(target)
@@ -57,7 +59,9 @@ func (d *Dispatcher) inviteGuild(w *world.World, s *world.Session, _ protocol.He
 		cost = guildSpecialCost
 	}
 	if e.Coin < cost {
-		d.notify(w, s, NoticeNotEnoughCoin)
+		// NoticeNotEnoughCoin has no text registered, so it drew nothing: the
+		// inviter clicked and the invite simply did not happen.
+		sendClientMessage(w, s, combineNeedsGold(cost))
 		return
 	}
 
@@ -66,7 +70,10 @@ func (d *Dispatcher) inviteGuild(w *world.World, s *world.Session, _ protocol.He
 	te.GuildLevel = 0
 	d.refreshGuildTag(w, target)
 	d.sendEtc(w, s, e)
-	w.Send(other, protocol.MsgMessagePanel, nil) // welcome (payload UNVERIFIED)
+	// _SN_JOINGUILD (_MSG_InviteGuild.cpp:90). This used to go out as a
+	// MSG_MessagePanel with NO body — a frame shorter than the struct, which the
+	// client reads past into whatever follows it.
+	sendClientMessage(w, other, fmt.Sprintf("Você entrou na Guilda %s.", guildDisplayName(w, e.Guild)))
 	w.SaveCharacterAsync(s)
 	w.SaveCharacterAsync(other)
 	d.persistGuildMember(w, s, other, te)
@@ -78,13 +85,13 @@ func (d *Dispatcher) createGuild(w *world.World, s *world.Session, args []byte) 
 		return
 	}
 	name := strings.TrimSpace(cstr(args))
-	if !validGuildName(name) || e.Guild != 0 || e.Coin < guildCreateCost || (e.Clan != 7 && e.Clan != 8) || e.Citizen == 0 {
-		if e.Coin < guildCreateCost {
-			d.notify(w, s, NoticeNotEnoughCoin)
-		}
-		return
-	}
-	if d.now().Weekday() == time.Sunday {
+	// Every refusal names itself, in the legacy's order
+	// (_MSG_MessageWhisper.cpp "create"). The legacy stays silent on two of them
+	// — no name, and already in a guild — and so did this, along with the
+	// coin one (NoticeNotEnoughCoin has no text): a player typing /create and
+	// seeing nothing could not tell a typo from a rule.
+	if msg := d.guildCreateRefusal(w, e, name); msg != "" {
+		sendClientMessage(w, s, msg)
 		return
 	}
 	accountID, slot, charName, clan, citizen, serverIndex := s.AccountID, s.Slot, e.Name, e.Clan, e.Citizen, d.serverIndex
@@ -105,18 +112,78 @@ func (d *Dispatcher) createGuild(w *world.World, s *world.Session, args []byte) 
 				d.notify(w, s, NoticeDBError)
 				return
 			}
-			if !ok || guild.ID == 0 || e.Guild != 0 {
+			if !ok || guild.ID == 0 {
+				// dbServer folds a taken name, a full server and a stale character
+				// into ok=false. The name is by far the likeliest: the in-memory
+				// check above only knows the guilds this process has seen.
+				d.log.Info("create guild refused by dbServer", "conn", s.Conn, "guild", name)
+				sendClientMessage(w, s, msgGuildCriacaoRecusada)
+				return
+			}
+			if e.Guild != 0 {
 				return
 			}
 			e.Coin -= guildCreateCost
 			e.Guild = guild.ID
 			e.GuildLevel = guildLeaderLevel
+			// Registered right away: without it the new guild had no name in
+			// memory until the next boot, and every place that shows one printed
+			// "Guild #N" instead.
+			w.SetGuildName(guild.ID, name)
 			d.sendEtc(w, s, e)
 			d.refreshGuildTag(w, s.Conn)
 			w.SaveCharacterAsync(s)
-			w.Send(s, protocol.MsgMessagePanel, nil)
+			// The number is what the guild's icon file is named after
+			// (b01NNNNNN.bmp), so the leader learns it here, where it is created.
+			// This also replaces a MSG_MessagePanel sent with no body at all.
+			sendClientMessage(w, s, fmt.Sprintf("Guilda %s criada! Número da guilda: %d.", name, guild.ID))
+			d.log.Info("guild created", "conn", s.Conn, "guild", name, "id", guild.ID)
 		}
 	})
+}
+
+// Guild texts. The first four are Language.txt's (_NN_GUILDCREATECLAN 535,
+// _DN_NO_TOWNSPEOPLE 513, _NN_GUILDCREATEWEEK 549, _NN_NotEquip_Saturday 390);
+// the rest cover refusals the legacy left silent.
+const (
+	msgGuildReino           = "Você Terá que pertencer a um dos Reinos para poder criar guilda!"
+	msgGuildSemCidadania    = "Você não possui cidadania."
+	msgGuildDomingo         = "Não é permitido criar guilda aos domingos!"
+	msgGuildDomingoConvite  = "Não é possivel utilizar domingo."
+	msgGuildUso             = "Use: /create NomeDaGuilda (até 16 letras)."
+	msgGuildJaTem           = "Você já pertence a uma guilda."
+	msgGuildCriacaoRecusada = "Não foi possível criar a guilda. Confira se o nome já não existe e tente outro."
+)
+
+// guildCreateRefusal is the first rule /create breaks, as the line the player
+// reads, or "" when the guild can be created.
+func (d *Dispatcher) guildCreateRefusal(w *world.World, e *world.Entity, name string) string {
+	switch {
+	case !validGuildName(name):
+		return msgGuildUso
+	case e.Coin < guildCreateCost:
+		return combineNeedsGold(guildCreateCost)
+	case e.Guild != 0:
+		return msgGuildJaTem
+	case e.Clan != 7 && e.Clan != 8:
+		return msgGuildReino
+	case e.Citizen == 0:
+		return msgGuildSemCidadania
+	case d.now().Weekday() == time.Sunday:
+		return msgGuildDomingo
+	case w.GuildNameTaken(name):
+		return fmt.Sprintf("Já existe uma guilda chamada %s.", name)
+	}
+	return ""
+}
+
+// guildDisplayName is the guild's registered name, or its number when this
+// process has none for it.
+func guildDisplayName(w *world.World, id uint16) string {
+	if gi, ok := w.GuildInfo(id); ok && gi.Name != "" {
+		return gi.Name
+	}
+	return fmt.Sprintf("#%d", id)
 }
 
 func validGuildName(name string) bool {
@@ -301,12 +368,16 @@ func (d *Dispatcher) kickGuild(w *world.World, s *world.Session, args []byte) {
 	if target.Guild != e.Guild || target.ID == s.Conn || e.GuildLevel <= target.GuildLevel {
 		return
 	}
+	guildName := guildDisplayName(w, target.Guild)
 	target.Guild = 0
 	target.GuildLevel = 0
 	d.refreshGuildTag(w, target.ID)
 	w.SaveCharacterAsync(targetSession)
 	d.persistLeaveGuild(w, targetSession)
-	w.Send(targetSession, protocol.MsgMessagePanel, nil)
+	// Was a MSG_MessagePanel with no body — shorter than the struct, so the
+	// client read past the frame. The legacy says nothing here; a player who
+	// just lost their guild tag is owed the reason.
+	sendClientMessage(w, targetSession, fmt.Sprintf("Você foi expulso da guilda %s.", guildName))
 }
 
 func (d *Dispatcher) summonGuild(w *world.World, s *world.Session) {
