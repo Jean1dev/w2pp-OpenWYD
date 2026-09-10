@@ -9645,7 +9645,18 @@ type GetCombatRuleResponse struct {
 	//
 	// Both are outside their range at 0, so a reader may take 0 as "sent by a
 	// dbServer that predates these fields" and use the legacy 100 instead.
-	PvpMeleePct   int32 `protobuf:"varint,7,opt,name=pvp_melee_pct,json=pvpMeleePct,proto3" json:"pvp_melee_pct,omitempty"`
+	PvpMeleePct int32 `protobuf:"varint,7,opt,name=pvp_melee_pct,json=pvpMeleePct,proto3" json:"pvp_melee_pct,omitempty"`
+	// 0..100: the share of INT that counts as DEX in a SKILL's accuracy against
+	// dodge; the game uses max(DEX, INT×pct/100). 0 is the legacy (DEX only).
+	//
+	// `optional`, unlike the fields above: 0 is a real value here, so the PvP
+	// trick of reading 0 as "not sent" cannot work. Presence is what tells a
+	// saved 0 from a dbServer that predates the field, and tmServer maps an
+	// absent field to combatrule.Default() — not to the legacy.
+	SpellIntAccuracyPct *int32 `protobuf:"varint,8,opt,name=spell_int_accuracy_pct,json=spellIntAccuracyPct,proto3,oneof" json:"spell_int_accuracy_pct,omitempty"`
+	// 0..10: skill misses in a row on the same target before the next one is
+	// forced to land. 0 turns it off (the legacy). `optional` for the same reason.
+	MaxMissStreak *int32 `protobuf:"varint,9,opt,name=max_miss_streak,json=maxMissStreak,proto3,oneof" json:"max_miss_streak,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -9725,6 +9736,20 @@ func (x *GetCombatRuleResponse) GetPvpSkillPct() int32 {
 func (x *GetCombatRuleResponse) GetPvpMeleePct() int32 {
 	if x != nil {
 		return x.PvpMeleePct
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetSpellIntAccuracyPct() int32 {
+	if x != nil && x.SpellIntAccuracyPct != nil {
+		return *x.SpellIntAccuracyPct
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetMaxMissStreak() int32 {
+	if x != nil && x.MaxMissStreak != nil {
+		return *x.MaxMissStreak
 	}
 	return 0
 }
@@ -10455,7 +10480,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x18CombatRuleVersionRequest\"5\n" +
 	"\x19CombatRuleVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x16\n" +
-	"\x14GetCombatRuleRequest\"\xa0\x02\n" +
+	"\x14GetCombatRuleRequest\"\xb6\x03\n" +
 	"\x15GetCombatRuleResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x12\x1e\n" +
 	"\n" +
@@ -10465,7 +10490,11 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x12spell_damage_multi\x18\x04 \x01(\bR\x10spellDamageMulti\x12&\n" +
 	"\x0fmob_resist_base\x18\x05 \x01(\x05R\rmobResistBase\x12\"\n" +
 	"\rpvp_skill_pct\x18\x06 \x01(\x05R\vpvpSkillPct\x12\"\n" +
-	"\rpvp_melee_pct\x18\a \x01(\x05R\vpvpMeleePct*\xb8\x01\n" +
+	"\rpvp_melee_pct\x18\a \x01(\x05R\vpvpMeleePct\x128\n" +
+	"\x16spell_int_accuracy_pct\x18\b \x01(\x05H\x00R\x13spellIntAccuracyPct\x88\x01\x01\x12+\n" +
+	"\x0fmax_miss_streak\x18\t \x01(\x05H\x01R\rmaxMissStreak\x88\x01\x01B\x19\n" +
+	"\x17_spell_int_accuracy_pctB\x12\n" +
+	"\x10_max_miss_streak*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOGIN_RESULT_OK\x10\x01\x12\x1b\n" +
@@ -10909,6 +10938,7 @@ func file_api_db_v1_db_proto_init() {
 	if File_api_db_v1_db_proto != nil {
 		return
 	}
+	file_api_db_v1_db_proto_msgTypes[148].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

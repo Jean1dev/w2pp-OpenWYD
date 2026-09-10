@@ -55,6 +55,10 @@ type combateView struct {
 	MaxResist   int32
 	MinPvP      int32
 	MaxPvP      int32
+	MinPrecisao int32
+	MaxPrecisao int32
+	MinErros    int32
+	MaxErros    int32
 }
 
 func pctTexto(v int32) string { return fmt.Sprintf("%d%%", v) }
@@ -67,6 +71,15 @@ func ligadoTexto(v bool) string {
 }
 
 func baseTexto(v int32) string { return strconv.Itoa(int(v)) }
+
+// errosTexto says the miss streak the way the screen explains it: 0 is not "zero
+// misses allowed" but the feature switched off.
+func errosTexto(v int32) string {
+	if v == 0 {
+		return "desligado"
+	}
+	return strconv.Itoa(int(v))
+}
 
 // pvpExplica is what the two PvP knobs share: both scale a blow on a player on
 // top of the legacy quarter, and differ only in which blow.
@@ -118,6 +131,22 @@ func combateBotoes(r combatrule.Rules) []combateBotao {
 			Agora:   pctTexto(r.PvPMeleePct), Padrao: pctTexto(p.PvPMeleePct),
 			Kersef: pctTexto(k.PvPMeleePct), Mudado: r.PvPMeleePct != p.PvPMeleePct,
 		},
+		{
+			Nome: "Precisão da magia pela INT (%)",
+			Explica: "Na esquiva, o legado só olha a DES de quem ataca, então um mago de INT " +
+				"cheia acerta como um personagem de DES 12 — uma FM com INT 3.148 errava ~43% " +
+				"das magias numa TK de DES 700. Com 50%, metade da INT conta como DES (vale o " +
+				"maior entre DES e INT×%), e o erro cai para ~12%. 0% é o legado.",
+			Agora: pctTexto(r.SpellIntAccuracyPct), Padrao: pctTexto(p.SpellIntAccuracyPct),
+			Kersef: pctTexto(k.SpellIntAccuracyPct), Mudado: r.SpellIntAccuracyPct != p.SpellIntAccuracyPct,
+		},
+		{
+			Nome: "Máximo de erros seguidos no mesmo alvo",
+			Explica: "Depois desse número de esquivas seguidas no mesmo alvo, a próxima magia " +
+				"acerta. 0 desliga (legado: cada sorteio vale sozinho).",
+			Agora: errosTexto(r.MaxMissStreak), Padrao: errosTexto(p.MaxMissStreak),
+			Kersef: errosTexto(k.MaxMissStreak), Mudado: r.MaxMissStreak != p.MaxMissStreak,
+		},
 	}
 }
 
@@ -148,6 +177,8 @@ func (h *Handler) combate(w http.ResponseWriter, r *http.Request) {
 			MinArma: combatrule.MinWeaponIntMagicPct, MaxArma: combatrule.MaxWeaponIntMagicPct,
 			MinResist: combatrule.MinMobResistBase, MaxResist: combatrule.MaxMobResistBase,
 			MinPvP: combatrule.MinPvPPct, MaxPvP: combatrule.MaxPvPPct,
+			MinPrecisao: combatrule.MinSpellIntAccuracy, MaxPrecisao: combatrule.MaxSpellIntAccuracy,
+			MinErros: combatrule.MinMissStreak, MaxErros: combatrule.MaxMissStreak,
 		},
 		Historico: h.combateHistorico(r.Context()),
 	})
@@ -194,10 +225,11 @@ func (h *Handler) setCombate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.voltarParaCombate(w, r, fmt.Sprintf(
 		"Regra gravada: magia da arma por INT %d%%, multiplicador na magia %s, "+
-			"resistência de monstro %d, skill em jogador %d%%, golpe físico em jogador %d%%. "+
+			"resistência de monstro %d, skill em jogador %d%%, golpe físico em jogador %d%%, "+
+			"precisão da magia pela INT %d%%, máximo de erros seguidos %s. "+
 			"O jogo passa a usar em até 15 segundos.",
 		regra.WeaponIntMagicPct, ligadoTexto(regra.SpellDamageMulti), regra.MobResistBase,
-		regra.PvPSkillPct, regra.PvPMeleePct))
+		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak)))
 }
 
 // limparCombate drops the row, back to the decided default.
@@ -253,28 +285,41 @@ func combateDoForm(r *http.Request) (combatrule.Rules, string) {
 		return combatrule.Rules{}, fmt.Sprintf("A resistência de monstro precisa ser um número entre %d e %d.",
 			combatrule.MinMobResistBase, combatrule.MaxMobResistBase)
 	}
-	pvpSkill, ok := pvpDoForm(r, "pvp_skill")
+	pvpSkill, ok := faixaDoForm(r, "pvp_skill", combatrule.MinPvPPct, combatrule.MaxPvPPct)
 	if !ok {
 		return combatrule.Rules{}, fmt.Sprintf("O dano de skill em jogador precisa ser um número entre %d e %d por cento.",
 			combatrule.MinPvPPct, combatrule.MaxPvPPct)
 	}
-	pvpMelee, ok := pvpDoForm(r, "pvp_melee")
+	pvpMelee, ok := faixaDoForm(r, "pvp_melee", combatrule.MinPvPPct, combatrule.MaxPvPPct)
 	if !ok {
 		return combatrule.Rules{}, fmt.Sprintf("O dano de golpe físico em jogador precisa ser um número entre %d e %d por cento.",
 			combatrule.MinPvPPct, combatrule.MaxPvPPct)
 	}
+	precisao, ok := faixaDoForm(r, "precisao", combatrule.MinSpellIntAccuracy, combatrule.MaxSpellIntAccuracy)
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("A precisão da magia pela INT precisa ser um número entre %d e %d por cento.",
+			combatrule.MinSpellIntAccuracy, combatrule.MaxSpellIntAccuracy)
+	}
+	erros, ok := faixaDoForm(r, "erros", combatrule.MinMissStreak, combatrule.MaxMissStreak)
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("O máximo de erros seguidos precisa ser um número entre %d e %d.",
+			combatrule.MinMissStreak, combatrule.MaxMissStreak)
+	}
 	return combatrule.Rules{
 		WeaponIntMagicPct: int32(arma), SpellDamageMulti: multi, MobResistBase: int32(resist),
 		PvPSkillPct: pvpSkill, PvPMeleePct: pvpMelee,
+		SpellIntAccuracyPct: precisao, MaxMissStreak: erros,
 	}, ""
 }
 
-// pvpDoForm reads one PvP share. A missing field is refused like an out-of-range
-// one rather than taken as the legacy 100: a form that lost the field would
-// otherwise reset a tuned PvP to the legacy with nobody asking for it.
-func pvpDoForm(r *http.Request, campo string) (int32, bool) {
+// faixaDoForm reads one numeric knob and checks it against [lo, hi]. A missing
+// field is refused like an out-of-range one, never filled in: a form that lost
+// the field would otherwise put a tuned knob back on some fallback with nobody
+// asking for it — and for the precision pair, where 0 is a real value (the
+// legacy), an empty field read as 0 would switch the feature off in silence.
+func faixaDoForm(r *http.Request, campo string, lo, hi int) (int32, bool) {
 	n, err := strconv.Atoi(strings.TrimSpace(r.PostFormValue(campo)))
-	if err != nil || n < combatrule.MinPvPPct || n > combatrule.MaxPvPPct {
+	if err != nil || n < lo || n > hi {
 		return 0, false
 	}
 	return int32(n), true
@@ -293,6 +338,8 @@ func combateParaAudit(c combatrule.Config) map[string]any {
 		"resistencia_de_monstro": c.Rules.MobResistBase,
 		"skill_em_jogador":       pctTexto(c.Rules.PvPSkillPct),
 		"golpe_em_jogador":       pctTexto(c.Rules.PvPMeleePct),
+		"precisao_pela_int":      pctTexto(c.Rules.SpellIntAccuracyPct),
+		"erros_seguidos":         c.Rules.MaxMissStreak,
 	}
 }
 

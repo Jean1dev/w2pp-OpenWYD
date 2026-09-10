@@ -34,6 +34,8 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	// Os dois de PvP diferentes entre si e do legado, para um campo trocado com
 	// o outro no mapeamento não passar.
 	regra.PvPSkillPct, regra.PvPMeleePct = 60, 80
+	// E os de precisão fora do padrão (50/2) e do Kersef (0/0).
+	regra.SpellIntAccuracyPct, regra.MaxMissStreak = 30, 4
 	s := NewCombatRule(&fakeCombatRuleStore{cfg: combatrule.Config{
 		Version: 4, Configured: true, Rules: regra,
 	}})
@@ -50,6 +52,33 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	if resp.GetPvpSkillPct() != 60 || resp.GetPvpMeleePct() != 80 {
 		t.Errorf("PvP chegou como skill %d%% e golpe %d%%, quero 60%% e 80%%",
 			resp.GetPvpSkillPct(), resp.GetPvpMeleePct())
+	}
+	if resp.SpellIntAccuracyPct == nil || resp.MaxMissStreak == nil {
+		t.Fatalf("os campos de precisão vieram ausentes: %+v", resp)
+	}
+	if resp.GetSpellIntAccuracyPct() != 30 || resp.GetMaxMissStreak() != 4 {
+		t.Errorf("precisão chegou como %d%% e %d erros, quero 30%% e 4",
+			resp.GetSpellIntAccuracyPct(), resp.GetMaxMissStreak())
+	}
+}
+
+// TestZeroDePrecisaoVaiPresente: 0 é um valor de verdade nos dois campos de
+// precisão (o legado), e é a PRESENÇA que o tmServer usa para distinguir um
+// dbServer novo de um anterior aos campos. Um 0 mandado como ausente viraria o
+// padrão (50%, 2) do outro lado — o Kersef gravado no painel não chegaria.
+func TestZeroDePrecisaoVaiPresente(t *testing.T) {
+	s := NewCombatRule(&fakeCombatRuleStore{cfg: combatrule.Config{
+		Version: 5, Configured: true, Rules: combatrule.Kersef(),
+	}})
+	resp, err := s.GetCombatRule(context.Background(), &dbv1.GetCombatRuleRequest{})
+	if err != nil {
+		t.Fatalf("GetCombatRule: %v", err)
+	}
+	if resp.SpellIntAccuracyPct == nil || *resp.SpellIntAccuracyPct != 0 {
+		t.Errorf("precisão pela INT = %v, quero presente e 0", resp.SpellIntAccuracyPct)
+	}
+	if resp.MaxMissStreak == nil || *resp.MaxMissStreak != 0 {
+		t.Errorf("máximo de erros seguidos = %v, quero presente e 0", resp.MaxMissStreak)
 	}
 }
 

@@ -389,6 +389,12 @@ type Entity struct {
 	// anywhere, so the Joia da Precisao is inert in the legacy — this port spends its
 	// 50 in the one place the legacy's own naming points at.
 	AffAccuracy int32
+
+	// MissStreak counts this entity's skill misses in a row on MissStreakTarget
+	// (handler capMissStreak, combatrule.MaxMissStreak). Loop-owned combat state,
+	// never persisted: a relog starting the count over is harmless.
+	MissStreakTarget int32
+	MissStreak       int32
 	// AffDamageMultiPct is the legacy DAMAGEMULTI percentage (100 = neutral): a
 	// READ-time damage multiplier applied over Damage+AffDamage but before
 	// WeaponDamage, exactly where Basedef.cpp:4654 multiplies CurrentScore.Damage.

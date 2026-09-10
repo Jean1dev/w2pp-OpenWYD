@@ -266,7 +266,8 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				dmg = 0
 			}
 			if dmg > 0 && tid != s.Conn {
-				if miss := combat.ResolveParry(w.Rand(), skillnum, d.parryRate(e, target), target.Rsv&world.RsvBlock != 0); miss != 0 {
+				miss := combat.ResolveParry(w.Rand(), skillnum, d.skillParryRate(e, target), target.Rsv&world.RsvBlock != 0)
+				if miss = capMissStreak(e, tid, miss, int(d.combatRules.MaxMissStreak)); miss != 0 {
 					dmg = miss
 				}
 			}
@@ -1294,7 +1295,24 @@ func (d *Dispatcher) applyEtherealFlame(w *world.World, caster, target *world.En
 }
 
 func (d *Dispatcher) parryRate(attacker, target *world.Entity) int {
-	attackDex := int(effectiveDex(attacker)) / 5
+	return d.parryRateWith(attacker, target, int(effectiveDex(attacker)))
+}
+
+// skillParryRate is the dodge chance against a SKILL: the attacker's accuracy
+// is the larger of DEX and the panel's share of INT (combatrule
+// SpellIntAccuracyPct). The legacy reads DEX alone, which left a full-INT caster
+// hitting like a DEX-12 character — ~43% of her spells dodged by a TK with 700
+// DEX and a mount's evasion.
+func (d *Dispatcher) skillParryRate(attacker, target *world.Entity) int {
+	acc := int(effectiveDex(attacker))
+	if pct := int(d.combatRules.SpellIntAccuracyPct); pct > 0 {
+		acc = max(acc, int(effectiveInt(attacker))*pct/100)
+	}
+	return d.parryRateWith(attacker, target, acc)
+}
+
+func (d *Dispatcher) parryRateWith(attacker, target *world.Entity, accuracyDex int) int {
+	attackDex := accuracyDex / 5
 	if attacker.LearnedSkill&0x1000000 != 0 {
 		attackDex += 100
 	}

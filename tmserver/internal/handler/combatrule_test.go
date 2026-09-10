@@ -93,25 +93,33 @@ func TestRegraResistenciaContraMob(t *testing.T) {
 // TestRegraForaDaFaixaNaoEntra: um valor fora da faixa não é meio aplicado.
 func TestRegraForaDaFaixaNaoEntra(t *testing.T) {
 	d := New(Config{})
-	// Cada regra ruim tem só UM botão fora da faixa, para ser recusada pelo
-	// motivo que o teste diz e não por um campo de PvP esquecido em zero.
+	// Cada regra ruim é o padrão com só UM botão fora da faixa, para ser
+	// recusada pelo motivo que o teste diz e não por um campo esquecido em zero.
+	com := func(mudar func(*combatrule.Rules)) combatrule.Rules {
+		r := combatrule.Default()
+		mudar(&r)
+		return r
+	}
 	for _, ruim := range []combatrule.Rules{
-		{WeaponIntMagicPct: 300, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 100},
-		{WeaponIntMagicPct: 0, MobResistBase: 100, PvPSkillPct: 0, PvPMeleePct: 100},
-		{WeaponIntMagicPct: 0, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 201},
+		com(func(r *combatrule.Rules) { r.WeaponIntMagicPct = 300 }),
+		com(func(r *combatrule.Rules) { r.PvPSkillPct = 0 }),
+		com(func(r *combatrule.Rules) { r.PvPMeleePct = 201 }),
+		com(func(r *combatrule.Rules) { r.SpellIntAccuracyPct = 101 }),
+		com(func(r *combatrule.Rules) { r.MaxMissStreak = 11 }),
 	} {
 		d.setCombatRules(ruim)
 		if d.combatRules != combatrule.Default() {
 			t.Errorf("regra fora da faixa entrou: %+v", d.combatRules)
 		}
 	}
-	bad := combatrule.Rules{WeaponIntMagicPct: 20, MobResistBase: 10, PvPSkillPct: 100, PvPMeleePct: 100}
+	bad := com(func(r *combatrule.Rules) { r.WeaponIntMagicPct, r.MobResistBase = 20, 10 })
 	if got := combatRulesDe(Config{CombatRules: &bad}); got != combatrule.Default() {
 		t.Errorf("semente fora da faixa entrou: %+v", got)
 	}
 	ok := combatrule.Rules{
 		WeaponIntMagicPct: 20, SpellDamageMulti: true, MobResistBase: 120,
 		PvPSkillPct: 60, PvPMeleePct: 80,
+		SpellIntAccuracyPct: 30, MaxMissStreak: 4,
 	}
 	d.setCombatRules(ok)
 	if d.combatRules != ok {

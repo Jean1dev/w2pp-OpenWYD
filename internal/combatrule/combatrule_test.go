@@ -27,6 +27,13 @@ func TestValid(t *testing.T) {
 		{"golpe físico em jogador acima de 200", com(func(r *Rules) { r.PvPMeleePct = 201 }), false},
 		{"PvP no piso", com(func(r *Rules) { r.PvPSkillPct, r.PvPMeleePct = MinPvPPct, MinPvPPct }), true},
 		{"PvP no teto", com(func(r *Rules) { r.PvPSkillPct, r.PvPMeleePct = MaxPvPPct, MaxPvPPct }), true},
+		{"precisão negativa", com(func(r *Rules) { r.SpellIntAccuracyPct = -1 }), false},
+		{"precisão acima de 100", com(func(r *Rules) { r.SpellIntAccuracyPct = 101 }), false},
+		{"erros seguidos negativo", com(func(r *Rules) { r.MaxMissStreak = -1 }), false},
+		{"erros seguidos acima de 10", com(func(r *Rules) { r.MaxMissStreak = 11 }), false},
+		// 0 é o legado nos dois, e tem de ser uma regra válida.
+		{"precisão e erros no piso (legado)", com(func(r *Rules) { r.SpellIntAccuracyPct, r.MaxMissStreak = MinSpellIntAccuracy, MinMissStreak }), true},
+		{"precisão e erros no teto", com(func(r *Rules) { r.SpellIntAccuracyPct, r.MaxMissStreak = MaxSpellIntAccuracy, MaxMissStreak }), true},
 		{"valor zero não é regra", Rules{}, false},
 	}
 	for _, tt := range tests {
@@ -52,5 +59,17 @@ func TestSemConfiguracaoEOPadrao(t *testing.T) {
 func TestPadraoEADecisao(t *testing.T) {
 	if d := Default(); d.WeaponIntMagicPct != 0 || d.SpellDamageMulti || d.MobResistBase != 100 {
 		t.Errorf("Default() = %+v, want termo 0, sem multiplicador na magia, base 100", d)
+	}
+}
+
+// TestPadraoDaPrecisao prende a precisão escolhida para o servidor: metade da INT
+// conta como DES e, depois de dois erros seguidos no mesmo alvo, a magia acerta.
+// O Kersef fica no legado (0 e 0), que é o que o atalho do painel restaura.
+func TestPadraoDaPrecisao(t *testing.T) {
+	if d := Default(); d.SpellIntAccuracyPct != 50 || d.MaxMissStreak != 2 {
+		t.Errorf("Default() = %+v, want precisão 50%% e no máximo 2 erros seguidos", d)
+	}
+	if k := Kersef(); k.SpellIntAccuracyPct != 0 || k.MaxMissStreak != 0 {
+		t.Errorf("Kersef() = %+v, want precisão 0%% e erros seguidos desligado (o legado)", k)
 	}
 }

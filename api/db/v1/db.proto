@@ -1272,4 +1272,15 @@ message GetCombatRuleResponse {
   // Both are outside their range at 0, so a reader may take 0 as "sent by a
   // dbServer that predates these fields" and use the legacy 100 instead.
   int32 pvp_melee_pct = 7;
+  // 0..100: the share of INT that counts as DEX in a SKILL's accuracy against
+  // dodge; the game uses max(DEX, INT×pct/100). 0 is the legacy (DEX only).
+  //
+  // `optional`, unlike the fields above: 0 is a real value here, so the PvP
+  // trick of reading 0 as "not sent" cannot work. Presence is what tells a
+  // saved 0 from a dbServer that predates the field, and tmServer maps an
+  // absent field to combatrule.Default() — not to the legacy.
+  optional int32 spell_int_accuracy_pct = 8;
+  // 0..10: skill misses in a row on the same target before the next one is
+  // forced to land. 0 turns it off (the legacy). `optional` for the same reason.
+  optional int32 max_miss_streak = 9;
 }

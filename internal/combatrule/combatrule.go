@@ -38,6 +38,17 @@ type Rules struct {
 	// for how many blows a fight between equals should take.
 	PvPSkillPct int32
 	PvPMeleePct int32
+	// SpellIntAccuracyPct is the share of INT that counts as DEX in a SKILL's
+	// accuracy (the attackerdex of GetParryRate, _MSG_Attack.cpp:1410). The
+	// legacy reads DEX only, so a caster with everything in INT hits like a
+	// DEX-12 character: a full-INT FM missed ~43% of her spells against a TK with
+	// 700 DEX. The larger of DEX and INT×pct/100 is used, so a character who
+	// already has DEX does not add the two. 0 is the legacy.
+	SpellIntAccuracyPct int32
+	// MaxMissStreak is how many skill misses in a row an attacker may take on the
+	// same target before the next one is forced to land. 0 turns it off (the
+	// legacy: every roll stands on its own).
+	MaxMissStreak int32
 }
 
 // The ranges each knob may take. They are what makes sense for the formula, not
@@ -50,6 +61,10 @@ const (
 	MaxMobResistBase     = 150
 	MinPvPPct            = 1
 	MaxPvPPct            = 200
+	MinSpellIntAccuracy  = 0
+	MaxSpellIntAccuracy  = 100
+	MinMissStreak        = 0
+	MaxMissStreak        = 10
 
 	// LegacyMobResistBase is the constant the original applies to everyone.
 	LegacyMobResistBase = 150
@@ -57,13 +72,15 @@ const (
 
 // Default is the rule in force when nobody has configured one.
 func Default() Rules {
-	return Rules{WeaponIntMagicPct: 0, SpellDamageMulti: false, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 100}
+	return Rules{WeaponIntMagicPct: 0, SpellDamageMulti: false, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 100,
+		SpellIntAccuracyPct: 50, MaxMissStreak: 2}
 }
 
 // Kersef is the rule as ported, kept so the panel can show — and restore — what
 // the server did before the decision.
 func Kersef() Rules {
-	return Rules{WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: LegacyMobResistBase, PvPSkillPct: 100, PvPMeleePct: 100}
+	return Rules{WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: LegacyMobResistBase, PvPSkillPct: 100, PvPMeleePct: 100,
+		SpellIntAccuracyPct: 0, MaxMissStreak: 0}
 }
 
 // Valid reports whether every knob is inside its range.
@@ -71,7 +88,9 @@ func (r Rules) Valid() bool {
 	return r.WeaponIntMagicPct >= MinWeaponIntMagicPct && r.WeaponIntMagicPct <= MaxWeaponIntMagicPct &&
 		r.MobResistBase >= MinMobResistBase && r.MobResistBase <= MaxMobResistBase &&
 		r.PvPSkillPct >= MinPvPPct && r.PvPSkillPct <= MaxPvPPct &&
-		r.PvPMeleePct >= MinPvPPct && r.PvPMeleePct <= MaxPvPPct
+		r.PvPMeleePct >= MinPvPPct && r.PvPMeleePct <= MaxPvPPct &&
+		r.SpellIntAccuracyPct >= MinSpellIntAccuracy && r.SpellIntAccuracyPct <= MaxSpellIntAccuracy &&
+		r.MaxMissStreak >= MinMissStreak && r.MaxMissStreak <= MaxMissStreak
 }
 
 // Config is the rule as the panel left it (migration 0044_combat_rule), plus the

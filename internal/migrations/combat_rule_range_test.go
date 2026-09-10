@@ -27,6 +27,8 @@ func TestCheckDaRegraDeCombateBateComOCodigo(t *testing.T) {
 		{"0044_combat_rule.up.sql", "mob_resist_base", [2]int{combatrule.MinMobResistBase, combatrule.MaxMobResistBase}},
 		{"0045_combat_rule_pvp.up.sql", "pvp_skill_pct", [2]int{combatrule.MinPvPPct, combatrule.MaxPvPPct}},
 		{"0045_combat_rule_pvp.up.sql", "pvp_melee_pct", [2]int{combatrule.MinPvPPct, combatrule.MaxPvPPct}},
+		{"0046_combat_rule_precisao.up.sql", "spell_int_accuracy_pct", [2]int{combatrule.MinSpellIntAccuracy, combatrule.MaxSpellIntAccuracy}},
+		{"0046_combat_rule_precisao.up.sql", "max_miss_streak", [2]int{combatrule.MinMissStreak, combatrule.MaxMissStreak}},
 	}
 	for _, c := range casos {
 		b, err := migrations.FS.ReadFile(c.arquivo)
@@ -66,6 +68,39 @@ func TestColunasDePvPNascemNoLegado(t *testing.T) {
 		}
 		if !strings.Contains(def, "NOT NULL") || !strings.Contains(def, "DEFAULT 100") {
 			t.Errorf("%s precisa de NOT NULL DEFAULT 100 (o legado), achei: %s", coluna, def)
+		}
+	}
+}
+
+// TestColunasDePrecisaoNascemNoPadraoDecidido: ao contrário da 0045, os DEFAULTs
+// da 0046 são o padrão DECIDIDO (combatrule.Default), não o legado — uma linha
+// já gravada passa a ter a precisão nova. Se o padrão do código mudar e o da
+// migração não, um servidor sem linha e um com linha antiga rodariam precisões
+// diferentes sem ninguém ter escolhido isso.
+func TestColunasDePrecisaoNascemNoPadraoDecidido(t *testing.T) {
+	b, err := migrations.FS.ReadFile("0046_combat_rule_precisao.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(b)
+	padrao := combatrule.Default()
+	for coluna, quer := range map[string]int32{
+		"spell_int_accuracy_pct": padrao.SpellIntAccuracyPct,
+		"max_miss_streak":        padrao.MaxMissStreak,
+	} {
+		re := regexp.MustCompile(`ADD COLUMN\s+` + coluna + `\s+[^,;]*`)
+		def := re.FindString(sql)
+		if def == "" {
+			t.Errorf("a 0046 não acrescenta %s", coluna)
+			continue
+		}
+		m := regexp.MustCompile(`DEFAULT\s+(\d+)`).FindStringSubmatch(def)
+		if !strings.Contains(def, "NOT NULL") || m == nil {
+			t.Errorf("%s precisa de NOT NULL DEFAULT, achei: %s", coluna, def)
+			continue
+		}
+		if n, _ := strconv.Atoi(m[1]); int32(n) != quer {
+			t.Errorf("DEFAULT de %s é %d, mas combatrule.Default() diz %d", coluna, n, quer)
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/combatrule"
@@ -49,5 +50,9 @@ func (s *CombatRuleServer) GetCombatRule(ctx context.Context, _ *dbv1.GetCombatR
 		MobResistBase:     cfg.Rules.MobResistBase,
 		PvpSkillPct:       cfg.Rules.PvPSkillPct,
 		PvpMeleePct:       cfg.Rules.PvPMeleePct,
+		// Always present, even at 0: presence is how tmServer tells this
+		// dbServer from one that predates the fields (see the proto).
+		SpellIntAccuracyPct: proto.Int32(cfg.Rules.SpellIntAccuracyPct),
+		MaxMissStreak:       proto.Int32(cfg.Rules.MaxMissStreak),
 	}, nil
 }

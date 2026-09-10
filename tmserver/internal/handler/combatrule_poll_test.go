@@ -105,6 +105,23 @@ func TestSetCombatRulesDizSeMudou(t *testing.T) {
 	if !d.setCombatRules(pvp) || d.combatRules != pvp {
 		t.Errorf("trocar só o golpe físico em jogador não entrou: %+v", d.combatRules)
 	}
+	// E cada botão de precisão sozinho, inclusive para o 0 do legado — que é
+	// valor de verdade ali e não pode ser confundido com "nada mudou".
+	for _, c := range []struct {
+		nome  string
+		mudar func(*combatrule.Rules)
+	}{
+		{"precisão da magia pela INT", func(r *combatrule.Rules) { r.SpellIntAccuracyPct = 70 }},
+		{"precisão de volta ao legado", func(r *combatrule.Rules) { r.SpellIntAccuracyPct = 0 }},
+		{"máximo de erros seguidos", func(r *combatrule.Rules) { r.MaxMissStreak = 5 }},
+		{"erros seguidos desligado", func(r *combatrule.Rules) { r.MaxMissStreak = 0 }},
+	} {
+		nova := d.combatRules
+		c.mudar(&nova)
+		if !d.setCombatRules(nova) || d.combatRules != nova {
+			t.Errorf("trocar só %s não entrou: %+v", c.nome, d.combatRules)
+		}
+	}
 }
 
 // TestTrocarARegraRefazAMagiaNaHora: a Magia da FM do issue #280 muda no mesmo

@@ -57,11 +57,12 @@ func TestCombatRuleCRUD(t *testing.T) {
 	}
 
 	// Regravar é atualizar a linha única, e o anterior é o que estava gravado.
-	// Os dois de PvP diferentes entre si e do legado, para uma coluna trocada
-	// com a outra não passar despercebida.
+	// Os pares novos diferentes entre si, do legado e do padrão, para uma coluna
+	// trocada com a outra não passar despercebida.
 	meio := combatrule.Rules{
 		WeaponIntMagicPct: 40, SpellDamageMulti: false, MobResistBase: 120,
 		PvPSkillPct: 60, PvPMeleePct: 80,
+		SpellIntAccuracyPct: 30, MaxMissStreak: 4,
 	}
 	antes, err = s.SetCombatRule(ctx, meio, 0)
 	if err != nil {
@@ -108,6 +109,10 @@ func TestCombatRuleRecusaValorForaDaFaixa(t *testing.T) {
 		com(func(r *combatrule.Rules) { r.PvPSkillPct = 201 }),
 		com(func(r *combatrule.Rules) { r.PvPMeleePct = 0 }),
 		com(func(r *combatrule.Rules) { r.PvPMeleePct = 201 }),
+		com(func(r *combatrule.Rules) { r.SpellIntAccuracyPct = -1 }),
+		com(func(r *combatrule.Rules) { r.SpellIntAccuracyPct = 101 }),
+		com(func(r *combatrule.Rules) { r.MaxMissStreak = -1 }),
+		com(func(r *combatrule.Rules) { r.MaxMissStreak = 11 }),
 	} {
 		if _, err := s.SetCombatRule(ctx, r, 0); !errors.Is(err, ErrInvalidCombatRule) {
 			t.Errorf("SetCombatRule(%+v) = %v, quero ErrInvalidCombatRule", r, err)
@@ -125,6 +130,10 @@ func TestCombatRuleRecusaValorForaDaFaixa(t *testing.T) {
 			VALUES (TRUE, 0, FALSE, 100, 0)`,
 		"golpe físico em jogador 201%": `INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base, pvp_melee_pct)
 			VALUES (TRUE, 0, FALSE, 100, 201)`,
+		"precisão da magia 101%": `INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base, spell_int_accuracy_pct)
+			VALUES (TRUE, 0, FALSE, 100, 101)`,
+		"11 erros seguidos": `INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base, max_miss_streak)
+			VALUES (TRUE, 0, FALSE, 100, 11)`,
 	} {
 		if _, err := s.pool.Exec(ctx, sql); err == nil {
 			t.Errorf("o banco aceitou %s", nome)
@@ -133,10 +142,11 @@ func TestCombatRuleRecusaValorForaDaFaixa(t *testing.T) {
 	}
 }
 
-// TestLinhaAnteriorAoPvPContinuaValida é a linha gravada antes da 0045: ela não
-// tem os dois campos de PvP, e o DEFAULT 100 é o que a mantém uma regra válida.
-// Voltando com zero, o tmServer descartaria a regra inteira e ficaria no padrão
-// enquanto o painel mostrava outra coisa.
+// TestLinhaAnteriorAoPvPContinuaValida é a linha gravada antes da 0045 e da
+// 0046: ela não tem os campos de PvP nem os de precisão. O DEFAULT 100 do PvP é
+// o que a mantém uma regra válida — voltando com zero, o tmServer descartaria a
+// regra inteira. Os de precisão nascem no padrão DECIDIDO, não no legado: uma
+// linha gravada como Kersef antes da 0046 passa a ter a precisão nova.
 func TestLinhaAnteriorAoPvPContinuaValida(t *testing.T) {
 	ctx := context.Background()
 	s := limparCombatRule(t, ctx)
@@ -152,8 +162,12 @@ func TestLinhaAnteriorAoPvPContinuaValida(t *testing.T) {
 	if !cfg.Rules.Valid() {
 		t.Fatalf("a linha anterior à 0045 leu %+v, que o jogo recusaria", cfg.Rules)
 	}
-	if cfg.Rules != combatrule.Kersef() {
-		t.Errorf("leu %+v, quero o Kersef com o legado (100%%) no PvP", cfg.Rules)
+	quer := combatrule.Kersef()
+	quer.SpellIntAccuracyPct = combatrule.Default().SpellIntAccuracyPct
+	quer.MaxMissStreak = combatrule.Default().MaxMissStreak
+	if cfg.Rules != quer {
+		t.Errorf("leu %+v, quero %+v: o Kersef com o legado no PvP e a precisão no padrão decidido",
+			cfg.Rules, quer)
 	}
 }
 

@@ -44,17 +44,33 @@ func (c *CombatRuleSource) Fetch(ctx context.Context) (combatrule.Config, error)
 	if !resp.GetConfigured() {
 		return combatrule.Unconfigured(resp.GetVersion()), nil
 	}
+	padrao := combatrule.Default()
 	return combatrule.Config{
 		Version:    resp.GetVersion(),
 		Configured: true,
 		Rules: combatrule.Rules{
-			WeaponIntMagicPct: resp.GetWeaponIntMagicPct(),
-			SpellDamageMulti:  resp.GetSpellDamageMulti(),
-			MobResistBase:     resp.GetMobResistBase(),
-			PvPSkillPct:       pvpPct(resp.GetPvpSkillPct()),
-			PvPMeleePct:       pvpPct(resp.GetPvpMeleePct()),
+			WeaponIntMagicPct:   resp.GetWeaponIntMagicPct(),
+			SpellDamageMulti:    resp.GetSpellDamageMulti(),
+			MobResistBase:       resp.GetMobResistBase(),
+			PvPSkillPct:         pvpPct(resp.GetPvpSkillPct()),
+			PvPMeleePct:         pvpPct(resp.GetPvpMeleePct()),
+			SpellIntAccuracyPct: presentOr(resp.SpellIntAccuracyPct, padrao.SpellIntAccuracyPct),
+			MaxMissStreak:       presentOr(resp.MaxMissStreak, padrao.MaxMissStreak),
 		},
 	}, nil
+}
+
+// presentOr reads one of the `optional` fields. Unlike the PvP pair, 0 is a real
+// value there — the legacy — so only absence can mean a dbServer that predates
+// the field. An absent field takes the decided default rather than the legacy:
+// migration 0046 gives a row saved before the columns existed that same
+// default, so a rolling deploy runs exactly what the database will say once the
+// dbServer catches up.
+func presentOr(v *int32, def int32) int32 {
+	if v == nil {
+		return def
+	}
+	return *v
 }
 
 // legacyPvPPct is the PvP share that leaves the legacy quarter untouched — the

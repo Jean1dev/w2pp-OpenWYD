@@ -47,8 +47,8 @@
   <h1>Regra de combate</h1>
   <p class="sub">
     Quanto um golpe tira neste servidor: de onde vem a Magia, o que multiplica a
-    magia, quanto a resistência do monstro pesa e quanto sobra do golpe em outro
-    jogador.
+    magia, quanto a resistência do monstro pesa, quanto sobra do golpe em outro
+    jogador e quanto uma magia acerta.
   </p>
 
   {{template "abas-rates" .}}
@@ -133,6 +133,16 @@
                  inputmode="numeric" required value="{{.Combate.Regra.PvPMeleePct}}">
           <span class="faixa">{{.Combate.MinPvP}} a {{.Combate.MaxPvP}}. Por cima da divisão por 4 do legado; 100 = legado.</span>
         </label>
+        <label class="num">Precisão da magia pela INT (%)
+          <input name="precisao" type="number" min="{{.Combate.MinPrecisao}}" max="{{.Combate.MaxPrecisao}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.SpellIntAccuracyPct}}">
+          <span class="faixa">{{.Combate.MinPrecisao}} a {{.Combate.MaxPrecisao}}. Vale o maior entre DES e INT×%; 0 = legado (só DES).</span>
+        </label>
+        <label class="num">Máximo de erros seguidos no mesmo alvo
+          <input name="erros" type="number" min="{{.Combate.MinErros}}" max="{{.Combate.MaxErros}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.MaxMissStreak}}">
+          <span class="faixa">{{.Combate.MinErros}} a {{.Combate.MaxErros}}. Depois disso a próxima magia acerta; 0 desliga (legado).</span>
+        </label>
       </div>
       <button type="submit" class="principal">Gravar a regra</button>
     </form>
@@ -152,6 +162,8 @@
         <input type="hidden" name="resist" value="{{.Combate.Kersef.MobResistBase}}">
         <input type="hidden" name="pvp_skill" value="{{.Combate.Kersef.PvPSkillPct}}">
         <input type="hidden" name="pvp_melee" value="{{.Combate.Kersef.PvPMeleePct}}">
+        <input type="hidden" name="precisao" value="{{.Combate.Kersef.SpellIntAccuracyPct}}">
+        <input type="hidden" name="erros" value="{{.Combate.Kersef.MaxMissStreak}}">
         <button type="submit">Usar a regra do Kersef</button>
       </form>
       {{if .Combate.Configurada}}
