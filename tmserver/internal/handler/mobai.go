@@ -752,11 +752,14 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	}
 	dmg := combat.ResolveHit(w.Rand(), combat.HitInput{
 		// effectiveDamage, não e.Damage cru: é o que soma AffDamage, e sem isso um
-		// debuff de dano no monstro não tira dano nenhum. Era o caso do Enfraquecer
-		// do Gorila, que instalava o afeto e não mudava nada. Para monstro sem afeto
-		// os dois valores são idênticos — AffDamage só sai de zero quando algo
-		// realmente gruda, e só pet consegue grudar (SetAffectOnMob).
-		AttackerDamage: int(d.effectiveDamage(e)) + int(d.weaponDamage(e)),
+		// debuff de dano no monstro não tira dano nenhum (o Enfraquecer).
+		//
+		// E SÓ effectiveDamage: ela já termina em `+ d.weaponDamage(e)` (item.go).
+		// A primeira versão desta linha somava a arma de novo por fora, e com isso
+		// todo monstro ARMADO do jogo passou a bater com a arma duas vezes — as
+		// evocações começaram a morrer rápido e os jogadores a apanhar mais, sem
+		// que nada tivesse mudado no cadastro.
+		AttackerDamage: int(d.effectiveDamage(e)),
 		// effectiveAC, not the bare AC: the legacy reads the victim's
 		// CurrentScore.Ac (GetFunc.cpp:1632), which its Buff Loop has already
 		// folded the affects into. We keep equipment AC in e.AC and the affect
