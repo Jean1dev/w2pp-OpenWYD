@@ -93,12 +93,28 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 >   homogêneos: todos nível 399 com `Exp` 2.990.849, cujo `ExpApply` bate o teto de 200%
 >   (5.981.698) e passa do limite de 3.414.123 que cabe no int32 no nível 199.
 >
+>   **CUIDADO: existem DOIS tetos, e eles diferem por um fator de dois.** O que `ExpOverflow`
+>   devolve como `limit` está em **MobExp** (1.707.061 no nível 199); o que ele compara por dentro
+>   está em **isExp**, a saída do `ExpApply` (3.414.123 = `MaxInt32 / 629`). Um é o dobro do outro
+>   porque o `ExpApply` bate no teto de 200%. Comparar um valor de MobExp contra o teto de isExp,
+>   ou o contrário, dá a resposta errada — e foi o que aconteceu duas vezes na análise deste
+>   parágrafo.
+>
 >   **Eram 56 até 09/09/2026, e o conserto de nível os levou a 88.** A correção que baixou 43
 >   monstros de 400+ para 399 (commit `a1180829`) está certa pelo que ela conserta — acima de 400 o
->   `ExpApply` desiste de escalar e a recompensa inverte —, mas 32 daqueles monstros estavam em
->   **401 ou mais**, e justamente por não serem escalados devolviam os 2.990.849 crus, que cabem
->   sob o teto e pagavam. Em 399 eles passam a ser escalados até os 200%, estouram, e zeram. Os
->   outros 11, que estavam exatamente em 400, já eram escalados e já estouravam.
+>   `ExpApply` desiste de escalar e a recompensa inverte. Mas 32 daqueles monstros estavam em
+>   **401 ou mais**, e por não serem escalados o `ExpApply` devolvia os 2.990.849 crus: como isExp,
+>   isso fica abaixo do teto de isExp (3.414.123), não estoura, e pagava **2.383 por morte**. Em
+>   399 eles voltam a ser escalados até os 200% (5.981.698), passam do teto, e zeram. Os outros 11,
+>   que estavam exatamente em 400, já eram escalados e já estouravam.
+>
+>   Medido, celestial 199 no Pesadelo Arcano, mob com `Exp` 2.990.849:
+>
+>   | nível do mob | ExpApply | estoura | prêmio |
+>   |---:|---:|---|---:|
+>   | 399 | 5.981.698 | sim | **0** |
+>   | 400 | 5.981.698 | sim | **0** |
+>   | 401 e acima | 2.990.849 | não | 2.383 |
 >
 >   Medido nas duas árvores, celestial 199 no Pesadelo Arcano:
 >
@@ -110,6 +126,15 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 >   Não é motivo para desfazer o conserto de nível: a inversão de recompensa que ele fecha vale
 >   para todo mundo, e o estouro só atinge celestial no Pesadelo. Mas sobe a prioridade de tratar
 >   o estouro, porque o raio dele cresceu 57%.
+>
+>   **E o conserto é um número só, não caso a caso.** Os 88 são homogêneos: mesma faixa (399),
+>   mesmo `Exp` (2.990.849), o valor único que a curva do `exptool` carimba no topo. Some junto
+>   quando a conta parar de estourar.
+>
+>   **Ordem sugerida:** tratar o estouro ANTES de ligar as tabelas de corte. O cronograma põe o
+>   celestial como a fase mais longa do jogo; sem isso o Pesadelo segue morto para celestial
+>   exatamente quando ele vira a maior parte da vida do jogador, e as tabelas que forem desenhadas
+>   nesse meio-tempo serão desenhadas sobre uma zona que não paga.
 > - **Cauda** é prêmio pequeno demais sobrevivendo à divisão inteira do ÷320 e virando zero. No
 >   Campo são 5 no nível 199 (Orc_Medico, Troll_Zumbi, Rei_Taurus e variantes), todos com o
 >   `ExpApply` já reduzido a algumas centenas.
