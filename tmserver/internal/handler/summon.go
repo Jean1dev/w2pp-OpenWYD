@@ -268,7 +268,19 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		}
 		existing++
 	}
+	// Diagnóstico da evocação: o dono não via os próprios pets enquanto outro
+	// jogador ao lado os via, e só o log de produção separa "o servidor não
+	// mandou o CreateMob ao dono" de "o cliente do dono recebeu e não desenhou".
+	var nascidos, reveladoPara, puladoPara []int
+	motivo := "ok"
+	defer func() {
+		d.log.Info("evocação",
+			"owner", s.Conn, "leader", leaderID, "summon", summonID, "count", count,
+			"existing", existing, "spawned", nascidos, "revealed_to", reveladoPara,
+			"skipped_for", puladoPara, "reason", motivo)
+	}()
 	if existing >= count {
+		motivo = "teto do grupo"
 		return false
 	}
 	bonus := summonBonus[summonID]
@@ -282,16 +294,20 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 			}
 		}
 		if slot < 0 {
+			motivo = "grupo cheio"
 			break // party full (_NN_Party_Full_Cant_Summon; message UNVERIFIED — skipped)
 		}
 		x, y, ok := d.freeCellNear(w, e.X, e.Y)
 		if !ok {
+			motivo = "sem casa livre"
 			break
 		}
 		id := w.SpawnMobAt(world.MobSpawn{Template: d.summonMobs[summonID], X: x, Y: y, RouteType: 5, GenIndex: -1})
 		if id < 0 {
+			motivo = "mundo cheio"
 			break // world full (_NN_Cant_Create_More_Summons — skipped)
 		}
+		nascidos = append(nascidos, id)
 		mob := w.Entity(id)
 		// The '^' suffix marks the name as a pet on the client; underscores in
 		// the template file names render as spaces (Server.cpp:3063-3070).
@@ -348,6 +364,9 @@ func (d *Dispatcher) generateSummon(w *world.World, s *world.Session, e *world.E
 		w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 			if w.MarkSeen(vs, id) {
 				w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
+				reveladoPara = append(reveladoPara, vs.Conn)
+			} else {
+				puladoPara = append(puladoPara, vs.Conn)
 			}
 		})
 		spawned++
@@ -432,7 +451,7 @@ func (d *Dispatcher) despawnSummons(w *world.World, leaderID int, match func(*wo
 		}
 		// O dono pode estar fora do alcance de vista do pet (coleira 20 > vista 16),
 		// e aí o RemoveMob do DespawnMob não chega nele. Ver removeMobParaODono.
-		removeMobParaODono(w, id, w.Entity(id))
+		removeMobParaODono(w, id, w.Entity(id), 3)
 		w.DespawnMob(id, 3)
 	}
 }
@@ -685,7 +704,7 @@ func (d *Dispatcher) despawnPet(w *world.World, id int, pet *world.Entity, remov
 			}
 		}
 	}
-	removeMobParaODono(w, id, pet)
+	removeMobParaODono(w, id, pet, removeType)
 	w.DespawnMob(id, removeType)
 }
 
@@ -704,17 +723,32 @@ func (d *Dispatcher) despawnPet(w *world.World, id int, pet *world.Entity, remov
 // Server.cpp:3008-3020). Esse recall nunca foi portado; o wipe entrou no lugar
 // dele, e trouxe este efeito indesejado junto.
 //
-// Um RemoveMob repetido é inofensivo: o cliente descarta uma entidade que já não
-// tem. Faltar um não é.
-func removeMobParaODono(w *world.World, id int, pet *world.Entity) {
+// Só para quem está FORA de vista, e com o mesmo removeType do DespawnMob. Quem
+// está em vista já recebe o RemoveMob do próprio DespawnMob, e a versão anterior
+// desta função mandava ao dono um segundo, de tipo 0, na frente do tipo 3: o
+// dono recebia dois RemoveMob do mesmo pet, e só o cliente do dono passou a
+// segurar pets velhos parados na tela, a não desenhar os novos e a "sumir" com
+// as pessoas em volta — enquanto outro jogador ao lado, que recebia só o tipo 3,
+// via tudo certo. O legado manda um RemoveMob só, com o tipo do DeleteMob.
+func removeMobParaODono(w *world.World, id int, pet *world.Entity, removeType int32) {
 	if pet == nil || pet.Summoner == 0 {
 		return
 	}
-	body := protocol.EncodeRemoveMobBody(0)
+	emVista := map[int]bool{}
+	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+		emVista[vs.Conn] = true
+	})
+	body := protocol.EncodeRemoveMobBody(removeType)
 	hdr := protocol.Header{Type: protocol.MsgRemoveMob, ID: uint16(id)}
-	if s := w.Session(pet.Summoner); s != nil {
-		w.SendTo(s, hdr, body)
+	avisar := func(conn int) {
+		if emVista[conn] {
+			return // o DespawnMob que vem logo em seguida chega nele
+		}
+		if s := w.Session(conn); s != nil {
+			w.SendTo(s, hdr, body)
+		}
 	}
+	avisar(pet.Summoner)
 	leaderID := pet.Leader
 	if leaderID == 0 {
 		leaderID = pet.Summoner
@@ -727,8 +761,6 @@ func removeMobParaODono(w *world.World, id int, pet *world.Entity) {
 		if memberID <= 0 || !world.IsPlayer(memberID) || memberID == pet.Summoner {
 			continue
 		}
-		if s := w.Session(memberID); s != nil {
-			w.SendTo(s, hdr, body)
-		}
+		avisar(memberID)
 	}
 }
