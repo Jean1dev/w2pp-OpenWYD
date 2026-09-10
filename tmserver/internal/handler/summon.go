@@ -627,8 +627,67 @@ func (d *Dispatcher) summonTick(w *world.World, id int, e *world.Entity) {
 		body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Speed: 6, TargetX: x, TargetY: y, Effect: 8}
 		d.moveMulticast(w, id, oldX, oldY, protocol.MsgAction, body.Encode())
 	case dis > summonFollowMin:
-		d.stepToward(w, id, e, owner.X, owner.Y)
+		d.seguirDono(w, id, e, owner)
 	}
+}
+
+// velocidadeDoBicho é BASE_GetSpeed (Basedef.cpp:1250-1263): o nibble de corrida
+// do AttackRun, entre 1 e 6. As evocações vêm com 3 ou 4.
+func velocidadeDoBicho(e *world.Entity) int {
+	run := int(e.AttackRun & 15)
+	if run < 1 {
+		run = 1
+	}
+	if run > 6 {
+		run = 6
+	}
+	return run
+}
+
+// seguirDono leva o pet em direção a uma casa livre ao lado do dono, até
+// velocidadeDoBicho casas por tick, num MsgAction só com Speed = essa
+// velocidade.
+//
+// O passo de perseguição (stepToward) anda UMA casa por tick com Speed 2, que o
+// cliente desenha como caminhada: com o dono montado, os pets vinham atrás em
+// fila, andando, "parecendo uns velhos", e só alcançavam no salto de 13 casas. O
+// legado segue com GetTargetPos e manda o MSG_Action com a rota inteira do trecho
+// e `sm.Speed = BASE_GetSpeed(&CurrentScore)` (ProcessSecMinTimer.cpp:2446-2460;
+// GetAction deixa Route[0] = 0 e o próprio cliente anima o caminho).
+func (d *Dispatcher) seguirDono(w *world.World, id int, e, owner *world.Entity) {
+	veloc := velocidadeDoBicho(e)
+	tx, ty, ok := d.freeCellNear(w, owner.X, owner.Y)
+	if !ok {
+		return
+	}
+	nx, ny := e.X, e.Y
+	if d.heights != nil {
+		rx, ry, moved := route.Next(d.heights, int(e.X), int(e.Y), int(tx), int(ty), veloc)
+		if !moved {
+			return // parede no caminho: fica, sem atravessar
+		}
+		nx, ny = int16(rx), int16(ry)
+	} else {
+		for i := 0; i < veloc && (nx != tx || ny != ty); i++ {
+			nx += step(tx - nx)
+			ny += step(ty - ny)
+		}
+	}
+	if nx == e.X && ny == e.Y {
+		return
+	}
+	if occ, taken := w.EntityAt(nx, ny); taken && occ != id {
+		// A casa de chegada é de outro: fica com a livre mais perto dela.
+		fx, fy, livre := d.freeCellNear(w, nx, ny)
+		if !livre {
+			return
+		}
+		nx, ny = fx, fy
+	}
+	oldX, oldY := e.X, e.Y
+	w.SetEntityPos(id, nx, ny)
+	body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Speed: int32(veloc), TargetX: nx, TargetY: ny}
+	d.moveMulticast(w, id, oldX, oldY, protocol.MsgAction, body.Encode())
 }
 
 // commandSummons points the owner's idle pets at target — the stand-in for the
