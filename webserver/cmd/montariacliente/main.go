@@ -1,7 +1,10 @@
 // Command montariacliente writes the mount numbers the staff panel decided into
 // a copy of the client files that show them: WYD.exe (the attribute table and
 // the tooltip's list of lines), ItemList.bin (each mount's absorption) and
-// UI\strdef.bin (the labels of the two absorption lines).
+// UI\strdef.bin (the labels of the two absorption lines). Alongside them it
+// writes GamePatchItens.bin, the rarity tier of every weapon and armour
+// (webserver/internal/clientrarity), which GamePatch.dll turns into the border
+// and the "Item nível X" line of the tooltip.
 //
 //	montariacliente -tabela montarias-cliente.txt -cliente "C:\...\WYD-Cliente-Pronto" \
 //	                -gamepatch client\gamepatch\out\GamePatch.dll
@@ -23,6 +26,7 @@ import (
 	"path/filepath"
 
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientmount"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientrarity"
 )
 
 func main() {
@@ -95,10 +99,15 @@ func run(tabela, cliente, saida, gamepatch string) error {
 	if err != nil {
 		return err
 	}
+	itens, err := clientrarity.ReadItemList(itemList)
+	if err != nil {
+		return err
+	}
 	saidas := []arquivo{
 		{"WYD.exe", novoExe, 0o755},
 		{"ItemList.bin", novoItemList, 0o644},
 		{filepath.Join("UI", "strdef.bin"), novoStrdef, 0o644},
+		{"GamePatchItens.bin", clientrarity.Table(itens), 0o644},
 	}
 	if gamepatch != "" {
 		dll, err := os.ReadFile(gamepatch)
@@ -124,6 +133,12 @@ func run(tabela, cliente, saida, gamepatch string) error {
 			r.Index, r.Name, r.Bonus.Attack, r.Bonus.Magic, r.Bonus.Evasion/10, r.Bonus.Evasion%10,
 			r.Bonus.Resist, r.AbsPvP, r.AbsPvE)
 	}
+	porNivel := clientrarity.Count(itens)
+	fmt.Print("raridade dos equipamentos (GamePatchItens.bin):")
+	for t := clientrarity.Comum; t <= clientrarity.Divino; t++ {
+		fmt.Printf("  %s %d", t, porNivel[t])
+	}
+	fmt.Println()
 	if gamepatch == "" {
 		fmt.Println("sem -gamepatch: os números vão certos, mas as linhas ficam brancas")
 	}

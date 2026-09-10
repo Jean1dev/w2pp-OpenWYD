@@ -105,6 +105,9 @@ bool g_tooltipHasAbsorb = false;
 // Sem o desvio (bytes de outra build), a montaria é reconhecida pela linha de
 // absorção, como antes.
 int g_tooltipItem = -1;
+// Os 8 bytes do STRUCT_ITEM desse item (sIndex e os três efeitos), copiados no
+// mesmo desvio: é deles que sai a refinação.
+DWORD g_itemRaw0 = 0, g_itemRaw1 = 0;
 bool g_slotHooked = false;
 // O cliente chama a função do tooltip o tempo todo — umas vinte vezes por quadro
 // desenhado —, e quase sempre ela sai logo no começo sem montar nada. Só a
@@ -308,7 +311,7 @@ typedef int(__cdecl* AppendNodeFn)(void* list, void* node, int layer);
 
 PanelRenderFn g_panelRender = nullptr; // o Render original da classe do painel
 DWORD g_panelOriginalColor = 0;        // a cor que o cliente dá ao painel
-bool g_mountTooltip = false;           // o último tooltip montado era de montaria
+bool g_styledTooltip = false;          // o último tooltip montado ganha fundo e borda (montaria ou equipamento com raridade)
 int g_family = kDefaultFamily;         // a família de cor desse tooltip
 BYTE g_nodes[kMaxNodes][kNodeSize];
 
@@ -457,7 +460,7 @@ void DrawRoundedTooltip(const BYTE* node, void* list, int layer) {
 }
 
 void __fastcall HookedPanelRender(void* self, void* edx, void* list, float x, float y, int layer, int extra) {
-    const bool mine = g_mountTooltip && self == TooltipPanel() && layer >= 0 && layer < kLayers;
+    const bool mine = g_styledTooltip && self == TooltipPanel() && layer >= 0 && layer < kLayers;
     g_panelRender(self, edx, list, x, y, layer, extra);
     if (!mine) {
         return;
@@ -610,9 +613,125 @@ const Rarity* RarityOf(const char* title) {
     return nullptr;
 }
 
-// A linha "Montaria nível X" vai na primeira linha livre do corpo depois da
-// última usada (a 14ª é o preço, e fica de fora). g_levelLine lembra onde ela
-// foi escrita, para ser apagada quando o próximo tooltip não a quiser.
+// --- Raridade dos equipamentos ----------------------------------------------------
+//
+// GamePatchItens.bin, escrito pelo gerador (webserver/internal/clientrarity, onde
+// a regra mora): "GPRI", a quantidade de itens em uint16 e um byte de nível por
+// índice de item — 0 deixa o tooltip do cliente como está. Sem o arquivo, só as
+// montarias ganham borda.
+
+struct Tier {
+    const char* label;
+    const char* family;
+};
+// Na ordem dos bytes do arquivo (clientrarity.Tier).
+const Tier kTiers[] = {
+    {"", "cinza"},
+    {"Comum", "cinza"},
+    {"Incomum", "verde"},
+    {"Raro", "azul"},
+    {"\xc9pico", "roxo"},
+    {"Lend\xe1rio", "laranja"},
+    {"M\xedtico", "vermelho"},
+    {"Divino", "dourado"},
+};
+constexpr int kMaxItems = 8192;
+BYTE g_itemTiers[kMaxItems];
+int g_itemTierCount = 0;
+bool g_itemTiersLoaded = false;
+// O nível mínimo de um equipamento refinado a +10, +11 … +15, do cabeçalho do
+// arquivo (clientrarity.RefineFloor).
+constexpr int kRefineFloors = 6;
+BYTE g_refineFloor[kRefineFloors];
+
+// Formato: "GPRI", a quantidade de itens (uint16), a quantidade de pisos de
+// refinação (1 byte) e os pisos, depois um byte de nível por item.
+void LoadItemTiers() {
+    g_itemTiersLoaded = true;
+    HANDLE f = CreateFileA("GamePatchItens.bin", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    BYTE header[7] = {};
+    BYTE floors[32] = {};
+    DWORD read = 0;
+    if (ReadFile(f, header, sizeof(header), &read, nullptr) && read == sizeof(header) &&
+        memcmp(header, "GPRI", 4) == 0 && header[6] <= sizeof(floors) &&
+        ReadFile(f, floors, header[6], &read, nullptr) && read == header[6]) {
+        for (int i = 0; i < kRefineFloors && i < header[6]; i++) {
+            g_refineFloor[i] = floors[i];
+        }
+        int count = header[4] | (header[5] << 8);
+        if (count > kMaxItems) {
+            count = kMaxItems;
+        }
+        if (ReadFile(f, g_itemTiers, count, &read, nullptr)) {
+            g_itemTierCount = static_cast<int>(read);
+        }
+    }
+    CloseHandle(f);
+}
+
+// A refinação do item do tooltip, como BASE_GetItemSanc (Basedef.cpp:2136): o
+// valor do efeito 116-125, ou do EF_SANC (43), entre os três do item; de 230 em
+// diante, +10 … +15 em faixas de quatro. O item são os 8 bytes que o desvio do
+// slot copiou: sIndex e três pares (efeito, valor).
+int TooltipRefine() {
+    BYTE item[8];
+    memcpy(item, &g_itemRaw0, 4);
+    memcpy(item + 4, &g_itemRaw1, 4);
+    const BYTE* effect = item + 2;
+    int raw = -1;
+    for (int i = 0; i < 3 && raw < 0; i++) {
+        if (effect[2 * i] >= 116 && effect[2 * i] <= 125) {
+            raw = effect[2 * i + 1];
+        }
+    }
+    for (int i = 0; i < 3 && raw < 0; i++) {
+        if (effect[2 * i] == 43) {
+            raw = effect[2 * i + 1];
+        }
+    }
+    if (raw < 0) {
+        return 0;
+    }
+    if (raw >= 230 && raw <= 253) {
+        return 10 + (raw - 230) / 4;
+    }
+    return raw % 10;
+}
+
+int FamilyByName(const char* name) {
+    for (int i = 0; i < ARRAYSIZE(kFamilies); i++) {
+        if (_stricmp(name, kFamilies[i].name) == 0) {
+            return i;
+        }
+    }
+    return kDefaultFamily;
+}
+
+// O nível do equipamento do tooltip — o do catálogo, erguido pela refinação —,
+// ou nullptr se ele não tem.
+const Tier* ItemTier(int item, int refine) {
+    if (!g_itemTiersLoaded) {
+        LoadItemTiers();
+    }
+    if (item < 0 || item >= g_itemTierCount) {
+        return nullptr;
+    }
+    int t = g_itemTiers[item];
+    if (t > 0 && refine >= 10 && refine < 10 + kRefineFloors && g_refineFloor[refine - 10] > t) {
+        t = g_refineFloor[refine - 10];
+    }
+    return t > 0 && t < ARRAYSIZE(kTiers) ? &kTiers[t] : nullptr;
+}
+// -----------------------------------------------------------------------------
+
+// A linha "Montaria nível X" / "Item nível X" vai na primeira linha livre do
+// corpo depois da última usada (a 14ª é o preço, e fica de fora). g_levelLine
+// lembra onde ela foi escrita, para ser apagada quando o próximo tooltip não a
+// quiser.
 int g_levelLine = -1;
 constexpr int kPriceLine = kTracked - 1;
 
@@ -628,13 +747,13 @@ void SetLineRaw(int i, const char* text, DWORD color) {
     }
 }
 
-void PlaceLevelLine(const Rarity* rarity) {
+void PlaceLevelLine(const char* prefix, const char* label, int family) {
     // Apaga a linha do tooltip anterior, se este não a reescreveu.
     if (g_levelLine >= 0 && !g_lineUsed[g_levelLine]) {
         SetLineRaw(g_levelLine, "", 0);
     }
     g_levelLine = -1;
-    if (rarity == nullptr || rarity->label[0] == 0) {
+    if (label == nullptr || label[0] == 0) {
         return;
     }
     int last = 0;
@@ -648,9 +767,9 @@ void PlaceLevelLine(const Rarity* rarity) {
         return;
     }
     char text[64];
-    strcpy_s(text, sizeof(text), "Montaria n\xedvel ");
-    strcat_s(text, sizeof(text), rarity->label);
-    SetLineRaw(free, text, FamilyColor(rarity->family, 1.0f));
+    strcpy_s(text, sizeof(text), prefix);
+    strcat_s(text, sizeof(text), label);
+    SetLineRaw(free, text, FamilyColor(family, 1.0f));
     g_levelLine = free;
 }
 // -----------------------------------------------------------------------------
@@ -658,10 +777,10 @@ void PlaceLevelLine(const Rarity* rarity) {
 // Outro tooltip está sendo montado nas mesmas linhas: o painel volta à cor do
 // cliente, a borda deixa de ser desenhada e a linha de nível sai.
 void ForgetMountTooltip() {
-    if (!g_mountTooltip) {
+    if (!g_styledTooltip) {
         return;
     }
-    g_mountTooltip = false;
+    g_styledTooltip = false;
     void* panel = TooltipPanel();
     if (panel != nullptr && g_panelRender != nullptr) {
         PanelColor(panel) = g_panelOriginalColor;
@@ -685,6 +804,7 @@ void __cdecl BeforeTooltip() {
     g_title[0] = 0;
     g_tooltipHasAbsorb = false;
     g_tooltipItem = -1;
+    g_itemRaw0 = g_itemRaw1 = 0;
     g_tooltipBuilt = false;
 }
 
@@ -701,16 +821,35 @@ void __cdecl AfterTooltip() {
     if (!g_tooltipBuilt) {
         return; // chamada que não montou tooltip: o que está na tela continua valendo
     }
-    g_mountTooltip = IsMountTooltip();
-    const Rarity* rarity = g_mountTooltip ? RarityOf(g_title) : nullptr;
-    g_family = rarity != nullptr ? rarity->family : kDefaultFamily;
+    // Montaria: raridade pelo nome, no GamePatch.txt (sem ela, borda cinza e sem
+    // linha). Equipamento: pelo índice, no GamePatchItens.bin (sem ela, nada).
+    const bool mount = IsMountTooltip();
+    const char* prefix = "Montaria n\xedvel ";
+    const char* label = nullptr;
+    g_family = kDefaultFamily;
+    if (mount) {
+        const Rarity* rarity = RarityOf(g_title);
+        if (rarity != nullptr) {
+            label = rarity->label;
+            g_family = rarity->family;
+        }
+    } else if (g_slotHooked) {
+        const Tier* tier = ItemTier(g_tooltipItem, TooltipRefine());
+        if (tier != nullptr) {
+            prefix = "Item n\xedvel ";
+            label = tier->label;
+            g_family = FamilyByName(tier->family);
+        }
+    }
+    g_styledTooltip = mount || label != nullptr;
     void* panel = TooltipPanel();
     if (panel != nullptr && g_panelRender != nullptr) {
-        PanelColor(panel) = g_mountTooltip ? kColorBackground : g_panelOriginalColor;
+        PanelColor(panel) = g_styledTooltip ? kColorBackground : g_panelOriginalColor;
     }
-    PlaceLevelLine(rarity);
-    // A paleta é só do tooltip de montaria.
-    if (!g_mountTooltip) {
+    PlaceLevelLine(prefix, label, g_family);
+    // A paleta das linhas, por enquanto, é só da montaria: o equipamento fica
+    // com as cores do cliente até ter a sua.
+    if (!mount) {
         return;
     }
     g_applying = true;
@@ -756,8 +895,9 @@ __declspec(naked) void TooltipHook() {
     }
 }
 
-// Anota o índice do item do slot e refaz as duas instruções que o desvio cobriu.
-// ecx está livre aqui: o cliente o sobrescreve na instrução seguinte.
+// Anota o item do slot (os 8 bytes e o índice) e refaz as duas instruções que
+// o desvio cobriu. ecx e edx estão livres aqui: o cliente os sobrescreve antes
+// de ler (0x416B56 e 0x416B5E).
 __declspec(naked) void SlotHook() {
     __asm {
         mov dword ptr [ebp - 0x8], eax
@@ -767,6 +907,10 @@ __declspec(naked) void SlotHook() {
         mov ecx, dword ptr [eax + 0x670]
         test ecx, ecx
         jz done
+        mov edx, dword ptr [ecx]
+        mov g_itemRaw0, edx
+        mov edx, dword ptr [ecx + 4]
+        mov g_itemRaw1, edx
         movsx ecx, word ptr [ecx]
         mov g_tooltipItem, ecx
     done:

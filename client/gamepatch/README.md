@@ -22,6 +22,29 @@ Nome como aparece no título do tooltip; depois do `=`, o nome do nível e a
 família de cor da borda: `cinza`, `verde`, `azul`, `roxo`, `dourado`, `laranja`
 ou `vermelho`. Montaria fora do arquivo fica com borda cinza e sem linha de nível.
 
+## Raridade dos equipamentos: `GamePatchItens.bin`
+
+Armas e armaduras ganham o mesmo fundo e borda, com a linha "Item nível X". O
+nível de cada item vem de `GamePatchItens.bin`, que o gerador escreve a partir
+do ItemList (regra em `webserver/internal/clientrarity`):
+
+| Nível | Borda | Itens |
+|---|---|---|
+| Divino | dourado | todo Ancient (grade 5–8) |
+| Mítico | vermelho | Celestial (`EF_MOBTYPE 3`) |
+| Lendário | laranja | (Le) e Arch (`EF_MOBTYPE 1`) |
+| Épico | roxo | armadura (A); arma sem letra lv 200+ |
+| Raro | azul | armadura (M); arma lv 150–199 |
+| Incomum | verde | arma lv 100–149 |
+| Comum | cinza | armadura (N); arma até lv 99 |
+
+A refinação ergue o nível, nunca o baixa: +11 e +12 no mínimo Épico, +13
+Lendário, +14 Mítico, +15 Divino. Os pisos vão no cabeçalho do arquivo, e o DLL
+lê a refinação do item sob o mouse como `BASE_GetItemSanc`.
+
+As cores das linhas continuam as do cliente nos equipamentos; a paleta é só
+das montarias.
+
 ## Como o desenho funciona
 
 O tooltip é o painel `0x102` da janela; o cliente o desenha como um nó de cor
