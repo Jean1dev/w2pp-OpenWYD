@@ -790,16 +790,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		damageReqHp(w.Session(target.ID), target, int32(dmg))
 	}
 
-	body := protocol.MsgAttackBody{
-		CurrentHp:  e.HP,
-		PosX:       uint16(e.X),
-		PosY:       uint16(e.Y),
-		TargetX:    uint16(target.X),
-		TargetY:    uint16(target.Y),
-		AttackerID: uint16(id),
-		SkillIndex: int16(sk.index),
-		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
-	}
+	body := corpoDoGolpeDeMonstro(id, e, target, sk, dmg)
 	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
 	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
 	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
@@ -822,9 +813,10 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	// nenhuma (o regen só fala quando a barra se move), então a do cliente
 	// afundava sem oposição até o eco da próxima magia do próprio jogador.
 	//
-	// Reafirmar a mana verdadeira logo depois de cada magia de pet corrige isso
-	// SEM depender de saber como o cliente desconta por dentro, e mantém a
-	// animação da magia do pet, que é o que se vê em jogo.
+	// A causa estava no pacote: o golpe declarava mana 0 onde o legado declara -1
+	// (ver corpoDoGolpeDeMonstro). Esta reafirmação ficou como rede de segurança,
+	// porque não temos o código do cliente e ela custa um pacote de 28 bytes por
+	// magia de pet.
 	if donoID, ok := donoParaReafirmarMana(e, sk); ok {
 		if ds := w.Session(donoID); ds != nil {
 			if owner := w.Entity(donoID); owner != nil {
@@ -858,6 +850,41 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {
 		dropCurrentTarget(e, target.ID)
+	}
+}
+
+// semManaNoGolpe é o "-1" que o legado grava nos campos de mana de todo golpe de
+// monstro: o sinal de que o pacote não traz mana nenhuma.
+const semManaNoGolpe = -1
+
+// corpoDoGolpeDeMonstro monta o MSG_Attack de um golpe de monstro ou de pet.
+//
+// CurrentMp e ReqMp saem com -1, e isso é o conserto da mana negativa do BM. O
+// legado monta o golpe de monstro com `sm->CurrentMp = -1; sm->ReqMp = -1;`
+// (GetFunc.cpp:1416-1417, e o mesmo em GetAttackArea, :1701-1702), e -1 quer
+// dizer "este pacote não fala de mana". O port deixava os dois campos no valor
+// zero da struct, e 0 não é ausência: é um valor de mana como outro qualquer.
+//
+// Enquanto nenhum monstro lançava magia (SkillIndex -1), o cliente nunca chegava
+// a olhar esses campos. Quando as evocações ganharam SkillBar, cada golpe de pet
+// passou a chegar como MAGIA com mana declarada 0, e a barra do dono afundava
+// em combate — até -21000 — e voltava quando o servidor corrigia.
+//
+// CurrentHp continua com a vida do atacante. O legado também manda -1 ali
+// (GetFunc.cpp:1685), mas a barra de vida nunca teve defeito e ninguém lê a
+// vida de um monstro como se fosse a sua; mexer nela fica fora deste conserto.
+func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, dmg int) protocol.MsgAttackBody {
+	return protocol.MsgAttackBody{
+		CurrentHp:  e.HP,
+		CurrentMp:  semManaNoGolpe,
+		ReqMp:      semManaNoGolpe,
+		PosX:       uint16(e.X),
+		PosY:       uint16(e.Y),
+		TargetX:    uint16(target.X),
+		TargetY:    uint16(target.Y),
+		AttackerID: uint16(id),
+		SkillIndex: int16(sk.index),
+		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
 }
 
