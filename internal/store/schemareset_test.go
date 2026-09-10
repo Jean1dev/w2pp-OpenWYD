@@ -21,6 +21,7 @@ import (
 // order a courtesy rather than a requirement. schema_migrations is last and is
 // not created by a migration file; migrate.go makes it.
 var tabelasDeTeste = []string{
+	"combine_tag",
 	"combine_rate_meta",
 	"combine_band",
 	"combine_rate",

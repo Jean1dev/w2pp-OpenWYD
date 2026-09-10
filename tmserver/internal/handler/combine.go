@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
@@ -225,8 +226,13 @@ func (d *Dispatcher) combineExtracao(w *world.World, s *world.Session, _ protoco
 	if roll > 100 {
 		roll -= 15
 	}
-	rate := (effectiveSpecial(e, 2) + 1) / 6
-	if roll < rate {
+	rate := d.huntressChance("Extracao", e)
+	acao := "extrair " + d.itemName(it.Index)
+	// Strictly under, as the legacy compares here — unlike combine.Roll's "at or
+	// under". Kept: it is the extraction's own rule, one point either way.
+	success := roll < rate
+	d.announceRoll(w, e.Name, acao, roll, rate, success)
+	if success {
 		if it.Effects[1].Effect == efDamage {
 			it.Effects[1].Value = addEffectByte(it.Effects[1].Value, d.itemBaseDamage(it))
 		}
@@ -421,6 +427,57 @@ func (d *Dispatcher) composicaoChance(target world.Item, n [3]int) int {
 	}
 	chance := int32(combine.AnctChanceFor(n, weights))
 	return int(d.combineRates.Apply(chance, combine.CompositorKind(d.slotKindOf(target)), d.reqLvlOf(target)))
+}
+
+// odinChaves is the shared list the panel writes (domain.OdinRateKeys), indexed
+// by the recipe id.
+var odinChaves = domain.OdinRateKeys
+
+// odinChance is an Odin recipe's chance: the Mesa's row, or what the server runs
+// today — odinRate, compiled in.
+//
+// NOT CompRate.txt's Odin lines, although they name the same recipes: those
+// were inert in the legacy (the case bug in CReadFiles.cpp) and have never been
+// read by this port either, and they disagree with what runs — the file says
+// "Item_Celestial 5" where the weapon composition has always rolled against 35.
+// Reading them now would cut it to a seventh the day this ships.
+//
+// fromMesa tells the composições apart: their legacy chance carries a rand()%5
+// jitter, and a chance the moderator typed must not wobble.
+func (d *Dispatcher) odinChance(id int) (chance int, fromMesa bool) {
+	if id < 0 || id >= len(odinChaves) {
+		return 0, false
+	}
+	if v, ok := d.combineRates.Rate("Odin", odinChaves[id]); ok {
+		return int(v), true
+	}
+	return odinRate[id], false
+}
+
+// skillChance is the Huntress machines' legacy chance, shared by the Alquimia
+// and the Extração: it grows with the character's third skill tree,
+// (special + 1) / 6, so it varies by who is standing at the machine.
+func skillChance(e *world.Entity) int {
+	return (effectiveSpecial(e, 2) + 1) / 6
+}
+
+// huntressChance is the Alquimia's or the Extração's chance: the Mesa's fixed
+// row, or the skill-driven legacy one.
+func (d *Dispatcher) huntressChance(family string, e *world.Entity) int {
+	if v, ok := d.combineRates.Rate(family, "Chance"); ok {
+		return int(v)
+	}
+	return skillChance(e)
+}
+
+// lindyChance is the Lindy's chance, and whether it rolls at all. The unlock has
+// always been certain; only a row on the Mesa makes it a roll, so a server that
+// never touches it keeps both the outcome and the RNG stream it has today.
+func (d *Dispatcher) lindyChance() (chance int, rolls bool) {
+	if v, ok := d.combineRates.Rate("Lindy", "Chance"); ok {
+		return int(v), true
+	}
+	return 100, false
 }
 
 // machineKeyRate is machineRate for the families whose rate is named by the

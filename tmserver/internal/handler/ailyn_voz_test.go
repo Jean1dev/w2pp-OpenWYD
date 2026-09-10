@@ -191,7 +191,7 @@ func TestAilynMais10SemOuroDizOPreco(t *testing.T) {
 func TestMensagensDasMaquinasCabemNoCliente(t *testing.T) {
 	for _, msg := range []string{
 		msgProcessingComplete, msgCombineFailed, msgWrongCombination,
-		msgOdinComposicaoSucesso, msgOdinComposicaoFalhou, combineNeedsGold(ailynCost),
+		combineNeedsGold(ailynCost),
 	} {
 		encoded := protocol.ClientText(msg)
 		for _, b := range encoded {

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
@@ -117,7 +119,7 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 	case combine.OdinNoMatch, combine.OdinItemCelestial:
 		d.odinComposicao(w, s, e, items[0], items[1], slots[1], id, roll)
 	case combine.OdinPlus12:
-		d.odinPlus12(w, s, e, items[:], slots[2], targetLevel)
+		d.odinPlus12(w, s, e, items[:], slots[2], targetLevel, roll)
 	case combine.OdinPistaDeRunas:
 		d.odinFreshResult(w, s, e, slots[0], odinPistaDeRunasResult, roll, id)
 	case combine.OdinDestraveLv40:
@@ -156,62 +158,80 @@ func odinSecretaUneven(items []world.Item) bool {
 	return some && !all
 }
 
+// Every Odin recipe that rolls announces the roll to the whole server, like the
+// +10, the compositor and the Agatha, and against the chance the Mesa das
+// Máquinas holds for it (odinChance). The announcement replaces the player's
+// own outcome line: the broadcast reaches them too.
+
 // odinComposicao is id 0 ("Composição de Sets") and id 1 ("Composição de
 // armas") — the two share an identical shape in Source, differing only in
 // their success rate. On success, item[1] is relabeled to catalyst's Extra
 // and its sanc reset to 0; on failure item[1] is restored unchanged. Either
 // way item[0] (the catalyst/selado) stays consumed.
 func (d *Dispatcher) odinComposicao(w *world.World, s *world.Session, e *world.Entity, catalyst, base world.Item, baseSlot int, id, roll int) {
-	rate := odinRate[id] + w.Rand().Intn(5)
-	if roll > rate {
-		e.Carry[baseSlot] = base
-		sendCarrySlot(w, s, e, baseSlot)
-		sendClientMessage(w, s, msgOdinComposicaoFalhou)
-		sendCombineComplete(w, s, combineFailed)
-		return
+	// The jitter is drawn whether or not it is used, so the RNG stream stays the
+	// legacy's; only a chance the moderator did not type gets it.
+	jitter := w.Rand().Intn(5)
+	chance, fromMesa := d.odinChance(id)
+	if !fromMesa {
+		chance += jitter
 	}
 	result := base
 	if extra := d.odinCatalog.Extra[int(catalyst.Index)]; extra > 0 {
 		result.Index = int16(extra)
 	}
+	acao := "compor " + d.itemName(result.Index)
+	if roll > chance {
+		e.Carry[baseSlot] = base
+		sendCarrySlot(w, s, e, baseSlot)
+		d.announceRoll(w, e.Name, acao, roll, chance, false)
+		sendCombineComplete(w, s, combineFailed)
+		return
+	}
 	refine.Set(&result, 0, 0)
 	e.Carry[baseSlot] = result
 	sendCarrySlot(w, s, e, baseSlot)
-	sendClientMessage(w, s, msgOdinComposicaoSucesso)
+	d.announceRoll(w, e.Name, acao, roll, chance, true)
 	sendCombineComplete(w, s, combineSuccess)
 }
 
-// The Odin composições are the one place the legacy words the outcome itself
-// instead of using Language.txt (_MSG_CombineItemOdin.cpp:196, :234, :244). Two
-// things from those lines are left out on purpose: the "%d/%d" suffix, which
-// prints the player's roll against the machine's chance — a debug leftover that
-// would now publish whatever rate a moderator set on the panel — and the
-// _SS_Combin_12Succ notice, which is the literal text " !!!" sent to every
-// player online.
-const (
-	msgOdinComposicaoSucesso = "Sucesso ao combinar."
-	msgOdinComposicaoFalhou  = "Falha ao combinar."
-)
-
-// odinPlus12 is id 2, the "+11→+15" refine tier. Per the issue #138 plan
-// (the live failure branch is a byte-identical copy of the success branch,
-// with the real rate-gated failure entirely commented out in Source), this
-// always succeeds once the caller's pre-gate has passed: the accumulated
-// rate is still computed and logged (useful for future economy tuning) but
-// does not gate the outcome. level is items[2]'s current refine level, already
-// computed by the caller's pre-gate.
-func (d *Dispatcher) odinPlus12(w *world.World, s *world.Session, e *world.Entity, items []world.Item, targetSlot, level int) {
+// odinPlus12 is id 2, the "+11→+15" refine tier. level is items[2]'s current
+// refine level, already computed by the caller's pre-gate.
+//
+// In the legacy it cannot fail: the live failure branch is a byte-identical copy
+// of the success branch, with the real rate-gated failure commented out in
+// Source (issue #138). That is exactly a chance of 100 — RollOdin tops out at
+// 100 — so with no row on the Mesa the recipe keeps never failing. A row makes
+// it a real roll; on a failure the item keeps its level and only the stones,
+// consumed before the roll, are lost.
+//
+// The accumulated legacy rate is still computed and logged, for tuning.
+func (d *Dispatcher) odinPlus12(w *world.World, s *world.Session, e *world.Entity, items []world.Item, targetSlot, level, roll int) {
 	rate, protect := combine.Plus12Rate(odinRate[combine.OdinPlus12], items)
+	chance, fromMesa := d.odinChance(combine.OdinPlus12)
+	if !fromMesa {
+		chance = 100
+	}
 	newLevel, ok := combine.Plus12NewLevel(level)
 	if !ok {
 		newLevel = level
+	}
+	acao := fmt.Sprintf("passar %s para +%d", d.itemName(items[2].Index), newLevel)
+	if roll > chance {
+		e.Carry[targetSlot] = items[2]
+		sendCarrySlot(w, s, e, targetSlot)
+		d.announceRoll(w, e.Name, acao, roll, chance, false)
+		sendCombineComplete(w, s, combineFailed)
+		d.log.Info("odin +12+ refine failed", "conn", s.Conn, "level", level, "roll", roll, "chance", chance, "rate", rate, "protect", protect)
+		return
 	}
 	result := items[2]
 	refine.Set(&result, newLevel, refine.Gem(items[2]))
 	e.Carry[targetSlot] = result
 	sendCarrySlot(w, s, e, targetSlot)
+	d.announceRoll(w, e.Name, acao, roll, chance, true)
 	sendCombineComplete(w, s, combineSuccess)
-	d.log.Info("odin +12+ refine", "conn", s.Conn, "from", level, "to", newLevel, "rate", rate, "protect", protect)
+	d.log.Info("odin +12+ refine", "conn", s.Conn, "from", level, "to", newLevel, "roll", roll, "chance", chance, "rate", rate, "protect", protect)
 }
 
 // odinFreshResult covers the recipes whose result is a bare item stamped
@@ -221,13 +241,17 @@ func (d *Dispatcher) odinPlus12(w *world.World, s *world.Session, e *world.Entit
 // — no prior effects/amount survive. On failure the slot is left empty; none
 // of these recipes restores anything (_MSG_CombineItemOdin.cpp:517-650).
 func (d *Dispatcher) odinFreshResult(w *world.World, s *world.Session, e *world.Entity, slot int, result int16, roll, id int) {
-	if roll > odinRate[id] {
-		combineLost(w, s)
+	chance, _ := d.odinChance(id)
+	acao := "criar " + d.itemName(result)
+	if roll > chance {
+		d.announceRoll(w, e.Name, acao, roll, chance, false)
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	e.Carry[slot] = world.Item{Index: result}
 	sendCarrySlot(w, s, e, slot)
-	combineSucceeded(w, s)
+	d.announceRoll(w, e.Name, acao, roll, chance, true)
+	sendCombineComplete(w, s, combineSuccess)
 }
 
 // odinDestraveLv40 is id 4: no item is produced, only the Celestial level-40
@@ -235,13 +259,16 @@ func (d *Dispatcher) odinFreshResult(w *world.World, s *world.Session, e *world.
 // already sets — the caller's pre-gate already confirmed Level==39,
 // CelLv40==0 and ClassMaster==Celestial.
 func (d *Dispatcher) odinDestraveLv40(w *world.World, s *world.Session, e *world.Entity, roll int) {
-	if roll > odinRate[combine.OdinDestraveLv40] {
-		combineLost(w, s)
+	chance, _ := d.odinChance(combine.OdinDestraveLv40)
+	const acao = "destravar o nível 40"
+	if roll > chance {
+		d.announceRoll(w, e.Name, acao, roll, chance, false)
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	// The caller's pre-gate already guaranteed the unlock goes through, so the
 	// line can go first, where _MSG_CombineItemOdin.cpp:534 puts it.
-	sendClientMessage(w, s, msgProcessingComplete)
+	d.announceRoll(w, e.Name, acao, roll, chance, true)
 	d.destravarCelestialFor(w, s, e, false) // sends its own MsgCombineComplete + persists
 }
 
@@ -251,8 +278,11 @@ func (d *Dispatcher) odinDestraveLv40(w *world.World, s *world.Session, e *world
 // The caller's pre-gate already confirmed the class/cape-sanc requirements and
 // computed level, the cape's current refine level.
 func (d *Dispatcher) odinCapaCelestial(w *world.World, s *world.Session, e *world.Entity, roll, level int) {
-	if roll > odinRate[combine.OdinCapaCelestial] {
-		combineLost(w, s)
+	chance, _ := d.odinChance(combine.OdinCapaCelestial)
+	acao := fmt.Sprintf("refinar a Capa Celestial para +%d", level+1)
+	if roll > chance {
+		d.announceRoll(w, e.Name, acao, roll, chance, false)
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
 	cape := &e.Equip[reinoCapeSlot]
@@ -268,5 +298,6 @@ func (d *Dispatcher) odinCapaCelestial(w *world.World, s *world.Session, e *worl
 	}
 	refine.Set(cape, level+1, 0)
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, reinoCapeSlot, itemToSel(*cape)))
-	combineSucceeded(w, s)
+	d.announceRoll(w, e.Name, acao, roll, chance, true)
+	sendCombineComplete(w, s, combineSuccess)
 }

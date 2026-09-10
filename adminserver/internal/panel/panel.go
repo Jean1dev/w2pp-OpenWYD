@@ -403,6 +403,7 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /rates/maquinas", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaRate))))
 		mux.Handle("POST /rates/maquinas/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMaquinaRate))))
 		mux.Handle("POST /rates/maquinas/faixas", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaFaixas))))
+		mux.Handle("POST /rates/maquinas/etiqueta", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setMaquinaEtiqueta))))
 	}
 	if h.cfg.BonusDrop != nil {
 		mux.Handle("GET /rates/bonus-drop", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.bonusDrop))))

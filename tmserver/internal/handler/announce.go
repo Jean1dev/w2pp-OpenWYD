@@ -70,47 +70,53 @@ func rollText(roll, chance int) string {
 	return fmt.Sprintf("%d/%d", roll, chance)
 }
 
-// announceMais10 is the +10 machine's (Ailyn) line.
-func (d *Dispatcher) announceMais10(w *world.World, name string, item int16, roll, chance int, success bool) {
+// announceRoll is the one shape every machine's line takes:
+//
+//	Fulano conseguiu em 25/41 passar Espada para +10!
+//	Fulano falhou em 47/41 ao passar Espada para +10.
+//
+// acao is the infinitive clause ("passar Espada para +10", "compor X"), so every
+// machine reads the same way and a new one is one call, not a new template.
+func (d *Dispatcher) announceRoll(w *world.World, name, acao string, roll, chance int, success bool) {
 	if name == "" {
 		return
 	}
 	if success {
-		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s passar %s para +10!", name, rollText(roll, chance), d.itemName(item)))
+		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s %s!", name, rollText(roll, chance), acao))
 	} else {
-		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao passar %s para +10.", name, rollText(roll, chance), d.itemName(item)))
+		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao %s.", name, rollText(roll, chance), acao))
 	}
-	d.log.Info("announce +10", "name", name, "item", item, "roll", roll, "chance", chance, "success", success)
+	d.log.Info("announce machine roll", "name", name, "acao", acao, "roll", roll, "chance", chance, "success", success)
+}
+
+// announceMais10 is the +10 machine's (Ailyn) line.
+func (d *Dispatcher) announceMais10(w *world.World, name string, item int16, roll, chance int, success bool) {
+	d.announceRoll(w, name, "passar "+d.itemName(item)+" para +10", roll, chance, success)
 }
 
 // announceComposicao is the compositor's line. item is what the combine makes —
 // on a failure, what it would have made — because "compor Espada Anciente" is
 // the news, not the name of the +9 that went into it.
 func (d *Dispatcher) announceComposicao(w *world.World, name string, item int16, roll, chance int, success bool) {
-	if name == "" {
-		return
-	}
-	if success {
-		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s compor %s!", name, rollText(roll, chance), d.itemName(item)))
-	} else {
-		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao compor %s.", name, rollText(roll, chance), d.itemName(item)))
-	}
-	d.log.Info("announce composição", "name", name, "item", item, "roll", roll, "chance", chance, "success", success)
+	d.announceRoll(w, name, "compor "+d.itemName(item), roll, chance, success)
 }
 
 // announceAgatha is the ADD machine's line. It names the item that receives the
 // ADD and never the ADD itself: which bonus a player just moved onto their
 // weapon is theirs to show, not the server's to publish.
 func (d *Dispatcher) announceAgatha(w *world.World, name string, item int16, roll, chance int, success bool) {
+	d.announceRoll(w, name, "passar o ADD para "+d.itemName(item), roll, chance, success)
+}
+
+// announceSemSorteio is for a machine that did not roll — the Lindy with no
+// chance set on the panel is a certain unlock, as it has always been — so there
+// is no "47/41" to print, only the news.
+func (d *Dispatcher) announceSemSorteio(w *world.World, name, feito string) {
 	if name == "" {
 		return
 	}
-	if success {
-		broadcastNotice(w, fmt.Sprintf("%s conseguiu em %s passar o ADD para %s!", name, rollText(roll, chance), d.itemName(item)))
-	} else {
-		broadcastNotice(w, fmt.Sprintf("%s falhou em %s ao passar o ADD para %s.", name, rollText(roll, chance), d.itemName(item)))
-	}
-	d.log.Info("announce agatha", "name", name, "item", item, "roll", roll, "chance", chance, "success", success)
+	broadcastNotice(w, fmt.Sprintf("%s %s!", name, feito))
+	d.log.Info("announce machine", "name", name, "feito", feito)
 }
 
 // announceRefine says a player took an item to +10 or beyond.

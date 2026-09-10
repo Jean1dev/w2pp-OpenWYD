@@ -58,3 +58,30 @@ func TestCompositorTemCurvaPropria(t *testing.T) {
 		t.Errorf("a curva do compositor não voltou com o tipo 3: %+v", cfg.Bands)
 	}
 }
+
+// TestEtiquetasDaMesa covers 0042: the Agatha arrives marked ADD, a label can be
+// set and changed, and an empty one clears it.
+func TestEtiquetasDaMesa(t *testing.T) {
+	ctx := context.Background()
+	s := limparCombineRate(t, ctx)
+	_, _ = s.pool.Exec(ctx, `DELETE FROM combine_tag WHERE family <> 'Agatha'`)
+
+	tags, err := s.CombineTags(ctx)
+	if err != nil {
+		t.Fatalf("CombineTags: %v", err)
+	}
+	if len(tags) != 1 || tags[0] != (domain.CombineTag{Family: "Agatha", Key: "ChanceBase", Tag: "ADD"}) {
+		t.Fatalf("a migração devia deixar só a Agatha como ADD, li %+v", tags)
+	}
+
+	if antes, err := s.SetCombineTag(ctx, "Ehre", "Amunra", "ABS", 0); err != nil || antes != "" {
+		t.Fatalf("SetCombineTag = %q, %v; esperado sem etiqueta anterior", antes, err)
+	}
+	if antes, err := s.SetCombineTag(ctx, "Ehre", "Amunra", "", 0); err != nil || antes != "ABS" {
+		t.Fatalf("limpar = %q, %v; esperado que antes fosse ABS", antes, err)
+	}
+	tags, _ = s.CombineTags(ctx)
+	if len(tags) != 1 {
+		t.Errorf("limpar a etiqueta deixou %+v", tags)
+	}
+}

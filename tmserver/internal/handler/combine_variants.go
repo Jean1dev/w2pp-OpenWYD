@@ -200,14 +200,19 @@ func (d *Dispatcher) combineItemAlquimia(w *world.World, s *world.Session, _ pro
 		return
 	}
 	consumePositions(w, s, e, sl, active, nil)
-	rate := (effectiveSpecial(e, 2) + 1) / 6
-	if _, success := combine.Roll(w.Rand(), rate); !success {
-		combineLost(w, s)
+	rate := d.huntressChance("Alquimia", e)
+	result := int16(3200 + id)
+	acao := "criar " + d.itemName(result)
+	roll, success := combine.Roll(w.Rand(), rate)
+	if !success {
+		d.announceRoll(w, e.Name, acao, roll, rate, false)
+		sendCombineComplete(w, s, combineFailed)
 		return
 	}
-	e.Carry[sl[0]] = world.Item{Index: int16(3200 + id)}
+	e.Carry[sl[0]] = world.Item{Index: result}
 	sendCarrySlot(w, s, e, sl[0])
-	combineSucceeded(w, s)
+	d.announceRoll(w, e.Name, acao, roll, rate, true)
+	sendCombineComplete(w, s, combineSuccess)
 }
 
 func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
@@ -242,6 +247,22 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 		return
 	}
 	consumePositions(w, s, e, sl, active, nil)
+	// The unlock is certain unless the Mesa das Máquinas gives it a chance; only
+	// then does it roll, so an untouched server keeps its RNG stream. A lost roll
+	// costs the items, as on every other machine, and neither the Fame nor the
+	// unlock.
+	acao := fmt.Sprintf("destravar o nível %d com a Lindy", questLevel+1)
+	chance, rolls := d.lindyChance()
+	roll := 0
+	if rolls {
+		var success bool
+		roll, success = combine.Roll(w.Rand(), chance)
+		if !success {
+			d.announceRoll(w, e.Name, acao, roll, chance, false)
+			sendCombineComplete(w, s, combineFailed)
+			return
+		}
+	}
 	stranded := e.Level - questLevel
 	if questLevel == level.ArchGateLv355 {
 		e.ArchLv355 = 1
@@ -290,7 +311,13 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 	motion := protocol.EncodeMotion(motionLevelUp, motionLevelUpParm)
 	w.Send(s, protocol.MsgMotion, motion)
 	w.BroadcastInView(e.ID, protocol.MsgMotion, motion)
-	sendClientMessage(w, s, msgProcessingComplete)
+	// The whole server hears it, the player included — in place of the legacy's
+	// private "processo concluído" line.
+	if rolls {
+		d.announceRoll(w, e.Name, acao, roll, chance, true)
+	} else {
+		d.announceSemSorteio(w, e.Name, fmt.Sprintf("destravou o nível %d com a Lindy", questLevel+1))
+	}
 	if stranded > 0 {
 		// A level drop the player did not ask for reads as data loss unless it is
 		// named. Said after the legacy line so the parity text stays first.

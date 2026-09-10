@@ -1252,3 +1252,35 @@ type CombineRateConfig struct {
 	Rates   []CombineRate
 	Bands   []CombineBand
 }
+
+// OdinRateKeys names each Odin recipe on the Mesa das Máquinas, indexed by the
+// recipe id GetMatchCombineOdin returns. It lives here, shared, because the
+// panel writes these keys and tmServer reads them: two copies would drift, and a
+// drifted key is a row the moderator saves and the game never reads.
+//
+// The names are CompRate.txt's where the legacy has one (CReadFiles.cpp:485-566)
+// — "Item_Celestial" is the weapon composition, as the legacy spells it. Sets and
+// the +12 have no key there and get one here.
+var OdinRateKeys = [12]string{
+	"Composicao_Sets", // 0
+	"Item_Celestial",  // 1 — composição de armas
+	"Refino_12",       // 2
+	"Pista",           // 3
+	"Destrave_Lv40",   // 4
+	"Pedra_da_Furia",  // 5
+	"Secreta_Agua",    // 6
+	"Secreta_Terra",   // 7
+	"Secreta_Sol",     // 8
+	"Secreta_Vento",   // 9
+	"Semente_Cristal", // 10
+	"Capa_Celestial",  // 11
+}
+
+// CombineTag is the operation players call a machine or recipe by — "ADD",
+// "ABS" — as the staff marked it on the panel. A label only: the game does not
+// read it (migração 0042).
+type CombineTag struct {
+	Family string
+	Key    string
+	Tag    string
+}

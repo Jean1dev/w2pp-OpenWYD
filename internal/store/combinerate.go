@@ -232,3 +232,64 @@ func (s *Store) SetCombineBands(ctx context.Context, kind domain.CombineSlotKind
 	})
 	return before, err
 }
+
+// CombineTags returns every ADD/ABS label the staff has marked. A missing table
+// reads as "none marked" for the same reason CombineRates does: the panel does
+// not run the migrations, and that window is normal.
+func (s *Store) CombineTags(ctx context.Context) ([]domain.CombineTag, error) {
+	rows, err := s.pool.Query(ctx, `SELECT family, rate_key, tag FROM combine_tag ORDER BY family, rate_key`)
+	if TabelaAusente(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("store: combine tags: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.CombineTag
+	for rows.Next() {
+		var t domain.CombineTag
+		if err := rows.Scan(&t.Family, &t.Key, &t.Tag); err != nil {
+			return nil, fmt.Errorf("store: scan combine tag: %w", err)
+		}
+		out = append(out, t)
+	}
+	if err := rows.Err(); err != nil {
+		if TabelaAusente(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+// SetCombineTag marks one family/key with an operation, or clears it when tag
+// is empty. It returns the label as it stood before, "" for none, so the audit
+// log can say what changed.
+func (s *Store) SetCombineTag(ctx context.Context, family, key, tag string, moderatorID int64) (before string, err error) {
+	err = s.inTx(ctx, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx,
+			`SELECT tag FROM combine_tag WHERE family = $1 AND rate_key = $2`, family, key).Scan(&before)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("store: read combine tag: %w", err)
+		}
+		if tag == "" {
+			if _, err := tx.Exec(ctx,
+				`DELETE FROM combine_tag WHERE family = $1 AND rate_key = $2`, family, key); err != nil {
+				return fmt.Errorf("store: clear combine tag: %w", err)
+			}
+			return nil
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO combine_tag (family, rate_key, tag, updated_by, updated_at)
+			VALUES ($1, $2, $3, $4, now())
+			ON CONFLICT (family, rate_key) DO UPDATE SET
+				tag        = EXCLUDED.tag,
+				updated_by = EXCLUDED.updated_by,
+				updated_at = now()`,
+			family, key, tag, nullableID(moderatorID)); err != nil {
+			return fmt.Errorf("store: upsert combine tag: %w", err)
+		}
+		return nil
+	})
+	return before, err
+}

@@ -13,7 +13,10 @@
     padding: 12px 0; border-bottom: 1px solid var(--rule);
   }
   .linha:last-of-type { border-bottom: 0; }
-  .linha h3 { margin: 0; font-size: 14.5px; font-weight: 600; }
+  .linha h4 { margin: 0; font-size: 14.5px; font-weight: 600; }
+  .grupo { margin: 26px 0 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .onde select { padding: 2px 4px; font: inherit; font-size: 12px; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 3px; }
+  .onde .mini { padding: 2px 8px; font-size: 12px; }
   .linha .onde { font-size: 12px; color: var(--ink-3); }
   .linha .nota { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-3); max-width: 74ch; margin: 0; }
 
@@ -77,29 +80,47 @@
   <p class="sub">Versão {{.Versao}}</p>
   {{template "quando-vale" "segundos"}}
 
-  <h2>Taxa por máquina</h2>
+  <h2>Chance por máquina</h2>
+  <p class="sub">
+    Sem linha salva, cada máquina roda como sempre rodou — é o "padrão" de cada
+    linha. A etiqueta de operação (ADD, ABS) é só da tela: serve para vocês
+    nomearem cada receita, e não muda a chance.
+  </p>
+  {{range .Grupos}}
+  <h3 class="grupo">{{.Nome}}</h3>
   {{range .Linhas}}
   <form class="linha" method="post" action="/rates/maquinas">
     <input type="hidden" name="csrf" value="{{$.CSRF}}">
     <input type="hidden" name="familia" value="{{.Familia}}">
     <input type="hidden" name="chave" value="{{.Chave}}">
     <div>
-      <h3>{{.Nome}}{{if .Operacao}}<span class="op {{if eq .Operacao "ADD"}}op-add{{else}}op-abs{{end}}">{{.Operacao}}</span>{{end}}</h3>
-      <div class="onde">{{.Onde}} · {{.Familia}} {{.Chave}}</div>
+      <h4>{{.Nome}}{{if .Operacao}}<span class="op {{if eq .Operacao "ADD"}}op-add{{else}}op-abs{{end}}">{{.Operacao}}</span>{{end}}</h4>
+      <div class="onde">
+        {{if .Onde}}{{.Onde}} · {{end}}{{.Familia}} {{.Chave}} ·
+        <label>operação
+          <select name="operacao" aria-label="Operação de {{.Nome}}">
+            <option value=""{{if not .Operacao}} selected{{end}}>nenhuma</option>
+            <option value="ADD"{{if eq .Operacao "ADD"}} selected{{end}}>ADD</option>
+            <option value="ABS"{{if eq .Operacao "ABS"}} selected{{end}}>ABS</option>
+          </select>
+        </label>
+        <button type="submit" formaction="/rates/maquinas/etiqueta" class="secundario mini">Marcar</button>
+      </div>
     </div>
     <div class="origem {{if .NoBanco}}origem-painel{{else}}origem-arquivo{{end}}">
-      {{if .NoBanco}}painel{{else if .PadraoTexto}}arquivo ({{.PadraoTexto}}){{else}}arquivo ({{.Padrao}}%){{end}}
+      {{if .NoBanco}}painel{{else if .PadraoTexto}}padrão ({{.PadraoTexto}}){{else}}padrão ({{.Padrao}}%){{end}}
     </div>
-    <div><input type="number" name="taxa" min="0" max="100" value="{{.Valor}}" aria-label="Taxa de {{.Nome}}"></div>
+    <div><input type="number" name="taxa" min="0" max="100" value="{{.Valor}}" aria-label="Chance de {{.Nome}}"></div>
     <div>
       <button type="submit">Salvar</button>
       {{if .NoBanco}}
-      <button type="submit" formaction="/rates/maquinas/limpar" class="secundario">Usar o arquivo</button>
+      <button type="submit" formaction="/rates/maquinas/limpar" class="secundario">Voltar ao padrão</button>
       {{end}}
     </div>
     <div class="barra {{if ge .Valor 70}}sev-alta{{else if ge .Valor 35}}sev-media{{else}}sev-baixa{{end}}"><i style="width:{{.Valor}}%"></i></div>
     {{if .Nota}}<p class="nota">{{.Nota}}</p>{{end}}
   </form>
+  {{end}}
   {{end}}
 
   <h2>Faixas por conjunto — refino +10</h2>

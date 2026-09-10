@@ -36,63 +36,151 @@ type Maquinas interface {
 	SetCombineRate(ctx context.Context, r domain.CombineRate, moderatorID int64) (domain.CombineRate, bool, error)
 	DeleteCombineRate(ctx context.Context, family, key string, moderatorID int64) (domain.CombineRate, bool, error)
 	SetCombineBands(ctx context.Context, kind domain.CombineSlotKind, bands []domain.CombineBand, moderatorID int64) ([]domain.CombineBand, error)
+	CombineTags(ctx context.Context) ([]domain.CombineTag, error)
+	SetCombineTag(ctx context.Context, family, key, tag string, moderatorID int64) (string, error)
 }
 
 // maquinaChave is one editable rate, described the way an operator thinks about
 // it rather than the way CompRate.txt spells it. The file's key stays because it
 // is what the server looks up, but nobody has to know that to use the screen.
 type maquinaChave struct {
-	Familia  string
-	Chave    string
-	Nome     string // what the machine is called in game
-	Onde     string // the city it stands in, so it can be found
-	Padrao   int32  // the value CompRate.txt ships, shown when there is no row
-	Operacao string // "ADD" / "ABS?" — the operation players name it by
-	Nota     string
-	// PadraoTexto replaces "arquivo (N%)" when the file's behaviour is not one
-	// number — the Agatha's legacy chance varies with every item.
+	Familia string
+	Chave   string
+	Nome    string // what the machine or recipe is called in game
+	Onde    string // where to find it; empty when unknown
+	Padrao  int32  // what runs with no row saved, and what the input starts at
+	Nota    string
+	// PadraoTexto replaces "padrão (N%)" when what runs without a row is not one
+	// number — the Agatha's and the Huntress machines' chance varies.
 	PadraoTexto string
 }
 
-// maquinaChaves is every rate the panel exposes.
+// maquinaGrupos are the machines as the screen lists them: one block per NPC.
+// Every row is a (family, key) the game reads — chaveConhecida refuses anything
+// else, so the panel cannot store a row the machine would ignore.
 //
-// All seven Ehre recipes are listed because which one is the absorption is the
-// server's own vocabulary, not something the code can know — the operator
-// recognises it by the items it consumes, which is why each row names them.
-var maquinaChaves = []maquinaChave{
-	// "Chance", not "ChanceBase": the row changed meaning from a base (10 → 41%)
-	// to the final chance, and a row saved under the old reading must not
-	// silently turn into a 10% machine. 41 is what "Ailyn ChanceBase 10" in
-	// CompRate.txt has always produced.
-	{Familia: "Ailyn", Chave: "Chance", Nome: "Refino +10", Onde: "Armia", Padrao: 41,
-		Nota: "Chance final: é o número depois da barra no anúncio (\"falhou em 47/41\"). As faixas por conjunto, abaixo, multiplicam este número."},
-	{Familia: "Agatha", Chave: "ChanceBase", Nome: "Agatha", Onde: "Azran", Padrao: 46, Operacao: "ADD",
-		PadraoTexto: "varia por item",
-		Nota:        "Chance fixa, igual para qualquer item — é o número do anúncio. Sem linha salva o jogo usa o legado, 15 + grau×5 + 1 (ou +30 no nível 5): 46 num item grau 6."},
-	{Familia: "Tiny", Chave: "ChanceBase", Nome: "Tiny", Onde: "Nippleheim", Padrao: 15},
-	{Familia: "Shany", Chave: "ChanceBase", Nome: "Shany", Onde: "Nippleheim", Padrao: 35},
+// Which operation a row is (ADD, ABS) is not here: the staff marks it on the
+// screen (combine_tag), because which of the two Ankh recipes is the
+// absorption is the server's vocabulary, not something the code can know.
+var maquinaGrupos = []struct {
+	Nome   string
+	Chaves []maquinaChave
+}{
+	{"Ailyn — refino +10", []maquinaChave{
+		// "Chance", not "ChanceBase": the row changed meaning from a base (10 →
+		// 41%) to the final chance, and a row saved under the old reading must not
+		// silently turn into a 10% machine. 41 is what "Ailyn ChanceBase 10" in
+		// CompRate.txt has always produced.
+		{Familia: "Ailyn", Chave: "Chance", Nome: "Refino +10", Onde: "Armia", Padrao: 41,
+			Nota: "Chance final: é o número depois da barra no anúncio (\"falhou em 47/41\"). As faixas por conjunto, abaixo, multiplicam este número."},
+	}},
+	{"Agatha", []maquinaChave{
+		{Familia: "Agatha", Chave: "ChanceBase", Nome: "Agatha", Onde: "Azran", Padrao: 46,
+			PadraoTexto: "varia por item",
+			Nota:        "Chance fixa, igual para qualquer item — é o número do anúncio. Sem linha salva o jogo usa o legado, 15 + grau×5 + 1 (ou +30 no nível 5): 46 num item grau 6."},
+	}},
+	{"Tiny e Shany", []maquinaChave{
+		{Familia: "Tiny", Chave: "ChanceBase", Nome: "Tiny", Onde: "Nippleheim", Padrao: 15},
+		{Familia: "Shany", Chave: "ChanceBase", Nome: "Shany", Onde: "Nippleheim", Padrao: 35},
+	}},
+	{"Compositor", []maquinaChave{
+		{Familia: "Compositor", Chave: "Item_+7", Nome: "Peso de um sacrifício +7", Onde: "Armia", Padrao: 2},
+		{Familia: "Compositor", Chave: "Item_+8", Nome: "Peso de um sacrifício +8", Onde: "Armia", Padrao: 4},
+		{Familia: "Compositor", Chave: "Item_+9", Nome: "Peso de um sacrifício +9", Onde: "Armia", Padrao: 10,
+			Nota: "A chance do compositor é 1 + a soma dos pesos dos itens sacrificados (até seis). As faixas do compositor, abaixo, multiplicam o total."},
+	}},
+	{"Ehre", []maquinaChave{
+		{Familia: "Ehre", Chave: "Pacote_Ori", Nome: "2 Safiras + item +9", Onde: "Erion", Padrao: 100},
+		{Familia: "Ehre", Chave: "Misteriosa", Nome: "Runas Ansuz/Othel + Lac", Onde: "Erion", Padrao: 100},
+		{Familia: "Ehre", Chave: "Espiritual", Nome: "2 Ankhs + Pedra Espiritual", Onde: "Erion", Padrao: 40,
+			Nota: "Uma das duas receitas de Ankh. Marque aqui qual delas é o ABS."},
+		{Familia: "Ehre", Chave: "Amunra", Nome: "2 Ankhs + Pedra Amunra", Onde: "Erion", Padrao: 10,
+			Nota: "A outra receita de Ankh."},
+		{Familia: "Ehre", Chave: "Traje_Montaria", Nome: "Traje de montaria", Onde: "Erion", Padrao: 100},
+		{Familia: "Ehre", Chave: "Retirar_Traje_Montaria", Nome: "Retirar o traje", Onde: "Erion", Padrao: 100},
+		{Familia: "Ehre", Chave: "Soul", Nome: "Soul", Onde: "Erion", Padrao: 100},
+	}},
+	{"Odin", odinChavesDoPainel()},
+	{"Caçadora — Alquimia e Extração", []maquinaChave{
+		{Familia: "Alquimia", Chave: "Chance", Nome: "Alquimia", Onde: "skill da Caçadora", Padrao: 40,
+			PadraoTexto: "varia pela skill",
+			Nota:        "Sem linha salva, a chance cresce com a terceira árvore de skills: (pontos + 1) / 6. Com linha, vira fixa para todos."},
+		{Familia: "Extracao", Chave: "Chance", Nome: "Extração", Onde: "skill da Caçadora", Padrao: 40,
+			PadraoTexto: "varia pela skill",
+			Nota:        "Mesma regra da Alquimia. Na falha o item é destruído."},
+	}},
+	{"Lindy", []maquinaChave{
+		{Familia: "Lindy", Chave: "Chance", Nome: "Desbloqueio do Arch (355 e 370)", Padrao: 100,
+			PadraoTexto: "sempre passa",
+			Nota:        "Sem linha salva o desbloqueio é certo, como sempre foi. Com linha, vira sorteio: perder custa os itens, mas não a Fama nem o desbloqueio."},
+	}},
+}
 
-	{Familia: "Compositor", Chave: "Item_+7", Nome: "Compositor · peso de um sacrifício +7", Onde: "Armia", Padrao: 2},
-	{Familia: "Compositor", Chave: "Item_+8", Nome: "Compositor · peso de um sacrifício +8", Onde: "Armia", Padrao: 4},
-	{Familia: "Compositor", Chave: "Item_+9", Nome: "Compositor · peso de um sacrifício +9", Onde: "Armia", Padrao: 10,
-		Nota: "A chance do compositor é 1 + a soma dos pesos dos itens sacrificados (até seis). As faixas do compositor, abaixo, multiplicam o total."},
+// odinNome is how one Odin recipe reads on the screen.
+type odinNome struct {
+	nome, nota  string
+	padrao      int32
+	padraoTexto string
+}
 
-	{Familia: "Ehre", Chave: "Pacote_Ori", Nome: "Ehre · 2 Safiras + item +9", Onde: "Erion", Padrao: 100},
-	{Familia: "Ehre", Chave: "Misteriosa", Nome: "Ehre · runas Ansuz/Othel + Lac", Onde: "Erion", Padrao: 100},
-	{Familia: "Ehre", Chave: "Espiritual", Nome: "Ehre · 2 Ankhs + Pedra Espiritual", Onde: "Erion", Padrao: 40, Operacao: "ABS?",
-		Nota: "Uma das duas receitas de Ankh. Confirme em jogo qual delas é a absorção."},
-	{Familia: "Ehre", Chave: "Amunra", Nome: "Ehre · 2 Ankhs + Pedra Amunra", Onde: "Erion", Padrao: 10, Operacao: "ABS?",
-		Nota: "A outra receita de Ankh."},
-	{Familia: "Ehre", Chave: "Traje_Montaria", Nome: "Ehre · traje de montaria", Onde: "Erion", Padrao: 100},
-	{Familia: "Ehre", Chave: "Retirar_Traje_Montaria", Nome: "Ehre · retirar o traje", Onde: "Erion", Padrao: 100},
-	{Familia: "Ehre", Chave: "Soul", Nome: "Ehre · Soul", Onde: "Erion", Padrao: 100},
+// odinNomes is keyed like domain.OdinRateKeys — the list tmServer reads — so the
+// screen and the game cannot drift apart.
+var odinNomes = map[string]odinNome{
+	"Composicao_Sets": {nome: "Composição de sets", padrao: 100,
+		nota: "Na falha o item volta; só o selado e as pedras se perdem."},
+	"Item_Celestial": {nome: "Composição de armas", padrao: 35, padraoTexto: "35 a 39",
+		nota: "Sem linha, a chance oscila de 35 a 39 a cada tentativa. Com linha, é o número exato."},
+	"Refino_12": {nome: "Refino +11 a +15", padrao: 100, padraoTexto: "nunca falha",
+		nota: "No legado nunca falha. Com linha vira sorteio: na falha o item fica no nível em que estava e só as pedras se perdem."},
+	"Pista":           {nome: "Pista de runas", padrao: 40},
+	"Destrave_Lv40":   {nome: "Destrave do nível 40 (Celestial)", padrao: 100},
+	"Pedra_da_Furia":  {nome: "Pedra da Fúria", padrao: 100},
+	"Secreta_Agua":    {nome: "Pedra Secreta da Água", padrao: 100},
+	"Secreta_Terra":   {nome: "Pedra Secreta da Terra", padrao: 100},
+	"Secreta_Sol":     {nome: "Pedra Secreta do Sol", padrao: 100},
+	"Secreta_Vento":   {nome: "Pedra Secreta do Vento", padrao: 100},
+	"Semente_Cristal": {nome: "Semente de Cristal", padrao: 100},
+	"Capa_Celestial":  {nome: "Refino da Capa Celestial", padrao: 100},
+}
+
+// odinChavesDoPainel builds the Odin rows from the shared key list, so a recipe
+// the game reads can never be missing from the screen.
+func odinChavesDoPainel() []maquinaChave {
+	out := make([]maquinaChave, 0, len(domain.OdinRateKeys))
+	for _, chave := range domain.OdinRateKeys {
+		n := odinNomes[chave]
+		out = append(out, maquinaChave{Familia: "Odin", Chave: chave, Nome: n.nome,
+			Padrao: n.padrao, PadraoTexto: n.padraoTexto, Nota: n.nota})
+	}
+	return out
+}
+
+// chaveConhecida reports whether (familia, chave) is a row the screen lists —
+// which is to say, one the game reads. The forms carry both as hidden fields,
+// and without this a crafted or mistyped one would be saved and ignored.
+func chaveConhecida(familia, chave string) bool {
+	for _, g := range maquinaGrupos {
+		for _, mc := range g.Chaves {
+			if strings.EqualFold(mc.Familia, familia) && strings.EqualFold(mc.Chave, chave) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // linhaMaquina is one rate row as the screen shows it.
 type linhaMaquina struct {
 	maquinaChave
-	Valor   int32 // what is in force
-	NoBanco bool  // false ⇒ still running on CompRate.txt
+	Valor    int32  // what is in force
+	NoBanco  bool   // false ⇒ still running on the default
+	Operacao string // "ADD" / "ABS" / "" — as the staff marked it
+}
+
+// grupoMaquinas is one NPC's block of rows.
+type grupoMaquinas struct {
+	Nome   string
+	Linhas []linhaMaquina
 }
 
 // faixaMaquina is one band row, with the resulting chance already worked out.
@@ -127,20 +215,35 @@ func (h *Handler) maquinas(w http.ResponseWriter, r *http.Request) {
 	for _, rt := range cfg.Rates {
 		porChave[chaveDe(rt.Family, rt.Key)] = rt.Rate
 	}
-	linhas := make([]linhaMaquina, 0, len(maquinaChaves))
+	// The labels are cosmetic, so a failure reading them costs the labels and not
+	// the screen: every rate is still shown and editable.
+	etiquetas := map[string]string{}
+	tags, err := h.cfg.Maquinas.CombineTags(r.Context())
+	if err != nil {
+		h.cfg.Logger.Warn("combine tags read failed; showing none", "err", err)
+	}
+	for _, t := range tags {
+		etiquetas[chaveDe(t.Family, t.Key)] = t.Tag
+	}
+
+	grupos := make([]grupoMaquinas, 0, len(maquinaGrupos))
 	chanceMais10, pesoMais9 := int32(41), int32(10)
-	for _, mc := range maquinaChaves {
-		l := linhaMaquina{maquinaChave: mc, Valor: mc.Padrao}
-		if v, ok := porChave[chaveDe(mc.Familia, mc.Chave)]; ok {
-			l.Valor, l.NoBanco = v, true
+	for _, g := range maquinaGrupos {
+		grupo := grupoMaquinas{Nome: g.Nome}
+		for _, mc := range g.Chaves {
+			l := linhaMaquina{maquinaChave: mc, Valor: mc.Padrao, Operacao: etiquetas[chaveDe(mc.Familia, mc.Chave)]}
+			if v, ok := porChave[chaveDe(mc.Familia, mc.Chave)]; ok {
+				l.Valor, l.NoBanco = v, true
+			}
+			switch {
+			case mc.Familia == "Ailyn":
+				chanceMais10 = l.Valor
+			case mc.Familia == "Compositor" && strings.EqualFold(mc.Chave, "Item_+9"):
+				pesoMais9 = l.Valor
+			}
+			grupo.Linhas = append(grupo.Linhas, l)
 		}
-		switch {
-		case mc.Familia == "Ailyn":
-			chanceMais10 = l.Valor
-		case mc.Familia == "Compositor" && strings.EqualFold(mc.Chave, "Item_+9"):
-			pesoMais9 = l.Valor
-		}
-		linhas = append(linhas, l)
+		grupos = append(grupos, grupo)
 	}
 	// The compositor's chance depends on what is sacrificed, so its bands are
 	// previewed against one reference recipe: four +9s, the common way to go for it.
@@ -155,7 +258,7 @@ func (h *Handler) maquinas(w http.ResponseWriter, r *http.Request) {
 		page
 		Aba           string
 		Versao        int64
-		Linhas        []linhaMaquina
+		Grupos        []grupoMaquinas
 		ChanceMais10  int32
 		RefCompositor int32
 		Mais10        []tabelaFaixas
@@ -165,7 +268,7 @@ func (h *Handler) maquinas(w http.ResponseWriter, r *http.Request) {
 		page:          p,
 		Aba:           "maquinas",
 		Versao:        cfg.Version,
-		Linhas:        linhas,
+		Grupos:        grupos,
 		ChanceMais10:  chanceMais10,
 		RefCompositor: refCompositor,
 		Mais10: []tabelaFaixas{
@@ -262,8 +365,8 @@ func (h *Handler) setMaquinaRate(w http.ResponseWriter, r *http.Request) {
 	}
 	sess, _ := staffFrom(r.Context())
 	familia, chave := r.FormValue("familia"), r.FormValue("chave")
-	if familia == "" || chave == "" {
-		http.Error(w, "Falta dizer qual máquina.", http.StatusBadRequest)
+	if !chaveConhecida(familia, chave) {
+		http.Error(w, "Máquina desconhecida.", http.StatusBadRequest)
 		return
 	}
 	taxa, err := strconv.Atoi(strings.TrimSpace(r.FormValue("taxa")))
@@ -299,6 +402,10 @@ func (h *Handler) limparMaquinaRate(w http.ResponseWriter, r *http.Request) {
 	}
 	sess, _ := staffFrom(r.Context())
 	familia, chave := r.FormValue("familia"), r.FormValue("chave")
+	if !chaveConhecida(familia, chave) {
+		http.Error(w, "Máquina desconhecida.", http.StatusBadRequest)
+		return
+	}
 	antes, tinha, err := h.cfg.Maquinas.DeleteCombineRate(r.Context(), familia, chave, sess.AccountID)
 	if err != nil {
 		h.cfg.Logger.Error("combine rate clear failed", "familia", familia, "err", err)
@@ -402,6 +509,48 @@ func combineParaAudit(r domain.CombineRate, tinha bool) map[string]any {
 		return map[string]any{"familia": r.Family, "chave": r.Key, "origem": "arquivo"}
 	}
 	return map[string]any{"familia": r.Family, "chave": r.Key, "taxa": r.Rate}
+}
+
+// setMaquinaEtiqueta marks which operation a machine or recipe is — ADD, ABS —
+// or clears it. It is the panel's vocabulary only; the game does not read it.
+func (h *Handler) setMaquinaEtiqueta(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
+		if err != nil {
+			http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		}
+		return
+	}
+	sess, _ := staffFrom(r.Context())
+	familia, chave := r.FormValue("familia"), r.FormValue("chave")
+	if !chaveConhecida(familia, chave) {
+		http.Error(w, "Máquina desconhecida.", http.StatusBadRequest)
+		return
+	}
+	operacao := strings.ToUpper(strings.TrimSpace(r.FormValue("operacao")))
+	if operacao != "" && operacao != "ADD" && operacao != "ABS" {
+		http.Error(w, "A operação é ADD, ABS ou nenhuma.", http.StatusBadRequest)
+		return
+	}
+	antes, err := h.cfg.Maquinas.SetCombineTag(r.Context(), familia, chave, operacao, sess.AccountID)
+	if err != nil {
+		h.cfg.Logger.Error("combine tag save failed", "familia", familia, "chave", chave, "err", err)
+		h.falhaAoGravarMaquina(w, "Erro ao gravar a operação.", err)
+		return
+	}
+	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
+		Action: audit.ActionSetCombineTag,
+		Old:    map[string]any{"familia": familia, "chave": chave, "operacao": antes},
+		New:    map[string]any{"familia": familia, "chave": chave, "operacao": operacao},
+	}); err != nil {
+		h.auditoriaFalhou(w, err)
+		return
+	}
+	aviso := fmt.Sprintf("%s · %s agora é %s.", familia, chave, operacao)
+	if operacao == "" {
+		aviso = fmt.Sprintf("%s · %s ficou sem operação.", familia, chave)
+	}
+	h.voltarParaMaquinas(w, r, aviso)
 }
 
 func (h *Handler) voltarParaMaquinas(w http.ResponseWriter, r *http.Request, aviso string) {

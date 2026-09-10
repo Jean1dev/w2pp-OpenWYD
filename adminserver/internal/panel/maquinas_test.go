@@ -30,6 +30,21 @@ type fakeMaquinas struct {
 	gravErr error
 	// gravouTipo is the slot kind the last SetCombineBands wrote, or 0.
 	gravouTipo domain.CombineSlotKind
+	tags       []domain.CombineTag
+	// gravouTag is the last (family, key, tag) SetCombineTag wrote.
+	gravouTag *domain.CombineTag
+}
+
+func (f *fakeMaquinas) CombineTags(context.Context) ([]domain.CombineTag, error) {
+	return f.tags, nil
+}
+
+func (f *fakeMaquinas) SetCombineTag(_ context.Context, family, key, tag string, _ int64) (string, error) {
+	if f.gravErr != nil {
+		return "", f.gravErr
+	}
+	f.gravouTag = &domain.CombineTag{Family: family, Key: key, Tag: tag}
+	return "", nil
 }
 
 func (f *fakeMaquinas) CombineRates(context.Context) (domain.CombineRateConfig, error) {
@@ -131,7 +146,7 @@ func TestGravarSemATabelaExplicaAEspera(t *testing.T) {
 		t.Fatal("a página não trouxe o token CSRF")
 	}
 
-	form := url.Values{"csrf": {token}, "familia": {"Ailyn"}, "chave": {"Refino"}, "taxa": {"50"}}
+	form := url.Values{"csrf": {token}, "familia": {"Ailyn"}, "chave": {"Chance"}, "taxa": {"50"}}
 	preq := httptest.NewRequest(http.MethodPost, "/rates/maquinas", strings.NewReader(form.Encode()))
 	preq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	preq.AddCookie(c)
@@ -234,6 +249,93 @@ func TestPreviaDaFaixaEhAContaDoJogo(t *testing.T) {
 	for _, c := range casos {
 		if got := efetiva(c.chance, c.mult); got != c.want {
 			t.Errorf("efetiva(%d, %d) = %d, esperado %d", c.chance, c.mult, got, c.want)
+		}
+	}
+}
+
+// postMaquina sends one of the row forms (taxa, limpar, etiqueta) as the screen does.
+func postMaquina(t *testing.T, h http.Handler, rota string, campos url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+	c := sessionCookie(postLogin(h, "chefe", testPassword))
+	if c == nil {
+		t.Fatal("o login não devolveu cookie")
+	}
+	get := httptest.NewRequest(http.MethodGet, "/rates/maquinas", nil)
+	get.AddCookie(c)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, get)
+	campos.Set("csrf", csrfFrom(rec.Body.String()))
+	req := httptest.NewRequest(http.MethodPost, rota, strings.NewReader(campos.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(c)
+	out := httptest.NewRecorder()
+	h.ServeHTTP(out, req)
+	return out
+}
+
+// TestTodaReceitaDoOdinEstaNaTela: the Odin rows are built from the list the
+// game reads (domain.OdinRateKeys), so this pins the other half — each one has a
+// real name on the screen, not a blank row.
+func TestTodaReceitaDoOdinEstaNaTela(t *testing.T) {
+	corpo := abrirMaquinas(t, newTestPanelMaquinas(t, &fakeMaquinas{})).Body.String()
+	for _, chave := range domain.OdinRateKeys {
+		n, ok := odinNomes[chave]
+		if !ok || n.nome == "" {
+			t.Errorf("a receita %q do Odin não tem nome na tela", chave)
+			continue
+		}
+		if !strings.Contains(corpo, `name="chave" value="`+chave+`"`) {
+			t.Errorf("a receita %q do Odin não aparece", chave)
+		}
+	}
+	for _, grupo := range []string{"Odin", "Lindy", "Caçadora — Alquimia e Extração"} {
+		if !strings.Contains(corpo, grupo) {
+			t.Errorf("o grupo %q não aparece", grupo)
+		}
+	}
+}
+
+// TestEtiquetaApareceEEhEditavel: a stored label shows as the pill and as the
+// selected option, and the form writes the one the moderator picks.
+func TestEtiquetaApareceEEhEditavel(t *testing.T) {
+	m := &fakeMaquinas{tags: []domain.CombineTag{{Family: "Ehre", Key: "Amunra", Tag: "ABS"}}}
+	h := newTestPanelMaquinas(t, m)
+	corpo := abrirMaquinas(t, h).Body.String()
+	if !strings.Contains(corpo, `<span class="op op-abs">ABS</span>`) {
+		t.Error("a etiqueta ABS salva não aparece na linha")
+	}
+
+	rec := postMaquina(t, h, "/rates/maquinas/etiqueta",
+		url.Values{"familia": {"Ehre"}, "chave": {"Espiritual"}, "operacao": {"abs"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, esperado 303", rec.Code)
+	}
+	if m.gravouTag == nil || *m.gravouTag != (domain.CombineTag{Family: "Ehre", Key: "Espiritual", Tag: "ABS"}) {
+		t.Errorf("gravou %+v, esperado Ehre/Espiritual = ABS", m.gravouTag)
+	}
+}
+
+// TestFormularioRecusaOQueOJogoNaoLe: the forms carry family and key as hidden
+// fields. Anything not on the screen — a typo, a crafted POST — would be saved
+// and ignored by the game, the exact bug this screen already had once.
+func TestFormularioRecusaOQueOJogoNaoLe(t *testing.T) {
+	casos := []struct {
+		rota   string
+		campos url.Values
+	}{
+		{"/rates/maquinas", url.Values{"familia": {"Ailyn"}, "chave": {"ChanceBase"}, "taxa": {"50"}}},
+		{"/rates/maquinas", url.Values{"familia": {"Odin"}, "chave": {"Pista_Errada"}, "taxa": {"50"}}},
+		{"/rates/maquinas/limpar", url.Values{"familia": {"Nada"}, "chave": {"Chance"}}},
+		{"/rates/maquinas/etiqueta", url.Values{"familia": {"Nada"}, "chave": {"Chance"}, "operacao": {"ADD"}}},
+		{"/rates/maquinas/etiqueta", url.Values{"familia": {"Agatha"}, "chave": {"ChanceBase"}, "operacao": {"XYZ"}}},
+	}
+	for _, c := range casos {
+		m := &fakeMaquinas{}
+		if rec := postMaquina(t, newTestPanelMaquinas(t, m), c.rota, c.campos); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s %v: status %d, esperado 400", c.rota, c.campos, rec.Code)
+		}
+		if m.gravouTag != nil {
+			t.Errorf("%s %v gravou uma etiqueta", c.rota, c.campos)
 		}
 	}
 }
