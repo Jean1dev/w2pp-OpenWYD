@@ -1,7 +1,17 @@
 // Package clientmount writes the mount numbers the staff panel decided into the
-// two client files that show them: the attribute table inside WYD.exe, which
-// the mount tooltip is drawn from, and itemhelp.dat, the per-item text where
-// the absorption — a stat the client knows nothing about — can be written out.
+// client files that show them:
+//
+//   - WYD.exe: the attribute table the mount tooltip is drawn from, and the
+//     tooltip's own list of lines, where two entries are set aside for the
+//     absorption — a stat the original client has no line for;
+//   - ItemList.bin: each mount's absorption, as the two catalog effects those
+//     entries print;
+//   - UI\strdef.bin: the labels of those two lines.
+//
+// itemhelp.dat — the per-item description text — was the first attempt and does
+// not work: the mount tooltip never shows it, wherever the entry sits in the file.
+// The colours of the lines are not data at all; they come from GamePatch.dll
+// (client/gamepatch), which the client loads on its own.
 //
 // It exists because the server and the client each carry a copy of the mount
 // table, and the day they disagreed every mount on the server hit like a Dragão
@@ -110,9 +120,12 @@ const (
 	precedingWords = 12 // the twelve 100s of the table right before this one
 )
 
-// PatchExe writes rows into a copy of the WYD.exe image and returns it. Only the
-// four columns the panel owns are written; the movement tier and the sixth
-// column are left exactly as the client shipped them.
+// PatchExe writes rows into a copy of the WYD.exe image and returns it: the four
+// attribute columns of each mount, and — once, idempotently — the two entries of
+// the item-tooltip list that make the absorption show.
+//
+// Only the four columns the panel owns are written in the mount table; the
+// movement tier and the sixth column are left exactly as the client shipped them.
 func PatchExe(exe []byte, rows []Row) ([]byte, error) {
 	if err := recogniseExe(exe); err != nil {
 		return nil, err
@@ -124,7 +137,73 @@ func PatchExe(exe []byte, rows []Row) ([]byte, error) {
 			binary.LittleEndian.PutUint32(out[at+c*4:], uint32(int32(v)))
 		}
 	}
+	if err := patchTooltipList(out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// The item tooltip does not name its lines in code. It walks a list of 49
+// (effect code → label pointer) pairs in .data — codes at VA 0x60F354, label
+// pointers at VA 0x60F418 — and, for each effect the item has, prints the label
+// and the value. The labels point into the strdef table the client loads at VA
+// 0x109A4B8, 128 bytes per entry.
+//
+// The absorption rides on two effect codes nothing else uses, 62 and 63
+// (EF_HWORDINDEX / EF_LWORDINDEX: no item in the catalog carries either, and the
+// server never writes them). 62 was already on the list, with its own label.
+// 63 was not, and has no label, so it takes over entry 28 — EF_SPECIALALL,
+// "Aumento de Aprendizagem de Skill.", which no item in the client catalog
+// carries either — keeping that entry's label slot, strdef 140. The seven
+// entries 28..34 are then reordered so the two absorption lines come right after
+// Ataque Mágico instead of in the middle of the attribute block.
+const (
+	tooltipCodes  = 0x20F354 // file offset of the code list (VA 0x60F354)
+	tooltipLabels = 0x20F418 // file offset of the label-pointer list (VA 0x60F418)
+	strdefVA      = 0x109A4B8
+	efAbsPvP      = 62
+	efAbsPvE      = 63
+	labelAbsPvP   = 105 // strdef "Número de índice exclusivo" → "Absorção PvP (%)"
+	labelAbsPvE   = 140 // strdef "Aumento de Aprendizagem de Skill." → "Absorção PvE (%)"
+	listFirst     = 28
+)
+
+type tooltipEntry struct{ code, label uint32 }
+
+func labelPtr(idx uint32) uint32 { return strdefVA + idx*128 }
+
+// As the client shipped it, and as this package leaves it.
+var (
+	tooltipOriginal = [7]tooltipEntry{
+		{74, labelPtr(140)}, {7, labelPtr(100)}, {8, labelPtr(101)}, {9, labelPtr(102)},
+		{10, labelPtr(103)}, {60, labelPtr(104)}, {62, labelPtr(105)},
+	}
+	tooltipPatched = [7]tooltipEntry{
+		{7, labelPtr(100)}, {8, labelPtr(101)}, {9, labelPtr(102)}, {10, labelPtr(103)},
+		{60, labelPtr(104)}, {efAbsPvP, labelPtr(labelAbsPvP)}, {efAbsPvE, labelPtr(labelAbsPvE)},
+	}
+)
+
+// patchTooltipList rewrites entries 28..34 of the tooltip list. It accepts the
+// list as the client shipped it or as this package already left it — so a run
+// over an already-generated exe is harmless — and refuses anything else.
+func patchTooltipList(exe []byte) error {
+	var got [7]tooltipEntry
+	for k := range got {
+		got[k] = tooltipEntry{
+			binary.LittleEndian.Uint32(exe[tooltipCodes+4*(listFirst+k):]),
+			binary.LittleEndian.Uint32(exe[tooltipLabels+4*(listFirst+k):]),
+		}
+	}
+	if got != tooltipOriginal && got != tooltipPatched {
+		return fmt.Errorf("clientmount: a lista de linhas do tooltip no WYD.exe não é a original nem a que o "+
+			"gerador deixa (%v); alguém mexeu nela, e o gerador não vai adivinhar", got)
+	}
+	for k, e := range tooltipPatched {
+		binary.LittleEndian.PutUint32(exe[tooltipCodes+4*(listFirst+k):], e.code)
+		binary.LittleEndian.PutUint32(exe[tooltipLabels+4*(listFirst+k):], e.label)
+	}
+	return nil
 }
 
 // recogniseExe refuses anything that is not the build these offsets belong to.
@@ -156,81 +235,97 @@ func recogniseExe(exe []byte) error {
 	return nil
 }
 
-// helpLines is how many text lines follow an item id in itemhelp.dat — the
-// shape of 426 of its 427 entries.
-const helpLines = 9
+// The strdef.bin the client loads: 128-byte records, text in Windows-1252.
+const (
+	strdefSize   = 255992
+	strdefRecord = 128
+)
 
-// helpMarker is the start of the first line of every entry this package
-// writes. It is how a later run tells its own entries (safe to rewrite) from
-// text someone wrote by hand (never touched).
-const helpMarker = "Absor\xe7\xe3o_PvP:"
-
-// PatchItemHelp adds or rewrites one itemhelp.dat entry per row with the
-// mount's absorption, the stat the client has no line for in its own tooltip.
-//
-// The file is text in the client's codepage (Windows-1252), CRLF, one item id
-// on its own line followed by nine lines of "AARRGGBB text" with underscores for
-// spaces. Entries it did not write itself are never touched: an id that already
-// has help text someone wrote refuses the whole run rather than overwrite it.
-func PatchItemHelp(help []byte, rows []Row) ([]byte, error) {
-	lines := strings.Split(string(help), "\r\n")
-	// Where each item's entry starts: the id line itself.
-	start := map[int16]int{}
-	for i, l := range lines {
-		if id, err := strconv.Atoi(l); err == nil && id > 0 && id < 32768 {
-			start[int16(id)] = i
-		}
-	}
-
-	var appendix []string
-	for _, r := range rows {
-		entry := helpEntry(r)
-		i, ok := start[r.Index]
-		if !ok {
-			appendix = append(appendix, entry...)
-			continue
-		}
-		end := i + 1
-		for end < len(lines) {
-			if _, err := strconv.Atoi(lines[end]); err == nil {
-				break
-			}
-			end++
-		}
-		if end-i-1 < 1 || !strings.Contains(lines[i+1], helpMarker) {
-			return nil, fmt.Errorf("clientmount: o itemhelp.dat já tem um texto para a montaria %d que não foi o "+
-				"gerador que escreveu; nada foi gravado, para não apagar esse texto", r.Index)
-		}
-		lines = append(lines[:i], append(entry, lines[end:]...)...)
-		// Indices after i moved; recompute before the next rewrite.
-		start = map[int16]int{}
-		for j, l := range lines {
-			if id, err := strconv.Atoi(l); err == nil && id > 0 && id < 32768 {
-				start[int16(id)] = j
-			}
-		}
-	}
-
-	out := strings.Join(lines, "\r\n")
-	if len(appendix) > 0 {
-		if out != "" && !strings.HasSuffix(out, "\r\n") {
-			out += "\r\n"
-		}
-		out += strings.Join(appendix, "\r\n")
-	}
-	return []byte(out), nil
+var strdefLabels = []struct {
+	idx            int
+	original, novo string
+}{
+	{labelAbsPvP, "N\xfamero de \xedndice exclusivo", "Absor\xe7\xe3o PvP (%)"},
+	{labelAbsPvE, "Aumento de Aprendizagem de Skill.", "Absor\xe7\xe3o PvE (%)"},
 }
 
-// helpEntry is one item's lines: the id, two absorption lines, and blank lines
-// up to the fixed nine. White is the colour the file uses for plain text.
-func helpEntry(r Row) []string {
-	e := []string{
-		strconv.Itoa(int(r.Index)),
-		fmt.Sprintf("FFFFFFFF %s_%d%%", helpMarker, r.AbsPvP),
-		fmt.Sprintf("FFFFFFFF Absor\xe7\xe3o_PvE:_%d%%", r.AbsPvE),
+// PatchStrdef returns a copy of UI\strdef.bin with the two absorption labels.
+// Like the tooltip list, it accepts each record as shipped or as already
+// patched, and refuses anything else rather than overwrite text it does not know.
+func PatchStrdef(sd []byte) ([]byte, error) {
+	if len(sd) != strdefSize {
+		return nil, fmt.Errorf("clientmount: o strdef.bin tem %d bytes, esperava %d", len(sd), strdefSize)
 	}
-	for len(e) < helpLines+1 {
-		e = append(e, "FFFFFFFF ")
+	out := bytes.Clone(sd)
+	for _, l := range strdefLabels {
+		rec := out[l.idx*strdefRecord : (l.idx+1)*strdefRecord]
+		cur := string(bytes.TrimRight(rec, "\x00"))
+		if cur != l.original && cur != l.novo {
+			return nil, fmt.Errorf("clientmount: o rótulo %d do strdef.bin é %q, e o gerador só troca %q", l.idx, cur, l.original)
+		}
+		clear(rec)
+		copy(rec, l.novo)
 	}
-	return e
+	return out, nil
+}
+
+// The client ItemList.bin: 6500 records of 140 bytes under a flat XOR 0x5A, plus
+// 4 trailing bytes the client does not check (they are the same in two catalogs
+// whose contents differ). Twelve catalog effects per record at +80, each a
+// (short code, short value) pair.
+const (
+	itemListSize    = 6500*140 + 4
+	itemRecord      = 140
+	itemEffects     = 80
+	itemEffectSlots = 12
+	itemXOR         = 0x5A
+)
+
+// PatchItemList writes each mount's absorption into its catalog entry as effects
+// 62 (PvP) and 63 (PvE), which the tooltip list now shows as the two
+// "Absorção" lines. The value is per lineage, not per mount, which is exactly
+// how the server applies absorption (0035_mount_absorb).
+//
+// The server never reads these two effects: for the mount slot it takes its
+// numbers from the mount tables and skips catalog effects altogether, so this
+// only ever changes what the player reads.
+func PatchItemList(il []byte, rows []Row) ([]byte, error) {
+	if len(il) != itemListSize {
+		return nil, fmt.Errorf("clientmount: o ItemList.bin tem %d bytes, esperava %d", len(il), itemListSize)
+	}
+	out := bytes.Clone(il)
+	get := func(off int) int16 {
+		return int16(uint16(out[off]^itemXOR) | uint16(out[off+1]^itemXOR)<<8)
+	}
+	put := func(off int, v int16) {
+		out[off], out[off+1] = byte(uint16(v))^itemXOR, byte(uint16(v)>>8)^itemXOR
+	}
+	for _, r := range rows {
+		rec := int(r.Index) * itemRecord
+		if out[rec]^itemXOR == 0 {
+			return nil, fmt.Errorf("clientmount: o ItemList.bin não tem o item %d", r.Index)
+		}
+		for _, ef := range []struct {
+			code  int16
+			value int
+		}{{efAbsPvP, r.AbsPvP}, {efAbsPvE, r.AbsPvE}} {
+			slot := -1
+			for i := 0; i < itemEffectSlots; i++ {
+				c := get(rec + itemEffects + 4*i)
+				if c == ef.code {
+					slot = i
+					break
+				}
+				if c == 0 && slot < 0 {
+					slot = i
+				}
+			}
+			if slot < 0 {
+				return nil, fmt.Errorf("clientmount: a montaria %d não tem espaço de efeito livre no ItemList.bin", r.Index)
+			}
+			put(rec+itemEffects+4*slot, ef.code)
+			put(rec+itemEffects+4*slot+2, int16(ef.value))
+		}
+	}
+	return out, nil
 }

@@ -1,6 +1,7 @@
 package clientmount
 
 import (
+	"bytes"
 	"encoding/binary"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ func fakeExe() []byte {
 		binary.LittleEndian.PutUint32(b[at+16:], 6)
 		binary.LittleEndian.PutUint32(b[at+20:], 73)
 	}
-	return b
+	return withOriginalTooltipList(b)
 }
 
 func col(b []byte, index int16, c int) int32 {
@@ -101,58 +102,136 @@ func TestPatchExeRecusaOutraBuild(t *testing.T) {
 	}
 }
 
-const helpOriginal = "410\r\nFFFFFFFF Ao_ser_utilizado\r\nFFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\n" +
-	"FFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\n3987\r\nFFFF00FF [Item_Premium]\r\n" +
-	"FFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF\r\nFFFFFFFF Montaria\r\nFFFFFFFF Item\r\nFFFF0000 Dura\xe7\xe3o\r\n" +
-	"FFFF0000 Consumo\r\nFFFF0000 Some"
+// withOriginalTooltipList puts the tooltip list entries 28..34 as the client
+// ships them into an image.
+func withOriginalTooltipList(b []byte) []byte {
+	for k, e := range tooltipOriginal {
+		binary.LittleEndian.PutUint32(b[tooltipCodes+4*(listFirst+k):], e.code)
+		binary.LittleEndian.PutUint32(b[tooltipLabels+4*(listFirst+k):], e.label)
+	}
+	return b
+}
 
-func TestPatchItemHelpAcrescentaEReescreveASuaPropria(t *testing.T) {
+func TestPatchExeAbreAsDuasLinhasDeAbsorcao(t *testing.T) {
 	rows, _ := ParseTable(strings.NewReader(tabelaAndaluzB))
-	once, err := PatchItemHelp([]byte(helpOriginal), rows)
+	out, err := PatchExe(withOriginalTooltipList(fakeExe()), rows)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(once)
-	if !strings.HasPrefix(s, helpOriginal+"\r\n2375\r\nFFFFFFFF Absor\xe7\xe3o_PvP:_10%\r\nFFFFFFFF Absor\xe7\xe3o_PvE:_20%\r\n") {
-		t.Fatalf("entrada não foi acrescentada no fim, em CP1252:\n%q", s)
-	}
-	if n := strings.Count(s, "\r\n2375\r\n"); n != 1 {
-		t.Errorf("a entrada 2375 aparece %d vezes", n)
-	}
-	lines := strings.Split(s, "\r\n")
-	idx := -1
-	for i, l := range lines {
-		if l == "2375" {
-			idx = i
+	// Magia, then PvP, then PvE: the two absorption lines together, after Ataque
+	// Mágico — the order players read in game.
+	for k, want := range []uint32{7, 8, 9, 10, 60, efAbsPvP, efAbsPvE} {
+		if got := binary.LittleEndian.Uint32(out[tooltipCodes+4*(listFirst+k):]); got != want {
+			t.Errorf("entrada %d = código %d, want %d", listFirst+k, got, want)
 		}
 	}
-	if len(lines)-idx-1 != helpLines {
-		t.Errorf("entrada com %d linhas, want %d", len(lines)-idx-1, helpLines)
+	if got := binary.LittleEndian.Uint32(out[tooltipLabels+4*(listFirst+6):]); got != labelPtr(labelAbsPvE) {
+		t.Errorf("rótulo da linha PvE = 0x%X, want o do strdef %d", got, labelAbsPvE)
 	}
-
-	// A second run with new numbers rewrites the entry it wrote, in place.
-	rows[0].AbsPvP = 35
-	twice, err := PatchItemHelp(once, rows)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Count(string(twice), "\r\n2375\r\n") != 1 || !strings.Contains(string(twice), "PvP:_35%") ||
-		strings.Contains(string(twice), "PvP:_10%") {
-		t.Errorf("a segunda passada não reescreveu a própria entrada:\n%q", twice)
-	}
-	if !strings.HasPrefix(string(twice), helpOriginal) {
-		t.Error("a segunda passada mexeu no texto que já existia")
+	// A second run over the generated image is harmless.
+	if _, err := PatchExe(out, rows); err != nil {
+		t.Errorf("rodar de novo sobre o exe gerado falhou: %v", err)
 	}
 }
 
-func TestPatchItemHelpNaoApagaTextoDeOutraPessoa(t *testing.T) {
-	// 2375 already has help someone wrote by hand. Refusing is the rule: an entry the
-	// generator did not write is someone's text, and overwriting it is a loss
-	// nobody asked for.
-	rows := []Row{{Index: 2375, AbsPvP: 10, AbsPvE: 20}}
-	manual := helpOriginal + "\r\n2375\r\nFFFFFFFF Montaria_da_guilda\r\nFFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\n" +
-		"FFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF \r\nFFFFFFFF "
-	if _, err := PatchItemHelp([]byte(manual), rows); err == nil {
-		t.Error("sobrescreveu uma entrada escrita à mão")
+func TestPatchExeRecusaListaDesconhecida(t *testing.T) {
+	rows, _ := ParseTable(strings.NewReader(tabelaAndaluzB))
+	exe := withOriginalTooltipList(fakeExe())
+	binary.LittleEndian.PutUint32(exe[tooltipCodes+4*listFirst:], 99)
+	if _, err := PatchExe(exe, rows); err == nil {
+		t.Error("aceitou uma lista do tooltip que não é a original nem a gerada")
+	}
+}
+
+func fakeStrdef() []byte {
+	b := make([]byte, strdefSize)
+	for _, l := range strdefLabels {
+		copy(b[l.idx*strdefRecord:], l.original)
+	}
+	return b
+}
+
+func TestPatchStrdefTrocaSoOsDoisRotulos(t *testing.T) {
+	sd := fakeStrdef()
+	copy(sd[3*strdefRecord:], "outro texto qualquer")
+	out, err := PatchStrdef(sd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(bytes.TrimRight(out[labelAbsPvP*strdefRecord:(labelAbsPvP+1)*strdefRecord], "\x00")); got != "Absor\xe7\xe3o PvP (%)" {
+		t.Errorf("rótulo PvP = %q", got)
+	}
+	if got := string(bytes.TrimRight(out[labelAbsPvE*strdefRecord:(labelAbsPvE+1)*strdefRecord], "\x00")); got != "Absor\xe7\xe3o PvE (%)" {
+		t.Errorf("rótulo PvE = %q", got)
+	}
+	if !bytes.Equal(out[3*strdefRecord:4*strdefRecord], sd[3*strdefRecord:4*strdefRecord]) {
+		t.Error("mexeu num rótulo que não era dele")
+	}
+	if _, err := PatchStrdef(out); err != nil {
+		t.Errorf("rodar de novo sobre o strdef gerado falhou: %v", err)
+	}
+	outro := fakeStrdef()
+	copy(outro[labelAbsPvE*strdefRecord:], "Texto que alguem pos")
+	if _, err := PatchStrdef(outro); err == nil {
+		t.Error("sobrescreveu um rótulo que não era o original")
+	}
+}
+
+// fakeItemList builds a client catalog with the Andaluz B entry as shipped: a
+// name and EF_CLASS 255 in slot 0, all under XOR 0x5A.
+func fakeItemList() []byte {
+	b := make([]byte, itemListSize)
+	for i := range b {
+		b[i] = itemXOR
+	}
+	rec := 2375 * itemRecord
+	for i, c := range []byte("Andaluz_B") {
+		b[rec+i] = c ^ itemXOR
+	}
+	b[rec+itemEffects] = 18 ^ itemXOR    // EF_CLASS
+	b[rec+itemEffects+2] = 255 ^ itemXOR // todas as classes
+	return b
+}
+
+func efeitoDoItem(b []byte, index, slot int) (code, value int16) {
+	off := index*itemRecord + itemEffects + 4*slot
+	return int16(uint16(b[off]^itemXOR) | uint16(b[off+1]^itemXOR)<<8),
+		int16(uint16(b[off+2]^itemXOR) | uint16(b[off+3]^itemXOR)<<8)
+}
+
+func TestPatchItemListGravaAAbsorcaoNosEfeitosLivres(t *testing.T) {
+	rows, _ := ParseTable(strings.NewReader(tabelaAndaluzB))
+	out, err := PatchItemList(fakeItemList(), rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, v := efeitoDoItem(out, 2375, 0); c != 18 || v != 255 {
+		t.Errorf("slot 0 = (%d,%d), o EF_CLASS 255 original sumiu", c, v)
+	}
+	if c, v := efeitoDoItem(out, 2375, 1); c != efAbsPvP || v != 10 {
+		t.Errorf("slot 1 = (%d,%d), want (62,10) — absorção PvP", c, v)
+	}
+	if c, v := efeitoDoItem(out, 2375, 2); c != efAbsPvE || v != 20 {
+		t.Errorf("slot 2 = (%d,%d), want (63,20) — absorção PvE", c, v)
+	}
+
+	// New numbers from the panel rewrite the same slots instead of piling up.
+	rows[0].AbsPvP, rows[0].AbsPvE = 35, 5
+	twice, err := PatchItemList(out, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, v := efeitoDoItem(twice, 2375, 1); c != efAbsPvP || v != 35 {
+		t.Errorf("segunda passada: slot 1 = (%d,%d), want (62,35)", c, v)
+	}
+	if c, _ := efeitoDoItem(twice, 2375, 3); c != 0 {
+		t.Errorf("segunda passada abriu um slot novo (%d) em vez de reescrever", c)
+	}
+}
+
+func TestPatchItemListRecusaItemInexistente(t *testing.T) {
+	rows := []Row{{Index: 2374, AbsPvP: 10, AbsPvE: 20}} // 2374 não está no catálogo falso
+	if _, err := PatchItemList(fakeItemList(), rows); err == nil {
+		t.Error("gravou num registro vazio do ItemList")
 	}
 }
