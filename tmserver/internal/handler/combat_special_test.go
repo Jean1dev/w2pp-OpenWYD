@@ -342,8 +342,9 @@ func TestHuntressForceDamageApplication(t *testing.T) {
 		t.Fatalf("force damage vs mob = %d, want 165", got)
 	}
 	player := &world.Entity{ID: 2}
-	if got := applyHuntressForceDamage(attacker, player, player.ID, 100); got != 65 {
-		t.Fatalf("force damage vs player = %d, want 65", got)
+	// The quarter is perfuracao's now, applied before this: forced damage only adds.
+	if got := applyHuntressForceDamage(attacker, player, player.ID, 100); got != 140 {
+		t.Fatalf("force damage vs player = %d, want 140", got)
 	}
 }
 
@@ -359,10 +360,10 @@ func TestHuntressAirBladeProcAddsDamage(t *testing.T) {
 	body := &protocol.MsgAttackBody{}
 	payload := make([]byte, protocol.MsgAttackDamOffset)
 
-	got := d.applyAirBladeProc(w, attacker, target, protocol.MsgAttackTwo, body, payload, 100)
+	got, proc := d.applyAirBladeProc(w, attacker, target, protocol.MsgAttackTwo, body, payload, 100)
 
-	if got != 198 {
-		t.Fatalf("air blade damage = %d, want 198", got)
+	if got != 198 || proc != 98 {
+		t.Fatalf("air blade damage = %d (proc %d), want 198 (proc 98)", got, proc)
 	}
 	if body.DoubleCritical&4 == 0 || payload[36]&4 == 0 {
 		t.Fatalf("air blade flags = body %#x payload %#x, want bit 4", body.DoubleCritical, payload[36])

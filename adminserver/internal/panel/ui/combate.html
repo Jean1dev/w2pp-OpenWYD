@@ -46,8 +46,9 @@
 <main>
   <h1>Regra de combate</h1>
   <p class="sub">
-    Quanto um mago bate neste servidor: de onde vem a Magia, o que multiplica a
-    magia e quanto a resistência do monstro pesa.
+    Quanto um golpe tira neste servidor: de onde vem a Magia, o que multiplica a
+    magia, quanto a resistência do monstro pesa e quanto sobra do golpe em outro
+    jogador.
   </p>
 
   {{template "abas-rates" .}}
@@ -102,7 +103,7 @@
   <div class="caixa">
     <h2>Gravar uma regra</h2>
     <p class="sub">
-      Os três vão juntos: são uma decisão só sobre o que a magia é aqui.
+      Todos vão juntos: são uma decisão só sobre quanto um golpe tira aqui.
     </p>
     <form method="post" action="/rates/combate">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
@@ -122,6 +123,16 @@
                  inputmode="numeric" required value="{{.Combate.Regra.MobResistBase}}">
           <span class="faixa">{{.Combate.MinResist}} a {{.Combate.MaxResist}}. 150 = legado; contra jogador é sempre 150.</span>
         </label>
+        <label class="num">Dano de skill em jogador (%)
+          <input name="pvp_skill" type="number" min="{{.Combate.MinPvP}}" max="{{.Combate.MaxPvP}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.PvPSkillPct}}">
+          <span class="faixa">{{.Combate.MinPvP}} a {{.Combate.MaxPvP}}. Por cima da divisão por 4 do legado; 100 = legado.</span>
+        </label>
+        <label class="num">Dano de golpe físico em jogador (%)
+          <input name="pvp_melee" type="number" min="{{.Combate.MinPvP}}" max="{{.Combate.MaxPvP}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.PvPMeleePct}}">
+          <span class="faixa">{{.Combate.MinPvP}} a {{.Combate.MaxPvP}}. Por cima da divisão por 4 do legado; 100 = legado.</span>
+        </label>
       </div>
       <button type="submit" class="principal">Gravar a regra</button>
     </form>
@@ -139,6 +150,8 @@
         <input type="hidden" name="arma" value="{{.Combate.Kersef.WeaponIntMagicPct}}">
         <input type="hidden" name="multi" value="{{if .Combate.Kersef.SpellDamageMulti}}1{{else}}0{{end}}">
         <input type="hidden" name="resist" value="{{.Combate.Kersef.MobResistBase}}">
+        <input type="hidden" name="pvp_skill" value="{{.Combate.Kersef.PvPSkillPct}}">
+        <input type="hidden" name="pvp_melee" value="{{.Combate.Kersef.PvPMeleePct}}">
         <button type="submit">Usar a regra do Kersef</button>
       </form>
       {{if .Combate.Configurada}}

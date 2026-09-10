@@ -47,5 +47,7 @@ func (s *CombatRuleServer) GetCombatRule(ctx context.Context, _ *dbv1.GetCombatR
 		WeaponIntMagicPct: cfg.Rules.WeaponIntMagicPct,
 		SpellDamageMulti:  cfg.Rules.SpellDamageMulti,
 		MobResistBase:     cfg.Rules.MobResistBase,
+		PvpSkillPct:       cfg.Rules.PvPSkillPct,
+		PvpMeleePct:       cfg.Rules.PvPMeleePct,
 	}, nil
 }

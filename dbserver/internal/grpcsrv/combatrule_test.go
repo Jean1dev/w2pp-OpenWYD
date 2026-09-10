@@ -26,12 +26,16 @@ func (f *fakeCombatRuleStore) CombatRule(context.Context) (combatrule.Config, er
 	return f.cfg, f.err
 }
 
-// TestCombatRuleServerCarriesTheThreeKnobs: every knob crosses the wire, and
+// TestCombatRuleServerCarriesEveryKnob: every knob crosses the wire, and
 // configured with them — tmServer needs the flag to tell a saved rule from the
 // default.
-func TestCombatRuleServerCarriesTheThreeKnobs(t *testing.T) {
+func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
+	regra := combatrule.Kersef()
+	// Os dois de PvP diferentes entre si e do legado, para um campo trocado com
+	// o outro no mapeamento não passar.
+	regra.PvPSkillPct, regra.PvPMeleePct = 60, 80
 	s := NewCombatRule(&fakeCombatRuleStore{cfg: combatrule.Config{
-		Version: 4, Configured: true, Rules: combatrule.Kersef(),
+		Version: 4, Configured: true, Rules: regra,
 	}})
 	resp, err := s.GetCombatRule(context.Background(), &dbv1.GetCombatRuleRequest{})
 	if err != nil {
@@ -41,7 +45,11 @@ func TestCombatRuleServerCarriesTheThreeKnobs(t *testing.T) {
 		t.Fatalf("resp = %+v", resp)
 	}
 	if resp.GetWeaponIntMagicPct() != 100 || !resp.GetSpellDamageMulti() || resp.GetMobResistBase() != 150 {
-		t.Errorf("os três botões chegaram como %+v, quero o Kersef", resp)
+		t.Errorf("os botões de magia chegaram como %+v, quero o Kersef", resp)
+	}
+	if resp.GetPvpSkillPct() != 60 || resp.GetPvpMeleePct() != 80 {
+		t.Errorf("PvP chegou como skill %d%% e golpe %d%%, quero 60%% e 80%%",
+			resp.GetPvpSkillPct(), resp.GetPvpMeleePct())
 	}
 }
 

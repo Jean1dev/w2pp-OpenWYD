@@ -57,7 +57,12 @@ func TestCombatRuleCRUD(t *testing.T) {
 	}
 
 	// Regravar é atualizar a linha única, e o anterior é o que estava gravado.
-	meio := combatrule.Rules{WeaponIntMagicPct: 40, SpellDamageMulti: false, MobResistBase: 120}
+	// Os dois de PvP diferentes entre si e do legado, para uma coluna trocada
+	// com a outra não passar despercebida.
+	meio := combatrule.Rules{
+		WeaponIntMagicPct: 40, SpellDamageMulti: false, MobResistBase: 120,
+		PvPSkillPct: 60, PvPMeleePct: 80,
+	}
 	antes, err = s.SetCombatRule(ctx, meio, 0)
 	if err != nil {
 		t.Fatalf("SetCombatRule: %v", err)
@@ -87,11 +92,22 @@ func TestCombatRuleCRUD(t *testing.T) {
 func TestCombatRuleRecusaValorForaDaFaixa(t *testing.T) {
 	ctx := context.Background()
 	s := limparCombatRule(t, ctx)
+	// Cada caso é o padrão com UM botão fora da faixa, para ser recusado pelo
+	// motivo que o nome diz e não por outro campo zerado.
+	com := func(mudar func(*combatrule.Rules)) combatrule.Rules {
+		r := combatrule.Default()
+		mudar(&r)
+		return r
+	}
 	for _, r := range []combatrule.Rules{
-		{WeaponIntMagicPct: 101, MobResistBase: 100},
-		{WeaponIntMagicPct: -1, MobResistBase: 100},
-		{WeaponIntMagicPct: 0, MobResistBase: 49},
-		{WeaponIntMagicPct: 0, MobResistBase: 151},
+		com(func(r *combatrule.Rules) { r.WeaponIntMagicPct = 101 }),
+		com(func(r *combatrule.Rules) { r.WeaponIntMagicPct = -1 }),
+		com(func(r *combatrule.Rules) { r.MobResistBase = 49 }),
+		com(func(r *combatrule.Rules) { r.MobResistBase = 151 }),
+		com(func(r *combatrule.Rules) { r.PvPSkillPct = 0 }),
+		com(func(r *combatrule.Rules) { r.PvPSkillPct = 201 }),
+		com(func(r *combatrule.Rules) { r.PvPMeleePct = 0 }),
+		com(func(r *combatrule.Rules) { r.PvPMeleePct = 201 }),
 	} {
 		if _, err := s.SetCombatRule(ctx, r, 0); !errors.Is(err, ErrInvalidCombatRule) {
 			t.Errorf("SetCombatRule(%+v) = %v, quero ErrInvalidCombatRule", r, err)
@@ -102,10 +118,42 @@ func TestCombatRuleRecusaValorForaDaFaixa(t *testing.T) {
 	}
 
 	// E o CHECK, se alguém escrever direto no banco sem passar pelo store.
+	for nome, sql := range map[string]string{
+		"base de resistência 10": `INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base)
+			VALUES (TRUE, 0, FALSE, 10)`,
+		"skill em jogador 0%": `INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base, pvp_skill_pct)
+			VALUES (TRUE, 0, FALSE, 100, 0)`,
+		"golpe físico em jogador 201%": `INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base, pvp_melee_pct)
+			VALUES (TRUE, 0, FALSE, 100, 201)`,
+	} {
+		if _, err := s.pool.Exec(ctx, sql); err == nil {
+			t.Errorf("o banco aceitou %s", nome)
+			_, _ = s.pool.Exec(ctx, `DELETE FROM combat_rule`) // o próximo caso precisa da tabela vazia
+		}
+	}
+}
+
+// TestLinhaAnteriorAoPvPContinuaValida é a linha gravada antes da 0045: ela não
+// tem os dois campos de PvP, e o DEFAULT 100 é o que a mantém uma regra válida.
+// Voltando com zero, o tmServer descartaria a regra inteira e ficaria no padrão
+// enquanto o painel mostrava outra coisa.
+func TestLinhaAnteriorAoPvPContinuaValida(t *testing.T) {
+	ctx := context.Background()
+	s := limparCombatRule(t, ctx)
 	if _, err := s.pool.Exec(ctx, `
 		INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base)
-		VALUES (TRUE, 0, FALSE, 10)`); err == nil {
-		t.Error("o banco aceitou base de resistência 10")
+		VALUES (TRUE, 100, TRUE, 150)`); err != nil {
+		t.Fatalf("gravar a linha sem os campos de PvP: %v", err)
+	}
+	cfg, err := s.CombatRule(ctx)
+	if err != nil {
+		t.Fatalf("CombatRule: %v", err)
+	}
+	if !cfg.Rules.Valid() {
+		t.Fatalf("a linha anterior à 0045 leu %+v, que o jogo recusaria", cfg.Rules)
+	}
+	if cfg.Rules != combatrule.Kersef() {
+		t.Errorf("leu %+v, quero o Kersef com o legado (100%%) no PvP", cfg.Rules)
 	}
 }
 

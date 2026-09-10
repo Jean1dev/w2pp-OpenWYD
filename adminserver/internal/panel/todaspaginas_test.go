@@ -278,7 +278,7 @@ func TestTodoPostExigeCSRF(t *testing.T) {
 		// porque o handler valida as faixas antes de qualquer outra coisa.
 		{"/rates/montarias/2360", curvaCheia},
 		{"/rates/montarias/2360/limpar", url.Values{}},
-		{"/rates/combate", url.Values{"arma": {"0"}, "multi": {"0"}, "resist": {"100"}}},
+		{"/rates/combate", url.Values{"arma": {"0"}, "multi": {"0"}, "resist": {"100"}, "pvp_skill": {"100"}, "pvp_melee": {"100"}}},
 		{"/rates/combate/limpar", url.Values{}},
 		{"/servidor/aviso", url.Values{"mensagem": {"oi"}}},
 		{"/servidor/derrubar", url.Values{"conta": {"ana"}}},

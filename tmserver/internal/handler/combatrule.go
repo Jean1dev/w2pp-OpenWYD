@@ -50,7 +50,8 @@ func (d *Dispatcher) spellDamageMultiPct(e *world.Entity) int {
 func (d *Dispatcher) setCombatRules(r combatrule.Rules) bool {
 	if !r.Valid() {
 		d.log.Warn("combat rule outside its ranges, keeping the current one",
-			"weapon_int_magic_pct", r.WeaponIntMagicPct, "mob_resist_base", r.MobResistBase)
+			"weapon_int_magic_pct", r.WeaponIntMagicPct, "mob_resist_base", r.MobResistBase,
+			"pvp_skill_pct", r.PvPSkillPct, "pvp_melee_pct", r.PvPMeleePct)
 		return false
 	}
 	if r == d.combatRules {
@@ -63,8 +64,8 @@ func (d *Dispatcher) setCombatRules(r combatrule.Rules) bool {
 // applyCombatRules installs r and, when that changed the rule in force,
 // re-derives and pushes the score of every player in the world.
 //
-// Only the weapon's INT share feeds the score — the two spell knobs are read at
-// the moment of every cast — but without this push a staff member who moves it
+// Only the weapon's INT share feeds the score — the other knobs are read at the
+// moment of every blow — but without this push a staff member who moves it
 // would see nothing: Magic is otherwise re-derived only on the next equipment
 // change, buff or login, so every caster online would carry the old number
 // until then, and the new one would appear to have failed. The push is the whole
@@ -86,6 +87,7 @@ func (d *Dispatcher) applyCombatRules(w *world.World, r combatrule.Rules) {
 	})
 	d.log.Info("combat rule installed", "weapon_int_magic_pct", r.WeaponIntMagicPct,
 		"spell_damage_multi", r.SpellDamageMulti, "mob_resist_base", r.MobResistBase,
+		"pvp_skill_pct", r.PvPSkillPct, "pvp_melee_pct", r.PvPMeleePct,
 		"scores_refreshed", n)
 }
 
@@ -119,7 +121,9 @@ func (d *Dispatcher) ApplyCombatRulesBoot() {
 	d.log.Info("combat rule applied at boot", "version", cfg.Version, "configured", cfg.Configured,
 		"weapon_int_magic_pct", d.combatRules.WeaponIntMagicPct,
 		"spell_damage_multi", d.combatRules.SpellDamageMulti,
-		"mob_resist_base", d.combatRules.MobResistBase)
+		"mob_resist_base", d.combatRules.MobResistBase,
+		"pvp_skill_pct", d.combatRules.PvPSkillPct,
+		"pvp_melee_pct", d.combatRules.PvPMeleePct)
 }
 
 // pollCombatRules reloads the rule when the version moves. Called from the

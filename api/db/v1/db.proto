@@ -1264,4 +1264,12 @@ message GetCombatRuleResponse {
   // 50..150: the constant in a spell's resist scale against a MONSTER,
   // (base − resist/2)%. The legacy is 150; against a player 150 always stays.
   int32 mob_resist_base = 5;
+  // 1..200: what is left of a SKILL blow on a PLAYER, applied after the legacy
+  // quarter (_MSG_Attack.cpp:1300-1307, "Perfuração"). 100 is the legacy.
+  int32 pvp_skill_pct = 6;
+  // 1..200: the same for a MELEE blow on a player. 100 is the legacy.
+  //
+  // Both are outside their range at 0, so a reader may take 0 as "sent by a
+  // dbServer that predates these fields" and use the legacy 100 instead.
+  int32 pvp_melee_pct = 7;
 }

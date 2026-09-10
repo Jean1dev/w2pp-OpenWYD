@@ -251,6 +251,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		}
 
 		var dmg int
+		airBlade := 0 // the HT proc share, which the PvP quarter leaves whole
 		if skillHit {
 			if !d.validateSkillTarget(w, s, e, target, i, cast, tick) {
 				writeDamage(payload, i, 0)
@@ -293,9 +294,15 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				ParryRate:      d.parryRate(e, target),
 				TargetRsvBlock: target.Rsv&world.RsvBlock != 0,
 			})
-			dmg = d.applyAirBladeProc(w, e, target, h.Type, &body, payload, dmg)
+			dmg, airBlade = d.applyAirBladeProc(w, e, target, h.Type, &body, payload, dmg)
 		}
 		if dmg > 0 {
+			// The legacy PvP block (pvp.go): every blow on a player or a summon keeps
+			// a quarter ("Perfuração"), and the panel's PvP share rides on top.
+			dmg = perfuracao(target, tid, dmg, airBlade)
+			if pvpHit {
+				dmg = d.applyPvPRule(dmg, skillHit)
+			}
 			// Defesa de Evolução (tierdefense.go) — a server rule, not parity, so it
 			// has no legacy position to copy. It goes FIRST, before every other
 			// adjustment, because it is the defender's tier resisting the blow
@@ -305,6 +312,11 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				dmg = applyTierDefense(e.ClassMaster, target.ClassMaster, dmg)
 			}
 			dmg = applyHuntressForceDamage(e, target, tid, dmg)
+			// Ataque PvP, then the defender's flat reflect and Defesa PvP
+			// (_MSG_Attack.cpp:1322-1331, 1494-1510), before the mount takes its share.
+			if pvpHit {
+				dmg = d.applyPvPStats(e, target, dmg)
+			}
 			dmg = d.applyManaControl(w, e, target, tid, dmg)
 			// The victim's mount eats its share LAST, after every other adjustment,
 			// because that is where the legacy puts it (_MSG_Attack.cpp:1520, after
@@ -1303,19 +1315,21 @@ func applyHuntressForceDamage(attacker, target *world.Entity, tid, dmg int) int 
 	if attacker.AffForceDamage == 0 {
 		return dmg
 	}
-	if world.IsPlayer(tid) || target.Clan == 4 {
-		dmg >>= 2
-	}
+	// The player/summon quarter used to live here, which made it run only for an
+	// attacker carrying forced damage. It is perfuracao now, applied to every
+	// blow before this; forced damage is added to what is left, as in the legacy.
 	if dmg <= 1 {
 		return int(attacker.AffForceDamage)
 	}
 	return dmg + int(attacker.AffForceDamage)
 }
 
-func (d *Dispatcher) applyAirBladeProc(w *world.World, attacker, target *world.Entity, msgType protocol.Type, body *protocol.MsgAttackBody, payload []byte, dmg int) int {
+// applyAirBladeProc returns the blow with the proc added, and the proc alone —
+// the PvP quarter divides the blow but leaves the proc whole (perfuracao).
+func (d *Dispatcher) applyAirBladeProc(w *world.World, attacker, target *world.Entity, msgType protocol.Type, body *protocol.MsgAttackBody, payload []byte, dmg int) (int, int) {
 	if dmg <= 0 || attacker == nil || target == nil || msgType != protocol.MsgAttackTwo ||
 		attacker.Class != 3 || attacker.LearnedSkill&(1<<21) == 0 || w.Rand().Intn(4) != 0 {
-		return dmg
+		return dmg, 0
 	}
 	skillDam := effectiveSpecial(attacker, 3) + int(effectiveStr(attacker))
 	skillDam = combat.Damage(w.Rand(), skillDam, int(effectiveAC(target)), attacker.Master)
@@ -1327,7 +1341,7 @@ func (d *Dispatcher) applyAirBladeProc(w *world.World, attacker, target *world.E
 	}
 	body.DoubleCritical |= 4
 	writeDoubleCritical(payload, body.DoubleCritical)
-	return dmg + skillDam
+	return dmg + skillDam, skillDam
 }
 
 func (d *Dispatcher) applyOnHitAffects(w *world.World, attacker, target *world.Entity, tid int) {

@@ -63,8 +63,10 @@ func TestAttackHitExact(t *testing.T) {
 	if len(got.Dam) != 1 || got.Dam[0].TargetID != 2 {
 		t.Fatalf("Dam = %+v", got.Dam)
 	}
-	if got.Dam[0].Damage != 7 {
-		t.Errorf("server damage = %d, want 7 (exact LCG golden)", got.Dam[0].Damage)
+	// The formula gives 7 and, the target being a player, the legacy quarter
+	// ("Perfuração", pvp.go) keeps 7>>2 = 1.
+	if got.Dam[0].Damage != 1 {
+		t.Errorf("server damage = %d, want 1 (exact LCG golden 7, quartered on a player)", got.Dam[0].Damage)
 	}
 }
 

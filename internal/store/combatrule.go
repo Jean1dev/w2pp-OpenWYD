@@ -55,7 +55,8 @@ func (s *Store) CombatRule(ctx context.Context) (combatrule.Config, error) {
 
 const (
 	selectCombatRule = `
-		SELECT weapon_int_magic_pct, spell_damage_multi, mob_resist_base
+		SELECT weapon_int_magic_pct, spell_damage_multi, mob_resist_base,
+		       pvp_skill_pct, pvp_melee_pct
 		  FROM combat_rule WHERE id = TRUE`
 	selectCombatRuleForUpdate = selectCombatRule + ` FOR UPDATE`
 )
@@ -69,7 +70,8 @@ func readCombatRule(ctx context.Context, tx pgx.Tx, version int64, forUpdate boo
 	}
 	cfg := combatrule.Config{Version: version, Configured: true}
 	err := tx.QueryRow(ctx, q).
-		Scan(&cfg.Rules.WeaponIntMagicPct, &cfg.Rules.SpellDamageMulti, &cfg.Rules.MobResistBase)
+		Scan(&cfg.Rules.WeaponIntMagicPct, &cfg.Rules.SpellDamageMulti, &cfg.Rules.MobResistBase,
+			&cfg.Rules.PvPSkillPct, &cfg.Rules.PvPMeleePct)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return combatrule.Unconfigured(version), nil
@@ -116,15 +118,19 @@ func (s *Store) SetCombatRule(ctx context.Context, r combatrule.Rules, moderator
 			return err
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base, updated_by, updated_at)
-			VALUES (TRUE, $1, $2, $3, $4, now())
+			INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base,
+			                         pvp_skill_pct, pvp_melee_pct, updated_by, updated_at)
+			VALUES (TRUE, $1, $2, $3, $4, $5, $6, now())
 			ON CONFLICT (id) DO UPDATE SET
 				weapon_int_magic_pct = EXCLUDED.weapon_int_magic_pct,
 				spell_damage_multi   = EXCLUDED.spell_damage_multi,
 				mob_resist_base      = EXCLUDED.mob_resist_base,
+				pvp_skill_pct        = EXCLUDED.pvp_skill_pct,
+				pvp_melee_pct        = EXCLUDED.pvp_melee_pct,
 				updated_by           = EXCLUDED.updated_by,
 				updated_at           = now()`,
-			r.WeaponIntMagicPct, r.SpellDamageMulti, r.MobResistBase, nullableID(moderatorID)); err != nil {
+			r.WeaponIntMagicPct, r.SpellDamageMulti, r.MobResistBase,
+			r.PvPSkillPct, r.PvPMeleePct, nullableID(moderatorID)); err != nil {
 			return fmt.Errorf("store: upsert combat rule: %w", err)
 		}
 		return bumpCombatRuleVersion(ctx, tx)

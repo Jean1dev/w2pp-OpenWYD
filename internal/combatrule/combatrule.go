@@ -14,7 +14,7 @@
 // and ~27-30K at +15 against the Tauron, and these three defaults land there.
 package combatrule
 
-// Rules are the three knobs.
+// Rules are the knobs.
 type Rules struct {
 	// WeaponIntMagicPct scales the Magic a weapon grants from DEX/INT once an
 	// 8th skill is learned (score_derive.go classWeaponMagic, Basedef.cpp:3294-
@@ -31,6 +31,13 @@ type Rules struct {
 	// which hands a low-resist monster +50%; 100 makes 0 resist a plain hit.
 	// Against a player the legacy 150 stays, whatever this says.
 	MobResistBase int32
+	// PvPSkillPct and PvPMeleePct scale a blow on a PLAYER after the legacy
+	// quarter (_MSG_Attack.cpp:1300-1307, "Perfuração"), spell and melee apart.
+	// 100 is the legacy exactly. The quarter was balanced for the original damage
+	// scale; this server's damage outgrew the HP pools, and these are the dials
+	// for how many blows a fight between equals should take.
+	PvPSkillPct int32
+	PvPMeleePct int32
 }
 
 // The ranges each knob may take. They are what makes sense for the formula, not
@@ -41,6 +48,8 @@ const (
 	MaxWeaponIntMagicPct = 100
 	MinMobResistBase     = 50
 	MaxMobResistBase     = 150
+	MinPvPPct            = 1
+	MaxPvPPct            = 200
 
 	// LegacyMobResistBase is the constant the original applies to everyone.
 	LegacyMobResistBase = 150
@@ -48,19 +57,21 @@ const (
 
 // Default is the rule in force when nobody has configured one.
 func Default() Rules {
-	return Rules{WeaponIntMagicPct: 0, SpellDamageMulti: false, MobResistBase: 100}
+	return Rules{WeaponIntMagicPct: 0, SpellDamageMulti: false, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 100}
 }
 
 // Kersef is the rule as ported, kept so the panel can show — and restore — what
 // the server did before the decision.
 func Kersef() Rules {
-	return Rules{WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: LegacyMobResistBase}
+	return Rules{WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: LegacyMobResistBase, PvPSkillPct: 100, PvPMeleePct: 100}
 }
 
 // Valid reports whether every knob is inside its range.
 func (r Rules) Valid() bool {
 	return r.WeaponIntMagicPct >= MinWeaponIntMagicPct && r.WeaponIntMagicPct <= MaxWeaponIntMagicPct &&
-		r.MobResistBase >= MinMobResistBase && r.MobResistBase <= MaxMobResistBase
+		r.MobResistBase >= MinMobResistBase && r.MobResistBase <= MaxMobResistBase &&
+		r.PvPSkillPct >= MinPvPPct && r.PvPSkillPct <= MaxPvPPct &&
+		r.PvPMeleePct >= MinPvPPct && r.PvPMeleePct <= MaxPvPPct
 }
 
 // Config is the rule as the panel left it (migration 0044_combat_rule), plus the

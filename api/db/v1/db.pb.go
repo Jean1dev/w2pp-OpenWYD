@@ -9638,6 +9638,14 @@ type GetCombatRuleResponse struct {
 	// 50..150: the constant in a spell's resist scale against a MONSTER,
 	// (base − resist/2)%. The legacy is 150; against a player 150 always stays.
 	MobResistBase int32 `protobuf:"varint,5,opt,name=mob_resist_base,json=mobResistBase,proto3" json:"mob_resist_base,omitempty"`
+	// 1..200: what is left of a SKILL blow on a PLAYER, applied after the legacy
+	// quarter (_MSG_Attack.cpp:1300-1307, "Perfuração"). 100 is the legacy.
+	PvpSkillPct int32 `protobuf:"varint,6,opt,name=pvp_skill_pct,json=pvpSkillPct,proto3" json:"pvp_skill_pct,omitempty"`
+	// 1..200: the same for a MELEE blow on a player. 100 is the legacy.
+	//
+	// Both are outside their range at 0, so a reader may take 0 as "sent by a
+	// dbServer that predates these fields" and use the legacy 100 instead.
+	PvpMeleePct   int32 `protobuf:"varint,7,opt,name=pvp_melee_pct,json=pvpMeleePct,proto3" json:"pvp_melee_pct,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -9703,6 +9711,20 @@ func (x *GetCombatRuleResponse) GetSpellDamageMulti() bool {
 func (x *GetCombatRuleResponse) GetMobResistBase() int32 {
 	if x != nil {
 		return x.MobResistBase
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetPvpSkillPct() int32 {
+	if x != nil {
+		return x.PvpSkillPct
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetPvpMeleePct() int32 {
+	if x != nil {
+		return x.PvpMeleePct
 	}
 	return 0
 }
@@ -10433,7 +10455,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x18CombatRuleVersionRequest\"5\n" +
 	"\x19CombatRuleVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x16\n" +
-	"\x14GetCombatRuleRequest\"\xd8\x01\n" +
+	"\x14GetCombatRuleRequest\"\xa0\x02\n" +
 	"\x15GetCombatRuleResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x12\x1e\n" +
 	"\n" +
@@ -10441,7 +10463,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"configured\x12/\n" +
 	"\x14weapon_int_magic_pct\x18\x03 \x01(\x05R\x11weaponIntMagicPct\x12,\n" +
 	"\x12spell_damage_multi\x18\x04 \x01(\bR\x10spellDamageMulti\x12&\n" +
-	"\x0fmob_resist_base\x18\x05 \x01(\x05R\rmobResistBase*\xb8\x01\n" +
+	"\x0fmob_resist_base\x18\x05 \x01(\x05R\rmobResistBase\x12\"\n" +
+	"\rpvp_skill_pct\x18\x06 \x01(\x05R\vpvpSkillPct\x12\"\n" +
+	"\rpvp_melee_pct\x18\a \x01(\x05R\vpvpMeleePct*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOGIN_RESULT_OK\x10\x01\x12\x1b\n" +

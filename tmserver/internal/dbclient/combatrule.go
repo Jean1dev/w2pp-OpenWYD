@@ -51,6 +51,24 @@ func (c *CombatRuleSource) Fetch(ctx context.Context) (combatrule.Config, error)
 			WeaponIntMagicPct: resp.GetWeaponIntMagicPct(),
 			SpellDamageMulti:  resp.GetSpellDamageMulti(),
 			MobResistBase:     resp.GetMobResistBase(),
+			PvPSkillPct:       pvpPct(resp.GetPvpSkillPct()),
+			PvPMeleePct:       pvpPct(resp.GetPvpMeleePct()),
 		},
 	}, nil
+}
+
+// legacyPvPPct is the PvP share that leaves the legacy quarter untouched — the
+// same 100 migration 0045 gives a row saved before the columns existed.
+const legacyPvPPct = 100
+
+// pvpPct reads one PvP field. Zero is outside its range (1..200), so it can only
+// mean a dbServer that predates the field and never sent it. Taking that as the
+// legacy keeps a rolling deploy — this tmServer ahead of its dbServer — running
+// the saved rule; passing the zero through would make the whole rule invalid,
+// and the game would drop back to the default while the panel showed the rule.
+func pvpPct(v int32) int32 {
+	if v == 0 {
+		return legacyPvPPct
+	}
+	return v
 }

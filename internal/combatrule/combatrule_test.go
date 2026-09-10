@@ -3,6 +3,13 @@ package combatrule
 import "testing"
 
 func TestValid(t *testing.T) {
+	// com é o padrão com UM botão mudado, para cada caso ser recusado (ou
+	// aceito) pelo motivo que o nome diz e não por outro campo em zero.
+	com := func(mudar func(*Rules)) Rules {
+		r := Default()
+		mudar(&r)
+		return r
+	}
 	tests := []struct {
 		name string
 		r    Rules
@@ -10,10 +17,16 @@ func TestValid(t *testing.T) {
 	}{
 		{"padrão", Default(), true},
 		{"Kersef", Kersef(), true},
-		{"termo acima de 100", Rules{WeaponIntMagicPct: 101, MobResistBase: 100}, false},
-		{"termo negativo", Rules{WeaponIntMagicPct: -1, MobResistBase: 100}, false},
-		{"base abaixo de 50", Rules{MobResistBase: 49}, false},
-		{"base acima de 150", Rules{MobResistBase: 151}, false},
+		{"termo acima de 100", com(func(r *Rules) { r.WeaponIntMagicPct = 101 }), false},
+		{"termo negativo", com(func(r *Rules) { r.WeaponIntMagicPct = -1 }), false},
+		{"base abaixo de 50", com(func(r *Rules) { r.MobResistBase = 49 }), false},
+		{"base acima de 150", com(func(r *Rules) { r.MobResistBase = 151 }), false},
+		{"skill em jogador zero", com(func(r *Rules) { r.PvPSkillPct = 0 }), false},
+		{"skill em jogador acima de 200", com(func(r *Rules) { r.PvPSkillPct = 201 }), false},
+		{"golpe físico em jogador zero", com(func(r *Rules) { r.PvPMeleePct = 0 }), false},
+		{"golpe físico em jogador acima de 200", com(func(r *Rules) { r.PvPMeleePct = 201 }), false},
+		{"PvP no piso", com(func(r *Rules) { r.PvPSkillPct, r.PvPMeleePct = MinPvPPct, MinPvPPct }), true},
+		{"PvP no teto", com(func(r *Rules) { r.PvPSkillPct, r.PvPMeleePct = MaxPvPPct, MaxPvPPct }), true},
 		{"valor zero não é regra", Rules{}, false},
 	}
 	for _, tt := range tests {

@@ -86,6 +86,9 @@ func TestTelaDeCombateMostraPadraoEKersef(t *testing.T) {
 		"Regra de combate",
 		"<b>O padrão.</b>",
 		"Magia da arma por INT", "Multiplicador de dano na magia", "Resistência de monstro à magia",
+		"Dano de skill em jogador (%)", "Dano de golpe físico em jogador (%)",
+		// a explicação dos dois de PvP
+		"dividido por 4 (a Perfuração)",
 		"0%", "100%", // o termo da arma: padrão e Kersef
 		"150", // a base de resistência do Kersef
 		"Usar a regra do Kersef",
@@ -107,18 +110,26 @@ func TestTelaDeCombateMostraPadraoEKersef(t *testing.T) {
 
 func TestTelaDeCombateComRegraGravada(t *testing.T) {
 	c := newFakeCombate()
-	c.cfg = combatrule.Config{Version: 4, Configured: true, Rules: combatrule.Kersef()}
+	regra := combatrule.Kersef()
+	regra.PvPSkillPct, regra.PvPMeleePct = 60, 80
+	c.cfg = combatrule.Config{Version: 4, Configured: true, Rules: regra}
 	get := signedIn(t, newTestPanelCombate(t, roleAdmin, c, newFakeAudit()))
 	corpo := get("/rates/combate").Body.String()
-	for _, quero := range []string{"Gravada pela equipe.", "fora do padrão", "Voltar ao padrão", "Versão 4"} {
+	for _, quero := range []string{"Gravada pela equipe.", "fora do padrão", "Voltar ao padrão", "Versão 4", "60%", "80%"} {
 		if !strings.Contains(corpo, quero) {
-			t.Errorf("com a regra do Kersef gravada a tela não mostra %q", quero)
+			t.Errorf("com a regra gravada a tela não mostra %q", quero)
 		}
 	}
 	// O formulário vem preenchido com o que está em vigor, para "mexer só num"
-	// não zerar os outros dois.
-	if !strings.Contains(corpo, `name="multi" value="1" checked`) {
-		t.Error("o formulário não veio com o multiplicador ligado marcado")
+	// não zerar os outros.
+	for _, campo := range []string{
+		`name="multi" value="1" checked`,
+		`name="pvp_skill" type="number"`, `required value="60"`,
+		`name="pvp_melee" type="number"`, `required value="80"`,
+	} {
+		if !strings.Contains(corpo, campo) {
+			t.Errorf("o formulário não veio preenchido: falta %s", campo)
+		}
 	}
 }
 
@@ -144,11 +155,15 @@ func TestGravarARegraEAuditar(t *testing.T) {
 
 	rec := post("/rates/combate", url.Values{
 		"csrf": {token}, "arma": {"40"}, "multi": {"1"}, "resist": {"120"},
+		"pvp_skill": {"60"}, "pvp_melee": {"80"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
 	}
-	quer := combatrule.Rules{WeaponIntMagicPct: 40, SpellDamageMulti: true, MobResistBase: 120}
+	quer := combatrule.Rules{
+		WeaponIntMagicPct: 40, SpellDamageMulti: true, MobResistBase: 120,
+		PvPSkillPct: 60, PvPMeleePct: 80,
+	}
 	if got := c.atual(); !got.Configured || got.Rules != quer {
 		t.Fatalf("gravou %+v, quero %+v", got, quer)
 	}
@@ -166,7 +181,8 @@ func TestGravarARegraEAuditar(t *testing.T) {
 	}
 	novo, _ := recs[0].New.(map[string]any)
 	if novo["magia_da_arma"] != "40%" || novo["multiplicador_na_magia"] != "ligado" ||
-		novo["resistencia_de_monstro"] != int32(120) {
+		novo["resistencia_de_monstro"] != int32(120) ||
+		novo["skill_em_jogador"] != "60%" || novo["golpe_em_jogador"] != "80%" {
 		t.Errorf("a auditoria guardou %+v", novo)
 	}
 }
@@ -180,6 +196,7 @@ func TestAtalhoDoKersefGravaOKersef(t *testing.T) {
 	corpo := signedIn(t, h)("/rates/combate").Body.String()
 	for _, campo := range []string{
 		`name="arma" value="100"`, `name="multi" value="1"`, `name="resist" value="150"`,
+		`name="pvp_skill" value="100"`, `name="pvp_melee" value="100"`,
 	} {
 		if !strings.Contains(corpo, campo) {
 			t.Errorf("o atalho do Kersef não leva %s", campo)
@@ -189,6 +206,7 @@ func TestAtalhoDoKersefGravaOKersef(t *testing.T) {
 	post, token := signedInPost(t, h)
 	if rec := post("/rates/combate", url.Values{
 		"csrf": {token}, "arma": {"100"}, "multi": {"1"}, "resist": {"150"},
+		"pvp_skill": {"100"}, "pvp_melee": {"100"},
 	}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -201,7 +219,9 @@ func TestRegraForaDaFaixaERecusada(t *testing.T) {
 	c := newFakeCombate()
 	post, token := signedInPost(t, newTestPanelCombate(t, roleAdmin, c, newFakeAudit()))
 
-	valido := url.Values{"arma": {"0"}, "multi": {"0"}, "resist": {"100"}}
+	valido := url.Values{
+		"arma": {"0"}, "multi": {"0"}, "resist": {"100"}, "pvp_skill": {"100"}, "pvp_melee": {"100"},
+	}
 	casos := []struct {
 		nome  string
 		campo string
@@ -216,6 +236,14 @@ func TestRegraForaDaFaixaERecusada(t *testing.T) {
 		// O multiplicador sem valor não pode virar "desligado" calado.
 		{"multiplicador ausente", "multi", ""},
 		{"multiplicador inventado", "multi", "talvez"},
+		{"skill em jogador zero", "pvp_skill", "0"},
+		{"skill em jogador acima de 200", "pvp_skill", "201"},
+		{"golpe físico em jogador zero", "pvp_melee", "0"},
+		{"golpe físico em jogador acima de 200", "pvp_melee", "201"},
+		{"golpe físico em jogador não numérico", "pvp_melee", "metade"},
+		// Um campo de PvP perdido não pode voltar o PvP ao legado calado.
+		{"skill em jogador ausente", "pvp_skill", ""},
+		{"golpe físico em jogador ausente", "pvp_melee", ""},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nome, func(t *testing.T) {
@@ -231,6 +259,15 @@ func TestRegraForaDaFaixaERecusada(t *testing.T) {
 	}
 	if c.atual().Configured {
 		t.Fatalf("gravou %+v apesar dos erros", c.atual())
+	}
+	// E o formulário-base, sem nada fora da faixa, passa: sem isto todos os casos
+	// acima poderiam estar sendo recusados por um campo que o teste esqueceu.
+	form := url.Values{"csrf": {token}}
+	for k, v := range valido {
+		form[k] = v
+	}
+	if rec := post("/rates/combate", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("o formulário válido deu %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -262,6 +299,7 @@ func TestModeradorNaoMexeNaRegraDeCombate(t *testing.T) {
 	post, token := signedInPost(t, h)
 	if rec := post("/rates/combate", url.Values{
 		"csrf": {token}, "arma": {"100"}, "multi": {"1"}, "resist": {"150"},
+		"pvp_skill": {"100"}, "pvp_melee": {"100"},
 	}); rec.Code != http.StatusForbidden {
 		t.Fatalf("gravar: status = %d, quero 403", rec.Code)
 	}

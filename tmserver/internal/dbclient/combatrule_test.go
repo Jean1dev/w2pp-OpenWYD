@@ -30,10 +30,23 @@ func TestCombatRuleFetch(t *testing.T) {
 			resp: &dbv1.GetCombatRuleResponse{
 				Version: 6, Configured: true,
 				WeaponIntMagicPct: 30, SpellDamageMulti: true, MobResistBase: 120,
+				PvpSkillPct: 60, PvpMeleePct: 80,
 			},
 			want: combatrule.Config{Version: 6, Configured: true, Rules: combatrule.Rules{
 				WeaponIntMagicPct: 30, SpellDamageMulti: true, MobResistBase: 120,
+				PvPSkillPct: 60, PvPMeleePct: 80,
 			}},
+		},
+		{
+			// Um dbServer anterior aos campos de PvP não os manda, e o zero que
+			// chega está fora da faixa: passado adiante, invalidaria a regra
+			// inteira e o jogo voltaria ao padrão com a regra gravada no painel.
+			name: "PvP ausente é o legado, não zero",
+			resp: &dbv1.GetCombatRuleResponse{
+				Version: 7, Configured: true,
+				WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: 150,
+			},
+			want: combatrule.Config{Version: 7, Configured: true, Rules: combatrule.Kersef()},
 		},
 		{
 			// Os campos zerados de uma resposta sem regra não são uma regra: a

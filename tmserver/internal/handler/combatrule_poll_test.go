@@ -91,11 +91,19 @@ func TestSetCombatRulesDizSeMudou(t *testing.T) {
 	if !d.setCombatRules(combatrule.Kersef()) {
 		t.Error("trocar para o Kersef não contou como mudança")
 	}
-	if d.setCombatRules(combatrule.Rules{MobResistBase: 10}) {
+	ruim := combatrule.Kersef()
+	ruim.MobResistBase = 10
+	if d.setCombatRules(ruim) {
 		t.Error("uma regra fora da faixa contou como mudança")
 	}
 	if d.combatRules != combatrule.Kersef() {
 		t.Errorf("a regra fora da faixa entrou: %+v", d.combatRules)
+	}
+	// Mexer só num botão de PvP também é mudança: o poll tem de instalar.
+	pvp := combatrule.Kersef()
+	pvp.PvPMeleePct = 50
+	if !d.setCombatRules(pvp) || d.combatRules != pvp {
+		t.Errorf("trocar só o golpe físico em jogador não entrou: %+v", d.combatRules)
 	}
 }
 

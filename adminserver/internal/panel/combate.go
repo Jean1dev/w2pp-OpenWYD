@@ -16,10 +16,11 @@ import (
 
 // Combate is the combat-rule store, satisfied by *store.Store.
 //
-// Three knobs that decide how strong a caster is on this server: how much Magic
-// a weapon draws from INT, whether the damage buffs reach spells, and how much a
-// monster's resistance bends a spell. Until this screen they could only change
-// in code, which meant a deploy for every turn of a dial that is tuned by
+// The knobs that decide how hard a blow lands on this server: how much Magic a
+// weapon draws from INT, whether the damage buffs reach spells, how much a
+// monster's resistance bends a spell, and how much of a skill or melee blow on
+// another player survives the legacy quarter. Until this screen they could only
+// change in code, which meant a deploy for every turn of a dial that is tuned by
 // watching a fight.
 type Combate interface {
 	CombatRule(ctx context.Context) (combatrule.Config, error)
@@ -52,6 +53,8 @@ type combateView struct {
 	MaxArma     int32
 	MinResist   int32
 	MaxResist   int32
+	MinPvP      int32
+	MaxPvP      int32
 }
 
 func pctTexto(v int32) string { return fmt.Sprintf("%d%%", v) }
@@ -65,8 +68,14 @@ func ligadoTexto(v bool) string {
 
 func baseTexto(v int32) string { return strconv.Itoa(int(v)) }
 
-// combateBotoes lays the three knobs out for the table, in the order the form
-// asks for them.
+// pvpExplica is what the two PvP knobs share: both scale a blow on a player on
+// top of the legacy quarter, and differ only in which blow.
+const pvpExplica = "No legado todo golpe em jogador já é dividido por 4 (a Perfuração). " +
+	"Este ajuste vale por cima disso: 100% é o legado, 50% dá metade. " +
+	"Serve para decidir quantos golpes uma luta entre iguais deve levar."
+
+// combateBotoes lays the knobs out for the table, in the order the form asks
+// for them.
 func combateBotoes(r combatrule.Rules) []combateBotao {
 	p, k := combatrule.Default(), combatrule.Kersef()
 	return []combateBotao{
@@ -97,6 +106,18 @@ func combateBotoes(r combatrule.Rules) []combateBotao {
 			Agora: baseTexto(r.MobResistBase), Padrao: baseTexto(p.MobResistBase),
 			Kersef: baseTexto(k.MobResistBase), Mudado: r.MobResistBase != p.MobResistBase,
 		},
+		{
+			Nome:    "Dano de skill em jogador (%)",
+			Explica: "Quanto sobra do golpe de uma skill em outro jogador. " + pvpExplica,
+			Agora:   pctTexto(r.PvPSkillPct), Padrao: pctTexto(p.PvPSkillPct),
+			Kersef: pctTexto(k.PvPSkillPct), Mudado: r.PvPSkillPct != p.PvPSkillPct,
+		},
+		{
+			Nome:    "Dano de golpe físico em jogador (%)",
+			Explica: "Quanto sobra do golpe físico em outro jogador. " + pvpExplica,
+			Agora:   pctTexto(r.PvPMeleePct), Padrao: pctTexto(p.PvPMeleePct),
+			Kersef: pctTexto(k.PvPMeleePct), Mudado: r.PvPMeleePct != p.PvPMeleePct,
+		},
 	}
 }
 
@@ -126,16 +147,17 @@ func (h *Handler) combate(w http.ResponseWriter, r *http.Request) {
 			Botoes: combateBotoes(cfg.Rules), Kersef: combatrule.Kersef(),
 			MinArma: combatrule.MinWeaponIntMagicPct, MaxArma: combatrule.MaxWeaponIntMagicPct,
 			MinResist: combatrule.MinMobResistBase, MaxResist: combatrule.MaxMobResistBase,
+			MinPvP: combatrule.MinPvPPct, MaxPvP: combatrule.MaxPvPPct,
 		},
 		Historico: h.combateHistorico(r.Context()),
 	})
 }
 
-// setCombate saves the three knobs together.
+// setCombate saves every knob together.
 //
 // Together on purpose, like the table's single row: they are one decision about
-// what a spell is here, and the form always carries all three, so a save never
-// leaves a rule that nobody actually chose.
+// how hard a blow lands here, and the form always carries all of them, so a
+// save never leaves a rule that nobody actually chose.
 func (h *Handler) setCombate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
 		if err != nil {
@@ -172,8 +194,10 @@ func (h *Handler) setCombate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.voltarParaCombate(w, r, fmt.Sprintf(
 		"Regra gravada: magia da arma por INT %d%%, multiplicador na magia %s, "+
-			"resistência de monstro %d. O jogo passa a usar em até 15 segundos.",
-		regra.WeaponIntMagicPct, ligadoTexto(regra.SpellDamageMulti), regra.MobResistBase))
+			"resistência de monstro %d, skill em jogador %d%%, golpe físico em jogador %d%%. "+
+			"O jogo passa a usar em até 15 segundos.",
+		regra.WeaponIntMagicPct, ligadoTexto(regra.SpellDamageMulti), regra.MobResistBase,
+		regra.PvPSkillPct, regra.PvPMeleePct))
 }
 
 // limparCombate drops the row, back to the decided default.
@@ -202,8 +226,8 @@ func (h *Handler) limparCombate(w http.ResponseWriter, r *http.Request) {
 		"A regra de combate voltou ao padrão. O jogo passa a usar em até 15 segundos.")
 }
 
-// combateDoForm reads the three knobs. It returns the message to show when one
-// is missing or out of range; an empty message means the rule is good.
+// combateDoForm reads every knob. It returns the message to show when one is
+// missing or out of range; an empty message means the rule is good.
 //
 // The multiplier is a pair of radio buttons with explicit values rather than a
 // checkbox: an unticked checkbox sends nothing at all, and "nothing" would read
@@ -229,9 +253,31 @@ func combateDoForm(r *http.Request) (combatrule.Rules, string) {
 		return combatrule.Rules{}, fmt.Sprintf("A resistência de monstro precisa ser um número entre %d e %d.",
 			combatrule.MinMobResistBase, combatrule.MaxMobResistBase)
 	}
+	pvpSkill, ok := pvpDoForm(r, "pvp_skill")
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("O dano de skill em jogador precisa ser um número entre %d e %d por cento.",
+			combatrule.MinPvPPct, combatrule.MaxPvPPct)
+	}
+	pvpMelee, ok := pvpDoForm(r, "pvp_melee")
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("O dano de golpe físico em jogador precisa ser um número entre %d e %d por cento.",
+			combatrule.MinPvPPct, combatrule.MaxPvPPct)
+	}
 	return combatrule.Rules{
 		WeaponIntMagicPct: int32(arma), SpellDamageMulti: multi, MobResistBase: int32(resist),
+		PvPSkillPct: pvpSkill, PvPMeleePct: pvpMelee,
 	}, ""
+}
+
+// pvpDoForm reads one PvP share. A missing field is refused like an out-of-range
+// one rather than taken as the legacy 100: a form that lost the field would
+// otherwise reset a tuned PvP to the legacy with nobody asking for it.
+func pvpDoForm(r *http.Request, campo string) (int32, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(r.PostFormValue(campo)))
+	if err != nil || n < combatrule.MinPvPPct || n > combatrule.MaxPvPPct {
+		return 0, false
+	}
+	return int32(n), true
 }
 
 // combateParaAudit writes the log entry in words. An unconfigured rule is said
@@ -245,6 +291,8 @@ func combateParaAudit(c combatrule.Config) map[string]any {
 		"magia_da_arma":          pctTexto(c.Rules.WeaponIntMagicPct),
 		"multiplicador_na_magia": ligadoTexto(c.Rules.SpellDamageMulti),
 		"resistencia_de_monstro": c.Rules.MobResistBase,
+		"skill_em_jogador":       pctTexto(c.Rules.PvPSkillPct),
+		"golpe_em_jogador":       pctTexto(c.Rules.PvPMeleePct),
 	}
 }
 
