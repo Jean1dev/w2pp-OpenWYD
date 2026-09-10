@@ -1227,6 +1227,9 @@ type CombineSlotKind int32
 const (
 	CombineSlotWeapon CombineSlotKind = 1
 	CombineSlotArmour CombineSlotKind = 2
+	// The compositor's own curve (migração 0041), kept apart from the +10's.
+	CombineSlotCompositorWeapon CombineSlotKind = 3
+	CombineSlotCompositorArmour CombineSlotKind = 4
 )
 
 // CombineBand is one item band of the +10 machine: a multiplier over the

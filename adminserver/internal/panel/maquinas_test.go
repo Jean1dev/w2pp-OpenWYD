@@ -28,6 +28,8 @@ type fakeMaquinas struct {
 	cfg     domain.CombineRateConfig
 	lerErr  error
 	gravErr error
+	// gravouTipo is the slot kind the last SetCombineBands wrote, or 0.
+	gravouTipo domain.CombineSlotKind
 }
 
 func (f *fakeMaquinas) CombineRates(context.Context) (domain.CombineRateConfig, error) {
@@ -51,10 +53,11 @@ func (f *fakeMaquinas) DeleteCombineRate(_ context.Context, family, key string, 
 	return domain.CombineRate{Family: family, Key: key}, true, nil
 }
 
-func (f *fakeMaquinas) SetCombineBands(_ context.Context, _ domain.CombineSlotKind, _ []domain.CombineBand, _ int64) ([]domain.CombineBand, error) {
+func (f *fakeMaquinas) SetCombineBands(_ context.Context, kind domain.CombineSlotKind, _ []domain.CombineBand, _ int64) ([]domain.CombineBand, error) {
 	if f.gravErr != nil {
 		return nil, f.gravErr
 	}
+	f.gravouTipo = kind
 	return nil, nil
 }
 
@@ -140,5 +143,97 @@ func TestGravarSemATabelaExplicaAEspera(t *testing.T) {
 	}
 	if corpo := prec.Body.String(); !strings.Contains(corpo, "dbServer") {
 		t.Errorf("a mensagem não diz o que falta: %q", corpo)
+	}
+}
+
+// postFaixas sends one band table the way the screen's form does.
+func postFaixas(t *testing.T, h http.Handler, tipo string) *httptest.ResponseRecorder {
+	t.Helper()
+	c := sessionCookie(postLogin(h, "chefe", testPassword))
+	if c == nil {
+		t.Fatal("o login não devolveu cookie")
+	}
+	get := httptest.NewRequest(http.MethodGet, "/rates/maquinas", nil)
+	get.AddCookie(c)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, get)
+	token := csrfFrom(rec.Body.String())
+
+	form := url.Values{"csrf": {token}, "tipo": {tipo},
+		"nome": {"Armas C"}, "min": {"100"}, "max": {"199"}, "mult": {"90"}}
+	req := httptest.NewRequest(http.MethodPost, "/rates/maquinas/faixas", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(c)
+	out := httptest.NewRecorder()
+	h.ServeHTTP(out, req)
+	return out
+}
+
+// TestMaquinasTemAsQuatroCurvas: the +10 and the compositor each get a weapon
+// and an armour table, and every form names the curve it writes to.
+func TestMaquinasTemAsQuatroCurvas(t *testing.T) {
+	corpo := abrirMaquinas(t, newTestPanelMaquinas(t, &fakeMaquinas{})).Body.String()
+	for _, tipo := range []string{"arma", "armadura", "compositor-arma", "compositor-armadura"} {
+		if !strings.Contains(corpo, `name="tipo" value="`+tipo+`"`) {
+			t.Errorf("falta o formulário de faixas %q", tipo)
+		}
+	}
+	if !strings.Contains(corpo, "Faixas por conjunto — compositor") {
+		t.Error("a seção do compositor não aparece")
+	}
+}
+
+// TestFaixasGravamNaCurvaCerta: each tipo lands on its own slot kind, and the
+// compositor's never touch the +10's.
+func TestFaixasGravamNaCurvaCerta(t *testing.T) {
+	casos := map[string]domain.CombineSlotKind{
+		"arma":                domain.CombineSlotWeapon,
+		"armadura":            domain.CombineSlotArmour,
+		"compositor-arma":     domain.CombineSlotCompositorWeapon,
+		"compositor-armadura": domain.CombineSlotCompositorArmour,
+	}
+	for tipo, want := range casos {
+		t.Run(tipo, func(t *testing.T) {
+			m := &fakeMaquinas{}
+			rec := postFaixas(t, newTestPanelMaquinas(t, m), tipo)
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf("status = %d, esperado 303", rec.Code)
+			}
+			if m.gravouTipo != want {
+				t.Errorf("gravou no tipo %d, esperado %d", m.gravouTipo, want)
+			}
+		})
+	}
+}
+
+// TestFaixaDeTipoDesconhecidoEhRecusada: before, anything that was not
+// "armadura" fell into the +10's weapons. With four curves that default would
+// rewrite a table nobody meant to touch.
+func TestFaixaDeTipoDesconhecidoEhRecusada(t *testing.T) {
+	m := &fakeMaquinas{}
+	rec := postFaixas(t, newTestPanelMaquinas(t, m), "armas")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperado 400", rec.Code)
+	}
+	if m.gravouTipo != 0 {
+		t.Errorf("um tipo desconhecido gravou no tipo %d", m.gravouTipo)
+	}
+}
+
+// TestPreviaDaFaixaEhAContaDoJogo: the Chance column must be the number the
+// game rolls against — combine.RateConfig.Apply: chance × mult / 100, integer,
+// clamped to 1..100. The staff's own example: a 41 machine at 90% reads /36.
+func TestPreviaDaFaixaEhAContaDoJogo(t *testing.T) {
+	casos := []struct{ chance, mult, want int32 }{
+		{41, 100, 41},
+		{41, 90, 36},
+		{41, 73, 29},
+		{100, 180, 100},
+		{1, 50, 1},
+	}
+	for _, c := range casos {
+		if got := efetiva(c.chance, c.mult); got != c.want {
+			t.Errorf("efetiva(%d, %d) = %d, esperado %d", c.chance, c.mult, got, c.want)
+		}
 	}
 }

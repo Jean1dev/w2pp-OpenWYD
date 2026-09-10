@@ -122,15 +122,25 @@ func MatchShany(items []world.Item) bool {
 	return true
 }
 
+// MatchAilyn is GetMatchCombineAilyn (GetFunc.cpp:340): 0 for a recipe the +10
+// machine refuses, else the legacy chance.
 func MatchAilyn(cat Catalog, items []world.Item, base int) int {
-	if !validItems(items, 7) || items[0].Index != items[1].Index || cat.Grade[int(items[0].Index)] != cat.Grade[int(items[1].Index)] || items[2].Index != 1774 {
+	if !AilynRecipe(cat, items) {
 		return 0
+	}
+	return AilynLegacyChance(base)
+}
+
+// AilynRecipe is the +10 recipe check on its own: two identical pieces of gear,
+// a Pedra do Sábio, and four jewels chosen by the item's grade.
+func AilynRecipe(cat Catalog, items []world.Item) bool {
+	if !validItems(items, 7) || items[0].Index != items[1].Index || cat.Grade[int(items[0].Index)] != cat.Grade[int(items[1].Index)] || items[2].Index != 1774 {
+		return false
 	}
 	p := cat.Pos[int(items[0].Index)]
 	if p != 2 && p != 4 && p != 8 && p != 16 && p != 32 && p != 64 && p != 128 && p != 192 {
-		return 0
+		return false
 	}
-	rate := 1
 	grade := cat.Grade[int(items[0].Index)]
 	for i := 3; i < 7; i++ {
 		want := items[3].Index
@@ -138,29 +148,54 @@ func MatchAilyn(cat Catalog, items []world.Item, base int) int {
 			want = int16(2441 + grade - 5)
 		}
 		if items[i].Index != want {
-			return 0
+			return false
 		}
-		rate += base
 	}
-	return rate
+	return true
 }
 
+// AilynLegacyChance is the legacy +10 chance for a CompRate.txt base: 1, plus the
+// base once per jewel (GetFunc.cpp:379-390). The four jewels are mandatory, so
+// "Ailyn ChanceBase 10" is a 41% machine — the number the Mesa das Máquinas
+// shows as the default, so nothing moves until a moderator saves a row.
+func AilynLegacyChance(base int) int {
+	return 1 + 4*base
+}
+
+// MatchAgatha is GetMatchCombineAgatha (GetFunc.cpp:458): 0 for a refused
+// recipe, else the legacy chance.
 func MatchAgatha(cat Catalog, items []world.Item, base int) int {
-	if !validItems(items, 6) || itemAbility(cat, items[0], efMobType) != 1 {
+	if !AgathaRecipe(cat, items) {
 		return 0
+	}
+	return AgathaLegacyChance(cat, items, base)
+}
+
+// AgathaRecipe is the ADD recipe check on its own: a +9 weapon taking the ADD of
+// a +9 piece of the same slot, and four Pedras da Agatha.
+func AgathaRecipe(cat Catalog, items []world.Item) bool {
+	if !validItems(items, 6) || itemAbility(cat, items[0], efMobType) != 1 {
+		return false
 	}
 	t := itemAbility(cat, items[1], efItemType)
 	level := itemAbility(cat, items[1], efItemLevel)
 	if (t != 0 && t != 2) || level < 4 || cat.Pos[int(items[0].Index)] != cat.Pos[int(items[1].Index)] || refine.Level(items[0]) < 9 || refine.Level(items[1]) < 9 {
-		return 0
+		return false
 	}
 	for i := 2; i < 6; i++ {
 		if items[i].Index != 3140 {
-			return 0
+			return false
 		}
 	}
+	return true
+}
+
+// AgathaLegacyChance is the legacy ADD chance: the base, plus five per grade of
+// the item giving the ADD, plus 1 — or 30 when that item is level 5. It varies by
+// item, which is why the Mesa das Máquinas replaces it with one fixed number.
+func AgathaLegacyChance(cat Catalog, items []world.Item, base int) int {
 	bonus := 1
-	if level == 5 {
+	if itemAbility(cat, items[1], efItemLevel) == 5 {
 		bonus = 30
 	}
 	return base + cat.Grade[int(items[1].Index)]*5 + bonus
@@ -219,30 +254,43 @@ func MatchAlquimia(items []world.Item) int {
 // success rate (0 = invalid). A valid base item plus jewel yields rate 1; optional
 // sacrifice gear at sanc 7/8/9 adds g_pAnctChance[0..2].
 func MatchAnct(cat Catalog, items []world.Item) int {
+	n, ok := AnctSacrifices(cat, items)
+	if !ok {
+		return 0
+	}
+	return AnctChanceFor(n, cat.AnctChance)
+}
+
+// AnctSacrifices is MatchAnct's validation with the sacrifices COUNTED rather
+// than priced: n[0] items at +7, n[1] at +8, n[2] at +9, and ok false for a
+// recipe the compositor refuses.
+//
+// It is split out so what a sacrifice is worth can come from the Mesa das
+// Máquinas: the recipe rules are the legacy's, the weights are the server's.
+func AnctSacrifices(cat Catalog, items []world.Item) (n [3]int, ok bool) {
 	for _, it := range items {
 		if int(it.Index) == blockedItem747 {
-			return 0
+			return n, false
 		}
 	}
 	if len(items) < 2 {
-		return 0
+		return n, false
 	}
 	target := int(items[0].Index)
 	stone := int(items[1].Index)
 	if target <= 0 || stone <= 0 {
-		return 0
+		return n, false
 	}
 	nUnique := cat.Unique[target]
 	if nUnique < 41 || nUnique > 49 {
-		return 0
+		return n, false
 	}
 	if cat.Extra[target] <= 0 {
-		return 0
+		return n, false
 	}
 	if itemAbility(cat, items[0], efMobType) == 3 {
-		return 0
+		return n, false
 	}
-	rate := 1
 	for j := 2; j < len(items); j++ {
 		it := items[j]
 		idx := int(it.Index)
@@ -250,25 +298,31 @@ func MatchAnct(cat Catalog, items []world.Item) int {
 			continue
 		}
 		if itemAbility(cat, it, efPos) == 0 {
-			return 0
+			return n, false
 		}
 		il1 := itemAbility(cat, items[0], efItemLevel)
 		il2 := itemAbility(cat, it, efItemLevel)
 		if il1 > il2 {
-			return 0
+			return n, false
 		}
 		switch refine.Level(it) {
 		case 7:
-			rate += cat.AnctChance[0]
+			n[0]++
 		case 8:
-			rate += cat.AnctChance[1]
+			n[1]++
 		case 9:
-			rate += cat.AnctChance[2]
+			n[2]++
 		default:
-			return 0
+			return n, false
 		}
 	}
-	return rate
+	return n, true
+}
+
+// AnctChanceFor prices counted sacrifices the way GetMatchCombine does: 1, plus
+// each sacrifice's weight by its refine (+7, +8, +9).
+func AnctChanceFor(n, weights [3]int) int {
+	return 1 + n[0]*weights[0] + n[1]*weights[1] + n[2]*weights[2]
 }
 
 // itemAbility is the BASE_GetItemAbility port (Basedef.cpp:1560-1600): the sum of

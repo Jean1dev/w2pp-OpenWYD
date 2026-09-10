@@ -88,7 +88,7 @@
       <div class="onde">{{.Onde}} · {{.Familia}} {{.Chave}}</div>
     </div>
     <div class="origem {{if .NoBanco}}origem-painel{{else}}origem-arquivo{{end}}">
-      {{if .NoBanco}}painel{{else}}arquivo ({{.Padrao}}%){{end}}
+      {{if .NoBanco}}painel{{else if .PadraoTexto}}arquivo ({{.PadraoTexto}}){{else}}arquivo ({{.Padrao}}%){{end}}
     </div>
     <div><input type="number" name="taxa" min="0" max="100" value="{{.Valor}}" aria-label="Taxa de {{.Nome}}"></div>
     <div>
@@ -107,80 +107,60 @@
     O conjunto de um item sai do <b>ReqLvl</b>, o nível exigido para equipar. É o
     único campo que separa tiers: 470 das 654 armas dividem o mesmo grau, então o
     grau não serve de eixo. O nome da faixa é seu — "Armas C", "Armas D" — e o
-    multiplicador é em centésimos: 100 é neutro, 180 é 1,8×, 40 é 0,4×.
+    multiplicador é em centésimos: 100 é neutro, 90 é 0,9×, 180 é 1,8×.
     Apagar o nome de uma linha remove a faixa. Uma faixa que não cobre um item
-    deixa a máquina na taxa cheia, nunca em zero.
+    deixa a máquina na chance cheia, nunca em zero.
   </p>
-
-  <h3>Armas</h3>
-  <form method="post" action="/rates/maquinas/faixas">
-    <input type="hidden" name="csrf" value="{{$.CSRF}}">
-    <input type="hidden" name="tipo" value="arma">
-    <table class="faixas">
-      <thead>
-        <tr><th>Nome do conjunto</th><th class="num">ReqLvl de</th><th class="num">até</th><th class="num">Multiplicador</th><th class="num">Chance</th><th>Proporção</th></tr>
-      </thead>
-      <tbody>
-        {{range .Armas}}
-        <tr>
-          <td><input type="text" name="nome" value="{{.Nome}}" aria-label="Nome do conjunto"></td>
-          <td class="num"><input type="number" name="min" min="0" value="{{.Min}}" aria-label="ReqLvl mínimo"></td>
-          <td class="num"><input type="number" name="max" min="0" value="{{.Max}}" aria-label="ReqLvl máximo"></td>
-          <td class="num"><input type="number" name="mult" min="0" max="1000" value="{{.MultPct}}" aria-label="Multiplicador"></td>
-          <td class="num efetiva">{{.Efetiva}}%</td>
-          <td><div class="barra sev-{{.Severidade}}"><i style="width:{{.Efetiva}}%"></i></div></td>
-        </tr>
-        {{else}}
-        <tr><td colspan="6" class="vazio">Nenhuma faixa de arma. A +10 usa a taxa cheia para qualquer arma.</td></tr>
-        {{end}}
-        <tr>
-          <td><input type="text" name="nome" value="" placeholder="nova faixa" aria-label="Nome da nova faixa"></td>
-          <td class="num"><input type="number" name="min" min="0" value="0" aria-label="ReqLvl mínimo"></td>
-          <td class="num"><input type="number" name="max" min="0" value="0" aria-label="ReqLvl máximo"></td>
-          <td class="num"><input type="number" name="mult" min="0" max="1000" value="100" aria-label="Multiplicador"></td>
-          <td class="num"></td><td></td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="acoes"><button type="submit">Salvar faixas de armas</button></div>
-  </form>
-
-  <h3>Armaduras</h3>
   <p class="sub">
-    Quebras próprias, e não as mesmas das armas: entre ReqLvl 200 e 249 o
-    catálogo tem 112 armas e uma única armadura.
+    A coluna Chance é a chance da +10 ({{.ChanceMais10}}%) vezes o multiplicador —
+    exatamente o número que aparece depois da barra no anúncio ("falhou em 47/{{.ChanceMais10}}").
   </p>
-  <form method="post" action="/rates/maquinas/faixas">
-    <input type="hidden" name="csrf" value="{{$.CSRF}}">
-    <input type="hidden" name="tipo" value="armadura">
-    <table class="faixas">
-      <thead>
-        <tr><th>Nome do conjunto</th><th class="num">ReqLvl de</th><th class="num">até</th><th class="num">Multiplicador</th><th class="num">Chance</th><th>Proporção</th></tr>
-      </thead>
-      <tbody>
-        {{range .Armadur}}
-        <tr>
-          <td><input type="text" name="nome" value="{{.Nome}}" aria-label="Nome do conjunto"></td>
-          <td class="num"><input type="number" name="min" min="0" value="{{.Min}}" aria-label="ReqLvl mínimo"></td>
-          <td class="num"><input type="number" name="max" min="0" value="{{.Max}}" aria-label="ReqLvl máximo"></td>
-          <td class="num"><input type="number" name="mult" min="0" max="1000" value="{{.MultPct}}" aria-label="Multiplicador"></td>
-          <td class="num efetiva">{{.Efetiva}}%</td>
-          <td><div class="barra sev-{{.Severidade}}"><i style="width:{{.Efetiva}}%"></i></div></td>
-        </tr>
-        {{else}}
-        <tr><td colspan="6" class="vazio">Nenhuma faixa de armadura. A +10 usa a taxa cheia para qualquer peça.</td></tr>
-        {{end}}
-        <tr>
-          <td><input type="text" name="nome" value="" placeholder="nova faixa" aria-label="Nome da nova faixa"></td>
-          <td class="num"><input type="number" name="min" min="0" value="0" aria-label="ReqLvl mínimo"></td>
-          <td class="num"><input type="number" name="max" min="0" value="0" aria-label="ReqLvl máximo"></td>
-          <td class="num"><input type="number" name="mult" min="0" max="1000" value="100" aria-label="Multiplicador"></td>
-          <td class="num"></td><td></td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="acoes"><button type="submit">Salvar faixas de armaduras</button></div>
-  </form>
+  {{range .Mais10}}{{template "tabela-faixas" .}}{{end}}
+
+  <h2>Faixas por conjunto — compositor</h2>
+  <p class="intro">
+    Curva própria, separada da +10: deixar o conjunto C mais fácil de refinar não
+    é deixá-lo mais fácil de compor. A chance do compositor depende do que é
+    sacrificado, então a coluna Chance usa uma receita de referência — quatro
+    sacrifícios +9, que hoje dão {{.RefCompositor}}% — vezes o multiplicador.
+  </p>
+  {{range .Compositor}}{{template "tabela-faixas" .}}{{end}}
 </main>
 </body>
 </html>
+
+{{define "tabela-faixas"}}
+  <h3>{{.Titulo}}</h3>
+  {{if .Nota}}<p class="sub">{{.Nota}}</p>{{end}}
+  <form method="post" action="/rates/maquinas/faixas">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="tipo" value="{{.Tipo}}">
+    <table class="faixas">
+      <thead>
+        <tr><th>Nome do conjunto</th><th class="num">ReqLvl de</th><th class="num">até</th><th class="num">Multiplicador</th><th class="num">Chance</th><th>Proporção</th></tr>
+      </thead>
+      <tbody>
+        {{range .Faixas}}
+        <tr>
+          <td><input type="text" name="nome" value="{{.Nome}}" aria-label="Nome do conjunto"></td>
+          <td class="num"><input type="number" name="min" min="0" value="{{.Min}}" aria-label="ReqLvl mínimo"></td>
+          <td class="num"><input type="number" name="max" min="0" value="{{.Max}}" aria-label="ReqLvl máximo"></td>
+          <td class="num"><input type="number" name="mult" min="0" max="1000" value="{{.MultPct}}" aria-label="Multiplicador"></td>
+          <td class="num efetiva">{{.Efetiva}}%</td>
+          <td><div class="barra sev-{{.Severidade}}"><i style="width:{{.Efetiva}}%"></i></div></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="vazio">{{.Vazio}}</td></tr>
+        {{end}}
+        <tr>
+          <td><input type="text" name="nome" value="" placeholder="nova faixa" aria-label="Nome da nova faixa"></td>
+          <td class="num"><input type="number" name="min" min="0" value="0" aria-label="ReqLvl mínimo"></td>
+          <td class="num"><input type="number" name="max" min="0" value="0" aria-label="ReqLvl máximo"></td>
+          <td class="num"><input type="number" name="mult" min="0" max="1000" value="100" aria-label="Multiplicador"></td>
+          <td class="num"></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="acoes"><button type="submit">Salvar faixas</button></div>
+  </form>
+{{end}}

@@ -62,8 +62,7 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 		d.refuseCombine(w, s, combineNeedsGold(ailynCost))
 		return
 	}
-	rate := combine.MatchAilyn(d.combineCatalog, it[:], d.machineRate("Ailyn", it[0]))
-	if rate == 0 {
+	if !combine.AilynRecipe(d.combineCatalog, it[:]) {
 		// The +10 machine wants seven filled cells, cells 0 and 1 the SAME index, a
 		// Pedra do Sábio (1774) in cell 2 and four jewels chosen by the item's grade
 		// (5→2441 Diamante, 6→2442 Esmeralda, 7→2443 Coral, 8→2444 Garnet). Which of
@@ -75,11 +74,12 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 			"itens", []int16{it[0].Index, it[1].Index, it[2].Index, it[3].Index, it[4].Index, it[5].Index, it[6].Index},
 			"grade0", d.combineCatalog.Grade[int(it[0].Index)],
 			"pos0", d.combineCatalog.Pos[int(it[0].Index)],
-			"chance_base", d.machineRate("Ailyn", it[0]),
+			"chance", d.mais10Chance(it[0]),
 			"req_lvl", d.reqLvlOf(it[0]), "slot_kind", d.slotKindOf(it[0]))
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
+	rate := d.mais10Chance(it[0])
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 })
 	e.Coin -= ailynCost
 	d.sendEtc(w, s, e)
@@ -141,11 +141,11 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 	if !ok {
 		return
 	}
-	rate := combine.MatchAgatha(d.combineCatalog, it[:], d.machineKeyRate("Agatha", "ChanceBase", d.compRate.ChanceBase("Agatha")))
-	if rate == 0 {
+	if !combine.AgathaRecipe(d.combineCatalog, it[:]) {
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
+	rate := d.agathaChance(it[:])
 	consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 })
 	roll, success := combine.Roll(w.Rand(), rate)
 	if !success {

@@ -49,6 +49,9 @@ type maquinaChave struct {
 	Padrao   int32  // the value CompRate.txt ships, shown when there is no row
 	Operacao string // "ADD" / "ABS?" — the operation players name it by
 	Nota     string
+	// PadraoTexto replaces "arquivo (N%)" when the file's behaviour is not one
+	// number — the Agatha's legacy chance varies with every item.
+	PadraoTexto string
 }
 
 // maquinaChaves is every rate the panel exposes.
@@ -57,16 +60,22 @@ type maquinaChave struct {
 // server's own vocabulary, not something the code can know — the operator
 // recognises it by the items it consumes, which is why each row names them.
 var maquinaChaves = []maquinaChave{
-	{Familia: "Ailyn", Chave: "ChanceBase", Nome: "Refino +10", Onde: "Armia", Padrao: 10,
-		Nota: "Taxa base. As faixas por conjunto, abaixo, multiplicam este número."},
-	{Familia: "Agatha", Chave: "ChanceBase", Nome: "Agatha", Onde: "Azran", Padrao: 15, Operacao: "ADD",
-		Nota: "Taxa fixa, igual para qualquer item. Sem esta linha o jogo usa base + grau×5, que faz o item melhor passar mais fácil."},
+	// "Chance", not "ChanceBase": the row changed meaning from a base (10 → 41%)
+	// to the final chance, and a row saved under the old reading must not
+	// silently turn into a 10% machine. 41 is what "Ailyn ChanceBase 10" in
+	// CompRate.txt has always produced.
+	{Familia: "Ailyn", Chave: "Chance", Nome: "Refino +10", Onde: "Armia", Padrao: 41,
+		Nota: "Chance final: é o número depois da barra no anúncio (\"falhou em 47/41\"). As faixas por conjunto, abaixo, multiplicam este número."},
+	{Familia: "Agatha", Chave: "ChanceBase", Nome: "Agatha", Onde: "Azran", Padrao: 46, Operacao: "ADD",
+		PadraoTexto: "varia por item",
+		Nota:        "Chance fixa, igual para qualquer item — é o número do anúncio. Sem linha salva o jogo usa o legado, 15 + grau×5 + 1 (ou +30 no nível 5): 46 num item grau 6."},
 	{Familia: "Tiny", Chave: "ChanceBase", Nome: "Tiny", Onde: "Nippleheim", Padrao: 15},
 	{Familia: "Shany", Chave: "ChanceBase", Nome: "Shany", Onde: "Nippleheim", Padrao: 35},
 
-	{Familia: "Compositor", Chave: "Item_+7", Nome: "Compositor · item +7", Onde: "Armia", Padrao: 2},
-	{Familia: "Compositor", Chave: "Item_+8", Nome: "Compositor · item +8", Onde: "Armia", Padrao: 4},
-	{Familia: "Compositor", Chave: "Item_+9", Nome: "Compositor · item +9", Onde: "Armia", Padrao: 10},
+	{Familia: "Compositor", Chave: "Item_+7", Nome: "Compositor · peso de um sacrifício +7", Onde: "Armia", Padrao: 2},
+	{Familia: "Compositor", Chave: "Item_+8", Nome: "Compositor · peso de um sacrifício +8", Onde: "Armia", Padrao: 4},
+	{Familia: "Compositor", Chave: "Item_+9", Nome: "Compositor · peso de um sacrifício +9", Onde: "Armia", Padrao: 10,
+		Nota: "A chance do compositor é 1 + a soma dos pesos dos itens sacrificados (até seis). As faixas do compositor, abaixo, multiplicam o total."},
 
 	{Familia: "Ehre", Chave: "Pacote_Ori", Nome: "Ehre · 2 Safiras + item +9", Onde: "Erion", Padrao: 100},
 	{Familia: "Ehre", Chave: "Misteriosa", Nome: "Ehre · runas Ansuz/Othel + Lac", Onde: "Erion", Padrao: 100},
@@ -92,7 +101,7 @@ type faixaMaquina struct {
 	Min        int32
 	Max        int32
 	MultPct    int32
-	Efetiva    int32  // the +10's chance for an item in this band
+	Efetiva    int32  // the machine's chance for an item in this band
 	Severidade string // "alta" / "media" / "baixa", for the bar
 }
 
@@ -119,35 +128,77 @@ func (h *Handler) maquinas(w http.ResponseWriter, r *http.Request) {
 		porChave[chaveDe(rt.Family, rt.Key)] = rt.Rate
 	}
 	linhas := make([]linhaMaquina, 0, len(maquinaChaves))
-	baseAilyn := int32(10)
+	chanceMais10, pesoMais9 := int32(41), int32(10)
 	for _, mc := range maquinaChaves {
 		l := linhaMaquina{maquinaChave: mc, Valor: mc.Padrao}
 		if v, ok := porChave[chaveDe(mc.Familia, mc.Chave)]; ok {
 			l.Valor, l.NoBanco = v, true
 		}
-		if mc.Familia == "Ailyn" {
-			baseAilyn = l.Valor
+		switch {
+		case mc.Familia == "Ailyn":
+			chanceMais10 = l.Valor
+		case mc.Familia == "Compositor" && strings.EqualFold(mc.Chave, "Item_+9"):
+			pesoMais9 = l.Valor
 		}
 		linhas = append(linhas, l)
 	}
+	// The compositor's chance depends on what is sacrificed, so its bands are
+	// previewed against one reference recipe: four +9s, the common way to go for it.
+	refCompositor := 1 + 4*pesoMais9
 
+	p := h.pageFor(r, "rates")
+	tabela := func(titulo, tipo, nota, vazio string, kind domain.CombineSlotKind, chance int32) tabelaFaixas {
+		return tabelaFaixas{Titulo: titulo, Tipo: tipo, Nota: nota, Vazio: vazio,
+			Faixas: faixasDe(cfg, kind, chance), CSRF: p.CSRF}
+	}
 	h.render(w, "maquinas.html", struct {
 		page
-		Aba     string
-		Versao  int64
-		Linhas  []linhaMaquina
-		Armas   []faixaMaquina
-		Armadur []faixaMaquina
-		Aviso   string
+		Aba           string
+		Versao        int64
+		Linhas        []linhaMaquina
+		ChanceMais10  int32
+		RefCompositor int32
+		Mais10        []tabelaFaixas
+		Compositor    []tabelaFaixas
+		Aviso         string
 	}{
-		page:    h.pageFor(r, "rates"),
-		Aba:     "maquinas",
-		Versao:  cfg.Version,
-		Linhas:  linhas,
-		Armas:   faixasDe(cfg, domain.CombineSlotWeapon, baseAilyn),
-		Armadur: faixasDe(cfg, domain.CombineSlotArmour, baseAilyn),
-		Aviso:   r.URL.Query().Get("aviso"),
+		page:          p,
+		Aba:           "maquinas",
+		Versao:        cfg.Version,
+		Linhas:        linhas,
+		ChanceMais10:  chanceMais10,
+		RefCompositor: refCompositor,
+		Mais10: []tabelaFaixas{
+			tabela("Armas", "arma", "",
+				"Nenhuma faixa de arma. A +10 usa a chance cheia para qualquer arma.",
+				domain.CombineSlotWeapon, chanceMais10),
+			tabela("Armaduras", "armadura",
+				"Quebras próprias, e não as mesmas das armas: entre ReqLvl 200 e 249 o catálogo tem 112 armas e uma única armadura.",
+				"Nenhuma faixa de armadura. A +10 usa a chance cheia para qualquer peça.",
+				domain.CombineSlotArmour, chanceMais10),
+		},
+		Compositor: []tabelaFaixas{
+			tabela("Armas", "compositor-arma", "",
+				"Nenhuma faixa de arma. O compositor usa só o peso dos sacrifícios.",
+				domain.CombineSlotCompositorWeapon, refCompositor),
+			tabela("Armaduras", "compositor-armadura", "",
+				"Nenhuma faixa de armadura. O compositor usa só o peso dos sacrifícios.",
+				domain.CombineSlotCompositorArmour, refCompositor),
+		},
+		Aviso: r.URL.Query().Get("aviso"),
 	})
+}
+
+// tabelaFaixas is one band table as the screen draws it. It carries its own
+// CSRF because the shared template block that renders it only sees this value,
+// not the page around it.
+type tabelaFaixas struct {
+	Titulo string
+	Tipo   string // the form's tipo, which the POST handler maps to a slot kind
+	Nota   string
+	Vazio  string
+	Faixas []faixaMaquina
+	CSRF   string
 }
 
 // faixasDe builds the band rows for one slot kind.
@@ -171,11 +222,12 @@ func faixasDe(cfg domain.CombineRateConfig, kind domain.CombineSlotKind, base in
 	return out
 }
 
-// efetiva mirrors the server's own arithmetic so the screen cannot promise a
-// number the game will not deliver: the +10 resolves 1+4×base, scaled by the
-// band, clamped to what the roll compares against.
-func efetiva(base, multPct int32) int32 {
-	v := (1 + 4*base) * multPct / 100
+// efetiva mirrors the server's own arithmetic (combine.RateConfig.Apply) so the
+// screen cannot promise a number the game will not deliver: the machine's chance
+// times the band, integer division, clamped to 1..100. It is the number the
+// players read after the slash in the announcement.
+func efetiva(chance, multPct int32) int32 {
+	v := chance * multPct / 100
 	if v < 1 {
 		return 1
 	}
@@ -277,9 +329,23 @@ func (h *Handler) setMaquinaFaixas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess, _ := staffFrom(r.Context())
-	kind, tipo := domain.CombineSlotWeapon, "armas"
-	if r.FormValue("tipo") == "armadura" {
-		kind, tipo = domain.CombineSlotArmour, "armaduras"
+	// An unknown tipo is refused rather than defaulted: with four curves on the
+	// screen, a typo landing in the +10's weapons would rewrite a table the
+	// moderator never touched.
+	var kind domain.CombineSlotKind
+	var tipo string
+	switch r.FormValue("tipo") {
+	case "arma":
+		kind, tipo = domain.CombineSlotWeapon, "armas da +10"
+	case "armadura":
+		kind, tipo = domain.CombineSlotArmour, "armaduras da +10"
+	case "compositor-arma":
+		kind, tipo = domain.CombineSlotCompositorWeapon, "armas do compositor"
+	case "compositor-armadura":
+		kind, tipo = domain.CombineSlotCompositorArmour, "armaduras do compositor"
+	default:
+		http.Error(w, "Tipo de faixa desconhecido.", http.StatusBadRequest)
+		return
 	}
 	nomes, mins := r.Form["nome"], r.Form["min"]
 	maxs, mults := r.Form["max"], r.Form["mult"]

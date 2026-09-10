@@ -22,7 +22,26 @@ const (
 	SlotNone   SlotKind = 0
 	SlotWeapon SlotKind = 1
 	SlotArmour SlotKind = 2
+	// The compositor keeps its own curve, apart from the +10's: making C sets
+	// easier to refine is a different decision from making them easier to
+	// compose, and one shared table would couple the two behind the moderator's
+	// back.
+	SlotCompositorWeapon SlotKind = 3
+	SlotCompositorArmour SlotKind = 4
 )
+
+// CompositorKind is the compositor's band table for an item of kind k: its
+// weapons and armour, or none for everything else.
+func CompositorKind(k SlotKind) SlotKind {
+	switch k {
+	case SlotWeapon:
+		return SlotCompositorWeapon
+	case SlotArmour:
+		return SlotCompositorArmour
+	default:
+		return SlotNone
+	}
+}
 
 // Band is one item band: everything from ReqLvlMin to ReqLvlMax, inclusive, gets
 // MultPct hundredths of the machine's own rate.

@@ -33,10 +33,19 @@ func sendAilynAsTheClient(t *testing.T, c net.Conn) {
 }
 
 // ailynDaMesa pins the +10 chance through the Mesa das Máquinas, the same row a
-// moderator saves on /rates/maquinas. Apply clamps to 1..100, so 1 is the lowest
-// chance there is and 100 never fails.
-func ailynDaMesa(taxa int32) combine.RateConfig {
-	return combine.NewRateConfig(1, []combine.RateRow{{Family: "Ailyn", Key: "ChanceBase", Rate: taxa}}, nil)
+// moderator saves on /rates/maquinas. The row IS the final chance: 1 is the
+// lowest there is and 100 never fails.
+func ailynDaMesa(taxa int32, bands ...combine.Band) combine.RateConfig {
+	return combine.NewRateConfig(1, []combine.RateRow{{Family: "Ailyn", Key: chaveMais10Chance, Rate: taxa}}, bands)
+}
+
+// faixaParaTudo is one band covering every ReqLvl of both +10 kinds, so a test
+// can apply a multiplier without caring which tier the test item sits in.
+func faixaParaTudo(multPct int32) []combine.Band {
+	return []combine.Band{
+		{SlotKind: combine.SlotWeapon, ReqLvlMin: 0, ReqLvlMax: 100000, Label: "Tudo", MultPct: multPct},
+		{SlotKind: combine.SlotArmour, ReqLvlMin: 0, ReqLvlMax: 100000, Label: "Tudo", MultPct: multPct},
+	}
 }
 
 // resultadoDaAilyn collects everything the +10 sends up to and including the
@@ -83,22 +92,21 @@ func lerResultadoDaAilyn(t *testing.T, c net.Conn) resultadoDaAilyn {
 // roll, as in _MSG_CombineItemAilyn.cpp:65-75 — so without the line the player
 // could not tell a lost roll from a machine that ate the items.
 func TestAilynMais10FalaOResultado(t *testing.T) {
-	// The chance after the slash is what the roll compared against. For the +10
-	// that is 1 + 4 × (the Mesa's rate), one term per jewel — GetFunc.cpp:379-390
-	// — so a panel 100 reads /401 and a panel 1 reads /5.
+	// The chance after the slash is exactly the Mesa's number for this item:
+	// what the moderator typed, times the band of the item's tier.
 	casos := []struct {
 		nome       string
-		taxa       int32
+		mesa       combine.RateConfig
 		wantParm   int32
 		wantLinha  *regexp.Regexp
 		wantChance int
 	}{
-		{"sucesso", 100, combineSuccess, regexp.MustCompile(`^Hero conseguiu em (\d+)/(\d+) passar #\d+ para \+10!$`), 401},
-		{"falha", 1, combineFailed, regexp.MustCompile(`^Hero falhou em (\d+)/(\d+) ao passar #\d+ para \+10\.$`), 5},
+		{"sucesso", ailynDaMesa(100), combineSuccess, regexp.MustCompile(`^Hero conseguiu em (\d+)/(\d+) passar #\d+ para \+10!$`), 100},
+		{"falha", ailynDaMesa(1), combineFailed, regexp.MustCompile(`^Hero falhou em (\d+)/(\d+) ao passar #\d+ para \+10\.$`), 1},
 	}
 	for _, tc := range casos {
 		t.Run(tc.nome, func(t *testing.T) {
-			addr, stop := startServerAilynRates(t, ailynCost, true, ailynDaMesa(tc.taxa))
+			addr, stop := startServerAilynRates(t, ailynCost, true, tc.mesa)
 			defer stop()
 			c := enterWorld(t, addr)
 			defer c.Close()

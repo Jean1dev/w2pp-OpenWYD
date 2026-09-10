@@ -148,6 +148,13 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
+	// The recipe rules are the legacy's; what each sacrifice is worth, and the
+	// curve per item tier, are the Mesa das Máquinas'.
+	if fam.Name == anctFamilyName {
+		if n, ok := combine.AnctSacrifices(d.combineCatalog, items); ok {
+			rate = d.composicaoChance(items[0], n)
+		}
+	}
 
 	// Consume the inputs BEFORE the roll (lost on failure, by design).
 	for _, pos := range active {
@@ -359,6 +366,61 @@ func (d *Dispatcher) machineRate(family string, target world.Item) int {
 		base = v
 	}
 	return int(d.combineRates.Apply(base, d.slotKindOf(target), d.reqLvlOf(target)))
+}
+
+// On the three machines that announce their rolls, the Mesa das Máquinas holds
+// the FINAL chance — the number after the slash in "47/41" — and not a legacy
+// base the machine then transforms. What the moderator types is what the
+// players read and what the roll compares against.
+//
+// The +10 moves to a new key because its meaning changed: "Ailyn ChanceBase 10"
+// was a base (1 + 4×10 = 41%), and a row saved under the old reading would
+// silently become a 10% machine. The Agatha keeps "ChanceBase" because its row
+// already said "taxa fixa, igual para qualquer item" on the panel — the machine
+// is what changes, to finally do what the screen promised.
+const (
+	chaveMais10Chance = "Chance"
+	chaveAgathaChance = "ChanceBase"
+)
+
+// compositorChaves are the compositor's three sacrifice weights, spelled the way
+// the panel saves them; the lookup is case-insensitive, so CompRate.txt's
+// "ITEM_+7" is the same row.
+var compositorChaves = [3]string{"Item_+7", "Item_+8", "Item_+9"}
+
+// mais10Chance is the +10's chance for target: the Mesa's row, or the legacy
+// chance for the file's base (41% for "Ailyn ChanceBase 10"), times the band of
+// the item's tier.
+func (d *Dispatcher) mais10Chance(target world.Item) int {
+	chance := int32(combine.AilynLegacyChance(d.compRate.ChanceBase("Ailyn")))
+	if v, ok := d.combineRates.Rate("Ailyn", chaveMais10Chance); ok {
+		chance = v
+	}
+	return int(d.combineRates.Apply(chance, d.slotKindOf(target), d.reqLvlOf(target)))
+}
+
+// agathaChance is the ADD machine's chance: the Mesa's fixed row when there is
+// one, else the legacy base + grade×5 + bonus, which varies by item. No band —
+// the ADD is fixed by design.
+func (d *Dispatcher) agathaChance(items []world.Item) int {
+	if v, ok := d.combineRates.Rate("Agatha", chaveAgathaChance); ok {
+		return int(v)
+	}
+	return combine.AgathaLegacyChance(d.combineCatalog, items, d.compRate.ChanceBase("Agatha"))
+}
+
+// composicaoChance is the compositor's chance for a recipe with n sacrifices at
+// +7/+8/+9: 1 plus each sacrifice's weight — the Mesa's, else the file's — times
+// the compositor's own band for the item being composed.
+func (d *Dispatcher) composicaoChance(target world.Item, n [3]int) int {
+	weights := d.combineCatalog.AnctChance
+	for i, key := range compositorChaves {
+		if v, ok := d.combineRates.Rate("Compositor", key); ok {
+			weights[i] = int(v)
+		}
+	}
+	chance := int32(combine.AnctChanceFor(n, weights))
+	return int(d.combineRates.Apply(chance, combine.CompositorKind(d.slotKindOf(target)), d.reqLvlOf(target)))
 }
 
 // machineKeyRate is machineRate for the families whose rate is named by the
