@@ -254,6 +254,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		w.SetEntityPos(s.Conn, loginX, loginY)
 		e.HP, e.MaxHP = st.HP, st.MaxHP
 		e.MP, e.MaxMP = st.MP, st.MaxMP
+		e.EquipmentAttributeHP, e.EquipmentAttributeMP = 0, 0
 		// Critical is a save-side cache only: refreshScore below re-derives it from the
 		// equipment (Basedef.cpp:3209), so the stored value never survives login.
 		// Damage and AC are NOT read from the state at all: the DB contract carries
@@ -316,10 +317,9 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 				e.Affect[slot] = a
 			}
 		}
-		// Recompute the live score once (idempotent right after deriveBaseScore:
-		// current = base + equip reproduces the loaded values) — this is what fills
-		// the live Special (= BaseSpecial + gear) and the affect caches, which are
-		// not persisted.
+		// Recompute runtime equipment resources, live Special and affect caches.
+		// Saved maxima omit equipment CON/INT resources, so even an old save gains
+		// the issue #321 correction here without accumulating it on later logins.
 		d.refreshScore(e)
 		s.ReqHp, s.ReqMp = e.HP, e.MP
 		s.CriticalProgress = 0

@@ -2179,9 +2179,9 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 }
 
 // deriveBaseScore captures the equipment-free BaseScore on login. Persisted
-// Attributes, MaxHP/MaxMP and Magic recover their base by subtracting equipment;
-// after this,
-// refreshScore reproduces the loaded CurrentScore exactly until gear changes.
+// attributes and MaxHP/MaxMP recover their base by subtracting equipment;
+// saved maxima exclude equipment CON/INT resources (issue #321). refreshScore
+// adds those runtime-only contributions after this historical base derivation.
 //
 // AC and Damage are reconstructed because the DB contract omits them.
 // WeaponDamage remains separate.
@@ -2217,8 +2217,16 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	flatAC := e.BaseAC + b.ac
 	e.AC = flatAC + skillDerivedACBonus(e, flatAC)
 	e.Damage = e.BaseDamage + b.damage + d.derivedDamageBeforeAffects(e)
-	e.MaxHP = e.BaseMaxHP + b.maxHP
-	e.MaxMP = e.BaseMaxMP + b.maxMP
+	e.EquipmentAttributeHP, e.EquipmentAttributeMP = 0, 0
+	if world.IsPlayer(e.ID) {
+		// Basedef.cpp:3152-3156 converts equipment-only CON/INT at 2 resources
+		// per point. Do not copy that block's additional doubling of the whole
+		// maximum, or count allocated/buff attributes again (issue #321).
+		e.EquipmentAttributeHP = 2 * int32(b.con)
+		e.EquipmentAttributeMP = 2 * int32(b.intel)
+	}
+	e.MaxHP = e.BaseMaxHP + b.maxHP + e.EquipmentAttributeHP
+	e.MaxMP = e.BaseMaxMP + b.maxMP + e.EquipmentAttributeMP
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	e.RunSpeedBonus = b.runSpeed
