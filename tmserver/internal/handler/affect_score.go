@@ -282,10 +282,26 @@ const (
 	soulCD = 17
 )
 
+// applySoulScore is the Soul (affect 29): it multiplies one or two attributes
+// by the character's configured Soul, 1.8×/1.6×/1.2× on a Mortal and
+// 2.2×/1.8×/1.4× above it (Basedef.cpp:4244-4400).
+//
+// The INT and CON it adds also buy mana and life, at 2 per point — the rate a
+// distributed point pays (applyScoreBonus). That is the legacy's own intent,
+// which it never delivered: Basedef.cpp:3042 opens a block named "Soul Hp/Mp
+// add" that multiplies INT and CON by the Soul into bInt/bCon and then never
+// reads either, so a Foema watched her INT double with the mana bar standing
+// still. Only the Soul does this; debuffs that lower INT keep leaving the pool
+// alone, as they always have.
 func applySoulScore(e *world.Entity) {
 	if e.Soul == 0 {
 		return
 	}
+	intAntes, conAntes := e.AffInt, e.AffCon
+	defer func() {
+		e.AffMaxMP += 2 * int32(e.AffInt-intAntes)
+		e.AffMaxHP += 2 * int32(e.AffCon-conAntes)
+	}()
 	single, primary, secondary := int32(180), int32(160), int32(120)
 	if e.ClassMaster != classMasterMortal {
 		single, primary, secondary = 220, 180, 140
