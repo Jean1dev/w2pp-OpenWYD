@@ -59,7 +59,7 @@ const (
 
 // mobSkill is what a monster's swing carries beyond the blow itself.
 type mobSkill struct {
-	index int  // spell to render and apply, or noSkill
+	index int  // spell to apply server-side (the packet goes out as a plain swing), or noSkill
 	heal  bool // the swing is the SkillBar[3] self/leader heal instead of a hit
 }
 

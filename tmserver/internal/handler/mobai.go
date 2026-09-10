@@ -799,7 +799,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		damageReqHp(w.Session(target.ID), target, int32(dmg))
 	}
 
-	body := corpoDoGolpeDeMonstro(id, e, target, sk, dmg)
+	body := corpoDoGolpeDeMonstro(id, e, target, dmg)
 	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
 	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
 	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
@@ -811,28 +811,10 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
 	})
 
-	// The skill rides along with the blow: the client draws it from SkillIndex
-	// above, the affect lands here (ProcessSecMinTimer.cpp:2196-2205).
+	// The skill rides along with the blow, server-side only: the affect lands
+	// here (ProcessSecMinTimer.cpp:2196-2205) and the packet above carries a plain
+	// swing (see corpoDoGolpeDeMonstro).
 	d.applyMobSkill(w, e, target, sk)
-	// A magia de um PET não custa mana a ninguém no servidor — mas o cliente do
-	// dono a desconta da barra DELE. Desde que as evocações ganharam magia, cada
-	// Enfraquecer de Gorila (70 de mana) sumia da barra do jogador: seis gorilas
-	// lançando em metade dos golpes são ~210 por segundo, e a barra chegava a
-	// -21000 em minutos. O servidor, com a mana cheia, não mandava correção
-	// nenhuma (o regen só fala quando a barra se move), então a do cliente
-	// afundava sem oposição até o eco da próxima magia do próprio jogador.
-	//
-	// A causa estava no pacote: o golpe declarava mana 0 onde o legado declara -1
-	// (ver corpoDoGolpeDeMonstro). Esta reafirmação ficou como rede de segurança,
-	// porque não temos o código do cliente e ela custa um pacote de 28 bytes por
-	// magia de pet.
-	if donoID, ok := donoParaReafirmarMana(e, sk); ok {
-		if ds := w.Session(donoID); ds != nil {
-			if owner := w.Entity(donoID); owner != nil {
-				d.sendSetHpMp(w, ds, owner)
-			}
-		}
-	}
 
 	// Mob targets: a pet's kill rewards its OWNER (MobKilled.cpp:181-190 credits
 	// the Summoner); a monster that downs a pet removes it for good (removeType
@@ -868,21 +850,28 @@ const semManaNoGolpe = -1
 
 // corpoDoGolpeDeMonstro monta o MSG_Attack de um golpe de monstro ou de pet.
 //
-// CurrentMp e ReqMp saem com -1, e isso é o conserto da mana negativa do BM. O
-// legado monta o golpe de monstro com `sm->CurrentMp = -1; sm->ReqMp = -1;`
-// (GetFunc.cpp:1416-1417, e o mesmo em GetAttackArea, :1701-1702), e -1 quer
-// dizer "este pacote não fala de mana". O port deixava os dois campos no valor
-// zero da struct, e 0 não é ausência: é um valor de mana como outro qualquer.
+// SkillIndex sai SEMPRE como golpe seco, mesmo quando o pet lançou magia. A
+// magia continua valendo — o afeto é aplicado no servidor por applyMobSkill —,
+// só não vai no pacote. É o que o cliente sempre recebeu: no legado os 37
+// arquivos BaseSummon vêm com a SkillBar vazia, e o cliente WYD nunca viu uma
+// evocação lançar magia.
 //
-// Enquanto nenhum monstro lançava magia (SkillIndex -1), o cliente nunca chegava
-// a olhar esses campos. Quando as evocações ganharam SkillBar, cada golpe de pet
-// passou a chegar como MAGIA com mana declarada 0, e a barra do dono afundava
-// em combate — até -21000 — e voltava quando o servidor corrigia.
+// Mandar a magia custou caro. Desde que as evocações ganharam SkillBar, a barra
+// de mana do dono afunda em combate (até -20441 de 9559) e volta quando o
+// servidor corrige. O servidor nunca manda mana negativa — todo caminho tem
+// piso em 0 —, então quem desconta é o cliente, e só com pet lançando. Nem a
+// mana -1 do legado nos campos abaixo nem uma SetHpMp depois de cada magia de
+// pet seguraram. Junto, o Dragão, o único pet que lança magia de Foema (Lança
+// de Gelo) em metade dos golpes, "perdia a IA" na tela enquanto o servidor o
+// via golpeando.
+//
+// CurrentMp e ReqMp saem com -1, como no legado (`sm->CurrentMp = -1; sm->ReqMp
+// = -1;`, GetFunc.cpp:1416-1417 e GetAttackArea :1701-1702): -1 quer dizer "este
+// pacote não fala de mana"; o zero da struct é um valor de mana.
 //
 // CurrentHp continua com a vida do atacante. O legado também manda -1 ali
-// (GetFunc.cpp:1685), mas a barra de vida nunca teve defeito e ninguém lê a
-// vida de um monstro como se fosse a sua; mexer nela fica fora deste conserto.
-func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, dmg int) protocol.MsgAttackBody {
+// (GetFunc.cpp:1685), mas a barra de vida nunca teve defeito.
+func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, dmg int) protocol.MsgAttackBody {
 	return protocol.MsgAttackBody{
 		CurrentHp:  e.HP,
 		CurrentMp:  semManaNoGolpe,
@@ -892,7 +881,7 @@ func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, dmg int
 		TargetX:    uint16(target.X),
 		TargetY:    uint16(target.Y),
 		AttackerID: uint16(id),
-		SkillIndex: int16(sk.index),
+		SkillIndex: noSkill,
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
 }
@@ -1261,16 +1250,6 @@ func abs16(v int16) int {
 		return int(-v)
 	}
 	return int(v)
-}
-
-// donoParaReafirmarMana decide quem precisa receber a mana verdadeira depois de
-// um golpe: o DONO, e só quando quem bateu foi um pet que lançou magia. Golpe
-// seco não mexe na barra de ninguém, e monstro comum não tem dono.
-func donoParaReafirmarMana(e *world.Entity, sk mobSkill) (int, bool) {
-	if e == nil || e.Summoner == 0 || sk.index == noSkill || sk.heal {
-		return 0, false
-	}
-	return e.Summoner, true
 }
 
 // monsterParryRate is the chance, in thousandths, that target dodges a blow from
