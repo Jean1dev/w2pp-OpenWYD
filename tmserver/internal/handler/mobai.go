@@ -807,10 +807,17 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
 	// with HEADER.ID = the mob the dead player wasn't put into the death state and kept
 	// acting (attacking, auto-potting). The target is in-view, so it receives this.
+	//
+	// The TYPE is MSG_AttackOne, as GetAttack sets it (GetFunc.cpp:1413). The client
+	// reads Dam[] for 0x367 as thirteen entries whatever the frame size — only 0x39D
+	// stops at one (WYD.exe 0x48b37e and the three loops after it). Sent as 0x367
+	// with a single entry, the other twelve were read from whatever followed in the
+	// client's receive buffer: phantom damage numbers, flinches and HP drops on
+	// random entities around every monster and pet swing.
 	payload := body.Encode()
 	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 		d.ensureSeenMob(w, vs, id)
-		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttack, ID: protocol.IDScene}, payload)
+		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttackOne, ID: protocol.IDScene}, payload)
 	})
 
 	// The skill rides along with the blow, server-side only: the affect lands
@@ -850,6 +857,16 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 // de monstro: o sinal de que o pacote não fala da vida nem da mana de ninguém.
 const semValorNoGolpe = -1
 
+// motionDoGolpe é a animação do golpe de monstro. O cliente desenha o atacante
+// pela Motion quando o golpe não é magia (WYD.exe 0x50733b), e 0 e 1 são as
+// animações de parado e andando: com 0 o monstro "batia" em pé e o pet que vinha
+// andando era travado na pose parada. A Motion também escolhe o tempo do tranco
+// de quem apanha (0x495197: min(Motion,9) - 4), e com 0 esse índice fica negativo
+// e lê lixo da pilha. O legado manda 4 para praticamente todo monstro — GetAttack
+// começa em 0 e vira 4 quando special2 != 0 (GetFunc.cpp:1447, 1492-1494), e 255
+// conta como diferente de zero.
+const motionDoGolpe = 4
+
 // corpoDoGolpeDeMonstro monta o MSG_Attack de um golpe de monstro ou de pet.
 //
 // Os campos +4 (CurrentHp), +40 (CurrentMp) e +46 (ReqMp) saem com -1, como no
@@ -877,6 +894,7 @@ func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, dmg int) protocol.Ms
 		TargetX:    uint16(target.X),
 		TargetY:    uint16(target.Y),
 		AttackerID: uint16(id),
+		Motion:     motionDoGolpe,
 		SkillIndex: noSkill,
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}

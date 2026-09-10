@@ -293,7 +293,7 @@ func TestMobAttacksAdjacentPlayer(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if ty != protocol.MsgAttack {
+		if ty != protocol.MsgAttack && ty != protocol.MsgAttackOne {
 			continue // skip the mob's move/other noise
 		}
 		var body protocol.MsgAttackBody
@@ -325,7 +325,7 @@ func TestMobAttackHeaderIsSceneField(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		h, _, ok := readMaybeHeader(t, c)
-		if !ok || h.Type != protocol.MsgAttack {
+		if !ok || h.Type != protocol.MsgAttackOne {
 			continue
 		}
 		if h.ID != protocol.IDScene {
@@ -353,7 +353,7 @@ func TestFriendlyClanMobDoesNotAttack(t *testing.T) {
 	// are a confident negative (same technique as TestMobIgnoresPlayerInCity).
 	for i := 0; i < 3; i++ {
 		ty, _, ok := readMaybe(t, c)
-		if ok && ty == protocol.MsgAttack {
+		if ok && (ty == protocol.MsgAttack || ty == protocol.MsgAttackOne) {
 			t.Fatal("friendly-clan mob attacked a player")
 		}
 	}
@@ -393,7 +393,7 @@ func TestGuardAttacksHostileMob(t *testing.T) {
 			continue
 		}
 		switch h.Type {
-		case protocol.MsgAttack:
+		case protocol.MsgAttack, protocol.MsgAttackOne:
 			var body protocol.MsgAttackBody
 			if err := body.Decode(payload); err != nil {
 				t.Fatal(err)
@@ -456,7 +456,7 @@ func TestGuardAggrosHostileMobInCityAtViewEdge(t *testing.T) {
 	hostileID := world.MaxUser + 1
 	for i := 0; i < 30; i++ {
 		h, payload, ok := readMaybeHeaderRaw(t, c)
-		if !ok || h.Type != protocol.MsgAttack {
+		if !ok || h.Type != protocol.MsgAttack && h.Type != protocol.MsgAttackOne {
 			continue
 		}
 		var body protocol.MsgAttackBody
@@ -565,7 +565,7 @@ func TestRangedMobAttacksFromDistance(t *testing.T) {
 		if h.Type == protocol.MsgAction {
 			t.Fatal("ranged mob moved instead of attacking from reach")
 		}
-		if h.Type != protocol.MsgAttack {
+		if h.Type != protocol.MsgAttack && h.Type != protocol.MsgAttackOne {
 			continue
 		}
 		var body protocol.MsgAttackBody
@@ -648,7 +648,7 @@ func TestMobRoutesAroundObstacle(t *testing.T) {
 			if mv.TargetX == 7 && mv.TargetY == 5 {
 				t.Fatal("mob stepped onto the blocked cell (7,5)")
 			}
-		case protocol.MsgAttack:
+		case protocol.MsgAttack, protocol.MsgAttackOne:
 			var atk protocol.MsgAttackBody
 			if err := atk.Decode(payload); err != nil {
 				t.Fatal(err)
@@ -682,7 +682,7 @@ func TestMobHeldByWall(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if h2.Type == protocol.MsgAttack {
+		if h2.Type == protocol.MsgAttack || h2.Type == protocol.MsgAttackOne {
 			t.Fatal("mob attacked through a wall")
 		}
 		if h2.Type != protocol.MsgAction {
@@ -1138,7 +1138,7 @@ func TestFollowerDoesNotSelfAggro(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		ty, _, ok := readMaybe(t, c)
-		if ok && ty == protocol.MsgAttack {
+		if ok && (ty == protocol.MsgAttack || ty == protocol.MsgAttackOne) {
 			t.Fatal("follower self-aggroed an adjacent player (leader-only scan violated)")
 		}
 	}
@@ -1195,7 +1195,7 @@ func TestGroupFocusesAttacker(t *testing.T) {
 	attackers := map[uint16]bool{}
 	for i := 0; i < 40 && len(attackers) < 2; i++ {
 		ty, payload, ok := readMaybe(t, c)
-		if !ok || ty != protocol.MsgAttack {
+		if !ok || ty != protocol.MsgAttack && ty != protocol.MsgAttackOne {
 			continue
 		}
 		var body protocol.MsgAttackBody
@@ -1386,7 +1386,7 @@ func TestMobIgnoresPlayerInCity(t *testing.T) {
 	// timeout) is a confident negative.
 	for i := 0; i < 3; i++ {
 		ty, _, ok := readMaybe(t, c)
-		if ok && ty == protocol.MsgAttack {
+		if ok && (ty == protocol.MsgAttack || ty == protocol.MsgAttackOne) {
 			t.Fatal("mob attacked a player standing in a safe city")
 		}
 	}

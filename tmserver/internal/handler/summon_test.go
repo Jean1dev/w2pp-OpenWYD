@@ -398,7 +398,7 @@ func TestBabyMountGrowsWhenPetKillsMob(t *testing.T) {
 			if id, name, _, _, _ := petFromCreateMob(payload); strings.HasSuffix(name, "^") {
 				petID = id
 			}
-		case protocol.MsgAttack:
+		case protocol.MsgAttack, protocol.MsgAttackOne:
 			var b protocol.MsgAttackBody
 			if err := b.Decode(payload); err != nil {
 				continue
@@ -932,7 +932,7 @@ func TestSummonAssistsAgainstMob(t *testing.T) {
 			if id, name, _, _, _ := petFromCreateMob(payload); strings.HasSuffix(name, "^") {
 				petID = id
 			}
-		case protocol.MsgAttack:
+		case protocol.MsgAttack, protocol.MsgAttackOne:
 			var b protocol.MsgAttackBody
 			if err := b.Decode(payload); err != nil {
 				continue

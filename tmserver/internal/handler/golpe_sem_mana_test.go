@@ -45,6 +45,10 @@ func TestGolpeDeMonstroNaoFalaDeVidaNemMana(t *testing.T) {
 			if sk := int16(binary.LittleEndian.Uint16(b[44:46])); sk != noSkill {
 				t.Errorf("SkillIndex@44 = %d; o golpe de monstro vai como golpe seco", sk)
 			}
+			// Motion 0 é a pose parada no cliente: o bicho "batia" em pé.
+			if m := b[34]; m != 4 {
+				t.Errorf("Motion@34 = %d; o golpe de monstro sai com a animação 4, como no legado", m)
+			}
 			if dano := int32(binary.LittleEndian.Uint32(b[protocol.MsgAttackDamOffset+4:])); dano != 123 {
 				t.Errorf("dano = %d, esperado 123", dano)
 			}
