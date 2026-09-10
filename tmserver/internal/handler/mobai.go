@@ -1119,7 +1119,73 @@ func (d *Dispatcher) mobStep(w *world.World, id int, e, target *world.Entity) {
 	if d.heights != nil {
 		tx, ty = tx-1, ty-1
 	}
-	d.stepToward(w, id, e, tx, ty)
+	if d.stepToward(w, id, e, tx, ty) || e.Summoner == 0 {
+		return
+	}
+	// Um PET que não conseguiu dar o passo reto procura um caminho em volta.
+	//
+	// O passo reto desiste quando a casa está ocupada, e numa luta de evocação ela
+	// quase sempre está: o dono, os outros pets e o monstro disputam as oito casas
+	// em volta do alvo. O pet de trás escolhe de novo o mesmo alvo (o mais
+	// próximo), dá de cara com a mesma casa ocupada e fica parado a luta inteira.
+	// Com cinco Dragões, dois nunca davam um golpe.
+	//
+	// O legado não trava assim: GetTargetPos mira a casa ao lado do alvo e,
+	// ocupada, pega a casa livre mais próxima dela com GetEmptyMobGrid, refazendo a
+	// rota até achar uma (CMob.cpp:1034-1057). Aqui é a mesma ideia com uma busca
+	// curta: o primeiro passo do menor caminho por casas livres até alguma casa de
+	// onde o alvo esteja ao alcance.
+	//
+	// Só para pets, e de propósito: os monstros comuns passam por este mesmo
+	// passo, e mudar como o jogo inteiro persegue é outra decisão, maior que o bug.
+	if nx, ny, ok := d.passoDeContorno(w, e, target, mobReach(e)); ok {
+		d.moverUmPasso(w, id, e, nx, ny)
+	}
+}
+
+// raioDoContorno limita a busca do passoDeContorno: além disso o pet está longe
+// o bastante para o passo reto resolver, e a busca fica em 17×17 casas.
+const raioDoContorno = 8
+
+// passoDeContorno devolve o primeiro passo do menor caminho, só por casas livres,
+// de e até uma casa a no máximo `alcance` do alvo. Busca em largura, na ordem
+// fixa das oito direções, sem sortear nada: a IA divide o gerador de números com
+// drops e refinos, e um sorteio a mais aqui deslocaria a sequência inteira.
+func (d *Dispatcher) passoDeContorno(w *world.World, e, target *world.Entity, alcance int) (int16, int16, bool) {
+	type casa struct{ x, y int16 }
+	inicio := casa{e.X, e.Y}
+	primeiro := map[casa]casa{inicio: inicio}
+	fila := []casa{inicio}
+	for len(fila) > 0 {
+		c := fila[0]
+		fila = fila[1:]
+		// mobDistance, a mesma régua do battleCode: chegar numa casa que ele não
+		// considera ao alcance seria andar e continuar sem bater.
+		if c != inicio && mobDistance(c.x, c.y, target.X, target.Y) <= alcance {
+			return primeiro[c].x, primeiro[c].y, true
+		}
+		for dy := int16(-1); dy <= 1; dy++ {
+			for dx := int16(-1); dx <= 1; dx++ {
+				if dx == 0 && dy == 0 {
+					continue
+				}
+				n := casa{c.x + dx, c.y + dy}
+				if _, visto := primeiro[n]; visto {
+					continue
+				}
+				if chebyshev(n.x, n.y, inicio.x, inicio.y) > raioDoContorno || !d.cellAvailable(w, n.x, n.y) {
+					continue
+				}
+				if c == inicio {
+					primeiro[n] = n
+				} else {
+					primeiro[n] = primeiro[c]
+				}
+				fila = append(fila, n)
+			}
+		}
+	}
+	return 0, 0, false
 }
 
 // stepToward advances the mob one tile toward (tx,ty) and broadcasts the move so
@@ -1153,12 +1219,18 @@ func (d *Dispatcher) stepToward(w *world.World, id int, e *world.Entity, tx, ty 
 	if occ, ok := w.EntityAt(nx, ny); ok && occ != id {
 		return false
 	}
+	d.moverUmPasso(w, id, e, nx, ny)
+	return true
+}
+
+// moverUmPasso põe o mob em (nx,ny) e avisa quem vê. Quem chama já conferiu que a
+// casa está livre.
+func (d *Dispatcher) moverUmPasso(w *world.World, id int, e *world.Entity, nx, ny int16) {
 	oldX, oldY := e.X, e.Y
 	w.SetEntityPos(id, nx, ny)
 
 	body := protocol.MsgActionBody{PosX: oldX, PosY: oldY, Speed: 2, TargetX: nx, TargetY: ny}
 	d.moveMulticast(w, id, oldX, oldY, protocol.MsgAction, body.Encode())
-	return true
 }
 
 // step returns the unit move (-1/0/+1) toward a delta, for an 8-direction step.
