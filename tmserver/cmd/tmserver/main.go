@@ -167,6 +167,7 @@ func run(logger *slog.Logger) error {
 	var odinCatalog combine.Catalog
 	var spells *content.SkillData
 	var heights *content.Grid
+	var attributes *content.Grid
 	var sancRate *content.SancRate
 	var compRate *content.CompRate
 	var questRates *content.QuestRates
@@ -190,6 +191,7 @@ func run(logger *slog.Logger) error {
 		combineFamilies = handler.DefaultCombineFamilies(odinCatalog)
 		spells = c.skills
 		heights = c.heights
+		attributes = c.attributes
 		sancRate = c.sanc
 		compRate = c.comp
 		questRates = c.quests
@@ -534,7 +536,7 @@ func run(logger *slog.Logger) error {
 	}
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemNames: itemNames, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, MountAbsorb: mountAbsorb, MountBonus: mountBonus, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
+		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, MountAbsorb: mountAbsorb, MountBonus: mountBonus, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights, Attributes: attributes,
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		XPConfig:        xpConfig,
@@ -1127,19 +1129,22 @@ func loadContent(dir string, logger *slog.Logger) (*loadedContent, error) {
 	} else if hm != nil || attr != nil {
 		logger.Warn("mob pathfinding disabled: need BOTH HeightMap.dat and AttributeMap.dat")
 	}
-	return &loadedContent{items: items, comp: comp, sanc: sanc, quests: quests, skills: skills, heights: heights, language: language}, nil
+	return &loadedContent{items: items, comp: comp, sanc: sanc, quests: quests, skills: skills, heights: heights, attributes: attr, language: language}, nil
 }
 
 // loadedContent is what a mounted Release/ tree yields. It is a struct rather
 // than a return list only because the list had grown past readability.
 type loadedContent struct {
-	items    *content.ItemList
-	comp     *content.CompRate
-	sanc     *content.SancRate
-	quests   *content.QuestRates
-	skills   *content.SkillData
-	heights  *content.Grid
-	language *content.Language
+	items   *content.ItemList
+	comp    *content.CompRate
+	sanc    *content.SancRate
+	quests  *content.QuestRates
+	skills  *content.SkillData
+	heights *content.Grid
+	// attributes is the raw AttributeMap: the per-tile flags the game reads at run
+	// time (0x20 = guild area). Kept apart from heights, which has it baked in.
+	attributes *content.Grid
+	language   *content.Language
 }
 
 // sancRow renders one anvil's rate row for the boot log.

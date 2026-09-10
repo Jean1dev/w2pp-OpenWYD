@@ -183,6 +183,12 @@ type Config struct {
 	// one-tile Chebyshev step.
 	Heights *content.Grid
 
+	// Attributes is the raw AttributeMap.dat, one byte of flags per 4x4 block:
+	// what the game consults at run time (0x20 = guild area). Heights has it baked
+	// in for walkability only. When nil (maps not mounted, or tests) no tile rule
+	// that depends on it applies.
+	Attributes *content.Grid
+
 	// NpcConfig is the moderator-edited NPC configuration source (npc-editing-plan.md).
 	// When set, the dispatcher overlays DB-defined merchant NPCs on boot and polls
 	// for changes each tick (hot-reload). When nil, NPCs come only from NPCGener.txt.
@@ -269,6 +275,7 @@ type Dispatcher struct {
 	mountAbsorb     mountrate.AbsorbTable        // mount absorption pairs (0035_mount_absorb)
 	mountBonus      mountbonus.Table             // mount attribute overlay (0043_mount_bonus)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
+	attributes      *content.Grid                // raw AttributeMap flags (guild area)
 	now             func() time.Time             // wall clock for calendar-gated guild ops
 	maxNightmare    int                          // Pesadelo runs per window per tier (Server.cpp:687)
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
@@ -475,6 +482,7 @@ func New(cfg Config) *Dispatcher {
 		mountAbsorb:       cfg.MountAbsorb,
 		mountBonus:        cfg.MountBonus,
 		heights:           cfg.Heights,
+		attributes:        cfg.Attributes,
 		now:               cfg.Now,
 		maxNightmare:      cfg.MaxNightmare,
 		affectDur:         cfg.AffectDuration,
