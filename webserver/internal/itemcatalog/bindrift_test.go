@@ -316,6 +316,7 @@ func TestBinRequirementsMatchCSV(t *testing.T) {
 		{661, [5]int16{160, 0, 0, 0, 0}},      // Ankh_da_Justica, issue #308
 		{662, [5]int16{160, 0, 0, 0, 0}},      // Ankh_da_Eternidade, issue #308
 		{663, [5]int16{160, 0, 0, 0, 0}},      // Ankh_da_Gloria, issue #308
+		{4080, [5]int16{100, 0, 0, 0, 0}},     // Emblema_da_Aprendizagem: displayed level 101, issue #307
 	} {
 		if got := fromBin[tc.index]; got != tc.want {
 			t.Errorf("ItemList.bin item %d requirements = %v, want %v", tc.index, got, tc.want)

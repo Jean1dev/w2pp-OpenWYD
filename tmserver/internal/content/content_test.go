@@ -508,6 +508,8 @@ func TestRequirementsClasseD(t *testing.T) {
 		{661, "Ankh_da_Justica", ItemReq{Lvl: 160}},
 		{662, "Ankh_da_Eternidade", ItemReq{Lvl: 160}},
 		{663, "Ankh_da_Gloria", ItemReq{Lvl: 160}},
+		// Issue #307: raw 100 allows the emblem at displayed level 101.
+		{4080, "Emblema_da_Aprendizagem", ItemReq{Lvl: 100}},
 		// Untouched: below the rescaled band, and above it (the special capes).
 		{1331, "Tunica_Conjuradora(A), base set", ItemReq{Lvl: 174, Str: 119, Int: 208}},
 		{1720, "Capa_da_Escuridao", ItemReq{Lvl: 399}},
