@@ -1,7 +1,5 @@
 package level
 
-import "math"
-
 const (
 	classArch        uint8 = 1
 	classMortal      uint8 = 2
@@ -94,13 +92,30 @@ func ExpReward(in ExpRewardInput) int64 {
 
 	var exp int64
 	if r.identityBase {
-		// `(UNK_1 + myLevel) * isExp / (UNK_1 + myLevel)` on a 32-bit int: the
-		// identity, right up to the point where the product overflows. The
-		// legacy really does compute it this way, so the wrap is reproduced —
-		// a dungeon mob worth more than ~5.3M scaled exp lands on a wrapped
-		// value that the (0,10M] gate then usually throws away.
-		d := int32(30 + myLevel)
-		exp = int64(d * int32(isExp) / d)
+		// DIVERGÊNCIA DELIBERADA DO LEGADO.
+		//
+		// O original escreve `(UNK_1 + myLevel) * isExp / (UNK_1 + myLevel)` —
+		// algebricamente a identidade — num int de 32 bits, e o produto estoura.
+		// Para um celestial o +400 no nível faz o divisor chegar a 629, e o teto
+		// de isExp que cabe fica em MaxInt32/629 = 3.414.123. Os monstros de
+		// nível 399 valem 2.990.849, o ExpApply os leva a 200% (5.981.698), e a
+		// conta embrulha num valor que o filtro de (0,10M] joga fora.
+		//
+		// Resultado no original, e reproduzido aqui até 10/09/2026: celestial não
+		// ganhava NADA dos 88 monstros mais fortes dos três Pesadelos, em nível
+		// nenhum. Uma zona inteira morta para uma evolução inteira — justamente a
+		// evolução que é a fase mais longa do jogo.
+		//
+		// Reproduzir isso não é fidelidade que valha a pena. O que a expressão
+		// PRETENDE é a identidade, então é a identidade que se usa. Não há mais
+		// estouro possível aqui: o que sobra de teto é o filtro de 10M logo
+		// abaixo, que para base identidade só corta um MobExp acima de 5M — mais
+		// que o dobro do maior valor do catálogo hoje.
+		//
+		// Corrigir pelo dado foi recusado de propósito: baixar os 88 para caber os
+		// deixaria mais fracos no Campo também, e a armadilha continuaria armada
+		// para o próximo aumento de XP de monstro.
+		exp = isExp
 	} else {
 		exp = 450 * isExp / (30 + myLevel)
 	}
@@ -158,51 +173,6 @@ func ExpReward(in ExpRewardInput) int64 {
 		return 0
 	}
 	return exp
-}
-
-// ExpOverflow reports whether this kill trips the legacy's 32-bit overflow, and
-// the largest MobExp that would still pay if it does.
-//
-// Only the three Pesadelo branches can: they scale with
-// `(30+myLevel) * isExp / (30+myLevel)`, algebraically the identity but computed
-// on a 32-bit int, so the product wraps and the (0,10M] gate then throws the
-// result away. A celestial tier carries the +MaxLevel+1 level offset, which
-// roughly doubles the multiplier and drags the ceiling down into the range real
-// boss templates already occupy.
-//
-// It exists so a screen can tell "this mob pays nothing because the killer is
-// the wrong level" apart from "this mob pays nothing because its Exp is above
-// what this dungeon can represent". Those look identical in game and have
-// opposite fixes: the second one is undone by LOWERING the reward.
-//
-// limit is the highest MobExp that still fits, valid only when overflows is
-// true. It is derived from the same expression ExpReward uses rather than
-// restated, so the two cannot drift apart.
-func ExpOverflow(in ExpRewardInput) (overflows bool, limit int64) {
-	r := in.Zone.rule()
-	if !r.identityBase {
-		return false, 0
-	}
-	isExp := ExpApply(in.MobExp, in.KillerLevel, in.MobLevel, in.Tier)
-	if isExp <= 0 {
-		return false, 0
-	}
-	myLevel := int64(in.KillerLevel)
-	if cm := in.Tier.ClassMaster; cm != classMortal && cm != classArch {
-		myLevel += int64(MaxLevel) + 1
-	}
-	d := int64(int32(30 + myLevel))
-	if d <= 0 {
-		return false, 0
-	}
-	maxIsExp := int64(math.MaxInt32) / d
-	if isExp <= maxIsExp {
-		return false, 0
-	}
-	// ExpApply scales MobExp linearly for a fixed (killer, mob) pair, so the
-	// largest MobExp that still fits is found by scaling back by the same ratio.
-	// Rounding down keeps the answer on the paying side of the edge.
-	return true, in.MobExp * maxIsExp / isExp
 }
 
 // CelestialLevelOffset is what ExpReward adds to a celestial character's level

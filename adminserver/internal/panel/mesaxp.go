@@ -86,19 +86,13 @@ type mesaSimulacao struct {
 	// divides the celestial block twice. Claiming "the zone changes nothing"
 	// while a Pesadelo column shows another figure would discredit the table.
 	MesmaEmTodaParte bool
-	// Estoura and TetoExp explain a zero that is NOT about the killer's level:
-	// the Pesadelo branches overflow a 32-bit product, and the fix is to LOWER
-	// the mob's Exp, which is the opposite of what anybody would try.
-	Estoura bool
-	TetoExp int64
 }
 
 // mesaZonaComparada is one zone's price for the same kill.
 type mesaZonaComparada struct {
-	Zona    string
-	Exp     int64
-	Atual   bool
-	Estoura bool
+	Zona  string
+	Exp   int64
+	Atual bool
 	// Relativo is this zone against the currently selected one, as a percentage
 	// (100 = identical). It is what makes "Arcano pays 22% more" readable
 	// without the reader dividing two six-digit numbers in their head.
@@ -821,21 +815,12 @@ func simularMesa(f mesaForm, cfg level.Config) mesaSimulacao {
 		})
 	}
 	sim.PorZona, sim.MesmaEmTodaParte = compararZonas(f, cfg)
-	sim.Estoura, sim.TetoExp = level.ExpOverflow(in)
-
 	if sim.ExpPorMorte == 0 {
-		// Two different failures look identical in game, and they have opposite
-		// fixes. Guessing wrong sends somebody raising a reward that is already
-		// too big to be represented.
-		if sim.Estoura {
-			sim.Aviso = fmt.Sprintf(
-				"Zero por estouro de conta, não por nível. As três versões do Pesadelo "+
-					"multiplicam a XP num inteiro de 32 bits e o resultado estoura: acima de "+
-					"%s de XP no monstro, esta evolução não recebe nada aqui. Para voltar a "+
-					"pagar, BAIXE a XP do monstro — subir piora.", milharLongo(sim.TetoExp))
-		} else {
-			sim.Aviso = "Este monstro não paga nada para um personagem deste nível."
-		}
+		// Havia aqui um segundo ramo, que atribuía o zero ao estouro de 32 bits
+		// dos Pesadelos e mandava BAIXAR a XP do monstro. O estouro foi tirado da
+		// conta (level.ExpReward, 10/09/2026), então esse zero não existe mais — e
+		// o conselho, que era o conserto pelo dado que foi recusado, sairia falso.
+		sim.Aviso = "Este monstro não paga nada para um personagem deste nível."
 	}
 	return sim
 }
@@ -860,7 +845,6 @@ func compararZonas(f mesaForm, cfg level.Config) (linhas []mesaZonaComparada, ig
 		alt.Zona = int(z)
 		in := alt.entrada(cfg)
 		exp := level.ExpReward(in)
-		estoura, _ := level.ExpOverflow(in)
 
 		rel := 0
 		if atualExp > 0 {
@@ -868,7 +852,7 @@ func compararZonas(f mesaForm, cfg level.Config) (linhas []mesaZonaComparada, ig
 		}
 		linhas = append(linhas, mesaZonaComparada{
 			Zona: z.Name(), Exp: exp, Atual: int(z) == f.Zona,
-			Estoura: estoura, Relativo: rel,
+			Relativo: rel,
 		})
 	}
 
@@ -907,26 +891,6 @@ func ehPesadelo(z level.Zone) bool {
 	default:
 		return false
 	}
-}
-
-// milharLongo groups digits with the Portuguese thousands separator.
-//
-// Separate from combate.go's milhar, which takes an int: rewards and Exp
-// ceilings are int64 all the way down this file, and widening the other one
-// would mean editing a file this change does not own.
-func milharLongo(n int64) string {
-	if n < 0 {
-		return "-" + milharLongo(-n)
-	}
-	s := strconv.FormatInt(n, 10)
-	var b strings.Builder
-	for i, d := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			b.WriteByte('.')
-		}
-		b.WriteRune(d)
-	}
-	return b.String()
 }
 
 // duracao turns a kill count into something a person can judge. Hours are the

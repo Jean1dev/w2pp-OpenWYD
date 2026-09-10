@@ -57,7 +57,39 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 > é o mesmo degrau que ligar um evento de XP já dava, e em troca um valor errado se desfaz sem
 > derrubar o servidor.
 
-> **Celestial no Pesadelo recebe ZERO dos monstros bons, e a tabela de cortes não tem culpa.**
+> **CONSERTADO em 10/09/2026, como divergência deliberada do legado.** A base identidade dos três
+> Pesadelos passou a ser a identidade de verdade (`exp = isExp`, em `level.ExpReward`), em vez da
+> conta em int32 que o original fazia e que estourava. `level.ExpOverflow` foi removida junto,
+> porque o que ela diagnosticava deixou de existir, e com ela o aviso do simulador da Mesa de XP
+> que mandava "BAIXAR a XP do monstro" — que era exatamente o conserto pelo dado, recusado porque
+> enfraqueceria os 88 no Campo também e deixaria a armadilha armada para o próximo aumento.
+>
+> Medido depois do conserto, celestial, dos 406 monstros reais:
+>
+> | zona | nível | pagam | razão | estouro | cauda |
+> |---|---:|---:|---:|---:|---:|
+> | Pesadelo Arcano | 1 | 389 | 0 | **0** | 17 |
+> | Pesadelo Arcano | 100 | 359 | 43 | **0** | 4 |
+> | Pesadelo Arcano | 199 | 321 | 82 | **0** | 3 |
+> | Pesadelo Místico | 1 / 100 / 199 | 389 / 359 / 321 | 0 / 43 / 82 | **0** | 17 / 4 / 3 |
+> | Pesadelo Normal | 1 / 100 / 199 | 218 / 218 / 216 | 0 / 43 / 82 | **0** | 188 / 145 / 108 |
+> | Campo | 1 / 100 / 199 | 390 / 359 / 319 | 0 / 43 / 82 | 0 | 16 / 4 / 5 |
+>
+> O estouro foi a zero nas três versões, os 88 que estouravam passaram a pagar, e **razão e cauda
+> não se mexeram** — nem podiam: abaixo do teto a conta em int32 já dava a identidade exata, então
+> só os valores que estouravam mudaram de resultado.
+>
+> **O que isso expõe no Pesadelo Normal:** a cauda dele é enorme (188 no nível 1) e não foi causada
+> por este conserto — é o `celestialTwice`, que aplica a tabela celestial duas vezes, ÷320 sobre
+> ÷320. Tudo que não é grande some na divisão inteira. Antes ficava escondido atrás do estouro;
+> agora é a coisa dominante na zona, e entra na mesma conversa das tabelas de corte.
+>
+> O resto deste bloco é o histórico do defeito — o porquê, os números de antes, e as armadilhas
+> que a análise encontrou no caminho. Fica porque quem mexer nesta conta de novo precisa dele.
+>
+> ---
+>
+> **(Histórico) Celestial no Pesadelo recebia ZERO dos monstros bons, e a tabela de cortes não tinha culpa.**
 >
 > Os três Pesadelos usam base identidade (`identityBase`), e ali a conta
 > `(30+myLevel) * isExp / (30+myLevel)` passa por um `int32`. Como um celestial soma 400 ao nível,

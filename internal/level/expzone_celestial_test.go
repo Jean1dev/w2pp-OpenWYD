@@ -71,116 +71,74 @@ func TestMortalEArchVeemDiferencaDeZona(t *testing.T) {
 	}
 }
 
-// A celestial earns NOTHING in Pesadelo from a mob worth much over ~1M Exp.
+// TestPesadeloPagaCelestialComExpAlta is the guard for a deliberate divergence
+// from the legacy (expreward.go, the identityBase branch).
 //
-// The three Pesadelo branches scale with `(30+myLevel) * isExp / (30+myLevel)`
-// — algebraically the identity, but computed on a 32-bit int in the legacy, so
-// the product wraps. A celestial carries the +MaxLevel+1 offset, which roughly
-// doubles the multiplier and pulls the overflow down into the range real boss
-// templates already occupy: @@Gargula ships with Exp 2990849.
+// The three Pesadelo branches compute `(30+myLevel) * isExp / (30+myLevel)` —
+// algebraically the identity. The original does it on a 32-bit int, and for a
+// celestial (+400 on the level, divisor 629) the product wraps above an isExp of
+// MaxInt32/629 = 3.414.123. The level-399 templates are worth 2.990.849, ExpApply
+// takes them to 200% = 5.981.698, and the wrapped value was thrown away by the
+// (0,10M] gate: a celestial earned NOTHING from the 88 strongest monsters of all
+// three Pesadelos, at any level. This port reproduced that until 10/09/2026.
 //
-// This is the legacy's own arithmetic and is reproduced on purpose, but it is a
-// live trap for the mob editor: raising a Pesadelo mob's Exp past the threshold
-// silently takes its celestial reward to zero, which reads in game as "the
-// dungeon stopped giving XP".
-func TestPesadeloZeraCelestialComExpAlta(t *testing.T) {
-	reward := func(exp int64) int64 {
-		return ExpReward(ExpRewardInput{
-			Zone: ZonePesadeloArcano, MobExp: exp, KillerLevel: 395, MobLevel: 399,
-			Tier: Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true},
-		})
-	}
-	if got := reward(1_000_000); got <= 0 {
-		t.Errorf("1M de Exp deu %d — abaixo do limiar ainda tem que pagar", got)
-	}
-	if got := reward(2_990_849); got != 0 {
-		t.Errorf("2.99M de Exp deu %d, want 0 — se o overflow foi corrigido, "+
-			"este teste e o aviso no painel de monstros precisam sair juntos", got)
-	}
-	// Mortal is unaffected: its myLevel has no offset, so the product still fits.
-	mortal := ExpReward(ExpRewardInput{
-		Zone: ZonePesadeloArcano, MobExp: 2_990_849, KillerLevel: 395, MobLevel: 399,
-		Tier: Tier{ClassMaster: classMortal},
-	})
-	if mortal <= 0 {
-		t.Errorf("mortal deu %d na mesma Exp — o estouro só atinge as tiers celestiais", mortal)
-	}
-}
-
-// ExpOverflow must agree with what ExpReward actually does: the limit it
-// reports has to pay, and just above it must not. A limit derived from a
-// restated formula would drift from the real one silently, which is exactly the
-// failure it exists to prevent.
-func TestExpOverflowConcordaComOCalculo(t *testing.T) {
-	in := ExpRewardInput{
-		Zone: ZonePesadeloArcano, MobExp: 2_990_849, KillerLevel: 395, MobLevel: 399,
-		Tier: Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true},
-	}
-	estoura, limite := ExpOverflow(in)
-	if !estoura {
-		t.Fatal("2.99M num Pesadelo para celestial estoura — ExpOverflow disse que não")
-	}
-	if limite <= 0 || limite >= in.MobExp {
-		t.Fatalf("limite = %d, tinha que ficar entre 0 e %d", limite, in.MobExp)
-	}
-
-	noLimite := in
-	noLimite.MobExp = limite
-	if got := ExpReward(noLimite); got <= 0 {
-		t.Errorf("no limite (%d) o cálculo pagou %d — o limite devia ser o último valor que paga", limite, got)
-	}
-	// A margin above the edge, since ExpApply's integer scaling means the very
-	// next unit of MobExp does not always change isExp.
-	acima := in
-	acima.MobExp = limite + limite/100 + 2
-	if got := ExpReward(acima); got != 0 {
-		t.Errorf("acima do limite (%d) o cálculo pagou %d, want 0", acima.MobExp, got)
-	}
-}
-
-// Zones without identityBase never overflow, and a mortal in Pesadelo does not
-// either — reporting a limit there would send somebody lowering a reward for no
-// reason.
-func TestExpOverflowSoOndeExiste(t *testing.T) {
-	base := ExpRewardInput{MobExp: 9_000_000, KillerLevel: 395, MobLevel: 399}
-
-	celestial := base
-	celestial.Tier = Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true}
-	for _, z := range []Zone{ZoneField, ZoneAguaNormal, ZoneAguaMistico, ZoneAguaArcano} {
-		celestial.Zone = z
-		if estoura, _ := ExpOverflow(celestial); estoura {
-			t.Errorf("%s não usa identityBase e mesmo assim reportou estouro", z.Name())
+// If this test ever goes red, the identity has been put back on a 32-bit int.
+func TestPesadeloPagaCelestialComExpAlta(t *testing.T) {
+	cel := Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true}
+	for _, z := range []Zone{ZonePesadeloArcano, ZonePesadeloMistico, ZonePesadeloNormal} {
+		for _, nv := range []int32{1, 100, 199} {
+			got := ExpReward(ExpRewardInput{
+				Zone: z, MobExp: 2_990_849, KillerLevel: nv, MobLevel: 399, Tier: cel,
+			})
+			if got <= 0 {
+				t.Errorf("%s, celestial %d, mob 2.990.849: pagou %d — o estouro de 32 "+
+					"bits voltou", z.Name(), nv, got)
+			}
 		}
 	}
+}
 
-	// A mortal overflows too — the offset only moves the ceiling, it does not
-	// create it. What matters is that the ceiling sits far higher, so an Exp
-	// that already zeroes the celestial still pays the mortal. That gap is the
-	// whole reason the dungeon looks broken for one tier and fine for the other.
-	const expQueZeraCelestial = 2_990_849
-	mortal := ExpRewardInput{
-		Zone: ZonePesadeloArcano, MobExp: expQueZeraCelestial, KillerLevel: 395,
-		MobLevel: 399, Tier: Tier{ClassMaster: classMortal},
+// TestIdentidadeEhIdentidade pins WHAT the fix is, not only that the symptom
+// went away: with the identity back, the reward is proportional to MobExp across
+// the point where the old 32-bit product used to wrap.
+//
+// Celestial 199 against a mob of 399 in Pesadelo Arcano: ExpApply returns 200%
+// of MobExp, and the old ceiling sat at MobExp 1.707.061. 1M is below it and 2M
+// above. Every step after the base — the cut divisor (same level, same row),
+// ×0.6, the event halvings — is linear, so 2M must pay about twice what 1M pays.
+// Under the old arithmetic 2M paid ZERO; with any other wrong expression the
+// ratio drifts. Integer truncation along the way is why this is a band, not an
+// equality.
+func TestIdentidadeEhIdentidade(t *testing.T) {
+	cel := Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true}
+	pay := func(mobExp int64) int64 {
+		return ExpReward(ExpRewardInput{
+			Zone: ZonePesadeloArcano, MobExp: mobExp, KillerLevel: 199, MobLevel: 399, Tier: cel,
+		})
 	}
-	if estoura, _ := ExpOverflow(mortal); estoura {
-		t.Error("mortal estourou numa Exp que só devia zerar o celestial")
+	abaixo, acima := pay(1_000_000), pay(2_000_000)
+	if abaixo <= 0 {
+		t.Fatalf("1M pagou %d; o teste precisa de uma base positiva abaixo do antigo teto", abaixo)
 	}
-	if got := ExpReward(mortal); got <= 0 {
-		t.Errorf("mortal recebeu %d na Exp que zera o celestial, want > 0", got)
+	razao := float64(acima) / float64(abaixo)
+	if razao < 1.96 || razao > 2.04 {
+		t.Errorf("2M pagou %d e 1M pagou %d, razão %.3f — a base devia ser proporcional "+
+			"à XP do monstro dos dois lados do antigo teto (quero perto de 2,0)", acima, abaixo, razao)
 	}
+}
 
-	celestialMesmaExp := mortal
-	celestialMesmaExp.Tier = Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true}
-	estoura, limiteCel := ExpOverflow(celestialMesmaExp)
-	if !estoura {
-		t.Fatal("celestial devia estourar nessa mesma Exp")
+// TestFiltroDe10MContinuaValendo: tirar o estouro não tirou o teto. Para base
+// identidade o que resta é o filtro de (0,10M] — que corta um MobExp acima de 5M,
+// mais que o dobro do maior valor do catálogo. Ele é do legado e está lá de propósito;
+// este teste existe para ninguém concluir, depois do conserto, que não há mais
+// limite nenhum para a XP de monstro no Pesadelo.
+func TestFiltroDe10MContinuaValendo(t *testing.T) {
+	cel := Tier{ClassMaster: classCelestial, CelLv40: true, CelLv90: true}
+	in := ExpRewardInput{
+		Zone: ZonePesadeloArcano, MobExp: 6_000_000, KillerLevel: 199, MobLevel: 399, Tier: cel,
 	}
-	_, limiteMortal := ExpOverflow(ExpRewardInput{
-		Zone: ZonePesadeloArcano, MobExp: 9_000_000, KillerLevel: 395, MobLevel: 399,
-		Tier: Tier{ClassMaster: classMortal},
-	})
-	if limiteMortal <= limiteCel {
-		t.Errorf("teto do mortal (%d) devia ser bem maior que o do celestial (%d)",
-			limiteMortal, limiteCel)
+	// 6M a 200% = 12M, acima do filtro.
+	if got := ExpReward(in); got != 0 {
+		t.Errorf("MobExp 6M no Pesadelo pagou %d; o filtro de 10M devia cortar", got)
 	}
 }

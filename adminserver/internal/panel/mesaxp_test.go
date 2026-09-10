@@ -389,21 +389,26 @@ func TestMesaDizQueCelestialNaoVeAZona(t *testing.T) {
 	}
 }
 
-// A zero from the 32-bit overflow must not be reported as "wrong level". The
-// fixes are opposite: this one is undone by LOWERING the mob's Exp.
-func TestMesaExplicaOZeroDoPesadelo(t *testing.T) {
+// TestMesaPesadeloPagaCelestial is the panel half of the overflow fix
+// (level.ExpReward, 10/09/2026).
+//
+// The simulator used to answer this exact kill with "zero por estouro de conta
+// ... BAIXE a XP do monstro". The zero is gone, and the advice was the data-side
+// fix that was deliberately refused — lowering the 88 would weaken them in the
+// Campo too and leave the trap armed. So the page must now price the kill, and
+// must not tell anybody to lower a mob's Exp.
+func TestMesaPesadeloPagaCelestial(t *testing.T) {
 	h := newTestPanelMesa(t, roleAdmin, newFakeMesa(), newFakeAudit())
 	corpo := abrirMesa(t, h,
-		"?simular=1&zona=1&evolucao=3&quests=1&mob_exp=2990849&mob_nivel=399&nivel=395&segundos=6").Body.String()
+		"?simular=1&zona=1&evolucao=3&quests=1&mob_exp=2990849&mob_nivel=399&nivel=150&segundos=6").Body.String()
 
-	if !strings.Contains(corpo, "estouro de conta") {
-		t.Error("o zero do Pesadelo foi mostrado sem explicar que é estouro de 32 bits")
-	}
-	if !strings.Contains(corpo, "BAIXE a XP do monstro") {
-		t.Error("faltou dizer que a correção é baixar a XP, que é o contrário do que se tentaria")
+	for _, proibido := range []string{"estouro de conta", "BAIXE a XP do monstro", "inteiro de 32 bits"} {
+		if strings.Contains(corpo, proibido) {
+			t.Errorf("a tela ainda fala do estouro que foi tirado da conta: achou %q", proibido)
+		}
 	}
 	if strings.Contains(corpo, "não paga nada para um personagem deste nível") {
-		t.Error("culpou o nível do personagem por um zero que é de estouro")
+		t.Error("o celestial no Pesadelo continua sem ganhar nada deste monstro — o estouro voltou")
 	}
 }
 

@@ -578,7 +578,7 @@
           {{range .Sim.PorZona}}
           <tr{{if .Atual}} class="atual"{{end}}>
             <td>{{.Zona}}{{if .Atual}} <span class="sub">(escolhida)</span>{{end}}</td>
-            <td class="n">{{if .Estoura}}0 <span class="sub">estouro</span>{{else}}{{.Exp}}{{end}}</td>
+            <td class="n">{{.Exp}}</td>
             <td class="n">{{if .Atual}}—{{else}}{{.Relativo}}%{{end}}</td>
           </tr>
           {{end}}
