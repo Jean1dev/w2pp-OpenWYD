@@ -668,7 +668,13 @@ func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mo
 		}
 		pago[id] = true
 		e := w.Entity(id)
-		if e == nil || e.HP <= 0 || !pertoDoMob(e, mob) {
+		// Pet não recebe. O legado paga só `party > 0 && party < MAX_USER`
+		// (MobKilled.cpp:444), e em jogo o que mora na PartyList fora dessa faixa
+		// são os pets. Pagá-los fazia cada um subir de nível e receber o MsgMotion
+		// de comemoração, que o cliente anima parando o bicho: os pets
+		// "travavam" a cada abate. O filtro é pelo dono e não pelo id porque os
+		// testes de grupo montam os jogadores com entidades de mob.
+		if e == nil || e.Summoner != 0 || e.HP <= 0 || !pertoDoMob(e, mob) {
 			return
 		}
 		d.grantExp(w, w.Session(id), e, mob, matador)
