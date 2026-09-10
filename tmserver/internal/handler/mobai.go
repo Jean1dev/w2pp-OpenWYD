@@ -801,7 +801,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		damageReqHp(w.Session(target.ID), target, int32(dmg))
 	}
 
-	body := corpoDoGolpeDeMonstro(id, e, target, dmg)
+	body := corpoDoGolpeDeMonstro(id, e, target, sk, dmg)
 	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
 	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
 	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
@@ -820,9 +820,8 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttackOne, ID: protocol.IDScene}, payload)
 	})
 
-	// The skill rides along with the blow, server-side only: the affect lands
-	// here (ProcessSecMinTimer.cpp:2196-2205) and the packet above carries a plain
-	// swing (see corpoDoGolpeDeMonstro).
+	// The skill rides along with the blow: the client draws it from SkillIndex
+	// above, the affect lands here (ProcessSecMinTimer.cpp:2196-2205).
 	d.applyMobSkill(w, e, target, sk)
 
 	// Mob targets: a pet's kill rewards its OWNER (MobKilled.cpp:181-190 credits
@@ -882,9 +881,11 @@ const motionDoGolpe = 4
 // têm exatamente isso — a barra caía para MaxMp - 30000 a cada golpe: -16911 de
 // 13089 numa Foema, -20441 de 9559 num BM, até a próxima correção do servidor.
 //
-// SkillIndex sai como golpe seco: monstro comum não sorteia magia, e as barras
-// das evocações estão vazias como no legado.
-func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, dmg int) protocol.MsgAttackBody {
+// SkillIndex leva a magia que o pet sorteou (mobskill.go), para o cliente
+// desenhá-la; golpe seco é noSkill. Só pet sorteia: monstro comum sai sempre
+// seco. A magia no pacote foi tirada uma vez (d8d6ca11) como suspeita da mana
+// negativa, e não era ela — era o +4 acima.
+func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, dmg int) protocol.MsgAttackBody {
 	return protocol.MsgAttackBody{
 		CurrentHp:  semValorNoGolpe,
 		CurrentMp:  semValorNoGolpe,
@@ -895,7 +896,7 @@ func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, dmg int) protocol.Ms
 		TargetY:    uint16(target.Y),
 		AttackerID: uint16(id),
 		Motion:     motionDoGolpe,
-		SkillIndex: noSkill,
+		SkillIndex: int16(sk.index),
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
 }

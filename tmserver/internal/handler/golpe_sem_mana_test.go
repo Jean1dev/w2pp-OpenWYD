@@ -10,7 +10,7 @@ import (
 
 // TestGolpeDeMonstroNaoFalaDeVidaNemMana: o MSG_Attack de um monstro ou pet sai
 // com -1 em CurrentHp@4, CurrentMp@40 e ReqMp@46, como GetAttack no legado
-// (GetFunc.cpp:1416-1417, :1685), e sem magia.
+// (GetFunc.cpp:1416-1417, :1685); a magia só quando o pet sorteou uma.
 //
 // O +4 é o que importa. Quando um mob acerta o jogador, o cliente subtrai esse
 // campo da própria mana se ele for positivo (WYD.exe 0x493fc4-0x494019). O port
@@ -25,13 +25,15 @@ func TestGolpeDeMonstroNaoFalaDeVidaNemMana(t *testing.T) {
 	casos := []struct {
 		nome       string
 		quem, alvo *world.Entity
+		golpe      mobSkill
 	}{
-		{"monstro de 30000 de vida bate no jogador", monstro, jogador},
-		{"pet bate em monstro", pet, monstro},
+		{"monstro de 30000 de vida bate no jogador", monstro, jogador, mobSkill{index: noSkill}},
+		{"pet bate seco em monstro", pet, monstro, mobSkill{index: noSkill}},
+		{"pet lança Enfraquecer em monstro", pet, monstro, mobSkill{index: 51}},
 	}
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
-			body := corpoDoGolpeDeMonstro(c.quem.ID, c.quem, c.alvo, 123)
+			body := corpoDoGolpeDeMonstro(c.quem.ID, c.quem, c.alvo, c.golpe, 123)
 			b := body.Encode()
 			if v := int32(binary.LittleEndian.Uint32(b[4:8])); v != -1 {
 				t.Errorf("body@4 = %d; o cliente subtrai esse campo da mana de quem apanha de mob, tem de ser -1", v)
@@ -42,8 +44,8 @@ func TestGolpeDeMonstroNaoFalaDeVidaNemMana(t *testing.T) {
 			if req := int16(binary.LittleEndian.Uint16(b[46:48])); req != -1 {
 				t.Errorf("ReqMp@46 = %d; tem de ser -1", req)
 			}
-			if sk := int16(binary.LittleEndian.Uint16(b[44:46])); sk != noSkill {
-				t.Errorf("SkillIndex@44 = %d; o golpe de monstro vai como golpe seco", sk)
+			if sk := int16(binary.LittleEndian.Uint16(b[44:46])); int(sk) != c.golpe.index {
+				t.Errorf("SkillIndex@44 = %d, esperado %d: a magia do pet vai ao cliente, golpe seco vai como -1", sk, c.golpe.index)
 			}
 			// Motion 0 é a pose parada no cliente: o bicho "batia" em pé.
 			if m := b[34]; m != 4 {
