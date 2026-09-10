@@ -1093,11 +1093,14 @@ func cTrimNUL(b []byte) string {
 }
 
 // Offsets of the attacker's own state inside an MSG_Attack/AttackOne/AttackTwo
-// body (Basedef.h:2452-2484, inside a pack(1) block so nothing is padded).
+// body — the MSG_Attack layout for all three (Basedef.h:2400-2432, pack(1)).
+// The swapped HP/MP that Basedef.h declares for AttackOne/Two is used by
+// nobody: the legacy writes all three through MSG_Attack* and the client reads
+// them the same way (see writeAttackerStatus in handler/combat.go).
 const (
-	attackOffCurrentMp  = 4  // int
+	attackOffCurrentHp  = 4  // int
 	attackOffCurrentExp = 12 // long long
-	attackOffCurrentHp  = 40 // int
+	attackOffCurrentMp  = 40 // int
 	attackOffEnd        = 44 // fim do último campo de estado, para referência
 )
 

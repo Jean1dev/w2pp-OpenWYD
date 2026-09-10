@@ -844,38 +844,32 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	}
 }
 
-// semManaNoGolpe é o "-1" que o legado grava nos campos de mana de todo golpe de
-// monstro: o sinal de que o pacote não traz mana nenhuma.
-const semManaNoGolpe = -1
+// semValorNoGolpe é o "-1" que o legado grava nos campos de estado de todo golpe
+// de monstro: o sinal de que o pacote não fala da vida nem da mana de ninguém.
+const semValorNoGolpe = -1
 
 // corpoDoGolpeDeMonstro monta o MSG_Attack de um golpe de monstro ou de pet.
 //
-// SkillIndex sai SEMPRE como golpe seco, mesmo quando o pet lançou magia. A
-// magia continua valendo — o afeto é aplicado no servidor por applyMobSkill —,
-// só não vai no pacote. É o que o cliente sempre recebeu: no legado os 37
-// arquivos BaseSummon vêm com a SkillBar vazia, e o cliente WYD nunca viu uma
-// evocação lançar magia.
+// Os campos +4 (CurrentHp), +40 (CurrentMp) e +46 (ReqMp) saem com -1, como no
+// legado: GetAttack faz `sm->CurrentMp = -1; sm->ReqMp = -1;` e
+// `sm->CurrentHp = -1;` (GetFunc.cpp:1416-1417, :1685).
 //
-// Mandar a magia custou caro. Desde que as evocações ganharam SkillBar, a barra
-// de mana do dono afunda em combate (até -20441 de 9559) e volta quando o
-// servidor corrige. O servidor nunca manda mana negativa — todo caminho tem
-// piso em 0 —, então quem desconta é o cliente, e só com pet lançando. Nem a
-// mana -1 do legado nos campos abaixo nem uma SetHpMp depois de cada magia de
-// pet seguraram. Junto, o Dragão, o único pet que lança magia de Foema (Lança
-// de Gelo) em metade dos golpes, "perdia a IA" na tela enquanto o servidor o
-// via golpeando.
+// O +4 é a causa da mana negativa de TODAS as classes. Quando um monstro acerta
+// o jogador, o cliente trata esse campo como mana drenada pelo golpe: se o
+// atacante é mob (id > 1000) e o campo é positivo, ele faz `ReqMp -= campo` e
+// copia o resultado para a mana da barra, sem piso (WYD.exe 0x493fb5-0x494019;
+// o piso que existe ali compara sem sinal e nunca age). O port mandava a vida
+// do monstro nesse campo. Contra um monstro de 30000 de vida — 191 templates
+// têm exatamente isso — a barra caía para MaxMp - 30000 a cada golpe: -16911 de
+// 13089 numa Foema, -20441 de 9559 num BM, até a próxima correção do servidor.
 //
-// CurrentMp e ReqMp saem com -1, como no legado (`sm->CurrentMp = -1; sm->ReqMp
-// = -1;`, GetFunc.cpp:1416-1417 e GetAttackArea :1701-1702): -1 quer dizer "este
-// pacote não fala de mana"; o zero da struct é um valor de mana.
-//
-// CurrentHp continua com a vida do atacante. O legado também manda -1 ali
-// (GetFunc.cpp:1685), mas a barra de vida nunca teve defeito.
+// SkillIndex sai como golpe seco: monstro comum não sorteia magia, e as barras
+// das evocações estão vazias como no legado.
 func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, dmg int) protocol.MsgAttackBody {
 	return protocol.MsgAttackBody{
-		CurrentHp:  e.HP,
-		CurrentMp:  semManaNoGolpe,
-		ReqMp:      semManaNoGolpe,
+		CurrentHp:  semValorNoGolpe,
+		CurrentMp:  semValorNoGolpe,
+		ReqMp:      semValorNoGolpe,
 		PosX:       uint16(e.X),
 		PosY:       uint16(e.Y),
 		TargetX:    uint16(target.X),

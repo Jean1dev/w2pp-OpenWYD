@@ -401,7 +401,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	// from the DIFFERENCE between the totals it is sent, so a killing blow that
 	// reports the pre-kill total is a difference of zero. It drew "EXP +0" and
 	// "Adquiriu 0 de experiência" on every kill.
-	writeAttackerStatus(payload, h.Type, e.HP, e.MP, e.Exp, body.ReqMp)
+	writeAttackerStatus(payload, e.HP, e.MP, e.Exp, body.ReqMp)
 
 	// Broadcast the server-authoritative result with HEADER.ID = ESCENE_FIELD, exactly
 	// as the original (_MSG_Attack.cpp:25 `m->ID = ESCENE_FIELD`). This matters for the
@@ -1407,30 +1407,27 @@ func writeDoubleCritical(payload []byte, doubleCritical uint8) {
 }
 
 // writeAttackerStatus overwrites the attacker's own status in the attack body
-// with the server's authoritative values. CurrentExp@12 and ReqMp@46 sit at the
-// same place in all three attack messages, but HP and MP DO NOT:
+// with the server's authoritative values: CurrentHp@4, CurrentExp@12,
+// CurrentMp@40, ReqMp@46 — ONE layout for all three attack messages.
 //
-//	MSG_Attack    (0x0367): CurrentHp@4,  CurrentMp@40   (Basedef.h:2400-2426)
-//	MSG_AttackOne (0x039D): CurrentMp@4,  CurrentHp@40   (Basedef.h:2452-2478)
-//	MSG_AttackTwo (0x039E): CurrentMp@4,  CurrentHp@40   (Basedef.h:2488-2514)
-//
-// The two are swapped, so the frame's own type decides where each goes. Writing
-// them in one fixed layout only worked while the echo was relabelled to
-// MSG_Attack; now that the type is preserved (see the multicast below), guessing
-// would hand the client its MP as HP.
+// Basedef.h declares MSG_AttackOne/Two with HP and MP swapped (2452-2514), and
+// an earlier version of this function followed it. Nothing else does. The
+// legacy handles every type through `MSG_Attack *m` (_MSG_Attack.cpp:23) and
+// writes m->CurrentMp and m->CurrentHp at the MSG_Attack offsets (:254, :1744),
+// and the client reads the attacker's mana at body+40 for all three types and
+// builds its own frames the same way (WYD.exe: the attack handler at 0x48b2be
+// serves 0x367/0x39D/0x39E alike; the Mp write is at 0x48b7a2). Swapping the
+// fields told the client, on every single-target skill echo, that its mana was
+// its HP.
 //
 // These fixed fields sit below the Dam[] region (offset 48), so they never
 // collide with per-target damage.
-func writeAttackerStatus(payload []byte, msgType protocol.Type, hp, mp int32, exp int64, reqMp int16) {
+func writeAttackerStatus(payload []byte, hp, mp int32, exp int64, reqMp int16) {
 	if len(payload) < protocol.MsgAttackDamOffset {
 		return
 	}
-	first, second := hp, mp // MSG_Attack order
-	if msgType == protocol.MsgAttackOne || msgType == protocol.MsgAttackTwo {
-		first, second = mp, hp
-	}
-	binary.LittleEndian.PutUint32(payload[4:8], uint32(first))
+	binary.LittleEndian.PutUint32(payload[4:8], uint32(hp))
 	binary.LittleEndian.PutUint64(payload[12:20], uint64(exp))
-	binary.LittleEndian.PutUint32(payload[40:44], uint32(second))
+	binary.LittleEndian.PutUint32(payload[40:44], uint32(mp))
 	binary.LittleEndian.PutUint16(payload[46:48], uint16(reqMp))
 }
