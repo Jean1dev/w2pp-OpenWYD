@@ -90,14 +90,14 @@ func TestMagicFromEquipment(t *testing.T) {
 			want: 72,
 		},
 		{
-			// Mount magicRaw (Thoroughbred 30D: 110, mountBonusTable row {750,110,80,32,6})
-			// and item magicRaw (40) combine BEFORE the single (x+1)/4 scaling: (110+40+1)/4.
+			// Mount magicRaw (Thoroughbred 30D: 72, mountTempBonusTable row {450,72,10,28,6})
+			// and item magicRaw (40) combine BEFORE the single (x+1)/4 scaling: (72+40+1)/4.
 			name: "mount magic and item magic combine under one scaling",
 			equip: map[int]world.Item{
 				0:              {Index: magicFlat},
-				mountEquipSlot: {Index: 3987}, // Thoroughbred(30d): magicRaw 110
+				mountEquipSlot: {Index: 3987}, // Thoroughbred(30d): magicRaw 72
 			},
-			want: 37, // (150+1)/4 = 37
+			want: 28, // (112+1)/4 = 28
 		},
 		{
 			name:  "no magic gear",
@@ -140,7 +140,7 @@ func TestMagicLoginRoundTrip(t *testing.T) {
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
 
-	const want = 37 // (110+40+1)/4
+	const want = 28 // (72+40+1)/4
 	if e.Magic != want {
 		t.Errorf("login Magic = %d, want %d (equipped gear must not reset or double)", e.Magic, want)
 	}

@@ -13,32 +13,80 @@ func TestMountBonusForTemp(t *testing.T) {
 	if !ok {
 		t.Fatalf("mountBonusFor(3987) ok = false, want true")
 	}
-	if mb.damage != 750 || mb.magicRaw != 110 || mb.parry != 80 || mb.resist != 32 {
-		t.Errorf("temp mount bonus = %+v, want {damage:750 magicRaw:110 parry:80 resist:32}", mb)
+	if mb.damage != 450 || mb.magicRaw != 72 || mb.parry != 10 || mb.resist != 28 {
+		t.Errorf("temp mount bonus = %+v, want {damage:450 magicRaw:72 parry:10 resist:28}", mb)
 	}
 }
 
 // TestMountBonusForAdult covers an adult mount (idx 2362-2389): Attack/Magic scale with
 // the mount level (stEffect[1].cEffect) and require live HP (stEffect[0].sValue > 0).
 func TestMountBonusForAdult(t *testing.T) {
-	// idx 2362 → cd 2, level 5, HP 20 (Effects[0] low byte). row {750,110,80,32,6}.
-	it := world.Item{Index: 2362}
+	// idx 2379 Tigre de Fogo → cd 19, level 5, HP 20 (Effects[0] low byte). row {650,100,60,28,6}.
+	it := world.Item{Index: 2379}
 	it.Effects[0] = world.Effect{Effect: 20, Value: 0} // sValue = 20 (HP)
 	it.Effects[1] = world.Effect{Effect: 5}            // level = 5
 	mb, ok := mountBonusFor(it)
 	if !ok {
 		t.Fatalf("mountBonusFor(adult, HP>0) ok = false, want true")
 	}
-	// damage = (5+20)*750/100 = 187; magicRaw = (5+15)*110/100 = 22.
-	if mb.damage != 187 || mb.magicRaw != 22 || mb.parry != 80 || mb.resist != 32 {
-		t.Errorf("adult mount bonus = %+v, want {damage:187 magicRaw:22 parry:80 resist:32}", mb)
+	// damage = (5+20)*650/100 = 162; magicRaw = (5+15)*100/100 = 20.
+	if mb.damage != 162 || mb.magicRaw != 20 || mb.parry != 60 || mb.resist != 28 {
+		t.Errorf("adult mount bonus = %+v, want {damage:162 magicRaw:20 parry:60 resist:28}", mb)
 	}
 
 	// HP = 0 → dead mount grants nothing (legacy stEffect[0].sValue <= 0 guard).
-	dead := world.Item{Index: 2362}
+	dead := world.Item{Index: 2379}
 	dead.Effects[1] = world.Effect{Effect: 5}
 	if _, ok := mountBonusFor(dead); ok {
 		t.Errorf("mountBonusFor(adult, HP=0) ok = true, want false")
+	}
+}
+
+// TestSvadilfariBateComOTooltip pins the table to what the client actually draws.
+// The numbers are the ones on a level-120 Svadilfari's tooltip in game — Aumento de
+// Dano 840, Ataque Mágico 54%, Índice de Evasão 6.0%, Aumento de Imunidades 28 — and
+// they only come out of the client's row {600,40,60,28}. With the flattened legacy
+// row the server applied 1050 / 148 / 80 / 32 while the player read the smaller
+// numbers, which is how "every mount is the same" went unnoticed.
+func TestSvadilfariBateComOTooltip(t *testing.T) {
+	it := world.Item{Index: 2387}
+	putShort(&it.Effects[0], 25700)
+	it.Effects[1].Effect = 120
+	mb, ok := mountBonusFor(it)
+	if !ok {
+		t.Fatal("mountBonusFor(Svadilfari viva) ok = false")
+	}
+	if mb.damage != 840 {
+		t.Errorf("Aumento de Dano = %d, o tooltip mostra 840", mb.damage)
+	}
+	if mb.magicRaw != 54 {
+		t.Errorf("Ataque Mágico = %d, o tooltip mostra 54", mb.magicRaw)
+	}
+	if mb.parry != 60 {
+		t.Errorf("Evasão = %d, o tooltip mostra 6.0%% (60)", mb.parry)
+	}
+	if mb.resist != 28 {
+		t.Errorf("Imunidades = %d, o tooltip mostra 28", mb.resist)
+	}
+}
+
+// TestMontariasNaoSaoMaisIguais is the report itself: two different lineages at the
+// same level must not lend the same attack and the same immunity.
+func TestMontariasNaoSaoMaisIguais(t *testing.T) {
+	bonus := func(idx int16) mountAttrBonus {
+		it := world.Item{Index: idx}
+		putShort(&it.Effects[0], 20000)
+		it.Effects[1].Effect = 120
+		mb, _ := mountBonusFor(it)
+		return mb
+	}
+	fenrir, vermelho := bonus(2376), bonus(2380)
+	if fenrir == vermelho {
+		t.Fatalf("Fenrir e Dragão Vermelho dão o mesmo bônus: %+v", fenrir)
+	}
+	// Fenrir não tem imunidade nenhuma; o Dragão Vermelho é o topo da tabela.
+	if fenrir.resist != 0 || vermelho.resist != 32 {
+		t.Errorf("imunidade Fenrir/Vermelho = %d/%d, want 0/32", fenrir.resist, vermelho.resist)
 	}
 }
 
@@ -71,23 +119,23 @@ func TestMountEquipScore(t *testing.T) {
 	// Equip the Thoroughbred and refresh (what refreshEquip does on a drag-equip).
 	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
 	d.refreshScore(e)
-	if e.Damage != baseDamage+750 {
-		t.Errorf("mounted Damage = %d, want %d (+750 attack)", e.Damage, baseDamage+750)
+	if e.Damage != baseDamage+450 {
+		t.Errorf("mounted Damage = %d, want %d (+450 attack)", e.Damage, baseDamage+450)
 	}
-	if e.Magic != baseMagic+27 { // (110+1)/4 = 27
-		t.Errorf("mounted Magic = %d, want %d (+27)", e.Magic, baseMagic+27)
+	if e.Magic != baseMagic+18 { // (72+1)/4 = 18
+		t.Errorf("mounted Magic = %d, want %d (+18)", e.Magic, baseMagic+18)
 	}
-	if e.Parry != baseParry+80 {
-		t.Errorf("mounted Parry = %d, want %d (+80 evasion)", e.Parry, baseParry+80)
+	if e.Parry != baseParry+10 {
+		t.Errorf("mounted Parry = %d, want %d (+10 evasion)", e.Parry, baseParry+10)
 	}
 	for i := range e.Resist {
-		if e.Resist[i] != 32 {
-			t.Errorf("mounted Resist[%d] = %d, want 32", i, e.Resist[i])
+		if e.Resist[i] != 28 {
+			t.Errorf("mounted Resist[%d] = %d, want 28", i, e.Resist[i])
 		}
 	}
-	if sc := d.computeScore(e); sc.Damage != baseDamage+750 || sc.Magic != int32(baseMagic)+27 || sc.Resist[0] != 32 {
-		t.Errorf("computeScore = Damage %d Magic %d Resist0 %d, want %d/%d/32",
-			sc.Damage, sc.Magic, sc.Resist[0], baseDamage+750, int32(baseMagic)+27)
+	if sc := d.computeScore(e); sc.Damage != baseDamage+450 || sc.Magic != int32(baseMagic)+18 || sc.Resist[0] != 28 {
+		t.Errorf("computeScore = Damage %d Magic %d Resist0 %d, want %d/%d/28",
+			sc.Damage, sc.Magic, sc.Resist[0], baseDamage+450, int32(baseMagic)+18)
 	}
 
 	// Unequip → everything returns to the unmounted baseline.
@@ -110,13 +158,13 @@ func TestMountScoreRoundTrip(t *testing.T) {
 	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
-	wantDamage := baseDamageChar + e.Level + 750
-	if e.Damage != wantDamage || e.Magic != 27 || e.Parry != 80 {
-		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/27/80", e.Damage, e.Magic, e.Parry, wantDamage)
+	wantDamage := baseDamageChar + e.Level + 450
+	if e.Damage != wantDamage || e.Magic != 18 || e.Parry != 10 {
+		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/18/10", e.Damage, e.Magic, e.Parry, wantDamage)
 	}
 	for i := range e.Resist {
-		if e.Resist[i] != 32 {
-			t.Errorf("round-trip Resist[%d] = %d, want 32", i, e.Resist[i])
+		if e.Resist[i] != 28 {
+			t.Errorf("round-trip Resist[%d] = %d, want 28", i, e.Resist[i])
 		}
 	}
 }

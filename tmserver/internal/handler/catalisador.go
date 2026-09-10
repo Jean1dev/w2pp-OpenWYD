@@ -14,10 +14,10 @@ import (
 // hand-written table (:5036-5056). Using the wrong one refuses with the same
 // "this mount does not match" line the âmago uses.
 //
-// The catalyst does NOT keep the cria's level. It rolls the adult's vitality
-// from it (rand()%20 + level) and then resets the level to zero, exactly as the
-// âmago's own growth branch does — an adult always starts at 1 whatever the
-// cria reached.
+// The catalyst does NOT keep the cria's level: it resets it to zero, exactly as
+// the âmago's own growth branch does — an adult always starts at 1 whatever the
+// cria reached. Its vitality comes from rollAdultVitality, the same roll the
+// âmago uses, so the two ways to grow a mount cannot hand out different lives.
 
 const (
 	// catalisadorLo is the first catalyst item (Catalisador de Kapel).
@@ -79,9 +79,10 @@ func (d *Dispatcher) useCatalisador(w *world.World, s *world.Session, e *world.E
 	}
 
 	dst.Index += mountRowSize
-	// Vitality carries over from the cria's level with a roll on top; the level
-	// itself resets, so the adult starts its own climb (:5069-5072).
-	dst.Effects[1].Value = uint8(w.Rand().Intn(20) + int(dst.Effects[1].Effect))
+	// A fresh vitality roll, and the level resets so the adult starts its own
+	// climb (:5069-5073; the legacy derived vitality from the cria's level, see
+	// rollAdultVitality for why this server does not).
+	dst.Effects[1].Value = rollAdultVitality(w)
 	dst.Effects[1].Effect = 0
 	dst.Effects[2].Value = 0
 	consumeOneItem(&e.Carry[src])

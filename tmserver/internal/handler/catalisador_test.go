@@ -81,9 +81,10 @@ func TestCatalisadorCertoCriaAMontariaAdulta(t *testing.T) {
 	if mount.Effects[1].Effect != 0 {
 		t.Errorf("nível = %d, want 0", mount.Effects[1].Effect)
 	}
-	// E a vitalidade herda o nível da cria com uma rolagem por cima.
-	if v := mount.Effects[1].Value; v < 40 || v > 59 {
-		t.Errorf("vitalidade = %d, want entre 40 e 59 (nível 40 + rand%%20)", v)
+	// A vitalidade é rolada entre 15 e 35 e não herda mais o nível da cria:
+	// esta cria chegou a 40, e o legado daria de 40 a 59.
+	if v := mount.Effects[1].Value; v < adultVitalityMin || v > adultVitalityMax {
+		t.Errorf("vitalidade = %d, want entre %d e %d", v, adultVitalityMin, adultVitalityMax)
 	}
 	if !e.Carry[0].Empty() {
 		t.Errorf("o catalisador não foi consumido: %+v", e.Carry[0])

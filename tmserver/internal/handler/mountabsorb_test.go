@@ -118,3 +118,42 @@ func TestSemMontariaOGolpeChegaInteiro(t *testing.T) {
 		t.Errorf("chegou %d, want 777", got)
 	}
 }
+
+func TestMontariaPagaTudoContraMonstro(t *testing.T) {
+	// The monster path charges the mount everything it absorbed
+	// (ProcessAdultMount(Target, damage), Server.cpp:10115); only a player's blow
+	// is halved. The port had halved both.
+	tabela := mountrate.AbsorbTable{2370: {PvP: 50, PvE: 50}}
+	d, w, e := absorbFixture(t, tabela, 2370, 20000)
+
+	d.absorbBlow(w, e, 1000, false) // 500 comidos → 500 de HP
+	if hp := mountHP(e.Equip[mountEquipSlot]); hp != 19500 {
+		t.Errorf("HP da montaria = %d, want 19500 — contra monstro ela paga tudo", hp)
+	}
+}
+
+func TestGolpeMiudoDeMonstroAindaCustaAMontaria(t *testing.T) {
+	// This was the report: a heavily armored rider takes 1 to 6 from a mob. At
+	// 25% that is 1 absorbed, and half of 1 was zero — the mount never paid and
+	// its HP never moved. Every one of these hits has to cost at least 1 now.
+	d, w, e := absorbFixture(t, nil, 2387, 25700) // Svadilfari, como no print
+	for dano := 1; dano <= 6; dano++ {
+		antes := mountHP(e.Equip[mountEquipSlot])
+		d.absorbBlow(w, e, dano, false)
+		if depois := mountHP(e.Equip[mountEquipSlot]); depois >= antes {
+			t.Errorf("golpe de %d: HP da montaria %d → %d, devia ter descido", dano, antes, depois)
+		}
+	}
+}
+
+func TestCavaleiroSempreLevaAoMenosUm(t *testing.T) {
+	// Both legacy paths floor the rider's share at 1 (_MSG_Attack.cpp:1529,
+	// Server.cpp:10035). Without it 25% of a 1-damage hit left the rider with 0:
+	// immune, exactly to the hits an armored character takes most.
+	d, w, e := absorbFixture(t, nil, 2370, 20000)
+	for _, porJogador := range []bool{true, false} {
+		if got := d.absorbBlow(w, e, 1, porJogador); got != 1 {
+			t.Errorf("porJogador=%v: golpe de 1 chegou %d no dono, want 1", porJogador, got)
+		}
+	}
+}

@@ -52,6 +52,25 @@ const (
 	amagoSlotSvadilfari = 10
 )
 
+// The vitality an adult mount is born with (stEffect[1].cValue, EF_MOUNTLIFE).
+//
+// DELIBERATE DIVERGENCE. The legacy rolls rand()%20 on top of the cria's level
+// (_MSG_UseItem.cpp:1660 for the Âmago, :5071 for the Catalisador), and a cria
+// grows at level 100 — so every adult was born with 100 to 119, and the number
+// meant nothing: nobody ever reached the bottom of it. This server wants it to
+// be something to look after, so it is a flat roll between these two bounds,
+// inclusive, whatever the cria reached.
+const (
+	adultVitalityMin = 15
+	adultVitalityMax = 35
+)
+
+// rollAdultVitality is the one place an adult's starting vitality is decided.
+// Both ways a cria becomes an adult go through it, so the two can never drift.
+func rollAdultVitality(w *world.World) uint8 {
+	return uint8(adultVitalityMin + w.Rand().Intn(adultVitalityMax-adultVitalityMin+1))
+}
+
 // mountAmagoSlot maps a mount's sIndex to the Âmago row that feeds it.
 func mountAmagoSlot(index int16) int {
 	slot := (int(index) - mountLo) % mountRowSize
@@ -142,7 +161,7 @@ func (d *Dispatcher) useAmago(w *world.World, s *world.Session, e *world.Entity,
 
 		if at := criaGrowsAt(dst.Index); at > 0 && level >= at {
 			dst.Index += mountRowSize
-			dst.Effects[1].Value = uint8(w.Rand().Intn(20) + int(dst.Effects[1].Effect))
+			dst.Effects[1].Value = rollAdultVitality(w)
 			dst.Effects[1].Effect = 0
 			dst.Effects[2].Value = 0
 			grew = true

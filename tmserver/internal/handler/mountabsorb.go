@@ -45,12 +45,34 @@ func (d *Dispatcher) absorbBlow(w *world.World, victim *world.Entity, dam int, b
 	}
 	rider, absorbed := combat.MountAbsorb(dam, percent)
 	if absorbed > 0 {
-		// HALF of what was absorbed is charged to the mount, not all of it
-		// (Server.cpp ProcessAdultMount call site, _MSG_Attack.cpp:1628). The
-		// mount is a discount, not a second health bar.
-		d.damageMount(w, victim, absorbed/2)
+		d.damageMount(w, victim, mountCharge(absorbed, byPlayer))
+	}
+	// A landed blow always reaches the rider for at least 1, on both legacy
+	// paths (`if (DamageNow <= 0) DamageNow = 1`, _MSG_Attack.cpp:1529 and
+	// Server.cpp:10035). Without it a 1-damage hit came out as 0 for the rider,
+	// so anyone mounted was immune to exactly the hits an armored character
+	// takes most.
+	if rider <= 0 {
+		rider = 1
 	}
 	return rider
+}
+
+// mountCharge is how much of what the mount absorbed comes off its own HP.
+//
+// The two legacy paths disagree, and the port had collapsed them into the
+// PvP one. A PLAYER's blow charges half (ProcessAdultMount(idx, _calcDamage/2),
+// _MSG_Attack.cpp:1629); a MONSTER's charges all of it (ProcessAdultMount(Target,
+// damage), Server.cpp:10115 and ProcessSecMinTimer.cpp:2385).
+//
+// Halving the monster path was not a small drift. Against an armored rider a
+// mob lands 1 to 6: 25% of that is 1, and half of 1 is zero — so the mount paid
+// nothing, hit after hit, and its HP simply never moved while farming.
+func mountCharge(absorbed int, byPlayer bool) int {
+	if byPlayer {
+		return absorbed / 2
+	}
+	return absorbed
 }
 
 // damageMount charges the mount for what it just ate (ProcessAdultMount,
