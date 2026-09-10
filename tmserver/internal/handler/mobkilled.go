@@ -265,47 +265,73 @@ func sendDieAction(w *world.World, mob *world.Entity) {
 	sendMobChat(w, mob.ID, gen.DieAction[say])
 }
 
-// grantExp awards solo PvE experience to the killer and applies any resulting
-// level-ups (captura-wyd-levelup.md, CMob::CheckGetLevel). The gain is
-// GetExpApply-scaled by the attacker↔target level ratio; the total is clamped to
-// the curve ceiling. Each level raises MaxHp/MaxMp by the per-class increment,
-// refills HP/MP, and recomputes the free attribute points (BASE_GetBonusScorePoint
-// — idempotent from level+stats, so it need not be persisted). On a level gain the
-// killer's client gets a fresh score and the level-up effect, with the effect also
-// shown to in-view players.
+// bonusDoMatador is the EXP bonus of whoever landed the killing blow, read once
+// per kill and handed to every member the kill pays.
 //
-// UNVERIFIED / deferred: party distribution and the per-level reward items
-// (DoItemLevel).
-func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
+// FIDELIDADE AO LEGADO (restaurada): all seven reward branches of the legacy
+// read the bonus off conn, the killer, while everything else in the same lines
+// is read off party, the member being paid — MobKilled.cpp:534/679/794 (the
+// three Pesadelo branches, ExpBonus only), :943/1092/1214 (Água) and
+// :1363-1364 (field), the last four adding g_pFairyContent[0] on top. So a
+// party that kills with a +100% character in it earns +100% each, and a +100%
+// character who did not land the blow earns nothing extra. The rewrite had been
+// reading each member's own bonus; this puts it back where the legacy had it.
+//
+// For a summon's kill conn is the summoner (MobKilled.cpp:340-354), which is
+// the reward target mobKilled already passes down.
+type bonusDoMatador struct {
+	exp  int32 // pMob[conn].ExpBonus — its < 500 gate is also the killer's
+	fada int32 // pMob[conn].g_pFairyContent[0]; Pesadelo ignores it
+}
+
+func (d *Dispatcher) lerBonusDoMatador(killer *world.Entity) bonusDoMatador {
+	return bonusDoMatador{exp: d.expBonus(killer), fada: fairyContentBonus(killer)}
+}
+
+// grantExp awards PvE experience for one kill to one character — the killer
+// alone, or one party member — and applies any resulting level-ups
+// (captura-wyd-levelup.md, CMob::CheckGetLevel). The gain is GetExpApply-scaled
+// by the member↔target level ratio; the total is clamped to the curve ceiling.
+// Each level raises MaxHp/MaxMp by the per-class increment, refills HP/MP, and
+// recomputes the free attribute points (BASE_GetBonusScorePoint — idempotent
+// from level+stats, so it need not be persisted). On a level gain the member's
+// client gets a fresh score and the level-up effect, with the effect also shown
+// to in-view players.
+//
+// Level, tier, zone and the newbie gate are the member's; only the bonus is the
+// killer's (bonusDoMatador).
+//
+// UNVERIFIED / deferred: the per-level reward items (DoItemLevel).
+func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, member, mob *world.Entity, bonus bonusDoMatador) {
 	// The reward branch is chosen by the 128-tile block of the kill, not by a
 	// per-map setting: each instanced dungeon has its own divisor table in
 	// MobKilled.cpp, and until this was wired every dungeon paid open-field
 	// rates (level.ZoneForKill).
 	gain := level.ExpReward(level.ExpRewardInput{
-		Zone:         level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(killer.X), int32(killer.Y)),
+		Zone:         level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(member.X), int32(member.Y)),
 		MobExp:       mob.Exp,
-		KillerLevel:  killer.Level,
+		KillerLevel:  member.Level,
 		MobLevel:     mob.Level,
-		Tier:         tierOf(killer),
-		ExpBonus:     d.expBonus(killer),
-		FairyContent: fairyContentBonus(killer),
+		Tier:         tierOf(member),
+		ExpBonus:     bonus.exp,
+		FairyContent: bonus.fada,
 		Events:       d.expEvents,
 		Config:       d.xpConfig,
 	})
 	if gain <= 0 {
 		return
 	}
-	previousExp := killer.Exp
-	killer.Exp += gain
-	if killer.Exp > level.MaxExp {
-		killer.Exp = level.MaxExp
+	previousExp := member.Exp
+	member.Exp += gain
+	if member.Exp > level.MaxExp {
+		member.Exp = level.MaxExp
 	}
-	if applied := killer.Exp - previousExp; applied > 0 && ks != nil {
+	if applied := member.Exp - previousExp; applied > 0 && ks != nil {
 		body := protocol.EncodeExpPanelBody(fmt.Sprintf("+%d de EXP", applied), expPanelDefaultColor)
 		w.Send(ks, protocol.MsgExpPanel, body)
 	}
 
-	d.applyLevelUps(w, ks, killer)
+	d.applyLevelUps(w, ks, member)
 }
 
 // tierOf snapshots the entity's tier and quest flags for the EXP gates
@@ -593,21 +619,27 @@ const (
 // neither number is derived from the other. That is why this calls the same
 // grantExp the solo path uses instead of dividing anything.
 //
+// The one number that is not the member's is the EXP bonus: every member is
+// paid with the killer's (bonusDoMatador, restored legacy behaviour).
+//
 // Near enough is the legacy's own test: alive, and within HALFGRID of the mob.
 // A member across the map gets nothing, which is what stops a party from
 // parking somebody safe to farm.
 func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
+	// Read once, before anyone is paid: a level-up mid-loop must not move the
+	// number the rest of the party is paid with.
+	bonus := d.lerBonusDoMatador(killer)
 	leader := killer
 	if killer.Leader != 0 {
 		leader = w.Entity(killer.Leader)
 		if leader == nil {
 			// The leader vanished mid-kill; the killer still earns its own.
-			d.grantExp(w, ks, killer, mob)
+			d.grantExp(w, ks, killer, mob, bonus)
 			return
 		}
 	}
 	if leader == killer && partyMemberCount(leader) == 0 {
-		d.grantExp(w, ks, killer, mob) // solo, the common case
+		d.grantExp(w, ks, killer, mob, bonus) // solo, the common case
 		return
 	}
 
@@ -623,7 +655,7 @@ func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mo
 		if e == nil || e.HP <= 0 || !pertoDoMob(e, mob) {
 			return
 		}
-		d.grantExp(w, w.Session(id), e, mob)
+		d.grantExp(w, w.Session(id), e, mob, bonus)
 	}
 	pagar(leader.ID)
 	for _, id := range leader.PartyList {

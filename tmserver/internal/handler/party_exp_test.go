@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,6 +80,111 @@ func TestCadaMembroRecebePelaPropriaTabela(t *testing.T) {
 	}
 	t.Logf("mesmo mob (%d de XP, nível %d): nível 50 leva %d, nível 313 leva %d",
 		expDoMob, nivelDoMob, baixo, alto)
+}
+
+// grupoDeDois monta um grupo de dois colado num mob de campo. O líder é o outro,
+// não quem mata — de propósito: assim o teste também pega um bônus que viesse do
+// líder em vez de quem deu o golpe final. Os níveis são diferentes pelo mesmo
+// motivo: se o nível de quem mata vazasse para o outro, a conta mudaria.
+//
+// Os dois são entidades de mob porque o mundo não deixa um teste unitário
+// fabricar jogador; grantPartyExp só lê Leader/PartyList, HP e posição, e sem
+// sessão o pagamento é a mesma conta, só sem os pacotes.
+func grupoDeDois(t *testing.T) (d *Dispatcher, w *world.World, matador, outro, mob *world.Entity) {
+	t.Helper()
+	log := slog.New(slog.DiscardHandler)
+	d = New(Config{Log: log})
+	w = world.New(world.Config{GridDim: 16}, log, nil, d.Handle)
+	novo := func(nivel int32, exp int64, x, y int16) *world.Entity {
+		id := w.SpawnMobAt(world.MobSpawn{Template: expMobTemplate(nivel, exp, 0), X: x, Y: y, GenIndex: -1})
+		if id < 0 {
+			t.Fatalf("não consegui criar a entidade em (%d,%d)", x, y)
+		}
+		return w.Entity(id)
+	}
+	mob = novo(1, 1000, 6, 5)
+	matador = novo(1, 0, 7, 5)
+	outro = novo(2, 0, 6, 6)
+	for _, e := range []*world.Entity{matador, outro} {
+		e.ClassMaster = classMasterMortal
+		e.Exp = 0
+	}
+	matador.Leader = outro.ID
+	outro.PartyList[0] = matador.ID
+	return d, w, matador, outro, mob
+}
+
+// O bônus de XP de quem mata vale para o grupo inteiro, como no legado: nos sete
+// ramos de MobKilled.cpp o bônus sai de conn (quem matou) e o resto sai de party
+// (quem recebe). Nível, evolução e zona continuam sendo de cada um.
+func TestBonusDeXPDeQuemMataValeProGrupo(t *testing.T) {
+	casos := []struct {
+		nome                       string
+		bonusMatador, bonusDoOutro int32
+		fadaSupremaNoMatador       bool
+		// o bônus com que os DOIS devem ser pagos — sempre o de quem matou
+		bonus, fada int32
+	}{
+		{"quem mata com +100 e o outro com 0: o outro recebe com +100", 100, 0, false, 100, 0},
+		{"o outro com +100 e quem mata com 0: o outro recebe sem bônus", 0, 100, false, 0, 0},
+		{"a Fada Suprema de quem mata também vale pro grupo", 0, 0, true, fairyExpBonus(3913), 30},
+		{"o teto de 500 olha quem mata, não o outro", 500, 100, false, 500, 0},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			d, w, matador, outro, mob := grupoDeDois(t)
+			matador.AffExpBonus = c.bonusMatador
+			outro.AffExpBonus = c.bonusDoOutro
+			if c.fadaSupremaNoMatador {
+				matador.Equip[fairyEquipSlot].Index = 3913
+				matador.EquipExpBonus = fairyExpBonus(3913)
+			}
+
+			esperada := func(e *world.Entity, bonus, fada int32) int64 {
+				return level.ExpReward(level.ExpRewardInput{
+					Zone:   level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(e.X), int32(e.Y)),
+					MobExp: mob.Exp, KillerLevel: e.Level, MobLevel: mob.Level,
+					Tier: tierOf(e), ExpBonus: bonus, FairyContent: fada,
+					Events: d.expEvents, Config: d.xpConfig,
+				})
+			}
+			// Sem isto o teste passaria por acaso: se o bônus não mexesse na
+			// conta, o de quem mata e o do outro dariam o mesmo número.
+			if esperada(outro, 100, 0) == esperada(outro, 0, 0) {
+				t.Fatal("+100 não muda a XP deste mob; o caso não distingue de quem é o bônus")
+			}
+			querMatador, querOutro := esperada(matador, c.bonus, c.fada), esperada(outro, c.bonus, c.fada)
+
+			d.grantPartyExp(w, nil, matador, mob)
+
+			if outro.Exp != querOutro {
+				t.Errorf("o outro recebeu %d, queria %d (bônus de quem matou: %d%%+%d); "+
+					"com o bônus dele mesmo seriam %d",
+					outro.Exp, querOutro, c.bonus, c.fada, esperada(outro, c.bonusDoOutro, 0))
+			}
+			if matador.Exp != querMatador {
+				t.Errorf("quem matou recebeu %d, queria %d", matador.Exp, querMatador)
+			}
+		})
+	}
+}
+
+// Sozinho nada muda: quem mata é o único pago, com o próprio bônus. É o mesmo
+// caso de TestMobKilledGrantsExp, agora com +100.
+func TestBonusDeXPSozinhoNaoMuda(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	killer.AffExpBonus = 100
+	mobID := w.SpawnMob(expMobTemplate(1, 1000, 0), 6, 5)
+	if mobID < 0 {
+		t.Fatal("SpawnMob failed")
+	}
+
+	d.mobKilled(w, killer, w.Entity(mobID))
+	// 450*1000/31=14516 → ÷1 → ×0.6=8709 → eMob cap 1000 → +100% 2000 →
+	// Kefra down 1000 → −15%.
+	if killer.Exp != 850 {
+		t.Errorf("killer.Exp = %d, want 850", killer.Exp)
+	}
 }
 
 // Um mob mais fraco que o personagem paga menos para ele — é a escala por

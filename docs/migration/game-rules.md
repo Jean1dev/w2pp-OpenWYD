@@ -302,6 +302,15 @@ if party.MOB.Exp + exp > g_pNextLevel[MAX_LEVEL+1]:
     party.MOB.Exp = g_pNextLevel[MAX_LEVEL+1]          # :1410-1417
 ```
 
+> **Bônus de XP em grupo = o de quem matou.** Nas mesmas linhas, o bônus sai de `conn` (quem deu
+> o golpe final; num summon, o dono) e todo o resto sai de `party` (o membro sendo pago): nível,
+> evolução, zona, clã da guerra de reino, evento de novato. Vale nos sete ramos — os três do
+> Pesadelo (`:534/679/794`, só `ExpBonus`) e os quatro de Água e campo (`:943/1092/1214/1363`,
+> com `g_pFairyContent[0]`); o teto `< 500` também olha quem matou. Então um grupo que mata com
+> um personagem de +100% recebe +100% cada um, e um membro de +100% que não matou recebe sem
+> bônus. O rewrite chegou a ler o bônus de cada membro; voltou ao do legado (fidelidade
+> restaurada, `bonusDoMatador` em `tmserver/internal/handler/mobkilled.go`).
+
 > **Dados (issue #43):** os templates originais de `Release/TMsrv/run/npc/` traziam `Exp` zerado
 > ou absurdo em centenas de monstros. O campo é regravado offline por `tmserver/cmd/exptool`
 > usando a curva `level.MobExpForLevel` (pacing clássico em kills-por-level, invertendo o
