@@ -702,6 +702,11 @@ service NpcConfigService {
   // lineage with no row keeps 25/25 and plays exactly as the original did.
   rpc ListMountAbsorb(ListMountAbsorbRequest) returns (ListMountAbsorbResponse);
 
+  // ListMountBonus returns the attack, magic, evasion and immunity the panel set
+  // for each adult lineage (0043_mount_bonus). A lineage absent from the reply
+  // keeps the compiled table (internal/mountbonus), which is the client's own.
+  rpc ListMountBonus(ListMountBonusRequest) returns (ListMountBonusResponse);
+
   // MountConfigVersion is when the mount overlay last changed, as unix seconds.
   // tmServer reads it beside the tables at boot and reports it back through the
   // control channel, so the panel can tell "saved and live" from "saved, waiting
@@ -979,6 +984,22 @@ message MountAbsorb {
   int32 mount_index = 1;  // the ADULT mount, 2360..2389
   int32 absorb_pvp = 2;   // 0..100, against a player's blow
   int32 absorb_pve = 3;   // 0..100, against a monster's
+}
+
+message ListMountBonusRequest {}
+message ListMountBonusResponse {
+  repeated MountBonus bonus = 1;
+}
+
+// MountBonus is one lineage's configured attributes. The four travel together
+// for the same reason the absorption pair does: they are one decision about
+// what the mount is.
+message MountBonus {
+  int32 mount_index = 1; // the ADULT mount, 2360..2389
+  int32 attack = 2;      // coefficient, 0..2000: (level+20)*attack/100
+  int32 magic = 3;       // coefficient, 0..500: (level+15)*magic/100
+  int32 evasion = 4;     // tenths of a percent, 0..100
+  int32 resist = 5;      // 0..100, all four resistances
 }
 
 // XPConfigService serves the Mesa de XP — the panel-managed experience tables —

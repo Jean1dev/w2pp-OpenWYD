@@ -3577,6 +3577,9 @@ const (
 	MountGrowthAdminService_ListMountAbsorb_FullMethodName       = "/web.v1.MountGrowthAdminService/ListMountAbsorb"
 	MountGrowthAdminService_SetMountAbsorb_FullMethodName        = "/web.v1.MountGrowthAdminService/SetMountAbsorb"
 	MountGrowthAdminService_ClearMountAbsorb_FullMethodName      = "/web.v1.MountGrowthAdminService/ClearMountAbsorb"
+	MountGrowthAdminService_ListMountBonus_FullMethodName        = "/web.v1.MountGrowthAdminService/ListMountBonus"
+	MountGrowthAdminService_SetMountBonus_FullMethodName         = "/web.v1.MountGrowthAdminService/SetMountBonus"
+	MountGrowthAdminService_ClearMountBonus_FullMethodName       = "/web.v1.MountGrowthAdminService/ClearMountBonus"
 	MountGrowthAdminService_MountConfigVersion_FullMethodName    = "/web.v1.MountGrowthAdminService/MountConfigVersion"
 )
 
@@ -3617,6 +3620,14 @@ type MountGrowthAdminServiceClient interface {
 	// ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
 	// legacy) applies again.
 	ClearMountAbsorb(ctx context.Context, in *ClearMountAbsorbRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// ListMountBonus returns every adult lineage's attributes — attack, magic,
+	// evasion, immunity — configured or not, each beside its compiled default, so
+	// the screen can show what a lineage had before anyone touched it.
+	ListMountBonus(ctx context.Context, in *ListMountBonusRequest, opts ...grpc.CallOption) (*ListMountBonusResponse, error)
+	// SetMountBonus writes one lineage's four numbers.
+	SetMountBonus(ctx context.Context, in *SetMountBonusRequest, opts ...grpc.CallOption) (*AdminAck, error)
+	// ClearMountBonus drops the lineage's row so the compiled table applies again.
+	ClearMountBonus(ctx context.Context, in *ClearMountBonusRequest, opts ...grpc.CallOption) (*AdminAck, error)
 	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
 	// The panel holds it against the number the running game reports, which is the
 	// only way the screen can say whether what it shows is what players get.
@@ -3691,6 +3702,36 @@ func (c *mountGrowthAdminServiceClient) ClearMountAbsorb(ctx context.Context, in
 	return out, nil
 }
 
+func (c *mountGrowthAdminServiceClient) ListMountBonus(ctx context.Context, in *ListMountBonusRequest, opts ...grpc.CallOption) (*ListMountBonusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMountBonusResponse)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_ListMountBonus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mountGrowthAdminServiceClient) SetMountBonus(ctx context.Context, in *SetMountBonusRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_SetMountBonus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mountGrowthAdminServiceClient) ClearMountBonus(ctx context.Context, in *ClearMountBonusRequest, opts ...grpc.CallOption) (*AdminAck, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAck)
+	err := c.cc.Invoke(ctx, MountGrowthAdminService_ClearMountBonus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mountGrowthAdminServiceClient) MountConfigVersion(ctx context.Context, in *MountConfigVersionRequest, opts ...grpc.CallOption) (*MountConfigVersionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MountConfigVersionResponse)
@@ -3738,6 +3779,14 @@ type MountGrowthAdminServiceServer interface {
 	// ClearMountAbsorb drops the lineage's row so the compiled default (25/25, the
 	// legacy) applies again.
 	ClearMountAbsorb(context.Context, *ClearMountAbsorbRequest) (*AdminAck, error)
+	// ListMountBonus returns every adult lineage's attributes — attack, magic,
+	// evasion, immunity — configured or not, each beside its compiled default, so
+	// the screen can show what a lineage had before anyone touched it.
+	ListMountBonus(context.Context, *ListMountBonusRequest) (*ListMountBonusResponse, error)
+	// SetMountBonus writes one lineage's four numbers.
+	SetMountBonus(context.Context, *SetMountBonusRequest) (*AdminAck, error)
+	// ClearMountBonus drops the lineage's row so the compiled table applies again.
+	ClearMountBonus(context.Context, *ClearMountBonusRequest) (*AdminAck, error)
 	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
 	// The panel holds it against the number the running game reports, which is the
 	// only way the screen can say whether what it shows is what players get.
@@ -3769,6 +3818,15 @@ func (UnimplementedMountGrowthAdminServiceServer) SetMountAbsorb(context.Context
 }
 func (UnimplementedMountGrowthAdminServiceServer) ClearMountAbsorb(context.Context, *ClearMountAbsorbRequest) (*AdminAck, error) {
 	return nil, status.Error(codes.Unimplemented, "method ClearMountAbsorb not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) ListMountBonus(context.Context, *ListMountBonusRequest) (*ListMountBonusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMountBonus not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) SetMountBonus(context.Context, *SetMountBonusRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetMountBonus not implemented")
+}
+func (UnimplementedMountGrowthAdminServiceServer) ClearMountBonus(context.Context, *ClearMountBonusRequest) (*AdminAck, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClearMountBonus not implemented")
 }
 func (UnimplementedMountGrowthAdminServiceServer) MountConfigVersion(context.Context, *MountConfigVersionRequest) (*MountConfigVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MountConfigVersion not implemented")
@@ -3903,6 +3961,60 @@ func _MountGrowthAdminService_ClearMountAbsorb_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MountGrowthAdminService_ListMountBonus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMountBonusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).ListMountBonus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_ListMountBonus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).ListMountBonus(ctx, req.(*ListMountBonusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MountGrowthAdminService_SetMountBonus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetMountBonusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).SetMountBonus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_SetMountBonus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).SetMountBonus(ctx, req.(*SetMountBonusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MountGrowthAdminService_ClearMountBonus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearMountBonusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MountGrowthAdminServiceServer).ClearMountBonus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MountGrowthAdminService_ClearMountBonus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MountGrowthAdminServiceServer).ClearMountBonus(ctx, req.(*ClearMountBonusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MountGrowthAdminService_MountConfigVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MountConfigVersionRequest)
 	if err := dec(in); err != nil {
@@ -3951,6 +4063,18 @@ var MountGrowthAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClearMountAbsorb",
 			Handler:    _MountGrowthAdminService_ClearMountAbsorb_Handler,
+		},
+		{
+			MethodName: "ListMountBonus",
+			Handler:    _MountGrowthAdminService_ListMountBonus_Handler,
+		},
+		{
+			MethodName: "SetMountBonus",
+			Handler:    _MountGrowthAdminService_SetMountBonus_Handler,
+		},
+		{
+			MethodName: "ClearMountBonus",
+			Handler:    _MountGrowthAdminService_ClearMountBonus_Handler,
 		},
 		{
 			MethodName: "MountConfigVersion",

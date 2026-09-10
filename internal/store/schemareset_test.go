@@ -46,6 +46,7 @@ var tabelasDeTeste = []string{
 	"npc_config_meta",
 	"mob_template_equip",
 	"mob_template_stat",
+	"mount_bonus",
 	"mount_absorb",
 	"mount_growth_rate",
 	"xp_rule_meta",

@@ -141,3 +141,68 @@ func (c *Client) MountConfigVersion(ctx context.Context) (int64, error) {
 	}
 	return resp.GetVersion(), nil
 }
+
+// MountBonus is one lineage's attributes as the panel shows it: what is in
+// effect, and the compiled default beside it (the client's own numbers).
+// Attack and Magic are coefficients; Evasion is in tenths of a percent.
+type MountBonus struct {
+	MountIndex     int32
+	DisplayName    string
+	Configured     bool
+	Attack         int32
+	Magic          int32
+	Evasion        int32
+	Resist         int32
+	DefaultAttack  int32
+	DefaultMagic   int32
+	DefaultEvasion int32
+	DefaultResist  int32
+}
+
+// MountBonuses lists the whole roster of adult lineages, configured or not.
+func (c *Client) MountBonuses(ctx context.Context) ([]MountBonus, error) {
+	resp, err := c.mountGrowth.ListMountBonus(ctx, &webv1.ListMountBonusRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("gamedata: list mount bonus: %w", err)
+	}
+	out := make([]MountBonus, 0, len(resp.GetBonus()))
+	for _, b := range resp.GetBonus() {
+		out = append(out, MountBonus{
+			MountIndex:     b.GetMountIndex(),
+			DisplayName:    b.GetDisplayName(),
+			Configured:     b.GetConfigured(),
+			Attack:         b.GetAttack(),
+			Magic:          b.GetMagic(),
+			Evasion:        b.GetEvasion(),
+			Resist:         b.GetResist(),
+			DefaultAttack:  b.GetDefaultAttack(),
+			DefaultMagic:   b.GetDefaultMagic(),
+			DefaultEvasion: b.GetDefaultEvasion(),
+			DefaultResist:  b.GetDefaultResist(),
+		})
+	}
+	return out, nil
+}
+
+// SetMountBonus writes one lineage's four numbers, all at once.
+func (c *Client) SetMountBonus(ctx context.Context, moderatorID int64, moderator string, mountIndex, attack, magic, evasion, resist int32) error {
+	resp, err := c.mountGrowth.SetMountBonus(ctx, &webv1.SetMountBonusRequest{
+		ModeratorId: moderatorID, Moderator: moderator, MountIndex: mountIndex,
+		Attack: attack, Magic: magic, Evasion: evasion, Resist: resist,
+	})
+	if err != nil {
+		return fmt.Errorf("gamedata: set mount bonus %d: %w", mountIndex, err)
+	}
+	return resultErr(resp.GetResult())
+}
+
+// ClearMountBonus drops the lineage's row so the compiled table applies again.
+func (c *Client) ClearMountBonus(ctx context.Context, moderatorID int64, mountIndex int32) error {
+	resp, err := c.mountGrowth.ClearMountBonus(ctx, &webv1.ClearMountBonusRequest{
+		ModeratorId: moderatorID, MountIndex: mountIndex,
+	})
+	if err != nil {
+		return fmt.Errorf("gamedata: clear mount bonus %d: %w", mountIndex, err)
+	}
+	return resultErr(resp.GetResult())
+}

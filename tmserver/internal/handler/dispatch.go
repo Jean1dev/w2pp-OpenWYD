@@ -18,6 +18,7 @@ import (
 
 	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/internal/spawnrate"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
@@ -168,6 +169,12 @@ type Config struct {
 	// flat 25% on both axes.
 	MountAbsorb mountrate.AbsorbTable
 
+	// MountBonus is the attack, magic, evasion and immunity each adult lineage
+	// lends its rider, as configured in the panel (0043_mount_bonus). Nil (or a
+	// lineage absent from it) keeps the compiled table in internal/mountbonus,
+	// which is the client's own.
+	MountBonus mountbonus.Table
+
 	// Heights is the walkability grid the mob AI paths over: HeightMap.dat with
 	// AttributeMap.dat already baked in (route.Bake, the boot-time
 	// BASE_ApplyAttribute). Read-only after boot, so sharing it with the loop is
@@ -249,6 +256,7 @@ type Dispatcher struct {
 	lang            *content.Language            // client string table (notification text)
 	mountRates      mountrate.Table              // mount growth curves (0030_mount_growth_rate)
 	mountAbsorb     mountrate.AbsorbTable        // mount absorption pairs (0035_mount_absorb)
+	mountBonus      mountbonus.Table             // mount attribute overlay (0043_mount_bonus)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	now             func() time.Time             // wall clock for calendar-gated guild ops
 	maxNightmare    int                          // Pesadelo runs per window per tier (Server.cpp:687)
@@ -444,6 +452,7 @@ func New(cfg Config) *Dispatcher {
 		lang:              cfg.Language,
 		mountRates:        cfg.MountRates,
 		mountAbsorb:       cfg.MountAbsorb,
+		mountBonus:        cfg.MountBonus,
 		heights:           cfg.Heights,
 		now:               cfg.Now,
 		maxNightmare:      cfg.MaxNightmare,

@@ -8,6 +8,7 @@ import (
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mountgrowth"
 )
 
@@ -21,6 +22,9 @@ type MountGrowthAdmin interface {
 	ListAbsorb(ctx context.Context) ([]mountgrowth.Absorb, error)
 	SetAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int16) error
 	ClearAbsorb(ctx context.Context, moderatorID int64, mountIndex int16) error
+	ListBonus(ctx context.Context) ([]mountgrowth.Bonus, error)
+	SetBonus(ctx context.Context, moderatorID int64, moderator string, mountIndex int16, b mountbonus.Bonus) error
+	ClearBonus(ctx context.Context, moderatorID int64, mountIndex int16) error
 	ConfigVersion(ctx context.Context) (int64, error)
 }
 
@@ -141,4 +145,63 @@ func (s *MountGrowthAdminServer) MountConfigVersion(ctx context.Context, _ *webv
 		return nil, status.Errorf(codes.Internal, "mount config version: %v", err)
 	}
 	return &webv1.MountConfigVersionResponse{Version: v}, nil
+}
+
+// ListMountBonus returns every lineage's attributes, configured or not, each
+// beside its compiled default.
+func (s *MountGrowthAdminServer) ListMountBonus(ctx context.Context, _ *webv1.ListMountBonusRequest) (*webv1.ListMountBonusResponse, error) {
+	rows, err := s.admin.ListBonus(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list mount bonus: %v", err)
+	}
+	out := make([]*webv1.AdminMountBonus, 0, len(rows))
+	for _, b := range rows {
+		out = append(out, &webv1.AdminMountBonus{
+			MountIndex:     int32(b.MountIndex),
+			DisplayName:    b.DisplayName,
+			Configured:     b.Configured,
+			Attack:         int32(b.Current.Attack),
+			Magic:          int32(b.Current.Magic),
+			Evasion:        int32(b.Current.Evasion),
+			Resist:         int32(b.Current.Resist),
+			DefaultAttack:  int32(b.Default.Attack),
+			DefaultMagic:   int32(b.Default.Magic),
+			DefaultEvasion: int32(b.Default.Evasion),
+			DefaultResist:  int32(b.Default.Resist),
+		})
+	}
+	return &webv1.ListMountBonusResponse{Bonus: out}, nil
+}
+
+// SetMountBonus writes one lineage's four numbers.
+func (s *MountGrowthAdminServer) SetMountBonus(ctx context.Context, req *webv1.SetMountBonusRequest) (*webv1.AdminAck, error) {
+	// Range-checked here and not only in the store, like the absorption: a value
+	// outside the model is a caller that disagrees, and InvalidArgument says so
+	// where a storage error would read as a database problem. The int32 → int16
+	// round trip is part of the check: a number that does not survive it is out
+	// of range by definition.
+	b := mountbonus.Bonus{
+		Attack: int16(req.GetAttack()), Magic: int16(req.GetMagic()),
+		Evasion: int16(req.GetEvasion()), Resist: int16(req.GetResist()),
+	}
+	if !b.Valid() || int32(b.Attack) != req.GetAttack() || int32(b.Magic) != req.GetMagic() ||
+		int32(b.Evasion) != req.GetEvasion() || int32(b.Resist) != req.GetResist() {
+		return nil, status.Errorf(codes.InvalidArgument, "mount bonus %d/%d/%d/%d is out of range",
+			req.GetAttack(), req.GetMagic(), req.GetEvasion(), req.GetResist())
+	}
+	if !mountbonus.IsAdult(int16(req.GetMountIndex())) {
+		return nil, status.Errorf(codes.InvalidArgument, "%d is not an adult mount", req.GetMountIndex())
+	}
+	if err := s.admin.SetBonus(ctx, req.GetModeratorId(), req.GetModerator(), int16(req.GetMountIndex()), b); err != nil {
+		return nil, status.Errorf(codes.Internal, "set mount bonus: %v", err)
+	}
+	return &webv1.AdminAck{Result: webv1.AdminResult_ADMIN_RESULT_OK}, nil
+}
+
+// ClearMountBonus drops the lineage's row so the compiled table applies again.
+func (s *MountGrowthAdminServer) ClearMountBonus(ctx context.Context, req *webv1.ClearMountBonusRequest) (*webv1.AdminAck, error) {
+	if err := s.admin.ClearBonus(ctx, req.GetModeratorId(), int16(req.GetMountIndex())); err != nil {
+		return nil, status.Errorf(codes.Internal, "clear mount bonus: %v", err)
+	}
+	return &webv1.AdminAck{Result: webv1.AdminResult_ADMIN_RESULT_OK}, nil
 }

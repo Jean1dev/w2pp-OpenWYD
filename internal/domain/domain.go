@@ -850,6 +850,18 @@ type MountAbsorb struct {
 // plays exactly as the original did.
 const DefaultMountAbsorb = 25
 
+// MountBonus is the attack, magic, evasion and immunity an adult lineage lends
+// its rider, as configured in the panel (0043_mount_bonus). A lineage with no row
+// uses the compiled table in internal/mountbonus.
+type MountBonus struct {
+	MountIndex int16
+	Attack     int16 // coefficient: (level+20)*Attack/100 at a given mount level
+	Magic      int16 // coefficient: (level+15)*Magic/100
+	Evasion    int16 // tenths of a percent, 0..100
+	Resist     int16 // 0..100, all four resistances
+	UpdatedBy  string
+}
+
 // MountGrowthBandFor maps a mount level to its band, clamped so a level past the
 // cap still reads the last band rather than falling off the table.
 func MountGrowthBandFor(level int) int16 {

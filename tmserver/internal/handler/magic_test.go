@@ -90,7 +90,7 @@ func TestMagicFromEquipment(t *testing.T) {
 			want: 72,
 		},
 		{
-			// Mount magicRaw (Thoroughbred 30D: 72, mountTempBonusTable row {450,72,10,28,6})
+			// Mount magicRaw (Thoroughbred 30D: 72, mountbonus temp row {450,72,10,28})
 			// and item magicRaw (40) combine BEFORE the single (x+1)/4 scaling: (72+40+1)/4.
 			name: "mount magic and item magic combine under one scaling",
 			equip: map[int]world.Item{

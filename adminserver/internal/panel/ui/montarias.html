@@ -7,7 +7,7 @@
   /* A tabela é larga de propósito: as seis faixas lado a lado SÃO a curva, e
      lê-las juntas é a única forma de ver que ela sobe ou desce. Esconder faixas
      atrás de um clique devolveria seis números soltos. */
-  table.curvas { min-width: 940px; }
+  table.curvas { min-width: 1180px; }
   table.curvas th.faixa, table.curvas td.faixa {
     text-align: right; padding-right: 12px; font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -49,6 +49,10 @@
     border-radius: 3px; font-variant-numeric: tabular-nums;
   }
   .faixas-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* A dica sob cada campo de atributo: o padrão e o que o número vira no nível
+     120. Minúscula e sem espaçamento, para não competir com o rótulo. */
+  .faixas-form label small { display: block; margin-top: 4px; font-size: 11.5px;
+                             letter-spacing: 0; text-transform: none; color: var(--ink-3); }
   .linha-botoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .dica-curva { font-size: 12.5px; color: var(--ink-3); }
 
@@ -75,11 +79,12 @@
 
   <h1>Montarias</h1>
   <p class="sub">
-    Duas decisões por linhagem: <strong>quanto custa criar</strong> a montaria e
-    <strong>o que ela faz depois de criada</strong>. A curva de crescimento diz a
-    chance de cada âmago, faixa de vinte níveis por faixa; a absorção diz quanto
-    do golpe a montaria come no lugar do dono — e ela é separada por quem bateu,
-    que é o que deixa existir montaria de PvE e montaria de PvP.
+    Três decisões por linhagem: <strong>quanto custa criar</strong> a montaria,
+    <strong>como ela defende</strong> o dono e <strong>o que ela empresta</strong>
+    a ele. A curva de crescimento diz a chance de cada âmago, faixa de vinte
+    níveis por faixa; a absorção diz quanto do golpe a montaria come no lugar do
+    dono, separada por quem bateu; os atributos são o dano, a magia, a evasão e a
+    imunidade que ela soma.
   </p>
 
   {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
@@ -100,8 +105,9 @@
 
   <div class="nota calma">
     <strong>Como a absorção funciona.</strong> Quando o dono leva um golpe, a
-    montaria adulta come essa porcentagem dele — e paga por isso: <strong>metade
-    do que ela absorveu sai do HP dela</strong>. Uma montaria que chega a zero
+    montaria adulta come essa porcentagem dele — e paga por isso com o HP dela:
+    <strong>tudo o que absorveu de um monstro, e metade do que absorveu de um
+    jogador</strong>, como no legado. Uma montaria que chega a zero
     para de absorver, perde a ração e deixa de dar os bônus até ser revivida e
     alimentada de novo. É por isso que absorver muito não é de graça.
     <br><br>
@@ -113,6 +119,26 @@
     O legado tinha um número só, <strong>{{.PadraoAbs}}% para qualquer um</strong>, e é
     esse o padrão de quem nunca foi editado aqui. Zero é uma escolha legítima e
     não é o mesmo que estar no padrão — a tela mostra qual é qual.
+  </div>
+
+  <div class="nota calma">
+    <strong>Como os atributos funcionam.</strong> Dano, magia, evasão e
+    imunidade são o que a montaria empresta ao dono. Dano e magia são
+    <strong>coeficientes</strong>: crescem com o nível da montaria, e a tabela
+    mostra quanto dão no nível 120, que é o número do tooltip. A evasão é um
+    porcentual (a esquiva que vem de equipamento para em 10%), e a imunidade vale
+    para as quatro resistências. O padrão de cada linhagem é o número que o
+    próprio cliente do jogo traz.
+  </div>
+
+  <div class="nota perigo">
+    <strong>O cliente não vê o que você muda aqui sozinho.</strong> Gravar muda o
+    servidor; o tooltip do jogador continua mostrando o número antigo até os
+    arquivos do cliente serem gerados de novo e publicados. Sem isso o jogador lê
+    um número e leva outro — exatamente o defeito que esta tabela veio corrigir.
+    Depois de mexer em atributos ou em absorção,
+    <a href="/rates/montarias/cliente.txt">baixe a tabela para o cliente</a> e
+    passe-a ao gerador.
   </div>
 
   {{template "quando-vale" "reiniciar"}}
@@ -169,6 +195,10 @@
       <div class="val">{{.AbsEditadas}} <small>de {{len .Linhas}}</small></div>
     </div>
     <div class="num-tile">
+      <div class="rot">Atributos editados</div>
+      <div class="val">{{.AtribEditadas}} <small>de {{len .Linhas}}</small></div>
+    </div>
+    <div class="num-tile">
       <div class="rot">Inalcançáveis</div>
       <div class="val">{{.Inalcancaveis}}</div>
     </div>
@@ -184,6 +214,7 @@
           <th colspan="2"></th>
           <th colspan="8">Crescimento &mdash; chance do âmago, por faixa de nível</th>
           <th colspan="2" class="sep">Absorção &mdash; quanto do golpe a montaria come</th>
+          <th colspan="4" class="sep">Atributos &mdash; o que ela dá no nível 120</th>
           <th></th>
         </tr>
         <tr>
@@ -199,6 +230,10 @@
           <th>Ritmo</th>
           <th class="faixa sep">PvP</th>
           <th class="faixa">PvE</th>
+          <th class="faixa sep">Dano</th>
+          <th class="faixa">Magia</th>
+          <th class="faixa">Evasão</th>
+          <th class="faixa">Imun.</th>
           <th></th>
         </tr>
       </thead>
@@ -212,6 +247,10 @@
           <td><span class="ritmo {{.Ritmo}}">{{.RitmoNome}}</span></td>
           <td class="faixa sep {{if .AbsPadrao}}padrao{{end}}">{{.AbsPvP}}%</td>
           <td class="faixa {{if .AbsPadrao}}padrao{{end}}">{{.AbsPvE}}%</td>
+          <td class="faixa sep {{if .AtribPadrao}}padrao{{end}}">{{.Atk120}}</td>
+          <td class="faixa {{if .AtribPadrao}}padrao{{end}}">{{.Mag120}}</td>
+          <td class="faixa {{if .AtribPadrao}}padrao{{end}}">{{.EvaTexto}}%</td>
+          <td class="faixa {{if .AtribPadrao}}padrao{{end}}">{{.Imun}}</td>
           <td>
             {{if .Aberta}}
               <a class="botao" href="/rates/montarias">Fechar</a>
@@ -222,7 +261,7 @@
         </tr>
         {{if .Aberta}}
         <tr class="editando" id="m{{.Indice}}">
-          <td class="editor" colspan="13">
+          <td class="editor" colspan="17">
             {{/* Os dois botões ficam lado a lado sem um form dentro do outro:
                  cada botão aponta para o seu form pelo atributo form=. Aninhar
                  formulários é inválido, e o painel não tem script para contornar
@@ -286,11 +325,56 @@
                 {{end}}
               </div>
             </div>
+
+            {{/* Terceira tabela, terceiro botão, pelo mesmo motivo da absorção:
+                 mexer no dano não pode reescrever a defesa sem ninguém pedir. */}}
+            <div class="bloco-abs">
+              <div class="rot-bloco">Atributos</div>
+              <form id="atrib{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/atributos">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <div class="faixas-form">
+                  <label>
+                    Dano (coeficiente)
+                    <input type="number" name="atk" min="0" max="2000" value="{{.Atk}}">
+                    <small>padrão {{.PadAtk}} &middot; nível 120: {{.Atk120}}</small>
+                  </label>
+                  <label>
+                    Magia (coeficiente)
+                    <input type="number" name="mag" min="0" max="500" value="{{.Mag}}">
+                    <small>padrão {{.PadMag}} &middot; nível 120: {{.Mag120}}</small>
+                  </label>
+                  <label>
+                    Evasão (%)
+                    <input type="text" name="eva" inputmode="decimal" value="{{.EvaTexto}}">
+                    <small>padrão {{.PadEvaTexto}}% &middot; até 10%</small>
+                  </label>
+                  <label>
+                    Imunidade
+                    <input type="number" name="imun" min="0" max="100" value="{{.Imun}}">
+                    <small>padrão {{.PadImn}}</small>
+                  </label>
+                </div>
+              </form>
+              {{if not .AtribPadrao}}
+              <form id="atribPadrao{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/atributos/limpar">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              </form>
+              {{end}}
+              <div class="linha-botoes">
+                <button class="principal" type="submit" form="atrib{{.Indice}}">Gravar os atributos</button>
+                {{if not .AtribPadrao}}
+                <button class="perigo" type="submit" form="atribPadrao{{.Indice}}">Voltar ao padrão</button>
+                <span class="dica-curva">Restaurar apaga os quatro números; a linhagem volta aos do cliente.</span>
+                {{else}}
+                <span class="dica-curva">Esta linhagem está nos números que o cliente traz.</span>
+                {{end}}
+              </div>
+            </div>
           </td>
         </tr>
         {{end}}
       {{else}}
-        <tr><td colspan="13"><div class="vazio">Nenhuma linhagem de montaria veio do servidor.</div></td></tr>
+        <tr><td colspan="17"><div class="vazio">Nenhuma linhagem de montaria veio do servidor.</div></td></tr>
       {{end}}
       </tbody>
     </table>

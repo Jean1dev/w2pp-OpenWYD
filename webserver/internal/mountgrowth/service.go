@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
 )
 
@@ -25,6 +26,9 @@ type Store interface {
 	ListMountAbsorb(ctx context.Context) ([]domain.MountAbsorb, error)
 	SetMountAbsorb(ctx context.Context, mountIndex, pvp, pve int16, moderatorID int64, moderator string) error
 	ClearMountAbsorb(ctx context.Context, mountIndex int16, moderatorID int64) error
+	ListMountBonus(ctx context.Context) ([]domain.MountBonus, error)
+	SetMountBonus(ctx context.Context, b domain.MountBonus, moderatorID int64, moderator string) error
+	ClearMountBonus(ctx context.Context, mountIndex int16, moderatorID int64) error
 	MountConfigVersion(ctx context.Context) (int64, error)
 }
 
@@ -246,4 +250,56 @@ func (s *Service) ConfigVersion(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("mountgrowth: config version: %w", err)
 	}
 	return v, nil
+}
+
+// Bonus is one lineage's attributes as the panel shows it: what is in effect,
+// and beside it the compiled default — the client's own numbers — so the screen
+// can say what a lineage had before anyone touched it.
+type Bonus struct {
+	MountIndex  int16
+	DisplayName string
+	Configured  bool
+	Current     mountbonus.Bonus
+	Default     mountbonus.Bonus
+}
+
+// ListBonus returns every adult lineage, configured or not, in index order.
+func (s *Service) ListBonus(ctx context.Context) ([]Bonus, error) {
+	rows, err := s.store.ListMountBonus(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mountgrowth: list bonus: %w", err)
+	}
+	byMount := make(map[int16]domain.MountBonus, len(rows))
+	for _, r := range rows {
+		byMount[r.MountIndex] = r
+	}
+
+	out := make([]Bonus, 0, mountbonus.AdultHi-mountbonus.AdultLo+1)
+	for idx := int16(mountbonus.AdultLo); idx <= mountbonus.AdultHi; idx++ {
+		def, _ := mountbonus.Default(idx)
+		b := Bonus{MountIndex: idx, DisplayName: s.name(idx), Current: def, Default: def}
+		if row, ok := byMount[idx]; ok {
+			b.Configured = true
+			b.Current = mountbonus.Bonus{Attack: row.Attack, Magic: row.Magic, Evasion: row.Evasion, Resist: row.Resist}
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// SetBonus writes one lineage's four numbers.
+func (s *Service) SetBonus(ctx context.Context, moderatorID int64, moderator string, mountIndex int16, b mountbonus.Bonus) error {
+	row := domain.MountBonus{MountIndex: mountIndex, Attack: b.Attack, Magic: b.Magic, Evasion: b.Evasion, Resist: b.Resist}
+	if err := s.store.SetMountBonus(ctx, row, moderatorID, moderator); err != nil {
+		return fmt.Errorf("mountgrowth: set bonus %d: %w", mountIndex, err)
+	}
+	return nil
+}
+
+// ClearBonus drops the lineage's row so the compiled table applies again.
+func (s *Service) ClearBonus(ctx context.Context, moderatorID int64, mountIndex int16) error {
+	if err := s.store.ClearMountBonus(ctx, mountIndex, moderatorID); err != nil {
+		return fmt.Errorf("mountgrowth: clear bonus %d: %w", mountIndex, err)
+	}
+	return nil
 }

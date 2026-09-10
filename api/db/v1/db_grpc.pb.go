@@ -1709,6 +1709,7 @@ const (
 	NpcConfigService_ListItemStats_FullMethodName        = "/db.v1.NpcConfigService/ListItemStats"
 	NpcConfigService_ListMountGrowthRates_FullMethodName = "/db.v1.NpcConfigService/ListMountGrowthRates"
 	NpcConfigService_ListMountAbsorb_FullMethodName      = "/db.v1.NpcConfigService/ListMountAbsorb"
+	NpcConfigService_ListMountBonus_FullMethodName       = "/db.v1.NpcConfigService/ListMountBonus"
 	NpcConfigService_MountConfigVersion_FullMethodName   = "/db.v1.NpcConfigService/MountConfigVersion"
 )
 
@@ -1762,6 +1763,10 @@ type NpcConfigServiceClient interface {
 	// PvE mount or a PvP mount rather than one of thirty identical shields. A
 	// lineage with no row keeps 25/25 and plays exactly as the original did.
 	ListMountAbsorb(ctx context.Context, in *ListMountAbsorbRequest, opts ...grpc.CallOption) (*ListMountAbsorbResponse, error)
+	// ListMountBonus returns the attack, magic, evasion and immunity the panel set
+	// for each adult lineage (0043_mount_bonus). A lineage absent from the reply
+	// keeps the compiled table (internal/mountbonus), which is the client's own.
+	ListMountBonus(ctx context.Context, in *ListMountBonusRequest, opts ...grpc.CallOption) (*ListMountBonusResponse, error)
 	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
 	// tmServer reads it beside the tables at boot and reports it back through the
 	// control channel, so the panel can tell "saved and live" from "saved, waiting
@@ -1837,6 +1842,16 @@ func (c *npcConfigServiceClient) ListMountAbsorb(ctx context.Context, in *ListMo
 	return out, nil
 }
 
+func (c *npcConfigServiceClient) ListMountBonus(ctx context.Context, in *ListMountBonusRequest, opts ...grpc.CallOption) (*ListMountBonusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMountBonusResponse)
+	err := c.cc.Invoke(ctx, NpcConfigService_ListMountBonus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *npcConfigServiceClient) MountConfigVersion(ctx context.Context, in *MountConfigVersionRequest, opts ...grpc.CallOption) (*MountConfigVersionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MountConfigVersionResponse)
@@ -1897,6 +1912,10 @@ type NpcConfigServiceServer interface {
 	// PvE mount or a PvP mount rather than one of thirty identical shields. A
 	// lineage with no row keeps 25/25 and plays exactly as the original did.
 	ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error)
+	// ListMountBonus returns the attack, magic, evasion and immunity the panel set
+	// for each adult lineage (0043_mount_bonus). A lineage absent from the reply
+	// keeps the compiled table (internal/mountbonus), which is the client's own.
+	ListMountBonus(context.Context, *ListMountBonusRequest) (*ListMountBonusResponse, error)
 	// MountConfigVersion is when the mount overlay last changed, as unix seconds.
 	// tmServer reads it beside the tables at boot and reports it back through the
 	// control channel, so the panel can tell "saved and live" from "saved, waiting
@@ -1929,6 +1948,9 @@ func (UnimplementedNpcConfigServiceServer) ListMountGrowthRates(context.Context,
 }
 func (UnimplementedNpcConfigServiceServer) ListMountAbsorb(context.Context, *ListMountAbsorbRequest) (*ListMountAbsorbResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMountAbsorb not implemented")
+}
+func (UnimplementedNpcConfigServiceServer) ListMountBonus(context.Context, *ListMountBonusRequest) (*ListMountBonusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMountBonus not implemented")
 }
 func (UnimplementedNpcConfigServiceServer) MountConfigVersion(context.Context, *MountConfigVersionRequest) (*MountConfigVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MountConfigVersion not implemented")
@@ -2062,6 +2084,24 @@ func _NpcConfigService_ListMountAbsorb_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NpcConfigService_ListMountBonus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMountBonusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcConfigServiceServer).ListMountBonus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcConfigService_ListMountBonus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcConfigServiceServer).ListMountBonus(ctx, req.(*ListMountBonusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NpcConfigService_MountConfigVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MountConfigVersionRequest)
 	if err := dec(in); err != nil {
@@ -2110,6 +2150,10 @@ var NpcConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMountAbsorb",
 			Handler:    _NpcConfigService_ListMountAbsorb_Handler,
+		},
+		{
+			MethodName: "ListMountBonus",
+			Handler:    _NpcConfigService_ListMountBonus_Handler,
 		},
 		{
 			MethodName: "MountConfigVersion",

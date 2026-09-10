@@ -3,15 +3,16 @@ package handler
 import (
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
 // TestMountBonusForTemp covers a temporary/premium mount (idx 3980-3994): flat table
 // values, no HP gate or level scaling. 3987 = Thoroughbred(30dias), the Perzen reward.
 func TestMountBonusForTemp(t *testing.T) {
-	mb, ok := mountBonusFor(world.Item{Index: 3987})
+	mb, ok := mountBonusFrom(nil, world.Item{Index: 3987})
 	if !ok {
-		t.Fatalf("mountBonusFor(3987) ok = false, want true")
+		t.Fatalf("mountBonusFrom(3987) ok = false, want true")
 	}
 	if mb.damage != 450 || mb.magicRaw != 72 || mb.parry != 10 || mb.resist != 28 {
 		t.Errorf("temp mount bonus = %+v, want {damage:450 magicRaw:72 parry:10 resist:28}", mb)
@@ -25,9 +26,9 @@ func TestMountBonusForAdult(t *testing.T) {
 	it := world.Item{Index: 2379}
 	it.Effects[0] = world.Effect{Effect: 20, Value: 0} // sValue = 20 (HP)
 	it.Effects[1] = world.Effect{Effect: 5}            // level = 5
-	mb, ok := mountBonusFor(it)
+	mb, ok := mountBonusFrom(nil, it)
 	if !ok {
-		t.Fatalf("mountBonusFor(adult, HP>0) ok = false, want true")
+		t.Fatalf("mountBonusFrom(adult, HP>0) ok = false, want true")
 	}
 	// damage = (5+20)*650/100 = 162; magicRaw = (5+15)*100/100 = 20.
 	if mb.damage != 162 || mb.magicRaw != 20 || mb.parry != 60 || mb.resist != 28 {
@@ -37,8 +38,8 @@ func TestMountBonusForAdult(t *testing.T) {
 	// HP = 0 → dead mount grants nothing (legacy stEffect[0].sValue <= 0 guard).
 	dead := world.Item{Index: 2379}
 	dead.Effects[1] = world.Effect{Effect: 5}
-	if _, ok := mountBonusFor(dead); ok {
-		t.Errorf("mountBonusFor(adult, HP=0) ok = true, want false")
+	if _, ok := mountBonusFrom(nil, dead); ok {
+		t.Errorf("mountBonusFrom(adult, HP=0) ok = true, want false")
 	}
 }
 
@@ -52,9 +53,9 @@ func TestSvadilfariBateComOTooltip(t *testing.T) {
 	it := world.Item{Index: 2387}
 	putShort(&it.Effects[0], 25700)
 	it.Effects[1].Effect = 120
-	mb, ok := mountBonusFor(it)
+	mb, ok := mountBonusFrom(nil, it)
 	if !ok {
-		t.Fatal("mountBonusFor(Svadilfari viva) ok = false")
+		t.Fatal("mountBonusFrom(Svadilfari viva) ok = false")
 	}
 	if mb.damage != 840 {
 		t.Errorf("Aumento de Dano = %d, o tooltip mostra 840", mb.damage)
@@ -77,7 +78,7 @@ func TestMontariasNaoSaoMaisIguais(t *testing.T) {
 		it := world.Item{Index: idx}
 		putShort(&it.Effects[0], 20000)
 		it.Effects[1].Effect = 120
-		mb, _ := mountBonusFor(it)
+		mb, _ := mountBonusFrom(nil, it)
 		return mb
 	}
 	fenrir, vermelho := bonus(2376), bonus(2380)
@@ -94,8 +95,8 @@ func TestMontariasNaoSaoMaisIguais(t *testing.T) {
 // baby mounts get nothing, matching legacy BASE_GetItemAbility coverage.
 func TestMountBonusForNonMount(t *testing.T) {
 	for _, idx := range []int16{0, 342, 2330, 2361, 3995} {
-		if _, ok := mountBonusFor(world.Item{Index: idx}); ok {
-			t.Errorf("mountBonusFor(%d) ok = true, want false", idx)
+		if _, ok := mountBonusFrom(nil, world.Item{Index: idx}); ok {
+			t.Errorf("mountBonusFrom(%d) ok = true, want false", idx)
 		}
 	}
 }
@@ -179,5 +180,32 @@ func TestMountBonusMobResistPreserved(t *testing.T) {
 	d.refreshScore(m)
 	if m.Resist != [4]int16{50, 40, 30, 20} {
 		t.Errorf("mob Resist after refreshScore = %v, want [50 40 30 20] (template preserved)", m.Resist)
+	}
+}
+
+// TestAtributoDoPainelChegaAoPersonagem is the whole point of 0043_mount_bonus:
+// what the panel saved is what the rider gets. Andaluz B with the proposal from
+// the server owner — immunity 40 instead of 32, evasion 2.0% instead of none.
+func TestAtributoDoPainelChegaAoPersonagem(t *testing.T) {
+	d := New(Config{MountBonus: mountbonus.Table{
+		2375: {Attack: 500, Magic: 85, Evasion: 20, Resist: 40},
+	}})
+	e := &world.Entity{ID: 1, Level: 50}
+	e.Equip[0] = world.Item{Index: 11}
+	m := world.Item{Index: 2375}
+	putShort(&m.Effects[0], 20000)
+	m.Effects[1].Effect = 120
+	e.Equip[mountEquipSlot] = m
+	d.refreshScore(e)
+
+	if e.Resist[0] != 40 || e.Parry != 20 {
+		t.Errorf("Andaluz B configurada: imunidade %d, evasão %d; want 40 e 20", e.Resist[0], e.Parry)
+	}
+
+	// Without the overlay the same mount lends the client's own numbers.
+	d2 := New(Config{})
+	d2.refreshScore(e)
+	if e.Resist[0] != 32 || e.Parry != 0 {
+		t.Errorf("Andaluz B no padrão: imunidade %d, evasão %d; want 32 e 0", e.Resist[0], e.Parry)
 	}
 }

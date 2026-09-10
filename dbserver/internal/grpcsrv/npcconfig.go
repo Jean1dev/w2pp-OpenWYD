@@ -21,6 +21,7 @@ type NpcConfigStore interface {
 	ListItemStats(ctx context.Context) ([]domain.ItemStat, error)
 	ListMountGrowthRates(ctx context.Context) ([]domain.MountGrowthRate, error)
 	ListMountAbsorb(ctx context.Context) ([]domain.MountAbsorb, error)
+	ListMountBonus(ctx context.Context) ([]domain.MountBonus, error)
 	MountConfigVersion(ctx context.Context) (int64, error)
 }
 
@@ -267,4 +268,25 @@ func (s *NpcConfigServer) MountConfigVersion(ctx context.Context, _ *dbv1.MountC
 		return nil, status.Errorf(codes.Internal, "mount config version: %v", err)
 	}
 	return &dbv1.MountConfigVersionResponse{Version: v}, nil
+}
+
+// ListMountBonus returns the configured mount attributes (0043_mount_bonus).
+// Only the rows someone saved: the tmServer owns the compiled table and falls
+// back to it for every lineage absent here.
+func (s *NpcConfigServer) ListMountBonus(ctx context.Context, _ *dbv1.ListMountBonusRequest) (*dbv1.ListMountBonusResponse, error) {
+	rows, err := s.store.ListMountBonus(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list mount bonus: %v", err)
+	}
+	out := make([]*dbv1.MountBonus, 0, len(rows))
+	for _, b := range rows {
+		out = append(out, &dbv1.MountBonus{
+			MountIndex: int32(b.MountIndex),
+			Attack:     int32(b.Attack),
+			Magic:      int32(b.Magic),
+			Evasion:    int32(b.Evasion),
+			Resist:     int32(b.Resist),
+		})
+	}
+	return &dbv1.ListMountBonusResponse{Bonus: out}, nil
 }

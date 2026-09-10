@@ -124,6 +124,9 @@ type GameData interface {
 	MountAbsorbs(ctx context.Context) ([]gamedata.MountAbsorb, error)
 	SetMountAbsorb(ctx context.Context, moderatorID int64, moderator string, mountIndex, pvp, pve int32) error
 	ClearMountAbsorb(ctx context.Context, moderatorID int64, mountIndex int32) error
+	MountBonuses(ctx context.Context) ([]gamedata.MountBonus, error)
+	SetMountBonus(ctx context.Context, moderatorID int64, moderator string, mountIndex, attack, magic, evasion, resist int32) error
+	ClearMountBonus(ctx context.Context, moderatorID int64, mountIndex int32) error
 	MountConfigVersion(ctx context.Context) (int64, error)
 }
 
@@ -431,6 +434,9 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /rates/montarias/{indice}/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparMontaria))))
 		mux.Handle("POST /rates/montarias/{indice}/absorcao", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setAbsorcao))))
 		mux.Handle("POST /rates/montarias/{indice}/absorcao/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparAbsorcao))))
+		mux.Handle("POST /rates/montarias/{indice}/atributos", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setAtributosMontaria))))
+		mux.Handle("POST /rates/montarias/{indice}/atributos/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparAtributosMontaria))))
+		mux.Handle("GET /rates/montarias/cliente.txt", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.tabelaDoCliente))))
 	}
 	// /rates entra na primeira aba que existe.
 	if destino := primeiraAbaDeRates(h.cfg); destino != "" {

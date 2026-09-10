@@ -66,6 +66,8 @@ const (
 	ActionClearMountGrowth   = "CLEAR_MOUNT_GROWTH"
 	ActionSetMountAbsorb     = "SET_MOUNT_ABSORB"
 	ActionClearMountAbsorb   = "CLEAR_MOUNT_ABSORB"
+	ActionSetMountBonus      = "SET_MOUNT_BONUS"
+	ActionClearMountBonus    = "CLEAR_MOUNT_BONUS"
 )
 
 // listLimit caps one page of the log.
@@ -280,6 +282,8 @@ var rotulos = map[string]string{
 	ActionClearMountGrowth:   "Voltou a curva de uma montaria ao padrão",
 	ActionSetMountAbsorb:     "Mexeu na absorção de uma montaria",
 	ActionClearMountAbsorb:   "Voltou a absorção de uma montaria ao padrão",
+	ActionSetMountBonus:      "Mexeu nos atributos de uma montaria",
+	ActionClearMountBonus:    "Voltou os atributos de uma montaria ao padrão",
 }
 
 // Rotulo is the readable name of this entry's action.

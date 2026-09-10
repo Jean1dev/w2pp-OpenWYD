@@ -40,6 +40,10 @@ func (f *fakeNpcConfigAPI) ListMountAbsorb(context.Context, *dbv1.ListMountAbsor
 	return &dbv1.ListMountAbsorbResponse{}, nil
 }
 
+func (f *fakeNpcConfigAPI) ListMountBonus(context.Context, *dbv1.ListMountBonusRequest, ...grpc.CallOption) (*dbv1.ListMountBonusResponse, error) {
+	return &dbv1.ListMountBonusResponse{}, nil
+}
+
 func (f *fakeNpcConfigAPI) MountConfigVersion(context.Context, *dbv1.MountConfigVersionRequest, ...grpc.CallOption) (*dbv1.MountConfigVersionResponse, error) {
 	return &dbv1.MountConfigVersionResponse{}, nil
 }

@@ -30,6 +30,7 @@ import (
 	gamev1 "github.com/jeanluca/w2pp-openwyd/api/game/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/buildinfo"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/binclient"
@@ -346,6 +347,7 @@ func run(logger *slog.Logger) error {
 	// to the legacy's flat 25% on both axes — so there is no unseeded-database
 	// hazard and no switch to forget to turn on.
 	var mountAbsorb mountrate.AbsorbTable
+	var mountBonus mountbonus.Table
 	var mountConfigVersion int64
 	if dbConn != nil {
 		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -358,6 +360,18 @@ func run(logger *slog.Logger) error {
 		} else {
 			mountAbsorb = absorb
 			logger.Info("mount absorption loaded", "lineages", len(absorb))
+		}
+		// Mount attributes (0043_mount_bonus), same shape and same trade: an
+		// empty or unreadable overlay leaves every lineage on the compiled table,
+		// which is the client's own — balance lost, never correctness.
+		bonusCtx, bonusCancel := context.WithTimeout(ctx, 10*time.Second)
+		bonus, berr := dbclient.NewMountBonusSource(dbConn).Fetch(bonusCtx)
+		bonusCancel()
+		if berr != nil {
+			logger.Warn("mount attributes not loaded; every lineage uses the compiled table", "err", berr)
+		} else {
+			mountBonus = bonus
+			logger.Info("mount attributes loaded", "lineages", len(bonus))
 		}
 		// The version is read in the same breath as the tables, so what this
 		// process reports is exactly what it is playing. Read separately it could
@@ -518,7 +532,7 @@ func run(logger *slog.Logger) error {
 	}
 	dispatch := handler.New(handler.Config{
 		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemNames: itemNames, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, MountAbsorb: mountAbsorb, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
+		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, MountAbsorb: mountAbsorb, MountBonus: mountBonus, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		XPConfig:        xpConfig,

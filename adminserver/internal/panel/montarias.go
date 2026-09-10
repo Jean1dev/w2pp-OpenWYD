@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"strings"
 	"time"
 
 	"fmt"
@@ -51,6 +52,17 @@ type montariaLinha struct {
 	AbsPvP    int32
 	AbsPvE    int32
 	AbsPadrao bool
+	// Os atributos são uma terceira tabela, com a sua própria noção de
+	// "configurada". Atk e Mag são coeficientes; Atk120/Mag120 são o valor de cada
+	// um no nível 120, que é o número que o jogador lê no tooltip. Eva é em
+	// décimos de porcento (60 = 6,0%).
+	Atk, Mag, Eva, Imun            int32
+	PadAtk, PadMag, PadEva, PadImn int32
+	Atk120, Mag120                 int32
+	AtribPadrao                    bool
+	// EvaTexto e PadEvaTexto são a evasão já escrita como a pessoa lê ("6,0"),
+	// para o template não fazer conta.
+	EvaTexto, PadEvaTexto string
 	// Aberta marca a linha que está sendo editada. É resolvida aqui e não no
 	// template porque comparar um índice com o texto da query dentro do HTML
 	// seria aritmética de string numa tela — o lugar errado para ela.
@@ -81,6 +93,16 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		porIndice[a.MountIndex] = a
 	}
 
+	atributos, err := h.cfg.GameData.MountBonuses(r.Context())
+	if err != nil {
+		h.recusaGameData(w, r, "ler os atributos das montarias", err)
+		return
+	}
+	atribPorIndice := make(map[int32]gamedata.MountBonus, len(atributos))
+	for _, b := range atributos {
+		atribPorIndice[b.MountIndex] = b
+	}
+
 	escolha := r.URL.Query().Get("editar")
 	linhas := make([]montariaLinha, 0, len(curvas))
 	for _, c := range curvas {
@@ -94,13 +116,28 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		if a, ok := porIndice[c.MountIndex]; ok && a.Configured {
 			l.AbsPvP, l.AbsPvE, l.AbsPadrao = a.PvP, a.PvE, false
 		}
+		// O webserver manda as trinta linhagens, sempre com o valor em vigor E o
+		// padrão ao lado — ao contrário da absorção, aqui não há padrão a
+		// inventar, porque o padrão é uma tabela por montaria e mora num lugar só
+		// (internal/mountbonus).
+		l.AtribPadrao = true
+		if b, ok := atribPorIndice[c.MountIndex]; ok {
+			l.Atk, l.Mag, l.Eva, l.Imun = b.Attack, b.Magic, b.Evasion, b.Resist
+			l.PadAtk, l.PadMag, l.PadEva, l.PadImn = b.DefaultAttack, b.DefaultMagic, b.DefaultEvasion, b.DefaultResist
+			l.AtribPadrao = !b.Configured
+			l.Atk120, l.Mag120 = (120+20)*b.Attack/100, (120+15)*b.Magic/100
+			l.EvaTexto, l.PadEvaTexto = porcentoDeDecimos(b.Evasion), porcentoDeDecimos(b.DefaultEvasion)
+		}
 		linhas = append(linhas, l)
 	}
 
-	configuradas, inalcancaveis, absEditadas := 0, 0, 0
+	configuradas, inalcancaveis, absEditadas, atribEditadas := 0, 0, 0, 0
 	for _, l := range linhas {
 		if !l.AbsPadrao {
 			absEditadas++
+		}
+		if !l.AtribPadrao {
+			atribEditadas++
 		}
 		if l.Configurada {
 			configuradas++
@@ -118,6 +155,7 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		Padrao        int
 		PadraoAbs     int
 		AbsEditadas   int
+		AtribEditadas int
 		Estado        estadoMontarias
 		Configuradas  int
 		Inalcancaveis int
@@ -129,6 +167,7 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 		Padrao:        padraoMontaria,
 		PadraoAbs:     padraoAbsorcao,
 		AbsEditadas:   absEditadas,
+		AtribEditadas: atribEditadas,
 		Estado:        h.estadoDasMontarias(r),
 		Configuradas:  configuradas,
 		Inalcancaveis: inalcancaveis,
@@ -420,4 +459,177 @@ func horaCurta(unix int64) string {
 		return ""
 	}
 	return time.Unix(unix, 0).Local().Format("02/01 15:04")
+}
+
+// Os limites dos atributos, espelhando internal/mountbonus. Repetidos aqui pela
+// mesma razão de padraoAbsorcao: o painel não importa o servidor de jogo. O
+// webserver confere de novo, então um descompasso vira recusa, não gravação.
+const (
+	atribMaxDano   = 2000
+	atribMaxMagia  = 500
+	atribMaxEvasao = 100 // em décimos de porcento: 100 = 10,0%
+	atribMaxImunid = 100
+)
+
+// setAtributosMontaria grava os quatro números de uma linhagem.
+func (h *Handler) setAtributosMontaria(w http.ResponseWriter, r *http.Request) {
+	indice, ok := indiceMontaria(r)
+	if !ok {
+		http.Error(w, "Índice de montaria inválido.", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
+		if err != nil {
+			http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		}
+		return
+	}
+	dano, okD := inteiroDoForm(r, "atk", atribMaxDano)
+	magia, okM := inteiroDoForm(r, "mag", atribMaxMagia)
+	imun, okI := inteiroDoForm(r, "imun", atribMaxImunid)
+	eva, okE := evasaoDoForm(r.FormValue("eva"))
+	switch {
+	case !okD:
+		http.Error(w, fmt.Sprintf("O dano precisa de um número inteiro entre 0 e %d.", atribMaxDano), http.StatusBadRequest)
+		return
+	case !okM:
+		http.Error(w, fmt.Sprintf("A magia precisa de um número inteiro entre 0 e %d.", atribMaxMagia), http.StatusBadRequest)
+		return
+	case !okE:
+		http.Error(w, "A evasão é um porcentual entre 0 e 10, com no máximo uma casa decimal (ex.: 2 ou 2,5).", http.StatusBadRequest)
+		return
+	case !okI:
+		http.Error(w, fmt.Sprintf("A imunidade precisa de um número inteiro entre 0 e %d.", atribMaxImunid), http.StatusBadRequest)
+		return
+	}
+
+	sess, _ := staffFrom(r.Context())
+	if err := h.cfg.GameData.SetMountBonus(r.Context(), sess.AccountID, sess.AccountName, indice, dano, magia, eva, imun); err != nil {
+		h.recusaGameData(w, r, "gravar os atributos da montaria", err)
+		return
+	}
+	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
+		Action: audit.ActionSetMountBonus,
+		New:    map[string]any{"montaria": indice, "dano": dano, "magia": magia, "evasao_decimos": eva, "imunidade": imun},
+	}); err != nil {
+		h.cfg.Logger.Error("mount bonus changed but NOT audited", "montaria", indice, "err", err)
+		http.Error(w, "Os atributos foram salvos, mas a auditoria falhou. Avise quem cuida do servidor.",
+			http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/rates/montarias?aviso=Atributos+salvos", http.StatusSeeOther)
+}
+
+// limparAtributosMontaria devolve a linhagem aos números do cliente. Apaga, não grava o
+// padrão, pela regra de todo este overlay.
+func (h *Handler) limparAtributosMontaria(w http.ResponseWriter, r *http.Request) {
+	indice, ok := indiceMontaria(r)
+	if !ok {
+		http.Error(w, "Índice de montaria inválido.", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil || !h.checkCSRF(w, r) {
+		if err != nil {
+			http.Error(w, "Formulário ilegível.", http.StatusBadRequest)
+		}
+		return
+	}
+	sess, _ := staffFrom(r.Context())
+	if err := h.cfg.GameData.ClearMountBonus(r.Context(), sess.AccountID, indice); err != nil {
+		h.recusaGameData(w, r, "restaurar os atributos da montaria", err)
+		return
+	}
+	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
+		Action: audit.ActionClearMountBonus,
+		New:    map[string]any{"montaria": indice},
+	}); err != nil {
+		h.cfg.Logger.Error("mount bonus cleared but NOT audited", "montaria", indice, "err", err)
+		http.Error(w, "Os atributos foram restaurados, mas a auditoria falhou. Avise quem cuida do servidor.",
+			http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/rates/montarias?aviso=Atributos+restaurados", http.StatusSeeOther)
+}
+
+func inteiroDoForm(r *http.Request, campo string, teto int) (int32, bool) {
+	v, err := strconv.Atoi(strings.TrimSpace(r.FormValue(campo)))
+	if err != nil || v < 0 || v > teto {
+		return 0, false
+	}
+	return int32(v), true
+}
+
+// evasaoDoForm lê a evasão como a pessoa pensa nela — um porcentual, "2" ou
+// "2,5" — e devolve em décimos, que é como o jogo e o cliente a guardam (60 é o
+// "6,0%" do tooltip). Pedir o número em décimos na tela seria convidar o erro de
+// digitar 2 querendo dizer 2%, e levar 0,2%.
+func evasaoDoForm(bruto string) (int32, bool) {
+	s := strings.ReplaceAll(strings.TrimSpace(bruto), ",", ".")
+	inteira, decimal, temPonto := strings.Cut(s, ".")
+	if inteira == "" || (temPonto && len(decimal) != 1) {
+		return 0, false
+	}
+	i, err := strconv.Atoi(inteira)
+	if err != nil || i < 0 {
+		return 0, false
+	}
+	d := 0
+	if temPonto {
+		if d, err = strconv.Atoi(decimal); err != nil {
+			return 0, false
+		}
+	}
+	decimos := i*10 + d
+	if decimos > atribMaxEvasao {
+		return 0, false
+	}
+	return int32(decimos), true
+}
+
+// porcentoDeDecimos escreve décimos de porcento como a tela mostra: 60 → "6,0".
+func porcentoDeDecimos(v int32) string {
+	return fmt.Sprintf("%d,%d", v/10, v%10)
+}
+
+// tabelaDoCliente entrega, para download, os números que o gerador de arquivos
+// do cliente aplica: os atributos em vigor e a absorção de cada linhagem.
+//
+// É um arquivo de texto, uma linhagem por linha, porque quem o consome é a
+// ferramenta que grava o WYD.exe e o itemhelp.dat — e porque, sendo texto, dá
+// para abrir e conferir antes de publicar para os jogadores. O painel não gera
+// os arquivos do cliente ele mesmo: não tem o WYD.exe, e não deveria ter.
+func (h *Handler) tabelaDoCliente(w http.ResponseWriter, r *http.Request) {
+	atributos, err := h.cfg.GameData.MountBonuses(r.Context())
+	if err != nil {
+		h.recusaGameData(w, r, "ler os atributos das montarias", err)
+		return
+	}
+	absorcoes, err := h.cfg.GameData.MountAbsorbs(r.Context())
+	if err != nil {
+		h.recusaGameData(w, r, "ler a absorção das montarias", err)
+		return
+	}
+	abs := make(map[int32]gamedata.MountAbsorb, len(absorcoes))
+	for _, a := range absorcoes {
+		abs[a.MountIndex] = a
+	}
+
+	var b strings.Builder
+	b.WriteString("# Tabela de montarias para o cliente — gerada pelo painel em " +
+		time.Now().Local().Format("02/01/2006 15:04") + "\n")
+	b.WriteString("# indice;dano;magia;evasao_decimos;imunidade;absorcao_pvp;absorcao_pve;nome\n")
+	for _, m := range atributos {
+		pvp, pve := int32(padraoAbsorcao), int32(padraoAbsorcao)
+		if a, ok := abs[m.MountIndex]; ok && a.Configured {
+			pvp, pve = a.PvP, a.PvE
+		}
+		fmt.Fprintf(&b, "%d;%d;%d;%d;%d;%d;%d;%s\n",
+			m.MountIndex, m.Attack, m.Magic, m.Evasion, m.Resist, pvp, pve, m.DisplayName)
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="montarias-cliente.txt"`)
+	_, _ = w.Write([]byte(b.String())) // a resposta já começou; um erro aqui não tem para onde ir
 }

@@ -10,6 +10,7 @@ import (
 type fakeStore struct {
 	rows   []domain.MountGrowthRate
 	absorb []domain.MountAbsorb
+	bonus  []domain.MountBonus
 	salvo  []domain.MountAbsorb
 	versao int64
 	limpo  []int16
@@ -153,5 +154,49 @@ func TestBandLabel(t *testing.T) {
 	}
 	if got := BandLabel(5); got != "101 – 120" {
 		t.Errorf("band 5 = %q", got)
+	}
+}
+
+func (f *fakeStore) ListMountBonus(context.Context) ([]domain.MountBonus, error) {
+	return f.bonus, nil
+}
+func (f *fakeStore) SetMountBonus(_ context.Context, b domain.MountBonus, _ int64, _ string) error {
+	f.bonus = append(f.bonus, b)
+	return nil
+}
+func (f *fakeStore) ClearMountBonus(context.Context, int16, int64) error { return nil }
+
+// TestAtributosMostramOPadraoAoLado pins what the screen needs to make a
+// decision: every lineage, configured or not, with the compiled default beside
+// what is in effect — Andaluz B edited to 40 of immunity still says it was 32.
+func TestAtributosMostramOPadraoAoLado(t *testing.T) {
+	st := &fakeStore{bonus: []domain.MountBonus{
+		{MountIndex: 2375, Attack: 500, Magic: 85, Evasion: 20, Resist: 40},
+	}}
+	svc := New(st)
+	rows, err := svc.ListBonus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 30 {
+		t.Fatalf("%d linhagens, want as 30 adultas", len(rows))
+	}
+	var andaluz, svad Bonus
+	for _, r := range rows {
+		switch r.MountIndex {
+		case 2375:
+			andaluz = r
+		case 2387:
+			svad = r
+		}
+	}
+	if !andaluz.Configured || andaluz.Current.Resist != 40 || andaluz.Current.Evasion != 20 {
+		t.Errorf("Andaluz B = %+v, want configurada com imunidade 40 e evasão 20", andaluz)
+	}
+	if andaluz.Default.Resist != 32 || andaluz.Default.Evasion != 0 {
+		t.Errorf("padrão da Andaluz B = %+v, want 32 de imunidade e 0 de evasão", andaluz.Default)
+	}
+	if svad.Configured || svad.Current != svad.Default || svad.Current.Attack != 600 {
+		t.Errorf("Svadilfari = %+v, want no padrão do cliente {600,40,60,28}", svad)
 	}
 }

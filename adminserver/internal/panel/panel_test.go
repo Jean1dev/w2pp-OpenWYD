@@ -1252,6 +1252,9 @@ type fakeGameData struct {
 	absorbLimpo     []int32
 	absorbErr       error
 	absorbGravaEr   error
+	bonuses         []gamedata.MountBonus
+	bonusSalvo      map[int32][4]int32
+	bonusLimpo      []int32
 	versaoMontarias int64
 }
 
@@ -4902,4 +4905,27 @@ func TestConversaSomeSemAConfiguracao(t *testing.T) {
 	if strings.Contains(get("/").Body.String(), `href="/chat"`) {
 		t.Error("o menu oferece um link para uma página que não existe")
 	}
+}
+
+func (f *fakeGameData) MountBonuses(_ context.Context) ([]gamedata.MountBonus, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.bonuses, nil
+}
+
+func (f *fakeGameData) SetMountBonus(_ context.Context, _ int64, _ string, mountIndex, attack, magic, evasion, resist int32) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.bonusSalvo == nil {
+		f.bonusSalvo = map[int32][4]int32{}
+	}
+	f.bonusSalvo[mountIndex] = [4]int32{attack, magic, evasion, resist}
+	return nil
+}
+
+func (f *fakeGameData) ClearMountBonus(_ context.Context, _ int64, mountIndex int32) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.bonusLimpo = append(f.bonusLimpo, mountIndex)
+	return nil
 }

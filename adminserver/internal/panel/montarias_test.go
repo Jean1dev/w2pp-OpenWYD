@@ -352,3 +352,131 @@ func TestMontariasNaoPrometeNadaSemCanalDeControle(t *testing.T) {
 		}
 	}
 }
+
+func atributosDeTeste() []gamedata.MountBonus {
+	return []gamedata.MountBonus{
+		// Andaluz na tela de teste: configurada com a proposta do dono do
+		// servidor — imunidade 40 e evasão 2,0% sobre o padrão 32 / 0.
+		{MountIndex: 2370, DisplayName: "Andaluz", Configured: true,
+			Attack: 500, Magic: 85, Evasion: 20, Resist: 40,
+			DefaultAttack: 500, DefaultMagic: 85, DefaultEvasion: 0, DefaultResist: 32},
+		{MountIndex: 2371, DisplayName: "Pesadelo", Configured: false,
+			Attack: 600, Magic: 40, Evasion: 60, Resist: 28,
+			DefaultAttack: 600, DefaultMagic: 40, DefaultEvasion: 60, DefaultResist: 28},
+	}
+}
+
+func TestAtributosMostramONivel120EOPadrao(t *testing.T) {
+	// The table column is what the tooltip says at level 120 — the coefficient
+	// itself would read as a different number than the one players see — and
+	// the editor keeps the default beside each field.
+	game := newFakeGameData()
+	game.curvas = curvasDeTeste()
+	game.bonuses = atributosDeTeste()
+	get := signedIn(t, newTestPanelGame(t, newFakeAudit(), game))
+
+	lista := get("/rates/montarias").Body.String()
+	// 600 no nível 120 = (120+20)*600/100 = 840, o número do tooltip.
+	if !strings.Contains(lista, ">840<") {
+		t.Errorf("a coluna de dano não mostrou 840 (nível 120) para a linhagem no padrão")
+	}
+	if !strings.Contains(lista, ">6,0%<") || !strings.Contains(lista, ">2,0%<") {
+		t.Errorf("a evasão não saiu como porcentual (6,0%% e 2,0%%)")
+	}
+
+	editor := get("/rates/montarias?editar=2370").Body.String()
+	for _, want := range []string{
+		`name="imun" min="0" max="100" value="40"`,
+		`name="eva" inputmode="decimal" value="2,0"`,
+		`padrão 32`,
+		`/rates/montarias/2370/atributos/limpar`,
+	} {
+		if !strings.Contains(editor, want) {
+			t.Errorf("o editor não trouxe %q", want)
+		}
+	}
+}
+
+func TestSetAtributosGravaEmDecimosEAudita(t *testing.T) {
+	game := newFakeGameData()
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelGame(t, log, game))
+
+	// "2,5" é como a pessoa escreve a evasão; o jogo guarda 25 décimos.
+	rec := post("/rates/montarias/2375/atributos", url.Values{
+		"csrf": {token}, "atk": {"500"}, "mag": {"85"}, "eva": {"2,5"}, "imun": {"40"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body.String())
+	}
+	if got := game.bonusSalvo[2375]; got != [4]int32{500, 85, 25, 40} {
+		t.Errorf("gravou %v, want [500 85 25 40]", got)
+	}
+	if recs := log.written; len(recs) != 1 || recs[0].Action != audit.ActionSetMountBonus {
+		t.Errorf("auditoria = %+v, want um SET_MOUNT_BONUS", recs)
+	}
+}
+
+func TestSetAtributosRecusaForaDaFaixa(t *testing.T) {
+	game := newFakeGameData()
+	post, token := signedInPost(t, newTestPanelGame(t, newFakeAudit(), game))
+	ok := url.Values{"csrf": {token}, "atk": {"500"}, "mag": {"85"}, "eva": {"2"}, "imun": {"40"}}
+	for campo, ruim := range map[string]string{
+		"atk": "2001", "mag": "-1", "imun": "101",
+		"eva": "10,1", // acima do teto de 10% da esquiva de equipamento
+	} {
+		f := url.Values{}
+		for k, v := range ok {
+			f[k] = v
+		}
+		f.Set(campo, ruim)
+		if rec := post("/rates/montarias/2375/atributos", f); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s=%s: status = %d, want 400", campo, ruim, rec.Code)
+		}
+	}
+	if len(game.bonusSalvo) != 0 {
+		t.Errorf("gravou mesmo com valor inválido: %v", game.bonusSalvo)
+	}
+}
+
+func TestEvasaoDoForm(t *testing.T) {
+	for bruto, want := range map[string]int32{"0": 0, "2": 20, "2,5": 25, "2.5": 25, " 6,0 ": 60, "10": 100} {
+		if got, ok := evasaoDoForm(bruto); !ok || got != want {
+			t.Errorf("evasaoDoForm(%q) = %d, %v; want %d", bruto, got, ok, want)
+		}
+	}
+	for _, ruim := range []string{"", "-1", "2,55", "10,1", "dois", ",5", "2,"} {
+		if got, ok := evasaoDoForm(ruim); ok {
+			t.Errorf("evasaoDoForm(%q) = %d aceito, want recusa", ruim, got)
+		}
+	}
+}
+
+func TestTabelaDoClienteLevaAtributosEAbsorcao(t *testing.T) {
+	// What the client-file generator consumes: the attributes in effect and the
+	// absorption of each lineage — the default 25/25 when none was configured.
+	game := newFakeGameData()
+	game.bonuses = append(atributosDeTeste(), gamedata.MountBonus{
+		MountIndex: 2380, DisplayName: "Dragao Vermelho", Attack: 700, Magic: 110, Evasion: 80, Resist: 32,
+	})
+	game.absorbs = absorcoesDeTeste()
+	get := signedIn(t, newTestPanelGame(t, newFakeAudit(), game))
+
+	rec := get("/rates/montarias/cliente.txt")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, "montarias-cliente.txt") {
+		t.Errorf("Content-Disposition = %q, want download como montarias-cliente.txt", cd)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"\n2370;500;85;20;40;60;10;Andaluz\n",          // absorção configurada
+		"\n2371;600;40;60;28;0;45;Pesadelo\n",          // zero configurado não vira padrão
+		"\n2380;700;110;80;32;25;25;Dragao Vermelho\n", // sem linha: 25/25 do legado
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("faltou a linha %q em:\n%s", strings.TrimSpace(want), body)
+		}
+	}
+}

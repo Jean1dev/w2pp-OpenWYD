@@ -2412,7 +2412,7 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 		// generic item effects (a mount's Effects hold HP/level/feed, not stats) —
 		// mirror BASE_GetItemAbility's early mount return and skip the effect loop.
 		if slot == mountEquipSlot {
-			if mb, ok := mountBonusFor(it); ok {
+			if mb, ok := d.mountBonusFor(it); ok {
 				b.damage += mb.damage
 				b.magicRaw += mb.magicRaw
 				b.parry += mb.parry
