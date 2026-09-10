@@ -20,7 +20,10 @@ type ExpEvents struct {
 	KefraLive   bool
 }
 
-// ExpRewardInput is one solo PvE kill as the reward pipeline reads it.
+// ExpRewardInput is one PvE kill as the reward pipeline reads it, for the
+// character being paid. Solo that is the killer; in a party it is each member in
+// turn — KillerLevel and Tier are then the member's, while ExpBonus,
+// FairyContent and KillingBlow stay the killer's, as the legacy reads them.
 type ExpRewardInput struct {
 	// Zone selects which of the seven MobKilled.cpp branches pays. Derive it
 	// from the corpse's position with ZoneForTile.
@@ -40,11 +43,24 @@ type ExpRewardInput struct {
 	// add to ExpBonus. Pesadelo ignores it.
 	FairyContent int32
 
+	// KillingBlow is who landed the killing blow when the kill is paying a
+	// party member, not the character that made it. The eMob cap is ITS
+	// GetExpApply, not the member's — see ExpReward. Nil is the solo case, where
+	// the two are the same character.
+	KillingBlow *KillingBlow
+
 	Events ExpEvents
 
 	// Config is the moderator-managed configuration (cut tables and per-branch
 	// rate). Its zero value is the pure legacy behaviour.
 	Config Config
+}
+
+// KillingBlow is the character that landed the killing blow, as the eMob cap
+// reads it: its level and tier, against the mob's.
+type KillingBlow struct {
+	Level int32
+	Tier  Tier
 }
 
 // SoloExpReward is the general-field reward, kept as the short form for callers
@@ -82,9 +98,22 @@ func ExpReward(in ExpRewardInput) int64 {
 	if isExp <= 0 {
 		return 0
 	}
-	// Solo: the killer is the only party member, so the per-member cap eMob is
-	// its own GetExpApply value (:1276 and :1360 compute the same expression).
+	// FIDELIDADE AO LEGADO (restaurada): eMob is the GetExpApply of whoever
+	// landed the killing blow, on ITS level and tier — computed once before the
+	// party loop (:405 MobExp, :426 eMob = MobExp) and applied to every member
+	// the kill pays, in the four branches that keep the cap (Água :940/1089/1211,
+	// field :1360; the Desertos copy the field). Pesadelo has it commented out
+	// (:531-532), which is why capToEMob is off there.
+	//
+	// So a character far above the mob caps the whole party at its own small
+	// number, and at about twice the mob's level that number is 0: carrying a
+	// weak character pays only when the weak one lands the blow. The rewrite had
+	// been capping each member at its own value, which the solo case hid — solo,
+	// the killer and the member are the same character and so is the number.
 	eMob := isExp
+	if in.KillingBlow != nil {
+		eMob = ExpApply(in.MobExp, in.KillingBlow.Level, in.MobLevel, in.KillingBlow.Tier)
+	}
 	myLevel := int64(in.KillerLevel)
 	if classMaster != classMortal && classMaster != classArch {
 		myLevel += int64(MaxLevel) + 1

@@ -309,7 +309,17 @@ if party.MOB.Exp + exp > g_pNextLevel[MAX_LEVEL+1]:
 > com `g_pFairyContent[0]`); o teto `< 500` também olha quem matou. Então um grupo que mata com
 > um personagem de +100% recebe +100% cada um, e um membro de +100% que não matou recebe sem
 > bônus. O rewrite chegou a ler o bônus de cada membro; voltou ao do legado (fidelidade
-> restaurada, `bonusDoMatador` em `tmserver/internal/handler/mobkilled.go`).
+> restaurada, `doMatador` em `tmserver/internal/handler/mobkilled.go`).
+>
+> **O teto `eMob` também é de quem matou.** `eMob` é o `GetExpApply` de `conn` (nível de quem
+> matou contra o do mob), calculado uma vez antes do laço (`:405`, `:426`) e aplicado a todo
+> membro em Água e campo (`:940/1089/1211/1360`); os Desertos do rewrite copiam o campo e têm o
+> mesmo teto. No Pesadelo o teto está comentado (`:531-532`) e continua sem existir. Efeito: quem
+> está muito acima do mob limita o grupo inteiro ao número pequeno dele, e com uns 2x o nível do
+> mob esse número é 0 — ninguém ganha. Carregar personagem fraco só rende se o fraco der o golpe
+> final. O rewrite chegou a limitar cada membro pelo próprio `GetExpApply`; voltou ao do legado
+> (fidelidade restaurada, `KillingBlow` em `internal/level/expreward.go`). Sozinho não muda nada:
+> quem mata e quem recebe são o mesmo personagem.
 
 > **Dados (issue #43):** os templates originais de `Release/TMsrv/run/npc/` traziam `Exp` zerado
 > ou absurdo em centenas de monstros. O campo é regravado offline por `tmserver/cmd/exptool`

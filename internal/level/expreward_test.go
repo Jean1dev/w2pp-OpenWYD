@@ -156,3 +156,69 @@ func TestSoloExpReward_archWallEarnsNothing(t *testing.T) {
 		t.Errorf("unlocked arch earned %d, want > 0", unlocked)
 	}
 }
+
+// O teto eMob de um grupo é o GetExpApply de quem matou (MobKilled.cpp:405/426),
+// não o de quem recebe. Quem mata com uns 2x o nível do mob tem esse número em 0,
+// e aí o membro não leva nada em toda zona que tem teto: o campo, as três Águas e
+// os cinco Desertos, que copiam o campo. No Pesadelo o teto está comentado
+// (:531-532), então lá o membro leva o dele.
+//
+// Mob nível 150 e membro nível 150: pelo teto dele mesmo, o membro levaria cheio.
+func TestTetoDoGrupoEhDeQuemMatou(t *testing.T) {
+	mortal := Tier{ClassMaster: classMortal}
+	membro := func(z Zone, golpe *KillingBlow) int64 {
+		return ExpReward(ExpRewardInput{
+			Zone: z, MobExp: 100_000, KillerLevel: 150, MobLevel: 150, Tier: mortal,
+			KillingBlow: golpe,
+		})
+	}
+	// 311 contra 151: 15100/311 = 48, abaixo de 80 vira 48*2-100 = -4, e o
+	// GetExpApply trava em 0.
+	if got := ExpApply(100_000, 310, 150, mortal); got != 0 {
+		t.Fatalf("GetExpApply de nível 310 contra mob 150 = %d, o caso precisa de 0", got)
+	}
+	forte := &KillingBlow{Level: 310, Tier: mortal}
+
+	for z := range Zone(len(zoneRules)) {
+		sozinho, comForte := membro(z, nil), membro(z, forte)
+		if sozinho <= 0 {
+			t.Fatalf("%s: o membro não ganha nem pelo próprio teto (%d); o caso não prova nada", z.Name(), sozinho)
+		}
+		if z.rule().capToEMob {
+			if comForte != 0 {
+				t.Errorf("%s: o membro levou %d com quem matou nível 310; o teto de quem matou é 0", z.Name(), comForte)
+			}
+			continue
+		}
+		if comForte != sozinho {
+			t.Errorf("%s: o membro levou %d com quem matou nível 310 e %d pelo próprio teto; "+
+				"aqui não tem teto e quem matou não devia mudar nada", z.Name(), comForte, sozinho)
+		}
+	}
+}
+
+// Sozinho nada muda: quem mata é quem recebe, e o teto dele é o dele. Passar o
+// próprio personagem como quem matou tem de dar o mesmo que não passar nada, em
+// toda zona e em toda evolução.
+func TestTetoSozinhoEhOProprio(t *testing.T) {
+	tiers := []Tier{
+		{ClassMaster: classMortal},
+		{ClassMaster: classArch, ArchLv355: true, ArchLv370: true},
+		{ClassMaster: classCelestial, CelLv40: true, CelLv90: true},
+	}
+	for z := range Zone(len(zoneRules)) {
+		for _, tier := range tiers {
+			for _, nivel := range []int32{1, 50, 150, 250, 356, 399} {
+				for _, nivelMob := range []int32{1, 100, 150, 300, 399} {
+					in := ExpRewardInput{Zone: z, MobExp: 100_000, KillerLevel: nivel, MobLevel: nivelMob, Tier: tier}
+					sem := ExpReward(in)
+					in.KillingBlow = &KillingBlow{Level: nivel, Tier: tier}
+					if com := ExpReward(in); com != sem {
+						t.Errorf("%s classe %d nível %d mob %d: %d passando o próprio, %d sem passar",
+							z.Name(), tier.ClassMaster, nivel, nivelMob, com, sem)
+					}
+				}
+			}
+		}
+	}
+}

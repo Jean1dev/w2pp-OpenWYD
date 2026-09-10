@@ -265,27 +265,41 @@ func sendDieAction(w *world.World, mob *world.Entity) {
 	sendMobChat(w, mob.ID, gen.DieAction[say])
 }
 
-// bonusDoMatador is the EXP bonus of whoever landed the killing blow, read once
-// per kill and handed to every member the kill pays.
+// doMatador is what the EXP of a kill reads off whoever landed the killing blow
+// rather than off the member being paid: the bonus and the eMob cap. It is read
+// once per kill and handed to every member, so a level-up mid-loop cannot move
+// it — which is also the legacy, where both come from lines that run before the
+// party loop or read conn inside it.
 //
-// FIDELIDADE AO LEGADO (restaurada): all seven reward branches of the legacy
-// read the bonus off conn, the killer, while everything else in the same lines
-// is read off party, the member being paid — MobKilled.cpp:534/679/794 (the
-// three Pesadelo branches, ExpBonus only), :943/1092/1214 (Água) and
-// :1363-1364 (field), the last four adding g_pFairyContent[0] on top. So a
-// party that kills with a +100% character in it earns +100% each, and a +100%
-// character who did not land the blow earns nothing extra. The rewrite had been
-// reading each member's own bonus; this puts it back where the legacy had it.
+// FIDELIDADE AO LEGADO (restaurada), both fields:
 //
-// For a summon's kill conn is the summoner (MobKilled.cpp:340-354), which is
-// the reward target mobKilled already passes down.
-type bonusDoMatador struct {
-	exp  int32 // pMob[conn].ExpBonus — its < 500 gate is also the killer's
-	fada int32 // pMob[conn].g_pFairyContent[0]; Pesadelo ignores it
+//   - The bonus. All seven reward branches read it off conn, the killer, while
+//     everything else in the same lines is read off party, the member —
+//     MobKilled.cpp:534/679/794 (the three Pesadelo branches, ExpBonus only),
+//     :943/1092/1214 (Água) and :1363-1364 (field), the last four adding
+//     g_pFairyContent[0] on top. A party that kills with a +100% character in
+//     it earns +100% each; a +100% character who did not land the blow earns
+//     nothing extra.
+//   - The eMob cap. It is conn's GetExpApply (:405, :426), applied to every
+//     member in Água and field (and the Desertos, which copy the field); see
+//     level.ExpReward. A character far above the mob caps the party at its own
+//     small number, down to 0.
+//
+// The rewrite had been reading both off each member. For a summon's kill conn
+// is the summoner (MobKilled.cpp:340-354), which is the reward target mobKilled
+// already passes down.
+type doMatador struct {
+	exp   int32             // pMob[conn].ExpBonus — its < 500 gate is also the killer's
+	fada  int32             // pMob[conn].g_pFairyContent[0]; Pesadelo ignores it
+	golpe level.KillingBlow // pMob[conn] level and tier, for the eMob cap
 }
 
-func (d *Dispatcher) lerBonusDoMatador(killer *world.Entity) bonusDoMatador {
-	return bonusDoMatador{exp: d.expBonus(killer), fada: fairyContentBonus(killer)}
+func (d *Dispatcher) lerDoMatador(killer *world.Entity) doMatador {
+	return doMatador{
+		exp:   d.expBonus(killer),
+		fada:  fairyContentBonus(killer),
+		golpe: level.KillingBlow{Level: killer.Level, Tier: tierOf(killer)},
+	}
 }
 
 // grantExp awards PvE experience for one kill to one character — the killer
@@ -298,11 +312,11 @@ func (d *Dispatcher) lerBonusDoMatador(killer *world.Entity) bonusDoMatador {
 // client gets a fresh score and the level-up effect, with the effect also shown
 // to in-view players.
 //
-// Level, tier, zone and the newbie gate are the member's; only the bonus is the
-// killer's (bonusDoMatador).
+// Level, tier, zone and the newbie gate are the member's; the bonus and the eMob
+// cap are the killer's (doMatador).
 //
 // UNVERIFIED / deferred: the per-level reward items (DoItemLevel).
-func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, member, mob *world.Entity, bonus bonusDoMatador) {
+func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, member, mob *world.Entity, matador doMatador) {
 	// The reward branch is chosen by the 128-tile block of the kill, not by a
 	// per-map setting: each instanced dungeon has its own divisor table in
 	// MobKilled.cpp, and until this was wired every dungeon paid open-field
@@ -313,8 +327,9 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, member, mob *wo
 		KillerLevel:  member.Level,
 		MobLevel:     mob.Level,
 		Tier:         tierOf(member),
-		ExpBonus:     bonus.exp,
-		FairyContent: bonus.fada,
+		ExpBonus:     matador.exp,
+		FairyContent: matador.fada,
+		KillingBlow:  &matador.golpe,
 		Events:       d.expEvents,
 		Config:       d.xpConfig,
 	})
@@ -619,27 +634,28 @@ const (
 // neither number is derived from the other. That is why this calls the same
 // grantExp the solo path uses instead of dividing anything.
 //
-// The one number that is not the member's is the EXP bonus: every member is
-// paid with the killer's (bonusDoMatador, restored legacy behaviour).
+// The two numbers that are not the member's are the EXP bonus and the eMob cap:
+// every member is paid with the killer's (doMatador, restored legacy
+// behaviour).
 //
 // Near enough is the legacy's own test: alive, and within HALFGRID of the mob.
 // A member across the map gets nothing, which is what stops a party from
 // parking somebody safe to farm.
 func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
 	// Read once, before anyone is paid: a level-up mid-loop must not move the
-	// number the rest of the party is paid with.
-	bonus := d.lerBonusDoMatador(killer)
+	// numbers the rest of the party is paid with.
+	matador := d.lerDoMatador(killer)
 	leader := killer
 	if killer.Leader != 0 {
 		leader = w.Entity(killer.Leader)
 		if leader == nil {
 			// The leader vanished mid-kill; the killer still earns its own.
-			d.grantExp(w, ks, killer, mob, bonus)
+			d.grantExp(w, ks, killer, mob, matador)
 			return
 		}
 	}
 	if leader == killer && partyMemberCount(leader) == 0 {
-		d.grantExp(w, ks, killer, mob, bonus) // solo, the common case
+		d.grantExp(w, ks, killer, mob, matador) // solo, the common case
 		return
 	}
 
@@ -655,7 +671,7 @@ func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mo
 		if e == nil || e.HP <= 0 || !pertoDoMob(e, mob) {
 			return
 		}
-		d.grantExp(w, w.Session(id), e, mob, bonus)
+		d.grantExp(w, w.Session(id), e, mob, matador)
 	}
 	pagar(leader.ID)
 	for _, id := range leader.PartyList {

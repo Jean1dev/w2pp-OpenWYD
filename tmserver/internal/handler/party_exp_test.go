@@ -82,19 +82,30 @@ func TestCadaMembroRecebePelaPropriaTabela(t *testing.T) {
 		expDoMob, nivelDoMob, baixo, alto)
 }
 
-// grupoDeDois monta um grupo de dois colado num mob de campo. O líder é o outro,
-// não quem mata — de propósito: assim o teste também pega um bônus que viesse do
-// líder em vez de quem deu o golpe final. Os níveis são diferentes pelo mesmo
-// motivo: se o nível de quem mata vazasse para o outro, a conta mudaria.
+// cenaDeGrupo é onde fica o mob e o nível de cada um. Os dois do grupo ficam
+// colados no mob, no mesmo bloco de 128, então a zona é a do mob.
+type cenaDeGrupo struct {
+	x, y                       int16
+	nivelMob                   int32
+	expMob                     int64
+	nivelMatador, nivelDoOutro int32
+}
+
+// A cena dos testes de bônus: mob nível 1 no campo, níveis 1 e 2.
+var cenaDoBonus = cenaDeGrupo{x: 6, y: 5, nivelMob: 1, expMob: 1000, nivelMatador: 1, nivelDoOutro: 2}
+
+// grupoDeDois monta um grupo de dois colado no mob. O líder é o outro, não quem
+// mata — de propósito: assim o teste também pega um número que viesse do líder
+// em vez de quem deu o golpe final.
 //
 // Os dois são entidades de mob porque o mundo não deixa um teste unitário
 // fabricar jogador; grantPartyExp só lê Leader/PartyList, HP e posição, e sem
 // sessão o pagamento é a mesma conta, só sem os pacotes.
-func grupoDeDois(t *testing.T) (d *Dispatcher, w *world.World, matador, outro, mob *world.Entity) {
+func grupoDeDois(t *testing.T, c cenaDeGrupo) (d *Dispatcher, w *world.World, matador, outro, mob *world.Entity) {
 	t.Helper()
 	log := slog.New(slog.DiscardHandler)
 	d = New(Config{Log: log})
-	w = world.New(world.Config{GridDim: 16}, log, nil, d.Handle)
+	w = world.New(world.Config{GridDim: int(max(c.x, c.y)) + 16}, log, nil, d.Handle)
 	novo := func(nivel int32, exp int64, x, y int16) *world.Entity {
 		id := w.SpawnMobAt(world.MobSpawn{Template: expMobTemplate(nivel, exp, 0), X: x, Y: y, GenIndex: -1})
 		if id < 0 {
@@ -102,9 +113,9 @@ func grupoDeDois(t *testing.T) (d *Dispatcher, w *world.World, matador, outro, m
 		}
 		return w.Entity(id)
 	}
-	mob = novo(1, 1000, 6, 5)
-	matador = novo(1, 0, 7, 5)
-	outro = novo(2, 0, 6, 6)
+	mob = novo(c.nivelMob, c.expMob, c.x, c.y)
+	matador = novo(c.nivelMatador, 0, c.x+1, c.y)
+	outro = novo(c.nivelDoOutro, 0, c.x, c.y+1)
 	for _, e := range []*world.Entity{matador, outro} {
 		e.ClassMaster = classMasterMortal
 		e.Exp = 0
@@ -132,7 +143,7 @@ func TestBonusDeXPDeQuemMataValeProGrupo(t *testing.T) {
 	}
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
-			d, w, matador, outro, mob := grupoDeDois(t)
+			d, w, matador, outro, mob := grupoDeDois(t, cenaDoBonus)
 			matador.AffExpBonus = c.bonusMatador
 			outro.AffExpBonus = c.bonusDoOutro
 			if c.fadaSupremaNoMatador {
@@ -140,11 +151,14 @@ func TestBonusDeXPDeQuemMataValeProGrupo(t *testing.T) {
 				matador.EquipExpBonus = fairyExpBonus(3913)
 			}
 
+			// O teto é sempre o de quem matou (TestTetoDeXPDeQuemMataNoGrupo);
+			// aqui só o bônus varia.
+			golpe := &level.KillingBlow{Level: matador.Level, Tier: tierOf(matador)}
 			esperada := func(e *world.Entity, bonus, fada int32) int64 {
 				return level.ExpReward(level.ExpRewardInput{
 					Zone:   level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(e.X), int32(e.Y)),
 					MobExp: mob.Exp, KillerLevel: e.Level, MobLevel: mob.Level,
-					Tier: tierOf(e), ExpBonus: bonus, FairyContent: fada,
+					Tier: tierOf(e), ExpBonus: bonus, FairyContent: fada, KillingBlow: golpe,
 					Events: d.expEvents, Config: d.xpConfig,
 				})
 			}
@@ -164,6 +178,59 @@ func TestBonusDeXPDeQuemMataValeProGrupo(t *testing.T) {
 			}
 			if matador.Exp != querMatador {
 				t.Errorf("quem matou recebeu %d, queria %d", matador.Exp, querMatador)
+			}
+		})
+	}
+}
+
+// O teto eMob também é de quem matou (MobKilled.cpp:405/426): o GetExpApply dele,
+// não o de cada membro, limita o grupo inteiro em campo, Água e Desertos. Com o
+// mob nível 150 e o outro nível 150, pelo teto dele mesmo o outro levaria cheio.
+//
+// Os números saem da conta à mão, não de ExpReward, para o teste não ser a
+// função conferindo a si mesma: com os eventos no padrão (Kefra caído, sem
+// novato), o que passa pelo teto ainda cai pela metade e perde 15%.
+func TestTetoDeXPDeQuemMataNoGrupo(t *testing.T) {
+	const expMob = 100_000
+	depoisDoTeto := func(v int64) int64 { v /= 2; return v - v*15/100 }
+	campo := cenaDeGrupo{x: 6, y: 5, nivelMob: 150, expMob: expMob}
+	pesadelo := cenaDeGrupo{x: 9*128 + 20, y: 128 + 20, nivelMob: 150, expMob: expMob} // Pesadelo Arcano, bloco (9,1)
+
+	casos := []struct {
+		nome                       string
+		cena                       cenaDeGrupo
+		nivelMatador, nivelDoOutro int32
+		querMatador, querOutro     int64
+	}{
+		// 251 contra 151: 15100/251 = 60 → 60*2-100 = 20 → teto de 0,2x = 20.000.
+		// O outro faria 450*100.000/180 = 250.000 → ×0,6 = 150.000, e o teto corta.
+		// Quem matou fica abaixo do próprio teto: 450*20.000/280 = 32.142 →
+		// ÷1,07f = 30.039 → ×0,6 = 18.023.
+		{"quem mata nv250 e o outro nv150: o outro leva o teto de 0,2x", campo, 250, 150,
+			depoisDoTeto(18_023), depoisDoTeto(20_000)},
+		// 311 contra 151: 48 → -4 → 0. Teto 0 para os dois.
+		{"quem mata nv310 e o outro nv150: ninguém leva nada", campo, 310, 150, 0, 0},
+		// O fraco mata: o teto é o dele, 1,0x, e ele leva cheio. O forte leva o
+		// que o próprio nível dá contra o mob, que fica abaixo desse teto.
+		{"o fraco dá o golpe final: o fraco leva cheio", campo, 150, 250,
+			depoisDoTeto(100_000), depoisDoTeto(18_023)},
+		// Pesadelo: base identidade, 100.000 → ÷1 (≤200) → ×0,6 = 60.000, sem teto.
+		{"mesmo cenário no Pesadelo: o outro leva cheio, lá não tem teto", pesadelo, 250, 150,
+			-1, depoisDoTeto(60_000)},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			cena := c.cena
+			cena.nivelMatador, cena.nivelDoOutro = c.nivelMatador, c.nivelDoOutro
+			d, w, matador, outro, mob := grupoDeDois(t, cena)
+
+			d.grantPartyExp(w, nil, matador, mob)
+
+			if outro.Exp != c.querOutro {
+				t.Errorf("o outro (nv%d) levou %d, queria %d", c.nivelDoOutro, outro.Exp, c.querOutro)
+			}
+			if c.querMatador >= 0 && matador.Exp != c.querMatador {
+				t.Errorf("quem matou (nv%d) levou %d, queria %d", c.nivelMatador, matador.Exp, c.querMatador)
 			}
 		})
 	}
