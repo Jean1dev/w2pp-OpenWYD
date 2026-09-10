@@ -62,12 +62,12 @@ func TestBuffUsesTheLegacyQuantisedStep(t *testing.T) {
 // Parity that was simply never read: the original raises MOB.Magic by 20%
 // alongside MaxHp, MaxMp and Damage (Basedef.cpp:4574).
 func TestDivineRaisesMagic(t *testing.T) {
-	e := &world.Entity{Magic: 500, AffDamageMultiPct: 100}
-	if got := effectiveMagic(e); got != 500 {
-		t.Fatalf("effectiveMagic without the buff = %d, want 500", got)
+	e := &world.Entity{Magic: 200, AffDamageMultiPct: 100}
+	if got := effectiveMagic(e); got != 200 {
+		t.Fatalf("effectiveMagic without the buff = %d, want 200", got)
 	}
 	withAffects(e, world.AffectDivine)
-	const want = 500 + (500/100)*20 // 600
+	const want = 200 + (200/100)*20 // 240
 	if got := effectiveMagic(e); got != want {
 		t.Errorf("effectiveMagic with the Divine = %d, want %d", got, want)
 	}
@@ -117,12 +117,12 @@ func TestPercentDamageBonusIsTheSamePercentForEveryCaster(t *testing.T) {
 // The multiplier must not reach Magic itself any more — the score the client shows
 // is the caster's real Magic, and the buff is spent on the damage.
 func TestPercentDamageBonusStaysOutOfMagic(t *testing.T) {
-	e := &world.Entity{Magic: 500}
+	e := &world.Entity{Magic: 200}
 	withAffects(e, 4, 4, 4, 4, 4)
 	applyAffectScore(e)
 
-	if got := effectiveMagic(e); got != 525 {
-		t.Errorf("effectiveMagic = %d, want 525 (500 + five × 5 flat, no multiplier)", got)
+	if got := effectiveMagic(e); got != 225 {
+		t.Errorf("effectiveMagic = %d, want 225 (200 + five × 5 flat, no multiplier)", got)
 	}
 }
 

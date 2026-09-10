@@ -769,6 +769,11 @@ func (d *Dispatcher) resolveSkillHit(w *world.World, e, target *world.Entity, ti
 		// branch reading Damage) must not be handed it twice — SkillBaseDamage applies
 		// this one only on the magic branch, which reads Magic and never Damage.
 		DamageMultiPct: int(e.AffDamageMultiPct),
+		// The client picks its branch from the character's face, and only a
+		// Mortal's face has %10 <= 5 — ClassMaster says the same thing without
+		// being fooled by a BM transformation swapping the face mid-fight.
+		Mortal:       e.ClassMaster == classMasterMortal,
+		LearnedSkill: e.LearnedSkill,
 	}
 	// CurrentWeather scales InstanceType 2/3/5 output (_MSG_Attack.cpp:520,594,972
 	// → BASE_GetSkillDamage). Weather 0 is neutral, so this is a no-op until a

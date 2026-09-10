@@ -27,6 +27,20 @@ type SkillCaster struct {
 	// DamageMultiPct is the legacy DAMAGEMULTI (100 = neutral). It lands on the
 	// finished spell damage, NOT inside Magic — see the comment at its use site.
 	DamageMultiPct int
+	// Mortal selects the unevolved formula: the mastery counts once and the level
+	// counts half. LearnedSkill feeds the tree bonus. See SkillBaseDamage.
+	Mortal       bool
+	LearnedSkill int32
+}
+
+// treeBonusPct is the percentage the client adds to a skill once its tree's
+// 8th skill is learned, by class then tree (WYD.exe 7662, jump table at
+// 0x5431E7; the per-tree multiplies run from 0x543055 to 0x543169).
+var treeBonusPct = [4][3]int{
+	{115, 120, 115}, // TransKnight
+	{110, 115, 115}, // Foema
+	{110, 100, 100}, // BeastMaster
+	{110, 110, 120}, // Huntress
 }
 
 // ManaSpent is BASE_GetManaSpent (Basedef.cpp:6071): the spell's base cost
@@ -40,6 +54,22 @@ func ManaSpent(baseMana, saveMana, special int) int {
 // BASE_GetSkillDamage(skillnum, mob, weather, weapondamage) (Basedef.cpp:6998):
 // the pre-mitigation skill output. The result then goes through SkillDamage
 // (the dam/def/master overload) and SkillResistScale, as _MSG_Attack.cpp does.
+//
+// The number is the one the client shows. The "Atq Mágico" line of the status
+// window is not a stat: the client runs its own copy of this function on the
+// skill selected in the bar (WYD.exe 7662, 0x542AA7, called from the window at
+// 0x44A9DF) and prints the result. The Kersef server we ported had drifted from
+// that copy in two places, and players read the drift as the server lying: a
+// window of 11,295 landed 43,798 on a Tauron. The two are ported back here:
+//
+//   - A Mortal (face %10 <= 5 in the client, i.e. ClassMaster Mortal) counts its
+//     mastery once and half its level; only Arch and up get 2×mastery + level
+//     (0x542C5A-0x542DD3 vs 0x542DD8-0x542F30). Huntress is the same in both.
+//   - Once the tree's 8th skill is learned, the finished damage takes the tree
+//     bonus (treeBonusPct), which Kersef dropped.
+//
+// The third drift, Magic above one byte, is capped where Magic is made
+// (handler.effectiveMagic), because the client keeps only that byte.
 func SkillBaseDamage(skillnum int, sp SkillSpell, c SkillCaster, weather, weaponDamage int) int {
 	level := c.Level
 	if level < 0 {
@@ -73,16 +103,21 @@ func SkillBaseDamage(skillnum int, sp SkillSpell, c SkillCaster, weather, weapon
 		// Note: this tree keys on skillnum/8 (NOT %24/8) — only TK's second
 		// tree (skills 8-15) hits the weapon-scaling branch.
 		skind := skillnum / 8
+		// The level and mastery terms a Mortal gets (see the function comment).
+		lvl, mastery := level, 2*special
+		if c.Mortal {
+			lvl, mastery = level/2, special
+		}
 		switch {
-		case skillnum == 97: // Canhão Guardião
+		case skillnum == 97: // Canhão Guardião — the client uses the full level here for everyone
 			dam = 15*level + base
 		case c.Class == 0 && skind == 1: // TK tree 2
-			dam = 3*weaponDamage + 3*c.Str + level + special + base
+			dam = 3*weaponDamage + 3*c.Str + lvl + special + base
 		case c.Class == 0: // TK other trees
-			dam = special + base + weaponDamage + level + c.Int/4 + c.Int/40
+			dam = special + base + weaponDamage + lvl + c.Int/4 + c.Int/40
 		case c.Class == 1, c.Class == 2: // Foema / BeastMaster
-			dam = c.Int/30 + c.Int/3 + level + base + 2*special
-		case c.Class == 3: // Huntress
+			dam = c.Int/30 + c.Int/3 + lvl + base + mastery
+		case c.Class == 3: // Huntress — level/2 in both of the client's branches
 			dam = 3*weaponDamage + 3*c.Str + level/2 + special + base
 		}
 		if weather == 1 {
@@ -112,6 +147,13 @@ func SkillBaseDamage(skillnum int, sp SkillSpell, c SkillCaster, weather, weapon
 			}
 		}
 		dam = 5 * dam / 4
+		// The tree bonus comes last, on the finished number (0x543009).
+		if c.Class >= 0 && c.Class < len(treeBonusPct) && skillnum >= 0 {
+			tree := (skillnum / 8) % 3
+			if c.LearnedSkill&(1<<(8*tree+7)) != 0 {
+				dam = dam * treeBonusPct[c.Class][tree] / 100
+			}
+		}
 
 	case sp.InstanceType == 6: // heal
 		dam = 3*special/2 + base

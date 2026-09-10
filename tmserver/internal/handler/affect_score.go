@@ -376,13 +376,25 @@ func effectiveDex(e *world.Entity) int16 { return e.Dex + e.AffDex }
 // The decision here is that a percentage damage bonus is a percentage damage
 // bonus — if the potions and transforms hand a warrior +20%, the caster gets the
 // same +20% on the number that is its damage.
+//
+// The result stops at maxMagic. The client keeps Magic in ONE BYTE: UpdateScore's
+// int Magic is read with `mov al, [packet+0x90]` and stored in an unsigned char
+// (WYD.exe 7662, 0x511D87), and UpdateEtc's copy is never read at all. The
+// client's skill damage then multiplies by (4×that byte + 100). The original
+// server held Magic under the same ceiling (MAX_DAMAGE_MG 254,
+// Source/Code/SearchPass/main.h); Kersef raised it to 1e9, so past 255 the
+// server multiplied by the whole Magic while the window, holding only the low
+// byte, promised a fraction of it (Magic 411 hits ×17.4 and shows ×7.2).
 func effectiveMagic(e *world.Entity) int32 {
 	mg := int32(e.Magic) + e.AffMagic
 	if e.HasAffect(world.AffectDivine) {
 		mg += (mg / 100) * 20
 	}
-	return mg
+	return min(mg, maxMagic)
 }
+
+// maxMagic is the original MAX_DAMAGE_MG — the largest Magic the client can hold.
+const maxMagic = 254
 
 // effectiveResist is the live resistance of element i (0 fire, 1 ice, 2 holy,
 // 3 thunder). The legacy clamps each resist to 0..100 at the END of

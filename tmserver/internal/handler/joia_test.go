@@ -94,9 +94,9 @@ func TestJoiaAffect8Stacks(t *testing.T) {
 }
 
 func TestEffectiveMagicPoder(t *testing.T) {
-	e := &world.Entity{Magic: 250, AffMagic: 40}
-	if got := effectiveMagic(e); got != 290 {
-		t.Errorf("effectiveMagic = %d, want 290", got)
+	e := &world.Entity{Magic: 200, AffMagic: 40}
+	if got := effectiveMagic(e); got != 240 {
+		t.Errorf("effectiveMagic = %d, want 240", got)
 	}
 }
 
