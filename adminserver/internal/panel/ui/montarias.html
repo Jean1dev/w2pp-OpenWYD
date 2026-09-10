@@ -292,42 +292,11 @@
               {{end}}
             </div>
 
-            {{/* A absorção é outra tabela no banco e outro botão aqui: dá para
-                 mexer na curva sem tocar na defesa, e vice-versa. Juntar as duas
-                 num "Gravar" só faria toda edição de taxa reescrever a defesa. */}}
-            <div class="bloco-abs">
-              <div class="rot-bloco">Absorção</div>
-              <form id="abs{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/absorcao">
-                <input type="hidden" name="csrf" value="{{$.CSRF}}">
-                <div class="faixas-form">
-                  <label>
-                    Contra jogador
-                    <input type="number" name="abs_pvp" min="0" max="100" value="{{.AbsPvP}}">
-                  </label>
-                  <label>
-                    Contra monstro
-                    <input type="number" name="abs_pve" min="0" max="100" value="{{.AbsPvE}}">
-                  </label>
-                </div>
-              </form>
-              {{if not .AbsPadrao}}
-              <form id="absPadrao{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/absorcao/limpar">
-                <input type="hidden" name="csrf" value="{{$.CSRF}}">
-              </form>
-              {{end}}
-              <div class="linha-botoes">
-                <button class="principal" type="submit" form="abs{{.Indice}}">Gravar a absorção</button>
-                {{if not .AbsPadrao}}
-                <button class="perigo" type="submit" form="absPadrao{{.Indice}}">Voltar ao padrão</button>
-                <span class="dica-curva">Restaurar apaga os dois números; a linhagem volta a {{$.PadraoAbs}}% dos dois lados.</span>
-                {{else}}
-                <span class="dica-curva">Esta linhagem está no padrão do legado: {{$.PadraoAbs}}% contra qualquer um.</span>
-                {{end}}
-              </div>
-            </div>
-
-            {{/* Terceira tabela, terceiro botão, pelo mesmo motivo da absorção:
-                 mexer no dano não pode reescrever a defesa sem ninguém pedir. */}}
+            {{/* Tudo o que a montaria FAZ num bloco só — o que ela empresta e
+                 como ela defende —, e separado da curva, que é quanto custa
+                 criá-la. No banco são duas tabelas (atributos e absorção); o
+                 botão grava só a que mudou, para mexer no dano não transformar
+                 uma absorção que estava no padrão numa escolha à mão. */}}
             <div class="bloco-abs">
               <div class="rot-bloco">Atributos</div>
               <form id="atrib{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/atributos">
@@ -353,20 +322,30 @@
                     <input type="number" name="imun" min="0" max="100" value="{{.Imun}}">
                     <small>padrão {{.PadImn}}</small>
                   </label>
+                  <label>
+                    Absorção PvP (%)
+                    <input type="number" name="abs_pvp" min="0" max="100" value="{{.AbsPvP}}">
+                    <small>padrão {{$.PadraoAbs}}% &middot; golpe de jogador</small>
+                  </label>
+                  <label>
+                    Absorção PvE (%)
+                    <input type="number" name="abs_pve" min="0" max="100" value="{{.AbsPvE}}">
+                    <small>padrão {{$.PadraoAbs}}% &middot; golpe de monstro</small>
+                  </label>
                 </div>
               </form>
-              {{if not .AtribPadrao}}
+              {{if not .TudoPadrao}}
               <form id="atribPadrao{{.Indice}}" method="post" action="/rates/montarias/{{.Indice}}/atributos/limpar">
                 <input type="hidden" name="csrf" value="{{$.CSRF}}">
               </form>
               {{end}}
               <div class="linha-botoes">
                 <button class="principal" type="submit" form="atrib{{.Indice}}">Gravar os atributos</button>
-                {{if not .AtribPadrao}}
+                {{if not .TudoPadrao}}
                 <button class="perigo" type="submit" form="atribPadrao{{.Indice}}">Voltar ao padrão</button>
-                <span class="dica-curva">Restaurar apaga os quatro números; a linhagem volta aos do cliente.</span>
+                <span class="dica-curva">Restaurar apaga os seis números; a linhagem volta aos do cliente e a {{$.PadraoAbs}}% de absorção.</span>
                 {{else}}
-                <span class="dica-curva">Esta linhagem está nos números que o cliente traz.</span>
+                <span class="dica-curva">Esta linhagem está no padrão: os números do cliente e {{$.PadraoAbs}}% de absorção.</span>
                 {{end}}
               </div>
             </div>

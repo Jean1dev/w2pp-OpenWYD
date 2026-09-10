@@ -405,6 +405,7 @@ func TestSetAtributosGravaEmDecimosEAudita(t *testing.T) {
 	// "2,5" é como a pessoa escreve a evasão; o jogo guarda 25 décimos.
 	rec := post("/rates/montarias/2375/atributos", url.Values{
 		"csrf": {token}, "atk": {"500"}, "mag": {"85"}, "eva": {"2,5"}, "imun": {"40"},
+		"abs_pvp": {"25"}, "abs_pve": {"25"}, // no padrão: não pode virar escolha à mão
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body.String())
@@ -420,10 +421,11 @@ func TestSetAtributosGravaEmDecimosEAudita(t *testing.T) {
 func TestSetAtributosRecusaForaDaFaixa(t *testing.T) {
 	game := newFakeGameData()
 	post, token := signedInPost(t, newTestPanelGame(t, newFakeAudit(), game))
-	ok := url.Values{"csrf": {token}, "atk": {"500"}, "mag": {"85"}, "eva": {"2"}, "imun": {"40"}}
+	ok := url.Values{"csrf": {token}, "atk": {"500"}, "mag": {"85"}, "eva": {"2"}, "imun": {"40"}, "abs_pvp": {"10"}, "abs_pve": {"20"}}
 	for campo, ruim := range map[string]string{
 		"atk": "2001", "mag": "-1", "imun": "101",
-		"eva": "10,1", // acima do teto de 10% da esquiva de equipamento
+		"eva":     "10,1", // acima do teto de 10% da esquiva de equipamento
+		"abs_pvp": "101", "abs_pve": "-1",
 	} {
 		f := url.Values{}
 		for k, v := range ok {
@@ -478,5 +480,88 @@ func TestTabelaDoClienteLevaAtributosEAbsorcao(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("faltou a linha %q em:\n%s", strings.TrimSpace(want), body)
 		}
+	}
+}
+
+func TestSetAtributosAbsorcaoNoPadraoNaoViraEscolha(t *testing.T) {
+	// The form always carries all six numbers. Saving only the damage must not
+	// turn an inherited 25% absorption into a hand-picked 25% — that row would
+	// stop following the default the day it moved.
+	game := newFakeGameData()
+	post, token := signedInPost(t, newTestPanelGame(t, newFakeAudit(), game))
+	rec := post("/rates/montarias/2375/atributos", url.Values{
+		"csrf": {token}, "atk": {"520"}, "mag": {"85"}, "eva": {"0"}, "imun": {"32"},
+		"abs_pvp": {"25"}, "abs_pve": {"25"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(game.absorbSalvo) != 0 {
+		t.Errorf("gravou a absorção sem ela ter mudado: %v", game.absorbSalvo)
+	}
+	if _, ok := game.bonusSalvo[2375]; !ok {
+		t.Error("o dano mudou e não foi gravado")
+	}
+}
+
+func TestSetAtributosSoAbsorcaoMudou(t *testing.T) {
+	// The owner's case: X of PvP and Y of PvE, attributes untouched.
+	game := newFakeGameData()
+	game.bonuses = atributosDeTeste()
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelGame(t, log, game))
+	rec := post("/rates/montarias/2371/atributos", url.Values{
+		"csrf": {token}, "atk": {"600"}, "mag": {"40"}, "eva": {"6,0"}, "imun": {"28"},
+		"abs_pvp": {"10"}, "abs_pve": {"20"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := game.absorbSalvo[2371]; got != [2]int32{10, 20} {
+		t.Errorf("absorção gravada = %v, want [10 20]", got)
+	}
+	if len(game.bonusSalvo) != 0 {
+		t.Errorf("gravou atributos que não mudaram: %v", game.bonusSalvo)
+	}
+	if recs := log.written; len(recs) != 1 || recs[0].Action != audit.ActionSetMountAbsorb {
+		t.Errorf("auditoria = %+v, want só um SET_MOUNT_ABSORB", recs)
+	}
+}
+
+func TestSetAtributosSemMudancaNaoGrava(t *testing.T) {
+	game := newFakeGameData()
+	game.bonuses = atributosDeTeste()
+	post, token := signedInPost(t, newTestPanelGame(t, newFakeAudit(), game))
+	rec := post("/rates/montarias/2371/atributos", url.Values{
+		"csrf": {token}, "atk": {"600"}, "mag": {"40"}, "eva": {"6"}, "imun": {"28"},
+		"abs_pvp": {"25"}, "abs_pve": {"25"},
+	})
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "Nada+mudou") {
+		t.Errorf("status %d, Location %q; want 303 avisando que nada mudou", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(game.bonusSalvo) != 0 || len(game.absorbSalvo) != 0 {
+		t.Errorf("gravou sem mudança: bônus %v, absorção %v", game.bonusSalvo, game.absorbSalvo)
+	}
+}
+
+func TestLimparAtributosApagaSoOQueEstaConfigurado(t *testing.T) {
+	// 2370 has both tables configured in the fixtures; 2371 only the absorption.
+	game := newFakeGameData()
+	game.bonuses = atributosDeTeste()
+	game.absorbs = absorcoesDeTeste()
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelGame(t, log, game))
+
+	if rec := post("/rates/montarias/2371/atributos/limpar", url.Values{"csrf": {token}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if len(game.bonusLimpo) != 0 {
+		t.Errorf("apagou atributos que estavam no padrão: %v", game.bonusLimpo)
+	}
+	if len(game.absorbLimpo) != 1 || game.absorbLimpo[0] != 2371 {
+		t.Errorf("absorção apagada = %v, want [2371]", game.absorbLimpo)
+	}
+	if recs := log.written; len(recs) != 1 || recs[0].Action != audit.ActionClearMountAbsorb {
+		t.Errorf("auditoria = %+v, want só um CLEAR_MOUNT_ABSORB", recs)
 	}
 }

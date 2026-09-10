@@ -63,6 +63,9 @@ type montariaLinha struct {
 	// EvaTexto e PadEvaTexto são a evasão já escrita como a pessoa lê ("6,0"),
 	// para o template não fazer conta.
 	EvaTexto, PadEvaTexto string
+	// TudoPadrao é a linhagem sem nada gravado nem nos atributos nem na
+	// absorção — o bloco da tela é um só, e o "Voltar ao padrão" também.
+	TudoPadrao bool
 	// Aberta marca a linha que está sendo editada. É resolvida aqui e não no
 	// template porque comparar um índice com o texto da query dentro do HTML
 	// seria aritmética de string numa tela — o lugar errado para ela.
@@ -128,6 +131,7 @@ func (h *Handler) montarias(w http.ResponseWriter, r *http.Request) {
 			l.Atk120, l.Mag120 = (120+20)*b.Attack/100, (120+15)*b.Magic/100
 			l.EvaTexto, l.PadEvaTexto = porcentoDeDecimos(b.Evasion), porcentoDeDecimos(b.DefaultEvasion)
 		}
+		l.TudoPadrao = l.AtribPadrao && l.AbsPadrao
 		linhas = append(linhas, l)
 	}
 
@@ -471,7 +475,49 @@ const (
 	atribMaxImunid = 100
 )
 
-// setAtributosMontaria grava os quatro números de uma linhagem.
+// estadoAtributos é o que uma linhagem tem gravado hoje: os quatro atributos e
+// o par de absorção, cada um com a sua marca de "configurado". O bloco da tela
+// é um só, mas no banco são duas tabelas, e é esta leitura que deixa o handler
+// gravar só a que mudou.
+type estadoAtributos struct {
+	bonus            gamedata.MountBonus
+	abs              gamedata.MountAbsorb
+	bonusConfigurado bool
+	absConfigurado   bool
+}
+
+func (h *Handler) estadoDosAtributos(r *http.Request, indice int32) (estadoAtributos, error) {
+	var e estadoAtributos
+	bonuses, err := h.cfg.GameData.MountBonuses(r.Context())
+	if err != nil {
+		return e, err
+	}
+	for _, b := range bonuses {
+		if b.MountIndex == indice {
+			e.bonus, e.bonusConfigurado = b, b.Configured
+		}
+	}
+	absorcoes, err := h.cfg.GameData.MountAbsorbs(r.Context())
+	if err != nil {
+		return e, err
+	}
+	e.abs = gamedata.MountAbsorb{MountIndex: indice, PvP: padraoAbsorcao, PvE: padraoAbsorcao}
+	for _, a := range absorcoes {
+		if a.MountIndex == indice && a.Configured {
+			e.abs, e.absConfigurado = a, true
+		}
+	}
+	return e, nil
+}
+
+// setAtributosMontaria grava o bloco de atributos de uma linhagem: os quatro
+// atributos e a absorção PvP/PvE.
+//
+// Só grava a parte que mudou. O formulário traz sempre os seis números, os que
+// estão no padrão inclusive; gravar tudo transformaria a absorção de 25% herdada
+// numa escolha de 25% feita à mão — que deixaria de acompanhar o padrão — só
+// porque alguém mexeu no dano. E gravar o que não mudou ainda acenderia o aviso
+// de "alteração esperando reinício" por nada.
 func (h *Handler) setAtributosMontaria(w http.ResponseWriter, r *http.Request) {
 	indice, ok := indiceMontaria(r)
 	if !ok {
@@ -488,6 +534,8 @@ func (h *Handler) setAtributosMontaria(w http.ResponseWriter, r *http.Request) {
 	magia, okM := inteiroDoForm(r, "mag", atribMaxMagia)
 	imun, okI := inteiroDoForm(r, "imun", atribMaxImunid)
 	eva, okE := evasaoDoForm(r.FormValue("eva"))
+	pvp, okPvP := absorcaoDoForm(r, "abs_pvp")
+	pve, okPvE := absorcaoDoForm(r, "abs_pve")
 	switch {
 	case !okD:
 		http.Error(w, fmt.Sprintf("O dano precisa de um número inteiro entre 0 e %d.", atribMaxDano), http.StatusBadRequest)
@@ -501,28 +549,54 @@ func (h *Handler) setAtributosMontaria(w http.ResponseWriter, r *http.Request) {
 	case !okI:
 		http.Error(w, fmt.Sprintf("A imunidade precisa de um número inteiro entre 0 e %d.", atribMaxImunid), http.StatusBadRequest)
 		return
+	case !okPvP || !okPvE:
+		http.Error(w, "A absorção precisa de um número entre 0 e 100.", http.StatusBadRequest)
+		return
+	}
+
+	atual, err := h.estadoDosAtributos(r, indice)
+	if err != nil {
+		h.recusaGameData(w, r, "ler os atributos da montaria", err)
+		return
+	}
+	mudouBonus := dano != atual.bonus.Attack || magia != atual.bonus.Magic ||
+		eva != atual.bonus.Evasion || imun != atual.bonus.Resist
+	mudouAbs := pvp != atual.abs.PvP || pve != atual.abs.PvE
+	if !mudouBonus && !mudouAbs {
+		http.Redirect(w, r, "/rates/montarias?aviso=Nada+mudou", http.StatusSeeOther)
+		return
 	}
 
 	sess, _ := staffFrom(r.Context())
-	if err := h.cfg.GameData.SetMountBonus(r.Context(), sess.AccountID, sess.AccountName, indice, dano, magia, eva, imun); err != nil {
-		h.recusaGameData(w, r, "gravar os atributos da montaria", err)
-		return
+	if mudouBonus {
+		if err := h.cfg.GameData.SetMountBonus(r.Context(), sess.AccountID, sess.AccountName, indice, dano, magia, eva, imun); err != nil {
+			h.recusaGameData(w, r, "gravar os atributos da montaria", err)
+			return
+		}
+		if !h.auditarMontaria(w, r, audit.ActionSetMountBonus, map[string]any{
+			"montaria": indice, "dano": dano, "magia": magia, "evasao_decimos": eva, "imunidade": imun,
+		}) {
+			return
+		}
 	}
-	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
-		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
-		Action: audit.ActionSetMountBonus,
-		New:    map[string]any{"montaria": indice, "dano": dano, "magia": magia, "evasao_decimos": eva, "imunidade": imun},
-	}); err != nil {
-		h.cfg.Logger.Error("mount bonus changed but NOT audited", "montaria", indice, "err", err)
-		http.Error(w, "Os atributos foram salvos, mas a auditoria falhou. Avise quem cuida do servidor.",
-			http.StatusInternalServerError)
-		return
+	if mudouAbs {
+		if err := h.cfg.GameData.SetMountAbsorb(r.Context(), sess.AccountID, sess.AccountName, indice, pvp, pve); err != nil {
+			h.recusaGameData(w, r, "gravar a absorção da montaria", err)
+			return
+		}
+		if !h.auditarMontaria(w, r, audit.ActionSetMountAbsorb, map[string]any{
+			"montaria": indice, "pvp": pvp, "pve": pve,
+		}) {
+			return
+		}
 	}
 	http.Redirect(w, r, "/rates/montarias?aviso=Atributos+salvos", http.StatusSeeOther)
 }
 
-// limparAtributosMontaria devolve a linhagem aos números do cliente. Apaga, não grava o
-// padrão, pela regra de todo este overlay.
+// limparAtributosMontaria devolve a linhagem ao padrão: os números do cliente e
+// a absorção do legado. Apaga as duas linhas, e só as que existem — restaurar o
+// que já está no padrão não é uma mudança, e não deve aparecer na auditoria
+// como uma.
 func (h *Handler) limparAtributosMontaria(w http.ResponseWriter, r *http.Request) {
 	indice, ok := indiceMontaria(r)
 	if !ok {
@@ -535,22 +609,47 @@ func (h *Handler) limparAtributosMontaria(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-	sess, _ := staffFrom(r.Context())
-	if err := h.cfg.GameData.ClearMountBonus(r.Context(), sess.AccountID, indice); err != nil {
-		h.recusaGameData(w, r, "restaurar os atributos da montaria", err)
+	atual, err := h.estadoDosAtributos(r, indice)
+	if err != nil {
+		h.recusaGameData(w, r, "ler os atributos da montaria", err)
 		return
 	}
-	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
-		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()),
-		Action: audit.ActionClearMountBonus,
-		New:    map[string]any{"montaria": indice},
-	}); err != nil {
-		h.cfg.Logger.Error("mount bonus cleared but NOT audited", "montaria", indice, "err", err)
-		http.Error(w, "Os atributos foram restaurados, mas a auditoria falhou. Avise quem cuida do servidor.",
-			http.StatusInternalServerError)
-		return
+	sess, _ := staffFrom(r.Context())
+	if atual.bonusConfigurado {
+		if err := h.cfg.GameData.ClearMountBonus(r.Context(), sess.AccountID, indice); err != nil {
+			h.recusaGameData(w, r, "restaurar os atributos da montaria", err)
+			return
+		}
+		if !h.auditarMontaria(w, r, audit.ActionClearMountBonus, map[string]any{"montaria": indice}) {
+			return
+		}
+	}
+	if atual.absConfigurado {
+		if err := h.cfg.GameData.ClearMountAbsorb(r.Context(), sess.AccountID, indice); err != nil {
+			h.recusaGameData(w, r, "restaurar a absorção da montaria", err)
+			return
+		}
+		if !h.auditarMontaria(w, r, audit.ActionClearMountAbsorb, map[string]any{"montaria": indice}) {
+			return
+		}
 	}
 	http.Redirect(w, r, "/rates/montarias?aviso=Atributos+restaurados", http.StatusSeeOther)
+}
+
+// auditarMontaria grava a trilha de uma mudança já feita. Se a auditoria falhar,
+// responde e devolve false: a mudança está no banco, e quem a fez precisa saber
+// que ela ficou sem registro.
+func (h *Handler) auditarMontaria(w http.ResponseWriter, r *http.Request, acao string, novo map[string]any) bool {
+	sess, _ := staffFrom(r.Context())
+	if err := h.cfg.Audit.Write(r.Context(), audit.Record{
+		ActorID: sess.AccountID, ActorRole: roleFrom(r.Context()), Action: acao, New: novo,
+	}); err != nil {
+		h.cfg.Logger.Error("mount change applied but NOT audited", "acao", acao, "err", err)
+		http.Error(w, "A mudança foi salva, mas a auditoria falhou. Avise quem cuida do servidor.",
+			http.StatusInternalServerError)
+		return false
+	}
+	return true
 }
 
 func inteiroDoForm(r *http.Request, campo string, teto int) (int32, bool) {
