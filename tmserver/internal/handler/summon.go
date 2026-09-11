@@ -100,16 +100,24 @@ var summonBonus = [9]struct {
 	hpInt, hpEvo   int32
 }{
 	// Int  Dano   Int    AC   Int     HP        alvo por unidade @ Evocação 320
-	{0, 849, 0, 120, 0, 294},   // 0 Condor      dano 2.750, AC 400, HP 1.000
-	{0, 786, 0, 369, 0, 1219},  // 1 Javali      dano 2.550, AC 1.200, HP 4.000
-	{0, 994, 0, 206, 0, 594},   // 2 Lobo        dano 3.250, AC 700, HP 2.000
-	{0, 791, 0, 419, 0, 1531},  // 3 Urso        dano 2.600, AC 1.400, HP 5.000
-	{0, 1149, 0, 241, 0, 719},  // 4 Tigre       dano 3.750, AC 800, HP 2.400
-	{0, 1063, 0, 298, 0, 875},  // 5 Gorila      dano 3.450, AC 1.000, HP 3.000
-	{0, 1297, 0, 350, 0, 984},  // 6 Dragão      dano 4.250, AC 1.200, HP 3.500
-	{0, 1906, 0, 278, 0, 1238}, // 7 Succubus    dano 6.250, AC 1.000, HP 4.200
+	{0, 849, 0, 183, 0, 6232},  // 0 Condor      dano 2.750, AC 600, HP 20.000
+	{0, 786, 0, 557, 0, 3875},  // 1 Javali      dano 2.550, AC 1.800, HP 12.500
+	{0, 994, 0, 316, 0, 5360},  // 2 Lobo        dano 3.250, AC 1.050, HP 17.250
+	{0, 791, 0, 638, 0, 3313},  // 3 Urso        dano 2.600, AC 2.100, HP 10.700
+	{0, 1149, 0, 366, 0, 5063}, // 4 Tigre       dano 3.750, AC 1.200, HP 16.300
+	{0, 1063, 0, 455, 0, 4438}, // 5 Gorila      dano 3.450, AC 1.500, HP 14.400
+	{0, 1297, 0, 538, 0, 3797}, // 6 Dragão      dano 4.250, AC 1.800, HP 12.500
+	{0, 1906, 0, 435, 0, 4425}, // 7 Succubus    dano 6.250, AC 1.500, HP 14.400
 	{0, 0, 0, 0, 0, 0},         // 8 Invocação Final: sem escalonamento nenhum
 }
+
+// A AC e o HP de cima foram refeitos em 2026-09-11, porque os Taurons matavam as
+// evocações de uma vez: o Tigre de 2.400 de HP caía em 2 golpes. O pedido foi
+// "aguentar ~12 golpes do Tauron mais forte". A AC é 1,5× a anterior de cada
+// criatura, o que mantém a ordem de quem é mais blindado. O HP é 12 golpes médios
+// do Tauron_Agmo (1.900 de dano) contra essa AC, cerca de (1.900 − AC/2) × 1,045
+// por golpe. Com isso todas aguentam o mesmo número de golpes, e o que muda entre
+// elas é quanto da resistência vem da armadura e quanto da vida.
 
 // summonHeads é quantas unidades cada criatura põe em campo, por Evocação.
 //
@@ -120,16 +128,19 @@ var summonBonus = [9]struct {
 // por quem opera, e o teto é o que impede uma Evocação alta de estourar o
 // desenho: a conta cresce com a maestria até o número da criatura e para ali.
 //
-// Os divisores são calibrados para o teto cair exatamente em Evocação 320.
+// Os divisores são 300 ÷ teto: o conjunto sai cheio a partir de Evocação 300
+// (pedido de 2026-09-11; antes era 320, e um BM com 300 via 3 Succubus e 4
+// Dragões). A divisão inteira faz alguns fecharem poucas casas antes — o Gorila
+// completa os 7 em 294. O teto do Gorila subiu de 6 para 7 no mesmo pedido.
 var summonHeads = [9]struct{ divisor, teto int }{
-	{26, 12}, // 0 Condor
-	{32, 10}, // 1 Javali
-	{32, 10}, // 2 Lobo
-	{35, 9},  // 3 Urso
-	{40, 8},  // 4 Tigre
-	{53, 6},  // 5 Gorila
-	{64, 5},  // 6 Dragão Negro
-	{80, 4},  // 7 Succubus
+	{25, 12}, // 0 Condor
+	{30, 10}, // 1 Javali
+	{30, 10}, // 2 Lobo
+	{33, 9},  // 3 Urso
+	{37, 8},  // 4 Tigre
+	{42, 7},  // 5 Gorila
+	{60, 5},  // 6 Dragão Negro
+	{75, 4},  // 7 Succubus
 	{0, 1},   // 8 Invocação Final: sempre uma, sem depender da maestria
 }
 

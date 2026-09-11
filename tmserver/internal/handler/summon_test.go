@@ -16,8 +16,8 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// TestSummonCount trava o teto por criatura em Evocação 320, que é onde os
-// números do desenho foram medidos, e o degrau abaixo dele.
+// TestSummonCount trava o teto por criatura em Evocação 300, onde o conjunto
+// sai cheio desde 2026-09-11 (antes 320), e o degrau abaixo dele.
 //
 // O teto é o que impede uma maestria alta de estourar o desenho: sem ele a
 // conta continua crescendo e o Condor, com o menor divisor de todos, enche a
@@ -27,15 +27,19 @@ func TestSummonCount(t *testing.T) {
 		nome          string
 		iv, evo, want int
 	}{
-		// O teto de cada criatura, em Evocação 320.
-		{"Condor no teto", 1, 320, 12},
-		{"Javali no teto", 2, 320, 10},
-		{"Lobo no teto", 3, 320, 10},
-		{"Urso no teto", 4, 320, 9},
-		{"Tigre no teto", 5, 320, 8},
-		{"Gorila no teto", 6, 320, 6},
-		{"Dragão no teto", 7, 320, 5},
-		{"Succubus no teto", 8, 320, 4},
+		// O teto de cada criatura, em Evocação 300.
+		{"Condor no teto", 1, 300, 12},
+		{"Javali no teto", 2, 300, 10},
+		{"Lobo no teto", 3, 300, 10},
+		{"Urso no teto", 4, 300, 9},
+		{"Tigre no teto", 5, 300, 8},
+		{"Gorila no teto", 6, 300, 7},
+		{"Dragão no teto", 7, 300, 5},
+		{"Succubus no teto", 8, 300, 4},
+
+		// O caso do jogo: um BM logo abaixo de 300 ainda sai um a menos.
+		{"Succubus em 299", 8, 299, 3},
+		{"Dragão em 299", 7, 299, 4},
 
 		// Maestria no máximo não passa do teto.
 		{"Condor no máximo da maestria", 1, 400, 12},
@@ -43,14 +47,14 @@ func TestSummonCount(t *testing.T) {
 		{"Succubus no máximo da maestria", 8, 400, 4},
 
 		// Abaixo do teto a maestria ainda manda.
-		{"Condor pela metade", 1, 160, 6},
-		{"Dragão pela metade", 7, 160, 2},
-		{"Succubus pela metade", 8, 160, 2},
+		{"Condor pela metade", 1, 150, 6},
+		{"Dragão pela metade", 7, 150, 2},
+		{"Succubus pela metade", 8, 150, 2},
 
 		// Sem maestria nenhuma não sai bicho — o lançamento devolve a mana.
 		{"Condor sem Evocação", 1, 0, 0},
 		{"Succubus sem Evocação", 8, 0, 0},
-		{"Succubus abaixo do primeiro degrau", 8, 79, 0},
+		{"Succubus abaixo do primeiro degrau", 8, 74, 0},
 
 		// A Invocação Final não depende da maestria.
 		{"Invocação Final", 9, 0, 1},
@@ -456,7 +460,7 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 
 	pets := collectPets(t, c, time.Second)
 	if len(pets) != 2 {
-		t.Fatalf("pets spawned = %d, want 2 (Evocação 60 ÷ 26)", len(pets))
+		t.Fatalf("pets spawned = %d, want 2 (Evocação 60 ÷ 25)", len(pets))
 	}
 	for id, payload := range pets {
 		if id < world.MaxUser {
@@ -475,8 +479,8 @@ func TestEvocationSpawnsScaledSummons(t *testing.T) {
 		if dmg != 529 {
 			t.Errorf("pet damage = %d, want 529 (base 20 + 60·849%%)", dmg)
 		}
-		if hp != 276 {
-			t.Errorf("pet maxHP = %d, want 276 (base 100 + 60·294%%)", hp)
+		if hp != 3839 {
+			t.Errorf("pet maxHP = %d, want 3839 (base 100 + 60·6232%%)", hp)
 		}
 	}
 }
@@ -1191,14 +1195,14 @@ func TestEvocacoesBatemOsAlvosPorUnidade(t *testing.T) {
 			alvoDano, alvoAC int32
 			alvoHP           int32
 		}{
-			{"Condor", 0, 35, 15, 60, 2750, 400, 1000},
-			{"Javali", 1, 35, 20, 100, 2550, 1200, 4000},
-			{"Lobo", 2, 70, 40, 100, 3250, 700, 2000},
-			{"Urso", 3, 70, 60, 100, 2600, 1400, 5000},
-			{"Tigre", 4, 75, 30, 100, 3750, 800, 2400},
-			{"Gorila", 5, 50, 45, 200, 3450, 1000, 3000},
-			{"Dragão", 6, 100, 80, 350, 4250, 1200, 3500},
-			{"Succubus", 7, 150, 110, 240, 6250, 1000, 4200},
+			{"Condor", 0, 35, 15, 60, 2750, 600, 20000},
+			{"Javali", 1, 35, 20, 100, 2550, 1800, 12500},
+			{"Lobo", 2, 70, 40, 100, 3250, 1050, 17250},
+			{"Urso", 3, 70, 60, 100, 2600, 2100, 10700},
+			{"Tigre", 4, 75, 30, 100, 3750, 1200, 16300},
+			{"Gorila", 5, 50, 45, 200, 3450, 1500, 14400},
+			{"Dragão", 6, 100, 80, 350, 4250, 1800, 12500},
+			{"Succubus", 7, 150, 110, 240, 6250, 1500, 14400},
 		} {
 			b := summonBonus[c.summonID]
 			got := []struct {
