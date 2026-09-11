@@ -18,7 +18,6 @@ import (
 
 const (
 	itemAmuletoDePrata = 551
-	itemCavaloSemSelaN = 2366
 )
 
 // The quest pays in loot, never in experience — and the same template under
@@ -76,24 +75,6 @@ func TestCasteloOrcAmuletoSaiComUmAdd(t *testing.T) {
 	}
 }
 
-// A mount straight from the Mesa de Drops would carry no HP — a mount that
-// gives nothing. From a quest monster it leaves alive, as the Baú makes one.
-func TestCasteloOrcMontariaSaiViva(t *testing.T) {
-	d, w, killer := mobKilledWorld(t)
-	d.dropRules = droprule.NewTable([]droprule.Rule{{Mob: "COrc_Guarda", Item: itemCavaloSemSelaN, Chance: droprule.MaxChance}})
-	d.mobKilled(w, killer, spawnNamed(t, w, expMobTemplate(320, 0, 0), "COrc_Guarda"))
-	it, ok := carryHas(killer, itemCavaloSemSelaN)
-	if !ok {
-		t.Fatal("o Guarda do Lorde não derrubou o cavalo a 100%")
-	}
-	if it.Effects[0] != (world.Effect{Effect: 28, Value: 104}) || it.Effects[2] != (world.Effect{Effect: 100, Value: 1}) {
-		t.Errorf("cavalo saiu como %+v, want HP 26652 e ração 100", it.Effects)
-	}
-	if v := int(it.Effects[1].Value); it.Effects[1].Effect != 1 || v < adultVitalityMin || v > adultVitalityMax {
-		t.Errorf("vitalidade %+v fora de %d..%d", it.Effects[1], adultVitalityMin, adultVitalityMax)
-	}
-}
-
 // Outside the quest nothing changes: the same amulet from another monster
 // keeps coming out bare.
 func TestCasteloOrcNaoMexeNoDropDeOutroMonstro(t *testing.T) {
@@ -120,7 +101,7 @@ var casteloOrcDesign = map[string]struct {
 }{
 	"COrc_GraoLorde": {"Grão-Lorde Orc", 350, 6000000, 3000, 2700, 25, 0},
 	"COrc_Guarda":    {"Guarda do Lorde", 320, 150000, 2200, 2450, 15, 0},
-	"COrc_Sentinela": {"Sentinela Orc", 330, 900000, 2400, 2500, 20, 465},
+	"COrc_Sentinela": {"Sentinela Orc", 330, 900000, 2400, 2500, 20, 466},
 	"COrc_Capitao":   {"Capitão Orc", 330, 900000, 2400, 2500, 20, 467},
 	"COrc_Chefe":     {"Chefe Orc", 330, 900000, 2400, 2500, 20, 469},
 	"COrc_Cavaleiro": {"Cavaleiro Orc", 300, 18000, 1800, 2300, 10, 0},
@@ -290,6 +271,7 @@ func TestCasteloOrcMigracaoDeDrops(t *testing.T) {
 		t.Fatal("nenhuma linha na migração")
 	}
 	porMonstro := map[string]int{}
+	chaveTodos, chaveEmAlgum := false, false
 	for _, r := range rows {
 		item, _ := strconv.Atoi(r[2])
 		chance, _ := strconv.Atoi(r[3])
@@ -297,13 +279,32 @@ func TestCasteloOrcMigracaoDeDrops(t *testing.T) {
 		if !rule.Valid() {
 			t.Errorf("%v: a Mesa de Drops recusaria esta linha", r[0])
 		}
-		if !casteloOrcTemplates[droprule.Canonical(r[1])] {
-			t.Errorf("%s não é monstro da quest", r[1])
-		}
 		if _, ok := items.Get(item); !ok {
 			t.Errorf("item %d não existe no ItemList", item)
 		}
+		if item == itemChaveCasteloOrc {
+			// The key's rows name monsters outside the quest: each must be a real
+			// template file, or the rule never fires while the panel lists it.
+			switch {
+			case r[1] == droprule.AllMobs:
+				chaveTodos = true
+			case casteloOrcTemplates[droprule.Canonical(r[1])]:
+				t.Errorf("%s dá a chave da própria quest: cada corrida pagaria a seguinte", r[1])
+			default:
+				if _, _, err := npctemplate.Load(root, r[1]); err != nil {
+					t.Errorf("a chave cai de %q, que não existe: %v", r[1], err)
+				}
+				chaveEmAlgum = chaveEmAlgum || chance > 0
+			}
+			continue
+		}
+		if !casteloOrcTemplates[droprule.Canonical(r[1])] {
+			t.Errorf("%s não é monstro da quest", r[1])
+		}
 		porMonstro[r[1]]++
+	}
+	if !chaveTodos || !chaveEmAlgum {
+		t.Errorf("a chave precisa sair de todos (%v) e voltar em algum lugar (%v)", chaveTodos, chaveEmAlgum)
 	}
 	for file := range casteloOrcDesign {
 		if porMonstro[file] == 0 {

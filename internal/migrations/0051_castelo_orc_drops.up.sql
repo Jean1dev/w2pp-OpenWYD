@@ -1,51 +1,61 @@
--- 0051_castelo_orc_drops — o saque dos monstros da quest do Castelo Orc.
+-- 0051_castelo_orc_drops — o saque da quest do Castelo Orc e a chave que a abre.
 --
 -- Os oito templates COrc_* (Release/TMsrv/run/npc) nascem sem drop próprio: o
--- Carry deles só guarda a chave de portão dos três guardiões (slot 56, sempre).
+-- Carry deles só guarda uma chave de portão em cada guardião (slot 56, sempre).
 -- Tudo o que cai vem daqui, na chance exata da Mesa de Drops, e continua
--- editável no painel (/drops) como qualquer outra linha.
+-- editável no painel (/drops) como qualquer outra linha. O acabamento que a
+-- mesa não diz — o add sorteado do amuleto — é do tmServer
+-- (handler/castelo_orc.go).
 --
--- O acabamento que a mesa não diz — o add sorteado do amuleto e a vida da
--- montaria — é do tmServer (handler/castelo_orc.go).
+-- As chances saem da meta por entrada que o design fixou, contando 60 de tropa,
+-- 3 guardiões, o boss e ~44 seguidores (4 no começo, mais 4 a cada 30 s em uns
+-- 5 min na última sala):
 --
--- As chances que o design da quest fixou são as da tropa: Moeda de Prata (1Mi)
--- 5%, Restos de Oriharucon 20% e de Lactolerium 10%, Poeiras 5% e 2%. O resto é
--- proposta para o primeiro teste, feita para ser mexida no painel.
+--   Moeda de Prata (1Mi)  10       Âmago de Lobo           15
+--   Repletion C + D       10       Âmago de Dragão Menor   12
+--   Restos Ori + Lac      ~32      Âmago de Dente de Sabre 10
+--   Poeiras Ori + Lac     7        Âmago de Cav. s/ Sela   7 (N 4, B 3)
+--   Ovos de Cav. s/ Sela  ~1       Amuleto com add         0,6
+--
+-- Moedas, Repletion e Âmago de Lobo caem só da tropa e dos guardiões, que são
+-- sempre 63: a meta não depende de quanto o grupo fica na última sala. Os
+-- seguidores, que renascem, carregam os âmagos de montaria, os ovos e metade
+-- dos restos.
 --
 -- ON CONFLICT DO NOTHING: uma linha que alguém já gravou pelo painel antes do
 -- deploy vale mais que a proposta.
 
 INSERT INTO drop_rule (mob, item, chance) VALUES
     -- Tropa e guardiões: o saque do castelo.
-    ('COrc_Cavaleiro', 4026,  500), ('COrc_Arqueiro', 4026,  500), ('COrc_MeioOrc', 4026,  500),
-    ('COrc_Cavaleiro', 4018,  100), ('COrc_Arqueiro', 4018,  100), ('COrc_MeioOrc', 4018,  100),
-    ('COrc_Cavaleiro', 4019,   50), ('COrc_Arqueiro', 4019,   50), ('COrc_MeioOrc', 4019,   50),
-    ('COrc_Cavaleiro', 2392,  100), ('COrc_Arqueiro', 2392,  100), ('COrc_MeioOrc', 2392,  100),
+    ('COrc_Cavaleiro', 4026, 1600), ('COrc_Arqueiro', 4026, 1600), ('COrc_MeioOrc', 4026, 1600),
+    ('COrc_Cavaleiro', 4018,  950), ('COrc_Arqueiro', 4018,  950), ('COrc_MeioOrc', 4018,  950),
+    ('COrc_Cavaleiro', 4019,  650), ('COrc_Arqueiro', 4019,  650), ('COrc_MeioOrc', 4019,  650),
+    ('COrc_Cavaleiro', 2392, 2400), ('COrc_Arqueiro', 2392, 2400), ('COrc_MeioOrc', 2392, 2400),
     ('COrc_Cavaleiro', 2394,  100), ('COrc_Arqueiro', 2394,  100), ('COrc_MeioOrc', 2394,  100),
-    ('COrc_Cavaleiro', 2393,  100), ('COrc_Arqueiro', 2393,  100), ('COrc_MeioOrc', 2393,  100),
-    ('COrc_Cavaleiro', 2395,   50), ('COrc_Arqueiro', 2395,   50), ('COrc_MeioOrc', 2395,   50),
+    ('COrc_Cavaleiro', 2393, 1000), ('COrc_Arqueiro', 2393, 1000), ('COrc_MeioOrc', 2393, 1000),
+    ('COrc_Cavaleiro', 2395,  800), ('COrc_Arqueiro', 2395,  800), ('COrc_MeioOrc', 2395,  800),
     ('COrc_Cavaleiro',  419, 2000), ('COrc_Arqueiro',  419, 2000), ('COrc_MeioOrc',  419, 2000),
     ('COrc_Cavaleiro',  420, 1000), ('COrc_Arqueiro',  420, 1000), ('COrc_MeioOrc',  420, 1000),
-    ('COrc_Cavaleiro',  412,  500), ('COrc_Arqueiro',  412,  500), ('COrc_MeioOrc',  412,  500),
-    ('COrc_Cavaleiro',  413,  200), ('COrc_Arqueiro',  413,  200), ('COrc_MeioOrc',  413,  200),
-    ('COrc_Sentinela', 4026,  500), ('COrc_Capitao', 4026,  500), ('COrc_Chefe', 4026,  500),
-    ('COrc_Sentinela', 4018,  100), ('COrc_Capitao', 4018,  100), ('COrc_Chefe', 4018,  100),
-    ('COrc_Sentinela', 4019,   50), ('COrc_Capitao', 4019,   50), ('COrc_Chefe', 4019,   50),
-    ('COrc_Sentinela', 2392,  100), ('COrc_Capitao', 2392,  100), ('COrc_Chefe', 2392,  100),
+    ('COrc_Cavaleiro',  412,  750), ('COrc_Arqueiro',  412,  750), ('COrc_MeioOrc',  412,  750),
+    ('COrc_Cavaleiro',  413,  280), ('COrc_Arqueiro',  413,  280), ('COrc_MeioOrc',  413,  280),
+    ('COrc_Sentinela', 4026, 1600), ('COrc_Capitao', 4026, 1600), ('COrc_Chefe', 4026, 1600),
+    ('COrc_Sentinela', 4018,  950), ('COrc_Capitao', 4018,  950), ('COrc_Chefe', 4018,  950),
+    ('COrc_Sentinela', 4019,  650), ('COrc_Capitao', 4019,  650), ('COrc_Chefe', 4019,  650),
+    ('COrc_Sentinela', 2392, 2400), ('COrc_Capitao', 2392, 2400), ('COrc_Chefe', 2392, 2400),
     ('COrc_Sentinela', 2394,  100), ('COrc_Capitao', 2394,  100), ('COrc_Chefe', 2394,  100),
-    ('COrc_Sentinela', 2393,  100), ('COrc_Capitao', 2393,  100), ('COrc_Chefe', 2393,  100),
-    ('COrc_Sentinela', 2395,   50), ('COrc_Capitao', 2395,   50), ('COrc_Chefe', 2395,   50),
+    ('COrc_Sentinela', 2393, 1000), ('COrc_Capitao', 2393, 1000), ('COrc_Chefe', 2393, 1000),
+    ('COrc_Sentinela', 2395,  800), ('COrc_Capitao', 2395,  800), ('COrc_Chefe', 2395,  800),
     ('COrc_Sentinela',  419, 2000), ('COrc_Capitao',  419, 2000), ('COrc_Chefe',  419, 2000),
     ('COrc_Sentinela',  420, 1000), ('COrc_Capitao',  420, 1000), ('COrc_Chefe',  420, 1000),
-    ('COrc_Sentinela',  412,  500), ('COrc_Capitao',  412,  500), ('COrc_Chefe',  412,  500),
-    ('COrc_Sentinela',  413,  200), ('COrc_Capitao',  413,  200), ('COrc_Chefe',  413,  200),
+    ('COrc_Sentinela',  412,  750), ('COrc_Capitao',  412,  750), ('COrc_Chefe',  412,  750),
+    ('COrc_Sentinela',  413,  280), ('COrc_Capitao',  413,  280), ('COrc_Chefe',  413,  280),
     -- Guarda do Lorde: os seguidores que renascem na última sala.
     ('COrc_Guarda',  419, 2000),
     ('COrc_Guarda',  420, 1000),
-    ('COrc_Guarda', 2393,  300),
-    ('COrc_Guarda', 2395,  200),
-    ('COrc_Guarda', 2366,   50),
-    ('COrc_Guarda', 2371,   25),
+    ('COrc_Guarda', 2393, 1300),
+    ('COrc_Guarda', 2395, 1100),
+    ('COrc_Guarda', 2396,  900),
+    ('COrc_Guarda', 2401,  700),
     ('COrc_Guarda', 2306,  100),
     ('COrc_Guarda', 2311,   50),
     -- Grão-Lorde: os amuletos só caem dele, com as Poeiras e os ovos em chance maior.
@@ -54,9 +64,33 @@ INSERT INTO drop_rule (mob, item, chance) VALUES
     ('COrc_GraoLorde',  553, 1500),
     ('COrc_GraoLorde',  554, 1500),
     ('COrc_GraoLorde',  412, 3000),
-    ('COrc_GraoLorde',  413, 1500),
+    ('COrc_GraoLorde',  413, 2500),
     ('COrc_GraoLorde', 2306, 2500),
-    ('COrc_GraoLorde', 2311, 1250)
+    ('COrc_GraoLorde', 2311, 1250),
+    -- A chave: a Chave Portão Orc Sul (465), a primeira das quatro do castelo no
+    -- legado, é o que o Xamã Orc pede. Ela sai de todo monstro ('*' a 0% — hoje o
+    -- Guarda_Orc_ do castelo aberto a dá sempre, a cada 6 min) e volta só onde o
+    -- design quis: a arena da Quest 256 das Hidras, a dos Elfos e o Deserto. Os
+    -- templates do Deserto são os que só nascem lá; o Tauron comum também nasce
+    -- na Monster City e fica de fora.
+    ('*', 465, 0),
+    ('Hidra_Dourada',   465, 100),
+    ('Hidra_Imortal',   465,  50),
+    ('Mestre_Elfo',     465, 100),
+    ('Servo_Elfo',      465,  50),
+    ('Adamant_Tauron',  465,  30),
+    ('Aeon_Tauron',     465,  30),
+    ('Aranha_Inferno',  465,  30),
+    ('Arqueiro_Tauron', 465,  30),
+    ('Cav._Lugefer',    465,  30),
+    ('Ladrao_Tauron',   465,  30),
+    ('Lugefer',         465,  30),
+    ('Manticora',       465,  30),
+    ('Taron_Assassino', 465,  30),
+    ('Treant',          465,  30),
+    ('Verme_',          465,  30),
+    ('Tauron_Agmo',     465,  30),
+    ('Verme_Agmo',      465,  30)
 ON CONFLICT (mob, item) DO NOTHING;
 
 -- O tmServer relê a mesa quando a versão muda; sem isto, um servidor já de pé

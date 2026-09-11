@@ -8,19 +8,37 @@ party e as decisões ficam no artefato "Atlas de Quests W2PP".
 ## Estado
 
 ✅ Os oito monstros da quest (templates `COrc_*`) <br/>
-✅ O saque na Mesa de Drops (migração `0051_castelo_orc_drops`) <br/>
+✅ O saque e a chave na Mesa de Drops (migração `0051_castelo_orc_drops`) <br/>
 ✅ 0 XP para os monstros da quest <br/>
-✅ Amuleto com add sorteado e montaria que cai viva <br/>
-✅ A corrida: o Xamã Orc abre o castelo com o Emblema Orc, um grupo por vez, 15 min <br/>
-⏳ Portões que voltam a trancar, prêmio de conclusão, trava de nível/evolução e
-de onde vem o Emblema Orc <br/>
+✅ Amuleto com add sorteado <br/>
+✅ A corrida: o Xamã Orc abre o castelo com a Chave Portão Orc Sul, um grupo por
+vez, 15 min <br/>
+⏳ Portões que voltam a trancar, prêmio de conclusão e trava de nível/evolução <br/>
+
+## A chave
+
+É a **Chave Portão Orc Sul (465)**, a primeira das quatro chaves do castelo no
+legado, item que o cliente já conhece. A migração tira a chave de todo monstro
+(`*` a 0%) e a devolve só onde o design quis:
+
+| Onde | Monstro | Chance |
+|---|---|---|
+| Arena da Quest 256 das Hidras (nível 265–320) | Hidra_Dourada · Hidra_Imortal | 1% · 0,5% |
+| Arena da Quest 256 dos Elfos (nível 320–350) | Mestre_Elfo · Servo_Elfo | 1% · 0,5% |
+| Deserto | Adamant_Tauron, Aeon_Tauron, Aranha_Inferno, Arqueiro_Tauron, Cav._Lugefer, Ladrao_Tauron, Lugefer, Manticora, Taron_Assassino, Treant, Verme_, Tauron_Agmo, Verme_Agmo | 0,3% cada |
+
+- **Por que o `*` a 0%:** hoje o Guarda_Orc_ do castelo aberto dá a 465 sempre (slot
+  56), e ele renasce a cada 6 min.
+- **Templates escolhidos:** só os que nascem apenas nesses lugares. O Tauron comum
+  também nasce na Monster City e ficou de fora.
+- **O Sentinela da quest** carrega a 466 (Portão Orc Leste), e não a 465: senão cada
+  corrida pagaria a entrada da seguinte.
 
 ## A corrida (`handler/castelo_orc_run.go`)
 
 - **Quem abre:** o **Xamã Orc** (template `COrc_Xama`, Merchant 100, grau 40), de pé
   na chegada do `/erion` (2461,2003). Só o líder do grupo (ou quem está sozinho)
-  abre, e precisa ter o **Emblema Orc** (item 524), que é consumido. O item já
-  existe no cliente, e hoje nada vivo o dropa.
+  abre, e a chave é consumida.
 - **O Xamã nasce pelo código**, não pelo NPCGener. NPC com Merchant no NPCGener
   vira do overlay de NPCs quando `W2PP_NPC_EDITING` está ligado e só apareceria
   depois de um `dbserver import-npcs`. Assim ele fica de pé nos dois modos.
@@ -51,7 +69,7 @@ de onde vem o Emblema Orc <br/>
 |---|---|---|---|---|---|---|---|
 | `COrc_GraoLorde` | Grão-Lorde Orc | 350 | 6.000.000 | 3.000 | 2.700 | 25 | 6099 |
 | `COrc_Guarda` | Guarda do Lorde | 320 | 150.000 | 2.200 | 2.450 | 15 | 6100 (grupo de 4) |
-| `COrc_Sentinela` | Sentinela Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6101 · chave 465 |
+| `COrc_Sentinela` | Sentinela Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6101 · chave 466 |
 | `COrc_Capitao` | Capitão Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6102 · chave 467 |
 | `COrc_Chefe` | Chefe Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6103 · chave 469 |
 | `COrc_Cavaleiro` | Cavaleiro Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6104 (grupos de 4–5) |
@@ -79,24 +97,31 @@ equipamento de mob no score.
 Os templates não têm drop próprio, só a chave de portão dos guardiões (slot 56,
 cai sempre). O resto é da Mesa de Drops e se ajusta em `/drops` no painel.
 
-| Quem | Item | Chance |
-|---|---|---|
-| Tropa e guardiões | Moeda de Prata (1Mi) 4026 | 5% |
-| | Classe C 4018 · Classe D 4019 | 1% · 0,5% |
-| | Âmago de Lobo 2392 · Urso 2394 · Dragão Menor 2393 | 1% cada |
-| | Âmago de Dente de Sabre 2395 | 0,5% |
-| | Resto de Ori 419 · Resto de Lac 420 | 20% · 10% |
-| | Poeira de Ori 412 · Poeira de Lac 413 | 5% · 2% |
-| Guarda do Lorde | Resto de Ori · Resto de Lac | 20% · 10% |
-| | Âmago de Dragão Menor · Dente de Sabre | 3% · 2% |
-| | Cavalo s/ Sela N 2366 · B 2371 | 0,5% · 0,25% |
-| | Ovo de Cavalo s/ Sela N 2306 · B 2311 | 1% · 0,5% |
-| Grão-Lorde | Amuleto de Prata 551–554 | 15% cada |
-| | Poeira de Ori · Poeira de Lac | 30% · 15% |
-| | Ovo de Cavalo s/ Sela N · B | 25% · 12,5% |
+As chances saem da meta por entrada do design. A conta supõe 60 de tropa, 3
+guardiões, o boss e ~44 seguidores (4 no começo, mais 4 a cada 30 s em uns 5 min
+na última sala).
 
-As chances de Moeda, Restos e Poeiras da tropa vieram do design. As outras são
-proposta para o primeiro teste.
+| Meta por entrada | Quem dropa | Chance |
+|---|---|---|
+| 10 Moedas de Prata (1Mi) 4026 | tropa e guardiões | 16% |
+| 10 Repletion: Classe C 4018 + Classe D 4019 | tropa e guardiões | 9,5% + 6,5% |
+| 15 Âmagos de Lobo 2392 | tropa e guardiões | 24% |
+| 12 Âmagos de Dragão Menor 2393 | tropa e guardiões · seguidores | 10% · 13% |
+| 10 Âmagos de Dente de Sabre 2395 | tropa e guardiões · seguidores | 8% · 11% |
+| 7 Âmagos de Cavalo s/ Sela: N 2396 + B 2401 | seguidores | 9% + 7% |
+| ~0,6 Âmago de Urso 2394 | tropa e guardiões | 1% |
+| ~32 Restos: Ori 419 + Lac 420 | tropa e guardiões · seguidores | 20% + 10% em cada |
+| 7 Poeiras: Ori 412 + Lac 413 | tropa e guardiões · boss | 7,5% + 2,8% · 30% + 25% |
+| ~1 Ovo de Cavalo s/ Sela: N 2306 + B 2311 | seguidores · boss | 1% + 0,5% · 25% + 12,5% |
+| 0,6 Amuleto de Prata 551–554 | só o boss | 15% cada |
+
+- **Moedas, Repletion e Âmago de Lobo** caem só da tropa e dos guardiões, que são
+  sempre 63. Assim a meta não depende de quanto tempo o grupo fica na última sala.
+- **Cavalo s/ Sela não cai**: só os ovos.
+
+**Bolsa cheia perde o item.** Uma entrada rende uns 106 itens, uns 26 para cada
+um de 4 jogadores. O drop de mob ocupa sempre um espaço novo, sem juntar na pilha
+que já está na bolsa (`putMobDrop`), e com a bolsa cheia o item se perde.
 
 **O que o servidor acrescenta** (`casteloOrcFinish`, só em monstro da quest):
 - O **amuleto** cai +0 e com **um** add sorteado: 4–10 de magia, 10–20 de dano,
@@ -104,15 +129,13 @@ proposta para o primeiro teste.
   divididos por 4 no personagem: 1–2 de crítico sozinho não aparece.
 - O **anel** (501–506), se alguém der uma regra a ele, cai +0 com 1–3 de magia,
   5–7 de dano ou 10–20 de mana.
-- A **montaria** cai viva, como a do Baú da Montaria (HP 26.652, vitalidade
-  sorteada, ração 100). Pela Mesa sozinha, ela chegaria sem vida e não daria nada.
 
 ## Como testar
 
 A corrida inteira, com conta de GM:
 
 ```
-/gm item 524                    um Emblema Orc na bolsa
+/gm item 465                    a Chave Portão Orc Sul na bolsa
 /erion                          a chegada, onde o Xamã Orc está
 (clique no Xamã como líder do grupo)
 ```
@@ -123,7 +146,7 @@ Um monstro solto, perto do castelo e sem corrida:
 /gm criar COrc_GraoLorde        um boss na sua frente (não renasce)
 /gm gerar 6100 aqui             o grupo de 4 seguidores
 /gm gerar 6104 aqui             um grupo de tropa (6105, 6106: as outras)
-/gm criar COrc_Sentinela        um guardião (6102, 6103: os outros)
+/gm criar COrc_Sentinela        um guardião (Capitão e Chefe: os outros)
 ```
 
 GM (moderador para cima) não é barrado nem varrido do castelo durante a corrida,

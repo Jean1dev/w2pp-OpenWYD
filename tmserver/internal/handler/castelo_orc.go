@@ -9,8 +9,8 @@ import (
 // blocks world.CasteloOrcGenFirst..Last). The quest is a new rule, not the
 // legacy's: a run through Erion's castle, sized for Mortals 320-400, that pays
 // in gold and loot and never in experience. The loot table is the Mesa de
-// Drops (migration 0051); what the table cannot say — a stat roll on an
-// amulet, a mount that arrives alive — is finished here.
+// Drops (migration 0051); what the table cannot say — the stat roll on an
+// amulet or a ring — is finished here.
 //
 // Keyed on the template FILE, as the Mesa de Drops is, so a GM's "criar" or a
 // moderator's stat override on the same template stays inside the rule, and
@@ -70,19 +70,14 @@ const (
 	itemRingLast    = 506 // Anel de Hécate
 	itemAmuletFirst = 551 // Amuleto de Prata (Special1 +2)
 	itemAmuletLast  = 554 // Amuleto de Prata (Special4 +2)
-	// The adult mounts of the ItemList (Porco 2360 .. Pantera Negra 2389).
-	itemAdultMountFirst = 2360
-	itemAdultMountLast  = 2389
 )
 
 // casteloOrcFinish marks one item a quest monster dropped, after the ordinary
-// drop bonus (which leaves rings, amulets and mounts untouched).
+// drop bonus (which leaves rings and amulets untouched).
 //
 // A ring or amulet gets +0 in the first slot — what makes it refinable, as the
 // legacy's own amulet reward writes it (_MSG_Quest.cpp:1627-1743) — and one add
-// in the second. A mount leaves alive, stamped the way the Baú da Montaria
-// stamps one (mountPrize): straight from the Mesa de Drops it would carry no HP,
-// which is a mount that gives nothing, takes no âmago and never eats.
+// in the second.
 func (d *Dispatcher) casteloOrcFinish(w *world.World, mob *world.Entity, it *world.Item) {
 	if !isCasteloOrcMob(mob) {
 		return
@@ -93,10 +88,6 @@ func (d *Dispatcher) casteloOrcFinish(w *world.World, mob *world.Entity, it *wor
 		stampAccessoryAdd(w, it, casteloOrcAmuletAdds)
 	case idx >= itemRingFirst && idx <= itemRingLast:
 		stampAccessoryAdd(w, it, casteloOrcRingAdds)
-	case idx >= itemAdultMountFirst && idx <= itemAdultMountLast:
-		it.Effects[0] = world.Effect{Effect: 28, Value: 104}
-		it.Effects[1] = world.Effect{Effect: 1, Value: rollAdultVitality(w)}
-		it.Effects[2] = world.Effect{Effect: 100, Value: 1}
 	}
 }
 

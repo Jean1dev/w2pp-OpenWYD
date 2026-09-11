@@ -100,7 +100,7 @@ func TestCasteloOrcSemChaveNaoAbre(t *testing.T) {
 	d, w, s, e := casteloOrcFixture(t)
 	d.casteloOrcQuestNPC(w, s, e, raiseXama(t, d, w))
 	if d.casteloOrc.active {
-		t.Fatal("abriu sem o Emblema Orc")
+		t.Fatal("abriu sem a chave do castelo")
 	}
 	if live(w, casteloOrcBossGen) != 0 {
 		t.Error("o boss nasceu sem a corrida")
@@ -115,7 +115,7 @@ func TestCasteloOrcChaveAbreOCastelo(t *testing.T) {
 	if live(w, 402) == 0 {
 		t.Fatal("fixture: o bloco do castelo aberto devia estar povoado")
 	}
-	e.Carry[3] = world.Item{Index: itemEmblemaOrc}
+	e.Carry[3] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcQuestNPC(w, s, e, raiseXama(t, d, w))
 
 	r := d.casteloOrc
@@ -123,7 +123,7 @@ func TestCasteloOrcChaveAbreOCastelo(t *testing.T) {
 		t.Fatalf("corrida = %+v, want ativa com %d s", r, casteloOrcRunSeconds)
 	}
 	if e.Carry[3].Index != 0 {
-		t.Error("o Emblema Orc não foi consumido")
+		t.Error("a chave do castelo não foi consumida")
 	}
 	if live(w, 402) != 0 {
 		t.Error("os orcs do castelo aberto ficaram lá dentro")
@@ -143,21 +143,21 @@ func TestCasteloOrcChaveAbreOCastelo(t *testing.T) {
 func TestCasteloOrcUmGrupoPorVez(t *testing.T) {
 	d, w, s, e := casteloOrcFixture(t)
 	npc := raiseXama(t, d, w)
-	e.Carry[0] = world.Item{Index: itemEmblemaOrc}
+	e.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcQuestNPC(w, s, e, npc)
 
 	outro := &world.Entity{ID: 7, Mode: world.MobUser, Name: "Outro", HP: 1000}
-	outro.Carry[0] = world.Item{Index: itemEmblemaOrc}
+	outro.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcQuestNPC(w, &world.Session{Conn: 7, Mode: world.UserPlay}, outro, npc)
-	if outro.Carry[0].Index != itemEmblemaOrc || d.casteloOrc.leaderName != "Lider" {
+	if outro.Carry[0].Index != itemChaveCasteloOrc || d.casteloOrc.leaderName != "Lider" {
 		t.Error("um segundo grupo entrou ou perdeu a chave com o castelo ocupado")
 	}
 
 	d2, w2, s2, membro := casteloOrcFixture(t)
 	membro.Leader = 5
-	membro.Carry[0] = world.Item{Index: itemEmblemaOrc}
+	membro.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
 	d2.casteloOrcQuestNPC(w2, s2, membro, raiseXama(t, d2, w2))
-	if d2.casteloOrc.active || membro.Carry[0].Index != itemEmblemaOrc {
+	if d2.casteloOrc.active || membro.Carry[0].Index != itemChaveCasteloOrc {
 		t.Error("um membro de grupo abriu o castelo")
 	}
 }
@@ -202,7 +202,7 @@ func TestCasteloOrcPedidoDeCacaNaoFuraACorrida(t *testing.T) {
 // the run and takes the quest's monsters with it.
 func TestCasteloOrcBossETempo(t *testing.T) {
 	d, w, s, e := casteloOrcFixture(t)
-	e.Carry[0] = world.Item{Index: itemEmblemaOrc}
+	e.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcQuestNPC(w, s, e, raiseXama(t, d, w))
 	var boss *world.Entity
 	w.ForEachMob(func(_ int, m *world.Entity) {
@@ -236,7 +236,7 @@ func TestCasteloOrcBossETempo(t *testing.T) {
 // The followers are topped back up every half minute while the run is on.
 func TestCasteloOrcSeguidoresRenascem(t *testing.T) {
 	d, w, s, e := casteloOrcFixture(t)
-	e.Carry[0] = world.Item{Index: itemEmblemaOrc}
+	e.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcQuestNPC(w, s, e, raiseXama(t, d, w))
 	w.ClearGenerator(casteloOrcFollowerGen) // the party killed them all
 	d.casteloOrc.sinceFollower = casteloOrcFollowerEvery - 1
@@ -250,7 +250,7 @@ func TestCasteloOrcSeguidoresRenascem(t *testing.T) {
 // ends the run.
 func TestCasteloOrcAbandonoLiberaOCastelo(t *testing.T) {
 	d, w, s, e := casteloOrcFixture(t)
-	e.Carry[0] = world.Item{Index: itemEmblemaOrc}
+	e.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcQuestNPC(w, s, e, raiseXama(t, d, w))
 	for range casteloOrcAbandonSeconds {
 		d.tickCasteloOrc(w)

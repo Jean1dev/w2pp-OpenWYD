@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/droprule"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -9,8 +10,8 @@ import (
 )
 
 // The Castelo Orc run: a new rule, not the legacy's. A party leader hands the
-// Xamã Orc an Emblema Orc; the castle is emptied of its open-world orcs and of
-// anyone outside the party, the quest's own monsters rise (world blocks
+// Xamã Orc the Chave Portão Orc Sul; the castle is emptied of its open-world
+// orcs and of anyone outside the party, the quest's own monsters rise (world blocks
 // CasteloOrcGenFirst..Last) and the party is dropped at the south-west wall with
 // fifteen minutes on the clock. One party at a time, server-wide, like the Sala
 // Secreta: the castle, its blocks and the sweep are shared.
@@ -25,8 +26,11 @@ import (
 // Nothing survives a restart — a boot mid-run simply ends it, as with the Água
 // and the Carta.
 const (
-	itemEmblemaOrc  = 524 // the entry key: Emblema_Orc, in the client and dropped by nothing live
-	gradeCasteloOrc = 40  // the Xamã Orc's EF_GRADE0 (Merchant 100); no shipped template uses 40
+	// itemChaveCasteloOrc is the entry key: Chave_Portão_Orc_Sul, the first of the
+	// legacy castle's four gate keys. Where it drops is the Mesa de Drops' call
+	// (migration 0051): the Quest 256 Hydra and Elf arenas and the Desert.
+	itemChaveCasteloOrc = 465
+	gradeCasteloOrc     = 40 // the Xamã Orc's EF_GRADE0 (Merchant 100); no shipped template uses 40
 
 	casteloOrcRunSeconds  = 15 * 60
 	casteloOrcLootSeconds = 2 * 60
@@ -114,13 +118,15 @@ func (d *Dispatcher) casteloOrcQuestNPC(w *world.World, s *world.Session, e, npc
 	}
 	slot := -1
 	for i := 0; i < activeCarryLimit(e); i++ {
-		if e.Carry[i].Index == itemEmblemaOrc {
+		if e.Carry[i].Index == itemChaveCasteloOrc {
 			slot = i
 			break
 		}
 	}
 	if slot < 0 {
-		sendSay(w, npc, fmt.Sprintf("Traga o %s para abrir o castelo.", d.itemName(itemEmblemaOrc)))
+		// The catalog spells names with underscores; the NPC says them with spaces.
+		key := strings.ReplaceAll(d.itemName(itemChaveCasteloOrc), "_", " ")
+		sendSay(w, npc, fmt.Sprintf("Traga a %s para abrir o castelo.", key))
 		return
 	}
 	consumeOneItem(&e.Carry[slot])
