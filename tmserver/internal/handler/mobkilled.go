@@ -456,8 +456,8 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 	// by whatever the gear adds and drives the grant to 0 — the "no points on level-up"
 	// bug for any character wearing attribute gear. Use the allocated BaseScore.
 	e.ScoreBonus = uint16(level.ScoreBonus(scoreBonusInput(e)))
-	d.refreshScore(e)             // fold the base HP/MP gains into the live score
-	e.HP, e.MP = e.MaxHP, e.MaxMP // full heal on level-up
+	d.refreshScore(e)                                 // fold the base HP/MP gains into the live score
+	e.HP, e.MP = effectiveMaxHP(e), effectiveMaxMP(e) // full heal on level-up
 
 	// Visible level-up: a fresh score window (own attributes) + the etc packet that
 	// carries the new ScoreBonus (free attribute points) — UpdateScore does NOT carry
@@ -585,8 +585,8 @@ func (d *Dispatcher) applyExpSegment(w *world.World, s *world.Session, e *world.
 	}
 	e.Segment = seg
 
-	e.HP, e.MP = e.MaxHP, e.MaxMP
 	d.refreshScore(e)
+	e.HP, e.MP = effectiveMaxHP(e), effectiveMaxMP(e)
 	if s != nil {
 		d.notify(w, s, quarterNotice(seg))
 		d.sendScore(w, s, e)

@@ -131,7 +131,7 @@ func applyTransformScore(e *world.Entity, af world.Affect) {
 	}
 
 	hpMulti := multi(hpAdd+b.minHP, hpAdd+b.maxHP)
-	e.AffMaxHP += e.MaxHP * (hpMulti - 100) / 100
+	e.AffMaxHP += scoreMaxHP(e) * (hpMulti - 100) / 100
 
 	for k := range e.AffResist {
 		e.AffResist[k] += int16(regAdd)

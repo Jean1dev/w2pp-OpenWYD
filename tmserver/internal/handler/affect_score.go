@@ -120,16 +120,16 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 				e.AffHpAbs += 20
 			}
 			if level&(1<<4) != 0 { // Proteção: +10% MaxHp, +10% AC
-				e.AffMaxHP += (e.MaxHP / 100) * 10
+				e.AffMaxHP += (scoreMaxHP(e) / 100) * 10
 				e.AffAC += (e.AC / 100) * 10
 			}
 			if level&(1<<5) != 0 { // Poder: +10% MaxHp, +10% Damage, +20% Magic
-				e.AffMaxHP += (e.MaxHP / 100) * 10
+				e.AffMaxHP += (scoreMaxHP(e) / 100) * 10
 				e.AffDamage += (e.Damage / 100) * 10
 				e.AffMagic += (int32(e.Magic) / 100) * 20
 			}
 			if level&(1<<7) != 0 { // Magia: half the max MP pool becomes max HP
-				mana := (e.MaxMP + 1) / 2
+				mana := (scoreMaxMP(e) + 1) / 2
 				e.AffMaxHP += mana
 				e.AffMaxMP -= mana
 			}
@@ -155,7 +155,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			}
 			e.AffDamage += boosted - dmg
 			e.AffDamageMultiPct += level/10 + value
-			e.AffMaxHP -= e.MaxHP / 10
+			e.AffMaxHP -= scoreMaxHP(e) / 10
 		case 14: // Possuído (skill 3): +CON and twice that in MaxHP
 			applyConHpBuff(e, level, value)
 		case 15: // all four Special trees (+cap 400 applied at read)

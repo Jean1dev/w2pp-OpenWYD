@@ -2616,17 +2616,47 @@ func buffScaleHpMp(e *world.Entity, v int32) int32 {
 	return v
 }
 
-// effectiveMaxHP is the player's real max HP: (flat MaxHP + affect deltas) ×
+// effectiveMaxHP is the player's real max HP: (score MaxHP + affect deltas) ×
 // EF_HPADD% × buff. Applied at read time (display/combat/regen), never stored
 // (captura §C,E).
 func effectiveMaxHP(e *world.Entity) int32 {
-	return semNegativo(buffScaleHpMp(e, (e.MaxHP+e.AffMaxHP)*(e.HpAddPct+100)/100))
+	return semNegativo(buffScaleHpMp(e, (scoreMaxHP(e)+e.AffMaxHP)*(e.HpAddPct+100)/100))
 }
 
-// effectiveMaxMP is the player's real max MP: (flat MaxMP + affect deltas) ×
+// effectiveMaxMP is the player's real max MP: (score MaxMP + affect deltas) ×
 // EF_MPADD% × buff.
 func effectiveMaxMP(e *world.Entity) int32 {
-	return semNegativo(buffScaleHpMp(e, (e.MaxMP+e.AffMaxMP)*(e.MpAddPct+100)/100))
+	return semNegativo(buffScaleHpMp(e, (scoreMaxMP(e)+e.AffMaxMP)*(e.MpAddPct+100)/100))
+}
+
+// scoreMaxHP is the legacy CurrentScore.MaxHp as the affect pass finds it. For
+// a player, BASE_GetCurrentScore takes the flat pool (base + equipment EF_HP)
+// and adds it to itself plus twice the CON the equipment gives
+// (Basedef.cpp:3152-3163): `MaxHp += MaxHp + ItemCon*2`. It runs for every
+// player on every score rebuild — CMob.cpp:709 passes isSummon=0 exactly when
+// idx < MAX_USER — and never for a monster, which keeps its template pool.
+//
+// Until 11/09/2026 the port had no doubling at all, and a player carried half
+// the legacy's life while every monster swing also read his armour three times
+// over (see HitInput.AttackerIsPlayer). The two had to come back together: one
+// without the other is a game that never existed.
+//
+// Applied at read time, like HpAddPct: the stored MaxHP stays the flat pool, so
+// deriveBaseScore's subtraction and the saved row are unchanged.
+func scoreMaxHP(e *world.Entity) int32 {
+	if !world.IsPlayer(e.ID) {
+		return e.MaxHP
+	}
+	return 2*e.MaxHP + 2*int32(e.Con-e.BaseCon)
+}
+
+// scoreMaxMP is scoreMaxHP's twin for mana: `MaxMp += MaxMp + ItemInt*2`, the
+// same block of Basedef.cpp.
+func scoreMaxMP(e *world.Entity) int32 {
+	if !world.IsPlayer(e.ID) {
+		return e.MaxMP
+	}
+	return 2*e.MaxMP + 2*int32(e.Int-e.BaseInt)
 }
 
 // semNegativo floors a computed MAXIMUM at ZERO.

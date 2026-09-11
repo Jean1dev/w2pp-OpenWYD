@@ -79,7 +79,7 @@ func (d *Dispatcher) downlevelArch(e *world.Entity, questLevel int32) {
 	// way of saying those levels were never meant to be reached unpaid.
 	e.ScoreBonus = uint16(level.ScoreBonus(scoreBonusInput(e)))
 	d.refreshScore(e)
-	e.HP, e.MP = min(e.HP, e.MaxHP), min(e.MP, e.MaxMP)
+	e.HP, e.MP = min(e.HP, effectiveMaxHP(e)), min(e.MP, effectiveMaxMP(e))
 }
 
 // subBonus subtracts n from an unsigned point pool, flooring at zero.

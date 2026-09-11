@@ -80,16 +80,22 @@ type HitInput struct {
 	AttackerDamage int
 	TargetAC       int
 	TargetIsPlayer bool
-	DoubleCritical uint8 // bit 1 = total crit (×2), bit 2 = partial crit
-	Master         int   // weapon mastery (combat level)
-	UseSkill       bool
-	SkillIndex     int
-	ParryRate      int  // 0..1000
-	TargetRsvBlock bool // target.Rsv & 0x200 → -4 instead of -3 on a low-roll block
-	ReflectDamage  int
-	ReflectPvP     int
-	ForceMobDamage int
-	MaxDamage      int
+	// AttackerIsPlayer gates the ×3 armour. It is _MSG_Attack.cpp's, a player
+	// striking a player (:454-455). A monster's swing goes through GetAttack,
+	// which hands BASE_GetDamage the victim's AC as it is (GetFunc.cpp:1631-1632).
+	// Until 11/09/2026 the port tripled it for monsters too, and a Mortal in
+	// shop armour took 1 point from blows the legacy lands for hundreds.
+	AttackerIsPlayer bool
+	DoubleCritical   uint8 // bit 1 = total crit (×2), bit 2 = partial crit
+	Master           int   // weapon mastery (combat level)
+	UseSkill         bool
+	SkillIndex       int
+	ParryRate        int  // 0..1000
+	TargetRsvBlock   bool // target.Rsv & 0x200 → -4 instead of -3 on a low-roll block
+	ReflectDamage    int
+	ReflectPvP       int
+	ForceMobDamage   int
+	MaxDamage        int
 }
 
 // ResolveHit runs the per-target strike pipeline (§4.3): partial critical → AC
@@ -110,8 +116,8 @@ func ResolveHit(r Rand, in HitInput) int {
 	}
 
 	ac := in.TargetAC
-	if in.TargetIsPlayer {
-		ac *= 3 // players resist 3× in PvP
+	if in.TargetIsPlayer && in.AttackerIsPlayer {
+		ac *= 3 // players resist 3× in PvP, and only there
 	}
 	if in.UseSkill {
 		dam = SkillDamage(r, dam, ac, in.Master)

@@ -401,15 +401,16 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				doubleCriticalReady = true
 			}
 			dmg = combat.ResolveHit(w.Rand(), combat.HitInput{
-				AttackerDamage: atkDamage,
-				TargetAC:       int(effectiveAC(target)),
-				TargetIsPlayer: world.IsPlayer(tid),
-				DoubleCritical: doubleCritical,
-				Master:         e.Master,
-				UseSkill:       false,
-				SkillIndex:     skillnum,
-				ParryRate:      d.parryRate(e, target),
-				TargetRsvBlock: target.Rsv&world.RsvBlock != 0,
+				AttackerDamage:   atkDamage,
+				TargetAC:         int(effectiveAC(target)),
+				TargetIsPlayer:   world.IsPlayer(tid),
+				AttackerIsPlayer: true,
+				DoubleCritical:   doubleCritical,
+				Master:           e.Master,
+				UseSkill:         false,
+				SkillIndex:       skillnum,
+				ParryRate:        d.parryRate(e, target),
+				TargetRsvBlock:   target.Rsv&world.RsvBlock != 0,
 			})
 			dmg, airBlade = d.applyAirBladeProc(w, e, target, h.Type, &body, payload, dmg)
 		}
