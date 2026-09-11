@@ -32,6 +32,13 @@ type Generator struct {
 	// generates nothing — boot, minute timer, NPC overlay, GM command — until it
 	// is switched back on. The recipe stays, so switching on needs nothing else.
 	Off bool
+
+	// LeaderName and FollowerName are the template FILE names behind the two
+	// byte blobs — the file Name resolved to, not Name as NPCGener.txt spells it —
+	// carried onto every mob spawned from them (MobSpawn.TemplateName), which is
+	// what the Mesa de Drops matches on.
+	LeaderName   string
+	FollowerName string
 }
 
 // generateWorldCap stops the generator timer from filling every entity slot:
@@ -219,7 +226,7 @@ func (w *World) SpawnGeneratorLeader(idx int) int {
 	if !ok {
 		return -1
 	}
-	sp := MobSpawn{Template: g.LeaderTmpl, X: x, Y: y, RouteType: g.RouteType, GenIndex: int16(idx)}
+	sp := MobSpawn{Template: g.LeaderTmpl, TemplateName: g.LeaderName, X: x, Y: y, RouteType: g.RouteType, GenIndex: int16(idx)}
 	sp.SegX, sp.SegY, sp.SegWait = g.SegX, g.SegY, g.SegWait
 	return w.SpawnMobAt(sp)
 }
@@ -279,7 +286,7 @@ func (w *World) generateMob(idx int, near bool, nearX, nearY int16) []int {
 		return nil
 	}
 
-	sp := MobSpawn{Template: g.LeaderTmpl, RouteType: g.RouteType, GenIndex: int16(idx)}
+	sp := MobSpawn{Template: g.LeaderTmpl, TemplateName: g.LeaderName, RouteType: g.RouteType, GenIndex: int16(idx)}
 	for i := 0; i < 5; i++ {
 		if g.SegX[i] == 0 {
 			continue
@@ -335,6 +342,7 @@ func (w *World) generateMob(idx int, near bool, nearX, nearY int16) []int {
 	for i := 0; i < n && i < MaxParty; i++ {
 		fsp := followerSpawn(sp, g, i)
 		fsp.Template = g.FollowerTmpl
+		fsp.TemplateName = g.FollowerName
 		fbaseX, fbaseY := spawnAnchor(fsp, baseX, baseY)
 		fx, fy, fok := w.emptyCellNear(fbaseX, fbaseY)
 		if !fok {

@@ -3596,3 +3596,163 @@ var NpcGeneratorService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	DropRuleService_DropRuleVersion_FullMethodName = "/db.v1.DropRuleService/DropRuleVersion"
+	DropRuleService_ListDropRules_FullMethodName   = "/db.v1.DropRuleService/ListDropRules"
+)
+
+// DropRuleServiceClient is the client API for DropRuleService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DropRuleService serves the Mesa de Drops (internal/droprule) to tmServer: the
+// exact chance, set in the panel, for one item to fall from one monster. A rule
+// for (monster, item) replaces what the monster's template does with that item;
+// monster "*" takes an item off every monster and only at 0%.
+//
+// POLLED, like CombatRuleService: the table is built before launch by watching
+// the game, and restart-to-apply would cost a disconnect per line.
+type DropRuleServiceClient interface {
+	// DropRuleVersion returns the monotonic version. Asked every few seconds.
+	DropRuleVersion(ctx context.Context, in *DropRuleVersionRequest, opts ...grpc.CallOption) (*DropRuleVersionResponse, error)
+	// ListDropRules returns every rule and the version they belong to.
+	ListDropRules(ctx context.Context, in *ListDropRulesRequest, opts ...grpc.CallOption) (*ListDropRulesResponse, error)
+}
+
+type dropRuleServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDropRuleServiceClient(cc grpc.ClientConnInterface) DropRuleServiceClient {
+	return &dropRuleServiceClient{cc}
+}
+
+func (c *dropRuleServiceClient) DropRuleVersion(ctx context.Context, in *DropRuleVersionRequest, opts ...grpc.CallOption) (*DropRuleVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DropRuleVersionResponse)
+	err := c.cc.Invoke(ctx, DropRuleService_DropRuleVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dropRuleServiceClient) ListDropRules(ctx context.Context, in *ListDropRulesRequest, opts ...grpc.CallOption) (*ListDropRulesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDropRulesResponse)
+	err := c.cc.Invoke(ctx, DropRuleService_ListDropRules_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DropRuleServiceServer is the server API for DropRuleService service.
+// All implementations must embed UnimplementedDropRuleServiceServer
+// for forward compatibility.
+//
+// DropRuleService serves the Mesa de Drops (internal/droprule) to tmServer: the
+// exact chance, set in the panel, for one item to fall from one monster. A rule
+// for (monster, item) replaces what the monster's template does with that item;
+// monster "*" takes an item off every monster and only at 0%.
+//
+// POLLED, like CombatRuleService: the table is built before launch by watching
+// the game, and restart-to-apply would cost a disconnect per line.
+type DropRuleServiceServer interface {
+	// DropRuleVersion returns the monotonic version. Asked every few seconds.
+	DropRuleVersion(context.Context, *DropRuleVersionRequest) (*DropRuleVersionResponse, error)
+	// ListDropRules returns every rule and the version they belong to.
+	ListDropRules(context.Context, *ListDropRulesRequest) (*ListDropRulesResponse, error)
+	mustEmbedUnimplementedDropRuleServiceServer()
+}
+
+// UnimplementedDropRuleServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDropRuleServiceServer struct{}
+
+func (UnimplementedDropRuleServiceServer) DropRuleVersion(context.Context, *DropRuleVersionRequest) (*DropRuleVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DropRuleVersion not implemented")
+}
+func (UnimplementedDropRuleServiceServer) ListDropRules(context.Context, *ListDropRulesRequest) (*ListDropRulesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDropRules not implemented")
+}
+func (UnimplementedDropRuleServiceServer) mustEmbedUnimplementedDropRuleServiceServer() {}
+func (UnimplementedDropRuleServiceServer) testEmbeddedByValue()                         {}
+
+// UnsafeDropRuleServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DropRuleServiceServer will
+// result in compilation errors.
+type UnsafeDropRuleServiceServer interface {
+	mustEmbedUnimplementedDropRuleServiceServer()
+}
+
+func RegisterDropRuleServiceServer(s grpc.ServiceRegistrar, srv DropRuleServiceServer) {
+	// If the following call panics, it indicates UnimplementedDropRuleServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DropRuleService_ServiceDesc, srv)
+}
+
+func _DropRuleService_DropRuleVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DropRuleVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DropRuleServiceServer).DropRuleVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DropRuleService_DropRuleVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DropRuleServiceServer).DropRuleVersion(ctx, req.(*DropRuleVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DropRuleService_ListDropRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDropRulesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DropRuleServiceServer).ListDropRules(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DropRuleService_ListDropRules_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DropRuleServiceServer).ListDropRules(ctx, req.(*ListDropRulesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DropRuleService_ServiceDesc is the grpc.ServiceDesc for DropRuleService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DropRuleService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.DropRuleService",
+	HandlerType: (*DropRuleServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "DropRuleVersion",
+			Handler:    _DropRuleService_DropRuleVersion_Handler,
+		},
+		{
+			MethodName: "ListDropRules",
+			Handler:    _DropRuleService_ListDropRules_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}

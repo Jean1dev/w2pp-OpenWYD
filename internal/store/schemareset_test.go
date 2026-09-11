@@ -63,6 +63,8 @@ var tabelasDeTeste = []string{
 	"combat_rule",
 	"npc_generator_off_meta",
 	"npc_generator_off",
+	"drop_rule_meta",
+	"drop_rule",
 	"affect",
 	"item",
 	"character_pvp_stats",

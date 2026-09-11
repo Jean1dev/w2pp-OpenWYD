@@ -187,6 +187,11 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 			g.FightAction, g.DieAction = def.FightAction, def.DieAction
 			g.LeaderTmpl = npcTemplateWithDisplayName(def.Template, def.DisplayName)
 			g.FollowerTmpl = def.FollowerTemplate
+			// The definition may point at a different file than the one the
+			// block was loaded with, and it does not carry that file's name. A
+			// stale name would hand this NPC another monster's Mesa de Drops
+			// rules, so the block goes nameless: outside the Mesa, like a summon.
+			g.LeaderName, g.FollowerName = "", ""
 			if g.Off {
 				// Switched off by staff (/gm npc off): the recipe is kept current so
 				// switching it on again spawns the NPC as the panel has it.

@@ -219,6 +219,7 @@ func run(logger *slog.Logger) error {
 	var combineRates handler.CombineRateSource
 	var combatRules handler.CombatRuleSource
 	var generatorOff handler.GeneratorOffSource
+	var dropRules handler.DropRuleSource
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -234,6 +235,7 @@ func run(logger *slog.Logger) error {
 		combineRates = dbclient.NewCombineRateSource(conn)
 		combatRules = dbclient.NewCombatRuleSource(conn)
 		generatorOff = dbclient.NewGeneratorOffSource(conn)
+		dropRules = dbclient.NewDropRuleSource(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -557,6 +559,7 @@ func run(logger *slog.Logger) error {
 		GeneratorOff:    generatorOff,
 		CombineRateSrc:  combineRates,
 		CombatRuleSrc:   combatRules,
+		DropRuleSrc:     dropRules,
 		CastleQuests:    castleQuests,
 		EventRNGSeed:    eventSeed,
 		MaxNightmare:    *maxNightmare,
@@ -658,6 +661,7 @@ func run(logger *slog.Logger) error {
 		dispatch.ApplySpawnRatesBoot()
 		dispatch.ApplyCombineRatesBoot()
 		dispatch.ApplyCombatRulesBoot()
+		dispatch.ApplyDropRulesBoot()
 	}
 	// After the populate and the NPC overlay, so it removes what they raised.
 	dispatch.ApplyGeneratorOffBoot(w)
@@ -802,6 +806,9 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	type loadedTemplate struct {
 		bytes       []byte
 		rawMerchant uint8
+		// file is the template file the name resolved to (npctemplate.Resolve):
+		// what the Mesa de Drops keys on, carried onto each spawned mob.
+		file string
 	}
 	templates := make(map[string]loadedTemplate)
 	// stats records the on-disk layout of every referenced template so the boot
@@ -823,6 +830,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			} else {
 				stats.Count(res.Version)
 				t.rawMerchant = protocol.ParseMobBasics(b).Merchant
+				t.file = res.Name
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
 				t.bytes = mobstat.ApplyOverride(b, name, mobStatOverrides)
@@ -933,7 +941,9 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			SegX:           g.SegX,
 			SegY:           g.SegY,
 			LeaderTmpl:     leader.bytes,
+			LeaderName:     leader.file,
 			FollowerTmpl:   follower.bytes,
+			FollowerName:   follower.file,
 			FightAction:    g.FightAction,
 			DieAction:      g.DieAction,
 		}

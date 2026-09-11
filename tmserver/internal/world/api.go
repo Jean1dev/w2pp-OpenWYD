@@ -77,6 +77,12 @@ type MobSpawn struct {
 	SegX, SegY [5]int16
 	SegWait    [5]int16
 	GenIndex   int16 // NPCGener block index (-1 = none; respawn accounting, M5)
+	// TemplateName is the template FILE name (Release/TMsrv/run/npc) the bytes
+	// came from — the name the Mesa de Drops keys on, which the in-game name is
+	// not: Golem_Anciao, Golem_Anciao_ and Golem_Anciao__ are three templates
+	// with three loot tables and one name on screen. Empty for spawns that have
+	// no file (summons, the Vine).
+	TemplateName string
 }
 
 // SpawnMob creates a stationary NPC/monster from a raw STRUCT_MOB template at
@@ -134,9 +140,10 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 		// BASE_GetCurrentScore adds the equipment on top at runtime (CMob.cpp:709).
 		BaseAC: b.Ac, BaseDamage: b.Damage, BaseMaxHP: b.MaxHp,
 		BaseStr: b.Str, BaseInt: b.Int, BaseDex: b.Dex, BaseCon: b.Con,
-		SkillBar:  b.SkillBar, // the mob casts from this bar on its swings (mobskill.go)
-		Template:  template,   // retained for runtime respawn (world/respawn.go)
-		RouteType: sp.RouteType, SegListX: sp.SegX, SegListY: sp.SegY, SegWait: sp.SegWait,
+		SkillBar:     b.SkillBar, // the mob casts from this bar on its swings (mobskill.go)
+		Template:     template,   // retained for runtime respawn (world/respawn.go)
+		TemplateName: sp.TemplateName,
+		RouteType:    sp.RouteType, SegListX: sp.SegX, SegListY: sp.SegY, SegWait: sp.SegWait,
 		GenIndex: sp.GenIndex,
 		// The current waypoint doubles as the aggro/leash anchor (CMob.cpp:292);
 		// it starts at waypoint 0 = the spawn point (GenerateMob Server.cpp:3649).
@@ -293,7 +300,7 @@ func (w *World) DespawnMob(id int, removeType int32) {
 			spawn: MobSpawn{
 				Template: e.Template, X: e.SpawnX, Y: e.SpawnY,
 				RouteType: e.RouteType, SegX: e.SegListX, SegY: e.SegListY,
-				SegWait: e.SegWait, GenIndex: e.GenIndex,
+				SegWait: e.SegWait, GenIndex: e.GenIndex, TemplateName: e.TemplateName,
 			},
 			due: w.Now() + w.respawnDelay(int32(e.GenIndex)),
 		})

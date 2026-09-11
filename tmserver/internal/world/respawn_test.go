@@ -151,3 +151,23 @@ func TestMobSlotsRotateInsteadOfReusing(t *testing.T) {
 		}
 	}
 }
+
+// The template file name survives death: the Mesa de Drops keys on it, and a
+// respawned boss that lost it would drop from its template again.
+func TestRespawnKeepsTemplateName(t *testing.T) {
+	now := uint32(1000)
+	w := New(Config{GridDim: 16, Now: func() uint32 { return now }}, slogDiscard(), nil, nil)
+	id := w.SpawnMobAt(MobSpawn{Template: make([]byte, structMobTemplateSize), TemplateName: "Dark_Shadow_", X: 5, Y: 6, GenIndex: -1})
+	if got := w.Entity(id).TemplateName; got != "Dark_Shadow_" {
+		t.Fatalf("TemplateName ao nascer = %q", got)
+	}
+	w.DespawnMob(id, 1)
+	now += DefaultRespawnDelay
+	ids := w.SpawnDueRespawns(now)
+	if len(ids) != 1 {
+		t.Fatalf("SpawnDueRespawns = %v, want 1", ids)
+	}
+	if got := w.Entity(ids[0]).TemplateName; got != "Dark_Shadow_" {
+		t.Errorf("TemplateName depois de renascer = %q, want Dark_Shadow_", got)
+	}
+}

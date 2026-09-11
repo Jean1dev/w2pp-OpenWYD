@@ -246,6 +246,7 @@ func (d *Dispatcher) gmCreate(w *world.World, s *world.Session, rest string) {
 		return
 	}
 	var tmpl []byte
+	var tmplName string // the file name, so the one-off drops what the Mesa de Drops says
 	var similar []string
 	for i := 0; i < w.GeneratorCount(); i++ {
 		g := w.GeneratorAt(i)
@@ -253,7 +254,7 @@ func (d *Dispatcher) gmCreate(w *world.World, s *world.Session, rest string) {
 			continue
 		}
 		if strings.EqualFold(g.Name, name) {
-			tmpl = g.LeaderTmpl
+			tmpl, tmplName = g.LeaderTmpl, g.LeaderName
 			break
 		}
 		if len(similar) < 5 && strings.Contains(strings.ToLower(g.Name), strings.ToLower(name)) &&
@@ -278,7 +279,7 @@ func (d *Dispatcher) gmCreate(w *world.World, s *world.Session, rest string) {
 		sendClientMessage(w, s, "Não há espaço livre aqui.")
 		return
 	}
-	id := w.SpawnMobAt(world.MobSpawn{Template: tmpl, X: x, Y: y, GenIndex: -1})
+	id := w.SpawnMobAt(world.MobSpawn{Template: tmpl, TemplateName: tmplName, X: x, Y: y, GenIndex: -1})
 	if id < 0 {
 		sendClientMessage(w, s, "O mundo está cheio.")
 		return

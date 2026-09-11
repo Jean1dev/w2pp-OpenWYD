@@ -98,6 +98,12 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		if it.Index <= 390 || int(it.Index) >= maxItemList || it.Index == 454 {
 			continue
 		}
+		// An item the Mesa de Drops decides for this monster is not rolled from
+		// the template at all: the table's own roll, below, replaces it — and 0%
+		// there means it simply does not fall (droprule).
+		if d.dropRules.Governs(mob.TemplateName, it.Index) {
+			continue
+		}
 		rate := loot.EffectiveDropRate(slot, bonusDrop, int(mob.Level))
 		if loot.Drops(w.Rand(), rate) {
 			// The drop-time bonus roll, in the position the legacy gives it:
@@ -114,6 +120,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 			d.putMobDrop(w, reward, it)
 		}
 	}
+	d.dropTableRolls(w, reward, mob, bonusDrop)
 
 	sendDieAction(w, mob)
 

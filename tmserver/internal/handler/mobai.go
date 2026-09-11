@@ -132,6 +132,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.pollXPConfig(w)
 	d.pollCombineRates(w)
 	d.pollCombatRules(w)
+	d.pollDropRules(w)
 }
 
 type questArea struct {

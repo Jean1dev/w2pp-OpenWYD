@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/combatrule"
+	"github.com/jeanluca/w2pp-openwyd/internal/droprule"
 	"github.com/jeanluca/w2pp-openwyd/internal/dungeon"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
@@ -223,6 +224,10 @@ type Config struct {
 	// which is what a tmServer without dbServer gets.
 	CombatRuleSrc CombatRuleSource
 
+	// DropRuleSrc is the Mesa de Drops (0047_drop_rule), polled live. Nil runs
+	// the templates alone, which is what a tmServer without dbServer gets.
+	DropRuleSrc DropRuleSource
+
 	// CombineRateSrc re-reads the Mesa das Máquinas while the server runs. Nil
 	// leaves CombineRates as the boot value for the life of the process, which
 	// is what a tmServer without dbServer gets.
@@ -352,6 +357,14 @@ type Dispatcher struct {
 	combatRuleVersion  int64
 	combatRulePolling  bool
 	combatRulePollTick int
+
+	// The Mesa de Drops (droprule.go), read live like the combat rule. The zero
+	// Table is empty, which is the templates dropping as they always did.
+	dropRules        droprule.Table
+	dropRuleSource   DropRuleSource
+	dropRuleVersion  int64
+	dropRulePolling  bool
+	dropRulePollTick int
 
 	// The Mesa das Máquinas, read live the same way (combineratepoll.go).
 	// combineRates itself is declared above, next to the other combine tables.
@@ -512,6 +525,7 @@ func New(cfg Config) *Dispatcher {
 		genOffSource:      cfg.GeneratorOff,
 		combatRules:       combatRulesDe(cfg),
 		combatRuleSource:  cfg.CombatRuleSrc,
+		dropRuleSource:    cfg.DropRuleSrc,
 		combineRateSource: cfg.CombineRateSrc,
 		xpConfigSource:    cfg.XPConfigs,
 		castleQuests:      cfg.CastleQuests,

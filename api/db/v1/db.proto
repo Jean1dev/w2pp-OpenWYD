@@ -1326,3 +1326,34 @@ message SetGeneratorOffRequest {
   string by = 3;
 }
 message SetGeneratorOffResponse {}
+// DropRuleService serves the Mesa de Drops (internal/droprule) to tmServer: the
+// exact chance, set in the panel, for one item to fall from one monster. A rule
+// for (monster, item) replaces what the monster's template does with that item;
+// monster "*" takes an item off every monster and only at 0%.
+//
+// POLLED, like CombatRuleService: the table is built before launch by watching
+// the game, and restart-to-apply would cost a disconnect per line.
+service DropRuleService {
+  // DropRuleVersion returns the monotonic version. Asked every few seconds.
+  rpc DropRuleVersion(DropRuleVersionRequest) returns (DropRuleVersionResponse);
+  // ListDropRules returns every rule and the version they belong to.
+  rpc ListDropRules(ListDropRulesRequest) returns (ListDropRulesResponse);
+}
+
+message DropRuleVersionRequest {}
+message DropRuleVersionResponse { int64 version = 1; }
+
+message ListDropRulesRequest {}
+
+message DropRule {
+  // The template file name (Release/TMsrv/run/npc), or "*" for every monster.
+  string mob = 1;
+  int32 item = 2;
+  // Hundredths of a percent, 0..10000 (800 = 8%).
+  int32 chance = 3;
+}
+
+message ListDropRulesResponse {
+  int64 version = 1;
+  repeated DropRule rules = 2;
+}
