@@ -63,6 +63,7 @@ const (
 	AccountService_SaveGuildZone_FullMethodName           = "/db.v1.AccountService/SaveGuildZone"
 	AccountService_LoadGuildTowerState_FullMethodName     = "/db.v1.AccountService/LoadGuildTowerState"
 	AccountService_SaveGuildTowerState_FullMethodName     = "/db.v1.AccountService/SaveGuildTowerState"
+	AccountService_SaveGuildFame_FullMethodName           = "/db.v1.AccountService/SaveGuildFame"
 	AccountService_LoadCastleQuestState_FullMethodName    = "/db.v1.AccountService/LoadCastleQuestState"
 	AccountService_SaveCastleQuestState_FullMethodName    = "/db.v1.AccountService/SaveCastleQuestState"
 )
@@ -191,6 +192,9 @@ type AccountServiceClient interface {
 	SaveGuildZone(ctx context.Context, in *SaveGuildZoneRequest, opts ...grpc.CallOption) (*SaveGuildZoneResponse, error)
 	LoadGuildTowerState(ctx context.Context, in *LoadGuildTowerStateRequest, opts ...grpc.CallOption) (*LoadGuildTowerStateResponse, error)
 	SaveGuildTowerState(ctx context.Context, in *SaveGuildTowerStateRequest, opts ...grpc.CallOption) (*SaveGuildTowerStateResponse, error)
+	// SaveGuildFame writes a guild's fame (an absolute value, not a delta), so
+	// fame earned in game survives a restart. ok=false: no guild has that id.
+	SaveGuildFame(ctx context.Context, in *SaveGuildFameRequest, opts ...grpc.CallOption) (*SaveGuildFameResponse, error)
 	LoadCastleQuestState(ctx context.Context, in *LoadCastleQuestStateRequest, opts ...grpc.CallOption) (*LoadCastleQuestStateResponse, error)
 	SaveCastleQuestState(ctx context.Context, in *SaveCastleQuestStateRequest, opts ...grpc.CallOption) (*SaveCastleQuestStateResponse, error)
 }
@@ -563,6 +567,16 @@ func (c *accountServiceClient) SaveGuildTowerState(ctx context.Context, in *Save
 	return out, nil
 }
 
+func (c *accountServiceClient) SaveGuildFame(ctx context.Context, in *SaveGuildFameRequest, opts ...grpc.CallOption) (*SaveGuildFameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveGuildFameResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveGuildFame_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountServiceClient) LoadCastleQuestState(ctx context.Context, in *LoadCastleQuestStateRequest, opts ...grpc.CallOption) (*LoadCastleQuestStateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LoadCastleQuestStateResponse)
@@ -707,6 +721,9 @@ type AccountServiceServer interface {
 	SaveGuildZone(context.Context, *SaveGuildZoneRequest) (*SaveGuildZoneResponse, error)
 	LoadGuildTowerState(context.Context, *LoadGuildTowerStateRequest) (*LoadGuildTowerStateResponse, error)
 	SaveGuildTowerState(context.Context, *SaveGuildTowerStateRequest) (*SaveGuildTowerStateResponse, error)
+	// SaveGuildFame writes a guild's fame (an absolute value, not a delta), so
+	// fame earned in game survives a restart. ok=false: no guild has that id.
+	SaveGuildFame(context.Context, *SaveGuildFameRequest) (*SaveGuildFameResponse, error)
 	LoadCastleQuestState(context.Context, *LoadCastleQuestStateRequest) (*LoadCastleQuestStateResponse, error)
 	SaveCastleQuestState(context.Context, *SaveCastleQuestStateRequest) (*SaveCastleQuestStateResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
@@ -826,6 +843,9 @@ func (UnimplementedAccountServiceServer) LoadGuildTowerState(context.Context, *L
 }
 func (UnimplementedAccountServiceServer) SaveGuildTowerState(context.Context, *SaveGuildTowerStateRequest) (*SaveGuildTowerStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveGuildTowerState not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveGuildFame(context.Context, *SaveGuildFameRequest) (*SaveGuildFameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveGuildFame not implemented")
 }
 func (UnimplementedAccountServiceServer) LoadCastleQuestState(context.Context, *LoadCastleQuestStateRequest) (*LoadCastleQuestStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method LoadCastleQuestState not implemented")
@@ -1502,6 +1522,24 @@ func _AccountService_SaveGuildTowerState_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_SaveGuildFame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveGuildFameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveGuildFame(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveGuildFame_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveGuildFame(ctx, req.(*SaveGuildFameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountService_LoadCastleQuestState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LoadCastleQuestStateRequest)
 	if err := dec(in); err != nil {
@@ -1688,6 +1726,10 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveGuildTowerState",
 			Handler:    _AccountService_SaveGuildTowerState_Handler,
+		},
+		{
+			MethodName: "SaveGuildFame",
+			Handler:    _AccountService_SaveGuildFame_Handler,
 		},
 		{
 			MethodName: "LoadCastleQuestState",

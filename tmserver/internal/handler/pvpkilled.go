@@ -50,7 +50,9 @@ const (
 func (d *Dispatcher) pvpKilled(w *world.World, killer, victim *world.Entity) {
 	ks := w.Session(killer.ID)
 	vs := w.Session(victim.ID)
-	atWar := d.guildsAtWar(killer.Guild, victim.Guild)
+	// A kill inside the Tower War box while it is open is a war kill, like the
+	// legacy's AtWar (MobKilled.cpp:3124-3125): it moves no chaos points.
+	atWar := d.guildsAtWar(killer.Guild, victim.Guild) || d.towerPvP(killer, victim)
 
 	if loss := pvpExpLoss(victim.Level, victim.ClassMaster, victim.PKPoint); loss > 0 {
 		victim.Exp -= loss

@@ -406,6 +406,10 @@ type Persistence interface {
 	SaveGuildZone(ctx context.Context, zone GuildZone) error
 	LoadGuildTowerState(ctx context.Context) (GuildTowerState, error)
 	SaveGuildTowerState(ctx context.Context, state GuildTowerState) error
+	// SaveGuildFame writes a guild's fame as an absolute value (not a delta),
+	// so fame earned in game survives a restart; World.SetGuildFame only
+	// changes memory.
+	SaveGuildFame(ctx context.Context, guildID uint16, fame int32) error
 	LoadCastleQuestState(ctx context.Context) (CastleQuestState, error)
 	SaveCastleQuestState(ctx context.Context, state CastleQuestState) error
 }
@@ -575,6 +579,11 @@ func (NopPersistence) LoadGuildTowerState(context.Context) (GuildTowerState, err
 
 // SaveGuildTowerState is unsupported without a backend.
 func (NopPersistence) SaveGuildTowerState(context.Context, GuildTowerState) error {
+	return errNoPersistence
+}
+
+// SaveGuildFame is unsupported without a backend.
+func (NopPersistence) SaveGuildFame(context.Context, uint16, int32) error {
 	return errNoPersistence
 }
 

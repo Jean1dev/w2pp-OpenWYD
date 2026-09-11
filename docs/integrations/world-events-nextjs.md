@@ -47,6 +47,9 @@ message WorldEventConfig {
   bool notice_enabled = 8;
   bool double_exp_enabled = 9;
   bool newbie_event_enabled = 10;
+  bool kefra_live_enabled = 11;
+  optional bool tower_war_enabled = 12;
+  optional int32 tower_war_hour = 13;
 }
 
 message GetWorldEventConfigRequest {
@@ -83,6 +86,14 @@ antes de salvar para evitar sobrescrever dados de uma aba antiga.
 | `notice_enabled` | `bool` | anuncia o drop para jogadores online |
 | `double_exp_enabled` | `bool` | liga flag global de EXP dobrada no `tmServer` |
 | `newbie_event_enabled` | `bool` | liga flag global de evento newbie no `tmServer` |
+| `tower_war_enabled` | `optional bool` | liga/desliga a Guerra de Torres diária (padrão: ligada) |
+| `tower_war_hour` | `optional int32` | hora (0 a 23, relógio do servidor) em que a guerra começa; padrão 20 |
+
+Os dois campos da Guerra de Torres são `optional` de propósito. No
+`SetWorldEventConfig`, um campo **ausente mantém o valor gravado** em vez de
+zerá-lo — um BFF que ainda não conhece os campos não desliga a guerra à
+meia-noite só por salvar o XP em dobro. Presente e zerado é escolha: `false`
+desliga, `0` é meia-noite. O `GetWorldEventConfig` sempre manda os dois.
 
 `version` vem apenas no `GetWorldEventConfigResponse`. Ele é incrementado por
 edições de moderador e não muda quando o `tmServer` persiste progresso de
@@ -96,6 +107,7 @@ Valores negativos são inválidos para `item_index`, `rate`, `start_index`,
 Limites:
 
 - `item_index <= 32767`;
+- `tower_war_hour` entre 0 e 23, com ou sem o drop ligado;
 - se `enabled = false`, os campos numéricos podem ficar zerados;
 - se `enabled = true`, então:
   - `item_index > 0`;

@@ -137,6 +137,7 @@ func TestAdminSalvaOsInterruptores(t *testing.T) {
 		"item": {"1415"}, "chance": {"500"},
 		"primeiro": {"1"}, "atual": {"1"}, "ultimo": {"100"},
 		"numerado": {"1"}, "anunciar": {"1"},
+		"torre": {"1"}, "torre_hora": {"21"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303 (body: %s)", rec.Code, rec.Body.String())
@@ -157,6 +158,9 @@ func TestAdminSalvaOsInterruptores(t *testing.T) {
 	// diferença entre o servidor pagar o dobro e a metade do que se pediu.
 	if !g.KefraLiveEnabled {
 		t.Error("o KefraLive foi marcado no formulário e não foi gravado")
+	}
+	if !g.TowerWarEnabled || g.TowerWarHour != 21 {
+		t.Errorf("guerra de torres gravada = %v às %dh, want ligada às 21h", g.TowerWarEnabled, g.TowerWarHour)
 	}
 	if len(log.written) != 1 || log.written[0].Action != audit.ActionSetWorldEvent {
 		t.Fatalf("auditoria = %+v", log.written)
@@ -244,6 +248,86 @@ func TestAPaginaAvisaQueNaoPrecisaReiniciar(t *testing.T) {
 	// menos de um minuto", mais vago do que a verdade: o jogo relê a cada 15
 	// ticks de um segundo.
 	for _, quer := range []string{"Vale em até 15 segundos.", "O jogo relê sozinho"} {
+		if !strings.Contains(body, quer) {
+			t.Errorf("a página não traz %q", quer)
+		}
+	}
+}
+
+// TestGuerraDeTorresDesmarcadaDesliga: a checkbox que não vem é uma checkbox que
+// alguém desmarcou — e a hora continua gravada, para religar sem redigitar.
+func TestGuerraDeTorresDesmarcadaDesliga(t *testing.T) {
+	ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, log))
+
+	rec := post("/eventos", url.Values{"csrf": {token}, "torre_hora": {"19"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (body: %s)", rec.Code, rec.Body.String())
+	}
+	g := ev.gravado[0]
+	if g.TowerWarEnabled || g.TowerWarHour != 19 {
+		t.Errorf("guerra de torres gravada = %v às %dh, want desligada às 19h", g.TowerWarEnabled, g.TowerWarHour)
+	}
+	// A auditoria diz como estava e como ficou, com os campos da torre.
+	antes, _ := log.written[0].Old.(map[string]any)
+	depois, _ := log.written[0].New.(map[string]any)
+	if antes["torre"] != true || antes["torre_hora"] != int32(20) {
+		t.Errorf("auditoria antes = %+v, want torre ligada às 20h", antes)
+	}
+	if depois["torre"] != false || depois["torre_hora"] != int32(19) {
+		t.Errorf("auditoria depois = %+v, want torre desligada às 19h", depois)
+	}
+}
+
+// TestHoraDaTorreForaDaFaixaERecusada: uma hora que o relógio nunca mostra
+// deixaria a guerra diária sem começar nunca, calada. E o campo vazio não vira
+// meia-noite: 0 é uma hora de verdade.
+func TestHoraDaTorreForaDaFaixaERecusada(t *testing.T) {
+	for _, hora := range []string{"24", "-1", "vinte", "", "20.5"} {
+		t.Run("hora="+hora, func(t *testing.T) {
+			ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
+			post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()))
+			rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {hora}})
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			if !strings.Contains(rec.Body.String(), "Guerra de Torres") {
+				t.Errorf("mensagem = %q, não diz que é o horário da guerra", rec.Body.String())
+			}
+			if len(ev.gravado) != 0 {
+				t.Error("gravou com hora inválida")
+			}
+		})
+	}
+}
+
+func TestMeiaNoiteEHoraValida(t *testing.T) {
+	ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
+	post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()))
+	if rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {"0"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	if g := ev.gravado[0]; !g.TowerWarEnabled || g.TowerWarHour != 0 {
+		t.Errorf("gravado = %v às %dh, want ligada à meia-noite", g.TowerWarEnabled, g.TowerWarHour)
+	}
+}
+
+// TestAPaginaMostraAGuerraDeTorres: o bloco próprio, com a explicação e o
+// horário em vigor — e o evento de novato dizendo que não mexe nela.
+func TestAPaginaMostraAGuerraDeTorres(t *testing.T) {
+	cfg := domain.DefaultWorldEventConfig()
+	cfg.TowerWarHour = 21
+	ev := &fakeEventos{cfg: cfg}
+	body := getSignedIn(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()), "/eventos").Body.String()
+	for _, quer := range []string{
+		"Guerra de Torres",
+		"todo dia às 21h",
+		"aviso nos primeiros 5 minutos",
+		"ganha +100 de fama",
+		`name="torre_hora"`, `value="21"`,
+		"Não mexe na Guerra de Torres",
+	} {
 		if !strings.Contains(body, quer) {
 			t.Errorf("a página não traz %q", quer)
 		}

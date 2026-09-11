@@ -268,7 +268,7 @@ func TestTodoPostExigeCSRF(t *testing.T) {
 		{"/contas/ana/personagens/0/atributos", url.Values{"forca": {"10"}}},
 		{"/contas/ana/personagens/0/slot", url.Values{"destino": {"carry"}, "slot": {"0"}}},
 		{"/denuncias/1/tratar", url.Values{}},
-		{"/eventos", url.Values{}},
+		{"/eventos", url.Values{"torre_hora": {"20"}}},
 		{"/itens/1415/preco", url.Values{"preco": {"100"}}},
 		{"/itens/1415/atributos", url.Values{}},
 		{"/itens/1415/atributos/limpar", url.Values{}},

@@ -938,6 +938,13 @@ message WorldEventConfig {
   // When FALSE every PvE reward is halved (expreward.go step 11). Legacy
   // KefraLive=0, which is what this server has always run.
   bool kefra_live_enabled = 11;
+  // The daily Tower War (migration 0051): on/off and the hour (0..23, server
+  // time) it starts. `optional` so presence is visible: on a read, absent means
+  // a webServer too old to send them; on SetWorldEventConfig, absent means a
+  // caller that does not know about them, and the stored values are kept
+  // rather than reset.
+  optional bool tower_war_enabled = 12;
+  optional int32 tower_war_hour = 13;
 }
 
 message GetWorldEventConfigRequest { int64 moderator_id = 1; }

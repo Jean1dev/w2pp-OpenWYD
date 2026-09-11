@@ -206,6 +206,8 @@ func (f *fakeDB) SaveGuildTowerState(context.Context, world.GuildTowerState) err
 	return nil
 }
 
+func (f *fakeDB) SaveGuildFame(context.Context, uint16, int32) error { return nil }
+
 func (f *fakeDB) LoadCastleQuestState(context.Context) (world.CastleQuestState, error) {
 	return world.CastleQuestState{}, nil
 }

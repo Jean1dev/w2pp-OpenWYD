@@ -493,6 +493,26 @@ func (s *Store) SaveGuildTowerState(ctx context.Context, st domain.GuildTowerSta
 	return nil
 }
 
+// UpdateGuildFame writes a guild's fame. It is an absolute value, not a delta:
+// tmServer owns the live number (World.SetGuildFame) and this only keeps the
+// database in step with it, so a retried write cannot award the fame twice.
+//
+// Until this existed the store only ever INSERTed a guild, so fame earned in
+// game — the Tower War's +100, a GM's /gm guildfame — lived in memory and was
+// gone at the next restart. ErrNotFound means no guild has that id.
+func (s *Store) UpdateGuildFame(ctx context.Context, guildID uint16, fame int32) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE guild SET fame = $2, updated_at = now() WHERE id = $1`,
+		int32(guildID), fame)
+	if err != nil {
+		return fmt.Errorf("store: update guild %d fame: %w", guildID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // LoadCastleQuestState loads the single Castle/Zakum quest row.
 func (s *Store) LoadCastleQuestState(ctx context.Context) (domain.CastleQuestState, error) {
 	var st domain.CastleQuestState

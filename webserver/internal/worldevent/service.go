@@ -74,6 +74,12 @@ func (s *Service) Set(ctx context.Context, moderatorID int64, cfg domain.WorldEv
 }
 
 func validConfig(cfg domain.WorldEventConfig) bool {
+	// Checked before the drop-event early return: the Tower War runs whether or
+	// not the item rain is on, and an hour the clock never shows would leave the
+	// daily war silently never starting.
+	if cfg.TowerWarHour < 0 || cfg.TowerWarHour > domain.MaxTowerWarHour {
+		return false
+	}
 	if cfg.ItemIndex < 0 || cfg.ItemIndex > maxWorldEventItemIndex ||
 		cfg.Rate < 0 || cfg.StartIndex < 0 || cfg.CurrentIndex < 0 || cfg.EndIndex < 0 {
 		return false

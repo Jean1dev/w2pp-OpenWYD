@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
@@ -67,5 +68,9 @@ func worldEventConfigToDBProto(cfg domain.WorldEventConfig) *dbv1.WorldEventConf
 		Indexed: cfg.Indexed, NoticeEnabled: cfg.NoticeEnabled,
 		DoubleExpEnabled: cfg.DoubleExpEnabled, NewbieEventEnabled: cfg.NewbieEventEnabled,
 		KefraLiveEnabled: cfg.KefraLiveEnabled,
+		// Always present: presence is how tmServer tells this dbServer from one
+		// that predates the fields (see the proto).
+		TowerWarEnabled: proto.Bool(cfg.TowerWarEnabled),
+		TowerWarHour:    proto.Int32(cfg.TowerWarHour),
 	}
 }

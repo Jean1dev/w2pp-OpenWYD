@@ -14,6 +14,8 @@ import (
 
 // fakeStore is an in-memory Store for unit tests (no PostgreSQL).
 type fakeStore struct {
+	// fama captures UpdateGuildFame calls.
+	fama       map[uint16]int32
 	presence   map[string]bool // captured SetCharacterPresence calls
 	reports    []domain.PlayerReport
 	chao       []domain.GroundEvent
@@ -247,6 +249,20 @@ func (f *fakeStore) LoadGuildTowerState(context.Context) (domain.GuildTowerState
 }
 
 func (f *fakeStore) SaveGuildTowerState(context.Context, domain.GuildTowerState) error {
+	return nil
+}
+
+// guildaInexistente is the id fakeStore answers ErrNotFound for.
+const guildaInexistente = 404
+
+func (f *fakeStore) UpdateGuildFame(_ context.Context, guildID uint16, fame int32) error {
+	if guildID == guildaInexistente {
+		return store.ErrNotFound
+	}
+	if f.fama == nil {
+		f.fama = map[uint16]int32{}
+	}
+	f.fama[guildID] = fame
 	return nil
 }
 

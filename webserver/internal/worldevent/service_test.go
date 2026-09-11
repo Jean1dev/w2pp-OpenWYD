@@ -92,6 +92,10 @@ func TestSetValidation(t *testing.T) {
 		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 0, CurrentIndex: 0, EndIndex: 2},
 		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 10, CurrentIndex: 9, EndIndex: 20},
 		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 10, CurrentIndex: 21, EndIndex: 20},
+		// A Guerra de Torres numa hora que o relógio nunca mostra nunca começaria, e
+		// vale mesmo com a chuva de item desligada.
+		{TowerWarEnabled: true, TowerWarHour: 24},
+		{TowerWarEnabled: true, TowerWarHour: -1},
 	}
 
 	st := newFake()

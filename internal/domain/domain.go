@@ -290,6 +290,32 @@ type WorldEventConfig struct {
 	// halves every PvE reward (expreward.go step 11). False is the legacy value
 	// and the one this server has always run.
 	KefraLiveEnabled bool
+	// TowerWarEnabled and TowerWarHour schedule the daily Guerra de Torres
+	// (migration 0051): every day at TowerWarHour, server time. It used to ride
+	// on NewbieEventEnabled, which also changes EXP and monster HP for low
+	// levels — two decisions nobody wanted tied together.
+	TowerWarEnabled bool
+	TowerWarHour    int32
+}
+
+// The daily Tower War as decided for this server: on, every day at 20:00. They
+// are the migration 0051 column defaults, the value of a missing config row, and
+// what tmServer assumes when a dbServer too old to send the fields answers.
+const (
+	DefaultTowerWarEnabled = true
+	DefaultTowerWarHour    = 20
+	MaxTowerWarHour        = 23
+)
+
+// DefaultWorldEventConfig is the config of a server whose row was never
+// written: everything off except the item-rain notice, and the daily Tower War
+// on at its decided hour.
+func DefaultWorldEventConfig() WorldEventConfig {
+	return WorldEventConfig{
+		NoticeEnabled:   true,
+		TowerWarEnabled: DefaultTowerWarEnabled,
+		TowerWarHour:    DefaultTowerWarHour,
+	}
 }
 
 // MobTemplateStat is a moderator-editable stat override for a raw STRUCT_MOB

@@ -159,6 +159,10 @@ var (
 func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, args []byte) bool {
 	cmd := strings.TrimPrefix(name, "/")
 	if dest, ok := teleportCmds[cmd]; ok {
+		if d.towerTeleportBlocked(cmd) {
+			sendClientMessage(w, s, "Não é possível se teleportar em guerras!") // _NN_TP_DENY
+			return true
+		}
 		if e := w.Entity(s.Conn); e != nil {
 			d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
 		}

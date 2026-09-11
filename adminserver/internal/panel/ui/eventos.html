@@ -50,6 +50,10 @@
       <div class="val">{{if .Cfg.KefraLiveEnabled}}não{{else}}sim{{end}}</div>
     </div>
     <div class="num-tile">
+      <div class="rot">Guerra de Torres</div>
+      <div class="val">{{if .Cfg.TowerWarEnabled}}todo dia às {{.Cfg.TowerWarHour}}h{{else}}desligada{{end}}</div>
+    </div>
+    <div class="num-tile">
       <div class="rot">Chuva de item</div>
       <div class="val">{{if .Caindo}}caindo{{else if .Cfg.Enabled}}parada{{else}}desligada{{end}}</div>
     </div>
@@ -97,6 +101,7 @@
             abaixo do nível 120 nascem com três quartos da vida. Ao
             <strong>desligar</strong>, toda troca em andamento é cancelada — as
             regras mudam no meio e deixar fechar seria pior.
+            Não mexe na Guerra de Torres, que tem o próprio interruptor mais abaixo.
           </span>
         </span>
       </label>
@@ -115,6 +120,35 @@
           </span>
         </span>
       </label>
+    </div>
+
+    <div class="caixa">
+      <h2>Guerra de Torres</h2>
+
+      <label class="interruptor">
+        <input type="checkbox" name="torre" value="1"
+               {{if .Cfg.TowerWarEnabled}}checked{{end}} {{if not .IsAdmin}}disabled{{end}}>
+        <span>
+          <span class="t">Ligada</span>
+          <span class="d">
+            Todos os dias, no horário escolhido: aviso nos primeiros 5 minutos,
+            torre aparece aos 6 e a guerra termina aos 30. A guilda que estiver
+            com a torre no fim ganha +100 de fama.
+          </span>
+        </span>
+      </label>
+
+      <div class="grade-campos">
+        <label>
+          <span class="campo-rot">Horário (hora cheia, 0 a {{.MaxHora}})</span>
+          <input type="number" name="torre_hora" min="0" max="{{.MaxHora}}" step="1" required
+                 inputmode="numeric" value="{{.Cfg.TowerWarHour}}" {{if not .IsAdmin}}disabled{{end}}>
+        </label>
+      </div>
+      <p class="nota calma">
+        O horário é o do relógio do servidor. 20 quer dizer que o aviso sai às
+        20:00 e a guerra acaba às 20:30.
+      </p>
     </div>
 
     <div class="caixa">

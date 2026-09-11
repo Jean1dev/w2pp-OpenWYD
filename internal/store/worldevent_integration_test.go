@@ -24,6 +24,13 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 	}
 
 	st := New(pool)
+	// A linha que a 0015 cria já nasce com a guerra de torres da 0051: ligada, às
+	// 20h. Sem isso um servidor recém-migrado ficaria sem a guerra diária até
+	// alguém abrir o painel.
+	if inicial, err := st.WorldEventConfig(ctx); err != nil ||
+		!inicial.TowerWarEnabled || inicial.TowerWarHour != domain.DefaultTowerWarHour {
+		t.Fatalf("config inicial = %+v/%v, want guerra de torres ligada às %dh", inicial, err, domain.DefaultTowerWarHour)
+	}
 	v, err := st.WorldEventConfigVersion(ctx)
 	if err != nil || v != 0 {
 		t.Fatalf("initial version = %d/%v, want 0/nil", v, err)
@@ -32,6 +39,7 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 		Enabled: true, ItemIndex: 777, Rate: 2,
 		StartIndex: 100, CurrentIndex: 100, EndIndex: 200,
 		Indexed: true, NoticeEnabled: true, DoubleExpEnabled: true, KefraLiveEnabled: true,
+		TowerWarEnabled: false, TowerWarHour: 18,
 	}
 	if err := st.UpsertWorldEventConfig(ctx, cfg, modID); err != nil {
 		t.Fatalf("UpsertWorldEventConfig: %v", err)
@@ -49,6 +57,9 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 	}
 	if got.ItemIndex != 777 || got.CurrentIndex != 100 || !got.DoubleExpEnabled {
 		t.Fatalf("config = %+v, want saved values", got)
+	}
+	if got.TowerWarEnabled || got.TowerWarHour != 18 {
+		t.Errorf("guerra de torres voltou como %v às %dh, want desligada às 18h", got.TowerWarEnabled, got.TowerWarHour)
 	}
 	var auditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM world_event_audit`).Scan(&auditCount); err != nil {
@@ -87,5 +98,25 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 	got, _ = st.WorldEventConfig(ctx)
 	if got.CurrentIndex != 101 {
 		t.Fatalf("current after lower progress = %d, want monotonic 101", got.CurrentIndex)
+	}
+}
+
+// TestHoraDaGuerraDeTorresForaDaFaixaERecusada: the CHECK is the last line of
+// defence after the panel and the web service. An hour of 24 would never match
+// the clock, and the war would silently never start.
+func TestHoraDaGuerraDeTorresForaDaFaixaERecusada(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+	resetTestSchema(ctx, pool)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	st := New(pool)
+	for _, hora := range []int32{-1, 24} {
+		cfg := domain.DefaultWorldEventConfig()
+		cfg.TowerWarHour = hora
+		if err := st.UpsertWorldEventConfig(ctx, cfg, 0); err == nil {
+			t.Errorf("o banco aceitou a guerra de torres às %dh", hora)
+		}
 	}
 }

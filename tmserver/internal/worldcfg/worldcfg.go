@@ -18,6 +18,11 @@ type EventConfig struct {
 	DoubleExpEnabled   bool
 	NewbieEventEnabled bool
 	KefraLiveEnabled   bool
+	// TowerWarEnabled and TowerWarHour schedule the daily Guerra de Torres
+	// (migration 0051). A dbServer too old to send them yields the decided
+	// default (domain.DefaultTowerWar*), never the zero values.
+	TowerWarEnabled bool
+	TowerWarHour    int32
 }
 
 // Snapshot is the full world config at a given version.

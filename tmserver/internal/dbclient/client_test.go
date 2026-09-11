@@ -43,6 +43,10 @@ type fakeAPI struct {
 
 	duelReq  *dbv1.RecordDuelResultRequest
 	duelResp *dbv1.RecordDuelResultResponse
+
+	// SaveGuildFame: the last request, and whether dbServer answers ok=false.
+	famaReq      *dbv1.SaveGuildFameRequest
+	famaRecusada bool
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {
@@ -139,6 +143,10 @@ func (f *fakeAPI) LoadGuildTowerState(_ context.Context, _ *dbv1.LoadGuildTowerS
 }
 func (f *fakeAPI) SaveGuildTowerState(_ context.Context, _ *dbv1.SaveGuildTowerStateRequest, _ ...grpc.CallOption) (*dbv1.SaveGuildTowerStateResponse, error) {
 	return &dbv1.SaveGuildTowerStateResponse{Ok: true}, nil
+}
+func (f *fakeAPI) SaveGuildFame(_ context.Context, req *dbv1.SaveGuildFameRequest, _ ...grpc.CallOption) (*dbv1.SaveGuildFameResponse, error) {
+	f.famaReq = req
+	return &dbv1.SaveGuildFameResponse{Ok: !f.famaRecusada}, nil
 }
 func (f *fakeAPI) LoadCastleQuestState(_ context.Context, _ *dbv1.LoadCastleQuestStateRequest, _ ...grpc.CallOption) (*dbv1.LoadCastleQuestStateResponse, error) {
 	return &dbv1.LoadCastleQuestStateResponse{}, nil

@@ -6714,8 +6714,15 @@ type WorldEventConfig struct {
 	// When FALSE every PvE reward is halved (expreward.go step 11). Legacy
 	// KefraLive=0, which is what this server has always run.
 	KefraLiveEnabled bool `protobuf:"varint,11,opt,name=kefra_live_enabled,json=kefraLiveEnabled,proto3" json:"kefra_live_enabled,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The daily Tower War (migration 0051): on/off and the hour (0..23, server
+	// time) it starts. `optional` so presence is visible: on a read, absent means
+	// a webServer too old to send them; on SetWorldEventConfig, absent means a
+	// caller that does not know about them, and the stored values are kept
+	// rather than reset.
+	TowerWarEnabled *bool  `protobuf:"varint,12,opt,name=tower_war_enabled,json=towerWarEnabled,proto3,oneof" json:"tower_war_enabled,omitempty"`
+	TowerWarHour    *int32 `protobuf:"varint,13,opt,name=tower_war_hour,json=towerWarHour,proto3,oneof" json:"tower_war_hour,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *WorldEventConfig) Reset() {
@@ -6823,6 +6830,20 @@ func (x *WorldEventConfig) GetKefraLiveEnabled() bool {
 		return x.KefraLiveEnabled
 	}
 	return false
+}
+
+func (x *WorldEventConfig) GetTowerWarEnabled() bool {
+	if x != nil && x.TowerWarEnabled != nil {
+		return *x.TowerWarEnabled
+	}
+	return false
+}
+
+func (x *WorldEventConfig) GetTowerWarHour() int32 {
+	if x != nil && x.TowerWarHour != nil {
+		return *x.TowerWarHour
+	}
+	return 0
 }
 
 type GetWorldEventConfigRequest struct {
@@ -11505,7 +11526,7 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\aenabled\x18\x03 \x01(\bR\aenabled\"U\n" +
 	"\x17DeleteRewardItemRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x17\n" +
-	"\aitem_id\x18\x02 \x01(\x03R\x06itemId\"\x91\x03\n" +
+	"\aitem_id\x18\x02 \x01(\x03R\x06itemId\"\x96\x04\n" +
 	"\x10WorldEventConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1d\n" +
 	"\n" +
@@ -11520,7 +11541,11 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x12double_exp_enabled\x18\t \x01(\bR\x10doubleExpEnabled\x120\n" +
 	"\x14newbie_event_enabled\x18\n" +
 	" \x01(\bR\x12newbieEventEnabled\x12,\n" +
-	"\x12kefra_live_enabled\x18\v \x01(\bR\x10kefraLiveEnabled\"?\n" +
+	"\x12kefra_live_enabled\x18\v \x01(\bR\x10kefraLiveEnabled\x12/\n" +
+	"\x11tower_war_enabled\x18\f \x01(\bH\x00R\x0ftowerWarEnabled\x88\x01\x01\x12)\n" +
+	"\x0etower_war_hour\x18\r \x01(\x05H\x01R\ftowerWarHour\x88\x01\x01B\x14\n" +
+	"\x12_tower_war_enabledB\x11\n" +
+	"\x0f_tower_war_hour\"?\n" +
 	"\x1aGetWorldEventConfigRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"\x96\x01\n" +
 	"\x1bGetWorldEventConfigResponse\x12+\n" +
@@ -12452,6 +12477,7 @@ func file_api_web_v1_web_proto_init() {
 	if File_api_web_v1_web_proto != nil {
 		return
 	}
+	file_api_web_v1_web_proto_msgTypes[91].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

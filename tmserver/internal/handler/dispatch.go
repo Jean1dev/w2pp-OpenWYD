@@ -533,7 +533,7 @@ func New(cfg Config) *Dispatcher {
 		events:            worldEventState{forceWeather: weatherAuto},
 	}
 	d.xpConfigVersion.Store(cfg.XPConfig.Version)
-	d.events.tower = worldevents.NewTower(20)
+	d.events.tower = worldevents.NewTower(worldevents.DefaultTowerHour)
 	for i := range d.guildZones {
 		d.guildZones[i].Zone = i
 	}

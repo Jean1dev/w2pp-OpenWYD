@@ -452,5 +452,6 @@ func (d *Dispatcher) gmSetGuildFame(w *world.World, s *world.Session, rest strin
 		return
 	}
 	w.SetGuildFame(uint16(id), int32(fame))
+	d.persistGuildFame(w, uint16(id), int32(fame)) // memory alone was gone at the next restart
 	d.log.Info("gm guildfame", "account", s.AccountName, "guild", id, "fame", fame)
 }

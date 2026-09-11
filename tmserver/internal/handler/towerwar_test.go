@@ -41,8 +41,8 @@ func TestTowerCaptureRespawnsUnderKillerGuild(t *testing.T) {
 			towers = append(towers, e)
 		}
 	})
-	if len(towers) != 1 || towers[0].Guild != 77 || towers[0].HP != 10000 {
-		t.Fatalf("respawned towers = %+v, want one owner=77 HP=10000", towers)
+	if len(towers) != 1 || towers[0].Guild != 77 || towers[0].HP != towerHP {
+		t.Fatalf("respawned towers = %+v, want one owner=77 HP=%d", towers, towerHP)
 	}
 }
 

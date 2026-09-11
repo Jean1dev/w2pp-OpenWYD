@@ -71,10 +71,11 @@ func (h *Handler) eventos(w http.ResponseWriter, r *http.Request) {
 		Parado  string
 		Restam  int32
 		MaxItem int32
+		MaxHora int32
 		Aviso   string
 	}{
 		h.pageFor(r, "eventos"), cfg, caindo(cfg), motivoParado(cfg), restam(cfg),
-		maxItemEvento, r.URL.Query().Get("aviso"),
+		maxItemEvento, domain.MaxTowerWarHour, r.URL.Query().Get("aviso"),
 	})
 }
 
@@ -123,6 +124,7 @@ func (h *Handler) setEventos(w http.ResponseWriter, r *http.Request) {
 		KefraLiveEnabled:   r.PostFormValue("kefra") != "",
 		Indexed:            r.PostFormValue("numerado") != "",
 		NoticeEnabled:      r.PostFormValue("anunciar") != "",
+		TowerWarEnabled:    r.PostFormValue("torre") != "",
 	}
 	campos := []struct {
 		nome string
@@ -153,6 +155,13 @@ func (h *Handler) setEventos(w http.ResponseWriter, r *http.Request) {
 			maxItemEvento), http.StatusBadRequest)
 		return
 	}
+	hora, ok := horaDaTorre(r)
+	if !ok {
+		http.Error(w, fmt.Sprintf("O horário da Guerra de Torres precisa ser uma hora inteira de 0 a %d.",
+			domain.MaxTowerWarHour), http.StatusBadRequest)
+		return
+	}
+	novo.TowerWarHour = hora
 
 	if err := h.cfg.Eventos.UpsertWorldEventConfig(r.Context(), novo, sess.AccountID); err != nil {
 		h.cfg.Logger.Error("world event config write failed", "err", err)
@@ -176,7 +185,8 @@ func (h *Handler) setEventos(w http.ResponseWriter, r *http.Request) {
 
 	h.cfg.Logger.Info("world event config saved", "actor", sess.AccountName,
 		"xp_dobro", novo.DoubleExpEnabled, "novato", novo.NewbieEventEnabled,
-		"kefra", novo.KefraLiveEnabled, "chuva", novo.Enabled)
+		"kefra", novo.KefraLiveEnabled, "chuva", novo.Enabled,
+		"torre", novo.TowerWarEnabled, "torre_hora", novo.TowerWarHour)
 
 	// The game polls this config, so the change is already on its way without a
 	// restart — the page says so, because the alternative is somebody restarting
@@ -192,5 +202,18 @@ func resumoEvento(c domain.WorldEventConfig) map[string]any {
 		"chuva": c.Enabled, "item": c.ItemIndex, "chance": c.Rate,
 		"primeiro": c.StartIndex, "atual": c.CurrentIndex, "ultimo": c.EndIndex,
 		"numerado": c.Indexed, "anunciar": c.NoticeEnabled,
+		"torre": c.TowerWarEnabled, "torre_hora": c.TowerWarHour,
 	}
+}
+
+// horaDaTorre reads the Tower War hour. Unlike the drop-event numbers, an empty
+// box is refused rather than read as 0: 0 is a real hour (midnight), and a form
+// that lost the field would otherwise move the daily war to the middle of the
+// night with nobody asking for it.
+func horaDaTorre(r *http.Request) (int32, bool) {
+	v, err := strconv.ParseInt(strings.TrimSpace(r.PostFormValue("torre_hora")), 10, 32)
+	if err != nil || v < 0 || v > domain.MaxTowerWarHour {
+		return 0, false
+	}
+	return int32(v), true
 }

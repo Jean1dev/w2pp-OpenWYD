@@ -113,6 +113,10 @@ func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapsho
 	ev := snap.Event
 	d.expEvents.DoubleMode = ev.DoubleExpEnabled
 	d.setNewbieEvent(w, ev.NewbieEventEnabled)
+	// The daily Tower War has its own switch and hour (migration 0051). It used
+	// to ride on the newbie event above, which also changes EXP and monster HP
+	// for low levels.
+	d.setTowerSchedule(ev.TowerWarEnabled, int(ev.TowerWarHour))
 	// No side effects to run, unlike the newbie event: KefraLive is one branch
 	// in the reward pipeline and touches nothing that is already in the world.
 	d.expEvents.KefraLive = ev.KefraLiveEnabled

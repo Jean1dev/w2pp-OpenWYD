@@ -2,7 +2,7 @@
 // world.Persistence port. tmServer's loop/handlers depend only on the port; this
 // adapter does the blocking gRPC calls (off the loop via World.Go, or inline at
 // shutdown) and maps proto messages to/from the world's types
-// (migration-plan.md §3.5).
+// (migration-plan.md Â§3.5).
 package dbclient
 
 import (
@@ -53,14 +53,14 @@ func (c *Client) AccountLogin(ctx context.Context, name, password string) (world
 		return world.LoginOutcome{}, err
 	}
 	// Load the account-shared cargo in the same off-loop round-trip as the
-	// character list — it is account-scoped, so it is fetched once per login.
+	// character list â it is account-scoped, so it is fetched once per login.
 	out.Cargo, err = c.LoadCargo(ctx, out.AccountID)
 	if err != nil {
 		return world.LoginOutcome{}, err
 	}
 	// Fetch the donate web-shop mailbox (issue #34) in the same round-trip too,
 	// rather than a second loop re-entry after login completes. A fetch failure
-	// here is non-fatal to the login — the mailbox is simply retried next login.
+	// here is non-fatal to the login â the mailbox is simply retried next login.
 	if pending, err := c.ListPendingDeliveries(ctx, out.AccountID); err == nil {
 		out.PendingDeliveries = pending
 	}
@@ -488,6 +488,20 @@ func (c *Client) SaveGuildTowerState(ctx context.Context, state world.GuildTower
 	return nil
 }
 
+// SaveGuildFame persists a guild's fame (an absolute value, not a delta).
+// ok=false from dbServer means no guild has that id — the guild may have been
+// disbanded since — and comes back as an error so the caller can log it.
+func (c *Client) SaveGuildFame(ctx context.Context, guildID uint16, fame int32) error {
+	resp, err := c.api.SaveGuildFame(ctx, &dbv1.SaveGuildFameRequest{GuildId: uint32(guildID), Fame: fame})
+	if err != nil {
+		return fmt.Errorf("dbclient: save guild %d fame: %w", guildID, err)
+	}
+	if !resp.GetOk() {
+		return fmt.Errorf("dbclient: save guild %d fame rejected: no such guild", guildID)
+	}
+	return nil
+}
+
 // LoadCastleQuestState loads the current Castle/Zakum quest state.
 func (c *Client) LoadCastleQuestState(ctx context.Context) (world.CastleQuestState, error) {
 	resp, err := c.api.LoadCastleQuestState(ctx, &dbv1.LoadCastleQuestStateRequest{})
@@ -700,7 +714,7 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		st.ShortSkill[i] = uint8(v)
 	}
 	// The Divine buff persists as an affect row whose Time holds the absolute Unix
-	// deadline (DivineEnd); reconstruct it so login can re-apply (captura §B).
+	// deadline (DivineEnd); reconstruct it so login can re-apply (captura Â§B).
 	// Every other row is a live buff slot (Time in 8s affect ticks).
 	for _, a := range c.GetAffects() {
 		if a.GetType() == world.AffectDivine {
@@ -805,7 +819,7 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		c.ShortSkill[i] = uint32(v)
 	}
 	// Persist the Divine buff (only while still active) as one affect row carrying the
-	// absolute deadline in Time, so it survives relog (captura §B). The other live
+	// absolute deadline in Time, so it survives relog (captura Â§B). The other live
 	// buff slots persist as raw rows (Time in 8s affect ticks).
 	if s.DivineEnd > time.Now().Unix() {
 		c.Affects = append(c.Affects, &dbv1.Affect{Type: int32(world.AffectDivine), Level: 1, Time: uint32(s.DivineEnd)})
@@ -863,7 +877,7 @@ func (c *Client) ReserveSerials(ctx context.Context, quantos int64) (int64, erro
 // RecordChat stores a batch of chat lines (0034_chat_log).
 //
 // Best-effort: the words were already said and heard, so a failed write is
-// logged by the caller and nothing is retried — a retry would compete with the
+// logged by the caller and nothing is retried â a retry would compete with the
 // next batch, and the next batch is the more useful one.
 func (c *Client) RecordChat(ctx context.Context, linhas []world.ChatLinha) error {
 	if len(linhas) == 0 {

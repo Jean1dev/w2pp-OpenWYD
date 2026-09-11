@@ -6,6 +6,7 @@ package grpcsrv
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -58,6 +59,7 @@ type Store interface {
 	SaveGuildZone(ctx context.Context, zone domain.GuildZone) error
 	LoadGuildTowerState(ctx context.Context) (domain.GuildTowerState, error)
 	SaveGuildTowerState(ctx context.Context, state domain.GuildTowerState) error
+	UpdateGuildFame(ctx context.Context, guildID uint16, fame int32) error
 	LoadCastleQuestState(ctx context.Context) (domain.CastleQuestState, error)
 	SaveCastleQuestState(ctx context.Context, state domain.CastleQuestState) error
 }
@@ -404,6 +406,26 @@ func (s *Server) SaveGuildTowerState(ctx context.Context, req *dbv1.SaveGuildTow
 		return nil, status.Errorf(codes.Internal, "save guild tower state: %v", err)
 	}
 	return &dbv1.SaveGuildTowerStateResponse{Ok: true}, nil
+}
+
+// SaveGuildFame persists a guild's fame, so the Tower War's reward and a GM's
+// /gm guildfame survive a restart. ok=false means no guild has that id.
+func (s *Server) SaveGuildFame(ctx context.Context, req *dbv1.SaveGuildFameRequest) (*dbv1.SaveGuildFameResponse, error) {
+	// Guild ids are the legacy ushort. An id that does not fit is refused
+	// rather than truncated: uint16(65537) is guild 1, and writing fame onto a
+	// guild nobody named would be worse than failing.
+	id := req.GetGuildId()
+	if id == 0 || id > math.MaxUint16 {
+		return nil, status.Errorf(codes.InvalidArgument, "save guild fame: guild id %d out of range", id)
+	}
+	err := s.store.UpdateGuildFame(ctx, uint16(id), req.GetFame())
+	if errors.Is(err, store.ErrNotFound) {
+		return &dbv1.SaveGuildFameResponse{Ok: false}, nil
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "save guild fame: %v", err)
+	}
+	return &dbv1.SaveGuildFameResponse{Ok: true}, nil
 }
 
 // LoadCastleQuestState loads current Castle/Zakum quest state.

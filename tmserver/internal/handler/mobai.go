@@ -934,6 +934,15 @@ func (d *Dispatcher) golpesDaArea(w *world.World, id int, e, target *world.Entit
 // danoDoGolpeDeMonstro é o dano de um golpe de monstro ou de pet contra target,
 // já com a parte que a montaria do alvo absorve.
 func (d *Dispatcher) danoDoGolpeDeMonstro(w *world.World, e, target *world.Entity) int {
+	// Na Guerra de Torres o pet obedece à regra do dono: sem guilda, ou da guilda
+	// que já tem a torre, não fere a torre. O legado só confere o jogador
+	// (CWarTower::TowerAttack, _MSG_Attack.cpp:398), e aqui um pet de quem não
+	// tinha guilda derrubava a torre de ninguém.
+	if e.Summoner != 0 && target.GenIndex == towerGenerator {
+		if dono := w.Entity(e.Summoner); dono == nil || !d.towerAttackAllowed(dono, target) {
+			return 0
+		}
+	}
 	dmg := combat.ResolveHit(w.Rand(), combat.HitInput{
 		// effectiveDamage, não e.Damage cru: é o que soma AffDamage, e sem isso um
 		// debuff de dano no monstro não tira dano nenhum (o Enfraquecer).

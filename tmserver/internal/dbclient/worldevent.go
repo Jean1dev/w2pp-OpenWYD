@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldcfg"
 )
 
@@ -55,7 +56,24 @@ func (c *WorldEventConfig) UpdateProgress(ctx context.Context, expectedVersion i
 
 func dbWorldEventToConfig(cfg *dbv1.WorldEventConfig) worldcfg.EventConfig {
 	if cfg == nil {
-		return worldcfg.EventConfig{NoticeEnabled: true}
+		return worldcfg.EventConfig{
+			NoticeEnabled:   true,
+			TowerWarEnabled: domain.DefaultTowerWarEnabled,
+			TowerWarHour:    domain.DefaultTowerWarHour,
+		}
+	}
+	// The Tower War pair is `optional` on the wire. Absent means a dbServer that
+	// predates migration 0051, and then the decided default (on, 20h) runs — the
+	// same value the migration gives the row — rather than the zero values,
+	// which would read as "off, at midnight" and cancel the daily war during a
+	// rolling deploy.
+	ligada := domain.DefaultTowerWarEnabled
+	if cfg.TowerWarEnabled != nil {
+		ligada = *cfg.TowerWarEnabled
+	}
+	hora := int32(domain.DefaultTowerWarHour)
+	if cfg.TowerWarHour != nil {
+		hora = *cfg.TowerWarHour
 	}
 	return worldcfg.EventConfig{
 		Enabled: cfg.GetEnabled(), ItemIndex: cfg.GetItemIndex(), Rate: cfg.GetRate(),
@@ -63,5 +81,6 @@ func dbWorldEventToConfig(cfg *dbv1.WorldEventConfig) worldcfg.EventConfig {
 		Indexed: cfg.GetIndexed(), NoticeEnabled: cfg.GetNoticeEnabled(),
 		DoubleExpEnabled: cfg.GetDoubleExpEnabled(), NewbieEventEnabled: cfg.GetNewbieEventEnabled(),
 		KefraLiveEnabled: cfg.GetKefraLiveEnabled(),
+		TowerWarEnabled:  ligada, TowerWarHour: hora,
 	}
 }

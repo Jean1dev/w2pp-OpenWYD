@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 )
@@ -72,5 +73,42 @@ func TestWorldEventConfigClientNilSnapshotDefaultsNotice(t *testing.T) {
 	}
 	if !snap.Event.NoticeEnabled {
 		t.Errorf("NoticeEnabled = false, want true default for nil config")
+	}
+}
+
+// TestGuerraDeTorresPresencaNoFio covers the three ways the Tower War pair can
+// arrive. Absent is a dbServer that predates migration 0051 and must run the
+// decided default (on, 20h); present-and-zero is a real choice (off, or
+// midnight) and must not be mistaken for absent.
+func TestGuerraDeTorresPresencaNoFio(t *testing.T) {
+	tests := []struct {
+		nome     string
+		cfg      *dbv1.WorldEventConfig
+		querLiga bool
+		querHora int32
+	}{
+		{"ausente é o padrão decidido", &dbv1.WorldEventConfig{NoticeEnabled: true}, true, 20},
+		{"sem config nenhuma é o padrão decidido", nil, true, 20},
+		{"presente e zerado é desligada à meia-noite",
+			&dbv1.WorldEventConfig{TowerWarEnabled: proto.Bool(false), TowerWarHour: proto.Int32(0)}, false, 0},
+		{"presente vale como veio",
+			&dbv1.WorldEventConfig{TowerWarEnabled: proto.Bool(true), TowerWarHour: proto.Int32(22)}, true, 22},
+		{"só a hora presente: ligada fica no padrão",
+			&dbv1.WorldEventConfig{TowerWarHour: proto.Int32(18)}, true, 18},
+	}
+	for _, tt := range tests {
+		t.Run(tt.nome, func(t *testing.T) {
+			c := &WorldEventConfig{api: &fakeWorldEventAPI{snapshotResp: &dbv1.GetWorldEventConfigResponse{
+				Version: 1, Config: tt.cfg,
+			}}}
+			snap, err := c.Snapshot(context.Background())
+			if err != nil {
+				t.Fatalf("Snapshot: %v", err)
+			}
+			if snap.Event.TowerWarEnabled != tt.querLiga || snap.Event.TowerWarHour != tt.querHora {
+				t.Errorf("guerra de torres = %v às %dh, want %v às %dh",
+					snap.Event.TowerWarEnabled, snap.Event.TowerWarHour, tt.querLiga, tt.querHora)
+			}
+		})
 	}
 }
