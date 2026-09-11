@@ -12,10 +12,15 @@ const (
 
 // MobBasics is the subset of a raw STRUCT_MOB needed to spawn a world entity.
 type MobBasics struct {
-	Name               string
-	Clan               uint8 // STRUCT_MOB.Clan @16 — drives the g_pClanTable hostility check
-	Class              uint8
-	Merchant           uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
+	Name     string
+	Clan     uint8 // STRUCT_MOB.Clan @16 — drives the g_pClanTable hostility check
+	Class    uint8
+	Merchant uint8 // CurrentScore.Merchant — NPC type (shop/bank/…); 0 = monster
+	// MobMerchant is STRUCT_MOB.Merchant @17, the OTHER merchant byte — the one the
+	// legacy routes quest NPCs and attack immunity by (_MSG_Quest.cpp:33,
+	// _MSG_Attack.cpp:340). The two disagree on 280 templates; see
+	// internal/campotreino for where the port honours this one.
+	MobMerchant        uint8
 	AttackRun          uint8 // CurrentScore.AttackRun — speed byte, echoed into CreateMob so clients animate the mob's walks
 	Level, Ac, Damage  int32
 	MaxHp, Hp          int32
@@ -38,23 +43,24 @@ type MobBasics struct {
 func ParseMobBasics(mob816 []byte) MobBasics {
 	const cs = 92 // CurrentScore offset within STRUCT_MOB
 	return MobBasics{
-		Name:      cstr16(mob816[0:16]),
-		Clan:      mob816[16], // Clan @16 (same offset writeStructMob writes)
-		Class:     mob816[20],
-		Exp:       int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
-		Merchant:  mob816[cs+12],                 // CurrentScore.Merchant
-		AttackRun: mob816[cs+13],                 // CurrentScore.AttackRun (speed)
-		Level:     int32(le.Uint32(mob816[cs+0:])),
-		Ac:        int32(le.Uint32(mob816[cs+4:])),
-		Damage:    int32(le.Uint32(mob816[cs+8:])),
-		MaxHp:     int32(le.Uint32(mob816[cs+16:])),
-		Hp:        int32(le.Uint32(mob816[cs+24:])),
-		Str:       int16(le.Uint16(mob816[cs+32:])),
-		Int:       int16(le.Uint16(mob816[cs+34:])),
-		Dex:       int16(le.Uint16(mob816[cs+36:])),
-		Con:       int16(le.Uint16(mob816[cs+38:])),
-		Resist:    [4]uint8(mob816[806:810]), // STRUCT_MOB.Resist @806 (skill mitigation)
-		SkillBar:  [4]uint8(mob816[796:800]), // STRUCT_MOB.SkillBar @796 (GetFunc.cpp:1569-1627)
+		Name:        cstr16(mob816[0:16]),
+		Clan:        mob816[16], // Clan @16 (same offset writeStructMob writes)
+		MobMerchant: mob816[17], // STRUCT_MOB.Merchant @17
+		Class:       mob816[20],
+		Exp:         int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
+		Merchant:    mob816[cs+12],                 // CurrentScore.Merchant
+		AttackRun:   mob816[cs+13],                 // CurrentScore.AttackRun (speed)
+		Level:       int32(le.Uint32(mob816[cs+0:])),
+		Ac:          int32(le.Uint32(mob816[cs+4:])),
+		Damage:      int32(le.Uint32(mob816[cs+8:])),
+		MaxHp:       int32(le.Uint32(mob816[cs+16:])),
+		Hp:          int32(le.Uint32(mob816[cs+24:])),
+		Str:         int16(le.Uint16(mob816[cs+32:])),
+		Int:         int16(le.Uint16(mob816[cs+34:])),
+		Dex:         int16(le.Uint16(mob816[cs+36:])),
+		Con:         int16(le.Uint16(mob816[cs+38:])),
+		Resist:      [4]uint8(mob816[806:810]), // STRUCT_MOB.Resist @806 (skill mitigation)
+		SkillBar:    [4]uint8(mob816[796:800]), // STRUCT_MOB.SkillBar @796 (GetFunc.cpp:1569-1627)
 	}
 }
 

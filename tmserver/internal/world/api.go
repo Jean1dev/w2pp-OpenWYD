@@ -1,6 +1,7 @@
 package world
 
 import (
+	"github.com/jeanluca/w2pp-openwyd/internal/campotreino"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
 )
@@ -159,8 +160,15 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 	// spawns in these rooms qualifies. Scoped to the dungeon on purpose: the
 	// blanket rule wrongly shields real monsters elsewhere too, but widening it
 	// is a separate call — it would expose ~376 spawn blocks at once.
+	//
+	// The training field is the same exception by the legacy's own byte: there,
+	// only a non-zero STRUCT_MOB.Merchant makes an NPC (campotreino). That frees
+	// the Orc_Sniper and the Águias, which carry 16 in the byte this port reads
+	// and 0 in the one the legacy reads, and keeps every service NPC there
+	// protected — they all carry a non-zero byte 17.
 	e.NonCombatNPC = nonCombatNPC(e.Merchant, e.Clan, e.X, e.Y) &&
-		!IsWaterDungeonGenerator(int(sp.GenIndex))
+		!IsWaterDungeonGenerator(int(sp.GenIndex)) &&
+		!campotreino.MonstroNoCampo(b.MobMerchant, int(x), int(y))
 	for i, r := range b.Resist {
 		e.Resist[i] = int16(r)
 	}
@@ -222,6 +230,16 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 	return id
 }
 
+// monstroDeCombate is whether a dying entity is a monster for its generator and
+// the respawn queue: not a protected NPC, and either a plain monster (Merchant 0
+// in the byte this port reads) or one the training field frees from that byte
+// (campotreino, the classification SpawnMobAt already applied). Freeing a mob in
+// combat without this is the half-fix the water dungeon's Imp_ had: the
+// generator keeps counting the dead mob, so it dies once and never returns.
+func monstroDeCombate(e *Entity) bool {
+	return !e.NonCombatNPC && (e.Merchant == 0 || campotreino.Contem(int(e.SpawnX), int(e.SpawnY)))
+}
+
 // DespawnMob removes a mob/NPC from the world after it dies (or otherwise leaves):
 // it tells in-view players to drop the entity (MSG_RemoveMob; removeType 1 = death,
 // 0 = out-of-view), clears its grid cell and frees the entity slot. Loop-only.
@@ -251,7 +269,7 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// tally froze and the clear reward — which fires when the last mob drops —
 	// could never trigger. Same field that made the Imp invulnerable; the combat
 	// gate was fixed without this accounting half.
-	countsForGenerator := (e.Merchant == 0 && !e.NonCombatNPC) || IsWaterDungeonGenerator(int(e.GenIndex))
+	countsForGenerator := monstroDeCombate(e) || IsWaterDungeonGenerator(int(e.GenIndex))
 	if removeType == 1 && countsForGenerator && gen != nil {
 		if gen.CurrentNumMob--; gen.CurrentNumMob < 0 {
 			gen.CurrentNumMob = 0
@@ -293,7 +311,7 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// Event props are the same exception for the same reason: a war tower that
 	// respawns fifteen seconds after it falls is not a war tower. The Kefra and
 	// its guards are weekly (handler/kefra.go) and never take the queue either.
-	if removeType == 1 && e.Merchant == 0 && !e.NonCombatNPC && e.Template != nil && e.Summoner == 0 &&
+	if removeType == 1 && monstroDeCombate(e) && e.Template != nil && e.Summoner == 0 &&
 		!IsWaterDungeonGenerator(int(e.GenIndex)) &&
 		!IsEventOwnedGenerator(int(e.GenIndex)) &&
 		!IsKefraGenerator(int(e.GenIndex)) &&

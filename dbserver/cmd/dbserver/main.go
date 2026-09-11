@@ -36,6 +36,7 @@ import (
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/convert"
 	"github.com/jeanluca/w2pp-openwyd/dbserver/internal/grpcsrv"
+	"github.com/jeanluca/w2pp-openwyd/internal/campotreino"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
 	"github.com/jeanluca/w2pp-openwyd/internal/savefmt"
@@ -185,6 +186,14 @@ func buildNPCDefinitions(contentDir string, logger *slog.Logger) ([]domain.NPCDe
 		// field here so importer and runtime agree on what is a merchant.
 		if mob == nil || mob.CurrentScore.Merchant == 0 {
 			continue // missing template, or a monster / non-shop NPC (stays in NPCGener.txt)
+		}
+		// Inside the training field the legacy byte decides (internal/campotreino):
+		// the Orc_Sniper and the Águias carry a shop byte on 104 and none on 17. As
+		// definitions they were immortal NPCs, respawned nameless and so outside the
+		// Mesa de Drops. Leaving them out here is also what removes them from a live
+		// database: the seed prunes content rows the importer no longer produces.
+		if campotreino.MonstroNoCampo(mob.Merchant, b.startX, b.startY) {
+			continue
 		}
 		def := domain.NPCDefinition{
 			Slug:             fmt.Sprintf("%s-%d", b.leader, i),

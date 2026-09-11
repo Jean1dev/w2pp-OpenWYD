@@ -19,8 +19,11 @@ func TestBuildNPCDefinitionsRealCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(defs) != 548 {
-		t.Fatalf("merchant generator definitions = %d, want 548", len(defs))
+	// 528 = the 548 blocks whose leader carries a shop byte on 104, minus the 20
+	// in the training field that are monsters by the legacy's byte 17 — the 19
+	// Aguia blocks (1619-1637) and the Orc_Sniper (1684); see internal/campotreino.
+	if len(defs) != 528 {
+		t.Fatalf("merchant generator definitions = %d, want 528", len(defs))
 	}
 	want := map[string]struct {
 		index    int32

@@ -29,6 +29,7 @@ import (
 
 	gamev1 "github.com/jeanluca/w2pp-openwyd/api/game/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/buildinfo"
+	"github.com/jeanluca/w2pp-openwyd/internal/campotreino"
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
 	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/internal/npctemplate"
@@ -816,6 +817,9 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	type loadedTemplate struct {
 		bytes       []byte
 		rawMerchant uint8
+		// rawMobMerchant is the other merchant byte (STRUCT_MOB.Merchant @17), the
+		// one the training field classifies by (campotreino).
+		rawMobMerchant uint8
 		// file is the template file the name resolved to (npctemplate.Resolve):
 		// what the Mesa de Drops keys on, carried onto each spawned mob.
 		file string
@@ -839,7 +843,8 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 				stats.CountUnreadable()
 			} else {
 				stats.Count(res.Version)
-				t.rawMerchant = protocol.ParseMobBasics(b).Merchant
+				raw := protocol.ParseMobBasics(b)
+				t.rawMerchant, t.rawMobMerchant = raw.Merchant, raw.MobMerchant
 				t.file = res.Name
 				// Apply the moderator stat override (if any) BEFORE the exp sanity
 				// check below, so a fix made via the web tool clears the warning too.
@@ -930,7 +935,14 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		// Uses the RAW (pre-override) classification — a moderator's stat
 		// override must not flip a block between "spawn from NPCGener.txt"
 		// and "owned by npc_definition".
-		if skipMerchants && leader.rawMerchant != 0 {
+		//
+		// Inside the training field the legacy byte decides instead: its
+		// Orc_Sniper and Águias carry a shop byte on 104 and none on 17, so they
+		// stay monster generators here — killable, respawning, and named for the
+		// Mesa de Drops, which a DB-managed block is not (campotreino). The
+		// dbServer importer applies the same rule, so no definition claims them.
+		if skipMerchants && leader.rawMerchant != 0 &&
+			!campotreino.MonstroNoCampo(leader.rawMobMerchant, int(g.SegX[0]), int(g.SegY[0])) {
 			skipped++
 			dbOwned[i] = true
 		}
