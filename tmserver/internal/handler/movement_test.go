@@ -39,7 +39,7 @@ func startServerClock(t *testing.T, persist world.Persistence) (string, func(), 
 	clock := &atomic.Uint32{}
 	clock.Store(serverTime)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log, Now: func() time.Time { return time.Unix(0, 0) }})
+	d := New(Config{Log: log, Now: func() time.Time { return time.Unix(0, 0) }, CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16, Now: clock.Load}, log, persist, d.Handle)
 	w.SetSessionEndHandler(d.SessionEnd) // party unlink on disconnect, as in main.go
 	ctx, cancel := context.WithCancel(context.Background())

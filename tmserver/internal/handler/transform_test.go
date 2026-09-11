@@ -131,7 +131,7 @@ func TestTransformOutOfRangeValueInert(t *testing.T) {
 // percentage over Damage+AffDamage (Basedef.cpp:4654) — and that entities whose
 // affect pass never ran (zero-value AffDamageMultiPct) are untouched.
 func TestTransformDamageMultiplier(t *testing.T) {
-	d := New(Config{Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	d := New(Config{Log: slog.New(slog.NewTextHandler(io.Discard, nil)), CombatRules: regraSemEscala()})
 	e := &world.Entity{Damage: 200}
 	e.AffDamage = 10
 	e.AffDamageMultiPct = 140

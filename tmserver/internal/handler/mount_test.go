@@ -104,7 +104,7 @@ func TestMountBonusForNonMount(t *testing.T) {
 // TestMountEquipScore is the end-to-end score path: equipping a temp mount in Equip[14]
 // raises Attack (Damage), Magic, Evasion (Parry) and Resist; unequipping drops them back.
 func TestMountEquipScore(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Level: 50, Damage: 205}
 	e.Equip[0] = world.Item{Index: 11}
 	// Derive the equipment-free base with no mount, mirroring login.
@@ -153,7 +153,7 @@ func TestMountEquipScore(t *testing.T) {
 // from the current equip bonus on every refresh, so they come out right regardless of
 // whatever a fresh Entity starts with, which is exactly what avoids the login zero-out.
 func TestMountScoreRoundTrip(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, ClassMaster: classMasterMortal, Level: 50, Damage: 955, Magic: 60}
 	e.Equip[0] = world.Item{Index: 11}
 	e.Equip[mountEquipSlot] = world.Item{Index: 3989}
@@ -174,7 +174,7 @@ func TestMountScoreRoundTrip(t *testing.T) {
 // carries its Resist from its template and never derives a BaseScore, so the mount path
 // (player-only) must not zero it.
 func TestMountBonusMobResistPreserved(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	m := &world.Entity{ID: world.MaxUser, Level: 100} // first mob id → IsPlayer == false
 	m.Resist = [4]int16{50, 40, 30, 20}
 	d.refreshScore(m)

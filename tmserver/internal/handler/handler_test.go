@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jeanluca/w2pp-openwyd/internal/combatrule"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -483,6 +484,17 @@ func (f *fakeDB) LoadCharacter(_ context.Context, accountID int64, _ int) (world
 
 // --- harness ---
 
+// regraSemEscala é a regra de combate com a escala de ataque físico neutra
+// (100%). Os testes que medem a COMPOSIÇÃO do legado — dano, buffs, refino,
+// golpe de duelo — foram escritos contra ela; a escala de 61% decidida para
+// este servidor (combatrule.Default) moveria cada número à mão e tem testes
+// próprios em ataque_fisico_test.go.
+func regraSemEscala() *combatrule.Rules {
+	r := combatrule.Default()
+	r.PhysicalDamagePct = 100
+	return &r
+}
+
 func startServer(t *testing.T, persist world.Persistence) (string, func()) {
 	return startServerBilling(t, persist, nil)
 }
@@ -501,7 +513,7 @@ func startServerBilling(t *testing.T, persist world.Persistence, b world.Billing
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log})
+	d := New(Config{Log: log, CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
 	w.SetBilling(b)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -524,7 +536,7 @@ func startServerBaseMobs(t *testing.T, persist world.Persistence, baseMobs map[i
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log, BaseMobs: baseMobs})
+	d := New(Config{Log: log, BaseMobs: baseMobs, CombatRules: regraSemEscala()})
 	w := world.New(world.Config{}, log, persist, d.Handle)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

@@ -15,7 +15,7 @@ import (
 )
 
 func TestClearDetoxAffects(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{LearnedSkill: 1 << 7}
 	target := &world.Entity{ID: 2}
@@ -34,7 +34,7 @@ func TestClearDetoxAffects(t *testing.T) {
 }
 
 func TestCancelamentoClearsBlockAffect(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	s := &world.Session{Conn: 1}
 	caster := &world.Entity{ID: 1}
@@ -54,7 +54,7 @@ func TestCancelamentoClearsBlockAffect(t *testing.T) {
 }
 
 func TestFoemaHealFormulaAndCap(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1, ClassMaster: classMasterMortal}
 	target := &world.Entity{ID: 2, HP: 100, MaxHP: 5000}
@@ -70,7 +70,7 @@ func TestFoemaHealFormulaAndCap(t *testing.T) {
 }
 
 func TestFoemaHealFairyReduction(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	target := &world.Entity{}
 
 	if got := d.foemaHealAmount(target, 1000); got != 1000 {
@@ -140,7 +140,7 @@ func TestManaControlDamage(t *testing.T) {
 }
 
 func TestThunderTargetsSkipProtectedAndDeduplicate(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1, X: 5, Y: 5, Clan: 7}
 	first := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("First"), X: 4, Y: 4, GenIndex: -1})
@@ -240,7 +240,7 @@ func startServerCustomSpells(t *testing.T, persist world.Persistence, spells *co
 }
 
 func TestHuntressSkill79UsesDamageFormulaHalf(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1, Class: 3, Damage: 100}
 	target := &world.Entity{ID: 2, AC: 20}
@@ -350,7 +350,7 @@ func TestHuntressForceDamageApplication(t *testing.T) {
 }
 
 func TestHuntressAirBladeProcAddsDamage(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	for i := 0; i < 3; i++ {
 		w.Rand().Intn(1)
@@ -392,7 +392,7 @@ func TestHuntressOnHitSpellsUseLegacySkillRows(t *testing.T) {
 }
 
 func TestExterminarConsumesRemainingMPIntoDamage(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	s := &world.Session{Conn: 1, ReqMp: 200}
 	caster := &world.Entity{ID: 1, MP: 200, Int: 80}
@@ -428,7 +428,7 @@ func TestNocaoDeCombateSetsSkillMastery(t *testing.T) {
 }
 
 func TestDivineFuryMovesTargetTowardCaster(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1, X: 5, Y: 5, Level: 100}
 	targetID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 7, Y: 5, GenIndex: -1})
@@ -452,7 +452,7 @@ func TestDivineFuryMovesTargetTowardCaster(t *testing.T) {
 }
 
 func TestExterminarMotionMovesTargetNearCurrentCell(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	caster := &world.Entity{ID: 1}
 	targetID := w.SpawnMobAt(world.MobSpawn{Template: plainMobTemplate("Target"), X: 8, Y: 8, GenIndex: -1})
@@ -572,7 +572,7 @@ func TestForcaEspectralAlcancaUmaCasaAMais(t *testing.T) {
 // TestConcentracaoTiraDezPontosDaEsquiva: +10% de acerto is ten points (100 in
 // the thousandths of the roll) off the target's dodge, where it is not clamped.
 func TestConcentracaoTiraDezPontosDaEsquiva(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	alvo := &world.Entity{ID: 2, Dex: 600}
 	sem := d.parryRate(&world.Entity{ID: 1, Dex: 100}, alvo)
 	com := d.parryRate(&world.Entity{ID: 1, Dex: 100, LearnedSkill: learnedConcentracao}, alvo)
@@ -587,7 +587,7 @@ func TestConcentracaoTiraDezPontosDaEsquiva(t *testing.T) {
 // MaxHp 999 is a pool of 1998: 40% is 799, and the city branch only ever gives
 // multiples of (1998+1)/100 = 19, which 799 is not — the two stay apart.
 func TestLivroRessurreicaoVintePorCentoNoLugar(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	const n = 2000
 	noLugar := 0
@@ -800,7 +800,7 @@ func TestSkillNonexistentTargetZeroesDamage(t *testing.T) {
 // immune to player casts — but a genuine enemy takes it. AffectResist is 0 so
 // the resist roll is skipped and each case is deterministic.
 func TestApplyCastAffectAggressiveSkipsAllies(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	aggro := castInfo{isSkill: true, special: 50, spell: content.Spell{
 		Aggressive: 1, AffectType: 11, AffectValue: 5, AffectTime: 100,
@@ -849,7 +849,7 @@ func TestApplyCastAffectAggressiveSkipsAllies(t *testing.T) {
 // the cap and is exempt from the scale; TestCastBuffDurationCurve is where that
 // is asserted with the tmServer defaults wired in.
 func TestEscudoDouradoAffectDuration(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	// Skill 85 as the Release CSV yields it through the content loader.
 	shield := content.Spell{Index: 85, ManaSpent: 120, Delay: 5, AffectType: 31,
@@ -893,7 +893,7 @@ var samaritanoSpell = content.Spell{Index: 13, SkillPoint: 72, ManaSpent: 25, De
 // score packet the client renders carries both. Con and MaxHp are precisely the
 // two fields the issue's screenshots point at.
 func TestSamaritanoCastRaisesConAndMaxHP(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	e := &world.Entity{ID: 1, Class: 0, BaseCon: 212, BaseMaxHP: 4031, MaxHP: 4031, Con: 212, HP: 4031}
 
@@ -915,7 +915,7 @@ func TestSamaritanoCastRaisesConAndMaxHP(t *testing.T) {
 // while the affect it is casting only lands further down, in applyCastAffect —
 // so casting the buff must never cancel it. Guards that ordering.
 func TestSamaritanoSurvivesItsOwnCast(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	e := &world.Entity{ID: 1, BaseMaxHP: 4000, MaxHP: 4000}
 
@@ -931,7 +931,7 @@ func TestSamaritanoSurvivesItsOwnCast(t *testing.T) {
 // swinging drops the buff, and the score goes back to its unbuffed values —
 // including the HP clamp the shrinking MaxHP forces.
 func TestRemoveSamaritanoOnAttack(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	e := &world.Entity{ID: 1, BaseCon: 212, BaseMaxHP: 4031, MaxHP: 4031, Con: 212}
 	d.applyCastAffect(w, e, e, e.ID, castInfo{isSkill: true, special: 200, spell: samaritanoSpell})
@@ -951,7 +951,7 @@ func TestRemoveSamaritanoOnAttack(t *testing.T) {
 }
 
 func TestValidateSkillTargetCommonGates(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 32}, slog.Default(), nil, nil)
 	s := &world.Session{Conn: 1}
 	caster := &world.Entity{ID: 1, X: 5, Y: 5}
@@ -987,7 +987,7 @@ func TestValidateSkillTargetCommonGates(t *testing.T) {
 }
 
 func TestValidateSkillTargetSelfOnlyTargetTypeZero(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	s := &world.Session{Conn: 1}
 	caster := &world.Entity{ID: 1, X: 5, Y: 5}
@@ -1036,7 +1036,7 @@ func TestConsumeIllusionSpendsManaAndTracksTick(t *testing.T) {
 }
 
 func TestConsumeIllusionRejectsUnlearned(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	s := &world.Session{Conn: 1}
 	e := &world.Entity{Class: 3, MP: 100}
@@ -1058,7 +1058,7 @@ func TestConsumeIllusionRejectsUnlearned(t *testing.T) {
 // deterministic (state=1), so the underlying damage roll is identical.
 func TestSkillResistMitigationClampedAtCeiling(t *testing.T) {
 	damageWith := func(aff int16) int {
-		d := New(Config{})
+		d := New(Config{CombatRules: regraSemEscala()})
 		w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 		caster := &world.Entity{ID: 1, Class: 3, Str: 100}
 		target := &world.Entity{ID: 2}

@@ -106,7 +106,7 @@ func TestAffect38SwapsHalfMPToHP(t *testing.T) {
 }
 
 func TestAffect1SlowsMoveAndRobeInt(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Int: 100}
 	e.Equip[0] = world.Item{Index: 60}
 	e.Affect[0] = world.Affect{Type: 1, Value: 2}
@@ -131,7 +131,7 @@ func TestAffect1SlowsMoveAndRobeInt(t *testing.T) {
 }
 
 func TestAffect7FrozenBladeRobeInt(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Int: 120}
 	e.Equip[0] = world.Item{Index: 60}
 	e.Affect[0] = world.Affect{Type: 7, Level: 80}
@@ -150,7 +150,7 @@ func TestAffect7FrozenBladeRobeInt(t *testing.T) {
 }
 
 func TestAffect5And6DexPercent(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Dex: 100}
 	e.Affect[0] = world.Affect{Type: 5, Value: 25}
 	e.Affect[1] = world.Affect{Type: 6, Value: 20}
@@ -174,7 +174,7 @@ func TestAffect12ACPercent(t *testing.T) {
 }
 
 func TestAffect13AssaltoDamageAndMaxHP(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Damage: 200, MaxHP: 1000}
 	e.Affect[0] = world.Affect{Type: 13, Value: 7, Level: 80}
 
@@ -190,7 +190,7 @@ func TestAffect13AssaltoDamageAndMaxHP(t *testing.T) {
 }
 
 func TestAffect21MeditacaoDamageMultiplier(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Damage: 200, AC: 100}
 	e.Affect[0] = world.Affect{Type: 21, Value: 15, Level: 80}
 
@@ -297,7 +297,7 @@ func TestHuntressForceAffects(t *testing.T) {
 }
 
 func TestAffect29SoulAttributes(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, ClassMaster: classMasterMortal, Soul: soulFI, Str: 100, Int: 100, Dex: 50, Con: 50}
 	e.Affect[0] = world.Affect{Type: 29}
 
@@ -400,7 +400,7 @@ func TestEffectiveResistClamps(t *testing.T) {
 // (+27) plus a Jóia de Resistência (+25) reaches 152 — comfortably over the
 // wrap — so this fails loudly if the clamp is ever dropped.
 func TestComputeScoreClampsResist(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1}
 	e.Resist[0] = resistCap
 	e.Affect[0] = world.Affect{Type: 25, Value: 10, Level: 255}

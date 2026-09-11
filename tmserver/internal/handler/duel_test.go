@@ -41,7 +41,7 @@ func startServerDuel(t *testing.T, persist world.Persistence) (string, func()) {
 	clock := &atomic.Uint32{}
 	clock.Store(serverTime)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := New(Config{Log: log})
+	d := New(Config{Log: log, CombatRules: regraSemEscala()})
 	w := world.New(world.Config{GridDim: world.DefaultGridDim, Now: clock.Load}, log, persist, d.Handle)
 	w.SetTickHandler(10*time.Millisecond, d.Tick)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -273,7 +273,7 @@ func TestDuelDisconnectEndsAsWin(t *testing.T) {
 // TestDuelingHelper is a focused unit test of the arena-pair check combat.go
 // relies on to bypass the PKMode gate and skip the PK-nick stamp.
 func TestDuelingHelper(t *testing.T) {
-	d := New(Config{Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	d := New(Config{Log: slog.New(slog.NewTextHandler(io.Discard, nil)), CombatRules: regraSemEscala()})
 
 	d.duel = duelArena{active: true, player1: 1, player2: 2}
 	if !d.dueling(1, 2) || !d.dueling(2, 1) {

@@ -46,7 +46,7 @@ func TestStarterEquip(t *testing.T) {
 // double-counting.
 func TestEquipScoreRoundTrip(t *testing.T) {
 	// Catalog: a sword (861) EF_DAMAGE 30; a chest (700) EF_AC 50 + EF_CON 5.
-	d := New(Config{ItemEffects: map[int][]content.BaseEffect{
+	d := New(Config{CombatRules: regraSemEscala(), ItemEffects: map[int][]content.BaseEffect{
 		861: {{Eff: efDamage, Val: 30}},
 		700: {{Eff: efAc, Val: 50}, {Eff: efCon, Val: 5}},
 	}})
@@ -89,7 +89,7 @@ func TestEquipScoreRoundTrip(t *testing.T) {
 }
 
 func TestComputeScoreReadsLiveFields(t *testing.T) {
-	d := New(Config{})
+	d := New(Config{CombatRules: regraSemEscala()})
 	e := &world.Entity{ID: 1, Level: 50, AC: 120, Damage: 205, Str: 70, MaxHP: 1000, HP: 990}
 	e.Equip[0] = world.Item{Index: 11}
 	sc := d.computeScore(e)
