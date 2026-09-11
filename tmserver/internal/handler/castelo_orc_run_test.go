@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -312,5 +313,24 @@ func TestCasteloOrcChaveSoNaEntradaPaga(t *testing.T) {
 	d2.mestreGrifo(w2, &world.Session{Conn: e2.ID, Mode: world.UserPlay}, e2, e2)
 	if _, ok := carryHas(e2, itemChaveCasteloOrc); ok {
 		t.Error("o Mestre Grifo, que leva de graça, deu a chave")
+	}
+}
+
+// The clock goes out as the water rooms' does, and is re-pushed once a minute
+// so a member who relogged or walked back in sees it again.
+func TestCasteloOrcContadorComoOdaAgua(t *testing.T) {
+	d, w, s, _ := casteloOrcFixture(t)
+	d.casteloOrc.secondsLeft = casteloOrcRunSeconds
+	d.sendCasteloOrcCountdown(w, s)
+	if n := w.SentOfType(s, protocol.MsgStartTime); n != 1 {
+		t.Errorf("%d MsgStartTime, want 1", n)
+	}
+	for _, tc := range []struct {
+		left int
+		due  bool
+	}{{840, true}, {839, false}, {60, true}, {59, false}, {0, false}} {
+		if got := casteloOrcResyncDue(tc.left); got != tc.due {
+			t.Errorf("reenvio aos %d s = %v, want %v", tc.left, got, tc.due)
+		}
 	}
 }

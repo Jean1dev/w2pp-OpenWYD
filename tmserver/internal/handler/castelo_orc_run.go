@@ -43,6 +43,10 @@ const (
 	// casteloOrcNPCCheckEvery is how often the Xamã is looked for and raised
 	// again if something removed it.
 	casteloOrcNPCCheckEvery = 10
+	// casteloOrcResyncEvery re-pushes the clock to the party, the way the water
+	// rooms re-push theirs on every change: a member who relogged or died and
+	// walked back in gets the counter again within a minute.
+	casteloOrcResyncEvery = 60
 
 	casteloOrcNPCTemplate = "COrc_Xama"
 	casteloOrcBossGen     = world.CasteloOrcGenFirst
@@ -211,11 +215,31 @@ func (d *Dispatcher) casteloOrcSweep(w *world.World, strangersOnly bool) {
 	}
 }
 
-// sendCasteloOrcCountdown shows the run's clock. In seconds, as the Pesadelo
-// sends it (pesadelo.go): the client counts one unit a second.
+// sendCasteloOrcCountdown shows the run's clock: the same MsgStartTime, in the
+// same unit, as the water rooms' counter the players already know
+// (sendWaterCountdown sends its 2-second units ×2, i.e. seconds) and the
+// Pesadelo's. The client counts it down by itself; the resync only corrects it.
+// It cannot reuse sendWaterCountdown: that one takes a uint8, and 900 does not
+// fit.
 func (d *Dispatcher) sendCasteloOrcCountdown(w *world.World, s *world.Session) {
 	body := protocol.EncodeStandardParm(int32(d.casteloOrc.secondsLeft))
 	w.SendTo(s, protocol.Header{Type: protocol.MsgStartTime, ID: protocol.IDScene}, body)
+}
+
+// broadcastCasteloOrcCountdown pushes the clock to every party member in play,
+// with a line on the message panel when there is one.
+func (d *Dispatcher) broadcastCasteloOrcCountdown(w *world.World, text string) {
+	for _, conn := range d.casteloOrc.party {
+		if s := w.Session(conn); s != nil && s.Mode == world.UserPlay {
+			d.sendCasteloOrcCountdown(w, s)
+			sendClientMessage(w, s, text)
+		}
+	}
+}
+
+// casteloOrcResyncDue reports whether the clock is re-pushed at this second.
+func casteloOrcResyncDue(secondsLeft int) bool {
+	return secondsLeft > 0 && secondsLeft%casteloOrcResyncEvery == 0
 }
 
 // tickCasteloOrc is the per-second clock, and the Xamã's keeper.
@@ -231,6 +255,9 @@ func (d *Dispatcher) tickCasteloOrc(w *world.World) {
 	if r.secondsLeft <= 0 {
 		d.endCasteloOrc(w, "tempo")
 		return
+	}
+	if casteloOrcResyncDue(r.secondsLeft) {
+		d.broadcastCasteloOrcCountdown(w, "")
 	}
 
 	r.sinceFollower++
@@ -269,12 +296,7 @@ func (d *Dispatcher) casteloOrcBossKilled(w *world.World, mob *world.Entity) {
 	if r.secondsLeft > casteloOrcLootSeconds {
 		r.secondsLeft = casteloOrcLootSeconds
 	}
-	for _, conn := range r.party {
-		if s := w.Session(conn); s != nil && s.Mode == world.UserPlay {
-			d.sendCasteloOrcCountdown(w, s)
-			sendClientMessage(w, s, "O Grão-Lorde caiu! 2 minutos para o saque.")
-		}
-	}
+	d.broadcastCasteloOrcCountdown(w, "O Grão-Lorde caiu! 2 minutos para o saque.")
 	d.log.Info("castelo orc boss down", "leader", r.leaderName)
 }
 

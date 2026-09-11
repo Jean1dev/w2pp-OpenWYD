@@ -69,7 +69,9 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
   pelos próprios timers.
 - **Reinício do servidor** encerra a corrida (nada é persistido), como na Água e
   na Carta.
-- O contador vai em segundos (900), como o do Pesadelo.
+- **O contador é o mesmo da Água**: o `MsgStartTime` em segundos, como a Água e o
+  Pesadelo mandam. Sai com 900 na abertura, corta para 120 quando o boss cai e é
+  reenviado ao grupo a cada minuto, para quem relogou ou morreu e voltou.
 
 ## Os monstros
 
