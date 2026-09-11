@@ -1284,3 +1284,45 @@ message GetCombatRuleResponse {
   // forced to land. 0 turns it off (the legacy). `optional` for the same reason.
   optional int32 max_miss_streak = 9;
 }
+
+// NpcGeneratorService is the staff switch per NPCGener block
+// (0048_npc_generator_off): a switched-off block generates nothing until it is
+// switched back on.
+//
+// POLLED like DungeonGateService — it is the replacement for the legacy
+// "reloadnpc", a change that must land without a restart. Unlike every other
+// config service it is also WRITTEN by tmServer: the switch is an in-game GM
+// command (/gm npc off|on), the same way /gm ban writes SetAccountBlocked.
+service NpcGeneratorService {
+  // GeneratorOffVersion returns the monotonic version. Asked every few seconds.
+  rpc GeneratorOffVersion(GeneratorOffVersionRequest) returns (GeneratorOffVersionResponse);
+  // GetGeneratorsOff returns every switched-off block. Blocks absent from the
+  // reply generate as the content says.
+  rpc GetGeneratorsOff(GetGeneratorsOffRequest) returns (GetGeneratorsOffResponse);
+  // SetGeneratorOff switches one block off or back on, and bumps the version.
+  rpc SetGeneratorOff(SetGeneratorOffRequest) returns (SetGeneratorOffResponse);
+}
+
+message GeneratorOffVersionRequest {}
+message GeneratorOffVersionResponse { int64 version = 1; }
+
+message GetGeneratorsOffRequest {}
+message GetGeneratorsOffResponse {
+  int64 version = 1;
+  repeated GeneratorOff off = 2;
+}
+
+// GeneratorOff is one switched-off block. `index` is its position in
+// NPCGener.txt (Entity.GenIndex); `by` is who switched it off.
+message GeneratorOff {
+  int32 index = 1;
+  string by = 2;
+}
+
+message SetGeneratorOffRequest {
+  int32 index = 1;
+  bool off = 2;
+  // The account that ran the command, kept on the row for "who did this".
+  string by = 3;
+}
+message SetGeneratorOffResponse {}

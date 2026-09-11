@@ -125,6 +125,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	// (ProcessSecMinTimer.cpp:2720-2789), then the weather roll (:2791).
 	d.tickWeather(w)
 	d.pollNPCConfig(w) // hot-reload moderator NPC edits (npc-editing-plan.md)
+	d.pollGeneratorOff(w)
 	d.pollWorldEventConfig(w)
 	d.pollDungeonGates(w)
 	d.pollSpawnRates(w)

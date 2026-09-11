@@ -208,6 +208,11 @@ type Config struct {
 	// nil every generator keeps exactly the period NPCGener.txt gives it.
 	SpawnRates SpawnRateSource
 
+	// GeneratorOff is the staff switch per NPCGener block (/gm npc off|on),
+	// polled live and written by the command. When nil the command still works,
+	// but only until the next restart.
+	GeneratorOff GeneratorOffSource
+
 	// CombatRules seeds the combat knobs (internal/combatrule). Nil — or a rule
 	// outside the ranges — runs combatrule.Default, the rule decided for this
 	// server; CombatRuleSrc then keeps it in step with the panel.
@@ -327,6 +332,16 @@ type Dispatcher struct {
 	spawnRatePolling  bool
 	spawnRatePollTick int
 	genAreas          []uint8
+
+	// The NPCGener block switches, read LIVE and written by /gm npc
+	// (generatoroff.go). genOffVersion is the version last applied; genOffEpoch
+	// moves on every local switch, so a poll that started before one cannot
+	// undo it with the stale snapshot it fetched.
+	genOffSource   GeneratorOffSource
+	genOffVersion  int64
+	genOffEpoch    int
+	genOffPolling  bool
+	genOffPollTick int
 
 	// The combat knobs (internal/combatrule), read LIVE like the spawn pacing
 	// (combatrule.go). The zero value is NOT a valid rule, so New seeds it with
@@ -494,6 +509,7 @@ func New(cfg Config) *Dispatcher {
 		worldEventSource:  cfg.WorldEvents,
 		dungeonGateSource: cfg.DungeonGates,
 		spawnRateSource:   cfg.SpawnRates,
+		genOffSource:      cfg.GeneratorOff,
 		combatRules:       combatRulesDe(cfg),
 		combatRuleSource:  cfg.CombatRuleSrc,
 		combineRateSource: cfg.CombineRateSrc,

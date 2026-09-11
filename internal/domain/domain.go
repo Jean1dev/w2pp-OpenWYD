@@ -1102,6 +1102,21 @@ type DungeonGateConfig struct {
 	Gates   []DungeonGate
 }
 
+// GeneratorOff is one NPCGener block staff switched off (npc_generator_off),
+// with who did it — the in-game /gm npc off writes the account name.
+type GeneratorOff struct {
+	Index int32
+	By    string
+}
+
+// GeneratorOffConfig is every switched-off block plus the version they belong
+// to. A block absent from Off generates as the content says, which is how the
+// server behaved before the table existed. Read live, like DungeonGateConfig.
+type GeneratorOffConfig struct {
+	Version int64
+	Off     []GeneratorOff
+}
+
 // QuestReward is one quest trophy's payout (items 4117..4121, EF_VOLATILE 191):
 // the XP and gold using it grants, plus the half-open level band that may use
 // it — min inclusive, max exclusive, as the legacy gate reads them.

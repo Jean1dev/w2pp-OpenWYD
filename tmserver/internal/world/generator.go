@@ -10,6 +10,9 @@ package world
 // Generator is the runtime state of one NPCGener.txt block (NPCGENLIST,
 // CNPCGene.h:29-51): the spawn recipe plus the live population counter.
 type Generator struct {
+	// Name is the block's Leader template name as NPCGener.txt writes it — what
+	// /gm criar looks a template up by. Informational; spawning never reads it.
+	Name           string
 	DBManaged      bool // content merchant recipe must be supplied by npc_definition
 	MinuteGenerate int  // respawn period in minutes; <=0 = the timer never regenerates
 	MinGroup       int  // follower count rolled as MinGroup + rand()%(MaxGroup-MinGroup+1)
@@ -25,6 +28,10 @@ type Generator struct {
 	CurrentNumMob  int    // live mobs from this block (SpawnMobAt ++ / DespawnMob --)
 	FightAction    [4]string
 	DieAction      [4]string
+	// Off is a staff switch (/gm npc off, table npc_generator_off): the block
+	// generates nothing — boot, minute timer, NPC overlay, GM command — until it
+	// is switched back on. The recipe stays, so switching on needs nothing else.
+	Off bool
 }
 
 // generateWorldCap stops the generator timer from filling every entity slot:
@@ -233,8 +240,21 @@ func (w *World) SpawnGeneratorLeader(idx int) int {
 // Not ported: the MinuteGenerate>=500 relocation hack, the Coliseum-rectangle
 // disable and event hooks (BrState/GTORRE) — event systems, out of scope.
 func (w *World) GenerateMob(idx int) []int {
+	return w.generateMob(idx, false, 0, 0)
+}
+
+// GenerateMobNear is GenerateMob with the group raised around (x, y) instead of
+// the block's own start: every waypoint moves by the same offset, so the mob
+// keeps its route shape and leash, only anchored where the caller stands. It is
+// the legacy GM "generate", which passed the GM's position to GenerateMob
+// (imple.cpp:663-673) — how staff calls a boss to where the event is.
+func (w *World) GenerateMobNear(idx int, x, y int16) []int {
+	return w.generateMob(idx, true, x, y)
+}
+
+func (w *World) generateMob(idx int, near bool, nearX, nearY int16) []int {
 	g := w.GeneratorAt(idx)
-	if g == nil || g.LeaderTmpl == nil {
+	if g == nil || g.LeaderTmpl == nil || g.Off {
 		return nil
 	}
 	qmob := g.MaxGroup - g.MinGroup + 1
@@ -282,6 +302,16 @@ func (w *World) GenerateMob(idx int) []int {
 	}
 	if baseX == 0 {
 		return nil // generator without a position
+	}
+	if near {
+		dx, dy := nearX-baseX, nearY-baseY
+		for i := range sp.SegX {
+			if sp.SegX[i] != 0 {
+				sp.SegX[i] += dx
+				sp.SegY[i] += dy
+			}
+		}
+		baseX, baseY = nearX, nearY
 	}
 
 	x, y, ok := w.emptyCellNear(baseX, baseY)

@@ -187,6 +187,11 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 			g.FightAction, g.DieAction = def.FightAction, def.DieAction
 			g.LeaderTmpl = npcTemplateWithDisplayName(def.Template, def.DisplayName)
 			g.FollowerTmpl = def.FollowerTemplate
+			if g.Off {
+				// Switched off by staff (/gm npc off): the recipe is kept current so
+				// switching it on again spawns the NPC as the panel has it.
+				continue
+			}
 			ids := w.GenerateMob(def.GeneratorIndex)
 			if len(ids) == 0 {
 				d.log.Warn("npc content generator produced no entities", "slug", def.Slug, "index", def.GeneratorIndex)

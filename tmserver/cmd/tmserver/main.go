@@ -218,6 +218,7 @@ func run(logger *slog.Logger) error {
 	var xpConfigs handler.XPConfigSource
 	var combineRates handler.CombineRateSource
 	var combatRules handler.CombatRuleSource
+	var generatorOff handler.GeneratorOffSource
 	if *dbAddr != "" {
 		conn, err := grpc.NewClient(*dbAddr, grpc.WithTransportCredentials(clientCreds))
 		if err != nil {
@@ -232,6 +233,7 @@ func run(logger *slog.Logger) error {
 		xpConfigs = dbclient.NewXPConfigSource(conn)
 		combineRates = dbclient.NewCombineRateSource(conn)
 		combatRules = dbclient.NewCombatRuleSource(conn)
+		generatorOff = dbclient.NewGeneratorOffSource(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
 		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
@@ -552,6 +554,7 @@ func run(logger *slog.Logger) error {
 		WorldEvents:     worldEvents,
 		DungeonGates:    dungeonGates,
 		SpawnRates:      spawnRates,
+		GeneratorOff:    generatorOff,
 		CombineRateSrc:  combineRates,
 		CombatRuleSrc:   combatRules,
 		CastleQuests:    castleQuests,
@@ -656,6 +659,8 @@ func run(logger *slog.Logger) error {
 		dispatch.ApplyCombineRatesBoot()
 		dispatch.ApplyCombatRulesBoot()
 	}
+	// After the populate and the NPC overlay, so it removes what they raised.
+	dispatch.ApplyGeneratorOffBoot(w)
 	// The individual respawn queue takes its delay from the same area dial the
 	// minute timer does, so the desert's dozen blocks without a minute period
 	// are not left running at 15s while everything around them slows down. It is
@@ -917,6 +922,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			missingFollowerNames[g.Follower] = struct{}{}
 		}
 		wg := &world.Generator{
+			Name:           g.Leader,
 			DBManaged:      dbOwned[i],
 			MinuteGenerate: g.MinuteGenerate,
 			MinGroup:       g.MinGroup,

@@ -61,6 +61,8 @@ var tabelasDeTeste = []string{
 	"spawn_rate",
 	"combat_rule_meta",
 	"combat_rule",
+	"npc_generator_off_meta",
+	"npc_generator_off",
 	"affect",
 	"item",
 	"character_pvp_stats",

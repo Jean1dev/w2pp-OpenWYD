@@ -502,6 +502,7 @@ func runServe(args []string, logger *slog.Logger) error {
 	dbv1.RegisterCombatRuleServiceServer(srv, grpcsrv.NewCombatRule(st))
 	dbv1.RegisterQuestRewardServiceServer(srv, grpcsrv.NewQuestReward(st))
 	dbv1.RegisterDropBonusServiceServer(srv, grpcsrv.NewDropBonus(st))
+	dbv1.RegisterNpcGeneratorServiceServer(srv, grpcsrv.NewNpcGenerator(st))
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {

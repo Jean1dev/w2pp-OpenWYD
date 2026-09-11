@@ -159,6 +159,48 @@ func CommandReference() CommandBus {
 					"Sem argumento, responde com o texto de uso.",
 				},
 			},
+			{
+				Name: "npc", Args: "[raio] | off <bloco> | on <bloco>", Target: "mundo",
+				Summary: "Lista os blocos do NPCGener em volta, com o número de cada um; desliga ou liga um bloco.",
+				Notes: []string{
+					"O número do bloco é a posição dele no NPCGener.txt — é o que off, on, gerar e matar bloco pedem. Raio padrão 10, máximo 40.",
+					"off tira do mundo tudo que o bloco gerou e ele para de gerar: no boot, no timer, no painel de NPCs e no /gm gerar.",
+					"Grava no banco (npc_generator_off): vale depois de reiniciar e nos outros servidores em ~15 s. Sem banco, só até reiniciar.",
+					"on gera o bloco na hora. Bloco de evento ou de masmorra só volta a poder ser gerado pelo evento.",
+				},
+			},
+			{
+				Name: "gerar", Aliases: []string{"generate"}, Args: "<bloco> [aqui]", Target: "mundo",
+				Summary: "Gera um grupo do bloco — no lugar dele, ou em volta de você com \"aqui\".",
+				Notes: []string{
+					"É o \"generate\" do legado. O limite do bloco vale: boss vivo não nasce de novo — use /gm matar bloco antes.",
+					"Com \"aqui\" a rota inteira do mob é deslocada para você; ele fica preso à sua área.",
+					"Recusa bloco desligado e NPC do painel (esse volta sozinho, com a loja).",
+				},
+			},
+			{
+				Name: "criar", Aliases: []string{"create"}, Args: "<nome do template>", Target: "mundo",
+				Summary: "Cria um mob pelo nome do template, em volta de você.",
+				Notes: []string{
+					"É o \"create\" do legado. Procura entre os templates usados no NPCGener, sem diferenciar maiúsculas; nome parcial responde com sugestões.",
+					"O mob não pertence a bloco nenhum e não volta quando morre.",
+				},
+			},
+			{
+				Name: "matar", Aliases: []string{"kill"}, Args: "[raio] | bloco <bloco>", Target: "mundo",
+				Summary: "Mata os monstros em volta (raio padrão 3, máximo 40) ou todos os mobs vivos de um bloco.",
+				Notes: []string{
+					"Em volta, poupa mercadores, NPCs de serviço, guardas e invocações de jogador — esses saem com /gm npc off.",
+					"É uma morte: o bloco decide se e quando o mob volta. Para ele não voltar, desligue o bloco.",
+				},
+			},
+			{
+				Name: "recarregar", Aliases: []string{"reloadnpc"}, Args: "", Target: "mundo",
+				Summary: "Relê do banco as chaves dos blocos e o painel de NPCs, e repõe o que falta em cada bloco.",
+				Notes: []string{
+					"O \"reloadnpc\" do legado relia o NPCGener.txt; aqui o arquivo vem na imagem do deploy, então o que se recarrega é o banco.",
+				},
+			},
 		},
 	}
 }

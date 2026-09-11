@@ -3392,3 +3392,207 @@ var CombatRuleService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/db/v1/db.proto",
 }
+
+const (
+	NpcGeneratorService_GeneratorOffVersion_FullMethodName = "/db.v1.NpcGeneratorService/GeneratorOffVersion"
+	NpcGeneratorService_GetGeneratorsOff_FullMethodName    = "/db.v1.NpcGeneratorService/GetGeneratorsOff"
+	NpcGeneratorService_SetGeneratorOff_FullMethodName     = "/db.v1.NpcGeneratorService/SetGeneratorOff"
+)
+
+// NpcGeneratorServiceClient is the client API for NpcGeneratorService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// NpcGeneratorService is the staff switch per NPCGener block
+// (0048_npc_generator_off): a switched-off block generates nothing until it is
+// switched back on.
+//
+// POLLED like DungeonGateService — it is the replacement for the legacy
+// "reloadnpc", a change that must land without a restart. Unlike every other
+// config service it is also WRITTEN by tmServer: the switch is an in-game GM
+// command (/gm npc off|on), the same way /gm ban writes SetAccountBlocked.
+type NpcGeneratorServiceClient interface {
+	// GeneratorOffVersion returns the monotonic version. Asked every few seconds.
+	GeneratorOffVersion(ctx context.Context, in *GeneratorOffVersionRequest, opts ...grpc.CallOption) (*GeneratorOffVersionResponse, error)
+	// GetGeneratorsOff returns every switched-off block. Blocks absent from the
+	// reply generate as the content says.
+	GetGeneratorsOff(ctx context.Context, in *GetGeneratorsOffRequest, opts ...grpc.CallOption) (*GetGeneratorsOffResponse, error)
+	// SetGeneratorOff switches one block off or back on, and bumps the version.
+	SetGeneratorOff(ctx context.Context, in *SetGeneratorOffRequest, opts ...grpc.CallOption) (*SetGeneratorOffResponse, error)
+}
+
+type npcGeneratorServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNpcGeneratorServiceClient(cc grpc.ClientConnInterface) NpcGeneratorServiceClient {
+	return &npcGeneratorServiceClient{cc}
+}
+
+func (c *npcGeneratorServiceClient) GeneratorOffVersion(ctx context.Context, in *GeneratorOffVersionRequest, opts ...grpc.CallOption) (*GeneratorOffVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeneratorOffVersionResponse)
+	err := c.cc.Invoke(ctx, NpcGeneratorService_GeneratorOffVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcGeneratorServiceClient) GetGeneratorsOff(ctx context.Context, in *GetGeneratorsOffRequest, opts ...grpc.CallOption) (*GetGeneratorsOffResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetGeneratorsOffResponse)
+	err := c.cc.Invoke(ctx, NpcGeneratorService_GetGeneratorsOff_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *npcGeneratorServiceClient) SetGeneratorOff(ctx context.Context, in *SetGeneratorOffRequest, opts ...grpc.CallOption) (*SetGeneratorOffResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetGeneratorOffResponse)
+	err := c.cc.Invoke(ctx, NpcGeneratorService_SetGeneratorOff_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NpcGeneratorServiceServer is the server API for NpcGeneratorService service.
+// All implementations must embed UnimplementedNpcGeneratorServiceServer
+// for forward compatibility.
+//
+// NpcGeneratorService is the staff switch per NPCGener block
+// (0048_npc_generator_off): a switched-off block generates nothing until it is
+// switched back on.
+//
+// POLLED like DungeonGateService — it is the replacement for the legacy
+// "reloadnpc", a change that must land without a restart. Unlike every other
+// config service it is also WRITTEN by tmServer: the switch is an in-game GM
+// command (/gm npc off|on), the same way /gm ban writes SetAccountBlocked.
+type NpcGeneratorServiceServer interface {
+	// GeneratorOffVersion returns the monotonic version. Asked every few seconds.
+	GeneratorOffVersion(context.Context, *GeneratorOffVersionRequest) (*GeneratorOffVersionResponse, error)
+	// GetGeneratorsOff returns every switched-off block. Blocks absent from the
+	// reply generate as the content says.
+	GetGeneratorsOff(context.Context, *GetGeneratorsOffRequest) (*GetGeneratorsOffResponse, error)
+	// SetGeneratorOff switches one block off or back on, and bumps the version.
+	SetGeneratorOff(context.Context, *SetGeneratorOffRequest) (*SetGeneratorOffResponse, error)
+	mustEmbedUnimplementedNpcGeneratorServiceServer()
+}
+
+// UnimplementedNpcGeneratorServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNpcGeneratorServiceServer struct{}
+
+func (UnimplementedNpcGeneratorServiceServer) GeneratorOffVersion(context.Context, *GeneratorOffVersionRequest) (*GeneratorOffVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeneratorOffVersion not implemented")
+}
+func (UnimplementedNpcGeneratorServiceServer) GetGeneratorsOff(context.Context, *GetGeneratorsOffRequest) (*GetGeneratorsOffResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetGeneratorsOff not implemented")
+}
+func (UnimplementedNpcGeneratorServiceServer) SetGeneratorOff(context.Context, *SetGeneratorOffRequest) (*SetGeneratorOffResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetGeneratorOff not implemented")
+}
+func (UnimplementedNpcGeneratorServiceServer) mustEmbedUnimplementedNpcGeneratorServiceServer() {}
+func (UnimplementedNpcGeneratorServiceServer) testEmbeddedByValue()                             {}
+
+// UnsafeNpcGeneratorServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NpcGeneratorServiceServer will
+// result in compilation errors.
+type UnsafeNpcGeneratorServiceServer interface {
+	mustEmbedUnimplementedNpcGeneratorServiceServer()
+}
+
+func RegisterNpcGeneratorServiceServer(s grpc.ServiceRegistrar, srv NpcGeneratorServiceServer) {
+	// If the following call panics, it indicates UnimplementedNpcGeneratorServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NpcGeneratorService_ServiceDesc, srv)
+}
+
+func _NpcGeneratorService_GeneratorOffVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeneratorOffVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcGeneratorServiceServer).GeneratorOffVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcGeneratorService_GeneratorOffVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcGeneratorServiceServer).GeneratorOffVersion(ctx, req.(*GeneratorOffVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcGeneratorService_GetGeneratorsOff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGeneratorsOffRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcGeneratorServiceServer).GetGeneratorsOff(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcGeneratorService_GetGeneratorsOff_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcGeneratorServiceServer).GetGeneratorsOff(ctx, req.(*GetGeneratorsOffRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NpcGeneratorService_SetGeneratorOff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetGeneratorOffRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NpcGeneratorServiceServer).SetGeneratorOff(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NpcGeneratorService_SetGeneratorOff_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NpcGeneratorServiceServer).SetGeneratorOff(ctx, req.(*SetGeneratorOffRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NpcGeneratorService_ServiceDesc is the grpc.ServiceDesc for NpcGeneratorService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NpcGeneratorService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "db.v1.NpcGeneratorService",
+	HandlerType: (*NpcGeneratorServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GeneratorOffVersion",
+			Handler:    _NpcGeneratorService_GeneratorOffVersion_Handler,
+		},
+		{
+			MethodName: "GetGeneratorsOff",
+			Handler:    _NpcGeneratorService_GetGeneratorsOff_Handler,
+		},
+		{
+			MethodName: "SetGeneratorOff",
+			Handler:    _NpcGeneratorService_SetGeneratorOff_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/db/v1/db.proto",
+}
