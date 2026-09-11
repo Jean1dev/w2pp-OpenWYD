@@ -15,10 +15,12 @@ import (
 // scroll's EF_VOLATILE selects the room; using it teleports the party leader and
 // the whole party in, starts a countdown and spawns the room's monsters. Clearing
 // the room BEFORE the countdown expires hands the leader the next scroll, which
-// is the only way to obtain it: only the LV1 scroll of each chain drops from
-// mobs, LV2..LV8 and the boss summon come exclusively from clearing the previous
-// room. Letting the timer run out teleports everyone back out empty-handed — the
-// scroll was already consumed on entry.
+// is the only way to obtain it: LV2..LV8 and the boss summon come exclusively
+// from clearing the previous room. The LV1 scroll of each chain (777, 3173,
+// 3182) is bought, not dropped — the Entradas and Acessorios6 shops stock all
+// three, in stacks of 120, and no monster template in Release/TMsrv/run/npc
+// carries one. Letting the timer run out teleports everyone back out
+// empty-handed — the scroll was already consumed on entry.
 //
 // The legacy numbers rooms 0..9 ("Sala"); rooms 0..7 are the LV1..LV8 scrolls and
 // room 9 is the boss. Room 8 exists in the tables but is unreachable: no catalog
