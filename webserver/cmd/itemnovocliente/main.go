@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientitemhelp"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientitemlist"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemicons"
 )
 
@@ -40,6 +41,7 @@ func main() {
 	saida := flag.String("saida", "", `pasta onde gravar os arquivos alterados (padrão: <cliente>\gerado-item)`)
 	item := flag.Int("item", 0, "índice do item no catálogo")
 	icone := flag.String("icone", "", "BMP de até 35x35 com o ícone do item (opcional)")
+	catalogo := flag.String("catalogo", "", "ItemList.csv do servidor: o ItemList.bin do cliente é reescrito a partir dele")
 	var desc linhas
 	flag.Var(&desc, "linha", `uma linha da descrição; "texto:vermelho" ou "texto:premium" mudam a cor (repita a opção)`)
 	flag.Parse()
@@ -50,15 +52,18 @@ func main() {
 	if *saida == "" {
 		*saida = filepath.Join(*cliente, "gerado-item")
 	}
-	if err := run(*cliente, *saida, *item, *icone, desc); err != nil {
+	if err := run(*cliente, *saida, *item, *icone, *catalogo, desc); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(cliente, saida string, item int, icone string, desc linhas) error {
+func run(cliente, saida string, item int, icone, catalogo string, desc linhas) error {
 	// Tudo o que será tocado é copiado antes, para o comando nunca escrever na
 	// pasta do cliente.
 	copiar := []string{"itemicon.bin", "itemhelp.dat"}
+	if catalogo != "" {
+		copiar = append(copiar, "ItemList.bin")
+	}
 	if icone != "" {
 		atlas, err := filepath.Glob(filepath.Join(cliente, "UI", "itemicon*.wyt"))
 		if err != nil {
@@ -96,7 +101,40 @@ func run(cliente, saida string, item int, icone string, desc linhas) error {
 		}
 		fmt.Printf("descrição com %d linha(s) escrita para o item %d\n", len(desc), item)
 	}
+	if catalogo != "" {
+		if err := reescreveItemList(catalogo, filepath.Join(saida, "ItemList.bin")); err != nil {
+			return err
+		}
+	}
 	fmt.Printf("arquivos gerados em %s\n", saida)
+	return nil
+}
+
+// reescreveItemList põe o catálogo do servidor dentro do ItemList.bin do
+// cliente, que é como o nome e o preço de um item novo chegam à bolsa. É o
+// mesmo caminho que o montariacliente usa com -catalogo, aqui sem as montarias.
+func reescreveItemList(catalogo, destino string) error {
+	f, err := os.Open(catalogo)
+	if err != nil {
+		return fmt.Errorf("itemnovocliente: abrir o catálogo: %w", err)
+	}
+	linhas, err := clientitemlist.ParseCSV(f)
+	_ = f.Close() // lido por inteiro acima; fechar um arquivo só de leitura não muda nada
+	if err != nil {
+		return err
+	}
+	base, err := os.ReadFile(destino)
+	if err != nil {
+		return fmt.Errorf("itemnovocliente: ler o ItemList.bin: %w", err)
+	}
+	novo, err := clientitemlist.Build(linhas, base)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(destino, novo, 0o644); err != nil {
+		return fmt.Errorf("itemnovocliente: gravar o ItemList.bin: %w", err)
+	}
+	fmt.Printf("ItemList.bin reescrito com %d itens do catálogo do servidor\n", len(linhas))
 	return nil
 }
 
