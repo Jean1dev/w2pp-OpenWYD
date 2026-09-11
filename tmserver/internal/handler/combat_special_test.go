@@ -835,8 +835,9 @@ func TestValidateSkillTargetCommonGates(t *testing.T) {
 	if d.validateSkillTarget(w, s, caster, target, 2, cast, 1000) {
 		t.Fatal("MaxTarget should reject Dam[2] when MaxTarget is 1")
 	}
-	if s.CrackError != 1 {
-		t.Fatalf("CrackError after MaxTarget reject = %d, want 1", s.CrackError)
+	// AddCrackError(conn, 10, 28): the 10 is the legacy's weight (Server.cpp:1006).
+	if s.CrackError != 10 {
+		t.Fatalf("CrackError after MaxTarget reject = %d, want 10", s.CrackError)
 	}
 
 	cast.spell.MaxTarget = 13
@@ -914,8 +915,9 @@ func TestConsumeIllusionRejectsUnlearned(t *testing.T) {
 	if d.consumeIllusion(w, s, e, 1000) {
 		t.Fatal("consumeIllusion accepted unlearned skill")
 	}
-	if s.CrackError != 1 {
-		t.Fatalf("CrackError = %d, want 1", s.CrackError)
+	// AddCrackError(conn, 10, 28): weight 10, as the legacy sums it.
+	if s.CrackError != 10 {
+		t.Fatalf("CrackError = %d, want 10", s.CrackError)
 	}
 }
 

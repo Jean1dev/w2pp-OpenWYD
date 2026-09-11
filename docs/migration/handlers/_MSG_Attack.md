@@ -50,8 +50,14 @@ Sobre a `segundo_alvo`: a linha do legado tem `m->Size < sizeof(MSG_AttackTwo)`,
 `:297-306` só lê a segunda entrada de um pacote maior que o AttackOne. Então ela só disparava num
 tamanho malformado entre os dois; o pacote cheio de 13 alvos passava. No rewrite a conta de entradas
 é `(len-48)/8`, e a letra nunca dispararia. O que voltou foi a intenção. O crack error do legado
-ficou de fora até se saber se o cliente real manda segundo alvo de corpo a corpo em outra classe:
-10 crack errors derrubam o jogador.
+ficou de fora até se saber se o cliente real manda segundo alvo de corpo a corpo em outra classe;
+a recusa é contada e vai ao log.
+
+**Crack error, como o legado conta:** `AddCrackError(conn, peso, tipo)` SOMA o peso em `NumError`
+(`Server.cpp:1006`) e só derruba em 2.000.000.000 (`:1008`), ou seja, na prática nunca: o legado
+registra e mantém o jogador. O rewrite chegou a contar +1 por chamada e derrubar em 10 (um
+placeholder sem fonte), o que derrubou cliente honesto com rede ruim; voltou ao legado em
+`world.AddCrackError`. Quem protege o servidor é a recusa de cada trava, não a desconexão.
 
 Cada recusa conta por conta e por trava (`Session.AttackRefusals`). O log registra a 1ª, a 10ª e a
 100ª recusa (`attack refused by a restored legacy gate`) e o total na desconexão

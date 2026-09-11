@@ -445,21 +445,41 @@ func (w *World) EmptyCellNear(x, y int16) (int16, int16, bool) {
 // GridDim returns the world's grid side length (valid coordinate bound).
 func (w *World) GridDim() int { return w.grid.dim }
 
-// AddCrackError records an anti-cheat violation against a session (CUser.NumError
-// / AddCrackError). Past a threshold the session is dropped.
+// AddCrackError adds a weighted anti-cheat point to a session (CUser.NumError,
+// AddCrackError at Server.cpp:998-1021) and logs it.
 //
-// UNVERIFIED: the exact threshold and per-group semantics are not documented;
-// CrackErrorLimit is a placeholder.
-func (w *World) AddCrackError(s *Session, group, code int) {
-	s.CrackError++
-	w.log.Warn("crack error", "conn", s.Conn, "group", group, "code", code, "total", s.CrackError)
+// FIDELIDADE AO LEGADO (restaurada): the second argument is a WEIGHT summed into
+// NumError (:1006) — every call site still passes the legacy's own numbers, so
+// AddCrackError(s, 10, 28) is worth ten times AddCrackError(s, 1, 107) — and the
+// third is the type that identifies the log line. The session is dropped only at
+// CrackErrorLimit, which is the legacy's 2,000,000,000 (:1008): in practice the
+// legacy logs a crack point and keeps the player. The rewrite had read the
+// weight as a "group", counted +1 per call and dropped the session at 10, a
+// placeholder with no source.
+//
+// What protects the server is the refusal each gate applies — no damage, no XP,
+// nothing happens — not the disconnect. A disconnect on top of it only ever
+// lands for sure on somebody who was playing clean and had a bad connection.
+//
+// The legacy skips the log line for types 3, 8 and 15 (:1000); so does this.
+// Every point still counts.
+func (w *World) AddCrackError(s *Session, weight, crackType int) {
+	s.CrackError += weight
+	if crackType != 3 && crackType != 8 && crackType != 15 {
+		w.log.Warn("crack error", "conn", s.Conn, "account", s.AccountName,
+			"weight", weight, "type", crackType, "total", s.CrackError)
+	}
 	if s.CrackError >= CrackErrorLimit {
+		// The legacy answers with _NN_Bad_Network_Packets and CharLogOut; a
+		// session this far gone is closed instead.
+		w.log.Warn("crack error limit: session dropped", "conn", s.Conn, "account", s.AccountName, "type", crackType)
 		w.removeSession(s)
 	}
 }
 
-// CrackErrorLimit is the crack-error count at which a session is dropped.
-const CrackErrorLimit = 10
+// CrackErrorLimit is the legacy's NumError ceiling (Server.cpp:1008), the point
+// at which the session is dropped.
+const CrackErrorLimit = 2_000_000_000
 
 // ForEachSession calls fn for every session the server holds, in any mode, with
 // the caller's entity when it has one and nil when it does not. Loop-only.

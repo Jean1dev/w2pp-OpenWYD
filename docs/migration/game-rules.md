@@ -969,6 +969,13 @@ ou olha a hora do relógio?*
 | Salas do trono do reino | `kingdom.go` `tickKingdomRvR` | limpeza em dois passos do `ProcessMinTimer` (`:2621-2643`) |
 | Guerra de torre | `towerwar.go` `tickTowerWar` | `Step` olha a hora do relógio; provavelmente só a frequência da consulta muda |
 
+**A lição que vale uma varredura.** Duas vezes o porte deu a um argumento do legado o significado que
+o NOME sugeria, e as duas vezes o efeito foi grande: o `MinuteGenerate`, que nunca foi minuto (a
+unidade é a passagem de 12 s), e o segundo argumento do `AddCrackError(conn, val, Type)`, que é um
+peso somado e foi lido como "grupo", com um limite de 10 inventado por cima do 2.000.000.000 do
+legado. Fica pendente uma varredura própria procurando outros parâmetros do legado que o rewrite
+leu pelo nome e não pelo uso.
+
 ---
 
 ## 7. Constantes mágicas a preservar (resumo)

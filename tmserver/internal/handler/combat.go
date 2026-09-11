@@ -383,8 +383,8 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			// the entry count is (len-48)/8, so read literally it would never
 			// fire at all. What comes back is the intent. Without the crack error
 			// the legacy attaches: whether the real client ever sends a second
-			// melee target for another class is unverified, and ten crack errors
-			// would drop an honest player — the counter says first.
+			// melee target for another class is unverified, so the refusal is
+			// counted and logged, not charged to the player.
 			if i > 0 && e.Class != 3 && e.LearnedSkill&0x40 == 0 {
 				d.recusarAtaque(s, travaSegundoAlvo, "target", tid)
 				writeDamage(payload, i, 0)

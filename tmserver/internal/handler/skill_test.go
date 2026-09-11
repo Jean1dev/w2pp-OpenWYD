@@ -461,8 +461,9 @@ func TestValidateCastSharedSkillsUseTheirOwnLearnedBit(t *testing.T) {
 	if _, ok := d.validateCast(w, s, e, 200, 1000); ok {
 		t.Fatal("validateCast accepted skill 200 without LearnedSkill bit 8")
 	}
-	if s.CrackError != 1 {
-		t.Fatalf("CrackError = %d, want 1", s.CrackError)
+	// AddCrackError(conn, 8, 10): the 8 is the legacy's weight (Server.cpp:1006).
+	if s.CrackError != 8 {
+		t.Fatalf("CrackError = %d, want 8", s.CrackError)
 	}
 }
 
