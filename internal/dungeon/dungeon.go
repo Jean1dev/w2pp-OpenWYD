@@ -23,7 +23,12 @@ const (
 	AguaN
 	AguaM
 	AguaA
-	Carta
+	// CartaN was the single Carta door, for all three cards; a row saved for it
+	// before the split keeps its meaning for the N card only, and the M and A
+	// doors below start at the default (open) like any door nobody touched.
+	CartaN
+	CartaM
+	CartaA
 )
 
 // Kind groups the gates that belong to one dungeon, for the screen's tabs.
@@ -53,7 +58,9 @@ var gates = [...]meta{
 	AguaN:     {"Água Normal", KindAgua, "Normal", "Pergaminho da Água"},
 	AguaM:     {"Água Místico", KindAgua, "Místico", "Pergaminho da Água"},
 	AguaA:     {"Água Arcano", KindAgua, "Arcano", "Pergaminho da Água"},
-	Carta:     {"Carta de Duelo", KindCarta, "", "Carta de Duelo"},
+	CartaN:    {"Carta de Duelo Normal", KindCarta, "Normal", "Carta de Duelo"},
+	CartaM:    {"Carta de Duelo Mística", KindCarta, "Místico", "Carta de Duelo"},
+	CartaA:    {"Carta de Duelo Arcana", KindCarta, "Arcano", "Carta de Duelo"},
 }
 
 // Gates lists every door, in display order.

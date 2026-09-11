@@ -58,8 +58,8 @@ func TestPortaFechadaEhLidaEListada(t *testing.T) {
 	if !d.gateOpen(dungeon.PesadeloN) || d.gateAnnounces(dungeon.PesadeloN) {
 		t.Error("o Normal devia estar aberto e calado")
 	}
-	if !d.gateOpen(dungeon.Carta) {
-		t.Error("a Carta não foi tocada e apareceu fechada")
+	if !d.gateOpen(dungeon.CartaN) || !d.gateOpen(dungeon.CartaM) || !d.gateOpen(dungeon.CartaA) {
+		t.Error("nenhuma porta da Carta foi tocada e uma apareceu fechada")
 	}
 	// O log precisa nomear quais, não contar: "3 fechadas" manda alguém abrir o
 	// painel para descobrir o que já se sabia.

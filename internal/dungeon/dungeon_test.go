@@ -47,7 +47,9 @@ func TestNumeracaoEChaveDeArmazenamento(t *testing.T) {
 	esperado := map[Gate]string{
 		0: "Pesadelo Normal", 1: "Pesadelo Místico", 2: "Pesadelo Arcano",
 		3: "Água Normal", 4: "Água Místico", 5: "Água Arcano",
-		6: "Carta de Duelo",
+		// 6 era a porta única da Carta; ao dividir por tier ela ficou com o N, e M
+		// e A vieram no fim — nunca no meio.
+		6: "Carta de Duelo Normal", 7: "Carta de Duelo Mística", 8: "Carta de Duelo Arcana",
 	}
 	if len(esperado) != len(Gates()) {
 		t.Fatalf("%d portas no código, %d fixadas aqui — o teste precisa acompanhar",
@@ -67,7 +69,7 @@ func TestValidRecusaOQueNaoExiste(t *testing.T) {
 			t.Errorf("%s foi recusada", g.Name())
 		}
 	}
-	for _, n := range []int32{-1, 7, 99, 1000} {
+	for _, n := range []int32{-1, 9, 99, 1000} {
 		if Valid(n) {
 			t.Errorf("Valid(%d) = true", n)
 		}
@@ -91,7 +93,7 @@ func TestCadaPortaTemDungeonETier(t *testing.T) {
 		}
 		porDungeon[g.Kind()]++
 	}
-	if porDungeon[KindPesadelo] != 3 || porDungeon[KindAgua] != 3 || porDungeon[KindCarta] != 1 {
-		t.Errorf("portas por masmorra = %v; quero 3 Pesadelo, 3 Água, 1 Carta", porDungeon)
+	if porDungeon[KindPesadelo] != 3 || porDungeon[KindAgua] != 3 || porDungeon[KindCarta] != 3 {
+		t.Errorf("portas por masmorra = %v; quero 3 Pesadelo, 3 Água, 3 Carta", porDungeon)
 	}
 }

@@ -93,6 +93,18 @@ func cartaBaseForCard(index int16) (int, bool) {
 	return 0, false
 }
 
+// cartaGateForCard is the staff door each card answers to: one per tier, like
+// the Pesadelo and the Água, so the M and A runs can be shut while N stays open.
+func cartaGateForCard(index int16) dungeon.Gate {
+	switch index {
+	case 3171:
+		return dungeon.CartaM
+	case 1731:
+		return dungeon.CartaA
+	}
+	return dungeon.CartaN
+}
+
 // cartaBlockSala reports which sala a generator block belongs to, and the blocks
 // that must ALL be down for that sala to count as cleared.
 func cartaBlockSala(idx int) (sala uint8, blocks []int, ok bool) {
@@ -134,9 +146,9 @@ func (d *Dispatcher) useCartaDuelo(w *world.World, s *world.Session, e *world.En
 
 	// The staff door first: telling somebody off the altar to go stand on it,
 	// when the dungeon is shut anyway, only wastes their walk.
-	if !d.gateOpen(dungeon.Carta) {
-		d.log.Info("carta refused: gate closed by staff", "account", s.AccountName)
-		sendClientMessage(w, s, "A Carta de Duelo está fechada pela administração.")
+	if gate := cartaGateForCard(card); !d.gateOpen(gate) {
+		d.log.Info("carta refused: gate closed by staff", "account", s.AccountName, "gate", gate.Name())
+		sendClientMessage(w, s, "A "+gate.Name()+" está fechada pela administração.")
 		d.refuseCarta(w, s, e, src, NoticeCantUseHere)
 		return
 	}
