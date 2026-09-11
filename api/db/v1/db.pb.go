@@ -9778,8 +9778,12 @@ type GetCombatRuleResponse struct {
 	// so a dbServer that predates it maps to combatrule.Default(), not to 0,
 	// which is outside the range and would make the whole rule invalid.
 	WeaponDamageGrants *int32 `protobuf:"varint,10,opt,name=weapon_damage_grants,json=weaponDamageGrants,proto3,oneof" json:"weapon_damage_grants,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// 0..100: cap on the chance of the total ("double", ×2) critical. The legacy
+	// reaches 100% at DEX 500; 100 is that. `optional` because 0 is a real value
+	// (off): absence alone says the dbServer predates the field.
+	DoubleCriticalMaxPct *int32 `protobuf:"varint,11,opt,name=double_critical_max_pct,json=doubleCriticalMaxPct,proto3,oneof" json:"double_critical_max_pct,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *GetCombatRuleResponse) Reset() {
@@ -9878,6 +9882,13 @@ func (x *GetCombatRuleResponse) GetMaxMissStreak() int32 {
 func (x *GetCombatRuleResponse) GetWeaponDamageGrants() int32 {
 	if x != nil && x.WeaponDamageGrants != nil {
 		return *x.WeaponDamageGrants
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetDoubleCriticalMaxPct() int32 {
+	if x != nil && x.DoubleCriticalMaxPct != nil {
+		return *x.DoubleCriticalMaxPct
 	}
 	return 0
 }
@@ -11166,7 +11177,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x18CombatRuleVersionRequest\"5\n" +
 	"\x19CombatRuleVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x16\n" +
-	"\x14GetCombatRuleRequest\"\x86\x04\n" +
+	"\x14GetCombatRuleRequest\"\xde\x04\n" +
 	"\x15GetCombatRuleResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x12\x1e\n" +
 	"\n" +
@@ -11180,10 +11191,12 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x16spell_int_accuracy_pct\x18\b \x01(\x05H\x00R\x13spellIntAccuracyPct\x88\x01\x01\x12+\n" +
 	"\x0fmax_miss_streak\x18\t \x01(\x05H\x01R\rmaxMissStreak\x88\x01\x01\x125\n" +
 	"\x14weapon_damage_grants\x18\n" +
-	" \x01(\x05H\x02R\x12weaponDamageGrants\x88\x01\x01B\x19\n" +
+	" \x01(\x05H\x02R\x12weaponDamageGrants\x88\x01\x01\x12:\n" +
+	"\x17double_critical_max_pct\x18\v \x01(\x05H\x03R\x14doubleCriticalMaxPct\x88\x01\x01B\x19\n" +
 	"\x17_spell_int_accuracy_pctB\x12\n" +
 	"\x10_max_miss_streakB\x17\n" +
-	"\x15_weapon_damage_grants\"\x1c\n" +
+	"\x15_weapon_damage_grantsB\x1a\n" +
+	"\x18_double_critical_max_pct\"\x1c\n" +
 	"\x1aGeneratorOffVersionRequest\"7\n" +
 	"\x1bGeneratorOffVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x19\n" +

@@ -116,6 +116,8 @@ func TestSetCombatRulesDizSeMudou(t *testing.T) {
 		{"máximo de erros seguidos", func(r *combatrule.Rules) { r.MaxMissStreak = 5 }},
 		{"erros seguidos desligado", func(r *combatrule.Rules) { r.MaxMissStreak = 0 }},
 		{"bônus de arma no golpe físico", func(r *combatrule.Rules) { r.WeaponDamageGrants = 2 }},
+		{"teto do crítico duplo", func(r *combatrule.Rules) { r.DoubleCriticalMaxPct = 40 }},
+		{"crítico duplo desligado", func(r *combatrule.Rules) { r.DoubleCriticalMaxPct = 0 }},
 	} {
 		nova := d.combatRules
 		c.mudar(&nova)

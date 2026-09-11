@@ -30,6 +30,7 @@ func TestCheckDaRegraDeCombateBateComOCodigo(t *testing.T) {
 		{"0046_combat_rule_precisao.up.sql", "spell_int_accuracy_pct", [2]int{combatrule.MinSpellIntAccuracy, combatrule.MaxSpellIntAccuracy}},
 		{"0046_combat_rule_precisao.up.sql", "max_miss_streak", [2]int{combatrule.MinMissStreak, combatrule.MaxMissStreak}},
 		{"0052_combat_rule_bonus_arma.up.sql", "weapon_damage_grants", [2]int{combatrule.MinWeaponDamageGrants, combatrule.MaxWeaponDamageGrants}},
+		{"0054_combat_rule_critico_duplo.up.sql", "double_critical_max_pct", [2]int{combatrule.MinDoubleCriticalPct, combatrule.MaxDoubleCriticalPct}},
 	}
 	for _, c := range casos {
 		b, err := migrations.FS.ReadFile(c.arquivo)
@@ -120,5 +121,22 @@ func TestBonusDeArmaNasceNoPadraoDecidido(t *testing.T) {
 	}
 	if n, _ := strconv.Atoi(m[1]); int32(n) != combatrule.Default().WeaponDamageGrants {
 		t.Errorf("DEFAULT de weapon_damage_grants é %d, mas combatrule.Default() diz %d", n, combatrule.Default().WeaponDamageGrants)
+	}
+}
+
+// TestCriticoDuploNasceNoPadraoDecidido: a 0054 nasce no teto decidido (25), não
+// no legado (100).
+func TestCriticoDuploNasceNoPadraoDecidido(t *testing.T) {
+	b, err := migrations.FS.ReadFile("0054_combat_rule_critico_duplo.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	def := regexp.MustCompile(`ADD COLUMN\s+double_critical_max_pct\s+[^,;]*`).FindString(string(b))
+	m := regexp.MustCompile(`DEFAULT\s+(\d+)`).FindStringSubmatch(def)
+	if !strings.Contains(def, "NOT NULL") || m == nil {
+		t.Fatalf("double_critical_max_pct precisa de NOT NULL DEFAULT, achei: %s", def)
+	}
+	if n, _ := strconv.Atoi(m[1]); int32(n) != combatrule.Default().DoubleCriticalMaxPct {
+		t.Errorf("DEFAULT de double_critical_max_pct é %d, mas combatrule.Default() diz %d", n, combatrule.Default().DoubleCriticalMaxPct)
 	}
 }

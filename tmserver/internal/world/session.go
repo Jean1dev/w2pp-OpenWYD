@@ -357,6 +357,9 @@ type Entity struct {
 	// refreshScore and applied at read time by handler.attackRunOf to the move-speed
 	// (low) nibble of AttackRun.
 	RunSpeedBonus int32
+	// AttackSpeedBonus is the summed EF_ATTSPEED from equipped gear, refine-scaled
+	// (Basedef.cpp:3201), cached by refreshScore for the attack nibble of AttackRun.
+	AttackSpeedBonus int32
 
 	// Affect holds the active buffs/debuffs (STRUCT_AFFECT[32]). DivineEnd is the
 	// wall-clock (Unix seconds) deadline of the Divine buff — the source of truth for

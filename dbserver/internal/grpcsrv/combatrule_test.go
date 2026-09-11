@@ -38,6 +38,7 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	regra.SpellIntAccuracyPct, regra.MaxMissStreak = 30, 4
 	// E o bônus de arma fora do padrão (1) e do Kersef (3).
 	regra.WeaponDamageGrants = 2
+	regra.DoubleCriticalMaxPct = 40
 	s := NewCombatRule(&fakeCombatRuleStore{cfg: combatrule.Config{
 		Version: 4, Configured: true, Rules: regra,
 	}})
@@ -64,6 +65,9 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	}
 	if resp.WeaponDamageGrants == nil || resp.GetWeaponDamageGrants() != 2 {
 		t.Errorf("bônus de arma chegou como %v, quero presente e 2", resp.WeaponDamageGrants)
+	}
+	if resp.DoubleCriticalMaxPct == nil || resp.GetDoubleCriticalMaxPct() != 40 {
+		t.Errorf("crítico duplo chegou como %v, quero presente e 40", resp.DoubleCriticalMaxPct)
 	}
 }
 

@@ -62,7 +62,7 @@ func TestCombatRuleCRUD(t *testing.T) {
 	meio := combatrule.Rules{
 		WeaponIntMagicPct: 40, SpellDamageMulti: false, MobResistBase: 120,
 		PvPSkillPct: 60, PvPMeleePct: 80,
-		SpellIntAccuracyPct: 30, MaxMissStreak: 4, WeaponDamageGrants: 2,
+		SpellIntAccuracyPct: 30, MaxMissStreak: 4, WeaponDamageGrants: 2, DoubleCriticalMaxPct: 40,
 	}
 	antes, err = s.SetCombatRule(ctx, meio, 0)
 	if err != nil {
@@ -115,6 +115,8 @@ func TestCombatRuleRecusaValorForaDaFaixa(t *testing.T) {
 		com(func(r *combatrule.Rules) { r.MaxMissStreak = 11 }),
 		com(func(r *combatrule.Rules) { r.WeaponDamageGrants = 0 }),
 		com(func(r *combatrule.Rules) { r.WeaponDamageGrants = 4 }),
+		com(func(r *combatrule.Rules) { r.DoubleCriticalMaxPct = -1 }),
+		com(func(r *combatrule.Rules) { r.DoubleCriticalMaxPct = 101 }),
 	} {
 		if _, err := s.SetCombatRule(ctx, r, 0); !errors.Is(err, ErrInvalidCombatRule) {
 			t.Errorf("SetCombatRule(%+v) = %v, quero ErrInvalidCombatRule", r, err)
@@ -168,6 +170,7 @@ func TestLinhaAnteriorAoPvPContinuaValida(t *testing.T) {
 	quer.SpellIntAccuracyPct = combatrule.Default().SpellIntAccuracyPct
 	quer.MaxMissStreak = combatrule.Default().MaxMissStreak
 	quer.WeaponDamageGrants = combatrule.Default().WeaponDamageGrants
+	quer.DoubleCriticalMaxPct = combatrule.Default().DoubleCriticalMaxPct
 	if cfg.Rules != quer {
 		t.Errorf("leu %+v, quero %+v: o Kersef com o legado no PvP e a precisão no padrão decidido",
 			cfg.Rules, quer)

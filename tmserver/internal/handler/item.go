@@ -2075,6 +2075,7 @@ const (
 	efItemLevel  = 87
 	efMobType    = 112
 	efRunSpeed   = 29 // EF_RUNSPEED: boots' bonus to the move-speed (low) nibble of AttackRun
+	efAttSpeed   = 26 // EF_ATTSPEED: gear bonus to the attack (high) nibble of AttackRun (Basedef.cpp:3201)
 	efDamage2    = 73 // EF_DAMAGE2: enchanted damage — SUPERSEDES EF_DAMAGE on a nPos 32 item
 
 	// Effect ids that BASE_GetItemAbility leaves UNSCALED by the refine multiplier
@@ -2191,15 +2192,26 @@ func (d *Dispatcher) itemAbility(it world.Item, effect uint8) int {
 	var total int
 	for _, be := range d.itemEffects[int(it.Index)] {
 		if be.Eff == effect {
-			total += int(be.Val)
+			total += attSpeedValue(effect, int(be.Val))
 		}
 	}
 	for _, ef := range it.Effects {
 		if ef.Effect == effect {
-			total += int(ef.Value)
+			total += attSpeedValue(effect, int(ef.Value))
 		}
 	}
 	return total
+}
+
+// attSpeedValue is the one per-entry rule BASE_GetItemAbility has for
+// EF_ATTSPEED: a 1 counts as 10 (Basedef.cpp:1592/1663), in the catalog row and
+// in the instance alike. Rows like the Anel de Zeus and the Arco Longo carry the
+// 1, and read raw they would add a tenth of what the legacy gives.
+func attSpeedValue(effect uint8, v int) int {
+	if effect == efAttSpeed && v == 1 {
+		return 10
+	}
+	return v
 }
 
 // itemScoreSanc converts the true 0..15 level reported by the Go refine
@@ -2348,6 +2360,7 @@ type equipBonus struct {
 	maxHP, maxMP         int32
 	hpAddPct, mpAddPct   int32
 	runSpeed             int32
+	attSpeed             int32
 	// regenHP/regenMP are the EF_REGENHP/EF_REGENMP sums. They are NOT a score
 	// stat: the trickle reads them once every ten seconds, and regenMP doubles as
 	// the debuff-resist term in combat.
@@ -2426,6 +2439,8 @@ func (d *Dispatcher) equipBonus(e *world.Entity) equipBonus {
 			b.mpAddPct += val
 		case efRunSpeed:
 			b.runSpeed += val
+		case efAttSpeed:
+			b.attSpeed += val
 		}
 	}
 	for slot := range e.Equip {
@@ -2518,6 +2533,7 @@ func (d *Dispatcher) refreshScore(e *world.Entity) {
 	e.HpAddPct = b.hpAddPct
 	e.MpAddPct = b.mpAddPct
 	e.RunSpeedBonus = b.runSpeed
+	e.AttackSpeedBonus = b.attSpeed
 	// Clamped to 0..255 as the legacy does before storing (Basedef.cpp:4657-4671):
 	// the field is an unsigned char there, and a negative sum would otherwise make
 	// the trickle drain and the resist roll easier.
@@ -2682,7 +2698,13 @@ func attackRunOf(e *world.Entity) uint8 {
 	if !world.IsPlayer(e.ID) {
 		return e.AttackRun
 	}
-	attack := int32(baseAttackRun>>4)*10 + e.AffAttackSpeed
+	// The attack nibble is the legacy's Att (Basedef.cpp:3200-3201, 4675, 4704-
+	// 4711): base 50, plus gear EF_ATTSPEED, plus the affects and the transform
+	// bonus (both in AffAttackSpeed), plus DEX/5 read after the affects. It
+	// used to stop at the base and the affects, so every player sat on nibble 5,
+	// and the total ("double") critical — which fires when a hit-rate slot is
+	// under 100×(nibble−5) — could never fire.
+	attack := int32(baseAttackRun>>4)*10 + e.AttackSpeedBonus + e.AffAttackSpeed + int32(effectiveDex(e))/5
 	if attack < 0 {
 		attack = 0
 	}

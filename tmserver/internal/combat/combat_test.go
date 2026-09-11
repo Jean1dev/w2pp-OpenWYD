@@ -148,7 +148,7 @@ func TestParryRate(t *testing.T) {
 
 func TestDoubleCritical(t *testing.T) {
 	server, client := uint16(0), uint16(0)
-	flags, ok := DoubleCritical(rng.NewSeeded(1), 0xB2, 255, &server, &client)
+	flags, ok := DoubleCritical(rng.NewSeeded(1), 0xB2, 255, 100, &server, &client)
 	if !ok {
 		t.Fatal("DoubleCritical returned !ok")
 	}

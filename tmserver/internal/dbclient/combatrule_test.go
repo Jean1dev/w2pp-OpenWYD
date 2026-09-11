@@ -33,13 +33,15 @@ func TestCombatRuleFetch(t *testing.T) {
 				WeaponIntMagicPct: 30, SpellDamageMulti: true, MobResistBase: 120,
 				PvpSkillPct: 60, PvpMeleePct: 80,
 				SpellIntAccuracyPct: proto.Int32(30), MaxMissStreak: proto.Int32(4),
-				WeaponDamageGrants: proto.Int32(2),
+				WeaponDamageGrants:   proto.Int32(2),
+				DoubleCriticalMaxPct: proto.Int32(40),
 			},
 			want: combatrule.Config{Version: 6, Configured: true, Rules: combatrule.Rules{
 				WeaponIntMagicPct: 30, SpellDamageMulti: true, MobResistBase: 120,
 				PvPSkillPct: 60, PvPMeleePct: 80,
 				SpellIntAccuracyPct: 30, MaxMissStreak: 4,
-				WeaponDamageGrants: 2,
+				WeaponDamageGrants:   2,
+				DoubleCriticalMaxPct: 40,
 			}},
 		},
 		{
@@ -75,7 +77,8 @@ func TestCombatRuleFetch(t *testing.T) {
 				WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: 150,
 				PvpSkillPct: 100, PvpMeleePct: 100,
 				SpellIntAccuracyPct: proto.Int32(0), MaxMissStreak: proto.Int32(0),
-				WeaponDamageGrants: proto.Int32(3),
+				WeaponDamageGrants:   proto.Int32(3),
+				DoubleCriticalMaxPct: proto.Int32(100),
 			},
 			want: combatrule.Config{Version: 9, Configured: true, Rules: combatrule.Kersef()},
 		},
@@ -115,6 +118,7 @@ func kersefComPrecisaoPadrao() combatrule.Rules {
 	r.SpellIntAccuracyPct = combatrule.Default().SpellIntAccuracyPct
 	r.MaxMissStreak = combatrule.Default().MaxMissStreak
 	r.WeaponDamageGrants = combatrule.Default().WeaponDamageGrants
+	r.DoubleCriticalMaxPct = combatrule.Default().DoubleCriticalMaxPct
 	return r
 }
 

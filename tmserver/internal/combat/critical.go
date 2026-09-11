@@ -47,7 +47,12 @@ func initHitRate() [hitRateSize]int {
 // DoubleCritical ports BASE_GetDoubleCritical. It mutates both progress counters
 // exactly like the legacy routine and returns the authoritative bitfield:
 // bit 0 = total critical, bit 1 = partial critical.
-func DoubleCritical(r Rand, attackRun uint8, critical int, serverProgress, clientProgress *uint16) (uint8, bool) {
+//
+// The total critical fires when the hit-rate slot (0..999) is under
+// 100×(attack nibble − 5), so from nibble 15 — DEX 500 on its own — it fires on
+// every blow. maxPct caps that chance (combatrule.DoubleCriticalMaxPct, a server
+// rule); 100 is the legacy. The rand() call order is untouched.
+func DoubleCritical(r Rand, attackRun uint8, critical, maxPct int, serverProgress, clientProgress *uint16) (uint8, bool) {
 	if clientProgress == nil {
 		return 0, false
 	}
@@ -57,7 +62,11 @@ func DoubleCritical(r Rand, attackRun uint8, critical int, serverProgress, clien
 	}
 	value := hitRate[int(*clientProgress)&(hitRateSize-1)]
 	var flags uint8
-	if value < 100*(int(attackRun>>4)-5) {
+	threshold := 100 * (int(attackRun>>4) - 5)
+	if maxPct < 100 {
+		threshold = min(threshold, maxPct*10)
+	}
+	if value < threshold {
 		flags |= 1
 	}
 	if r.Intn(255) < critical {

@@ -61,6 +61,8 @@ type combateView struct {
 	MaxErros    int32
 	MinArmaFis  int32
 	MaxArmaFis  int32
+	MinCritDup  int32
+	MaxCritDup  int32
 }
 
 func pctTexto(v int32) string { return fmt.Sprintf("%d%%", v) }
@@ -162,6 +164,15 @@ func combateBotoes(r combatrule.Rules) []combateBotao {
 			Agora: vezesTexto(r.WeaponDamageGrants), Padrao: vezesTexto(p.WeaponDamageGrants),
 			Kersef: vezesTexto(k.WeaponDamageGrants), Mudado: r.WeaponDamageGrants != p.WeaponDamageGrants,
 		},
+		{
+			Nome: "Chance máxima do crítico duplo (%)",
+			Explica: "O crítico duplo dobra o golpe físico. No legado a chance é 10% por ponto de " +
+				"velocidade de ataque acima de 50, e a velocidade leva DES/5: DES 100 dá 20%, DES 250 " +
+				"dá 50%, e com DES 500 ou mais TODO golpe sai dobrado. Este teto corta a chance; " +
+				"100% = o legado, 0% desliga o crítico duplo.",
+			Agora: pctTexto(r.DoubleCriticalMaxPct), Padrao: pctTexto(p.DoubleCriticalMaxPct),
+			Kersef: pctTexto(k.DoubleCriticalMaxPct), Mudado: r.DoubleCriticalMaxPct != p.DoubleCriticalMaxPct,
+		},
 	}
 }
 
@@ -195,6 +206,7 @@ func (h *Handler) combate(w http.ResponseWriter, r *http.Request) {
 			MinPrecisao: combatrule.MinSpellIntAccuracy, MaxPrecisao: combatrule.MaxSpellIntAccuracy,
 			MinErros: combatrule.MinMissStreak, MaxErros: combatrule.MaxMissStreak,
 			MinArmaFis: combatrule.MinWeaponDamageGrants, MaxArmaFis: combatrule.MaxWeaponDamageGrants,
+			MinCritDup: combatrule.MinDoubleCriticalPct, MaxCritDup: combatrule.MaxDoubleCriticalPct,
 		},
 		Historico: h.combateHistorico(r.Context()),
 	})
@@ -242,10 +254,10 @@ func (h *Handler) setCombate(w http.ResponseWriter, r *http.Request) {
 	h.voltarParaCombate(w, r, fmt.Sprintf(
 		"Regra gravada: magia da arma por INT %d%%, multiplicador na magia %s, "+
 			"resistência de monstro %d, skill em jogador %d%%, golpe físico em jogador %d%%, "+
-			"precisão da magia pela INT %d%%, máximo de erros seguidos %s, bônus de arma %s. "+
+			"precisão da magia pela INT %d%%, máximo de erros seguidos %s, bônus de arma %s, crítico duplo até %d%%. "+
 			"O jogo passa a usar em até 15 segundos.",
 		regra.WeaponIntMagicPct, ligadoTexto(regra.SpellDamageMulti), regra.MobResistBase,
-		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak), vezesTexto(regra.WeaponDamageGrants)))
+		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak), vezesTexto(regra.WeaponDamageGrants), regra.DoubleCriticalMaxPct))
 }
 
 // limparCombate drops the row, back to the decided default.
@@ -326,11 +338,17 @@ func combateDoForm(r *http.Request) (combatrule.Rules, string) {
 		return combatrule.Rules{}, fmt.Sprintf("O bônus de arma no golpe físico precisa ser um número entre %d e %d.",
 			combatrule.MinWeaponDamageGrants, combatrule.MaxWeaponDamageGrants)
 	}
+	critDup, ok := faixaDoForm(r, "critico_duplo", combatrule.MinDoubleCriticalPct, combatrule.MaxDoubleCriticalPct)
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("A chance máxima do crítico duplo precisa ser um número entre %d e %d por cento.",
+			combatrule.MinDoubleCriticalPct, combatrule.MaxDoubleCriticalPct)
+	}
 	return combatrule.Rules{
 		WeaponIntMagicPct: int32(arma), SpellDamageMulti: multi, MobResistBase: int32(resist),
 		PvPSkillPct: pvpSkill, PvPMeleePct: pvpMelee,
 		SpellIntAccuracyPct: precisao, MaxMissStreak: erros,
-		WeaponDamageGrants: armaFis,
+		WeaponDamageGrants:   armaFis,
+		DoubleCriticalMaxPct: critDup,
 	}, ""
 }
 
@@ -363,6 +381,7 @@ func combateParaAudit(c combatrule.Config) map[string]any {
 		"precisao_pela_int":      pctTexto(c.Rules.SpellIntAccuracyPct),
 		"erros_seguidos":         c.Rules.MaxMissStreak,
 		"bonus_de_arma":          vezesTexto(c.Rules.WeaponDamageGrants),
+		"critico_duplo_maximo":   pctTexto(c.Rules.DoubleCriticalMaxPct),
 	}
 }
 

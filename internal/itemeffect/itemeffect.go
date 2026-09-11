@@ -67,6 +67,10 @@ var efName = map[string]uint8{
 	"EF_MAGIC":     60,
 	"EF_DAMAGEADD": 67, "EF_MAGICADD": 68, "EF_HPADD2": 69, "EF_MPADD2": 70, "EF_CRITICAL2": 71,
 	"EF_ITEMLEVEL": 87, "EF_MOBTYPE": 112, "EF_RUNSPEED": 29,
+	// EF_ATTSPEED feeds the attack nibble of AttackRun (Basedef.cpp:3201), which
+	// gates the total ("double") critical. 136 ItemList rows carry it; while it
+	// was missing here they all read 0, the same bug class as the entries above.
+	"EF_ATTSPEED": 26,
 	// EF_ITEMTYPE is not a score stat either: it is read only by the combine
 	// matchers (GetFunc.cpp:487 Agatha) as a recipe gate, exactly like EF_NOSANC
 	// gates the refine path. Without it in this whitelist those gates read 0 for

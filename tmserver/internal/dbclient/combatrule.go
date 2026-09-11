@@ -49,14 +49,15 @@ func (c *CombatRuleSource) Fetch(ctx context.Context) (combatrule.Config, error)
 		Version:    resp.GetVersion(),
 		Configured: true,
 		Rules: combatrule.Rules{
-			WeaponIntMagicPct:   resp.GetWeaponIntMagicPct(),
-			SpellDamageMulti:    resp.GetSpellDamageMulti(),
-			MobResistBase:       resp.GetMobResistBase(),
-			PvPSkillPct:         pvpPct(resp.GetPvpSkillPct()),
-			PvPMeleePct:         pvpPct(resp.GetPvpMeleePct()),
-			SpellIntAccuracyPct: presentOr(resp.SpellIntAccuracyPct, padrao.SpellIntAccuracyPct),
-			MaxMissStreak:       presentOr(resp.MaxMissStreak, padrao.MaxMissStreak),
-			WeaponDamageGrants:  presentOr(resp.WeaponDamageGrants, padrao.WeaponDamageGrants),
+			WeaponIntMagicPct:    resp.GetWeaponIntMagicPct(),
+			SpellDamageMulti:     resp.GetSpellDamageMulti(),
+			MobResistBase:        resp.GetMobResistBase(),
+			PvPSkillPct:          pvpPct(resp.GetPvpSkillPct()),
+			PvPMeleePct:          pvpPct(resp.GetPvpMeleePct()),
+			SpellIntAccuracyPct:  presentOr(resp.SpellIntAccuracyPct, padrao.SpellIntAccuracyPct),
+			MaxMissStreak:        presentOr(resp.MaxMissStreak, padrao.MaxMissStreak),
+			WeaponDamageGrants:   presentOr(resp.WeaponDamageGrants, padrao.WeaponDamageGrants),
+			DoubleCriticalMaxPct: presentOr(resp.DoubleCriticalMaxPct, padrao.DoubleCriticalMaxPct),
 		},
 	}, nil
 }

@@ -392,7 +392,8 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			}
 			if !doubleCriticalReady {
 				progress := body.Progress
-				doubleCritical, _ = combat.DoubleCritical(w.Rand(), attackRunOf(e), int(effectiveCritical(e)), &s.CriticalProgress, &progress)
+				doubleCritical, _ = combat.DoubleCritical(w.Rand(), attackRunOf(e), int(effectiveCritical(e)),
+					int(d.combatRules.DoubleCriticalMaxPct), &s.CriticalProgress, &progress)
 				body.Progress = progress
 				body.DoubleCritical = doubleCritical
 				writeAttackProgress(payload, progress)

@@ -52,8 +52,9 @@ func (s *CombatRuleServer) GetCombatRule(ctx context.Context, _ *dbv1.GetCombatR
 		PvpMeleePct:       cfg.Rules.PvPMeleePct,
 		// Always present, even at 0: presence is how tmServer tells this
 		// dbServer from one that predates the fields (see the proto).
-		SpellIntAccuracyPct: proto.Int32(cfg.Rules.SpellIntAccuracyPct),
-		MaxMissStreak:       proto.Int32(cfg.Rules.MaxMissStreak),
-		WeaponDamageGrants:  proto.Int32(cfg.Rules.WeaponDamageGrants),
+		SpellIntAccuracyPct:  proto.Int32(cfg.Rules.SpellIntAccuracyPct),
+		MaxMissStreak:        proto.Int32(cfg.Rules.MaxMissStreak),
+		WeaponDamageGrants:   proto.Int32(cfg.Rules.WeaponDamageGrants),
+		DoubleCriticalMaxPct: proto.Int32(cfg.Rules.DoubleCriticalMaxPct),
 	}, nil
 }
