@@ -219,6 +219,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.skillMasterReset(w, s, e, npc, confirm)
 		return
 	}
+	// MOUNT_MASTER (Merchant 58, _MSG_Quest.cpp:170): the Mestre de Montaria,
+	// who revives a dead mount for gold and some of its lives.
+	if npc.Merchant == merchantMountMaster {
+		d.mountMaster(w, s, e, npc, confirm)
+		return
+	}
 	// CAPAVERDE_TELEPORT (Merchant 100, EF_GRADE0 14): apprentice-arena teleport
 	// (issue #139, _MSG_Quest.cpp:2168).
 	if npc.Merchant == 100 && npc.Grade == 14 {

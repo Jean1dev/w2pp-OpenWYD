@@ -446,6 +446,9 @@ const (
 	volEntradaTerritorio = 188 // Entrada do Território (LAN) ticket (_MSG_UseItem.cpp:4202)
 	volQuestReward       = 191 // quest reward items 4117..4121 (_MSG_UseItem.cpp:2344)
 	volHuntingScroll     = 195 // Pedido de Caça: destination selected by MSG_UseItem.WarpID
+	// volRacao is the mount food (2420..2439 and the (P) packs 3368..3385), fed to
+	// the mount worn in Equip[14] (_MSG_UseItem.cpp:1478, mountfeed.go).
+	volRacao = 15
 	// volAmago is the mount-growth item (2390..2419), fed to the mount worn in
 	// Equip[14] (_MSG_UseItem.cpp:1564, amago.go).
 	volAmago = 16
@@ -647,6 +650,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol == volBirthAccelerator:
 		d.useBirthAccelerator(w, s, e, body, src)
+	case vol == volRacao:
+		d.useRacao(w, s, e, body, src)
 	case vol == volAmago:
 		d.useAmago(w, s, e, body, src)
 	case vol == volCatalisador:

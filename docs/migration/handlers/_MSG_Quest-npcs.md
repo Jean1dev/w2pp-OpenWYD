@@ -91,6 +91,8 @@ Etapas sequenciais de progressão de nível (rumo ao cap 256/Arch). Cada NPC:
 - **`MOUNT_MASTER` (Merchant 58, `:170`):** cura/ressuscita a montaria (`Equip[14]`, `sIndex`
   2330–2390). `confirm==0` mostra preço (`g_pItemList[mount].Price`); `confirm!=0` cobra gold e, por
   RNG (`vit -= rand()%3`), restaura a vitalidade do mount **ou** o destrói (`memset`). Recalcula score.
+  Portado em `tmserver/internal/handler/mountmaster.go`: a montaria volta com HP 20 e ração 5, então
+  precisa de ração antes da próxima hora online (`mountfeed.go`).
 - **`ZAKUM` (Merchant 30, `:238`):** apenas **informa** quem está na área da quest Zakum
   (`GetUserInArea(2180,1160,2296,1270)`); sem efeito.
 - **`AMU_MISTICO` (Merchant 10, `:253`):** quest "Terra Mística" — exige `ClassMaster==MORTAL`, flag
