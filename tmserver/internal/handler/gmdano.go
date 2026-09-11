@@ -33,12 +33,15 @@ func (d *Dispatcher) gmDano(w *world.World, s *world.Session, rest string) {
 	if name := firstToken(rest); name != "" {
 		_, te := w.SessionByName(name)
 		if te == nil {
-			d.notify(w, s, NoticeNotConnected)
+			// Answered in words, not through notify: a report that goes silent
+			// is indistinguishable from a server that does not know the command.
+			sendClientMessage(w, s, fmt.Sprintf("Não achei %s em jogo.", name))
 			return
 		}
 		target = te
 	}
-	if target == nil || !isPlayerMob(target) {
+	if target == nil {
+		sendClientMessage(w, s, "Sem personagem para medir.")
 		return
 	}
 	d.log.Info("gm dano", "account", s.AccountName, "target", target.Name)
@@ -80,14 +83,22 @@ func (d *Dispatcher) danoLinhas(e *world.Entity) []string {
 	}
 	sort.SliceStable(itens, func(i, j int) bool { return itens[i].dano > itens[j].dano })
 
-	armaClasse := d.classWeaponDamage(e)
-	vezes := d.danoVezesArma(e, armaClasse)
-	skill := skillFlatDamage(e)
-	forca := int32(effectiveStr(e)) / 2
-	destreza := int32(effectiveDex(e)) / 3
-	maestria := int32(effectiveSpecial(e, 0))
-	nivel := attributeDamageLevelTerm(e)
-	atributos := forca + destreza + maestria + nivel
+	// The face gate of the legado (Basedef.cpp:4651, `if (face < 4)`): a
+	// character whose Equip[0] is out of the player range gets NEITHER the
+	// attribute term NOR the class weapon term. isPlayerMob is that gate, and
+	// refreshScore skips both terms for such a character.
+	jogador := isPlayerMob(e)
+	var armaClasse, vezes, skill, forca, destreza, maestria, nivel, atributos int32
+	if jogador {
+		armaClasse = d.classWeaponDamage(e)
+		vezes = d.danoVezesArma(e, armaClasse)
+		skill = skillFlatDamage(e)
+		forca = int32(effectiveStr(e)) / 2
+		destreza = int32(effectiveDex(e)) / 3
+		maestria = int32(effectiveSpecial(e, 0))
+		nivel = attributeDamageLevelTerm(e)
+		atributos = forca + destreza + maestria + nivel
+	}
 	conta := e.BaseDamage + somaItens + montaria + armaClasse + skill + atributos
 
 	linhas := []string{
@@ -107,6 +118,10 @@ func (d *Dispatcher) danoLinhas(e *world.Entity) []string {
 	}
 	linhas = append(linhas,
 		fmt.Sprintf("Atributos: FOR/2 %d + DES/3 %d + Aprender %d + nível %d = %d", forca, destreza, maestria, nivel, atributos))
+	if !jogador {
+		linhas = append(linhas, fmt.Sprintf("Rosto %d (Equip[0] %d): atributos e bônus de arma NÃO entram (legado: face<4)",
+			e.Equip[0].Index/10, e.Equip[0].Index))
+	}
 	if gap := e.Damage - conta; gap != 0 {
 		linhas = append(linhas, fmt.Sprintf("Parte não identificada: %d (Damage %d, conta %d)", gap, e.Damage, conta))
 	}

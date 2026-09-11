@@ -49,3 +49,32 @@ func TestGMDanoFechaAConta(t *testing.T) {
 		}
 	}
 }
+
+// TestGMDanoComRostoForaDaFaixa: com o rosto fora da faixa de jogador (o
+// `if (face < 4)` do legado, Basedef.cpp:4651), nem os atributos nem o bônus de
+// arma entram no Ataque — e o relatório diz isso em vez de ficar calado, que era
+// como o comando se comportava e fazia parecer servidor sem o comando.
+func TestGMDanoComRostoForaDaFaixa(t *testing.T) {
+	d := New(Config{})
+	e := testPlayerEntity()
+	e.Name = "Porradeiro"
+	e.Level = 400
+	e.BaseStr, e.Str, e.BaseDex, e.Dex = 2802, 2802, 712, 712
+	e.LearnedSkill = 1<<7 | 1<<15 | 1<<23
+	e.Equip[0] = world.Item{Index: 177} // Traje_Coreano: 177/10 = 17
+	d.refreshScore(e)
+
+	texto := strings.Join(d.danoLinhas(e), "\n")
+	for _, quer := range []string{
+		"Ataque de Porradeiro na janela: ",
+		"Rosto 17 (Equip[0] 177): atributos e bônus de arma NÃO entram",
+		"Atributos: FOR/2 0 + DES/3 0 + Aprender 0 + nível 0 = 0",
+	} {
+		if !strings.Contains(texto, quer) {
+			t.Errorf("o relatório não traz %q:\n%s", quer, texto)
+		}
+	}
+	if strings.Contains(texto, "não identificada") {
+		t.Errorf("as partes não fecham com o Damage guardado:\n%s", texto)
+	}
+}
