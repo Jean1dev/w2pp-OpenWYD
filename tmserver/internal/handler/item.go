@@ -541,6 +541,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.rejectUnimplementedConsumable(w, s, e, src)
 		return
 	}
+	// Baús go by sIndex too: the volatile does not tell them apart (baus.go).
+	if d.openChest(w, s, e, src) {
+		return
+	}
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
 	case vol == 0:
 		d.equipItem(w, s, e, body, payload)
