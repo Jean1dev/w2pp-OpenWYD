@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/worldevents"
 )
@@ -35,23 +35,67 @@ func (d *Dispatcher) setTowerSchedule(enabled bool, hour int) {
 	}
 }
 
+// towerReminderEvery is how often an open war reminds the whole server that it
+// is on. The legacy only spoke at the announce, the start, each capture and the
+// end; a player who logged in mid-war never learned there was one.
+const towerReminderEvery = 5 * time.Minute
+
 func (d *Dispatcher) tickTowerWar(w *world.World) {
 	if d.tickCount%minutoTicks != 0 {
 		return
 	}
-	switch d.events.tower.Step(d.now(), d.events.tower.Enabled) {
+	now := d.now()
+	if act := d.events.tower.Step(now, d.events.tower.Enabled); act != worldevents.TowerNone {
+		d.applyTowerAction(w, act)
+		return
+	}
+	if d.events.tower.Phase() == worldevents.TowerOpen && now.Sub(d.events.towerReminder) >= towerReminderEvery {
+		d.events.towerReminder = now
+		d.towerNotice(w, d.towerStatusLine(w, now))
+	}
+}
+
+// applyTowerAction carries out one transition, whether the clock or a GM
+// (/gm guerra torre) caused it.
+func (d *Dispatcher) applyTowerAction(w *world.World, act worldevents.TowerAction) {
+	now := d.now()
+	switch act {
 	case worldevents.TowerAnnounce:
 		// Every war starts with nobody holding the tower (CWarTower.cpp:207-208).
 		// Kept from yesterday, the last winner would win again by default.
 		d.setTowerOwner(w, 0)
-		d.towerNotice(w, "A Guerra de Torres será iniciada em 5 minutos.") // _DN_CHANNELWAR_BEGIN
+		d.towerNotice(w, fmt.Sprintf("A Guerra de Torres será iniciada em %s.", // _DN_CHANNELWAR_BEGIN
+			minutos(d.events.tower.OpensAt(now).Sub(now))))
 	case worldevents.TowerStart:
 		d.clearTowerArea(w)
 		d.spawnTower(w)
-		d.towerNotice(w, "A Guerra de Torres começou! A guilda que estiver com a torre às 30 vence.")
+		d.events.towerReminder = now
+		d.towerNotice(w, fmt.Sprintf("A Guerra de Torres começou! Vence quem estiver com a torre às %s.",
+			d.events.tower.EndsAt(now).Format("15:04")))
 	case worldevents.TowerEnd:
 		d.endTowerWar(w)
 	}
+}
+
+// towerStatusLine is the reminder: time left and who holds the tower. It has to
+// fit the 94 characters of the notice line with a 12-letter guild name.
+func (d *Dispatcher) towerStatusLine(w *world.World, now time.Time) string {
+	holder := "sem dono"
+	if owner := d.events.towerOwner; owner != 0 {
+		holder = "com a guilda [" + d.guildLabel(w, owner) + "]"
+	}
+	return fmt.Sprintf("Guerra de Torres em andamento: faltam %s. Torre %s.",
+		minutos(d.events.tower.EndsAt(now).Sub(now)), holder)
+}
+
+// minutos renders a duration as "N minutos", rounding up so the last minute
+// still reads "1 minuto" rather than "0 minutos".
+func minutos(left time.Duration) string {
+	n := int((left + time.Minute - 1) / time.Minute)
+	if n <= 1 {
+		return "1 minuto"
+	}
+	return fmt.Sprintf("%d minutos", n)
 }
 
 // endTowerWar pays the holder, clears the area and resets the owner
@@ -167,11 +211,11 @@ func (d *Dispatcher) guildLabel(w *world.World, guild uint16) string {
 	return fmt.Sprintf("%d", guild)
 }
 
+// towerNotice tells the whole server, as the legacy did: SendNotice
+// (CWarTower.cpp:206/219/226/289), the notice line every player in world gets.
+// It used to go out as a chat line, the channel for player speech.
 func (d *Dispatcher) towerNotice(w *world.World, message string) {
-	body := protocol.EncodeMessageChatBody(string(protocol.ClientText(message)))
-	w.ForEachPlaying(-1, func(s *world.Session, _ *world.Entity) {
-		w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: 0}, body)
-	})
+	broadcastNotice(w, message)
 }
 
 func (d *Dispatcher) towerAttackAllowed(attacker, target *world.Entity) bool {

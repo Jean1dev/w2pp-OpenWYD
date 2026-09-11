@@ -54,10 +54,17 @@
 ✅ /gm unban \<jogador|conta\>: remove o bloqueio da conta <br/>
 ✅ /gm guildname \<id\> \<nome\>: registra o nome de uma guild (issue #131; só em memória — não há fluxo de criação de guild ainda) <br/>
 ✅ /gm guildfame \<id\> \<fama\>: registra a fama de uma guild (issue #131; mesma ferramenta admin-only do legado `+guildfame set`) <br/>
+✅ /gm guerra torre aviso [min]: anuncia a Guerra de Torres agora; abre depois de `min` minutos (padrão 1) <br/>
+✅ /gm guerra torre abrir [min]: abre a guerra na hora, por `min` minutos (padrão 24, o mesmo das 20:06 às 20:30) <br/>
+✅ /gm guerra torre fim: encerra agora — a guilda com a torre ganha a fama, como no fim normal <br/>
+✅ /gm guerra torre estado: fase, dono, horários e a agenda do painel <br/>
+⏳ /gm guerra cidade / noatum: responde que ainda não existe; entram quando essas guerras forem portadas <br/>
 
-> `notice` sai como linha de chat prefixada `[GM]` (o pacote de aviso dedicado é
-> UNVERIFIED até uma captura). `ban`/`unban` gravam em `account.is_blocked` — o login
-> já rejeita contas bloqueadas; a migração do ban administrativo para o binServer
+> `notice` sai na linha de aviso do servidor (MSG_MessagePanel, ID 0 — o `SendNotice` do legado),
+> prefixada `[GM]`. A guerra forçada ignora a hora e o interruptor do painel até terminar, e passa
+> pelas mesmas transições da agendada: mesmos avisos a todos, mesma limpeza da área, mesmo prêmio.
+>
+> `ban`/`unban` gravam em `account.is_blocked` — o login já rejeita contas bloqueadas; a migração do ban administrativo para o binServer
 > (entitlement) fica para uma issue futura (`web-platform-plan.md §binServer`).
 
 # Evoluções 

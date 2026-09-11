@@ -276,9 +276,57 @@ func (c *liveClient) enterWorld(charName string, class int32) protocol.Frame {
 // the line — the legacy _MSG_MessageWhisper quirk (handler/chat.go runCommand).
 func (c *liveClient) gm(line string) {
 	c.t.Helper()
-	body := protocol.MsgWhisperBody{String: append([]byte(line), 0)}
-	copy(body.MobName[:], "gm")
+	c.slash("gm", line)
+}
+
+// slash sends any "/<keyword> <text>" command, the same whisper shape gm uses.
+func (c *liveClient) slash(keyword, text string) {
+	c.t.Helper()
+	body := protocol.MsgWhisperBody{String: append([]byte(text), 0)}
+	copy(body.MobName[:], keyword)
 	c.send(protocol.MsgMessageWhisper, c.connID, body.Encode())
+}
+
+// waitForNotice scans for a server notice line (MSG_MessagePanel) whose text
+// contains substr. The wars announce themselves this way (SendNotice), and the
+// text is CP1252, decoded here so callers can match accented Portuguese.
+func (c *liveClient) waitForNotice(substr string, within time.Duration) (string, bool) {
+	c.t.Helper()
+	match := func(f protocol.Frame) (string, bool) {
+		if f.Header.Type != protocol.MsgMessagePanel {
+			return "", false
+		}
+		text := latin1(cstring(f.Payload))
+		return text, strings.Contains(text, substr)
+	}
+	for i := 0; i < len(c.backlog); i++ {
+		if text, ok := match(c.backlog[i]); ok {
+			c.backlog = append(c.backlog[:i], c.backlog[i+1:]...)
+			return text, true
+		}
+	}
+	deadline := time.Now().Add(within)
+	for time.Now().Before(deadline) {
+		f, err := c.readFrame(deadline)
+		if err != nil {
+			return "", false
+		}
+		if text, ok := match(f); ok {
+			return text, true
+		}
+		c.backlog = append(c.backlog, f)
+	}
+	return "", false
+}
+
+// latin1 decodes CP1252 text as Latin-1, byte for code point — right for every
+// accented letter Portuguese uses.
+func latin1(s string) string {
+	runes := make([]rune, len(s))
+	for i := 0; i < len(s); i++ {
+		runes[i] = rune(s[i])
+	}
+	return string(runes)
 }
 
 func (c *liveClient) backlogTypes() string {
@@ -543,38 +591,61 @@ func TestE2EWorldEventNewbieMobHandicap(t *testing.T) {
 // Tower capture war (issue #116 fase 4)
 // ---------------------------------------------------------------------------
 
-// TestE2EWorldEventTowerWar validates the calendar-gated tower window end to end:
-// the announce notice at minute ≤5 and the start notice at minute ≥6, both as
-// MSG_MessageChat lines every in-play client receives.
+// TestE2EWorldEventTowerWar drives a whole war through /gm guerra torre and
+// checks what every player sees: the announce, the teleport refusal during it,
+// the start one minute later and the end, each on the server's notice line
+// (MSG_MessagePanel, HEADER.ID 0 — SendNotice, CWarTower.cpp:206/219/226).
 //
-// The window is a weekday at hour 20 with NewbieEventServer on (CWarTower.cpp:203,
-// handler/towerwar.go). Rather than wait for a real Tuesday evening, the runner
-// starts a SECOND tmserver whose TZ places it inside the window — the event reads
-// time.Now(), so the container's zone is the whole gate. See
-// scripts/e2e-worldevents.sh, which computes the zone and exports the address.
+// The GM command is what makes this runnable at any hour: the war is scheduled
+// daily at the panel's hour, and a forced war ignores that hour and the switch
+// until it ends. With W2PP_E2E_ACCOUNT2 set, a second, non-GM player is the one
+// who must hear it — the point is that the whole server does.
 func TestE2EWorldEventTowerWar(t *testing.T) {
-	addr := os.Getenv("W2PP_E2E_TOWER_ADDR")
-	if addr == "" {
-		t.Skip("set W2PP_E2E_TOWER_ADDR to a tmserver inside the tower window (see scripts/e2e-worldevents.sh)")
+	gm := gmPlayer(t)
+	obs := gm
+	if acc := os.Getenv("W2PP_E2E_ACCOUNT2"); acc != "" {
+		obs = newPlayer(t, acc, env("W2PP_E2E_PASSWORD2", "test123"), env("W2PP_E2E_CHAR2", "EvtProbe2"))
 	}
-	c := dialLive(t, addr, env("W2PP_E2E_ACCOUNT", "test"))
-	t.Cleanup(c.close)
-	c.login(env("W2PP_E2E_PASSWORD", "test123"))
-	c.enterWorld(env("W2PP_E2E_CHAR", "EvtProbe"), 0)
+	// A war left running by an aborted run would refuse the announce.
+	gm.gm("guerra torre fim")
+	gm.quiet(2 * time.Second)
+	if obs != gm {
+		obs.quiet(time.Second)
+	}
+	t.Cleanup(func() { gm.gm("guerra torre fim") })
 
-	// tickTowerWar runs one pass per minute, so the announce lands within ~2
-	// minutes of boot when the server started inside the window.
-	if text, ok := c.waitForChat("[Torre]", 3*time.Minute); ok {
-		t.Logf("tower announce reached the client: %q", text)
+	gm.gm("guerra torre aviso 1")
+	if text, ok := obs.waitForNotice("Guerra de Torres será iniciada", 10*time.Second); ok {
+		t.Logf("announce: %q", text)
 	} else {
-		t.Fatalf("no [Torre] notice within the window — the client would never learn the war started")
+		t.Fatalf("no announce notice (backlog: %s)", obs.backlogTypes())
 	}
-	// The start transition needs minute >= 6, so from an announce at minute 0-5 it
-	// can be a full six minutes away. Waiting less than that would report a
-	// working event as broken.
-	if text, ok := c.waitForChat("comecou", 8*time.Minute); ok {
-		t.Logf("tower start reached the client: %q", text)
+
+	// /torre during the announce is refused, so nobody lands in the box right
+	// before it is cleared (_MSG_MessageWhisper.cpp:752-855).
+	obs.slash("torre", "")
+	if _, ok := obs.waitForNotice("teleportar em guerras", 5*time.Second); !ok {
+		t.Errorf("/torre during the announce was not refused")
+	}
+
+	// It opens on the first minute tick after the one-minute lead.
+	if text, ok := obs.waitForNotice("começou", 3*time.Minute); ok {
+		t.Logf("start: %q", text)
 	} else {
-		t.Errorf("announce arrived but the START notice did not")
+		t.Fatalf("announce arrived but the START notice did not")
+	}
+
+	gm.gm("guerra torre estado")
+	if text, ok := gm.waitForNotice("aberta até", 5*time.Second); ok {
+		t.Logf("status: %q", text)
+	} else {
+		t.Errorf("/gm guerra torre estado did not report an open war")
+	}
+
+	gm.gm("guerra torre fim")
+	if text, ok := obs.waitForNotice("Guerra de Torres finalizada", 10*time.Second); ok {
+		t.Logf("end: %q", text)
+	} else {
+		t.Errorf("no end notice")
 	}
 }

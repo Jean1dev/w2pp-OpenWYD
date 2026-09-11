@@ -160,6 +160,15 @@ func CommandReference() CommandBus {
 				},
 			},
 			{
+				Name: "guerra", Aliases: []string{"war"}, Args: "torre <aviso|abrir|fim|estado> [minutos]", Target: "mundo",
+				Summary: "Força a Guerra de Torres fora do horário, para testar.",
+				Notes: []string{
+					"aviso [min]: anuncia agora e abre depois de min minutos (padrão 1). abrir [min]: abre na hora, por min minutos (padrão 24). fim: encerra, e a guilda com a torre ganha a fama. estado: fase, dono e horários.",
+					"A guerra forçada ignora a hora e o interruptor do painel (/eventos) até terminar, e avisa o servidor inteiro como a do horário.",
+					"cidade e noatum respondem que ainda não existem: entram aqui quando essas guerras forem portadas.",
+				},
+			},
+			{
 				Name: "npc", Args: "[raio] | off <bloco> | on <bloco>", Target: "mundo",
 				Summary: "Lista os blocos do NPCGener em volta, com o número de cada um; desliga ou liga um bloco.",
 				Notes: []string{

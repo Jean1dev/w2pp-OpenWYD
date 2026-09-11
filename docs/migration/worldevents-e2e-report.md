@@ -7,7 +7,7 @@ quem tem o `WYD.exe` na mão.
 Artefatos:
 
 - `tmserver/internal/world/worldevents_e2e_test.go` — cliente CPSock headless + os casos de teste.
-- `scripts/e2e-worldevents.sh` — sobe o que falta, abre a janela do calendário e roda a suíte.
+- `scripts/e2e-worldevents.sh` — roda a suíte contra a stack; a Torre é forçada por `/gm guerra torre`.
 
 ## 1. Por que um cliente headless
 
@@ -78,19 +78,16 @@ continua coberto pelos testes unitários de `internal/level`.
 
 ### 2.3 Torre (fase 4)
 
-A janela é "dia útil, hora 20, minuto ≤ 5, com `NewbieEventServer` ligado"
-(`CWarTower.cpp:203` → `handler/towerwar.go`). O evento lê `time.Now()`, ou seja, **a hora local do
-container** — então a janela é alcançável sem esperar uma terça à noite e **sem mockar relógio em
-código de produção**: `scripts/e2e-worldevents.sh` procura um fuso em que agora sejam 20:0x, sobe um
-segundo tmServer nele e conecta o cliente headless.
+A guerra roda todo dia na hora do painel (padrão 20h, migração 0051), mas o teste não espera essa
+hora: `/gm guerra torre aviso 1` anuncia na hora e abre um minuto depois, ignorando a hora e o
+interruptor do painel até terminar. O teste confere, num segundo jogador que não é GM
+(`W2PP_E2E_ACCOUNT2`), o que o servidor inteiro deve ver: o aviso, a recusa do `/torre` durante o
+aviso, o início e o fim — todos na linha de aviso do servidor (`MSG_MessagePanel`, ID 0, o
+`SendNotice` do legado). Leva uns 2 minutos, a qualquer hora.
 
-<!-- RESULTADO-TORRE -->
-
-Resultado observado na stack viva: o aviso `"[Torre] A guerra da torre comecara em breve."` e,
-273,75 segundos depois, o início `"[Torre] A guerra da torre comecou."` chegaram ao cliente
-headless como `MSG_MessageChat`. O runner preserva e restaura o valor anterior de
-`newbie_event_enabled`, mantendo-o ligado durante toda a execução para que a recarga periódica de
-configuração não feche a janela antes da transição do minuto 6.
+Até 2026-09-11 a janela era "dia útil, 20h, com `NewbieEventServer` ligado", e o runner procurava
+um fuso em que fossem 20:0x para subir um segundo tmServer nele; os avisos iam como
+`MSG_MessageChat`, o canal de fala de jogador. As duas coisas saíram.
 
 ## 3. O que não é alcançável de um cliente headless
 
@@ -155,8 +152,7 @@ docker compose run --rm dbserver seed-account -name test2 -pass test123   # snap
 
 ./scripts/e2e-worldevents.sh weather
 ./scripts/e2e-worldevents.sh newbie
-./scripts/e2e-worldevents.sh tower      # espera a janela abrir (até ~30 min)
-./scripts/e2e-worldevents.sh probe      # "a janela da torre está aberta agora?"
+./scripts/e2e-worldevents.sh tower      # força a guerra por /gm (~2 min)
 ```
 
 Os testes ficam atrás da tag de build `e2e`, então `go test ./...` normal não os enxerga.

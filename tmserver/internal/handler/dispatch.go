@@ -427,7 +427,10 @@ type worldEventState struct {
 	kingdom2     uint8 // Kingdom2Clear, delayed throne-room wipe state
 	tower        worldevents.Tower
 	towerOwner   uint16
-	castle       worldevents.Castle
+	// towerReminder is the last minute the "war in progress" notice went out,
+	// so the per-second tick sends it once per period, not sixty times.
+	towerReminder time.Time
+	castle        worldevents.Castle
 	// pesaRuns is PartyPesa[3] (Server.cpp:754): runs started in the current
 	// window, per Pesadelo tier, server-wide. Reset by the per-tier wipe.
 	pesaRuns [pesaTiers]int
