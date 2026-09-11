@@ -5,10 +5,10 @@ import "testing"
 func TestBasePools(t *testing.T) {
 	const mortal, arch, celestial, celestialCS, sCelestial = 2, 1, 3, 4, 5
 	tests := []struct {
-		name           string
-		cls, tier      uint8
-		lvl, con, int_ int32
-		hp, mp         int32
+		name            string
+		cls, tier       uint8
+		lvl, con, intel int32
+		hp, mp          int32
 	}{
 		// Celestial recém-nascido, atributos da classe: os 399 níveis já vêm dentro.
 		{"TK celestial nasce", 0, celestial, 0, 6, 4, 80 + 399*3, 45 + 399*1},
@@ -26,7 +26,7 @@ func TestBasePools(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hp, mp := BasePools(tt.cls, tt.tier, tt.lvl, tt.con, tt.int_)
+			hp, mp := BasePools(tt.cls, tt.tier, tt.lvl, tt.con, tt.intel)
 			if hp != tt.hp || mp != tt.mp {
 				t.Errorf("BasePools = HP %d MP %d, want HP %d MP %d", hp, mp, tt.hp, tt.mp)
 			}
