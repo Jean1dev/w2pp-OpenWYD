@@ -56,6 +56,15 @@ func (d *Dispatcher) Tick(w *world.World) {
 	})
 
 	w.ForEachMob(func(id int, e *world.Entity) {
+		if isVine(e) {
+			// A Muro de Espinhos is a wall: it stands, takes hits, and falls or
+			// runs out. It is kept off the AI below — no aggro, no chase — and
+			// its clock runs ahead of the dormancy gate, so a wall nobody is
+			// near still goes away. Whether the legacy wall ever struck back is
+			// UNVERIFIED; this one does not.
+			d.vineExpired(w, id, e)
+			return
+		}
 		if !runsMobAI(e) || e.HP <= 0 {
 			return // town/service NPCs don't fight; dead mobs do nothing
 		}

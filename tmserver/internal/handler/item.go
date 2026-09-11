@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
@@ -751,6 +752,9 @@ const (
 	volSephiraHi = 38
 )
 
+// msgAprendeuSephira is _SN_Learn_Sephera (Language.txt:274); %s is the book.
+const msgAprendeuSephira = "Você aprendeu Skill Sephira [%s]."
+
 // useSkillBook consumes a Sephira book: sets the learned bit, refreshes the
 // skill window (Learn rides UpdateEtc) and eats one unit. Already-learned
 // refuses and re-syncs the slot. The legacy also sets a cosmetic Affect(44)
@@ -763,8 +767,13 @@ func (d *Dispatcher) useSkillBook(w *world.World, s *world.Session, e *world.Ent
 		return
 	}
 	e.LearnedSkill |= bit
+	book := e.Carry[src].Index // read before the unit is eaten: the last one empties the slot
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
+	// _SN_Learn_Sephera (Language.txt:274, _MSG_UseItem.cpp:1853-1855). Without
+	// it the book simply vanished, and the player had no way to tell a learned
+	// skill from a lost item.
+	sendClientMessage(w, s, fmt.Sprintf(msgAprendeuSephira, d.itemName(book)))
 	d.sendEtc(w, s, e)
 	d.log.Info("sephira book learned", "conn", s.Conn, "bit", vol-7)
 }

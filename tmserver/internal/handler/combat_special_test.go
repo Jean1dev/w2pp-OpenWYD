@@ -496,6 +496,83 @@ func TestCreateVineRejectsOccupiedTarget(t *testing.T) {
 	}
 }
 
+// TestMuroDeEspinhosNaCidadeApanha is the report: a wall raised in town was read
+// as a service NPC (non-hostile clan inside a city) — immune to damage and
+// skipped by the AI, so it stood forever and nobody could break it.
+func TestMuroDeEspinhosNaCidadeApanha(t *testing.T) {
+	d := New(Config{VineMob: plainMobTemplate("Vine")})
+	w := world.New(world.Config{GridDim: 4096}, slog.Default(), nil, nil)
+	x, y := uint16(2100), uint16(2100) // Armia, inside the city
+	if !d.createVine(w, &protocol.MsgAttackBody{TargetX: x, TargetY: y}) {
+		t.Fatal("createVine recusou a casa livre em Armia")
+	}
+	id, _ := w.EntityAt(int16(x), int16(y))
+	vine := w.Entity(id)
+	if vine.NonCombatNPC || vine.Merchant != 0 {
+		t.Fatalf("muro na cidade: NonCombatNPC=%v Merchant=%d, want false/0", vine.NonCombatNPC, vine.Merchant)
+	}
+	if !isVine(vine) || vine.SegProgress != 4 {
+		t.Fatalf("muro sem o fim de rota do CreateMob: isVine=%v SegProgress=%d", isVine(vine), vine.SegProgress)
+	}
+}
+
+// TestMuroDeEspinhosSomeSozinho: the wall runs out after its life, with nobody
+// near — the dormancy gate that skips idle mobs must not freeze its clock.
+func TestMuroDeEspinhosSomeSozinho(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log, VineMob: plainMobTemplate("Vine")})
+	w := world.New(world.Config{GridDim: 64}, log, nil, d.Handle)
+	if !d.createVine(w, &protocol.MsgAttackBody{TargetX: 10, TargetY: 10}) {
+		t.Fatal("createVine recusou a casa livre")
+	}
+	id, _ := w.EntityAt(10, 10)
+	for i := 0; i < vineLifeTicks; i++ {
+		d.Tick(w)
+	}
+	if w.Entity(id) == nil {
+		t.Fatalf("o muro sumiu antes de %d ticks", vineLifeTicks)
+	}
+	d.Tick(w)
+	if w.Entity(id) != nil {
+		t.Fatalf("o muro ainda está de pé depois de %d ticks", vineLifeTicks+1)
+	}
+	if _, ocupada := w.EntityAt(10, 10); ocupada {
+		t.Fatal("a casa do muro continuou ocupada")
+	}
+}
+
+// TestMuroDeEspinhosDerrubadoNaoVolta: a wall that falls in combat is gone. The
+// respawn queue takes any template-carrying monster killed in a fight, and would
+// have raised the wall again on the same tile fifteen seconds later.
+func TestMuroDeEspinhosDerrubadoNaoVolta(t *testing.T) {
+	d := New(Config{VineMob: plainMobTemplate("Vine")})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	if !d.createVine(w, &protocol.MsgAttackBody{TargetX: 4, TargetY: 4}) {
+		t.Fatal("createVine recusou a casa livre")
+	}
+	id, _ := w.EntityAt(4, 4)
+	w.DespawnMob(id, 1)
+	if ids := w.SpawnDueRespawns(^uint32(0)); len(ids) != 0 {
+		t.Fatalf("o muro derrubado voltou: %v", ids)
+	}
+}
+
+// TestForcaEspectralMarcaOGolpe: the book's whole effect in the legacy is bit 8
+// of DoubleCritical on every swing of whoever learned it, on top of the rest.
+func TestForcaEspectralMarcaOGolpe(t *testing.T) {
+	payload := make([]byte, protocol.MsgAttackDamOffset)
+	payload[36] = 4 // an Air Blade proc already on the swing
+	markSpectral(payload, &world.Entity{LearnedSkill: learnedSpectral})
+	if payload[36] != 4|8 {
+		t.Fatalf("DoubleCritical = %#x, want %#x", payload[36], 4|8)
+	}
+	payload[36] = 0
+	markSpectral(payload, &world.Entity{LearnedSkill: 1 << 24})
+	if payload[36] != 0 {
+		t.Fatalf("sem Força Espectral, DoubleCritical = %#x, want 0", payload[36])
+	}
+}
+
 // startServerSkillsTargetMob is startServerSkillsMob with a caller-supplied mob
 // template at (6,5), next to the player spawn (5,5) — for exercising the
 // per-target gates of attack() (merchant immunity, dead-target rejection). It

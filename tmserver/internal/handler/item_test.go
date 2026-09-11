@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -2554,6 +2555,10 @@ func TestUseSephiraBookConsumesOneFromStack(t *testing.T) {
 	}
 	if item[6] != efAmount || item[7] != 2 {
 		t.Fatalf("book amount effect = %d.%d, want %d.2", item[6], item[7], efAmount)
+	}
+	// The book used to vanish in silence; the legacy names the skill learned.
+	if got := decodePanel(expect(t, c, protocol.MsgMessagePanel)); !strings.HasPrefix(got, "Você aprendeu Skill Sephira [") {
+		t.Fatalf("mensagem ao aprender = %q, want _SN_Learn_Sephera", got)
 	}
 	etc := expect(t, c, protocol.MsgUpdateEtc)
 	if learn := int64(binary.LittleEndian.Uint64(etc[12:])); learn != 1<<24 {

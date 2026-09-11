@@ -530,6 +530,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	// reports the pre-kill total is a difference of zero. It drew "EXP +0" and
 	// "Adquiriu 0 de experiência" on every kill.
 	writeAttackerStatus(payload, e.HP, e.MP, e.Exp, body.ReqMp)
+	markSpectral(payload, e)
 
 	// Broadcast the server-authoritative result with HEADER.ID = ESCENE_FIELD, exactly
 	// as the original (_MSG_Attack.cpp:25 `m->ID = ESCENE_FIELD`). This matters for the
@@ -1164,14 +1165,67 @@ func (d *Dispatcher) createVine(w *world.World, body *protocol.MsgAttackBody) bo
 	if mob == nil {
 		return false
 	}
+	// What CreateMob does to the template (Server.cpp:3249-3320), and what this
+	// used to skip — which is why the wall stood forever and could not be hit:
+	//
+	//   - Merchant = 0, and so never a service NPC. SpawnMobAt reads any
+	//     non-hostile mob inside a city as one, and a service NPC is both immune
+	//     to damage and skipped by the AI — so a wall raised in town was an
+	//     invulnerable statue.
+	//   - Every waypoint on the wall's own tile and SegmentProgress 4: the end of
+	//     a RouteType 3 route, where WaitSec counts down and the mob is deleted
+	//     (CMob.cpp:172-177 → DeleteMob(index, 3)). With no waypoints the port's
+	//     roam bailed out before reaching that countdown.
+	//   - No way back. A wall has no generator, so the legacy's DeleteMob just
+	//     frees it; the port's respawn queue takes any template-carrying monster
+	//     killed in combat and would raise the wall again on the same tile fifteen
+	//     seconds after it fell. Dropping the template takes it off that queue
+	//     (it is kept only for respawn) and is what isVine recognises.
+	mob.Template = nil
+	mob.Merchant = 0
+	mob.NonCombatNPC = false
+	for i := range mob.SegListX {
+		mob.SegListX[i], mob.SegListY[i] = x, y
+	}
+	mob.SegProgress = 4
 	mob.Mode = world.MobPeace
-	mob.WaitTicks = 40
+	mob.WaitTicks = vineLifeTicks
 	payload := protocol.EncodeCreateMobBody(createMobFrom(mob, 2))
 	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 		if w.MarkSeen(vs, id) {
 			w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, payload)
 		}
 	})
+	return true
+}
+
+// vineLifeTicks is the Muro de Espinhos' life: CreateMob's WaitSec 40 for a
+// RouteType 3 mob (Server.cpp:3319), one tick a second here. The legacy took 6
+// off per AI pass; how often that pass ran is not in the source, so the length
+// of the wall's life in seconds is UNVERIFIED — that it ends is not.
+const vineLifeTicks = 40
+
+// isVine tells a Muro de Espinhos wall from every other mob. In the legacy it is
+// the only thing created on a RouteType 3 route with no generator
+// (CreateMob(..., 3) has exactly one caller, _MSG_Attack.cpp:1166). Here a
+// panel NPC could be configured the same way, so the dropped template (see
+// createVine) is part of the mark: every other spawn keeps its template.
+func isVine(e *world.Entity) bool {
+	return e.RouteType == 3 && e.GenIndex < 0 && e.Template == nil
+}
+
+// vineExpired runs the wall's clock and removes it when it runs out.
+//
+// It counts every tick, whatever the wall is doing. The legacy only counted in
+// the peaceful pass (StandingByProcessor), so a wall in a fight, or one nobody
+// was near, could stand indefinitely — the same "invincible wall" in another
+// form, and not something a moderator can clear.
+func (d *Dispatcher) vineExpired(w *world.World, id int, e *world.Entity) bool {
+	if e.WaitTicks > 0 {
+		e.WaitTicks--
+		return false
+	}
+	w.DespawnMob(id, 3)
 	return true
 }
 
@@ -1574,6 +1628,20 @@ func writeAttackProgress(payload []byte, progress uint16) {
 func writeDoubleCritical(payload []byte, doubleCritical uint8) {
 	if len(payload) >= protocol.MsgAttackDamOffset {
 		payload[36] = doubleCritical
+	}
+}
+
+// learnedSpectral is the Força Espectral Sephira book's LearnedSkill bit.
+const learnedSpectral = 1 << 29
+
+// markSpectral is all Força Espectral does in the legacy: no arithmetic, only
+// DoubleCritical bit 8 on every swing of whoever learned it, ORed in last,
+// right before the multicast (_MSG_Attack.cpp:1739-1741). What the client
+// draws from the bit is UNVERIFIED; without it the book was learned and did
+// nothing at all.
+func markSpectral(payload []byte, attacker *world.Entity) {
+	if attacker.LearnedSkill&learnedSpectral != 0 && len(payload) >= protocol.MsgAttackDamOffset {
+		payload[36] |= 8
 	}
 }
 
