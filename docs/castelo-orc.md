@@ -192,8 +192,13 @@ que já está na bolsa (`putMobDrop`), e com a bolsa cheia o item se perde.
 
 **O que o servidor acrescenta** (`casteloOrcFinish`, só em monstro da quest):
 - O **amuleto** cai +0 e com **um** add sorteado: 4–10 de magia, 10–20 de dano,
-  1–2 de crítico ou 50–70 de HP. Crítico e magia somam no equipamento inteiro e são
-  divididos por 4 no personagem: 1–2 de crítico sozinho não aparece.
+  1% ou 2% de crítico ou 50–70 de HP.
+  - O crítico é gravado em décimos de ponto percentual: o tooltip mostra o valor
+    ÷ 10, então 1% é 10 e 2% é 20, como no bônus de drop do legado, que dá
+    crítico de 10 em 10. Até 11/09 o sorteio era 1–2 e o amuleto mostrava
+    "Crítico: 0.2%"; os que já caíram assim ficam como estão.
+  - Crítico e magia somam no equipamento inteiro e são divididos por 4 no
+    personagem: 10 ou 20 de crítico viram 2 ou 5 pontos.
 - O **anel** (501–506), se alguém der uma regra a ele, cai +0 com 1–3 de magia,
   5–7 de dano ou 10–20 de mana.
 

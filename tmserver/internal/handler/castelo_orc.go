@@ -40,28 +40,32 @@ func casteloOrcAwardsExp(mob *world.Entity) bool {
 }
 
 // addRoll is one line of an accessory's add table: which effect, and the
-// inclusive range its value is drawn from.
+// inclusive range its value is drawn from in steps of step.
 type addRoll struct {
-	effect   uint8
-	min, max int
+	effect         uint8
+	min, max, step int
 }
 
 // The amulet and ring add tables the quest design asked for. One line is drawn,
-// then one value inside it. The numbers are the item's own (what the tooltip
-// shows): EF_CRITICAL and EF_MAGIC are summed over the whole equipment and
-// divided by four afterwards, so a lone 1-2 of critical rounds to nothing until
-// the rest of the set carries it past a multiple of four.
+// then one value inside it. The numbers are the item's own byte.
+//
+// Critical is written in tenths of a percent: the tooltip shows the byte / 10,
+// and the legacy drop bonus hands it out in steps of ten (EF_CRITICAL2,
+// refine/dropbonus.go). The design's "1 or 2 of critical" is 1% or 2% — 10 or
+// 20. Until 11/09/2026 it was drawn from 1-2 and the amulet read "Crítico: 0.2%".
+// Summed over the equipment and divided by four (Basedef.cpp:3209), 10 or 20 is
+// 2 or 5 points on the character.
 var (
 	casteloOrcAmuletAdds = []addRoll{
-		{efMagic, 4, 10},
-		{efDamage, 10, 20},
-		{efCritical, 1, 2},
-		{efHp, 50, 70},
+		{efMagic, 4, 10, 1},
+		{efDamage, 10, 20, 1},
+		{efCritical, 10, 20, 10},
+		{efHp, 50, 70, 1},
 	}
 	casteloOrcRingAdds = []addRoll{
-		{efMagic, 1, 3},
-		{efDamage, 5, 7},
-		{efMp, 10, 20},
+		{efMagic, 1, 3, 1},
+		{efDamage, 5, 7, 1},
+		{efMp, 10, 20, 1},
 	}
 )
 
@@ -93,7 +97,7 @@ func (d *Dispatcher) casteloOrcFinish(w *world.World, mob *world.Entity, it *wor
 
 func stampAccessoryAdd(w *world.World, it *world.Item, table []addRoll) {
 	line := table[w.Rand().Intn(len(table))]
-	value := line.min + w.Rand().Intn(line.max-line.min+1)
+	value := line.min + line.step*w.Rand().Intn((line.max-line.min)/line.step+1)
 	it.Effects[0] = world.Effect{Effect: efSanc, Value: 0}
 	it.Effects[1] = world.Effect{Effect: line.effect, Value: uint8(value)}
 	it.Effects[2] = world.Effect{}

@@ -43,9 +43,9 @@ func TestCasteloOrcNaoDaXP(t *testing.T) {
 func TestCasteloOrcAmuletoSaiComUmAdd(t *testing.T) {
 	d, w, killer := mobKilledWorld(t)
 	d.dropRules = droprule.NewTable([]droprule.Rule{{Mob: "COrc_GraoLorde", Item: itemAmuletoDePrata, Chance: droprule.MaxChance}})
-	faixa := map[uint8][2]int{}
+	faixa := map[uint8][3]int{}
 	for _, a := range casteloOrcAmuletAdds {
-		faixa[a.effect] = [2]int{a.min, a.max}
+		faixa[a.effect] = [3]int{a.min, a.max, a.step}
 	}
 	visto := map[uint8]bool{}
 	for kill := 0; kill < 40; kill++ {
@@ -62,7 +62,7 @@ func TestCasteloOrcAmuletoSaiComUmAdd(t *testing.T) {
 		}
 		add := it.Effects[1]
 		f, ok := faixa[add.Effect]
-		if !ok || int(add.Value) < f[0] || int(add.Value) > f[1] {
+		if !ok || int(add.Value) < f[0] || int(add.Value) > f[1] || (int(add.Value)-f[0])%f[2] != 0 {
 			t.Errorf("add %+v fora da tabela do design", add)
 		}
 		if it.Effects[2] != (world.Effect{}) {
@@ -72,6 +72,33 @@ func TestCasteloOrcAmuletoSaiComUmAdd(t *testing.T) {
 	}
 	if len(visto) < 2 {
 		t.Errorf("40 amuletos e só %d tipo(s) de add: o sorteio não está escolhendo a linha", len(visto))
+	}
+}
+
+// The amulet's critical is 1% or 2% on the tooltip — the byte 10 or 20, never
+// the 1-2 that read "0.2%" in game — and both come up.
+func TestCasteloOrcAmuletoCriticoUmOuDoisPorCento(t *testing.T) {
+	_, w, _ := mobKilledWorld(t)
+	var crit []addRoll
+	for _, a := range casteloOrcAmuletAdds {
+		if a.effect == efCritical {
+			crit = append(crit, a)
+		}
+	}
+	if len(crit) != 1 {
+		t.Fatalf("%d linhas de crítico na tabela do amuleto, want 1", len(crit))
+	}
+	visto := map[uint8]bool{}
+	for range 40 {
+		it := world.Item{Index: itemAmuletoDePrata}
+		stampAccessoryAdd(w, &it, crit)
+		if v := it.Effects[1].Value; it.Effects[1].Effect != efCritical || (v != 10 && v != 20) {
+			t.Fatalf("add de crítico = %+v, want 10 ou 20 (1%% ou 2%%)", it.Effects[1])
+		}
+		visto[it.Effects[1].Value] = true
+	}
+	if !visto[10] || !visto[20] {
+		t.Errorf("40 sorteios e só saiu %v", visto)
 	}
 }
 
