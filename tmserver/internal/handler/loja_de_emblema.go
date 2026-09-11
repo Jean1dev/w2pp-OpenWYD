@@ -18,9 +18,6 @@ const (
 	// emblemaOrc é o item 524, Emblema_Orc. No legado só serve de entrega da
 	// quest de novato 4 (_MSG_Quest.cpp:2058).
 	emblemaOrc = 524
-
-	// precoEmEmblemas é quanto cada arma custa.
-	precoEmEmblemas = 1
 )
 
 // armasDoUnicornioPuro é o estoque padrão: a família do 939, toda sem requisito
