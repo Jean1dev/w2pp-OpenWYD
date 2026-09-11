@@ -50,6 +50,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/personagem"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/plataforma"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/session"
+	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/siteapi"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
@@ -89,10 +90,21 @@ func run(logger *slog.Logger) error {
 	// panel still runs against nothing but the database.
 	webAddr := flag.String("webserver", os.Getenv("W2PP_WEBSERVER"), "webServer gRPC address for the item pages (empty = hide them)")
 	jogoAddr := flag.String("tmserver", os.Getenv("W2PP_TMSERVER_CONTROL"), "tmServer control address for the live pages: who is online, kick, notice (empty = hide them). Needs W2PP_CONTROL_TOKEN to match the tmServer's")
+	// The player site's API. A second listener, meant for the private network
+	// only; empty leaves it off and the panel exactly as it was.
+	siteAddr := flag.String("site-api", os.Getenv("SITE_API_ADDR"), "private listen address for the player site's API, e.g. :8090 (empty = off). Needs W2PP_PAINEL_TOKEN_SITE")
 	flag.Parse()
 
 	if *dsn == "" {
 		return fmt.Errorf("-dsn (or DATABASE_URL) is required")
+	}
+	// Refused before anything is dialled. Serving the site's API without its key
+	// would mean either an open door or one that refuses everyone, and the
+	// half-configured state is the one somebody has to notice.
+	chaveSite := os.Getenv("W2PP_PAINEL_TOKEN_SITE")
+	if *siteAddr != "" && chaveSite == "" {
+		return fmt.Errorf("SITE_API_ADDR is set but W2PP_PAINEL_TOKEN_SITE is empty; " +
+			"refusing to start. Fill the key first, or empty SITE_API_ADDR to turn the site API off")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -177,6 +189,10 @@ func run(logger *slog.Logger) error {
 			"configuration", "RAILWAY_API_TOKEN + W2PP_TMSERVER_SERVICE_ID")
 	}
 
+	// Shared with the site API: a staff member who changes their password through
+	// the site must lose their panel sessions, as the panel's own reset does.
+	sessoes := session.New(*sessionTTL)
+
 	handler, err := panel.New(panel.Config{
 		Platform:    plat,
 		Accounts:    store.New(pool),
@@ -201,7 +217,7 @@ func run(logger *slog.Logger) error {
 		Chat:        store.New(pool),
 		Jogo:        live,
 		Audit:       audit.New(pool),
-		Sessions:    session.New(*sessionTTL),
+		Sessions:    sessoes,
 		Logger:      logger,
 		SecureOnly:  !*insecureCookies,
 	})
@@ -218,7 +234,38 @@ func run(logger *slog.Logger) error {
 		IdleTimeout:       idleTimeout,
 	}
 
-	errCh := make(chan error, 1)
+	// The site's API never shares the public listener or its mux: its routes
+	// exist only here, and the staff routes do not exist here at all.
+	var siteSrv *http.Server
+	if *siteAddr != "" {
+		api, err := siteapi.New(siteapi.Config{
+			Chave:       chaveSite,
+			Contas:      accounts.New(pool),
+			Credenciais: store.New(pool),
+			Leitura:     siteapi.NovoLeitor(pool),
+			Carteira:    donate.New(pool),
+			Entregas:    entrega.New(pool),
+			Jogo:        live,
+			Audit:       audit.New(pool),
+			Sessoes:     sessoes,
+			Logger:      logger,
+		})
+		if err != nil {
+			return fmt.Errorf("build site api: %w", err)
+		}
+		siteSrv = &http.Server{
+			Addr:              *siteAddr,
+			Handler:           api.Routes(),
+			ReadHeaderTimeout: readHeaderTimeout,
+			ReadTimeout:       readTimeout,
+			WriteTimeout:      writeTimeout,
+			IdleTimeout:       idleTimeout,
+		}
+	} else {
+		logger.Info("site API disabled", "configuration", "SITE_API_ADDR + W2PP_PAINEL_TOKEN_SITE")
+	}
+
+	errCh := make(chan error, 2)
 	go func() {
 		logger.Info("adminserver listening", "addr", *addr, "session_ttl", *sessionTTL,
 			"secure_cookies", !*insecureCookies)
@@ -228,6 +275,16 @@ func run(logger *slog.Logger) error {
 		}
 		errCh <- nil
 	}()
+	if siteSrv != nil {
+		go func() {
+			logger.Info("site API listening", "addr", *siteAddr, "game_link", live != nil)
+			if err := siteSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("site api serve: %w", err)
+				return
+			}
+			errCh <- nil
+		}()
+	}
 
 	select {
 	case err := <-errCh:
@@ -236,6 +293,11 @@ func run(logger *slog.Logger) error {
 		logger.Info("shutting down")
 		shutCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
+		if siteSrv != nil {
+			if err := siteSrv.Shutdown(shutCtx); err != nil {
+				return fmt.Errorf("site api shutdown: %w", err)
+			}
+		}
 		if err := srv.Shutdown(shutCtx); err != nil {
 			return fmt.Errorf("shutdown: %w", err)
 		}
