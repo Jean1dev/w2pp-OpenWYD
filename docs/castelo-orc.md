@@ -23,14 +23,17 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
 
 | Onde | Monstro | Chance |
 |---|---|---|
-| Arena da Quest 256 das Hidras (nível 265–320) | Hidra_Dourada · Hidra_Imortal | 1% · 0,5% |
-| Arena da Quest 256 dos Elfos (nível 320–350) | Mestre_Elfo · Servo_Elfo | 1% · 0,5% |
-| Deserto | Adamant_Tauron, Aeon_Tauron, Aranha_Inferno, Arqueiro_Tauron, Cav._Lugefer, Ladrao_Tauron, Lugefer, Manticora, Taron_Assassino, Treant, Verme_, Tauron_Agmo, Verme_Agmo | 0,3% cada |
+| Arena da Quest 256 das Hidras (nível 265–320) | Hidra_Dourada · Hidra_Imortal | 0,49% · 0,25% — 1 chave a cada 4 limpezas |
+| Arena da Quest 256 dos Elfos (nível 320–350) | Mestre_Elfo · Servo_Elfo | 1,52% · 0,76% — 1 chave a cada 3 limpezas |
+| Deserto | Adamant_Tauron, Aeon_Tauron, Aranha_Inferno, Arqueiro_Tauron, Cav._Lugefer, Ladrao_Tauron, Lugefer, Manticora, Taron_Assassino, Treant, Verme_, Tauron_Agmo, Verme_Agmo | 0,1% cada — 1 chave a cada 1.000 abates |
 
 - **Por que o `*` a 0%:** hoje o Guarda_Orc_ do castelo aberto dá a 465 sempre (slot
   56), e ele renasce a cada 6 min.
 - **Templates escolhidos:** só os que nascem apenas nesses lugares. O Tauron comum
-  também nasce na Monster City e ficou de fora.
+  tem 1.648 dos seus 1.826 fora do deserto (Monster City e outros) e ficou de fora.
+- **Uma "limpeza"** é matar a arena inteira uma vez (69 hidras, 28 elfos). As arenas
+  não têm relógio e renascem sozinhas (os Elfos, um grupo a cada ~24 s): quem fica
+  farmando tira mais chaves que a meta.
 - **O Sentinela da quest** carrega a 466 (Portão Orc Leste), e não a 465: senão cada
   corrida pagaria a entrada da seguinte.
 
