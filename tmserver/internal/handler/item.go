@@ -245,9 +245,21 @@ const itemPedraDoSabio = 1774
 
 const maxStackAmount = 120
 
+// efUnique is EF_UNIQUE (ItemEffect.h): a filler that says "this slot holds
+// nothing". The legacy drop stamps a random one into every empty slot of the
+// refine materials — the Restos de Oriharucon (419) and Lactolerium (420) among
+// them (refine.assinaMaterial) — and nothing ever reads it back.
+const efUnique = 59
+
 // setItemAmount writes n into the item's EF_AMOUNT effect slot (mirrors
 // BASE_SetItemAmount): reuse an existing EF_AMOUNT effect, else claim the first
-// empty effect slot. It is the inverse of itemAmount/consumeOneItem.
+// empty effect slot, else an EF_UNIQUE filler. It is the inverse of
+// itemAmount/consumeOneItem.
+//
+// The filler is the last resort because a dropped material has all three slots
+// stamped with it: without it such a Resto had nowhere to hold a count, and so
+// could never be merged. The legacy merge does the same — it writes the total over
+// stEffect[0] whatever sits there (_MSG_TradingItem.cpp:264).
 func setItemAmount(it *world.Item, n int) {
 	for i := range it.Effects {
 		if it.Effects[i].Effect == efAmount {
@@ -255,13 +267,20 @@ func setItemAmount(it *world.Item, n int) {
 			return
 		}
 	}
-	for i := range it.Effects {
-		if it.Effects[i].Effect == 0 {
-			it.Effects[i].Effect = efAmount
-			it.Effects[i].Value = uint8(n)
-			return
+	for _, free := range [...]uint8{0, efUnique} {
+		for i := range it.Effects {
+			if it.Effects[i].Effect == free {
+				it.Effects[i] = world.Effect{Effect: efAmount, Value: uint8(n)}
+				return
+			}
 		}
 	}
+}
+
+// stackPlace reports whether two stacks may be merged in this place: the bag and
+// the cargo. Equipment never holds a stack.
+func stackPlace(place int) bool {
+	return place == world.ItemPlaceCarry || place == world.ItemPlaceCargo
 }
 
 func tryMergeItemStacks(src, dst *world.Item) bool {
@@ -299,8 +318,8 @@ func sameStackClass(a, b world.Item) bool {
 	if a.Empty() || b.Empty() || a.Index != b.Index || !isSplittable(a.Index) || a.ExpiresAt != b.ExpiresAt {
 		return false
 	}
-	ae, an := nonAmountEffects(a)
-	be, bn := nonAmountEffects(b)
+	ae, an := stackIdentity(a)
+	be, bn := stackIdentity(b)
 	if an != bn {
 		return false
 	}
@@ -312,9 +331,28 @@ func sameStackClass(a, b world.Item) bool {
 	return true
 }
 
+// stackIdentity is what two stacks must share to merge: every effect except the
+// amount and the EF_UNIQUE filler. The filler has to be left out because each
+// dropped Resto carries its own random one, so comparing it made two Restos
+// never join — the legacy compares only the index (_MSG_TradingItem.cpp:249).
+// It is not nonAmountEffects: the trade check compares the client's copy of an
+// item byte for byte, and there the filler still counts.
+func stackIdentity(it world.Item) ([3]world.Effect, int) {
+	var out [3]world.Effect
+	n := 0
+	for _, ef := range it.Effects {
+		if ef.Effect == 0 || ef.Effect == efAmount || ef.Effect == efUnique {
+			continue
+		}
+		out[n] = ef
+		n++
+	}
+	return out, n
+}
+
 func canWriteItemAmount(it world.Item) bool {
 	for _, ef := range it.Effects {
-		if ef.Effect == 0 || ef.Effect == efAmount {
+		if ef.Effect == 0 || ef.Effect == efAmount || ef.Effect == efUnique {
 			return true
 		}
 	}
@@ -2903,7 +2941,9 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	if srcPlace == world.ItemPlaceCarry && dstPlace == world.ItemPlaceCarry && tryMergeItemStacks(src, dst) {
+	// Stacks join in the bag and in the cargo, and across the two: the legacy merge
+	// sits after the place checks and reads neither place (_MSG_TradingItem.cpp:249).
+	if stackPlace(srcPlace) && stackPlace(dstPlace) && tryMergeItemStacks(src, dst) {
 		w.Send(s, protocol.MsgTradingItem, payload) // echo the move
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(srcPlace, srcSlot, itemToSel(*src)))
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(dstPlace, dstSlot, itemToSel(*dst)))
