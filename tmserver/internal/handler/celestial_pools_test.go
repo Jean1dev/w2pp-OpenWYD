@@ -44,26 +44,33 @@ func loginPools(t *testing.T, st world.CharacterState) (hp, mp int32) {
 // porte do +MAX_LEVEL tem no banco os pools de um personagem de nível baixo. O
 // login o reconstrói pela fórmula do legado (BASE_GetHpMp), como o original faz
 // em todo carregamento — é isso que conserta quem já existe.
+//
+// O UpdateScore leva o CurrentScore, que o legado dobra para jogador
+// (BASE_GetCurrentScore, Basedef.cpp:3152-3163; scoreMaxHP): o pool
+// reconstruído chega ao cliente em dobro. Str/Int/Dex/Con são os da classe, então
+// não entra o termo de atributo.
 func TestCelestialGravadoErradoVoltaConsertado(t *testing.T) {
 	// FM Celestial nível 10, sem pontos: o banco tem 70/95 (base + 10 níveis).
 	hp, mp := loginPools(t, world.CharacterState{
 		Slot: 0, Name: "Celeste", Class: 1, X: 5, Y: 5, Level: 10, ClassMaster: classMasterCelestial,
 		Str: 5, Int: 8, Dex: 5, Con: 5, HP: 70, MaxHP: 70, MP: 95, MaxMP: 95,
 	})
-	if hp != 60+(10+399)*1 || mp != 65+(10+399)*3 {
-		t.Errorf("Celestial no login: HP/MP %d/%d, want %d/%d (os 399 níveis do legado)", hp, mp, 60+409, 65+409*3)
+	baseHP, baseMP := int32(60+(10+399)*1), int32(65+(10+399)*3)
+	if hp != 2*baseHP || mp != 2*baseMP {
+		t.Errorf("Celestial no login: HP/MP %d/%d, want %d/%d (os 399 níveis do legado, em dobro)", hp, mp, 2*baseHP, 2*baseMP)
 	}
 }
 
 // TestArchNaoTemOPoolRecalculado: Mortal e Arch mantêm o que está gravado. O
 // recálculo apagaria as concessões permanentes que este servidor guarda direto
-// no pool (os cristais do Arch).
+// no pool (os cristais do Arch). No UpdateScore o gravado chega em dobro, como
+// o de todo jogador.
 func TestArchNaoTemOPoolRecalculado(t *testing.T) {
 	hp, mp := loginPools(t, world.CharacterState{
 		Slot: 0, Name: "Arcanjo", Class: 1, X: 5, Y: 5, Level: 10, ClassMaster: classMasterArch,
 		Str: 5, Int: 8, Dex: 5, Con: 5, HP: 150, MaxHP: 150, MP: 175, MaxMP: 175,
 	})
-	if hp != 150 || mp != 175 {
-		t.Errorf("Arch no login: HP/MP %d/%d, want 150/175 (o gravado)", hp, mp)
+	if hp != 2*150 || mp != 2*175 {
+		t.Errorf("Arch no login: HP/MP %d/%d, want 300/350 (o gravado, em dobro)", hp, mp)
 	}
 }
