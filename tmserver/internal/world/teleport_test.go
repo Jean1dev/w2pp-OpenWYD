@@ -3,6 +3,8 @@ package world
 import (
 	"fmt"
 	"testing"
+
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/rng"
 )
 
 func TestTeleportDestDungeon(t *testing.T) {
@@ -61,5 +63,20 @@ func TestTeleportDest(t *testing.T) {
 	// Non-teleport position.
 	if _, _, _, ok := TeleportDest(2096, 2096); ok {
 		t.Errorf("non-tile position reported a teleport")
+	}
+}
+
+func TestTeleportDestValeRequiresEquippedFairy(t *testing.T) {
+	for _, hasFairy := range []bool{false, true} {
+		x, y, cost, ok := TeleportDestWithAccess(2548, 1740, hasFairy, rng.NewSeeded(1))
+		if !hasFairy {
+			if ok {
+				t.Fatal("Vale portal resolved without the Valley Fairy")
+			}
+			continue
+		}
+		if !ok || cost != 0 || x < 2281 || x > 2283 || y < 3688 || y > 3690 {
+			t.Fatalf("Vale portal = (%d,%d), cost=%d, ok=%v", x, y, cost, ok)
+		}
 	}
 }

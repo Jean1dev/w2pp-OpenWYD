@@ -225,7 +225,10 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 	if e == nil || e.HP == 0 {
 		return
 	}
-	destX, destY, cost, ok := world.TeleportDest(e.X, e.Y)
+	// GetTeleportPosition only opens the Azran→Vale portal for the equipped
+	// Valley Fairy (item 3916 in Equip[13]); preserve that legacy gate.
+	hasValleyFairy := e.Equip[fairyEquipSlot].Index == 3916
+	destX, destY, cost, ok := world.TeleportDestWithAccess(e.X, e.Y, hasValleyFairy, w.Rand())
 	if !ok {
 		return // no teleport tile here
 	}

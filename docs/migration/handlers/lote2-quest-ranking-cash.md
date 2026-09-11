@@ -22,6 +22,12 @@
   data-driven (tabela de quests). Passo-a-passo fino de alguns NPCs longos fica como UNVERIFIED no
   doc dedicado.
 
+## `_MSG_ReqTeleport` (0x0290) — acesso ao Vale
+- O portal de Azran na origem `(2548..2551, 1740..1743)` leva a `(2281..2283, 3688..3690)`.
+- Como em `GetTeleportPosition` (`Source/Code/TMSrv/GetFunc.cpp`), o acesso exige a **Fada do Vale**,
+  item `3916`, equipada em `Equip[13]`. O item não é consumido e a rota é gratuita.
+- Sem a fada equipada, o servidor ignora o pedido sem alterar posição, gold ou estado do item.
+
 ## `_MSG_ReqRanking` (0x039F) — duelo / ranking PvP
 - **Gatilho/struct:** `MSG_STANDARDPARM2` (`Parm1 = tDuel`, `Parm2 = DuelParm` 0..4).
 - **Validações:** `DuelParm` em `[0,4]`; `tDuel` em `(0,MAX_USER)`; alvo não pode ter `Whisper`
