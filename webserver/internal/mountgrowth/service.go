@@ -69,11 +69,6 @@ const mountRowSize = 30
 // amagoBase is where the âmago row starts.
 const amagoBase = 2390
 
-// Slots whose âmago belongs to another lineage (_MSG_UseItem.cpp:1583-1587).
-// Sleipnir and Svadilfari have no âmago of their own, and a screen that did not
-// say so would send an operator looking for an item that does not exist.
-var sharedAmagoSlot = map[int]int{28: 21, 27: 10}
-
 // List returns every adult lineage, in index order, with whatever is configured.
 func (s *Service) List(ctx context.Context) ([]Curve, error) {
 	rows, err := s.store.ListMountGrowthRates(ctx)
@@ -137,14 +132,12 @@ func (s *Service) name(index int16) string {
 	return ""
 }
 
-// amagoFor is the âmago that feeds a mount, which is usually its own row and
-// sometimes another's.
+// amagoFor is the âmago that feeds a mount: its own row. The legacy fed the
+// Svadilfari and the Sleipnir with another lineage's âmago; this server does
+// not (tmserver/internal/handler/amago.go, mountAmagoSlot), and the screen
+// names the item the game actually accepts.
 func amagoFor(mountIndex int16) int16 {
-	slot := (int(mountIndex) - domain.MountAdultLo) % mountRowSize
-	if shared, ok := sharedAmagoSlot[slot]; ok {
-		slot = shared
-	}
-	return int16(amagoBase + slot)
+	return int16(amagoBase + (int(mountIndex)-domain.MountAdultLo)%mountRowSize)
 }
 
 func unsetRates() [domain.MountGrowthBands]int16 {

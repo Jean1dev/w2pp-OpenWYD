@@ -44,12 +44,6 @@ const (
 	// amagoBatch is how many of the stack one click spends (this fork; the legacy
 	// feeds one). Ten is what a player can absorb as a single result line.
 	amagoBatch = 10
-
-	// Sleipnir and Svadilfari share their Âmago with another row (:1583-1587).
-	mountSlotSleipnir   = 28
-	mountSlotSvadilfari = 27
-	amagoSlotSleipnir   = 21
-	amagoSlotSvadilfari = 10
 )
 
 // The vitality an adult mount is born with (stEffect[1].cValue, EF_MOUNTLIFE).
@@ -71,16 +65,17 @@ func rollAdultVitality(w *world.World) uint8 {
 	return uint8(adultVitalityMin + w.Rand().Intn(adultVitalityMax-adultVitalityMin+1))
 }
 
-// mountAmagoSlot maps a mount's sIndex to the Âmago row that feeds it.
+// mountAmagoSlot maps a mount's sIndex to the Âmago row that feeds it: its own.
+//
+// DELIBERATE DIVERGENCE. The legacy feeds the Svadilfari with the Andaluz N's
+// âmago (2400) and the Sleipnir with the Unicórnio's (2411) (:1583-1587), which
+// left 2417 and 2418 — named Âmago de Svadilfari and de Sleipnir in the catalog
+// — feeding nothing at all, and made the two Mythic mounts exactly as easy to
+// raise as a Rara and an Épica: whoever farmed Andaluz food was farming
+// Svadilfari food. Here every lineage eats its own row, so the Mythic âmagos
+// come only from where the server puts them (the Baú do Âmago Especial).
 func mountAmagoSlot(index int16) int {
-	slot := (int(index) - mountLo) % mountRowSize
-	switch slot {
-	case mountSlotSleipnir:
-		return amagoSlotSleipnir
-	case mountSlotSvadilfari:
-		return amagoSlotSvadilfari
-	}
-	return slot
+	return (int(index) - mountLo) % mountRowSize
 }
 
 // criaGrowsAt is the level at which a cria becomes its adult form.

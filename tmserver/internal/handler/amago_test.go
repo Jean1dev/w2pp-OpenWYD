@@ -103,18 +103,55 @@ func TestAmagoRefusesMismatchedMount(t *testing.T) {
 	}
 }
 
-func TestMountAmagoSlotSharedRows(t *testing.T) {
-	// Sleipnir and Svadilfari are fed by another row's âmago (:1583-1587).
-	if got := mountAmagoSlot(mountLo + mountSlotSleipnir); got != amagoSlotSleipnir {
-		t.Errorf("Sleipnir slot = %d, want %d", got, amagoSlotSleipnir)
-	}
-	if got := mountAmagoSlot(mountLo + mountSlotSvadilfari); got != amagoSlotSvadilfari {
-		t.Errorf("Svadilfari slot = %d, want %d", got, amagoSlotSvadilfari)
+func TestMountAmagoSlotOwnRow(t *testing.T) {
+	// Every lineage eats its own row — Svadilfari and Sleipnir included, which the
+	// legacy fed with the Andaluz N's and the Unicórnio's âmago (:1583-1587).
+	for _, c := range []struct {
+		name  string
+		mount int16
+		amago int16
+	}{
+		{"Svadilfari", 2387, 2417},
+		{"Sleipnir", 2388, 2418},
+		{"Andaluz N", 2370, 2400},
+		{"Unicórnio", 2381, 2411},
+	} {
+		if got := mountAmagoSlot(c.mount); got != int(c.amago)-amagoBase {
+			t.Errorf("%s: âmago slot = %d, want %d (%d)", c.name, got, int(c.amago)-amagoBase, c.amago)
+		}
 	}
 	// An adult sits one row up and maps to the same âmago slot as its cria.
 	if mountAmagoSlot(itemCriaAndaluzN) != mountAmagoSlot(itemCriaAndaluzN+mountRowSize) {
 		t.Error("cria and adult must share an âmago slot")
 	}
+}
+
+// The Svadilfari eats the Âmago de Svadilfari (2417), and the Andaluz N's âmago
+// (2400) that fed it in the legacy is now refused — and kept.
+func TestAmagoSvadilfariEatsItsOwn(t *testing.T) {
+	const criaSvadilfari, amagoSvadilfari = 2357, 2417
+	t.Run("próprio", func(t *testing.T) {
+		vols := map[int]int{amagoSvadilfari: volAmago}
+		addr, stop := startServerClockVol(t, amagoDB(criaSvadilfari, 5, amagoSvadilfari), vols)
+		defer stop()
+		c := enterWorld(t, addr)
+		defer c.Close()
+		amagoFrame(t, c)
+		if got := equipItem(t, c); got.Effects[1].Effect != 6 {
+			t.Errorf("level = %d, want 6: o Svadilfari devia comer o 2417", got.Effects[1].Effect)
+		}
+	})
+	t.Run("do Andaluz", func(t *testing.T) {
+		vols := map[int]int{itemAmagoAndaluzN: volAmago}
+		addr, stop := startServerClockVol(t, amagoDB(criaSvadilfari, 5, itemAmagoAndaluzN), vols)
+		defer stop()
+		c := enterWorld(t, addr)
+		defer c.Close()
+		amagoFrame(t, c)
+		if code := noticeCode(t, expect(t, c, protocol.MsgMessageBoxOk)); code != NoticeMountNotMatch {
+			t.Errorf("notice = %d, want NoticeMountNotMatch: o 2400 é só do Andaluz N agora", code)
+		}
+	})
 }
 
 func TestCriaGrowsAt(t *testing.T) {

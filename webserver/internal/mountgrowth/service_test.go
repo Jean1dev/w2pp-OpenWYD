@@ -96,7 +96,7 @@ func TestListReturnsEveryLineage(t *testing.T) {
 }
 
 // Every lineage points at the cria it grows from and the âmago that feeds it —
-// and for two of them that âmago belongs to another lineage.
+// its own row, the Svadilfari and the Sleipnir included.
 func TestCurveIdentifiesCriaAndAmago(t *testing.T) {
 	s := New(&fakeStore{})
 	curves, _ := s.List(context.Background())
@@ -110,12 +110,13 @@ func TestCurveIdentifiesCriaAndAmago(t *testing.T) {
 	if got := byIndex[2370].AmagoIndex; got != 2400 {
 		t.Errorf("Andaluz âmago = %d, want 2400", got)
 	}
-	// Sleipnir (slot 28) is fed by slot 21's âmago, Svadilfari (27) by slot 10's.
-	if got := byIndex[2388].AmagoIndex; got != 2390+21 {
-		t.Errorf("Sleipnir âmago = %d, want %d", got, 2390+21)
+	// Sleipnir and Svadilfari eat their own âmago (the legacy gave them 2411 and
+	// 2400; see tmserver/internal/handler/amago.go).
+	if got := byIndex[2388].AmagoIndex; got != 2418 {
+		t.Errorf("Sleipnir âmago = %d, want 2418", got)
 	}
-	if got := byIndex[2387].AmagoIndex; got != 2390+10 {
-		t.Errorf("Svadilfari âmago = %d, want %d", got, 2390+10)
+	if got := byIndex[2387].AmagoIndex; got != 2417 {
+		t.Errorf("Svadilfari âmago = %d, want 2417", got)
 	}
 }
 
