@@ -192,6 +192,7 @@ func run(logger *slog.Logger) error {
 		Combate:     store.New(pool),
 		BonusDrop:   store.New(pool),
 		Maquinas:    store.New(pool),
+		MesaDrops:   store.New(pool),
 		Denuncias:   store.New(pool),
 		Guildas:     store.New(pool),
 		Carteira:    donate.New(pool),

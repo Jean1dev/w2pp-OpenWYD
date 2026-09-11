@@ -15,6 +15,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/personagem"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/session"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/droprule"
 )
 
 // Every page, rendered once, with everything wired.
@@ -73,19 +74,23 @@ func painelCompleto(t *testing.T) http.Handler {
 			membros:  map[uint16][]domain.GuildMember{1: {{Name: "Heroina", Level: 200}}},
 			contagem: map[uint16]int{1: 1},
 		},
-		Carteira:   &fakeCarteira{saldo: 500},
-		Platform:   newFakePlatform(),
-		Entregas:   &fakeEntregas{},
-		Trocas:     &fakeTrocas{trocas: nil, chao: umaPassagemDeMao(time.Now())},
-		Censo:      &fakeCenso{cmp: duasFotos(), marcados: 9},
-		Chat:       &fakeChat{},
-		Jogo:       jogo,
-		GameData:   newFakeGameData(),
-		MesaXP:     &fakeMesa{},
-		BonusDrop:  newFakeBonusDrop(),
-		Maquinas:   &fakeMaquinas{},
-		Combate:    newFakeCombate(),
-		Masmorras:  newFakeMasmorras(),
+		Carteira:  &fakeCarteira{saldo: 500},
+		Platform:  newFakePlatform(),
+		Entregas:  &fakeEntregas{},
+		Trocas:    &fakeTrocas{trocas: nil, chao: umaPassagemDeMao(time.Now())},
+		Censo:     &fakeCenso{cmp: duasFotos(), marcados: 9},
+		Chat:      &fakeChat{},
+		Jogo:      jogo,
+		GameData:  newFakeGameData(),
+		MesaXP:    &fakeMesa{},
+		BonusDrop: newFakeBonusDrop(),
+		Maquinas:  &fakeMaquinas{},
+		Combate:   newFakeCombate(),
+		Masmorras: newFakeMasmorras(),
+		MesaDrops: newFakeMesaDrops(
+			droprule.Rule{Mob: "Kentania", Item: 2000, Chance: 800},
+			droprule.Rule{Mob: droprule.AllMobs, Item: 1415, Chance: 0},
+		),
 		Sessions:   session.New(time.Hour),
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		SecureOnly: true,
@@ -280,6 +285,8 @@ func TestTodoPostExigeCSRF(t *testing.T) {
 		{"/rates/montarias/2360/limpar", url.Values{}},
 		{"/rates/combate", url.Values{"arma": {"0"}, "multi": {"0"}, "resist": {"100"}, "pvp_skill": {"100"}, "pvp_melee": {"100"}, "precisao": {"50"}, "erros": {"2"}}},
 		{"/rates/combate/limpar", url.Values{}},
+		{"/drops/regra", url.Values{"mob": {"Kentania"}, "item": {"2000"}, "chance": {"5"}}},
+		{"/drops/regra/apagar", url.Values{"mob": {"Kentania"}, "item": {"2000"}}},
 		{"/servidor/aviso", url.Values{"mensagem": {"oi"}}},
 		{"/servidor/derrubar", url.Values{"conta": {"ana"}}},
 		{"/servidor/desatolar", url.Values{"conta": {"ana"}}},

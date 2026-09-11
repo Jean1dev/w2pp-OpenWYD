@@ -15,10 +15,11 @@ const dropsLimit = 60
 
 // drops shows which mobs drop an item, at what slot, and how likely it is.
 //
-// The screen is read-only on purpose. Drop tables live in the mob template
-// files, which are mounted read-only in production; changing one is a content
-// change, not a config change, and there is no override table behind it the way
-// there is for stats and prices.
+// The template loot is read-only: it lives in the mob template files, mounted
+// read-only in production. What the staff decide goes in the Mesa de Drops
+// (mesadrops.go), shown and edited on this same page, whose rules replace the
+// template for the (monster, item) pairs they name — and the search results say
+// so on the rows they replace.
 func (h *Handler) drops(w http.ResponseWriter, r *http.Request) {
 	sess, _ := staffFrom(r.Context())
 	item := r.URL.Query().Get("item")
@@ -27,17 +28,10 @@ func (h *Handler) drops(w http.ResponseWriter, r *http.Request) {
 	// An empty search would fetch the whole cross product and render a page
 	// nobody can read. Asking for a term first is cheaper than truncating it.
 	if item == "" && mob == "" {
-		h.render(w, "drops.html", struct {
-			page
-			Item, Mob string
-			Itens     []gamedata.Drop
-			Truncado  bool
-			Limite    int
-			Pediu     bool
-			Ordem     ordem
-			Extras    url.Values
-		}{h.pageFor(r, "drops"), "", "", nil, false, dropsLimit, false,
-			ordem{}, r.URL.Query()})
+		h.render(w, "drops.html", dropsPage{
+			page: h.pageFor(r, "drops"), Limite: dropsLimit, Extras: r.URL.Query(),
+			Mesa: h.mesaDaTela(r), Aviso: r.URL.Query().Get("aviso"),
+		})
 		return
 	}
 
@@ -76,17 +70,26 @@ func (h *Handler) drops(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.render(w, "drops.html", struct {
-		page
-		Item, Mob string
-		Itens     []gamedata.Drop
-		Truncado  bool
-		Limite    int
-		Pediu     bool
-		Ordem     ordem
-		Extras    url.Values
-	}{h.pageFor(r, "drops"), item, mob, achados, truncado, dropsLimit, true,
-		o, r.URL.Query()})
+	h.render(w, "drops.html", dropsPage{
+		page: h.pageFor(r, "drops"), Item: item, Mob: mob, Itens: achados, Truncado: truncado,
+		Limite: dropsLimit, Pediu: true, Ordem: o, Extras: r.URL.Query(),
+		Mesa: h.mesaDaTela(r), Aviso: r.URL.Query().Get("aviso"),
+	})
+}
+
+// dropsPage is the Drops page: the template loot search, and the Mesa de Drops
+// the staff set on top of it.
+type dropsPage struct {
+	page
+	Item, Mob string
+	Itens     []gamedata.Drop
+	Truncado  bool
+	Limite    int
+	Pediu     bool
+	Ordem     ordem
+	Extras    url.Values
+	Mesa      mesaView
+	Aviso     string
 }
 
 // nomeDeMob is what the row shows: the readable name when the catalog has one,

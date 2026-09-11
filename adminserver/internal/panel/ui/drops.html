@@ -25,6 +25,31 @@
     color: var(--accent); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px;
     white-space: nowrap;
   }
+  /* O nome do arquivo é o que a Mesa de Drops pede: fica embaixo do nome
+     legível, discreto, para ser copiado sem virar a coluna principal. */
+  .arquivo { display: block; font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: var(--ink-3); }
+  /* Linha que a Mesa substitui: o número do template continua à vista, riscado,
+     porque é ele que volta se a regra for apagada. */
+  .trocado { text-decoration: line-through; color: var(--ink-3); margin-right: 6px; }
+  .mesa {
+    font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+  .campos-regra {
+    display: grid; grid-template-columns: minmax(180px, 2fr) minmax(110px, 1fr) minmax(110px, 1fr) auto;
+    gap: 12px; align-items: end; margin: 6px 0 4px;
+  }
+  @media (max-width: 640px) { .campos-regra { grid-template-columns: 1fr; } }
+  .campos-regra label { display: block; font-size: 12.5px; color: var(--ink-3); }
+  .campos-regra input {
+    width: 100%; margin-top: 4px; padding: 7px 9px; font: inherit; font-size: 14px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 3px; font-variant-numeric: tabular-nums;
+  }
+  .campos-regra input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  form.apagar { margin: 0; }
+  form.apagar button { font-size: 12px; padding: 3px 9px; }
 </style>
 </head>
 <body>
@@ -33,9 +58,96 @@
 <main>
   <h1>Drops</h1>
   <p class="sub">
-    O que cada monstro derruba, em qual slot, e a chance por morte. Só leitura —
-    a tabela de drop mora no arquivo do monstro, não é configuração do painel.
+    O que cada monstro derruba, em qual slot, e a chance por morte. A busca lê o
+    arquivo do monstro; a <strong>Mesa de Drops</strong>, logo abaixo, é o que a
+    equipe decide por cima dele.
   </p>
+
+  {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
+
+  {{if .Mesa.Tem}}
+  <div class="caixa">
+    <h2>Mesa de Drops</h2>
+    <p class="sub">
+      Cada regra diz a chance exata de <strong>um item</strong> cair de
+      <strong>um monstro</strong>, e substitui o que o arquivo do monstro faz com
+      esse item. Chance 0 tira o item. A regra de <strong>todos os monstros</strong>
+      só pode tirar — serve para sumir com um item do mundo inteiro e depois
+      devolvê-lo só nos monstros que devem derrubar, com uma regra para cada um.
+    </p>
+    {{template "quando-vale" "segundos"}}
+
+    {{if .Mesa.Erro}}
+      <div class="nota perigo">
+        <strong>Não consegui ler as regras agora.</strong> A lista não está vazia —
+        ela só não veio. Atualize a página; se continuar, procure
+        <code>drop rules read failed</code> no log do painel.
+      </div>
+    {{else if .Mesa.Regras}}
+      <div class="tw">
+        <table>
+          <thead>
+            <tr>
+              <th>Monstro</th>
+              <th>Item</th>
+              <th class="pct">Chance por morte</th>
+              {{if .IsAdmin}}<th></th>{{end}}
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Mesa.Regras}}
+            <tr>
+              <td>{{.Monstro}}</td>
+              <td>{{if .ItemNome}}{{.ItemNome}} {{end}}<span class="arquivo" style="display:inline">#{{.Item}}</span></td>
+              <td class="pct">{{.Chance}}</td>
+              {{if $.IsAdmin}}
+              <td>
+                <form method="post" action="/drops/regra/apagar" class="apagar">
+                  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                  <input type="hidden" name="mob" value="{{.Mob}}">
+                  <input type="hidden" name="item" value="{{.Item}}">
+                  <button type="submit" class="perigo">apagar</button>
+                </form>
+              </td>
+              {{end}}
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    {{else}}
+      <div class="vazio">Nenhuma regra ainda: todo monstro derruba o que o arquivo dele manda.</div>
+    {{end}}
+
+    {{if .IsAdmin}}
+    <form method="post" action="/drops/regra" style="margin-top:16px">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="campos-regra">
+        <label>
+          Monstro
+          <input type="text" name="mob" placeholder="nome do arquivo, ou todos"
+                 autocapitalize="off" spellcheck="false" autocomplete="off" required>
+        </label>
+        <label>
+          Item (índice)
+          <input type="number" name="item" min="391" max="6499" required>
+        </label>
+        <label>
+          Chance (%)
+          <input type="text" name="chance" inputmode="decimal" placeholder="ex.: 8 ou 0,25" required>
+        </label>
+        <button type="submit">Gravar a regra</button>
+      </div>
+    </form>
+    <p class="sub">
+      O monstro é o <strong>nome do arquivo</strong> do template — aparece em cinza
+      embaixo do nome na busca. Gravar de novo o mesmo monstro e item troca a
+      chance. A chance é por morte, de 0 a 100, com até duas casas; ela não passa
+      pelo bônus de drop do jogador. Apagar a regra devolve o item ao arquivo.
+    </p>
+    {{end}}
+  </div>
+  {{end}}
 
   <div class="nota">
     A chance depende do <strong>nível do monstro</strong>, não só do slot: o mesmo
@@ -76,15 +188,22 @@
               </tr>
             </thead>
             <tbody>
+              {{$item := .}}
               {{range .Mobs}}
+              {{$mesa := $.Mesa.Diz .TemplateName $item.ItemIndex}}
               <tr>
-                <td>{{if .MobName}}{{.MobName}}{{else}}{{.TemplateName}}{{end}}</td>
+                <td>
+                  {{if .MobName}}{{.MobName}}<span class="arquivo">{{.TemplateName}}</span>{{else}}{{.TemplateName}}{{end}}
+                </td>
                 <td class="num">{{.MobLevel}}</td>
                 <td class="num">{{.Slot}}</td>
                 <td class="pct">
-                  {{if .Garantido}}<span class="sempre">sempre cai</span>{{else}}{{.Porcentagem}}{{end}}
+                  {{if $mesa}}
+                    <span class="trocado">{{if .Garantido}}sempre cai{{else}}{{.Porcentagem}}{{end}}</span>
+                    <span class="mesa" title="A Mesa de Drops substitui o arquivo neste monstro">mesa: {{$mesa}}</span>
+                  {{else if .Garantido}}<span class="sempre">sempre cai</span>{{else}}{{.Porcentagem}}{{end}}
                 </td>
-                <td class="pct">{{if .Garantido}}1{{else}}{{.Mortes}}{{end}}</td>
+                <td class="pct">{{if $mesa}}—{{else if .Garantido}}1{{else}}{{.Mortes}}{{end}}</td>
               </tr>
               {{end}}
             </tbody>

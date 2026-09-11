@@ -294,6 +294,7 @@ type Config struct {
 	Combate     Combate
 	BonusDrop   BonusDrop
 	Maquinas    Maquinas
+	MesaDrops   MesaDrops
 	Sessions    *session.Store
 	Logger      *slog.Logger
 	SecureOnly  bool // Secure flag on the cookie; false only for local HTTP dev
@@ -537,6 +538,12 @@ func (h *Handler) Routes() http.Handler {
 		mux.Handle("POST /itens/{indice}/atributos", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setAtributosItem))))
 		mux.Handle("POST /itens/{indice}/atributos/limpar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.limparAtributosItem))))
 		mux.Handle("GET /drops", h.requireStaff(http.HandlerFunc(h.drops)))
+		// A Mesa de Drops mora na mesma tela: a busca do template e, por cima
+		// dela, as regras que a equipe decidiu. Vale em até 15 segundos.
+		if h.cfg.MesaDrops != nil {
+			mux.Handle("POST /drops/regra", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setRegraDrop))))
+			mux.Handle("POST /drops/regra/apagar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.apagarRegraDrop))))
+		}
 	}
 
 	return securityHeaders(mux)

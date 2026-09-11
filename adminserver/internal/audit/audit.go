@@ -58,6 +58,8 @@ const (
 	ActionClearQuestReward   = "CLEAR_QUEST_REWARD"
 	ActionSetDropBonus       = "SET_DROP_BONUS"
 	ActionClearDropBonus     = "CLEAR_DROP_BONUS"
+	ActionSetDropRule        = "SET_DROP_RULE"
+	ActionDeleteDropRule     = "DELETE_DROP_RULE"
 	ActionSetDropBonusLigado = "SET_DROP_BONUS_LIGADO"
 	ActionSetCombineRate     = "SET_COMBINE_RATE"
 	ActionClearCombineRate   = "CLEAR_COMBINE_RATE"
@@ -280,6 +282,8 @@ var rotulos = map[string]string{
 	ActionSetCombineBands:    "Mudou as faixas de conjunto de uma máquina",
 	ActionSetCombineTag:      "Marcou a operação (ADD/ABS) de uma máquina",
 	ActionClearDropBonus:     "Voltou a escada do bônus de drop ao legado",
+	ActionSetDropRule:        "Gravou uma regra na Mesa de Drops",
+	ActionDeleteDropRule:     "Apagou uma regra da Mesa de Drops",
 	ActionSetDropBonusLigado: "Ligou ou desligou o sorteio de bônus de drop",
 	ActionClearXPRule:        "Voltou uma tabela de XP ao legado",
 	ActionSetMountGrowth:     "Mexeu na taxa de crescimento de uma montaria",
