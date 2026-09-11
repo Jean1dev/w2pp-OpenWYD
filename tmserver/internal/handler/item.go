@@ -449,6 +449,10 @@ const (
 	// volRacao is the mount food (2420..2439 and the (P) packs 3368..3385), fed to
 	// the mount worn in Equip[14] (_MSG_UseItem.cpp:1478, mountfeed.go).
 	volRacao = 15
+	// volChaveInferno is this fork's own: the Chave do Inferno teleports into the
+	// Inferno and is spent (chaveinferno.go). 245 is free both in the catalog and
+	// in the legacy's own list, which stops at 244.
+	volChaveInferno = 245
 	// volAmago is the mount-growth item (2390..2419), fed to the mount worn in
 	// Equip[14] (_MSG_UseItem.cpp:1564, amago.go).
 	volAmago = 16
@@ -652,6 +656,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useBirthAccelerator(w, s, e, body, src)
 	case vol == volRacao:
 		d.useRacao(w, s, e, body, src)
+	case vol == volChaveInferno:
+		d.useChaveInferno(w, s, e, src)
 	case vol == volAmago:
 		d.useAmago(w, s, e, body, src)
 	case vol == volCatalisador:

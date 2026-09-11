@@ -4830,7 +4830,7 @@
 
 3221,Pergaminho_do_Vale_do_Deserto,580.0,0.0.0.0.0,0,10000000,0,0,0,EF_CLASS,255,EF_GRID,0,EF_VOLATILE,212
 
-3222,Cupom_da_Sorte,2711.0,0.0.0.0.0,0,10000,0,0,0
+3222,Chave_do_Inferno,2711.0,0.0.0.0.0,0,0,0,0,0,EF_VOLATILE,245,EF_GRID,0
 
 3223,Cupom_da_Sorte,2711.0,0.0.0.0.0,0,10000,0,0,0
 
