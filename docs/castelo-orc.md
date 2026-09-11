@@ -11,15 +11,16 @@ party e as decisões ficam no artefato "Atlas de Quests W2PP".
 ✅ O saque e a chave na Mesa de Drops (migração `0053_castelo_orc_drops`) <br/>
 ✅ 0 XP para os monstros da quest <br/>
 ✅ Amuleto com add sorteado <br/>
-✅ A corrida: a Chave Portão Orc Sul abre o castelo (no portão ou com o Xamã), um
+✅ A corrida: a Chave do Rei Orc abre o castelo (no portão ou com o Xamã), um
 grupo por vez, 15 min <br/>
 ✅ O Portão Orc Sul no arco: sempre trancado; a chave leva o grupo para dentro <br/>
 ⏳ Prêmio de conclusão e trava de nível/evolução <br/>
 
 ## A chave
 
-É a **Chave Portão Orc Sul (465)**, a primeira das quatro chaves do castelo no
-legado, item que o cliente já conhece. A migração tira a chave de todo monstro
+É a **Chave do Rei Orc (465)**, a primeira das quatro chaves do castelo no
+legado (`Chave_Portão_Orc_Sul` até 11/09, quando ganhou nome, ícone e descrição
+próprios), item que o cliente já conhece. A migração tira a chave de todo monstro
 (`*` a 0%). Ela volta só em três lugares:
 
 | Onde | Como | Meta |
@@ -207,7 +208,7 @@ que já está na bolsa (`putMobDrop`), e com a bolsa cheia o item se perde.
 A corrida inteira, com conta de GM:
 
 ```
-/gm item 465                    a Chave Portão Orc Sul na bolsa
+/gm item 465                    a Chave do Rei Orc na bolsa
 vá até o arco do Portão Sul do castelo (2487,2129): o portão deve estar fechado
 clique no portão como líder do grupo (ou no Xamã Orc, ao lado): o grupo vai
 para dentro e o portão continua fechado

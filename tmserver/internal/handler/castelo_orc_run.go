@@ -10,7 +10,7 @@ import (
 )
 
 // The Castelo Orc run: a new rule, not the legacy's. A party leader uses the
-// Chave Portão Orc Sul on the Portão Orc Sul (or hands it to the Xamã Orc beside
+// Chave do Rei Orc on the Portão Orc Sul (or hands it to the Xamã Orc beside
 // it). The gate stays shut — open, it would let a second party in behind the
 // first — and the party is taken through it: the castle is emptied of its
 // open-world orcs and of anyone outside the party, the quest's own monsters rise
@@ -27,8 +27,9 @@ import (
 // survives a restart — a boot mid-run simply ends it, as with the Água and the
 // Carta.
 const (
-	// itemChaveCasteloOrc is the entry key: Chave_Portão_Orc_Sul, the first of the
-	// legacy castle's four gate keys. Where it drops is the Mesa de Drops' call
+	// itemChaveCasteloOrc is the entry key: Chave_do_Rei_Orc, the first of the
+	// legacy castle's four gate keys (Chave_Portão_Orc_Sul until 11/09/2026, when
+	// it took the quest's own name and icon). Where it drops is the Mesa de Drops' call
 	// (migration 0053): the Quest 256 Hydra and Elf arenas and the Desert.
 	itemChaveCasteloOrc = 465
 	gradeCasteloOrc     = 40 // the Xamã Orc's EF_GRADE0 (Merchant 100); no shipped template uses 40

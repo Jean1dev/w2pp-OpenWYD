@@ -5,7 +5,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// The Portão Orc Sul — InitItem 462, EF_KEYID 5 like the Chave Portão Orc Sul,
+// The Portão Orc Sul — InitItem 462, EF_KEYID 5 like the Chave do Rei Orc,
 // standing in the arch at (2487,2129) — is the Castelo Orc run's door. It is the
 // only world object this server draws: the gates the legacy seeds from
 // InitItem.csv were never sent to the client, and turning them all on at once
@@ -14,7 +14,7 @@ import (
 // This one never opens. An open door would let a second party in behind the
 // first (team rule, 11/09/2026): the leader's key on it — or handed to the Xamã —
 // starts a run and takes the party through, and the gate stays locked. Its key
-// requirement is the legacy's (EF_KEYID 5, the Chave Portão Orc Sul's); the
+// requirement is the legacy's (EF_KEYID 5, the Chave do Rei Orc's); the
 // generic key path in gate.go never sees it.
 //
 // The wire is the legacy's: MSG_CreateItem when the gate enters a player's view

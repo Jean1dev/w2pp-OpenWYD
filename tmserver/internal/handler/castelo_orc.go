@@ -124,12 +124,12 @@ func (d *Dispatcher) casteloOrcKeyOnEntry(w *world.World, s *world.Session, e *w
 	}
 	slot := firstEmptyAccessibleCarry(e)
 	if slot < 0 {
-		sendClientMessage(w, s, "Bolsa cheia: a Chave Portão Orc Sul se perdeu.")
+		sendClientMessage(w, s, "Bolsa cheia: a Chave do Rei Orc se perdeu.")
 		d.log.Info("castelo orc key lost to a full bag", "conn", s.Conn, "quest_flag", step.flag)
 		return
 	}
 	e.Carry[slot] = world.Item{Index: itemChaveCasteloOrc}
 	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
-	sendClientMessage(w, s, "Você ganhou a Chave Portão Orc Sul: ela abre o Castelo Orc.")
+	sendClientMessage(w, s, "Você ganhou a Chave do Rei Orc: ela abre o Castelo Orc.")
 	d.log.Info("castelo orc key on quest entry", "conn", s.Conn, "quest_flag", step.flag)
 }
