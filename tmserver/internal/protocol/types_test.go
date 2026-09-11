@@ -90,6 +90,7 @@ func TestMessageTypeValues(t *testing.T) {
 		{"_MSG_CharacterLoginFail (Basedef.h:1730)", MsgCharacterLoginFail, 25 | flagGame2Client},
 		{"_MSG_NewCharacterFail (Basedef.h:1731)", MsgNewCharacterFail, 26 | flagGame2Client},
 		{"_MSG_AlreadyPlaying (Basedef.h:1733)", MsgAlreadyPlaying, 28 | flagGame2Client},
+		{"_MSG_StillPlaying (Basedef.h:1734)", MsgStillPlaying, 29 | flagGame2Client},
 		{"_MSG_CreateMob (Basedef.h:1917)", MsgCreateMob, 100 | flagGame2Client | flagClient2Game},
 		{"_MSG_RemoveMob (Basedef.h:1946)", MsgRemoveMob, 101 | flagGame2Client},
 		{"_MSG_PKInfo (Basedef.h:1954)", MsgPKInfo, 102 | flagGame2Client},

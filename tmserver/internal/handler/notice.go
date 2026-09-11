@@ -198,6 +198,12 @@ const (
 	// (_MSG_ReqTeleport.cpp:27). Appended at the end for the reason NoticeLevelLimit
 	// gives.
 	NoticeOnlyByWaterScroll
+
+	// NoticeAccountFromOthers is _NN_Your_Account_From_Others (Language.txt:134),
+	// what the legacy tells a session it is closing because the same account
+	// logged in again and asked to take over (ProcessDBMessage.cpp:1315).
+	// Appended at the end for the reason NoticeLevelLimit gives.
+	NoticeAccountFromOthers
 )
 
 // noticeKey maps a Notice to its key in the shipped client string table
@@ -299,6 +305,8 @@ var noticeKey = map[Notice]string{
 
 	NoticeCantMoveItem:      "_NN_Cant_MoveItem",        // 379
 	NoticeOnlyByWaterScroll: "_NN_Only_By_Water_Scroll", // 228
+
+	NoticeAccountFromOthers: "_NN_Your_Account_From_Others", // 134
 }
 
 // noticeText is the compiled fallback for notices with no Language.txt line: the
@@ -336,6 +344,10 @@ var noticeText = map[Notice]string{
 	// Without this fallback a server booted with no -content would refuse the trade
 	// and say nothing — which is the very failure this notice exists to end.
 	NoticeCantMoveItem: "Este item não pode ser movimentado.", // 379
+
+	// The player being thrown out must hear why, content mount or not: a session
+	// that just drops looks like a server crash.
+	NoticeAccountFromOthers: "Conta desconectada por conexão simultânea.", // 134
 }
 
 // formatVerb matches a printf conversion, so a shipped line that interpolates

@@ -26,6 +26,30 @@
 - Erros: `_NN_Reconnect`, `_NN_Version_Not_Match_Rerun`, `_NN_3_Tims_Wrong_Pass`,
   `_MSG_DBAccountLoginFail_*` (vindos do DBSrv).
 
+## Conta já em uso (uma conta, uma sessão)
+Depois que a senha confere, o DBSrv olha se a conta já tem sessão (`IdxName != 0`,
+`DBSrv/CFileDB.cpp:685-703`). Se tem, a conexão NOVA nunca entra, e o `DBNeedSave` que o cliente
+mandou no `MSG_AccountLogin` decide o que acontece com a velha:
+- `DBNeedSave == 0`: `_MSG_DBAlreadyPlaying` → o TM manda `_MSG_AlreadyPlaying` (0x011C) à conexão
+  nova e a fecha; a sessão velha segue (`TMSrv/ProcessDBMessage.cpp:1253-1262`).
+- senão: `_MSG_DBStillPlaying` → `_MSG_StillPlaying` (0x011D) à nova, que é fechada, **e**
+  `SendDBSavingQuit` na velha: se ela está em `USER_PLAY`/`USER_SELCHAR` recebe
+  `_NN_Your_Account_From_Others` ("Conta desconectada por conexão simultânea.") e é fechada com save
+  (`ProcessDBMessage.cpp:1266-1276, 1291-1322`).
+
+Os dois sinais saem com `HEADER.ID = ESCENE_FIELD + 2` (30002), como `SendClientSignal` manda. O
+DBSrv só libera a conta quando o save de saída chega, então quem tenta entrar nesse intervalo
+também ouve "já em jogo".
+
+**No porte:** o dbServer não guarda sessão, então a regra fica no tmServer
+(`handler/login.go` `accountInUse`): conta em uso = outra sessão com o mesmo `AccountID` (tela de
+personagem ou jogo) **ou** save de saída ainda em voo (`world.AccountSaving`, contado por
+`LeaveCharacter`/`ReleaseCargo`). Até 11/09/2026 o porte deixava as duas sessões entrarem — duas
+cópias do mesmo personagem e do mesmo baú em memória, cada uma salvando por conta própria
+(caminho de duplicação). Teste: `login_ja_em_jogo_test.go` (caso de paridade
+`login_already_playing`). Vale para um tmServer por banco de contas, que é a topologia de hoje;
+com mais de um canal, a regra teria que ir para o dbServer.
+
 ## Anti-cheat
 - Versão de cliente obrigatória (bloqueia clientes desatualizados/forjados).
 - `CheckFailAccount`/`CrackLog` (brute-force de senha).

@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -53,12 +55,27 @@ func startServerClock(t *testing.T, persist world.Persistence) (string, func(), 
 	}, clock
 }
 
+// contasPorServidor counts the enterWorld calls on each test server. The server
+// keeps one session per account (login.go accountInUse), so the second player a
+// test puts in the world is a second account: "tester" first, then its clones
+// "tester2", "tester3"… (fakeDB.AccountLogin). Keyed by address and cleared when
+// the test ends, because a later test's server can get the same port.
+var contasPorServidor sync.Map // addr → *atomic.Int32
+
 // enterWorld logs in and selects+enters the character, leaving the connection in
 // USER_PLAY. It drains the CNFAccountLogin and CNFCharacterLogin responses.
 func enterWorld(t *testing.T, addr string) net.Conn {
 	t.Helper()
+	contador, jaTinha := contasPorServidor.LoadOrStore(addr, new(atomic.Int32))
+	if !jaTinha {
+		t.Cleanup(func() { contasPorServidor.Delete(addr) })
+	}
+	conta := "tester"
+	if n := contador.(*atomic.Int32).Add(1); n > 1 {
+		conta = fmt.Sprintf("tester%d", n)
+	}
 	c := dial(t, addr)
-	send(t, c, protocol.MsgAccountLogin, loginBody("tester", "secret", protocol.AppVersion))
+	send(t, c, protocol.MsgAccountLogin, loginBody(conta, "secret", protocol.AppVersion))
 	if ty, _ := read(t, c); ty != protocol.MsgCNFAccountLogin {
 		t.Fatalf("account login failed: %#x", ty)
 	}

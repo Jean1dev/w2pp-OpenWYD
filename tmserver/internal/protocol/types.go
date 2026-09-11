@@ -139,6 +139,7 @@ const (
 	MsgCharacterLoginFail Type = 0x0119 // 281
 	MsgNewCharacterFail   Type = 0x011A // 282
 	MsgAlreadyPlaying     Type = 0x011C // 284
+	MsgStillPlaying       Type = 0x011D // 285  the other session is being saved and closed
 	MsgCreateMob          Type = 0x0364 // 868  spawn in view
 	MsgRemoveMob          Type = 0x0165 // 357  despawn
 	MsgPKInfo             Type = 0x0166 // 358  S→C PK/war state of a player (MSG_STANDARDPARM, Basedef.h:1954)

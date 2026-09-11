@@ -40,7 +40,9 @@ Regras:
 - `login_ok`: conta+senha válidas, `ClientVersion=7640` → `_MSG_CNFAccountLogin` + SELCHAR correto.
 - `login_bad_pass`: senha errada → `_MSG_DBAccountLoginFail_Pass`; após 3× → `_NN_3_Tims_Wrong_Pass`.
 - `login_bad_version`: `ClientVersion != 7640` → `_NN_Version_Not_Match_Rerun` + close.
-- `login_already_playing`: conta já online → `_MSG_AlreadyPlaying`.
+- `login_already_playing`: conta já online → `_MSG_AlreadyPlaying` e a conexão nova fechada; com
+  `DBNeedSave` → `_MSG_StillPlaying` e a sessão velha derrubada com save
+  (`tmserver/internal/handler/login_ja_em_jogo_test.go`).
 - `login_wrong_mode`: `_MSG_AccountLogin` fora de `USER_ACCEPT` → "Login now" + CrackLog.
 
 ### 2.2. Personagem

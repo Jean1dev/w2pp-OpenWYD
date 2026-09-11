@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -368,8 +370,20 @@ func (f *fakeDB) archRequest() (int, int64, string, int, int, int, int) {
 	return f.archCreated, f.archReq.accountID, f.archReq.name, f.archReq.class, f.archReq.face, f.archReq.mortalSlot, f.archReq.mortalLevel
 }
 
+// cloneStride spaces the ids of the "testerN" clones (see AccountLogin) from
+// their base account, so LoadCharacter can find the base again with a modulo.
+const cloneStride = 1000
+
 func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.LoginOutcome, error) {
 	a, ok := f.accounts[name]
+	// "tester2", "tester3"… are clones of "tester" under their own account id:
+	// the server keeps one session per account, so a test that puts a second
+	// player in the world needs a second account (enterWorld hands them out).
+	if n, err := strconv.Atoi(strings.TrimPrefix(name, "tester")); !ok && err == nil && n > 1 && f.accounts["tester"] != nil {
+		clone := *f.accounts["tester"]
+		clone.id += int64(cloneStride * n)
+		a, ok = &clone, true
+	}
 	switch {
 	case !ok:
 		return world.LoginOutcome{Result: world.LoginNoAccount}, nil
@@ -456,6 +470,10 @@ func (f *fakeDB) ListCharacters(_ context.Context, accountID int64) ([]world.Cha
 
 func (f *fakeDB) LoadCharacter(_ context.Context, accountID int64, _ int) (world.CharacterState, error) {
 	if st, ok := f.loads[accountID]; ok {
+		return st, f.loadErr
+	}
+	// A "testerN" clone plays what its base account would.
+	if st, ok := f.loads[accountID%cloneStride]; ok && accountID > cloneStride {
 		return st, f.loadErr
 	}
 	return f.loadResult, f.loadErr

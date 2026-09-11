@@ -53,6 +53,9 @@ func (d *Dispatcher) accountLogin(w *world.World, s *world.Session, _ protocol.H
 	}
 
 	pass := cstr(body.AccountPassword[:])
+	// DBNeedSave is the client asking to take the account over from a session
+	// that is still holding it (see accountInUse).
+	takeOver := body.DBNeedSave != 0
 	s.AccountName = name
 	s.Mode = world.UserLogin
 	d.log.Info("account login: relaying to dbServer", "conn", s.Conn, "account", name)
@@ -62,12 +65,12 @@ func (d *Dispatcher) accountLogin(w *world.World, s *world.Session, _ protocol.H
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		out, err := p.AccountLogin(ctx, name, pass)
-		return func(w *world.World, s *world.Session) { d.completeAccountLogin(w, s, out, err) }
+		return func(w *world.World, s *world.Session) { d.completeAccountLogin(w, s, out, err, takeOver) }
 	})
 }
 
 // completeAccountLogin applies the dbServer login result back in the loop.
-func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out world.LoginOutcome, err error) {
+func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out world.LoginOutcome, err error, takeOver bool) {
 	if err != nil {
 		d.log.Error("account login backend error", "conn", s.Conn, "account", s.AccountName, "err", err)
 		s.Mode = world.UserAccept
@@ -78,6 +81,11 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	switch out.Result {
 	case world.LoginOK:
 		delete(d.fails, s.AccountName)
+		// Before AccountID is set: closing s below must not release the cargo
+		// that the session already holding the account is using.
+		if d.accountInUse(w, s, out.AccountID, takeOver) {
+			return
+		}
 		s.AccountID = out.AccountID
 		s.AccessLevel = world.ParseAccess(out.Role) // GM/moderation privilege (issue #122)
 		d.log.Info("account login: OK", "conn", s.Conn, "account", s.AccountName, "id", out.AccountID, "role", s.AccessLevel, "chars", len(out.Characters))
@@ -106,8 +114,62 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		d.notify(w, s, NoticeBlocked)
 		w.Close(s)
 	case world.LoginAlreadyPlaying:
-		w.Send(s, protocol.MsgAlreadyPlaying, nil)
+		// Only a dbServer that tracks presence itself answers this; ours does
+		// not, and accountInUse above is where the rule is kept. The reply is
+		// the legacy TM's to _MSG_DBAlreadyPlaying (ProcessDBMessage.cpp:1253).
+		w.SendTo(s, protocol.Header{Type: protocol.MsgAlreadyPlaying, ID: protocol.IDSelChar}, nil)
+		w.Close(s)
 	}
+}
+
+// accountInUse keeps one account to one session, the check the legacy DBSrv
+// makes right after the password passes (CFileDB.cpp:685-703). Our dbServer
+// holds no sessions, so the rule lives here, where they are. The account is in
+// use while another session holds it — character screen or play — and also
+// while a closed session's quit-saves are still in flight: the legacy keeps the
+// account's slot until that save lands, and a login that read the database
+// before then would load the state from before it.
+//
+// The new connection never gets in, and what happens to the old one is the
+// client's DBNeedSave, as in the legacy:
+//
+//   - 0: _MSG_AlreadyPlaying to the new connection, which is closed; the old
+//     session carries on (ProcessDBMessage.cpp:1253-1262).
+//   - otherwise: _MSG_StillPlaying to the new connection, which is closed, and
+//     the old session is told _NN_Your_Account_From_Others and closed with its
+//     save (SendDBSavingQuit; ProcessDBMessage.cpp:1266-1276 and 1291-1322), so
+//     a later attempt finds the account free once that save has landed.
+//
+// Both replies go out with HEADER.ID = ESCENE_FIELD+2, as SendClientSignal
+// sends them there.
+//
+// Letting both in — what the port did until 11/09/2026 — put two live copies of
+// the same characters, and two of the account cargo, in memory, each saving on
+// its own: a duplication path.
+func (d *Dispatcher) accountInUse(w *world.World, s *world.Session, accountID int64, takeOver bool) bool {
+	old := w.AccountSession(accountID, s)
+	if old == nil && !w.AccountSaving(accountID) {
+		return false
+	}
+	oldConn := -1
+	if old != nil {
+		oldConn = old.Conn
+	}
+	d.log.Warn("account login: account already in use",
+		"conn", s.Conn, "account", s.AccountName, "old_conn", oldConn, "take_over", takeOver)
+	signal := protocol.MsgAlreadyPlaying
+	if takeOver {
+		signal = protocol.MsgStillPlaying
+	}
+	w.SendTo(s, protocol.Header{Type: signal, ID: protocol.IDSelChar}, nil)
+	w.Close(s)
+	if takeOver && old != nil {
+		if old.Mode == world.UserPlay || old.Mode == world.UserSelChar {
+			d.notify(w, old, NoticeAccountFromOthers)
+		}
+		w.Close(old)
+	}
+	return true
 }
 
 func (d *Dispatcher) cargoWire(st *world.CargoState) (int32, [128]protocol.SelItem) {

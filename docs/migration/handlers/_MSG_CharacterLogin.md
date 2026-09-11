@@ -31,5 +31,6 @@
 - **A lógica de billing está hardcoded e com nomes `Unk_*`** — alto risco de paridade. Recomenda-se
   **reescrever o gate de billing como política explícita** na stack nova (estados claros) e validar
   por captura, em vez de replicar os `Unk_*`. Marcar `BILLING`, `FREEEXP`, `g_Hour` como config.
-- `Force` (struct) não é usado neste trecho — **UNVERIFIED** seu efeito (provável kick de sessão
-  anterior); confirmar no DBSrv (`_MSG_DBAlreadyPlaying`).
+- `Force` (struct) não é usado neste trecho — **UNVERIFIED** seu efeito. A derrubada de sessão
+  anterior NÃO passa por aqui: é no login de conta, pelo `DBNeedSave` (ver `_MSG_AccountLogin.md`,
+  "Conta já em uso").

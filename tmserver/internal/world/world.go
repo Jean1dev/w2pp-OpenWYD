@@ -187,6 +187,14 @@ type World struct {
 	// select ↔ play), so it is keyed by account, not session/conn. Loop-owned.
 	cargo map[int64]*CargoState
 
+	// quitSaves counts, per account, the teardown saves (character and cargo) of
+	// a session that has already closed but whose writes have not returned yet.
+	// While it is non-zero the account is still in use, exactly as the legacy
+	// DBSrv keeps the account's slot until the quit-save lands: a login that read
+	// the database now would load the state from BEFORE that save. See
+	// AccountSaving. Loop-owned.
+	quitSaves map[int64]int
+
 	// guilds is the minimal guild registry (guild.go): name/fame keyed by guild
 	// id. In-memory only — there is no guild-creation flow yet to persist
 	// against. Loop-owned.
@@ -287,6 +295,7 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		entities:  make([]*Entity, MaxMob),
 		ground:    make([]*GroundItem, MaxItem),
 		cargo:     make(map[int64]*CargoState),
+		quitSaves: make(map[int64]int),
 		guilds:    make(map[uint16]GuildInfo),
 		grid:      newGrid(cfg.GridDim),
 		rng:       rng.New(),
@@ -489,9 +498,11 @@ func (w *World) LeaveCharacter(s *Session) {
 	name := e.Name
 	cs := w.characterSave(s)
 	p := w.persist
+	w.holdAccount(cs.AccountID)
 	w.saveWG.Add(1)
 	go func() {
 		defer w.saveWG.Done()
+		defer w.releaseAccountLater(cs.AccountID)
 		if err := p.SaveOnShutdown(context.Background(), cs); err != nil {
 			w.log.Warn("save character failed", "account", cs.AccountID, "slot", cs.Slot, "err", err)
 			return
@@ -696,13 +707,61 @@ func (w *World) ReleaseCargo(accountID int64) {
 	}
 	cs := w.cargoSave(accountID)
 	delete(w.cargo, accountID)
+	w.holdAccount(accountID)
 	w.saveWG.Add(1)
 	go func() {
 		defer w.saveWG.Done()
+		defer w.releaseAccountLater(accountID)
 		if err := w.persist.SaveCargo(context.Background(), cs); err != nil {
 			w.log.Warn("save cargo failed", "account", cs.AccountID, "err", err)
 		}
 	}()
+}
+
+// holdAccount counts one more teardown save of accountID in flight. Loop-only.
+func (w *World) holdAccount(accountID int64) {
+	if accountID != 0 {
+		w.quitSaves[accountID]++
+	}
+}
+
+// releaseAccountLater undoes one holdAccount once the save has returned, landed
+// or failed. It is called from the save goroutine, so the decrement rides back
+// into the loop. A failed save releases too: the write that did not land is
+// lost either way, and holding the account would lock its owner out until a
+// restart. (The presence mark is what records the failure — LeaveCharacter.)
+func (w *World) releaseAccountLater(accountID int64) {
+	if accountID == 0 {
+		return
+	}
+	w.GoDetached(func() func(*World) {
+		return func(w *World) {
+			if w.quitSaves[accountID]--; w.quitSaves[accountID] <= 0 {
+				delete(w.quitSaves, accountID)
+			}
+		}
+	})
+}
+
+// AccountSession returns the session that already holds accountID — one past
+// account login, at the character screen or in play — other than except, or
+// nil. Loop-only.
+func (w *World) AccountSession(accountID int64, except *Session) *Session {
+	if accountID == 0 {
+		return nil
+	}
+	for _, s := range w.sessions {
+		if s != nil && s != except && s.AccountID == accountID {
+			return s
+		}
+	}
+	return nil
+}
+
+// AccountSaving reports whether a closed session of accountID still has
+// teardown saves in flight. Loop-only.
+func (w *World) AccountSaving(accountID int64) bool {
+	return w.quitSaves[accountID] > 0
 }
 
 // SaveCargoThen persists the account cargo WITHOUT evicting it (the account
