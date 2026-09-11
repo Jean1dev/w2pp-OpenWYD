@@ -1081,8 +1081,9 @@ func TestEquipBonusHpAddPercent(t *testing.T) {
 	if e.HpAddPct != 10 {
 		t.Fatalf("HpAddPct = %d, want 10", e.HpAddPct)
 	}
-	if got := effectiveMaxHP(e); got != 1100 {
-		t.Errorf("effectiveMaxHP = %d, want 1100 (1000 +10%%)", got)
+	// A player's score pool is doubled first (Basedef.cpp:3162), then +10%.
+	if got := effectiveMaxHP(e); got != 2200 {
+		t.Errorf("effectiveMaxHP = %d, want 2200 (2×1000 +10%%)", got)
 	}
 }
 
@@ -1196,11 +1197,12 @@ func TestVigorAffectBonus(t *testing.T) {
 	d := New(Config{})
 	d.refreshScore(e)
 	e.Affect[0] = world.Affect{Type: world.AffectVigor, Level: 1}
-	if got := effectiveMaxHP(e); got != 1100 {
-		t.Errorf("vigor effectiveMaxHP = %d, want 1100 (+10%%)", got)
+	// On the doubled score pools a player carries (Basedef.cpp:3162-3163).
+	if got := effectiveMaxHP(e); got != 2200 {
+		t.Errorf("vigor effectiveMaxHP = %d, want 2200 (2×1000 +10%%)", got)
 	}
-	if got := effectiveMaxMP(e); got != 550 {
-		t.Errorf("vigor effectiveMaxMP = %d, want 550 (+10%%)", got)
+	if got := effectiveMaxMP(e); got != 1100 {
+		t.Errorf("vigor effectiveMaxMP = %d, want 1100 (2×500 +10%%)", got)
 	}
 }
 
@@ -2322,7 +2324,8 @@ func TestUseHealPotion(t *testing.T) {
 
 func TestUseHealPotionClampsToMax(t *testing.T) {
 	const potion = 404
-	db := healPotionDB(world.Item{Index: potion}, 950, 1000, 0, 0)
+	// Stored max 1000 is a 2000 pool in play (Basedef.cpp:3162); 1950 + 500 overshoots it.
+	db := healPotionDB(world.Item{Index: potion}, 1950, 1000, 0, 0)
 	effects := map[int][]content.BaseEffect{potion: {{Eff: efHp, Val: 500}}}
 	addr, stop := startServerClockItems(t, db, map[int]int{potion: volHpMpPotion}, effects)
 	defer stop()
@@ -2333,8 +2336,8 @@ func TestUseHealPotionClampsToMax(t *testing.T) {
 	send(t, c, protocol.MsgUseItem, body.Encode())
 
 	expect(t, c, protocol.MsgSendItem)
-	if _, _, reqHp, _ := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp)); reqHp != 1000 {
-		t.Errorf("ReqHp = %d, want clamped to 1000", reqHp)
+	if _, _, reqHp, _ := setHpMpFields(t, expect(t, c, protocol.MsgSetHpMp)); reqHp != 2000 {
+		t.Errorf("ReqHp = %d, want clamped to 2000", reqHp)
 	}
 }
 

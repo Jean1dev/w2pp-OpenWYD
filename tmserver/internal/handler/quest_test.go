@@ -1172,7 +1172,9 @@ func TestMasterGriffOpcodeUsesWarpDestinations(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := world.CharacterState{
 				Slot: 0, Name: "Hero", Level: 1, X: 2113, Y: 2079,
-				HP: 1000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
+				// A full bar in play (2×1000, Basedef.cpp:3162): one below it regenerates
+				// and its score frames land where this test reads the teleport.
+				HP: 2000, MaxHP: 1000, LastCity: 0, ClassMaster: classMasterMortal,
 			}
 			addr, stop, _ := startServerMestreGrifo(t, st, true)
 			defer stop()

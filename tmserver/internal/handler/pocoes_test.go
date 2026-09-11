@@ -36,7 +36,9 @@ func TestDivineAndVigorStack(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &world.Entity{MaxMP: pool}
+			// A player's score pool is twice the stored one (Basedef.cpp:3163),
+			// so the report's 7708 is a stored 3854.
+			e := &world.Entity{MaxMP: pool / 2}
 			withAffects(e, tt.affects...)
 			if got := effectiveMaxMP(e); got != tt.want {
 				t.Errorf("effectiveMaxMP = %d, want %d", got, tt.want)
@@ -52,8 +54,10 @@ func TestBuffUsesTheLegacyQuantisedStep(t *testing.T) {
 	e := &world.Entity{MaxHP: 149}
 	withAffects(e, world.AffectDivine)
 
-	const legacy = 149 + (149/100)*20 // 169
-	const naive = 149 * 120 / 100     // 178, what this port used to return
+	// The buff scales the score pool, twice the stored one (Basedef.cpp:3162).
+	const score = 2 * 149
+	const legacy = score + (score/100)*20 // 338
+	const naive = score * 120 / 100       // 357, the multiply-first form
 	if got := effectiveMaxHP(e); got != legacy {
 		t.Errorf("effectiveMaxHP = %d, want %d (the naive form gives %d)", got, legacy, naive)
 	}

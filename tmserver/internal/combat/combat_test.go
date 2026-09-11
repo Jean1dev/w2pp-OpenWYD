@@ -74,7 +74,7 @@ func TestResolveHit(t *testing.T) {
 		},
 		{
 			name: "partial crit vs player",
-			in:   HitInput{AttackerDamage: 100, TargetAC: 10, TargetIsPlayer: true, DoubleCritical: 2},
+			in:   HitInput{AttackerDamage: 100, TargetAC: 10, TargetIsPlayer: true, AttackerIsPlayer: true, DoubleCritical: 2},
 			seq:  []int{1, 0, 500}, // crit roll, damage roll, parry roll
 			want: 123,
 		},
@@ -104,6 +104,25 @@ func TestResolveHit(t *testing.T) {
 				t.Errorf("ResolveHit = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestMonsterSwingReadsArmourAsIs: the x3 armour is PvP only (_MSG_Attack.cpp:
+// 454-455). A monster's swing reads a player's AC exactly as it reads a
+// monster's (GetFunc.cpp:1631-1632), and a player striking a player reads it
+// three times over.
+func TestMonsterSwingReadsArmourAsIs(t *testing.T) {
+	for _, ac := range []int{0, 40, 300, 600} {
+		plain := ResolveHit(&seqRand{vals: []int{3, 500}}, HitInput{AttackerDamage: 600, TargetAC: ac})
+		mob := ResolveHit(&seqRand{vals: []int{3, 500}}, HitInput{AttackerDamage: 600, TargetAC: ac, TargetIsPlayer: true})
+		if mob != plain {
+			t.Errorf("AC %d: monster on a player = %d, want %d (the armour as it is)", ac, mob, plain)
+		}
+		pvp := ResolveHit(&seqRand{vals: []int{3, 500}}, HitInput{AttackerDamage: 600, TargetAC: ac, TargetIsPlayer: true, AttackerIsPlayer: true})
+		tripled := ResolveHit(&seqRand{vals: []int{3, 500}}, HitInput{AttackerDamage: 600, TargetAC: 3 * ac})
+		if pvp != tripled {
+			t.Errorf("AC %d: player on a player = %d, want %d (the armour x3)", ac, pvp, tripled)
+		}
 	}
 }
 

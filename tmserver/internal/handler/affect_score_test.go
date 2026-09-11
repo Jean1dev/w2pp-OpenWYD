@@ -180,8 +180,9 @@ func TestAffect13AssaltoDamageAndMaxHP(t *testing.T) {
 
 	applyAffectScore(e)
 
-	if e.AffDamage != 30 || e.AffDamageMultiPct != 115 || e.AffMaxHP != -100 {
-		t.Fatalf("AffDamage/Multi/MaxHP = %d/%d/%d, want 30/115/-100", e.AffDamage, e.AffDamageMultiPct, e.AffMaxHP)
+	// -10% of the SCORE MaxHp, which a player carries doubled (Basedef.cpp:3162).
+	if e.AffDamage != 30 || e.AffDamageMultiPct != 115 || e.AffMaxHP != -200 {
+		t.Fatalf("AffDamage/Multi/MaxHP = %d/%d/%d, want 30/115/-200", e.AffDamage, e.AffDamageMultiPct, e.AffMaxHP)
 	}
 	if got := d.effectiveDamage(e); got != 264 {
 		t.Fatalf("effectiveDamage = %d, want 264", got)

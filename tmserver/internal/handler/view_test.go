@@ -131,7 +131,7 @@ func TestActionDestinationAndType(t *testing.T) {
 func viewDeltaDB() *fakeDB {
 	db := newDB()
 	mk := func(name string, x, y int16) world.CharacterState {
-		return world.CharacterState{Slot: 0, Name: name, X: x, Y: y, HP: 1000, MaxHP: 1000}
+		return world.CharacterState{Slot: 0, Name: name, X: x, Y: y, HP: 2000, MaxHP: 1000} // full bar in play (2×1000)
 	}
 	db.loads = map[int64]world.CharacterState{7: mk("Hero", 5, 5), 11: mk("HeroB", 5, 45)}
 	return db
@@ -324,7 +324,8 @@ func passiveMob() []byte {
 
 func TestTeleportReconcilesMobViewLikeGridMulticast(t *testing.T) {
 	db := gmDB()
-	db.loads[23] = world.CharacterState{Slot: 0, Name: "Victim", Class: 0, Level: 10, X: 40, Y: 40, HP: 1000, MaxHP: 1000}
+	// A full bar in play (2×1000, Basedef.cpp:3162), so regen frames stay out of the view stream.
+	db.loads[23] = world.CharacterState{Slot: 0, Name: "Victim", Class: 0, Level: 10, X: 40, Y: 40, HP: 2000, MaxHP: 1000}
 	addr, stop := startServerMobAISpawns(t, db, 64, []world.MobSpawn{
 		{Template: passiveMob(), X: 6, Y: 5, GenIndex: -1},
 		{Template: passiveMob(), X: 41, Y: 40, GenIndex: -1},

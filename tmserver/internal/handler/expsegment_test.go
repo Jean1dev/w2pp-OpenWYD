@@ -55,9 +55,9 @@ func TestExpSegmentRefillsAndResets(t *testing.T) {
 	if e.Segment != 1 {
 		t.Fatalf("Segment = %d, want 1", e.Segment)
 	}
-	if e.HP != e.MaxHP || e.MP != e.MaxMP {
+	if e.HP != effectiveMaxHP(e) || e.MP != effectiveMaxMP(e) {
 		t.Errorf("HP/MP = %d/%d of %d/%d, want a full refill on the quarter bonus",
-			e.HP, e.MP, e.MaxHP, e.MaxMP)
+			e.HP, e.MP, effectiveMaxHP(e), effectiveMaxMP(e))
 	}
 
 	// Crossing the level resets the quarters, so the next level reports its own.

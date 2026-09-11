@@ -38,19 +38,21 @@ func TestJoiaAffect8Bits(t *testing.T) {
 				t.Errorf("AffHpAbs = %d, want 20", e.AffHpAbs)
 			}
 		}},
+		// The percent bonuses read the score pools, which a player carries doubled
+		// (Basedef.cpp:3162-3163): 10% of 2×1000, half of 2×1000.
 		{"protecao", 4, func(t *testing.T, e *world.Entity) {
-			if e.AffMaxHP != 100 || e.AffAC != 10 {
-				t.Errorf("AffMaxHP/AffAC = %d/%d, want 100/10", e.AffMaxHP, e.AffAC)
+			if e.AffMaxHP != 200 || e.AffAC != 10 {
+				t.Errorf("AffMaxHP/AffAC = %d/%d, want 200/10", e.AffMaxHP, e.AffAC)
 			}
 		}},
 		{"poder", 5, func(t *testing.T, e *world.Entity) {
-			if e.AffMaxHP != 100 || e.AffDamage != 20 || e.AffMagic != 40 {
-				t.Errorf("AffMaxHP/AffDamage/AffMagic = %d/%d/%d, want 100/20/40", e.AffMaxHP, e.AffDamage, e.AffMagic)
+			if e.AffMaxHP != 200 || e.AffDamage != 20 || e.AffMagic != 40 {
+				t.Errorf("AffMaxHP/AffDamage/AffMagic = %d/%d/%d, want 200/20/40", e.AffMaxHP, e.AffDamage, e.AffMagic)
 			}
 		}},
 		{"magia_mp_to_hp", 7, func(t *testing.T, e *world.Entity) {
-			if e.AffMaxHP != 500 || e.AffMaxMP != -500 {
-				t.Errorf("AffMaxHP/AffMaxMP = %d/%d, want 500/-500", e.AffMaxHP, e.AffMaxMP)
+			if e.AffMaxHP != 1000 || e.AffMaxMP != -1000 {
+				t.Errorf("AffMaxHP/AffMaxMP = %d/%d, want 1000/-1000", e.AffMaxHP, e.AffMaxMP)
 			}
 		}},
 	}
@@ -88,8 +90,8 @@ func TestJoiaAffect8Stacks(t *testing.T) {
 	if e.AffResist[0] != 25 {
 		t.Errorf("AffResist[0] = %d, want 25", e.AffResist[0])
 	}
-	if e.AffMaxHP != 100 || e.AffAC != 10 {
-		t.Errorf("AffMaxHP/AffAC = %d/%d, want 100/10", e.AffMaxHP, e.AffAC)
+	if e.AffMaxHP != 200 || e.AffAC != 10 {
+		t.Errorf("AffMaxHP/AffAC = %d/%d, want 200/10", e.AffMaxHP, e.AffAC)
 	}
 }
 

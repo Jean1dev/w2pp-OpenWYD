@@ -1299,7 +1299,8 @@ func TestApplyHp(t *testing.T) {
 		{"req below hp is a no-op", 800, 1000, 500, 800, 500, false},
 		{"closes a small gap in one call", 900, 5000, 1000, 1000, 1000, true},
 		{"caps at applyCasting per call", 0, 10000, 5000, 2000, 5000, true},
-		{"req clamped to effective max", 900, 1000, 9999, 1000, 1000, true},
+		// A player's stored 1000 is a 2000 pool in play (Basedef.cpp:3162).
+		{"req clamped to effective max", 900, 1000, 9999, 2000, 2000, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1397,8 +1398,9 @@ func TestApplyMpCapsAndClamps(t *testing.T) {
 	if !applyMp(s, e) {
 		t.Fatal("applyMp reported no movement")
 	}
-	if e.MP != 100 || s.ReqMp != 100 {
-		t.Errorf("MP/ReqMp = %d/%d, want 100/100 (clamped to effective max)", e.MP, s.ReqMp)
+	// The stored 100 is a 200 pool in play (Basedef.cpp:3163).
+	if e.MP != 200 || s.ReqMp != 200 {
+		t.Errorf("MP/ReqMp = %d/%d, want 200/200 (clamped to effective max)", e.MP, s.ReqMp)
 	}
 }
 

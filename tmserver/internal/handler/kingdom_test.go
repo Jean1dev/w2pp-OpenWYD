@@ -26,8 +26,9 @@ func TestKingdomDamageExemptsClanAndNeverKills(t *testing.T) {
 		w.Session(2).ReqHp = 1000
 
 		d.sendDamageKingdom(w, box, clanHekalotia)
-		if enemy.HP != 900 || w.Session(1).ReqHp != 900 {
-			t.Fatalf("enemy HP/ReqHp = %d/%d, want 900/900", enemy.HP, w.Session(1).ReqHp)
+		// A tenth of the pool in play, twice the stored 1000 (Basedef.cpp:3162).
+		if enemy.HP != 800 || w.Session(1).ReqHp != 800 {
+			t.Fatalf("enemy HP/ReqHp = %d/%d, want 800/800", enemy.HP, w.Session(1).ReqHp)
 		}
 		if exempt.HP != 1000 {
 			t.Fatalf("exempt clan HP = %d, want 1000", exempt.HP)

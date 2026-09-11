@@ -127,8 +127,8 @@ func TestMobKilledLevelUp(t *testing.T) {
 	if killer.BaseMaxHP != 83 { // TK IncHP = 3
 		t.Errorf("BaseMaxHP = %d, want 83", killer.BaseMaxHP)
 	}
-	if killer.HP != killer.MaxHP || killer.MP != killer.MaxMP || killer.MaxHP <= 0 {
-		t.Errorf("HP/MP = %d/%d of %d/%d, want full heal", killer.HP, killer.MP, killer.MaxHP, killer.MaxMP)
+	if killer.HP != effectiveMaxHP(killer) || killer.MP != effectiveMaxMP(killer) || killer.MaxHP <= 0 {
+		t.Errorf("HP/MP = %d/%d of %d/%d, want full heal", killer.HP, killer.MP, effectiveMaxHP(killer), effectiveMaxMP(killer))
 	}
 }
 

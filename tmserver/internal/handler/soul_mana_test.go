@@ -11,10 +11,18 @@ import (
 // is INT, with a mana pool that did not move when her INT doubled.
 func fmCelestial(soul uint8) *world.Entity {
 	e := &world.Entity{ID: 1, Class: 1, Level: 400, ClassMaster: classMasterCelestial, Soul: soul,
-		Str: 12, Int: 2576, Dex: 12, Con: 211, MaxHP: 3009, MaxMP: 20470}
+		Str: 12, Int: 2576, Dex: 12, Con: 211, MaxHP: 3009, MaxMP: 20470,
+		BaseStr: 12, BaseInt: 2576, BaseDex: 12, BaseCon: 211} // no attribute from gear
 	e.Affect[0] = world.Affect{Type: affectSoul}
 	return e
 }
+
+// The pools a player carries in play are twice the stored ones (Basedef.cpp:
+// 3162-3163); the Soul's purchase rides on top, undoubled.
+const (
+	hpEmJogo = 2 * 3009
+	mpEmJogo = 2 * 20470
+)
 
 // TestSoulDeIntDaMana: the INT the Soul adds buys mana at 2 per point, the rate
 // a distributed point pays — what the legacy's "Soul Hp/Mp add" block meant to
@@ -28,10 +36,10 @@ func TestSoulDeIntDaMana(t *testing.T) {
 		t.Fatalf("INT com Soul = %d, esperado %d", got, intComSoul)
 	}
 	ganho := 2 * (intComSoul - 2576)
-	if got := effectiveMaxMP(e); got != 20470+ganho {
-		t.Errorf("MP máxima com Soul = %d, esperado %d (20470 + 2×%d de INT)", got, 20470+ganho, intComSoul-2576)
+	if got := effectiveMaxMP(e); got != mpEmJogo+ganho {
+		t.Errorf("MP máxima com Soul = %d, esperado %d (2×20470 + 2×%d de INT)", got, mpEmJogo+ganho, intComSoul-2576)
 	}
-	if got := effectiveMaxHP(e); got != 3009 {
+	if got := effectiveMaxHP(e); got != hpEmJogo {
 		t.Errorf("uma Soul de INT mexeu na vida: %d", got)
 	}
 }
@@ -41,10 +49,10 @@ func TestSoulDeConDaVida(t *testing.T) {
 	e := fmCelestial(soulC)
 	applyAffectScore(e)
 	conComSoul := int32(211) * 220 / 100
-	if got := effectiveMaxHP(e); got != 3009+2*(conComSoul-211) {
-		t.Errorf("HP máxima com Soul de CON = %d, esperado %d", got, 3009+2*(conComSoul-211))
+	if got := effectiveMaxHP(e); got != hpEmJogo+2*(conComSoul-211) {
+		t.Errorf("HP máxima com Soul de CON = %d, esperado %d", got, hpEmJogo+2*(conComSoul-211))
 	}
-	if got := effectiveMaxMP(e); got != 20470 {
+	if got := effectiveMaxMP(e); got != mpEmJogo {
 		t.Errorf("uma Soul de CON mexeu na mana: %d", got)
 	}
 }
@@ -54,14 +62,14 @@ func TestSoulDeConDaVida(t *testing.T) {
 func TestSoulSemIntNemConNaoMexeNoPool(t *testing.T) {
 	e := fmCelestial(soulF)
 	applyAffectScore(e)
-	if effectiveMaxMP(e) != 20470 || effectiveMaxHP(e) != 3009 {
+	if effectiveMaxMP(e) != mpEmJogo || effectiveMaxHP(e) != hpEmJogo {
 		t.Errorf("Soul de FOR mexeu no pool: MP %d HP %d", effectiveMaxMP(e), effectiveMaxHP(e))
 	}
 
-	debuff := &world.Entity{ID: 2, Int: 500, MaxMP: 1000}
+	debuff := &world.Entity{ID: 2, Int: 500, BaseInt: 500, MaxMP: 1000}
 	debuff.Affect[0] = world.Affect{Type: 1, Value: 1} // slow: robe users lose INT
 	applyAffectScore(debuff)
-	if got := effectiveMaxMP(debuff); got != 1000 {
+	if got := effectiveMaxMP(debuff); got != 2*1000 {
 		t.Errorf("debuff de INT mexeu na mana: %d", got)
 	}
 }

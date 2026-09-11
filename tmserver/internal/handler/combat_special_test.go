@@ -120,7 +120,8 @@ func TestFoemaMultiBuffTargetCap(t *testing.T) {
 }
 
 func TestManaControlDamage(t *testing.T) {
-	target := &world.Entity{MP: 200, MaxMP: 1000}
+	// The threshold is 10% of the score MaxMp, doubled for a player: 2×500 → 100.
+	target := &world.Entity{MP: 200, MaxMP: 500}
 	target.Affect[0] = world.Affect{Type: 18}
 
 	dmg, spent, ok := manaControlDamage(target, 110, false)
@@ -904,8 +905,8 @@ func TestSamaritanoCastRaisesConAndMaxHP(t *testing.T) {
 	if sc.Con != 362 {
 		t.Errorf("score Con = %d, want 362 (212 + 150)", sc.Con)
 	}
-	if sc.MaxHp != 4331 {
-		t.Errorf("score MaxHp = %d, want 4331 (4031 + 300)", sc.MaxHp)
+	if sc.MaxHp != 8362 {
+		t.Errorf("score MaxHp = %d, want 8362 (2×4031 + 300)", sc.MaxHp)
 	}
 }
 
@@ -933,7 +934,7 @@ func TestRemoveSamaritanoOnAttack(t *testing.T) {
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
 	e := &world.Entity{ID: 1, BaseCon: 212, BaseMaxHP: 4031, MaxHP: 4031, Con: 212}
 	d.applyCastAffect(w, e, e, e.ID, castInfo{isSkill: true, special: 200, spell: samaritanoSpell})
-	e.HP = 4331 // topped up while buffed
+	e.HP = 8362 // topped up while buffed (2×4031 + 300)
 
 	d.removeSamaritano(w, e)
 
@@ -943,8 +944,8 @@ func TestRemoveSamaritanoOnAttack(t *testing.T) {
 	if e.AffCon != 0 || e.AffMaxHP != 0 {
 		t.Errorf("AffCon/AffMaxHP = %d/%d, want 0/0", e.AffCon, e.AffMaxHP)
 	}
-	if e.HP != 4031 {
-		t.Errorf("HP = %d, want 4031 (clamped to the unbuffed max)", e.HP)
+	if e.HP != 8062 {
+		t.Errorf("HP = %d, want 8062 (clamped to the unbuffed max, 2×4031)", e.HP)
 	}
 }
 
