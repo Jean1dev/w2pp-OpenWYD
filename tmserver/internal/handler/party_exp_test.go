@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/level"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -125,61 +126,211 @@ func grupoDeDois(t *testing.T, c cenaDeGrupo) (d *Dispatcher, w *world.World, ma
 	return d, w, matador, outro, mob
 }
 
-// O bônus de XP de quem mata vale para o grupo inteiro, como no legado: nos sete
-// ramos de MobKilled.cpp o bônus sai de conn (quem matou) e o resto sai de party
-// (quem recebe). Nível, evolução e zona continuam sendo de cada um.
-func TestBonusDeXPDeQuemMataValeProGrupo(t *testing.T) {
+// xpNaMorte é a XP que um membro deve levar desta morte com um bônus dado, pela
+// mesma conta que o jogo roda. O teto é sempre o de quem matou.
+func xpNaMorte(d *Dispatcher, mob, e *world.Entity, golpe *level.KillingBlow, bonus, fada int32) int64 {
+	return level.ExpReward(level.ExpRewardInput{
+		Zone:   level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(e.X), int32(e.Y)),
+		MobExp: mob.Exp, KillerLevel: e.Level, MobLevel: mob.Level,
+		Tier: tierOf(e), ExpBonus: bonus, FairyContent: fada, KillingBlow: golpe,
+		Events: d.expEvents, Config: d.xpConfig,
+	})
+}
+
+// comFadaSuprema põe a Fada Suprema no slot: +16 no equipamento e +30 de conteúdo.
+func comFadaSuprema(e *world.Entity) {
+	e.Equip[fairyEquipSlot].Index = 3913
+	e.EquipExpBonus += fairyExpBonus(3913)
+}
+
+// O bônus do grupo é o MAIOR entre quem está na luta, seja quem for que matou —
+// decisão de 11/09/2026: "todos ganham o maior". O legado usava o de quem matou
+// (MobKilled.cpp:534/943/1363). Nível, evolução, zona e o teto continuam como
+// antes.
+func TestGrupoRecebeOMaiorBonus(t *testing.T) {
 	casos := []struct {
 		nome                       string
 		bonusMatador, bonusDoOutro int32
-		fadaSupremaNoMatador       bool
-		// o bônus com que os DOIS devem ser pagos — sempre o de quem matou
+		fadaNoMatador, fadaNoOutro bool
+		// o bônus com que os DOIS devem ser pagos — o maior da luta
 		bonus, fada int32
 	}{
-		{"quem mata com +100 e o outro com 0: o outro recebe com +100", 100, 0, false, 100, 0},
-		{"o outro com +100 e quem mata com 0: o outro recebe sem bônus", 0, 100, false, 0, 0},
-		{"a Fada Suprema de quem mata também vale pro grupo", 0, 0, true, fairyExpBonus(3913), 30},
-		{"o teto de 500 olha quem mata, não o outro", 500, 100, false, 500, 0},
+		{"quem mata com +100 e o outro com 0: os dois com +100", 100, 0, false, false, 100, 0},
+		{"o outro com +100 e quem mata com 0: os dois com o +100 do outro", 0, 100, false, false, 100, 0},
+		{"a Fada Suprema de quem mata vale pro grupo", 0, 0, true, false, fairyExpBonus(3913), 30},
+		{"a Fada Suprema do outro também vale pro grupo", 0, 0, false, true, fairyExpBonus(3913), 30},
+		{"vence o maior total, e o par vem inteiro de um só", 40, 0, false, true, fairyExpBonus(3913), 30},
+		{"+500 fica fora do portão do legado e não ganha a disputa", 500, 100, false, false, 100, 0},
 	}
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
 			d, w, matador, outro, mob := grupoDeDois(t, cenaDoBonus)
 			matador.AffExpBonus = c.bonusMatador
 			outro.AffExpBonus = c.bonusDoOutro
-			if c.fadaSupremaNoMatador {
-				matador.Equip[fairyEquipSlot].Index = 3913
-				matador.EquipExpBonus = fairyExpBonus(3913)
+			if c.fadaNoMatador {
+				comFadaSuprema(matador)
+			}
+			if c.fadaNoOutro {
+				comFadaSuprema(outro)
 			}
 
-			// O teto é sempre o de quem matou (TestTetoDeXPDeQuemMataNoGrupo);
-			// aqui só o bônus varia.
 			golpe := &level.KillingBlow{Level: matador.Level, Tier: tierOf(matador)}
-			esperada := func(e *world.Entity, bonus, fada int32) int64 {
-				return level.ExpReward(level.ExpRewardInput{
-					Zone:   level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(e.X), int32(e.Y)),
-					MobExp: mob.Exp, KillerLevel: e.Level, MobLevel: mob.Level,
-					Tier: tierOf(e), ExpBonus: bonus, FairyContent: fada, KillingBlow: golpe,
-					Events: d.expEvents, Config: d.xpConfig,
-				})
-			}
 			// Sem isto o teste passaria por acaso: se o bônus não mexesse na
-			// conta, o de quem mata e o do outro dariam o mesmo número.
-			if esperada(outro, 100, 0) == esperada(outro, 0, 0) {
-				t.Fatal("+100 não muda a XP deste mob; o caso não distingue de quem é o bônus")
+			// conta, qualquer escolha de bônus daria o mesmo número.
+			if xpNaMorte(d, mob, outro, golpe, 100, 0) == xpNaMorte(d, mob, outro, golpe, 0, 0) {
+				t.Fatal("+100 não muda a XP deste mob; o caso não distingue qual bônus valeu")
 			}
-			querMatador, querOutro := esperada(matador, c.bonus, c.fada), esperada(outro, c.bonus, c.fada)
+			querMatador := xpNaMorte(d, mob, matador, golpe, c.bonus, c.fada)
+			querOutro := xpNaMorte(d, mob, outro, golpe, c.bonus, c.fada)
 
 			d.grantPartyExp(w, nil, matador, mob)
 
 			if outro.Exp != querOutro {
-				t.Errorf("o outro recebeu %d, queria %d (bônus de quem matou: %d%%+%d); "+
-					"com o bônus dele mesmo seriam %d",
-					outro.Exp, querOutro, c.bonus, c.fada, esperada(outro, c.bonusDoOutro, 0))
+				t.Errorf("o outro recebeu %d, queria %d (o maior bônus: %d%%+%d)",
+					outro.Exp, querOutro, c.bonus, c.fada)
 			}
 			if matador.Exp != querMatador {
-				t.Errorf("quem matou recebeu %d, queria %d", matador.Exp, querMatador)
+				t.Errorf("quem matou recebeu %d, queria %d (o maior bônus: %d%%+%d)",
+					matador.Exp, querMatador, c.bonus, c.fada)
 			}
 		})
+	}
+}
+
+// Quem ficou longe não empresta o bônus: senão o grupo deixaria um personagem
+// cheio de baú e fada parado na cidade e farmaria em cima dele.
+func TestQuemEstaLongeNaoEmprestaOBonus(t *testing.T) {
+	d, w, matador, outro, mob := grupoDeDois(t, cenaDeGrupo{
+		x: 40, y: 40, nivelMob: 1, expMob: 1000, nivelMatador: 1, nivelDoOutro: 2,
+	})
+	longeID := w.SpawnMobAt(world.MobSpawn{Template: expMobTemplate(1, 0, 0), X: 5, Y: 5, GenIndex: -1})
+	if longeID < 0 {
+		t.Fatal("não consegui criar o membro longe")
+	}
+	longe := w.Entity(longeID)
+	longe.ClassMaster = classMasterMortal
+	longe.Exp = 0
+	longe.AffExpBonus = 100
+	longe.Leader = outro.ID
+	outro.PartyList[1] = longeID
+
+	golpe := &level.KillingBlow{Level: matador.Level, Tier: tierOf(matador)}
+	quer := xpNaMorte(d, mob, outro, golpe, 0, 0)
+
+	d.grantPartyExp(w, nil, matador, mob)
+
+	if outro.Exp != quer {
+		t.Errorf("o outro recebeu %d, queria %d (sem bônus: quem tem +100 está longe)", outro.Exp, quer)
+	}
+	if longe.Exp != 0 {
+		t.Errorf("quem está longe recebeu %d; fora do Pesadelo a caixa de HALFGRID vale", longe.Exp)
+	}
+}
+
+// Só no Pesadelo quem está longe (nome cinza no grupo) recebe: basta estar vivo
+// dentro da mesma instância, como nos três ramos do legado. É o caminho inteiro,
+// de grantPartyExp ao pagamento — a regra escrita e a regra ligada.
+func TestPesadeloPagaQuemEstaLongeNaInstancia(t *testing.T) {
+	casos := []struct {
+		nome           string
+		cena           cenaDeGrupo
+		longeX, longeY int16
+		recebe         bool
+	}{
+		// Pesadelo Arcano é o bloco (9,1): x 1152..1279, y 128..255.
+		{"Pesadelo, do outro lado da instância",
+			cenaDeGrupo{x: 1252, y: 228, nivelMob: 150, expMob: 100_000, nivelMatador: 150, nivelDoOutro: 150},
+			1162, 138, true},
+		{"campo, longe do mob",
+			cenaDeGrupo{x: 40, y: 40, nivelMob: 150, expMob: 100_000, nivelMatador: 150, nivelDoOutro: 150},
+			5, 5, false},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			d, w, matador, outro, mob := grupoDeDois(t, c.cena)
+			w.SetEntityPos(outro.ID, c.longeX, c.longeY)
+
+			d.grantPartyExp(w, nil, matador, mob)
+
+			if got := outro.Exp > 0; got != c.recebe {
+				t.Errorf("o outro, em (%d,%d), recebeu %d; want recebe=%v", c.longeX, c.longeY, outro.Exp, c.recebe)
+			}
+			if matador.Exp <= 0 {
+				t.Errorf("quem matou recebeu %d; o caso precisa dele ganhando", matador.Exp)
+			}
+		})
+	}
+}
+
+// A regra de quem recebe, caso a caso. Fora do Pesadelo a caixa de HALFGRID vale
+// — inclusive na Água, onde o legado também dispensava a distância, por decisão.
+func TestSoNoPesadeloOLongeRecebe(t *testing.T) {
+	// Pesadelo Arcano é o bloco (9,1): x 1152..1279, y 128..255.
+	// Água Normal é o bloco (8,27): x 1024..1151, y 3456..3583.
+	mobPesadelo := &world.Entity{X: 1160, Y: 140}
+	mobAgua := &world.Entity{X: 1030, Y: 3460}
+	mobCampo := &world.Entity{X: 2100, Y: 2100}
+	casos := []struct {
+		nome   string
+		mob    *world.Entity
+		x, y   int16
+		hp     int32
+		recebe bool
+	}{
+		{"Pesadelo, do lado", mobPesadelo, 1162, 142, 100, true},
+		{"Pesadelo, do outro lado da instância", mobPesadelo, 1275, 250, 100, true},
+		{"Pesadelo, mas morto", mobPesadelo, 1275, 250, 0, false},
+		{"Pesadelo, esperando na cidade", mobPesadelo, 2100, 2100, 100, false},
+		{"Água, longe dentro da sala", mobAgua, 1140, 3570, 100, false},
+		{"Água, do lado", mobAgua, 1032, 3462, 100, true},
+		{"campo, longe", mobCampo, 2200, 2200, 100, false},
+		{"campo, do lado", mobCampo, 2110, 2110, 100, true},
+	}
+	for _, c := range casos {
+		e := &world.Entity{X: c.x, Y: c.y, HP: c.hp}
+		if got := membroRecebeXP(e, c.mob); got != c.recebe {
+			t.Errorf("%s: membroRecebeXP = %v, want %v", c.nome, got, c.recebe)
+		}
+	}
+}
+
+// Os dois avisos cabem na linha do painel (94 bytes já em CP1252). Texto
+// maior é cortado no meio da frase pelo EncodeMessagePanelBody.
+func TestTextoXPPerdidaCabeNoPainel(t *testing.T) {
+	for _, perda := range []level.ExpLoss{level.ExpLossWindow, level.ExpLossKillerCap} {
+		texto := textoXPPerdida(perda)
+		if texto == "" {
+			t.Errorf("%v: sem texto; o jogador volta a ver \"bati e nada aconteceu\"", perda)
+			continue
+		}
+		if n := len(protocol.ClientText(texto)); n > protocol.MessageLength-2 {
+			t.Errorf("%v: %d bytes, o painel corta em %d: %q", perda, n, protocol.MessageLength-2, texto)
+		}
+	}
+	if texto := textoXPPerdida(level.ExpLossNone); texto != "" {
+		t.Errorf("sem perda a explicar devolveu %q; mob fraco para o nível não é aviso", texto)
+	}
+}
+
+// Uma sala da Água derruba uma dúzia de mobs em menos de um minuto: o aviso sai
+// uma vez por minuto, não uma por corpo.
+func TestPodeAvisarXPPerdida(t *testing.T) {
+	const agora = 1_800_000_000
+	casos := []struct {
+		nome   string
+		ultimo int64
+		want   bool
+	}{
+		{"nunca avisado", 0, true},
+		{"agora mesmo", agora, false},
+		{"um segundo antes do minuto", agora - xpPerdidaIntervalo + 1, false},
+		{"exatamente um minuto", agora - xpPerdidaIntervalo, true},
+		{"há muito tempo", agora - 3600, true},
+	}
+	for _, c := range casos {
+		if got := podeAvisarXPPerdida(c.ultimo, agora); got != c.want {
+			t.Errorf("%s: podeAvisarXPPerdida(%d, %d) = %v, want %v", c.nome, c.ultimo, agora, got, c.want)
+		}
 	}
 }
 

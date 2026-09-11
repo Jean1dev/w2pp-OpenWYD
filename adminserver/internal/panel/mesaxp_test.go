@@ -173,6 +173,22 @@ func TestMesaAvisaQuandoOMonstroNaoPagaNada(t *testing.T) {
 	}
 }
 
+// Nível baixo contra mob nível 399 na Água: a conta passa de 10 milhões e o
+// legado descarta ANTES dos cortes. A página tem de dizer isso, senão o
+// moderador tenta um corte mais brando e nada muda.
+func TestMesaExplicaODescarteAntesDosCortes(t *testing.T) {
+	h := newTestPanelMesa(t, roleAdmin, newFakeMesa(), newFakeAudit())
+	corpo := abrirMesa(t, h, "?simular=1&zona="+strconv.Itoa(int(level.ZoneAguaNormal))+
+		"&evolucao=2&mob_exp=2990849&mob_nivel=399&nivel=1&segundos=6").Body.String()
+
+	if !strings.Contains(corpo, "antes dos cortes") {
+		t.Error("o zero do descarte foi mostrado sem dizer que vem antes dos cortes")
+	}
+	if strings.Contains(corpo, "não paga nada para um personagem deste nível") {
+		t.Error("deu o aviso genérico para um zero que nenhum corte resolve")
+	}
+}
+
 func TestAdminGravaUmaTabela(t *testing.T) {
 	mesa := newFakeMesa()
 	log := newFakeAudit()

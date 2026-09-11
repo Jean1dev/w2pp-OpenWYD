@@ -821,6 +821,14 @@ func simularMesa(f mesaForm, cfg level.Config) mesaSimulacao {
 		// conta (level.ExpReward, 10/09/2026), então esse zero não existe mais — e
 		// o conselho, que era o conserto pelo dado que foi recusado, sairia falso.
 		sim.Aviso = "Este monstro não paga nada para um personagem deste nível."
+		if _, perda := level.ExpRewardOutcome(in); perda == level.ExpLossWindow {
+			// This zero sits BEFORE the cut table, so the obvious fix — a gentler
+			// cut for this level — cannot reach it. Saying so up front saves a
+			// moderator editing a table that is never consulted for this kill.
+			sim.Aviso = "Zero porque a conta passa de 10 milhões antes dos cortes, e o legado " +
+				"descarta a XP inteira em vez de limitar. Acontece com nível baixo contra mob " +
+				"de nível alto. Nenhum corte desta tabela traz de volta: o descarte vem antes dele."
+		}
 	}
 	return sim
 }
@@ -884,14 +892,7 @@ func compararZonas(f mesaForm, cfg level.Config) (linhas []mesaZonaComparada, ig
 
 // ehPesadelo reports whether a zone is one of the three Pesadelo branches, which
 // are the ones that scale with identityBase rather than ×450/(30+level).
-func ehPesadelo(z level.Zone) bool {
-	switch z {
-	case level.ZonePesadeloArcano, level.ZonePesadeloMistico, level.ZonePesadeloNormal:
-		return true
-	default:
-		return false
-	}
-}
+func ehPesadelo(z level.Zone) bool { return z.IsPesadelo() }
 
 // duracao turns a kill count into something a person can judge. Hours are the
 // unit that matters for a grind; days are shown alongside once the number stops

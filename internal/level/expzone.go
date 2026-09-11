@@ -59,6 +59,16 @@ var zoneRects = []zoneRect{
 // Name is the zone's name in the language the panel and the design docs use.
 func (z Zone) Name() string { return z.rule().name }
 
+// IsPesadelo reports whether the zone is one of the three Pesadelo instances.
+func (z Zone) IsPesadelo() bool {
+	switch z {
+	case ZonePesadeloArcano, ZonePesadeloMistico, ZonePesadeloNormal:
+		return true
+	default:
+		return false
+	}
+}
+
 // ZoneForTile is the legacy branch selector: the chain of else-if guards at
 // MobKilled.cpp:443-1272 compares (tx/128, ty/128) against a fixed block per
 // dungeon and falls through to the general field when none matches. The legacy

@@ -100,6 +100,11 @@ type Session struct {
 	DuelTarget       int
 	DuelTargetExpiry int64
 
+	// XPPerdidaAvisoAt is when (Unix seconds) this character was last told a
+	// kill paid them nothing (handler.avisarXPPerdida). Session scope on
+	// purpose: a fresh login may be told again at once.
+	XPPerdidaAvisoAt int64
+
 	seen map[int]struct{} // entity ids already create-mob'd to this client (view set)
 
 	// S→C send diagnostics (sendstats.go): per-type counts, totals, the trailing

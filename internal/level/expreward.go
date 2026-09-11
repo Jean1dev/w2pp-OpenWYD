@@ -22,8 +22,9 @@ type ExpEvents struct {
 
 // ExpRewardInput is one PvE kill as the reward pipeline reads it, for the
 // character being paid. Solo that is the killer; in a party it is each member in
-// turn — KillerLevel and Tier are then the member's, while ExpBonus,
-// FairyContent and KillingBlow stay the killer's, as the legacy reads them.
+// turn — KillerLevel and Tier are then the member's, KillingBlow stays the
+// killer's as the legacy reads it, and ExpBonus/FairyContent are whatever the
+// caller's party rule says (handler.bonusDoGrupo: the best in the fight).
 type ExpRewardInput struct {
 	// Zone selects which of the seven MobKilled.cpp branches pays. Derive it
 	// from the corpse's position with ZoneForTile.
@@ -34,8 +35,9 @@ type ExpRewardInput struct {
 	MobLevel    int32
 	Tier        Tier
 
-	// ExpBonus is pMob[conn].ExpBonus: the item/affect bonus in percent
-	// (fairy slot, grade-7 pieces, gem-2 pieces, Baú de XP).
+	// ExpBonus is the item/affect bonus in percent the kill is paid with (fairy
+	// slot, grade-7 pieces, gem-2 pieces, Baú de XP, shop mount). The legacy
+	// reads pMob[conn].ExpBonus; whose it is in a party is the caller's rule.
 	ExpBonus int32
 
 	// FairyContent is g_pFairyContent[0] (CMob.cpp:1269): a flat +30 that only
@@ -61,6 +63,41 @@ type ExpRewardInput struct {
 type KillingBlow struct {
 	Level int32
 	Tier  Tier
+}
+
+// ExpLoss says why a kill paid a character nothing when it was not simply
+// worthless to them. Both causes look identical in game — "I hit it and got
+// nothing" — which is why the handler is told which one it was.
+type ExpLoss uint8
+
+const (
+	// ExpLossNone: the kill paid, or was worth nothing on the character's own
+	// terms (a mob far below them, a tier wall). Nothing to explain.
+	ExpLossNone ExpLoss = iota
+
+	// ExpLossWindow: the scaled reward left (0, 10M] and the legacy threw it
+	// away whole instead of clamping it (the gate in every branch, :1284 on the
+	// field). A low level beside a level-399 mob hits this: ×450/(30+level)
+	// with a divisor of 31 turns 3M into 87M. It sits BEFORE the cut table, so
+	// no cut a moderator writes can bring it back.
+	ExpLossWindow
+
+	// ExpLossKillerCap: the character's own reward was positive and the
+	// killer's eMob cap took it to zero — a level-400 killing a mob far below
+	// it earns nothing, so neither does the low member beside it.
+	ExpLossKillerCap
+)
+
+// String names the loss for logs.
+func (l ExpLoss) String() string {
+	switch l {
+	case ExpLossWindow:
+		return "window"
+	case ExpLossKillerCap:
+		return "killer-cap"
+	default:
+		return "none"
+	}
 }
 
 // SoloExpReward is the general-field reward, kept as the short form for callers
@@ -92,11 +129,18 @@ func SoloExpReward(mobExp int64, killerLevel, mobLevel int32, tier Tier, expBonu
 // its g_EmptyMob/PARTYBONUS factor, the RvR-war +5%, and the DayLog/Hold
 // banking (:1386-1408).
 func ExpReward(in ExpRewardInput) int64 {
+	exp, _ := ExpRewardOutcome(in)
+	return exp
+}
+
+// ExpRewardOutcome is ExpReward plus the reason a character that fought for the
+// kill got nothing, for the handler to tell them.
+func ExpRewardOutcome(in ExpRewardInput) (int64, ExpLoss) {
 	r := in.Zone.rule()
 	classMaster := in.Tier.ClassMaster
 	isExp := ExpApply(in.MobExp, in.KillerLevel, in.MobLevel, in.Tier)
 	if isExp <= 0 {
-		return 0
+		return 0, ExpLossNone
 	}
 	// FIDELIDADE AO LEGADO (restaurada): eMob is the GetExpApply of whoever
 	// landed the killing blow, on ITS level and tier — computed once before the
@@ -148,8 +192,11 @@ func ExpReward(in ExpRewardInput) int64 {
 	} else {
 		exp = 450 * isExp / (30 + myLevel)
 	}
-	if exp <= 0 || exp > soloExpGate {
-		return 0
+	if exp > soloExpGate {
+		return 0, ExpLossWindow
+	}
+	if exp <= 0 {
+		return 0, ExpLossNone
 	}
 
 	tier := tierKeyFor(classMaster)
@@ -165,8 +212,13 @@ func ExpReward(in ExpRewardInput) int64 {
 		}
 	}
 
+	// The cap comes AFTER the member's own cuts, where the legacy puts it: the
+	// cut is chosen by the member's level, the ceiling by the killer's.
 	exp = 6 * exp / 10
 	if r.capToEMob && exp > eMob {
+		if eMob <= 0 {
+			return 0, ExpLossKillerCap
+		}
 		exp = eMob
 	}
 
@@ -199,9 +251,9 @@ func ExpReward(in ExpRewardInput) int64 {
 		exp = exp * int64(rate) / 100
 	}
 	if exp <= 0 {
-		return 0
+		return 0, ExpLossNone
 	}
-	return exp
+	return exp, ExpLossNone
 }
 
 // CelestialLevelOffset is what ExpReward adds to a celestial character's level

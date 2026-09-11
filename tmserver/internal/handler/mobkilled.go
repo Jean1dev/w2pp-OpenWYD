@@ -274,41 +274,69 @@ func sendDieAction(w *world.World, mob *world.Entity) {
 	sendMobChat(w, mob.ID, gen.DieAction[say])
 }
 
-// doMatador is what the EXP of a kill reads off whoever landed the killing blow
-// rather than off the member being paid: the bonus and the eMob cap. It is read
-// once per kill and handed to every member, so a level-up mid-loop cannot move
-// it — which is also the legacy, where both come from lines that run before the
-// party loop or read conn inside it.
+// termosDaMorte is what one kill pays every share with that is NOT the paid
+// member's own: the XP bonus and the eMob cap. It is settled once per kill,
+// before anyone is paid, so a level-up mid-loop cannot move it.
 //
-// FIDELIDADE AO LEGADO (restaurada), both fields:
-//
-//   - The bonus. All seven reward branches read it off conn, the killer, while
-//     everything else in the same lines is read off party, the member —
-//     MobKilled.cpp:534/679/794 (the three Pesadelo branches, ExpBonus only),
-//     :943/1092/1214 (Água) and :1363-1364 (field), the last four adding
-//     g_pFairyContent[0] on top. A party that kills with a +100% character in
-//     it earns +100% each; a +100% character who did not land the blow earns
-//     nothing extra.
-//   - The eMob cap. It is conn's GetExpApply (:405, :426), applied to every
-//     member in Água and field (and the Desertos, which copy the field); see
+//   - golpe, the eMob cap — FIDELIDADE AO LEGADO (restaurada). It is the
+//     killer's GetExpApply (MobKilled.cpp:405, :426), applied to every member in
+//     Água and field (and the Desertos, which copy the field); see
 //     level.ExpReward. A character far above the mob caps the party at its own
-//     small number, down to 0.
-//
-// The rewrite had been reading both off each member. For a summon's kill conn
-// is the summoner (MobKilled.cpp:340-354), which is the reward target mobKilled
-// already passes down.
-type doMatador struct {
-	exp   int32             // pMob[conn].ExpBonus — its < 500 gate is also the killer's
-	fada  int32             // pMob[conn].g_pFairyContent[0]; Pesadelo ignores it
-	golpe level.KillingBlow // pMob[conn] level and tier, for the eMob cap
+//     small number, down to 0. For a summon's kill the killer is the summoner
+//     (MobKilled.cpp:340-354), which is the reward target mobKilled already
+//     passes down.
+//   - bonus and fada, the XP bonus. Solo, the killer's own. In a party, the
+//     best in the fight — a server rule, see bonusDoGrupo.
+type termosDaMorte struct {
+	bonus int32             // ExpBonus: chest, fairy, grade-7/gem-2 pieces, shop mount
+	fada  int32             // g_pFairyContent[0] of the SAME character; Pesadelo ignores it
+	golpe level.KillingBlow // the killer's level and tier, for the eMob cap
 }
 
-func (d *Dispatcher) lerDoMatador(killer *world.Entity) doMatador {
-	return doMatador{
-		exp:   d.expBonus(killer),
+// termosDe is a solo kill's terms: everything is the killer's own.
+func (d *Dispatcher) termosDe(killer *world.Entity) termosDaMorte {
+	return termosDaMorte{
+		bonus: d.expBonus(killer),
 		fada:  fairyContentBonus(killer),
 		golpe: level.KillingBlow{Level: killer.Level, Tier: tierOf(killer)},
 	}
+}
+
+// limiteBonusXP is level.ExpReward's `ExpBonus < 500` gate: a bonus at or
+// above it pays nothing at all.
+const limiteBonusXP = 500
+
+// bonusDoGrupo is the XP bonus a party kill pays every share with: the best
+// among the characters in the fight.
+//
+// DIVERGÊNCIA DELIBERADA DO LEGADO — decisão do Marco em 11/09/2026: "todos
+// ganham o maior". The legacy reads the bonus off conn, the killer, in all seven
+// branches (MobKilled.cpp:534/679/794 in Pesadelo, :943/1092/1214 in Água,
+// :1363-1364 on the field), so a +100% character raised the party only when it
+// landed the blow. Here the best bonus in the fight reaches everyone, whoever
+// kills: a character on chest, fairy and shop mount carries the group. It
+// replaces the killer-only rule the shop mounts followed until that decision.
+//
+// naLuta is who counts: the members taking a share of this kill (alive, and near
+// or inside the same Pesadelo — membroRecebeXP) plus the killer. A member parked
+// in town lends nothing, or a party could keep a fully-bought character safe
+// and farm on its bonus.
+//
+// The pair travels together — bonus and fairy content from the same character —
+// so two people's items never add up into one share. A bonus the < 500 gate
+// would ignore counts as none, so it cannot win the comparison and then pay
+// nothing.
+func (d *Dispatcher) bonusDoGrupo(naLuta []*world.Entity) (bonus, fada int32) {
+	for _, e := range naLuta {
+		b, f := d.expBonus(e), fairyContentBonus(e)
+		if b <= 0 || b >= limiteBonusXP {
+			continue
+		}
+		if b+f > bonus+fada {
+			bonus, fada = b, f
+		}
+	}
+	return bonus, fada
 }
 
 // grantExp awards PvE experience for one kill to one character — the killer
@@ -322,27 +350,29 @@ func (d *Dispatcher) lerDoMatador(killer *world.Entity) doMatador {
 // to in-view players.
 //
 // Level, tier, zone and the newbie gate are the member's; the bonus and the eMob
-// cap are the killer's (doMatador).
+// cap come from termos (termosDaMorte).
 //
 // UNVERIFIED / deferred: the per-level reward items (DoItemLevel).
-func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, member, mob *world.Entity, matador doMatador) {
+func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, member, mob *world.Entity, termos termosDaMorte) {
 	// The reward branch is chosen by the 128-tile block of the kill, not by a
 	// per-map setting: each instanced dungeon has its own divisor table in
 	// MobKilled.cpp, and until this was wired every dungeon paid open-field
 	// rates (level.ZoneForKill).
-	gain := level.ExpReward(level.ExpRewardInput{
+	in := level.ExpRewardInput{
 		Zone:         level.ZoneForKill(int32(mob.X), int32(mob.Y), int32(member.X), int32(member.Y)),
 		MobExp:       mob.Exp,
 		KillerLevel:  member.Level,
 		MobLevel:     mob.Level,
 		Tier:         tierOf(member),
-		ExpBonus:     matador.exp,
-		FairyContent: matador.fada,
-		KillingBlow:  &matador.golpe,
+		ExpBonus:     termos.bonus,
+		FairyContent: termos.fada,
+		KillingBlow:  &termos.golpe,
 		Events:       d.expEvents,
 		Config:       d.xpConfig,
-	})
+	}
+	gain, loss := level.ExpRewardOutcome(in)
 	if gain <= 0 {
+		d.avisarXPPerdida(w, ks, member, mob, in.Zone, loss)
 		return
 	}
 	previousExp := member.Exp
@@ -643,39 +673,40 @@ const (
 // neither number is derived from the other. That is why this calls the same
 // grantExp the solo path uses instead of dividing anything.
 //
-// The two numbers that are not the member's are the EXP bonus and the eMob cap:
-// every member is paid with the killer's (doMatador, restored legacy
-// behaviour).
+// The two numbers that are not the member's are the EXP bonus and the eMob cap
+// (termosDaMorte): the cap is the killer's, restored legacy behaviour; the
+// bonus is the best in the fight (bonusDoGrupo), a server rule.
 //
-// Near enough is the legacy's own test: alive, and within HALFGRID of the mob.
-// A member across the map gets nothing, which is what stops a party from
-// parking somebody safe to farm.
+// Who takes a share is membroRecebeXP: alive, and within HALFGRID of the mob —
+// or anywhere inside the same Pesadelo.
 func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
 	// Read once, before anyone is paid: a level-up mid-loop must not move the
 	// numbers the rest of the party is paid with.
-	matador := d.lerDoMatador(killer)
+	termos := d.termosDe(killer)
 	leader := killer
 	if killer.Leader != 0 {
 		leader = w.Entity(killer.Leader)
 		if leader == nil {
 			// The leader vanished mid-kill; the killer still earns its own.
-			d.grantExp(w, ks, killer, mob, matador)
+			d.grantExp(w, ks, killer, mob, termos)
 			return
 		}
 	}
 	if leader == killer && partyMemberCount(leader) == 0 {
-		d.grantExp(w, ks, killer, mob, matador) // solo, the common case
+		d.grantExp(w, ks, killer, mob, termos) // solo, the common case
 		return
 	}
 
-	// The leader plus its list, deduplicated — the killer is somewhere in there
-	// and must be paid exactly once.
-	pago := make(map[int]bool, world.MaxParty+1)
-	pagar := func(id int) {
-		if id <= 0 || pago[id] {
+	// Who takes a share: the leader plus its list, deduplicated — the killer is
+	// somewhere in there and must be paid exactly once. Settled before anyone is
+	// paid, because the bonus is the best among them.
+	visto := make(map[int]bool, world.MaxParty+1)
+	naLuta := make([]*world.Entity, 0, world.MaxParty+1)
+	incluir := func(id int) {
+		if id <= 0 || visto[id] {
 			return
 		}
-		pago[id] = true
+		visto[id] = true
 		e := w.Entity(id)
 		// Pet não recebe. O legado paga só `party > 0 && party < MAX_USER`
 		// (MobKilled.cpp:444), e em jogo o que mora na PartyList fora dessa faixa
@@ -683,18 +714,100 @@ func (d *Dispatcher) grantPartyExp(w *world.World, ks *world.Session, killer, mo
 		// de comemoração, que o cliente anima parando o bicho: os pets
 		// "travavam" a cada abate. O filtro é pelo dono e não pelo id porque os
 		// testes de grupo montam os jogadores com entidades de mob.
-		if e == nil || e.Summoner != 0 || e.HP <= 0 || !pertoDoMob(e, mob) {
+		if e == nil || e.Summoner != 0 || !membroRecebeXP(e, mob) {
 			return
 		}
-		d.grantExp(w, w.Session(id), e, mob, matador)
+		naLuta = append(naLuta, e)
 	}
-	pagar(leader.ID)
+	incluir(leader.ID)
 	for _, id := range leader.PartyList {
-		pagar(id)
+		incluir(id)
 	}
 	// The killer is normally in the list; pay it anyway if the party rows are
 	// out of step, so a bookkeeping slip never costs somebody the kill it made.
-	pagar(killer.ID)
+	incluir(killer.ID)
+
+	// The killer lends its bonus even when it takes no share itself (killed by
+	// the mob's last hit, or out of the box after a ranged kill): it made the
+	// kill. The full slice expression keeps the append off naLuta's array.
+	termos.bonus, termos.fada = d.bonusDoGrupo(append(naLuta[:len(naLuta):len(naLuta)], killer))
+	for _, e := range naLuta {
+		d.grantExp(w, w.Session(e.ID), e, mob, termos)
+	}
+}
+
+// membroRecebeXP is whether a party member takes a share of this kill: alive,
+// and either near the corpse (the party panel's white name) or — in Pesadelo
+// only — anywhere inside the same Pesadelo instance.
+//
+// The Pesadelo half follows its three legacy branches (MobKilled.cpp:444, :593,
+// :738), which ask only that the member stand on the dungeon's 128-tile block
+// and never measure the distance. The block check is what keeps it a dungeon
+// rule: a member waiting in town is on another block and still gets nothing.
+//
+// DIVERGÊNCIA DELIBERADA DO LEGADO: the three Água branches (:852, :1002, :1151)
+// skip the distance the same way in the legacy; here only Pesadelo does, by the
+// Marco's decision ("apenas do PESADELO"). Everywhere else the HALFGRID box
+// stands, which is what stops a party from parking somebody safe to farm.
+func membroRecebeXP(e, mob *world.Entity) bool {
+	if e.HP <= 0 {
+		return false
+	}
+	if pertoDoMob(e, mob) {
+		return true
+	}
+	z := level.ZoneForTile(int32(mob.X), int32(mob.Y))
+	return z.IsPesadelo() && level.ZoneForTile(int32(e.X), int32(e.Y)) == z
+}
+
+// xpPerdidaIntervalo is how often one character may be told a kill paid them
+// nothing. A water room drops a dozen mobs in under a minute, and a line per
+// corpse would bury every other message in the panel.
+const xpPerdidaIntervalo = 60 // seconds
+
+// Texts for the two ways a kill pays nothing that the player cannot see. The
+// legacy is silent in both, which is what made "o level 400 bate e o meu level
+// 2 não ganha XP" read as a bug. Both fit the 94-byte panel line in CP1252.
+const (
+	msgXPPerdidaJanela = "Monstro forte demais para o seu nível: esta morte não rendeu experiência."
+	msgXPPerdidaTeto   = "O grupo ganha no máximo a experiência de quem matou, e este monstro não rende nada a ele."
+)
+
+// avisarXPPerdida tells a character why a kill they took part in paid nothing,
+// when the reason is one they could not guess from the screen. It never
+// changes the reward — the rule stands; this only makes it visible.
+func (d *Dispatcher) avisarXPPerdida(w *world.World, s *world.Session, member, mob *world.Entity, zone level.Zone, loss level.ExpLoss) {
+	text := textoXPPerdida(loss)
+	if text == "" || s == nil {
+		return
+	}
+	now := d.now().Unix()
+	if !podeAvisarXPPerdida(s.XPPerdidaAvisoAt, now) {
+		return
+	}
+	s.XPPerdidaAvisoAt = now
+	sendClientMessage(w, s, text)
+	d.log.Info("kill paid no exp",
+		"account", s.AccountName, "member_level", member.Level, "tier", member.ClassMaster,
+		"mob_level", mob.Level, "mob_exp", mob.Exp, "zone", zone.Name(), "loss", loss.String())
+}
+
+// textoXPPerdida is the line for a loss worth explaining, or "" for none.
+func textoXPPerdida(loss level.ExpLoss) string {
+	switch loss {
+	case level.ExpLossWindow:
+		return msgXPPerdidaJanela
+	case level.ExpLossKillerCap:
+		return msgXPPerdidaTeto
+	default:
+		return ""
+	}
+}
+
+// podeAvisarXPPerdida reports whether a character last told at `ultimo` may be
+// told again at `agora`. Zero is "never told", which a real clock is far past.
+func podeAvisarXPPerdida(ultimo, agora int64) bool {
+	return agora >= ultimo+xpPerdidaIntervalo
 }
 
 // pertoDoMob is the legacy's proximity test for party experience: the member
