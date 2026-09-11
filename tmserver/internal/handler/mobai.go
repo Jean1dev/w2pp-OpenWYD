@@ -637,16 +637,41 @@ func (d *Dispatcher) mobBattle(w *world.World, id int, e *world.Entity) {
 	case battleAttack:
 		d.mobAttack(w, id, e, target)
 	case battleRetreat:
-		if isKefraBoss(e) {
+		if isKefraBoss(e) || d.passoPresoPelaLentidao(id, e) {
 			return
 		}
 		d.mobRetreat(w, id, e, target)
 	default:
-		if isKefraBoss(e) {
+		if isKefraBoss(e) || d.passoPresoPelaLentidao(id, e) {
 			return
 		}
 		d.mobStep(w, id, e, target)
 	}
+}
+
+// passoPresoPelaLentidao diz se o monstro lento perde o passo deste tick.
+//
+// A lentidão (afeto 1, a Lança de Gelo do Dragão) tira velocidade de corrida
+// (AffRunSpeed, affect_score.go), mas a IA de monstro anda uma casa por tick sem
+// olhar velocidade nenhuma: o afeto entrava e o monstro corria igual. Aqui o
+// monstro lento anda em ticks alternados, meia velocidade. A paridade soma o id
+// para que um grupo lento não pare e ande em bloco.
+//
+// Regra nossa, não do legado: lá o afeto de golpe de monstro nunca pega
+// (mobskill.go), então não existe monstro lento para copiar.
+func (d *Dispatcher) passoPresoPelaLentidao(id int, e *world.Entity) bool {
+	return e.AffRunSpeed < 0 && (d.tickCount+id)%2 == 1
+}
+
+// cadenciaDoGolpe é o intervalo entre golpes do monstro, esticado pela
+// velocidade de ataque que a lentidão tira (AffAttackSpeed −30 →
+// 1000 × 100/70 ≈ 1428 ms). Pelo mesmo motivo do passo: sem isso a lentidão não
+// mudava nada no golpe.
+func cadenciaDoGolpe(e *world.Entity) uint32 {
+	if e.AffAttackSpeed < 0 && e.AffAttackSpeed > -100 {
+		return uint32(mobAttackCadence * 100 / (100 + int(e.AffAttackSpeed)))
+	}
+	return mobAttackCadence
 }
 
 func mobReach(e *world.Entity) int {
@@ -727,7 +752,7 @@ func validTarget(w *world.World, e, target *world.Entity) bool {
 // via the shared combat formula. Player HP bars update from the Dam entry.
 func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) {
 	now := w.Now()
-	if now < e.AtkTick+mobAttackCadence {
+	if now < e.AtkTick+cadenciaDoGolpe(e) {
 		return
 	}
 	// Stagger the FIRST swing of a group across the cadence window. A room's
@@ -773,6 +798,140 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 		}
 		sk = mobSkill{index: noSkill}
 	}
+	dmg := d.danoDoGolpeDeMonstro(w, e, target)
+	if dmg > 0 {
+		target.HP -= int32(dmg)
+		if target.HP < 0 {
+			target.HP = 0
+		}
+		// Drop the victim's heal target by the damage, or regenPlayers heals it
+		// straight back next tick (ProcessSecMinTimer.cpp:2389-2397).
+		damageReqHp(w.Session(target.ID), target, int32(dmg))
+	}
+	// A magia de área do pet (o meteoro da Succubus) acerta também os monstros em
+	// volta do alvo, cada um com o próprio golpe.
+	area := d.golpesDaArea(w, id, e, target, sk)
+
+	motion := uint8(motionDoGolpe)
+	if e.Summoner != 0 {
+		if e.AndouDesdeOGolpe {
+			d.fecharTrajetoDoPet(w, id, e)
+		}
+		// 4 → 5 → 6: o cliente descarta a animação igual à que ainda está
+		// tocando (WYD.exe 0x507341), e é a mesma sequência que ele usa na
+		// cadeia de golpes (0x4f9999-0x4f9a2b).
+		motion = motionDoGolpe + e.GolpeSeq%3
+		e.GolpeSeq++
+	}
+	body := corpoDoGolpeDeMonstro(id, e, target, sk, motion, dmg)
+	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
+	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
+	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
+	// with HEADER.ID = the mob the dead player wasn't put into the death state and kept
+	// acting (attacking, auto-potting). The target is in-view, so it receives this.
+	//
+	// The TYPE is MSG_AttackOne, as GetAttack sets it (GetFunc.cpp:1413). The client
+	// reads Dam[] for 0x367 as thirteen entries whatever the frame size — only 0x39D
+	// stops at one (WYD.exe 0x48b37e and the three loops after it). Sent as 0x367
+	// with a single entry, the other twelve were read from whatever followed in the
+	// client's receive buffer: phantom damage numbers, flinches and HP drops on
+	// random entities around every monster and pet swing.
+	//
+	// A golpe de área vai no 0x367, como o GetAttackArea do legado (GetFunc.cpp:1690,
+	// _MSG_Attack), e por isso SEMPRE com as treze entradas: as que sobram vão
+	// zeradas, alvo 0, que o cliente pula.
+	tipo := protocol.MsgAttackOne
+	if len(area) > 0 {
+		tipo = protocol.MsgAttack
+		for _, a := range area {
+			body.Dam = append(body.Dam, protocol.DamEntry{TargetID: int32(a.alvo.ID), Damage: int32(a.dano)})
+		}
+		for len(body.Dam) < protocol.MaxTarget {
+			body.Dam = append(body.Dam, protocol.DamEntry{})
+		}
+	}
+	payload := body.Encode()
+	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
+		d.ensureSeenMob(w, vs, id)
+		w.SendTo(vs, protocol.Header{Type: tipo, ID: protocol.IDScene}, payload)
+	})
+
+	// Quem o meteoro atingiu morre (a morte paga o dono, como no golpe principal)
+	// ou vira contra o pet.
+	for _, a := range area {
+		if a.alvo.HP == 0 {
+			d.mobKilled(w, e, a.alvo)
+		} else {
+			setGroupBattle(w, a.alvo.ID, a.alvo, e)
+		}
+	}
+	d.concluirGolpeDeMonstro(w, e, target, sk)
+}
+
+// golpeDeArea é um alvo a mais de uma magia de área de pet.
+type golpeDeArea struct {
+	alvo *world.Entity
+	dano int
+}
+
+// raioDaMagiaDeArea é até onde, em volta do alvo, a magia de área de um pet
+// alcança: 2 casas, um quadrado de 5×5. Regra nossa. No legado um monstro não
+// lança magia de área (o GetAttackArea só serve à Kefra e acerta a EnemyList
+// inteira), e quando é o jogador que lança, quem escolhe os alvos é o cliente.
+const raioDaMagiaDeArea = 2
+
+// golpesDaArea aplica a magia de área do pet nos monstros em volta do alvo
+// principal e devolve quem foi atingido e quanto.
+//
+// Só pet, e só magia de dano com mais de um alvo (MaxTarget > 1 e InstanceType de
+// dano elemental 1-5): das magias dos pets, só a Tempestade de Meteoros. O
+// Enfraquecer também tem MaxTarget 13, mas é afeto, não dano, e segue no alvo
+// único como sempre.
+//
+// Cada monstro atingido leva o próprio golpe do pet (danoDoGolpeDeMonstro), contra
+// a AC dele. Jogador e evocação ficam de fora pelo validTarget do pet, como no
+// golpe principal. A ordem é a da varredura das casas, fixa, porque cada golpe gasta
+// o gerador que os drops também usam.
+func (d *Dispatcher) golpesDaArea(w *world.World, id int, e, target *world.Entity, sk mobSkill) []golpeDeArea {
+	if e.Summoner == 0 || sk.index == noSkill || d.spells == nil {
+		return nil
+	}
+	sp, ok := d.spells.Get(sk.index)
+	if !ok || sp.MaxTarget <= 1 || sp.InstanceType < 1 || sp.InstanceType > 5 {
+		return nil
+	}
+	limite := sp.MaxTarget
+	if limite > protocol.MaxTarget {
+		limite = protocol.MaxTarget
+	}
+	limite-- // o alvo principal já ocupa uma entrada
+	var area []golpeDeArea
+	for dy := int16(-raioDaMagiaDeArea); dy <= raioDaMagiaDeArea && len(area) < limite; dy++ {
+		for dx := int16(-raioDaMagiaDeArea); dx <= raioDaMagiaDeArea && len(area) < limite; dx++ {
+			oid, ok := w.EntityAt(target.X+dx, target.Y+dy)
+			if !ok || oid == id || oid == target.ID || world.IsPlayer(oid) {
+				continue
+			}
+			alvo := w.Entity(oid)
+			if !validTarget(w, e, alvo) {
+				continue
+			}
+			dano := d.danoDoGolpeDeMonstro(w, e, alvo)
+			if dano > 0 {
+				alvo.HP -= int32(dano)
+				if alvo.HP < 0 {
+					alvo.HP = 0
+				}
+			}
+			area = append(area, golpeDeArea{alvo: alvo, dano: dano})
+		}
+	}
+	return area
+}
+
+// danoDoGolpeDeMonstro é o dano de um golpe de monstro ou de pet contra target,
+// já com a parte que a montaria do alvo absorve.
+func (d *Dispatcher) danoDoGolpeDeMonstro(w *world.World, e, target *world.Entity) int {
 	dmg := combat.ResolveHit(w.Rand(), combat.HitInput{
 		// effectiveDamage, não e.Damage cru: é o que soma AffDamage, e sem isso um
 		// debuff de dano no monstro não tira dano nenhum (o Enfraquecer).
@@ -811,47 +970,12 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	// ProcessSecMinTimer.cpp:2294). byPlayer is false — a pet counts as a monster
 	// here, which matches the legacy: its absorption block gates on the TARGET being
 	// a player and never asks what swung.
-	dmg = d.absorbBlow(w, target, dmg, false)
-	if dmg > 0 {
-		target.HP -= int32(dmg)
-		if target.HP < 0 {
-			target.HP = 0
-		}
-		// Drop the victim's heal target by the damage, or regenPlayers heals it
-		// straight back next tick (ProcessSecMinTimer.cpp:2389-2397).
-		damageReqHp(w.Session(target.ID), target, int32(dmg))
-	}
+	return d.absorbBlow(w, target, dmg, false)
+}
 
-	motion := uint8(motionDoGolpe)
-	if e.Summoner != 0 {
-		if e.AndouDesdeOGolpe {
-			d.fecharTrajetoDoPet(w, id, e)
-		}
-		// 4 → 5 → 6: o cliente descarta a animação igual à que ainda está
-		// tocando (WYD.exe 0x507341), e é a mesma sequência que ele usa na
-		// cadeia de golpes (0x4f9999-0x4f9a2b).
-		motion = motionDoGolpe + e.GolpeSeq%3
-		e.GolpeSeq++
-	}
-	body := corpoDoGolpeDeMonstro(id, e, target, sk, motion, dmg)
-	// HEADER.ID = ESCENE_FIELD, as the original mob attack (GetFunc.cpp GetAttack sets
-	// sm->ID = ESCENE_FIELD). The client applies Dam[] to targets regardless of header,
-	// but only registers the VICTIM's own HP→0 / death state from a field/scene event;
-	// with HEADER.ID = the mob the dead player wasn't put into the death state and kept
-	// acting (attacking, auto-potting). The target is in-view, so it receives this.
-	//
-	// The TYPE is MSG_AttackOne, as GetAttack sets it (GetFunc.cpp:1413). The client
-	// reads Dam[] for 0x367 as thirteen entries whatever the frame size — only 0x39D
-	// stops at one (WYD.exe 0x48b37e and the three loops after it). Sent as 0x367
-	// with a single entry, the other twelve were read from whatever followed in the
-	// client's receive buffer: phantom damage numbers, flinches and HP drops on
-	// random entities around every monster and pet swing.
-	payload := body.Encode()
-	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
-		d.ensureSeenMob(w, vs, id)
-		w.SendTo(vs, protocol.Header{Type: protocol.MsgAttackOne, ID: protocol.IDScene}, payload)
-	})
-
+// concluirGolpeDeMonstro é o que vem depois do golpe no alvo principal: a magia e
+// a reação de quem apanhou.
+func (d *Dispatcher) concluirGolpeDeMonstro(w *world.World, e, target *world.Entity, sk mobSkill) {
 	// The skill rides along with the blow: the client draws it from SkillIndex
 	// above, the affect lands here (ProcessSecMinTimer.cpp:2196-2205).
 	d.applyMobSkill(w, e, target, sk)
@@ -913,16 +1037,17 @@ const motionDoGolpe = 4
 // têm exatamente isso — a barra caía para MaxMp - 30000 a cada golpe: -16911 de
 // 13089 numa Foema, -20441 de 9559 num BM, até a próxima correção do servidor.
 //
-// SkillIndex leva a magia que o pet sorteou (mobskill.go), quando o modelo de
-// criatura tem animação para ela (magiaDesenhavelEmCriatura); golpe seco é
-// noSkill. Só pet sorteia: monstro comum sai sempre seco. A magia no pacote foi
-// tirada uma vez (d8d6ca11) como suspeita da mana negativa, e não era ela — era
-// o +4 acima.
+// SkillIndex leva a magia que o pet sorteou (mobskill.go); golpe seco é noSkill.
+// É o que o legado faz, `sm->SkillIndex = special` (GetFunc.cpp:1488), e o
+// cliente desenha a magia no bicho pela tabela de animações do próprio SkillData.
+// Só pet sorteia: monstro comum sai sempre seco.
+//
+// Duas vezes a magia saiu do pacote por hipótese errada. Em d8d6ca11 ela foi
+// tirada como suspeita da mana negativa, e a causa era o +4 acima. Em 6cc791d3 o
+// meteoro e o veneno foram tirados porque "modelo de criatura não tem a animação
+// 8/9". Tem: o AniSound4.txt do cliente liga SKILL01-03 do tigre à malha 2. O que
+// sumia com a animação era o dono cego (setBattle, 99c199e6).
 func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, motion uint8, dmg int) protocol.MsgAttackBody {
-	skill := noSkill
-	if magiaDesenhavelEmCriatura(sk.index) {
-		skill = sk.index
-	}
 	return protocol.MsgAttackBody{
 		CurrentHp:  semValorNoGolpe,
 		CurrentMp:  semValorNoGolpe,
@@ -933,21 +1058,9 @@ func corpoDoGolpeDeMonstro(id int, e, target *world.Entity, sk mobSkill, motion 
 		TargetY:    uint16(target.Y),
 		AttackerID: uint16(id),
 		Motion:     motion,
-		SkillIndex: int16(skill),
+		SkillIndex: int16(sk.index),
 		Dam:        []protocol.DamEntry{{TargetID: int32(target.ID), Damage: int32(dmg)}},
 	}
-}
-
-// magiaDesenhavelEmCriatura diz se a magia pode ir no SkillIndex do golpe de uma
-// criatura. Com magia, o cliente ignora a Motion e tira a animação do próprio
-// SkillData (WYD.exe 0x5071a7): para modelo de criatura, a Lança de Gelo (34)
-// vira a animação 4 e o Enfraquecer (51) a 5 — golpes que todo bicho tem. O
-// meteoro (35) e o veneno (40) viram 8 e 9, que um modelo de criatura pode não
-// ter, e aí o cliente não desenha nada, sem cair na Motion (0x5028f7-0x50291c):
-// o pet matava sem animação. Essas vão como golpe seco; o efeito continua sendo
-// aplicado no servidor (applyMobSkill).
-func magiaDesenhavelEmCriatura(skill int) bool {
-	return skill == 34 || skill == 51
 }
 
 // fecharTrajetoDoPet encerra, no cliente, o trajeto do último movimento do pet

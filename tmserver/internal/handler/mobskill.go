@@ -124,7 +124,7 @@ func (d *Dispatcher) applyMobSkill(w *world.World, e, target *world.Entity, sk m
 	}
 	sp, ok := d.spells.Get(sk.index)
 	if !ok || (sp.AffectType <= 0 && sp.TickType <= 0) {
-		return // a pure-damage spell (a meteor, say) needs the area path, not this one
+		return // magia só de dano (o meteoro): o dano em área é do golpesDaArea (mobai.go)
 	}
 	delay, level := mobAffectDelay, 0
 	// DELIBERATE DIVERGENCE for a PET. The legacy passes the caster mob own

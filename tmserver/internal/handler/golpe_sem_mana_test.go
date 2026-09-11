@@ -30,10 +30,10 @@ func TestGolpeDeMonstroNaoFalaDeVidaNemMana(t *testing.T) {
 	}{
 		{"monstro de 30000 de vida bate no jogador", monstro, jogador, mobSkill{index: noSkill}, noSkill},
 		{"pet bate seco em monstro", pet, monstro, mobSkill{index: noSkill}, noSkill},
-		{"Gorila lança Enfraquecer: animação 5, vai no pacote", pet, monstro, mobSkill{index: 51}, 51},
-		{"Dragão lança Lança de Gelo: animação 4, vai no pacote", pet, monstro, mobSkill{index: 34}, 34},
-		{"Tigre lança veneno: animação 9, criatura não tem, vai seco", pet, monstro, mobSkill{index: 40}, noSkill},
-		{"Succubus lança meteoro: animação 8, criatura não tem, vai seco", pet, monstro, mobSkill{index: 35}, noSkill},
+		{"Gorila lança Enfraquecer: vai no pacote", pet, monstro, mobSkill{index: 51}, 51},
+		{"Dragão lança Lança de Gelo: vai no pacote", pet, monstro, mobSkill{index: 34}, 34},
+		{"Tigre lança Névoa Venenosa: vai no pacote", pet, monstro, mobSkill{index: 40}, 40},
+		{"Succubus lança Tempestade de Meteoros: vai no pacote", pet, monstro, mobSkill{index: 35}, 35},
 	}
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
