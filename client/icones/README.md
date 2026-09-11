@@ -8,6 +8,7 @@ então o contorno do desenho não pode ser preto puro.
 | Arquivo | Item | Onde foi gravado no cliente |
 |---|---|---|
 | `chave-do-rei-orc.bmp` | 465 Chave do Rei Orc | célula 940 (`UI/itemicon10.wyt`), apontada por `itemicon.bin[465] = 941` |
+| `chave-do-inferno.bmp` | 3222 Chave do Inferno | célula 941 (`UI/itemicon10.wyt`), apontada por `itemicon.bin[3222] = 942` |
 
 O caminho até o cliente, hoje à mão (o gerador do launcher ainda não leva estes
 arquivos):
@@ -23,5 +24,25 @@ arquivos):
    primeira com o índice do item e as outras nove com `AARRGGBB texto`, em
    Latin-1 e com `_` no lugar do espaço.
 
-Células livres são fáceis de achar no fim do último atlas: em 11/09/2026 o
-maior ícone usado era o 939, e 940-999 estavam vazias.
+"Livre" é **célula que nenhum item aponta**, não célula em branco: os onze atlas
+do cliente vêm pintados até a última célula, e a `itemicon.bin` para de apontar
+bem antes do fim. A arte além da última apontada é órfã — o cliente nunca a
+desenha — e é ela que se sobrescreve. Procurar célula em branco não acha
+nenhuma, e pegar uma célula abaixo da última apontada apaga o ícone de algum
+item.
+
+Em 12/09/2026 a `itemicon.bin` apontava até a célula 939; a 940 foi para a Chave
+do Rei Orc e a 941 para a Chave do Inferno, então a próxima livre é a 942.
+
+O comando `webserver/cmd/itemnovocliente` faz os quatro passos de uma vez, numa
+cópia do cliente (a pasta original é só lida):
+
+	itemnovocliente -cliente "<pasta do cliente>" -item 3222 \
+	                -icone client/icones/chave-do-inferno.bmp \
+	                -catalogo Release/Common/ItemList.csv \
+	                -linha "[Item_Premium]:premium" -linha "" \
+	                -linha "Um lugar infernal, mas com grandes recompensas." \
+	                -linha "Só venha se tiver coragem, NOOB!:vermelho"
+
+Ele escolhe a célula sozinho pela regra acima e imprime qual usou — a tabela
+deste arquivo é para quem for ler o cliente depois, não uma entrada do comando.
