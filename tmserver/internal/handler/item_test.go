@@ -580,8 +580,9 @@ func TestCelestialArchBandsAndEquipment(t *testing.T) {
 		if e.Level != 0 || e.Exp != 0 || e.BaseAC != 230 || e.BaseDamage != 0 {
 			t.Errorf("level %d reset incomplete: %+v", tc.level, e)
 		}
-		if e.BaseStr != 8 || e.BaseInt != 4 || e.BaseDex != 7 || e.BaseCon != 6 || e.BaseMaxHP != 80 || e.BaseMaxMP != 45 {
-			t.Errorf("level %d class base mismatch", tc.level)
+		// The pools carry 399 levels: BASE_GetHpMp counts a Celestial's level +MAX_LEVEL.
+		if e.BaseStr != 8 || e.BaseInt != 4 || e.BaseDex != 7 || e.BaseCon != 6 || e.BaseMaxHP != 80+399*3 || e.BaseMaxMP != 45+399 {
+			t.Errorf("level %d class base mismatch (HP/MP %d/%d, want the class base plus 399 levels)", tc.level, e.BaseMaxHP, e.BaseMaxMP)
 		}
 		if e.SpecialBonus != 855 || e.LearnedSkill != 1<<30 || e.Equip[capeEquipSlot].Index != 3197 {
 			t.Errorf("level %d celestial state mismatch", tc.level)
@@ -595,8 +596,15 @@ func TestCelestialArchBandsAndEquipment(t *testing.T) {
 	}
 }
 
+// TestCelestialClassBases: the class attributes, and pools that already carry
+// 399 levels (BASE_GetHpMp counts a Celestial's level +MAX_LEVEL).
 func TestCelestialClassBases(t *testing.T) {
-	want := [4][6]int32{{8, 4, 7, 6, 80, 45}, {5, 8, 5, 5, 60, 65}, {6, 6, 9, 5, 70, 55}, {8, 9, 13, 6, 75, 60}}
+	want := [4][6]int32{
+		{8, 4, 7, 6, 80 + 399*3, 45 + 399*1},
+		{5, 8, 5, 5, 60 + 399*1, 65 + 399*3},
+		{6, 6, 9, 5, 70 + 399*1, 55 + 399*2},
+		{8, 9, 13, 6, 75 + 399*2, 60 + 399*1},
+	}
 	d := New(Config{})
 	for class, base := range want {
 		e := world.Entity{Class: uint8(class), ClassMaster: classMasterArch, Level: 399, MortalLevel: 99}
@@ -3271,8 +3279,8 @@ func TestCelestialNasceSemNada(t *testing.T) {
 			}
 		}
 	}
-	if e.MaxHP != 80 || e.MaxMP != 45 {
-		t.Errorf("HP/MP = %d/%d, want a base da classe 80/45", e.MaxHP, e.MaxMP)
+	if e.MaxHP != 80+399*3 || e.MaxMP != 45+399 {
+		t.Errorf("HP/MP = %d/%d, want a base da classe com os 399 níveis, 1277/444", e.MaxHP, e.MaxMP)
 	}
 	if e.AffMaxHP != 0 || e.AffMaxMP != 0 {
 		t.Errorf("os buffs do Arch sobreviveram: AffMaxHP=%d AffMaxMP=%d", e.AffMaxHP, e.AffMaxMP)

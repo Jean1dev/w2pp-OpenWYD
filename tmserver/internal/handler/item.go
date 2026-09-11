@@ -1762,8 +1762,12 @@ func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity, src int) {
 	e.Str, e.Int, e.Dex, e.Con = e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon
 	e.BaseSpecial, e.Special = [4]int16{}, [4]int16{}
 	e.BaseAC, e.BaseDamage = 230, 0
-	e.BaseMaxHP, e.BaseMaxMP = b[4], b[5]
-	e.HP, e.MaxHP, e.MP, e.MaxMP = b[4], b[4], b[5], b[5]
+	// The legacy writes the bare class pools here (_MSG_UseItem.cpp:3141) and
+	// lets BASE_GetHpMp add the +MAX_LEVEL share on the next load. Built from
+	// the formula now, so the newborn Celestial never shows the level-1 pools
+	// even for the moment before that load.
+	e.BaseMaxHP, e.BaseMaxMP = level.BasePools(e.Class, e.ClassMaster, e.Level, int32(e.BaseCon), int32(e.BaseInt))
+	e.HP, e.MaxHP, e.MP, e.MaxMP = e.BaseMaxHP, e.BaseMaxHP, e.BaseMaxMP, e.BaseMaxMP
 	e.ScoreBonus, e.SkillBonus, e.SpecialBonus = 0, 0, 855
 	e.LearnedSkill, e.SecLearnedSkill = 1<<30, 0
 	e.SkillBar = [4]uint8{}

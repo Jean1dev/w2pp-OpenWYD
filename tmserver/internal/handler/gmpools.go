@@ -80,19 +80,19 @@ func (d *Dispatcher) gmPools(w *world.World, s *world.Session, rest string) {
 	}
 }
 
-// sayPools prints the stored pools next to what a MORTAL of this build would
-// have. The canonical figure is a REFERENCE, not a target: for an Arch or a
-// Celestial it legitimately differs by the rebirth and crystal grants, so the
-// line says which tier it is and lets the operator judge.
+// sayPools prints the stored pools next to what BASE_GetHpMp gives this build
+// and tier (level.BasePools — for a Celestial that includes the +MAX_LEVEL
+// share). It is a REFERENCE, not a target: an Arch legitimately sits above it by
+// its crystal grants, so the line says which tier it is and lets the operator
+// judge. A Celestial is rebuilt to exactly this figure on every load.
 func (d *Dispatcher) sayPools(w *world.World, s *world.Session, e *world.Entity) {
 	base := level.BaseAttributes(e.Class)
 	investedCon := int32(e.BaseCon) - base[3]
 	investedInt := int32(e.BaseInt) - base[1]
-	mortalHP := level.ClassBaseHP(e.Class) + (e.Level-1)*level.IncHP(e.Class) + 2*investedCon
-	mortalMP := level.ClassBaseMP(e.Class) + (e.Level-1)*level.IncMP(e.Class) + 2*investedInt
+	refHP, refMP := level.BasePools(e.Class, e.ClassMaster, e.Level, int32(e.BaseCon), int32(e.BaseInt))
 
-	sendClientMessage(w, s, fmt.Sprintf("%s nv%d: HP base %d (mortal %d), MP base %d (mortal %d)",
-		e.Name, e.Level, e.BaseMaxHP, mortalHP, e.BaseMaxMP, mortalMP))
+	sendClientMessage(w, s, fmt.Sprintf("%s nv%d: HP base %d (fórmula %d), MP base %d (fórmula %d)",
+		e.Name, e.Level, e.BaseMaxHP, refHP, e.BaseMaxMP, refMP))
 	sendClientMessage(w, s, fmt.Sprintf("CON %d (+%d), INT %d (+%d), tier %d",
 		e.BaseCon, investedCon, e.BaseInt, investedInt, e.ClassMaster))
 }

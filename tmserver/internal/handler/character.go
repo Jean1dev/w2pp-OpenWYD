@@ -362,6 +362,13 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
 		// counting the gear already baked into the stored CurrentScore.
 		d.deriveBaseScore(e)
+		// A Celestial's pools are rebuilt from the formula on every load, as the
+		// legacy does for everyone (BASE_GetHpMp, ProcessDBMessage.cpp:810). That
+		// is what repairs a Celestial born before the +MAX_LEVEL share was ported:
+		// its stored pools were a level-1 character's. Mortal and Arch keep the
+		// derived base — this port stores permanent grants (the Arch crystals)
+		// straight in it, and the legacy recompute would erase them.
+		celestialPools(e)
 		// ScoreBonus is re-derived here for the same reason SkillBonus is, and from
 		// the same place in the legacy: ProcessDBMessage.cpp:816-817 calls
 		// BASE_GetBonusSkillPoint AND BASE_GetBonusScorePoint side by side when a
