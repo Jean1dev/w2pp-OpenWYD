@@ -103,9 +103,17 @@ const (
 	waterStagingTileY = 443
 )
 
-// waterExit is the ClearAreaTeleport destination for an expired room
-// (ProcessSecMinTimer.cpp:1586).
-var waterExit = [2]int16{1965, 1769}
+// waterExit is where an expired room throws everyone out
+// (ClearAreaTeleport, ProcessSecMinTimer.cpp:1586).
+//
+// DELIBERATE DIVERGENCE (2026-09-12): the legacy drops the party at 1965,1769,
+// three tiles short of the staging square that accepts a scroll (x/4 == 491 and
+// y/4 == 443, so 1964..1967 by 1772..1775). Everyone thrown out had to notice
+// that and walk back onto it before the next run could start, and a scroll used
+// a step too early is refused by the area gate with a notice the client does not
+// render. Landing ON the square is the whole fix: the scroll works where the
+// player lands.
+var waterExit = [2]int16{1965, 1773}
 
 // waterMCelestialMaxLevel caps the Celestial's access to the M chain. Arch has
 // no cap of its own — MaxLevel (399) is already the ceiling for that tier.
@@ -279,6 +287,23 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 		return
 	}
 
+	d.abrirSalaDaAgua(w, s, e, variant, room)
+
+	consumeOneItem(&e.Carry[src])
+	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+	d.log.Info("water scroll used",
+		"account", s.AccountName, "variant", variant, "room", room,
+		"countdown", d.events.water[variant][room])
+}
+
+// abrirSalaDaAgua opens one room for a party: it arms the countdown, moves
+// everyone in, and gives the room its monsters.
+//
+// It is the half of useWaterScroll that does not involve the scroll, which is
+// what lets the fairy ride (fada_leva_agua.go) enter a room without one. Every
+// gate — area, class, leader, occupancy — belongs to the caller: this one only
+// opens.
+func (d *Dispatcher) abrirSalaDaAgua(w *world.World, s *world.Session, e *world.Entity, variant, room int) {
 	// Arm the countdown before moving anyone, so the timer the party sees and the
 	// one the tick decrements are the same value.
 	countdown := uint8(waterRoomTime)
@@ -322,11 +347,6 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 	if gen := w.GeneratorAt(base + spawnedBlock); gen != nil {
 		d.announceWaterRoom(w, e, fmt.Sprintf("%s: %d monstros", waterRoomLabel(room), gen.CurrentNumMob))
 	}
-
-	consumeOneItem(&e.Carry[src])
-	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
-	d.log.Info("water scroll used",
-		"account", s.AccountName, "variant", variant, "room", room, "countdown", countdown)
 }
 
 // waterRoomMobCap is the CEILING on a room's population, not its target. The
@@ -502,8 +522,15 @@ func (d *Dispatcher) waterRoomCleared(w *world.World, reward, mob *world.Entity)
 	}
 
 	if room < waterDeadRoom {
-		d.grantNextWaterScroll(w, leader, variant, room)
-		d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa! Use o proximo pergaminho.")
+		// A leader wearing an XP or red fairy is carried into the next room a few
+		// seconds from now instead of being handed the scroll (fada_leva_agua.go).
+		// Every path that fails there hands the scroll over after all.
+		if d.agendarAvancoDaFada(w, leader, variant, room) {
+			d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa! A fada leva o grupo.")
+		} else {
+			d.grantNextWaterScroll(w, leader, variant, room)
+			d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa! Use o proximo pergaminho.")
+		}
 	} else {
 		d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa!")
 	}

@@ -474,6 +474,11 @@ type worldEventState struct {
 	// over from an expired run — would otherwise pay again and turn the dungeon
 	// into an infinite scroll farm. Armed on entry, cleared on payout.
 	waterPaid [3][10]bool
+	// aguaFada is the queue of parties whose leader wears an XP or red fairy and
+	// are waiting to be carried into the next room of the Água. Normally empty:
+	// one entry lives for a few seconds between a room falling and the party
+	// being moved. See fada_leva_agua.go.
+	aguaFada []avancoDaFada
 	// cartaTime and cartaSala are CartaTime/CartaSala (Server.cpp:531-532): the
 	// Sala Secreta run, in seconds and rooms. One pair server-wide, as in the
 	// original — the room rectangles and generator blocks are shared, so two

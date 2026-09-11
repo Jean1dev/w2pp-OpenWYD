@@ -174,7 +174,10 @@ func TestOnWaterStagingTile(t *testing.T) {
 		{"last cell of the tile", 1967, 1775, true},
 		{"one row below", 1964, 1776, false},
 		{"one column left", 1963, 1772, false},
-		{"the exit point itself", waterExit[0], waterExit[1], false},
+		// The exit lands ON the square since 2026-09-12 — see waterExit. It used
+		// to land three tiles short, and a party thrown out had to find its way
+		// back here before a scroll would work.
+		{"the exit point itself", waterExit[0], waterExit[1], true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
