@@ -1314,6 +1314,9 @@ message GetCombatRuleResponse {
   // reaches 100% at DEX 500; 100 is that. `optional` because 0 is a real value
   // (off): absence alone says the dbServer predates the field.
   optional int32 double_critical_max_pct = 11;
+  // 1..200: scale on a PLAYER's melee attack power (the window's "Ataque" and
+  // the blow). 100 is no scaling; monsters and summons are never scaled.
+  optional int32 physical_damage_pct = 12;
 }
 
 // NpcGeneratorService is the staff switch per NPCGener block

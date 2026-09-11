@@ -39,6 +39,7 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	// E o bônus de arma fora do padrão (1) e do Kersef (3).
 	regra.WeaponDamageGrants = 2
 	regra.DoubleCriticalMaxPct = 40
+	regra.PhysicalDamagePct = 70
 	s := NewCombatRule(&fakeCombatRuleStore{cfg: combatrule.Config{
 		Version: 4, Configured: true, Rules: regra,
 	}})
@@ -68,6 +69,9 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	}
 	if resp.DoubleCriticalMaxPct == nil || resp.GetDoubleCriticalMaxPct() != 40 {
 		t.Errorf("crítico duplo chegou como %v, quero presente e 40", resp.DoubleCriticalMaxPct)
+	}
+	if resp.PhysicalDamagePct == nil || resp.GetPhysicalDamagePct() != 70 {
+		t.Errorf("ataque físico chegou como %v, quero presente e 70", resp.PhysicalDamagePct)
 	}
 }
 

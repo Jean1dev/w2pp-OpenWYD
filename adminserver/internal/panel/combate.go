@@ -63,6 +63,8 @@ type combateView struct {
 	MaxArmaFis  int32
 	MinCritDup  int32
 	MaxCritDup  int32
+	MinFisico   int32
+	MaxFisico   int32
 }
 
 func pctTexto(v int32) string { return fmt.Sprintf("%d%%", v) }
@@ -173,6 +175,15 @@ func combateBotoes(r combatrule.Rules) []combateBotao {
 			Agora: pctTexto(r.DoubleCriticalMaxPct), Padrao: pctTexto(p.DoubleCriticalMaxPct),
 			Kersef: pctTexto(k.DoubleCriticalMaxPct), Mudado: r.DoubleCriticalMaxPct != p.DoubleCriticalMaxPct,
 		},
+		{
+			Nome: "Ataque físico do jogador (%)",
+			Explica: "Escala do Ataque da janela e do golpe físico, aplicada por último, sobre tudo: " +
+				"itens, montaria, bônus de arma, atributos, buffs e dano da arma. Medido em jogo, uma TK " +
+				"+11 marcava 10.941 e uma HT +11, 10.755; 61% leva para ~6.700 e ~6.600. " +
+				"100% = sem escala. Monstro e evocação nunca são escalados.",
+			Agora: pctTexto(r.PhysicalDamagePct), Padrao: pctTexto(p.PhysicalDamagePct),
+			Kersef: pctTexto(k.PhysicalDamagePct), Mudado: r.PhysicalDamagePct != p.PhysicalDamagePct,
+		},
 	}
 }
 
@@ -207,6 +218,7 @@ func (h *Handler) combate(w http.ResponseWriter, r *http.Request) {
 			MinErros: combatrule.MinMissStreak, MaxErros: combatrule.MaxMissStreak,
 			MinArmaFis: combatrule.MinWeaponDamageGrants, MaxArmaFis: combatrule.MaxWeaponDamageGrants,
 			MinCritDup: combatrule.MinDoubleCriticalPct, MaxCritDup: combatrule.MaxDoubleCriticalPct,
+			MinFisico: combatrule.MinPhysicalDamagePct, MaxFisico: combatrule.MaxPhysicalDamagePct,
 		},
 		Historico: h.combateHistorico(r.Context()),
 	})
@@ -254,10 +266,10 @@ func (h *Handler) setCombate(w http.ResponseWriter, r *http.Request) {
 	h.voltarParaCombate(w, r, fmt.Sprintf(
 		"Regra gravada: magia da arma por INT %d%%, multiplicador na magia %s, "+
 			"resistência de monstro %d, skill em jogador %d%%, golpe físico em jogador %d%%, "+
-			"precisão da magia pela INT %d%%, máximo de erros seguidos %s, bônus de arma %s, crítico duplo até %d%%. "+
+			"precisão da magia pela INT %d%%, máximo de erros seguidos %s, bônus de arma %s, crítico duplo até %d%%, ataque físico %d%%. "+
 			"O jogo passa a usar em até 15 segundos.",
 		regra.WeaponIntMagicPct, ligadoTexto(regra.SpellDamageMulti), regra.MobResistBase,
-		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak), vezesTexto(regra.WeaponDamageGrants), regra.DoubleCriticalMaxPct))
+		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak), vezesTexto(regra.WeaponDamageGrants), regra.DoubleCriticalMaxPct, regra.PhysicalDamagePct))
 }
 
 // limparCombate drops the row, back to the decided default.
@@ -343,12 +355,18 @@ func combateDoForm(r *http.Request) (combatrule.Rules, string) {
 		return combatrule.Rules{}, fmt.Sprintf("A chance máxima do crítico duplo precisa ser um número entre %d e %d por cento.",
 			combatrule.MinDoubleCriticalPct, combatrule.MaxDoubleCriticalPct)
 	}
+	fisico, ok := faixaDoForm(r, "fisico", combatrule.MinPhysicalDamagePct, combatrule.MaxPhysicalDamagePct)
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("O ataque físico do jogador precisa ser um número entre %d e %d por cento.",
+			combatrule.MinPhysicalDamagePct, combatrule.MaxPhysicalDamagePct)
+	}
 	return combatrule.Rules{
 		WeaponIntMagicPct: int32(arma), SpellDamageMulti: multi, MobResistBase: int32(resist),
 		PvPSkillPct: pvpSkill, PvPMeleePct: pvpMelee,
 		SpellIntAccuracyPct: precisao, MaxMissStreak: erros,
 		WeaponDamageGrants:   armaFis,
 		DoubleCriticalMaxPct: critDup,
+		PhysicalDamagePct:    fisico,
 	}, ""
 }
 
@@ -382,6 +400,7 @@ func combateParaAudit(c combatrule.Config) map[string]any {
 		"erros_seguidos":         c.Rules.MaxMissStreak,
 		"bonus_de_arma":          vezesTexto(c.Rules.WeaponDamageGrants),
 		"critico_duplo_maximo":   pctTexto(c.Rules.DoubleCriticalMaxPct),
+		"ataque_fisico":          pctTexto(c.Rules.PhysicalDamagePct),
 	}
 }
 

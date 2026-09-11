@@ -56,5 +56,6 @@ func (s *CombatRuleServer) GetCombatRule(ctx context.Context, _ *dbv1.GetCombatR
 		MaxMissStreak:        proto.Int32(cfg.Rules.MaxMissStreak),
 		WeaponDamageGrants:   proto.Int32(cfg.Rules.WeaponDamageGrants),
 		DoubleCriticalMaxPct: proto.Int32(cfg.Rules.DoubleCriticalMaxPct),
+		PhysicalDamagePct:    proto.Int32(cfg.Rules.PhysicalDamagePct),
 	}, nil
 }

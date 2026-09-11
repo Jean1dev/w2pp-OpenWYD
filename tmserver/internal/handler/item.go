@@ -2747,7 +2747,15 @@ func (d *Dispatcher) effectiveDamage(e *world.Entity) int32 {
 		// favour, and the whole economy was tuned against the legacy form.
 		dmg += (dmg / 100) * 20
 	}
-	return dmg + d.weaponDamage(e)
+	dmg += d.weaponDamage(e)
+	// SERVER RULE (combatrule.PhysicalDamagePct): the last step, so the number
+	// here is the one the character window shows and the one the blow uses. Only
+	// a PLAYER is scaled — this same function answers for monsters and summons
+	// (mobai.go), and scaling them would quietly retune every fight in the game.
+	if pct := d.combatRules.PhysicalDamagePct; pct != 100 && pct > 0 && world.IsPlayer(e.ID) {
+		dmg = dmg * pct / 100
+	}
+	return dmg
 }
 
 // computeScore builds the CurrentScore the client shows. Multiplicative effects

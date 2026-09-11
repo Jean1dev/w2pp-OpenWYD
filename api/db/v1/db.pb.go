@@ -9803,8 +9803,11 @@ type GetCombatRuleResponse struct {
 	// reaches 100% at DEX 500; 100 is that. `optional` because 0 is a real value
 	// (off): absence alone says the dbServer predates the field.
 	DoubleCriticalMaxPct *int32 `protobuf:"varint,11,opt,name=double_critical_max_pct,json=doubleCriticalMaxPct,proto3,oneof" json:"double_critical_max_pct,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// 1..200: scale on a PLAYER's melee attack power (the window's "Ataque" and
+	// the blow). 100 is no scaling; monsters and summons are never scaled.
+	PhysicalDamagePct *int32 `protobuf:"varint,12,opt,name=physical_damage_pct,json=physicalDamagePct,proto3,oneof" json:"physical_damage_pct,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetCombatRuleResponse) Reset() {
@@ -9910,6 +9913,13 @@ func (x *GetCombatRuleResponse) GetWeaponDamageGrants() int32 {
 func (x *GetCombatRuleResponse) GetDoubleCriticalMaxPct() int32 {
 	if x != nil && x.DoubleCriticalMaxPct != nil {
 		return *x.DoubleCriticalMaxPct
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetPhysicalDamagePct() int32 {
+	if x != nil && x.PhysicalDamagePct != nil {
+		return *x.PhysicalDamagePct
 	}
 	return 0
 }
@@ -11201,7 +11211,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x18CombatRuleVersionRequest\"5\n" +
 	"\x19CombatRuleVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x16\n" +
-	"\x14GetCombatRuleRequest\"\xde\x04\n" +
+	"\x14GetCombatRuleRequest\"\xab\x05\n" +
 	"\x15GetCombatRuleResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x12\x1e\n" +
 	"\n" +
@@ -11216,11 +11226,13 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x0fmax_miss_streak\x18\t \x01(\x05H\x01R\rmaxMissStreak\x88\x01\x01\x125\n" +
 	"\x14weapon_damage_grants\x18\n" +
 	" \x01(\x05H\x02R\x12weaponDamageGrants\x88\x01\x01\x12:\n" +
-	"\x17double_critical_max_pct\x18\v \x01(\x05H\x03R\x14doubleCriticalMaxPct\x88\x01\x01B\x19\n" +
+	"\x17double_critical_max_pct\x18\v \x01(\x05H\x03R\x14doubleCriticalMaxPct\x88\x01\x01\x123\n" +
+	"\x13physical_damage_pct\x18\f \x01(\x05H\x04R\x11physicalDamagePct\x88\x01\x01B\x19\n" +
 	"\x17_spell_int_accuracy_pctB\x12\n" +
 	"\x10_max_miss_streakB\x17\n" +
 	"\x15_weapon_damage_grantsB\x1a\n" +
-	"\x18_double_critical_max_pct\"\x1c\n" +
+	"\x18_double_critical_max_pctB\x16\n" +
+	"\x14_physical_damage_pct\"\x1c\n" +
 	"\x1aGeneratorOffVersionRequest\"7\n" +
 	"\x1bGeneratorOffVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x19\n" +

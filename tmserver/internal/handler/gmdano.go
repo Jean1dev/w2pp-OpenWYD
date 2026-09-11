@@ -132,6 +132,9 @@ func (d *Dispatcher) danoLinhas(e *world.Entity) []string {
 	linhas = append(linhas,
 		fmt.Sprintf("Subtotal %d + buffs %d, ×%d%%%s", e.Damage, e.AffDamage, e.AffDamageMultiPct, divina),
 		fmt.Sprintf("Dano da arma (mãos + refino, fora do multiplicador): %d", d.weaponDamage(e)))
+	if pct := d.combatRules.PhysicalDamagePct; pct != 100 {
+		linhas = append(linhas, fmt.Sprintf("Regra do painel: ataque físico ×%d%% (aplicado no fim, sobre tudo acima)", pct))
+	}
 	return linhas
 }
 

@@ -61,6 +61,13 @@ type Rules struct {
 	// takes DEX/5, so from DEX 500 every blow doubles (Basedef.cpp:6149). 100 is
 	// the legacy; 0 turns the double critical off.
 	DoubleCriticalMaxPct int32
+	// PhysicalDamagePct scales the melee attack power of a PLAYER — the "Ataque"
+	// of the character window and the blow it lands (effectiveDamage). It is a
+	// server rule, not the legado: the gear of this server outgrew the pools, and
+	// a full +11 TK sat at 10.941 of Ataque. 100 leaves the attack as computed.
+	// Monsters and summons keep their own damage: the scale is applied to players
+	// only.
+	PhysicalDamagePct int32
 }
 
 // The ranges each knob may take. They are what makes sense for the formula, not
@@ -81,6 +88,8 @@ const (
 	MaxWeaponDamageGrants = 3
 	MinDoubleCriticalPct  = 0
 	MaxDoubleCriticalPct  = 100
+	MinPhysicalDamagePct  = 1
+	MaxPhysicalDamagePct  = 200
 
 	// LegacyMobResistBase is the constant the original applies to everyone.
 	LegacyMobResistBase = 150
@@ -89,14 +98,14 @@ const (
 // Default is the rule in force when nobody has configured one.
 func Default() Rules {
 	return Rules{WeaponIntMagicPct: 0, SpellDamageMulti: false, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 100,
-		SpellIntAccuracyPct: 50, MaxMissStreak: 2, WeaponDamageGrants: 1, DoubleCriticalMaxPct: 25}
+		SpellIntAccuracyPct: 50, MaxMissStreak: 2, WeaponDamageGrants: 1, DoubleCriticalMaxPct: 25, PhysicalDamagePct: 61}
 }
 
 // Kersef is the rule as ported, kept so the panel can show — and restore — what
 // the server did before the decision.
 func Kersef() Rules {
 	return Rules{WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: LegacyMobResistBase, PvPSkillPct: 100, PvPMeleePct: 100,
-		SpellIntAccuracyPct: 0, MaxMissStreak: 0, WeaponDamageGrants: MaxWeaponDamageGrants, DoubleCriticalMaxPct: MaxDoubleCriticalPct}
+		SpellIntAccuracyPct: 0, MaxMissStreak: 0, WeaponDamageGrants: MaxWeaponDamageGrants, DoubleCriticalMaxPct: MaxDoubleCriticalPct, PhysicalDamagePct: 100}
 }
 
 // Valid reports whether every knob is inside its range.
@@ -108,7 +117,8 @@ func (r Rules) Valid() bool {
 		r.SpellIntAccuracyPct >= MinSpellIntAccuracy && r.SpellIntAccuracyPct <= MaxSpellIntAccuracy &&
 		r.MaxMissStreak >= MinMissStreak && r.MaxMissStreak <= MaxMissStreak &&
 		r.WeaponDamageGrants >= MinWeaponDamageGrants && r.WeaponDamageGrants <= MaxWeaponDamageGrants &&
-		r.DoubleCriticalMaxPct >= MinDoubleCriticalPct && r.DoubleCriticalMaxPct <= MaxDoubleCriticalPct
+		r.DoubleCriticalMaxPct >= MinDoubleCriticalPct && r.DoubleCriticalMaxPct <= MaxDoubleCriticalPct &&
+		r.PhysicalDamagePct >= MinPhysicalDamagePct && r.PhysicalDamagePct <= MaxPhysicalDamagePct
 }
 
 // Config is the rule as the panel left it (migration 0044_combat_rule), plus the

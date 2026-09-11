@@ -118,6 +118,7 @@ func TestSetCombatRulesDizSeMudou(t *testing.T) {
 		{"bônus de arma no golpe físico", func(r *combatrule.Rules) { r.WeaponDamageGrants = 2 }},
 		{"teto do crítico duplo", func(r *combatrule.Rules) { r.DoubleCriticalMaxPct = 40 }},
 		{"crítico duplo desligado", func(r *combatrule.Rules) { r.DoubleCriticalMaxPct = 0 }},
+		{"escala do ataque físico", func(r *combatrule.Rules) { r.PhysicalDamagePct = 80 }},
 	} {
 		nova := d.combatRules
 		c.mudar(&nova)

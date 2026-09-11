@@ -153,6 +153,11 @@
                  inputmode="numeric" required value="{{.Combate.Regra.DoubleCriticalMaxPct}}">
           <span class="faixa">{{.Combate.MinCritDup}} a {{.Combate.MaxCritDup}}. Teto da chance do golpe ×2; 100 = legado (DES 500 dobra todo golpe), 0 desliga.</span>
         </label>
+        <label class="num">Ataque físico do jogador (%)
+          <input name="fisico" type="number" min="{{.Combate.MinFisico}}" max="{{.Combate.MaxFisico}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.PhysicalDamagePct}}">
+          <span class="faixa">{{.Combate.MinFisico}} a {{.Combate.MaxFisico}}. Escala do Ataque da janela e do golpe; 100 = sem escala. Não mexe em monstro.</span>
+        </label>
       </div>
       <button type="submit" class="principal">Gravar a regra</button>
     </form>
@@ -176,6 +181,7 @@
         <input type="hidden" name="erros" value="{{.Combate.Kersef.MaxMissStreak}}">
         <input type="hidden" name="arma_fisico" value="{{.Combate.Kersef.WeaponDamageGrants}}">
         <input type="hidden" name="critico_duplo" value="{{.Combate.Kersef.DoubleCriticalMaxPct}}">
+        <input type="hidden" name="fisico" value="{{.Combate.Kersef.PhysicalDamagePct}}">
         <button type="submit">Usar a regra do Kersef</button>
       </form>
       {{if .Combate.Configurada}}
