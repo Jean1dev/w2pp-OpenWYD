@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -14,6 +15,13 @@ func (d *Dispatcher) expBonus(e *world.Entity) int32 {
 func (d *Dispatcher) equipExpBonus(e *world.Entity) int32 {
 	var bonus int32
 	bonus += fairyExpBonus(e.Equip[fairyEquipSlot].Index)
+	// The cash-shop mounts give EXP while ridden (Shire +3, Thoroughbred +5,
+	// Klazedale +7, Tigre de Fogo and Dragão Vermelho +12) — a new rule, decided
+	// with their attribute rows in mountbonus. An expired one is already out of
+	// the slot (dropExpired), so the slot is the whole condition.
+	if extra, ok := mountbonus.TempExtra(e.Equip[mountEquipSlot].Index); ok {
+		bonus += extra.ExpPct
+	}
 	for slot := range e.Equip {
 		it := e.Equip[slot]
 		if it.Empty() {

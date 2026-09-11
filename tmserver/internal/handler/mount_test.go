@@ -8,14 +8,14 @@ import (
 )
 
 // TestMountBonusForTemp covers a temporary/premium mount (idx 3980-3994): flat table
-// values, no HP gate or level scaling. 3987 = Thoroughbred(30dias), the Perzen reward.
+// values, no HP gate or level scaling. 3989 = Gullfaxi(30dias), a row still the client's (the shop mounts are the team's now).
 func TestMountBonusForTemp(t *testing.T) {
-	mb, ok := mountBonusFrom(nil, world.Item{Index: 3987})
+	mb, ok := mountBonusFrom(nil, world.Item{Index: 3989})
 	if !ok {
-		t.Fatalf("mountBonusFrom(3987) ok = false, want true")
+		t.Fatalf("mountBonusFrom(3989) ok = false, want true")
 	}
-	if mb.damage != 450 || mb.magicRaw != 72 || mb.parry != 10 || mb.resist != 28 {
-		t.Errorf("temp mount bonus = %+v, want {damage:450 magicRaw:72 parry:10 resist:28}", mb)
+	if mb.damage != 325 || mb.magicRaw != 35 || mb.parry != 16 || mb.resist != 28 {
+		t.Errorf("temp mount bonus = %+v, want {damage:325 magicRaw:35 parry:16 resist:28}", mb)
 	}
 }
 
@@ -117,26 +117,26 @@ func TestMountEquipScore(t *testing.T) {
 		}
 	}
 
-	// Equip the Thoroughbred and refresh (what refreshEquip does on a drag-equip).
-	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
+	// Equip the Gullfaxi and refresh (what refreshEquip does on a drag-equip).
+	e.Equip[mountEquipSlot] = world.Item{Index: 3989}
 	d.refreshScore(e)
-	if e.Damage != baseDamage+450 {
-		t.Errorf("mounted Damage = %d, want %d (+450 attack)", e.Damage, baseDamage+450)
+	if e.Damage != baseDamage+325 {
+		t.Errorf("mounted Damage = %d, want %d (+325 attack)", e.Damage, baseDamage+325)
 	}
-	if e.Magic != baseMagic+18 { // (72+1)/4 = 18
-		t.Errorf("mounted Magic = %d, want %d (+18)", e.Magic, baseMagic+18)
+	if e.Magic != baseMagic+9 { // (35+1)/4 = 9
+		t.Errorf("mounted Magic = %d, want %d (+9)", e.Magic, baseMagic+9)
 	}
-	if e.Parry != baseParry+10 {
-		t.Errorf("mounted Parry = %d, want %d (+10 evasion)", e.Parry, baseParry+10)
+	if e.Parry != baseParry+16 {
+		t.Errorf("mounted Parry = %d, want %d (+16 evasion)", e.Parry, baseParry+16)
 	}
 	for i := range e.Resist {
 		if e.Resist[i] != 28 {
 			t.Errorf("mounted Resist[%d] = %d, want 28", i, e.Resist[i])
 		}
 	}
-	if sc := d.computeScore(e); sc.Damage != baseDamage+450 || sc.Magic != int32(baseMagic)+18 || sc.Resist[0] != 28 {
+	if sc := d.computeScore(e); sc.Damage != baseDamage+325 || sc.Magic != int32(baseMagic)+9 || sc.Resist[0] != 28 {
 		t.Errorf("computeScore = Damage %d Magic %d Resist0 %d, want %d/%d/28",
-			sc.Damage, sc.Magic, sc.Resist[0], baseDamage+450, int32(baseMagic)+18)
+			sc.Damage, sc.Magic, sc.Resist[0], baseDamage+325, int32(baseMagic)+9)
 	}
 
 	// Unequip → everything returns to the unmounted baseline.
@@ -156,12 +156,12 @@ func TestMountScoreRoundTrip(t *testing.T) {
 	d := New(Config{})
 	e := &world.Entity{ID: 1, ClassMaster: classMasterMortal, Level: 50, Damage: 955, Magic: 60}
 	e.Equip[0] = world.Item{Index: 11}
-	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
+	e.Equip[mountEquipSlot] = world.Item{Index: 3989}
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
-	wantDamage := baseDamageChar + e.Level + 450
-	if e.Damage != wantDamage || e.Magic != 18 || e.Parry != 10 {
-		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/18/10", e.Damage, e.Magic, e.Parry, wantDamage)
+	wantDamage := baseDamageChar + e.Level + 325
+	if e.Damage != wantDamage || e.Magic != 9 || e.Parry != 16 {
+		t.Errorf("derived = Damage %d Magic %d Parry %d, want %d/9/16", e.Damage, e.Magic, e.Parry, wantDamage)
 	}
 	for i := range e.Resist {
 		if e.Resist[i] != 28 {

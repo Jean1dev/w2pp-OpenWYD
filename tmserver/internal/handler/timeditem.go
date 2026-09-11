@@ -84,7 +84,22 @@ func (d *Dispatcher) itemLifetime(it world.Item) time.Duration {
 	if days := d.itemDurations[int(it.Index)]; days > 0 {
 		return time.Duration(days) * 24 * time.Hour
 	}
+	if days := shopMountDefaultDays[it.Index]; days > 0 {
+		return time.Duration(days) * 24 * time.Hour
+	}
 	return 0
+}
+
+// shopMountDefaultDays is the lifetime of the three cash-shop mounts when the
+// item carries none. Their names lost the "(3dias)" on 2026-09-11 — the shop
+// sells each one for 24h, 3 or 5 days, written on the item it delivers — so the
+// catalog no longer knows a lifetime for them; without this, one handed out with
+// no duration (a GM, an old delivery) would never run out. Three days is what
+// they had before.
+var shopMountDefaultDays = map[int16]int{
+	3980: 3, // Shire
+	3981: 3, // Thoroughbred
+	3982: 3, // Klazedale
 }
 
 // startTimedItem begins a temporary item's life the first time it is equipped,

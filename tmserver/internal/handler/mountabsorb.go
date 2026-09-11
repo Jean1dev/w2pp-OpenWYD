@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/mountrate"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -36,6 +37,9 @@ func (d *Dispatcher) absorbBlow(w *world.World, victim *world.Entity, dam int, b
 		return dam
 	}
 	mount := victim.Equip[mountEquipSlot]
+	if extra, ok := mountbonus.TempExtra(mount.Index); ok {
+		return absorbTempMount(dam, extra, byPlayer)
+	}
 	if !mountrate.IsAdultMount(mount.Index) || mountHP(mount) <= 0 {
 		return dam
 	}
@@ -56,6 +60,22 @@ func (d *Dispatcher) absorbBlow(w *world.World, victim *world.Entity, dam int, b
 		rider = 1
 	}
 	return rider
+}
+
+// absorbTempMount is the cash-shop mounts' absorption (mountbonus.TempExtra):
+// new, not the legacy's — a temporary mount absorbed nothing there. It has no
+// HP of its own to pay with, so it only takes its share off the blow; its limit
+// is the time on the item, not its health. The rider still takes at least 1.
+func absorbTempMount(dam int, extra mountbonus.Extra, byPlayer bool) int {
+	percent := extra.AbsorbPvE
+	if byPlayer {
+		percent = extra.AbsorbPvP
+	}
+	if percent <= 0 {
+		return dam
+	}
+	rider, _ := combat.MountAbsorb(dam, percent)
+	return max(rider, 1)
 }
 
 // mountCharge is how much of what the mount absorbed comes off its own HP.

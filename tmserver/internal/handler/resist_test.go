@@ -87,7 +87,7 @@ func TestResistFromEquipment(t *testing.T) {
 			name: "mount resist and item resist both contribute",
 			equip: map[int]world.Item{
 				0:              {Index: resistOrb},
-				mountEquipSlot: {Index: 3987}, // Thoroughbred(30d): resist 28 flat
+				mountEquipSlot: {Index: 3989}, // Gullfaxi(30d): resist 28 flat
 			},
 			want: [4]int16{3 + 28, 28, 28, 28},
 		},
@@ -122,7 +122,7 @@ func TestResistLoginRoundTrip(t *testing.T) {
 	d := New(resistConfig())
 	e := &world.Entity{ID: 1, Level: 50} // fresh connection: Resist/Parry start zero
 	e.Equip[0] = world.Item{Index: resistOrb}
-	e.Equip[mountEquipSlot] = world.Item{Index: 3987}
+	e.Equip[mountEquipSlot] = world.Item{Index: 3989}
 	d.deriveBaseScore(e)
 	d.refreshScore(e)
 
@@ -130,8 +130,8 @@ func TestResistLoginRoundTrip(t *testing.T) {
 	if e.Resist != want {
 		t.Errorf("login Resist = %v, want %v (equipped gear must not reset to 0)", e.Resist, want)
 	}
-	if e.Parry != 10 {
-		t.Errorf("login Parry = %d, want 10", e.Parry)
+	if e.Parry != 16 {
+		t.Errorf("login Parry = %d, want 16", e.Parry)
 	}
 
 	// A later refresh (e.g. an unrelated gear change) must not double-count.
@@ -139,7 +139,7 @@ func TestResistLoginRoundTrip(t *testing.T) {
 	if e.Resist != want {
 		t.Errorf("Resist after second refresh = %v, want %v (must not accumulate)", e.Resist, want)
 	}
-	if e.Parry != 10 {
-		t.Errorf("Parry after second refresh = %d, want 10 (must not accumulate)", e.Parry)
+	if e.Parry != 16 {
+		t.Errorf("Parry after second refresh = %d, want 16 (must not accumulate)", e.Parry)
 	}
 }

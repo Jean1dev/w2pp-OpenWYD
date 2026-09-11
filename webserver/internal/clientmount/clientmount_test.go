@@ -17,7 +17,7 @@ func fakeExe() []byte {
 	for i := 1; i <= precedingWords; i++ {
 		binary.LittleEndian.PutUint32(b[tableOffset-4*i:], 100)
 	}
-	for row := 0; row < adultRows; row++ {
+	for row := 0; row < adultRows+tempRows; row++ {
 		at := tableOffset + row*rowBytes
 		binary.LittleEndian.PutUint32(b[at+16:], 6)
 		binary.LittleEndian.PutUint32(b[at+20:], 73)
@@ -26,7 +26,41 @@ func fakeExe() []byte {
 }
 
 func col(b []byte, index int16, c int) int32 {
-	return int32(binary.LittleEndian.Uint32(b[tableOffset+int(index-mountbonus.AdultLo)*rowBytes+c*4:]))
+	row, _ := tableRow(index)
+	return int32(binary.LittleEndian.Uint32(b[tableOffset+row*rowBytes+c*4:]))
+}
+
+// TestTempRowsSaoAsDaLoja: the temporary rows go into the client from the
+// compiled table, the shop mounts with their absorption and the rest with none.
+func TestTempRowsSaoAsDaLoja(t *testing.T) {
+	rows := TempRows()
+	if len(rows) != tempRows {
+		t.Fatalf("%d linhas temporárias, want %d", len(rows), tempRows)
+	}
+	out, err := PatchExe(fakeExe(), rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Klazedale 3982: 250/45, no evasion or immunity, the untouched columns kept.
+	for c, want := range []int32{250, 45, 0, 0, 6, 73} {
+		if got := col(out, 3982, c); got != want {
+			t.Errorf("Klazedale coluna %d = %d, want %d", c, got, want)
+		}
+	}
+	// Row 30 is 3980, right after the last adult — not on top of it.
+	if col(out, 2389, 0) != 0 || col(out, 3980, 0) != 150 {
+		t.Errorf("a Shire caiu na linha errada: Pantera %d, Shire %d", col(out, 2389, 0), col(out, 3980, 0))
+	}
+	porIndice := map[int16]Row{}
+	for _, r := range rows {
+		porIndice[r.Index] = r
+	}
+	if r := porIndice[3990]; r.NoAbsorb || r.AbsPvE != 35 || r.AbsPvP != 0 {
+		t.Errorf("Tigre de Fogo: %+v, want absorção PvE 35", r)
+	}
+	if r := porIndice[3989]; !r.NoAbsorb {
+		t.Errorf("Gullfaxi ganhou linha de absorção: %+v", r)
+	}
 }
 
 const tabelaAndaluzB = `# comentário do painel
@@ -233,5 +267,15 @@ func TestPatchItemListRecusaItemInexistente(t *testing.T) {
 	rows := []Row{{Index: 2374, AbsPvP: 10, AbsPvE: 20}} // 2374 não está no catálogo falso
 	if _, err := PatchItemList(fakeItemList(), rows); err == nil {
 		t.Error("gravou num registro vazio do ItemList")
+	}
+}
+
+// TestPatchItemListPulaQuemNaoAbsorve: a temporary mount with no absorption of
+// its own gets no "Absorção" effects — the catalog entry, not even an empty
+// record, is touched only for the ones that have them.
+func TestPatchItemListPulaQuemNaoAbsorve(t *testing.T) {
+	rows := []Row{{Index: 3989, NoAbsorb: true}} // Gullfaxi: não está no catálogo falso
+	if _, err := PatchItemList(fakeItemList(), rows); err != nil {
+		t.Errorf("uma montaria sem absorção fez o ItemList ser recusado: %v", err)
 	}
 }

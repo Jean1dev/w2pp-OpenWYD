@@ -52,6 +52,15 @@ constexpr DWORD kSlotHookBack = 0x416B56;
 constexpr BYTE kExpectedSlotBytes[8] = {0x89, 0x45, 0xF8, 0xA1, 0xB0, 0x0A, 0x6F, 0x00};
 constexpr int kAdultMountLo = 2360; // Porco
 constexpr int kAdultMountHi = 2389; // Pantera Negra
+// As montarias temporárias — as da loja (Shire, Thoroughbred, Klazedale, Tigre de
+// Fogo, Dragão Vermelho) e as outras premium — ganham o mesmo tooltip.
+constexpr int kTempMountLo = 3980; // Shire
+constexpr int kTempMountHi = 3994; // Dragão Hekalo
+
+bool IsMountIndex(int index) {
+    return (index >= kAdultMountLo && index <= kAdultMountHi) ||
+           (index >= kTempMountLo && index <= kTempMountHi);
+}
 
 // A paleta do tooltip de montaria, em ARGB. O título não tem rótulo: é o nome do
 // item, e fica com a sua cor sempre que o tooltip for de montaria.
@@ -509,10 +518,22 @@ void HookTooltipPanel() {
 // da borda (cinza, verde, azul, roxo, dourado, laranja, vermelho). O arquivo é texto
 // no código de página do cliente (Windows-1252). Montaria que não está nele fica
 // com a borda cinza e sem a linha de nível.
+//
+// Duas extensões, para as montarias da loja:
+//
+//     3990 = Divina, dourado, Aumento de XP +12%
+//
+// Uma chave que é só número vale pelo índice do item e vence a do nome (linha
+// começando com "#" continua sendo comentário) — o Tigre de
+// Fogo e o Dragão Vermelho da loja têm o mesmo nome das versões adultas, e não
+// podem herdar a linha de XP delas. E um terceiro campo, depois da cor, é uma
+// linha a mais no tooltip, escrita logo abaixo da do nível.
 
 struct Rarity {
     char mount[48];
     char label[40];
+    char extra[64];
+    int index; // 0: a chave é o nome
     int family;
 };
 Rarity g_rarities[64];
@@ -557,12 +578,24 @@ void LoadRarities() {
             Rarity& r = g_rarities[g_rarityCount];
             strncpy_s(r.mount, sizeof(r.mount), line, _TRUNCATE);
             Trim(r.mount);
+            r.index = 0;
+            if (r.mount[0] != 0 && strspn(r.mount, "0123456789") == strlen(r.mount)) {
+                r.index = atoi(r.mount); // chave por número de item
+            }
+            r.extra[0] = 0;
             char* value = eq + 1;
             char* comma = strchr(value, ',');
             char colorName[32] = "";
             if (comma != nullptr) {
                 *comma = 0;
-                strncpy_s(colorName, sizeof(colorName), comma + 1, _TRUNCATE);
+                char* rest = comma + 1;
+                char* second = strchr(rest, ',');
+                if (second != nullptr) {
+                    *second = 0;
+                    strncpy_s(r.extra, sizeof(r.extra), second + 1, _TRUNCATE);
+                    Trim(r.extra);
+                }
+                strncpy_s(colorName, sizeof(colorName), rest, _TRUNCATE);
             }
             strncpy_s(r.label, sizeof(r.label), value, _TRUNCATE);
             Trim(r.label);
@@ -604,6 +637,9 @@ const Rarity* RarityOf(const char* title) {
     char wanted[64];
     NormalizeName(title, wanted, sizeof(wanted));
     for (int i = 0; i < g_rarityCount; i++) {
+        if (g_rarities[i].index != 0) {
+            continue; // chave por número de item: só RarityOfItem a usa
+        }
         char have[64];
         NormalizeName(g_rarities[i].mount, have, sizeof(have));
         if (strcmp(have, wanted) == 0) {
@@ -611,6 +647,21 @@ const Rarity* RarityOf(const char* title) {
         }
     }
     return nullptr;
+}
+
+// A raridade de um item: a entrada "#número" dele, se houver, senão a do nome.
+const Rarity* RarityOfItem(int index, const char* title) {
+    if (!g_raritiesLoaded) {
+        LoadRarities();
+    }
+    if (index > 0) {
+        for (int i = 0; i < g_rarityCount; i++) {
+            if (g_rarities[i].index == index) {
+                return &g_rarities[i];
+            }
+        }
+    }
+    return RarityOf(title);
 }
 
 // --- Raridade dos equipamentos ----------------------------------------------------
@@ -742,6 +793,9 @@ const Tier* ItemTier(int item, int refine) {
 // lembra onde ela foi escrita, para ser apagada quando o próximo tooltip não a
 // quiser.
 int g_levelLine = -1;
+// A linha extra da montaria (terceiro campo do GamePatch.txt), logo abaixo da de
+// nível. Lembrada pelo mesmo motivo.
+int g_extraLine = -1;
 constexpr int kPriceLine = kTracked - 1;
 
 void SetLineRaw(int i, const char* text, DWORD color) {
@@ -756,12 +810,16 @@ void SetLineRaw(int i, const char* text, DWORD color) {
     }
 }
 
-void PlaceLevelLine(const char* prefix, const char* label, int family) {
-    // Apaga a linha do tooltip anterior, se este não a reescreveu.
+void PlaceLevelLine(const char* prefix, const char* label, int family, const char* extra) {
+    // Apaga as linhas do tooltip anterior, se este não as reescreveu.
     if (g_levelLine >= 0 && !g_lineUsed[g_levelLine]) {
         SetLineRaw(g_levelLine, "", 0);
     }
+    if (g_extraLine >= 0 && !g_lineUsed[g_extraLine]) {
+        SetLineRaw(g_extraLine, "", 0);
+    }
     g_levelLine = -1;
+    g_extraLine = -1;
     if (label == nullptr || label[0] == 0) {
         return;
     }
@@ -780,6 +838,10 @@ void PlaceLevelLine(const char* prefix, const char* label, int family) {
     strcat_s(text, sizeof(text), label);
     SetLineRaw(free, text, FamilyColor(family, 1.0f));
     g_levelLine = free;
+    if (extra != nullptr && extra[0] != 0 && free + 1 < kPriceLine) {
+        SetLineRaw(free + 1, extra, FamilyColor(family, 1.0f));
+        g_extraLine = free + 1;
+    }
 }
 // -----------------------------------------------------------------------------
 
@@ -797,6 +859,10 @@ void ForgetMountTooltip() {
     if (g_levelLine >= 0) {
         SetLineRaw(g_levelLine, "", 0);
         g_levelLine = -1;
+    }
+    if (g_extraLine >= 0) {
+        SetLineRaw(g_extraLine, "", 0);
+        g_extraLine = -1;
     }
 }
 
@@ -821,7 +887,7 @@ bool IsMountTooltip() {
     if (!g_slotHooked) {
         return g_tooltipHasAbsorb;
     }
-    return g_tooltipItem >= kAdultMountLo && g_tooltipItem <= kAdultMountHi;
+    return IsMountIndex(g_tooltipItem);
 }
 
 void __cdecl AfterTooltip() {
@@ -835,11 +901,13 @@ void __cdecl AfterTooltip() {
     const bool mount = IsMountTooltip();
     const char* prefix = "Montaria n\xedvel ";
     const char* label = nullptr;
+    const char* extra = nullptr;
     g_family = kDefaultFamily;
     if (mount) {
-        const Rarity* rarity = RarityOf(g_title);
+        const Rarity* rarity = RarityOfItem(g_slotHooked ? g_tooltipItem : 0, g_title);
         if (rarity != nullptr) {
             label = rarity->label;
+            extra = rarity->extra;
             g_family = rarity->family;
         }
     } else if (g_slotHooked) {
@@ -855,7 +923,7 @@ void __cdecl AfterTooltip() {
     if (panel != nullptr && g_panelRender != nullptr) {
         PanelColor(panel) = g_styledTooltip ? kColorBackground : g_panelOriginalColor;
     }
-    PlaceLevelLine(prefix, label, g_family);
+    PlaceLevelLine(prefix, label, g_family, extra);
     // A paleta das linhas, por enquanto, é só da montaria: o equipamento fica
     // com as cores do cliente até ter a sua.
     if (!mount) {
@@ -1011,7 +1079,8 @@ SlotDeco g_slotDeco[kMaxSlots];
 PanelRenderFn g_slotRender = nullptr;
 BYTE g_solidNode[kNodeSize];
 bool g_solidReady = false;
-int g_mountFamily[kAdultMountHi - kAdultMountLo + 1];
+// A família de cada montaria na bolsa, por índice (adultas e temporárias).
+int g_mountFamily[kTempMountHi - kAdultMountLo + 1];
 bool g_mountFamilyReady = false;
 
 // O modelo de nó de cor sólida: o do painel do tooltip, que já existe quando a
@@ -1051,13 +1120,18 @@ SlotDeco* DecoFor(void* slot) {
 int MountFamily(int index) {
     if (!g_mountFamilyReady) {
         for (int i = 0; i < ARRAYSIZE(g_mountFamily); i++) {
-            const char* name = reinterpret_cast<const char*>(kItemCatalog + (kAdultMountLo + i) * kCatalogRecord);
-            const Rarity* r = RarityOf(name);
+            const int item = kAdultMountLo + i;
+            g_mountFamily[i] = -1;
+            if (!IsMountIndex(item)) {
+                continue;
+            }
+            const char* name = reinterpret_cast<const char*>(kItemCatalog + item * kCatalogRecord);
+            const Rarity* r = RarityOfItem(item, name);
             g_mountFamily[i] = r != nullptr && r->label[0] != 0 ? r->family : -1;
         }
         g_mountFamilyReady = true;
     }
-    return g_mountFamily[index - kAdultMountLo];
+    return IsMountIndex(index) ? g_mountFamily[index - kAdultMountLo] : -1;
 }
 
 // A família de cor do item do slot, ou -1 se ele não tem raridade.
@@ -1066,7 +1140,7 @@ int SlotFamily(const BYTE* item) {
     if (index < 0 || index > kMaxItemIndex) {
         return -1;
     }
-    if (index >= kAdultMountLo && index <= kAdultMountHi) {
+    if (IsMountIndex(index)) {
         return MountFamily(index);
     }
     const Tier* tier = ItemTier(index, RefineOf(item));

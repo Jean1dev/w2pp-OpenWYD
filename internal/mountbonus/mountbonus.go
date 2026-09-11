@@ -142,22 +142,54 @@ var adult = [AdultHi - AdultLo + 1]Bonus{
 // temp is g_pMountTempBonus: items 3980-3994, indexed by sIndex-3980. The client
 // carries four more rows past these, for indices 3995-3998 that ItemList.csv
 // does not define, so they are left out.
+//
+// The Shire, Thoroughbred and Klazedale rows, and the Tigre de Fogo and Dragão
+// Vermelho ones, are NOT the client's any more: they are the cash-shop mounts
+// the team decided on 2026-09-11 (Shire 150/15, Thoroughbred 200/30, Klazedale
+// 250/45, Tigre and Dragão 350/50, no evasion or immunity on any of them). Every
+// duration variant of a mount carries the same row — the duration is the item's
+// own, not a different mount. The client file generator
+// (webserver/cmd/montariacliente) writes these rows into WYD.exe, so the tooltip
+// follows. Gullfaxi, Dragão Menor, Akelo and Hekalo are still the client's.
 var temp = [TempHi - TempLo + 1]Bonus{
-	{35, 7, 0, 0},      // Shire 3D
-	{350, 55, 10, 28},  // Thoroughbred 3D
-	{450, 55, 0, 0},    // Klazedale 3D
-	{35, 7, 0, 0},      // Shire 15D
-	{450, 72, 10, 28},  // Thoroughbred 15D
-	{450, 72, 0, 0},    // Klazedale 15D
-	{120, 45, 0, 0},    // Shire 30D
-	{450, 72, 10, 28},  // Thoroughbred 30D
-	{450, 72, 0, 0},    // Klazedale 30D
+	{150, 15, 0, 0},    // Shire
+	{200, 30, 0, 0},    // Thoroughbred
+	{250, 45, 0, 0},    // Klazedale
+	{150, 15, 0, 0},    // Shire 15D
+	{200, 30, 0, 0},    // Thoroughbred 15D
+	{250, 45, 0, 0},    // Klazedale 15D
+	{150, 15, 0, 0},    // Shire 30D
+	{200, 30, 0, 0},    // Thoroughbred 30D
+	{250, 45, 0, 0},    // Klazedale 30D
 	{325, 35, 16, 28},  // Gullfaxi 30D
-	{350, 45, 10, 4},   // Tigre de Fogo
-	{250, 25, 0, 31},   // Dragão Vermelho
+	{350, 50, 0, 0},    // Tigre de Fogo
+	{350, 50, 0, 0},    // Dragão Vermelho
 	{80, 15, 0, 31},    // Dragão Menor
 	{950, 145, 60, 20}, // Dragão Akelo
 	{950, 145, 60, 20}, // Dragão Hekalo
+}
+
+// Extra is what a cash-shop mount adds beyond the attribute row: its own
+// absorption (the adult mounts take theirs from the panel, 0035_mount_absorb)
+// and an EXP bonus while ridden, in percent. Decided with the rows above.
+type Extra struct {
+	AbsorbPvP, AbsorbPvE int
+	ExpPct               int32
+}
+
+// tempExtra keys every duration variant of the same mount to the same Extra.
+var tempExtra = map[int16]Extra{
+	3980: {AbsorbPvE: 20, ExpPct: 3}, 3983: {AbsorbPvE: 20, ExpPct: 3}, 3986: {AbsorbPvE: 20, ExpPct: 3}, // Shire
+	3981: {AbsorbPvE: 20, ExpPct: 5}, 3984: {AbsorbPvE: 20, ExpPct: 5}, 3987: {AbsorbPvE: 20, ExpPct: 5}, // Thoroughbred
+	3982: {AbsorbPvE: 20, ExpPct: 7}, 3985: {AbsorbPvE: 20, ExpPct: 7}, 3988: {AbsorbPvE: 20, ExpPct: 7}, // Klazedale
+	3990: {AbsorbPvE: 35, ExpPct: 12}, // Tigre de Fogo
+	3991: {AbsorbPvE: 35, ExpPct: 12}, // Dragão Vermelho
+}
+
+// TempExtra reports the extras of a temporary mount, and whether it has any.
+func TempExtra(index int16) (Extra, bool) {
+	e, ok := tempExtra[index]
+	return e, ok
 }
 
 // AtLevel is what an adult mount with bonus b actually adds at the given mount

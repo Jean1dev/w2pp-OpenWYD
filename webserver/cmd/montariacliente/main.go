@@ -70,6 +70,9 @@ func run(tabela, cliente, saida, gamepatch, catalogo string) error {
 	if err != nil {
 		return err
 	}
+	// As temporárias (3980-3994) não passam pelo painel: vêm da tabela compilada,
+	// que é a que o jogo aplica — inclusive as montarias da loja.
+	rows = append(rows, clientmount.TempRows()...)
 
 	ler := func(nome string) ([]byte, error) {
 		b, err := os.ReadFile(filepath.Join(cliente, nome))
@@ -141,9 +144,13 @@ func run(tabela, cliente, saida, gamepatch, catalogo string) error {
 
 	fmt.Printf("%d montarias gravadas em %s\n", len(rows), saida)
 	for _, r := range rows {
-		fmt.Printf("  %d %-22s dano %4d  magia %3d  evasão %d,%d%%  imunidade %3d  absorção PvP %d%% / PvE %d%%\n",
+		absorcao := fmt.Sprintf("absorção PvP %d%% / PvE %d%%", r.AbsPvP, r.AbsPvE)
+		if r.NoAbsorb {
+			absorcao = "sem absorção"
+		}
+		fmt.Printf("  %d %-22s dano %4d  magia %3d  evasão %d,%d%%  imunidade %3d  %s\n",
 			r.Index, r.Name, r.Bonus.Attack, r.Bonus.Magic, r.Bonus.Evasion/10, r.Bonus.Evasion%10,
-			r.Bonus.Resist, r.AbsPvP, r.AbsPvE)
+			r.Bonus.Resist, absorcao)
 	}
 	porNivel := clientrarity.Count(itens)
 	fmt.Print("raridade dos equipamentos (GamePatchItens.bin):")

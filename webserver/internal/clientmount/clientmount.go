@@ -38,13 +38,48 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/mountbonus"
 )
 
-// Row is one adult lineage as the panel exported it (montarias-cliente.txt).
+// Row is one adult lineage as the panel exported it (montarias-cliente.txt), or
+// one temporary mount from the compiled table (TempRows).
 type Row struct {
 	Index  int16
 	Bonus  mountbonus.Bonus
 	AbsPvP int
 	AbsPvE int
 	Name   string
+	// NoAbsorb leaves the catalog entry without the two absorption effects, so
+	// its tooltip shows no "Absorção" lines. Only a temporary mount with no
+	// absorption of its own sets it; every adult absorbs something.
+	NoAbsorb bool
+}
+
+// TempRows is every temporary mount (3980-3994) as the server applies it: the
+// compiled attribute row, and the absorption of the ones that have it — the
+// cash-shop mounts the team decided on 2026-09-11 (mountbonus.TempExtra). The
+// panel does not configure these yet, so they come from the code, which is
+// also what the game reads.
+func TempRows() []Row {
+	var out []Row
+	for i := int16(mountbonus.TempLo); i <= mountbonus.TempHi; i++ {
+		b, _ := mountbonus.Default(i)
+		r := Row{Index: i, Bonus: b, NoAbsorb: true}
+		if ex, ok := mountbonus.TempExtra(i); ok {
+			r.AbsPvP, r.AbsPvE, r.NoAbsorb = ex.AbsorbPvP, ex.AbsorbPvE, false
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// tableRow is the row of the client's mount table an item sits in: the adults
+// first, the temporary mounts right after them.
+func tableRow(index int16) (int, bool) {
+	switch {
+	case mountbonus.IsAdult(index):
+		return int(index - mountbonus.AdultLo), true
+	case mountbonus.IsTemp(index):
+		return adultRows + int(index-mountbonus.TempLo), true
+	}
+	return 0, false
 }
 
 // ParseTable reads the file the panel serves at /rates/montarias/cliente.txt:
@@ -116,6 +151,7 @@ const (
 	tableOffset    = 0x21DCE0
 	tableCols      = 6
 	adultRows      = mountbonus.AdultHi - mountbonus.AdultLo + 1
+	tempRows       = mountbonus.TempHi - mountbonus.TempLo + 1
 	rowBytes       = tableCols * 4
 	precedingWords = 12 // the twelve 100s of the table right before this one
 )
@@ -132,7 +168,11 @@ func PatchExe(exe []byte, rows []Row) ([]byte, error) {
 	}
 	out := bytes.Clone(exe)
 	for _, r := range rows {
-		at := tableOffset + int(r.Index-mountbonus.AdultLo)*rowBytes
+		row, ok := tableRow(r.Index)
+		if !ok {
+			return nil, fmt.Errorf("clientmount: %d não é montaria, e não tem linha na tabela do WYD.exe", r.Index)
+		}
+		at := tableOffset + row*rowBytes
 		for c, v := range [4]int16{r.Bonus.Attack, r.Bonus.Magic, r.Bonus.Evasion, r.Bonus.Resist} {
 			binary.LittleEndian.PutUint32(out[at+c*4:], uint32(int32(v)))
 		}
@@ -225,7 +265,10 @@ func recogniseExe(exe []byte) error {
 				"deveria estar; é outra build, e o gerador se recusa a mexer nele")
 		}
 	}
-	for row := 0; row < adultRows; row++ {
+	// The temporary rows right after the adults have the same shape (a tier of
+	// 6, a sixth column of 65-75), and they are written too, so they are checked
+	// too.
+	for row := 0; row < adultRows+tempRows; row++ {
 		at := tableOffset + row*rowBytes
 		if tier, sixth := word(at+16), word(at+20); tier < 4 || tier > 6 || sixth < 60 || sixth > 80 {
 			return fmt.Errorf("clientmount: a linha %d da tabela de montarias do WYD.exe não tem a forma esperada "+
@@ -301,6 +344,9 @@ func PatchItemList(il []byte, rows []Row) ([]byte, error) {
 		out[off], out[off+1] = byte(uint16(v))^itemXOR, byte(uint16(v)>>8)^itemXOR
 	}
 	for _, r := range rows {
+		if r.NoAbsorb {
+			continue
+		}
 		rec := int(r.Index) * itemRecord
 		if out[rec]^itemXOR == 0 {
 			return nil, fmt.Errorf("clientmount: o ItemList.bin não tem o item %d", r.Index)
