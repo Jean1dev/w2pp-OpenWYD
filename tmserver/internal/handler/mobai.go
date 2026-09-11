@@ -117,6 +117,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.tickCastle(w)
 	d.tickWaterRooms(w)
 	d.tickCarta(w)
+	d.tickCasteloOrc(w)
 	d.tickPesadelo(w)
 	d.tickFairies(w)
 	d.respawnMobs(w)
@@ -408,7 +409,7 @@ func (d *Dispatcher) generateMobs(w *world.World) {
 	pass := d.tickCount / minTimerTicks
 	for idx := 0; idx < w.GeneratorCount(); idx++ {
 		g := w.GeneratorAt(idx)
-		if g == nil || g.MinuteGenerate <= 0 {
+		if g == nil || g.MinuteGenerate <= 0 || d.casteloOrcSuppresses(idx) {
 			continue
 		}
 		// The block's own period, re-timed by the area dial (spawnrate.go).

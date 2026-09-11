@@ -137,7 +137,8 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	// session outright once its out queue fills (world/world.go:755), so a GM standing
 	// in a castle room could take themselves and their neighbours off the server just
 	// by trying to walk out.
-	if s.AccessLevel < world.AccessModerator && !d.castleMoveAllowed(s.Conn, body.TargetX, body.TargetY) {
+	if s.AccessLevel < world.AccessModerator && (!d.castleMoveAllowed(s.Conn, body.TargetX, body.TargetY) ||
+		!d.casteloOrcMoveAllowed(s.Conn, body.TargetX, body.TargetY)) {
 		d.doTeleport(w, s, e.X, e.Y)
 		return
 	}

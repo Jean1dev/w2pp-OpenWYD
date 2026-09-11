@@ -55,6 +55,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		return
 	}
 	d.castleBossKilled(w, reward, mob)
+	d.casteloOrcBossKilled(w, mob)
 	// Runs BEFORE the DespawnMob below, so the generator still counts this mob —
 	// which is how the legacy detects the last one down (CurrentNumMob == 1).
 	d.waterRoomCleared(w, reward, mob)

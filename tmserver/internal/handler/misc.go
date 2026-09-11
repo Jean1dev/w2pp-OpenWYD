@@ -188,6 +188,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.quest256NPC(w, s, e, npc, quest256Steps[4], itemEmblemaDoGuarda)
 		return
 	}
+	// The Xamã Orc (Merchant 100, EF_GRADE0 40): the Castelo Orc run, a new rule
+	// (castelo_orc_run.go).
+	if npc.Merchant == 100 && npc.Grade == gradeCasteloOrc {
+		d.casteloOrcQuestNPC(w, s, e, npc)
+		return
+	}
 	// QUEST_CAPAREAL (Merchant 100, EF_GRADE0 13): Royal Cape quest entry.
 	if npc.Merchant == 100 && npc.Grade == 13 {
 		d.royalCapeQuest(w, s, e)

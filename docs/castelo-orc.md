@@ -11,12 +11,39 @@ party e as decisões ficam no artefato "Atlas de Quests W2PP".
 ✅ O saque na Mesa de Drops (migração `0051_castelo_orc_drops`) <br/>
 ✅ 0 XP para os monstros da quest <br/>
 ✅ Amuleto com add sorteado e montaria que cai viva <br/>
-⏳ O motor da corrida: NPC de entrada, salas só da party, relógio de 14 min, boss e
-seguidores nascendo na abertura, seguidores renascendo, portões que voltam a
-trancar, Pedido de Caça bloqueado e limpeza <br/>
+✅ A corrida: o Xamã Orc abre o castelo com o Emblema Orc, um grupo por vez, 15 min <br/>
+⏳ Portões que voltam a trancar, prêmio de conclusão, trava de nível/evolução e
+de onde vem o Emblema Orc <br/>
 
-Até o motor existir, os monstros não nascem sozinhos: os blocos são "de evento"
-(`world.IsCasteloOrcGenerator`). Um GM os levanta pelos comandos abaixo.
+## A corrida (`handler/castelo_orc_run.go`)
+
+- **Quem abre:** o **Xamã Orc** (template `COrc_Xama`, Merchant 100, grau 40), de pé
+  na chegada do `/erion` (2461,2003). Só o líder do grupo (ou quem está sozinho)
+  abre, e precisa ter o **Emblema Orc** (item 524), que é consumido. O item já
+  existe no cliente, e hoje nada vivo o dropa.
+- **O Xamã nasce pelo código**, não pelo NPCGener. NPC com Merchant no NPCGener
+  vira do overlay de NPCs quando `W2PP_NPC_EDITING` está ligado e só apareceria
+  depois de um `dbserver import-npcs`. Assim ele fica de pé nos dois modos.
+- **Um grupo por vez**, no servidor inteiro. Com o castelo ocupado, o Xamã diz
+  quantos minutos faltam.
+- **Na abertura:**
+  - os orcs do castelo aberto (blocos 373–394 e 402–497) saem e não renascem até o
+    fim;
+  - quem não é do grupo e está dentro vai para a chegada do `/erion`;
+  - nascem o boss, os 4 seguidores, os 3 guardiões e 60 de tropa;
+  - o grupo cai na muralha sudoeste (2446,2134), perto do Sentinela, com o contador
+    de 15 min.
+- **Durante:**
+  - quem não é do grupo não entra no castelo andando;
+  - o Pedido de Caça não leva estranhos para dentro (os warps 2 e 3 caem lá);
+  - os seguidores voltam a cada 30 s, para a última sala render saque.
+- **Fim:** aos 15 min; 2 min depois que o Grão-Lorde cai (o tempo de saque); ou 1
+  min depois que ninguém do grupo está mais no castelo. Os monstros da quest somem,
+  quem estiver dentro volta para o `/erion` e os orcs do castelo aberto renascem
+  pelos próprios timers.
+- **Reinício do servidor** encerra a corrida (nada é persistido), como na Água e
+  na Carta.
+- O contador vai em segundos (900), como o do Pesadelo.
 
 ## Os monstros
 
@@ -82,7 +109,15 @@ proposta para o primeiro teste.
 
 ## Como testar
 
-Em jogo, com conta de GM, perto do castelo:
+A corrida inteira, com conta de GM:
+
+```
+/gm item 524                    um Emblema Orc na bolsa
+/erion                          a chegada, onde o Xamã Orc está
+(clique no Xamã como líder do grupo)
+```
+
+Um monstro solto, perto do castelo e sem corrida:
 
 ```
 /gm criar COrc_GraoLorde        um boss na sua frente (não renasce)
@@ -90,6 +125,9 @@ Em jogo, com conta de GM, perto do castelo:
 /gm gerar 6104 aqui             um grupo de tropa (6105, 6106: as outras)
 /gm criar COrc_Sentinela        um guardião (6102, 6103: os outros)
 ```
+
+GM (moderador para cima) não é barrado nem varrido do castelo durante a corrida,
+como no castelo do Zakum.
 
 O painel mostra os templates novos e as regras depois do deploy. A Mesa relê as
 regras a cada ~15 s.

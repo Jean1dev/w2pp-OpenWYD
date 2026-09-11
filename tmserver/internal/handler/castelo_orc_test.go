@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -183,8 +184,9 @@ func TestCasteloOrcTemplatesBatemComODesign(t *testing.T) {
 		if m.Resist != [4]int8{want.res, want.res, want.res, want.res} {
 			t.Errorf("%s: resistência %v, want %d em tudo", file, m.Resist, want.res)
 		}
-		if m.Exp != 0 || m.Coin != 0 || m.Merchant != 0 || m.Clan == 4 {
-			t.Errorf("%s: exp %d coin %d merchant %d clan %d", file, m.Exp, m.Coin, m.Merchant, m.Clan)
+		// Both Merchant bytes: the world reads CurrentScore's, the NPC overlay the other.
+		if m.Exp != 0 || m.Coin != 0 || m.Merchant != 0 || c.Merchant != 0 || m.Clan == 4 {
+			t.Errorf("%s: exp %d coin %d merchant %d/%d clan %d", file, m.Exp, m.Coin, m.Merchant, c.Merchant, m.Clan)
 		}
 		for slot, it := range m.Carry {
 			if slot == 56 && want.key != 0 {
@@ -197,6 +199,42 @@ func TestCasteloOrcTemplatesBatemComODesign(t *testing.T) {
 				t.Errorf("%s: drop de template %d no slot %d; o saque é da Mesa de Drops", file, it.Index, slot)
 			}
 		}
+	}
+}
+
+// The Xamã is the only quest NPC on grade 40: another Merchant-100 template on
+// that grade would open the castle too.
+func TestCasteloOrcXamaNoConteudo(t *testing.T) {
+	root := releaseDir(t)
+	// Read directly rather than through npctemplate.ScanDir, whose per-file name
+	// resolution lists the directory each time: 50 s on Windows for this check.
+	dir := filepath.Join(root, "TMsrv", "run", "npc")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var comGrau []string
+	for _, f := range files {
+		b, err := os.ReadFile(filepath.Join(dir, f.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		norm, _, err := savefmt.NormalizeMob(b)
+		if err != nil {
+			continue // not a template; the inventory test owns that census
+		}
+		m, err := savefmt.DecodeMob(norm)
+		if err != nil || m.CurrentScore.Merchant != 100 {
+			continue
+		}
+		for _, ef := range m.Equip[0].Effects {
+			if ef.Effect == 100 && ef.Value == gradeCasteloOrc {
+				comGrau = append(comGrau, f.Name())
+			}
+		}
+	}
+	if len(comGrau) != 1 || droprule.Canonical(comGrau[0]) != droprule.Canonical(casteloOrcNPCTemplate) {
+		t.Errorf("templates de quest no grau %d: %v, want só %s", gradeCasteloOrc, comGrau, casteloOrcNPCTemplate)
 	}
 }
 

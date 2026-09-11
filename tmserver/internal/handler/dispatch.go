@@ -81,6 +81,10 @@ type Config struct {
 	// consumes mana but cannot create the wall.
 	VineMob []byte
 
+	// CasteloOrcNPC is the Xamã Orc's template (npc/COrc_Xama), the NPC that opens
+	// the Castelo Orc run (castelo_orc_run.go). When nil the run cannot be opened.
+	CasteloOrcNPC []byte
+
 	// ItemPrices maps item index → base Price (g_pItemList[].Price) for NPC buy/sell.
 	ItemPrices map[int]int32
 
@@ -404,6 +408,12 @@ type Dispatcher struct {
 	// Typed as the interface (not *rng.MSVC) so tests can substitute a scripted
 	// or counting generator; production always holds an MSVC.
 	eventRNG worldevents.Rand
+
+	// The Castelo Orc run (castelo_orc_run.go): its state, the Xamã's template and
+	// the entity id it was raised under. Loop-only.
+	casteloOrc        casteloOrcRun
+	casteloOrcNPCTmpl []byte
+	casteloOrcNPCID   int
 }
 
 // worldEventRNGSeed is the fallback seed for eventRNG, used when Config leaves
@@ -493,6 +503,7 @@ func New(cfg Config) *Dispatcher {
 		baseMobs:          cfg.BaseMobs,
 		summonMobs:        cfg.SummonMobs,
 		vineMob:           cfg.VineMob,
+		casteloOrcNPCTmpl: cfg.CasteloOrcNPC,
 		itemPrices:        cfg.ItemPrices,
 		itemNames:         cfg.ItemNames,
 		itemEffects:       cfg.ItemEffects,

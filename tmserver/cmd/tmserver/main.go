@@ -247,6 +247,7 @@ func run(logger *slog.Logger) error {
 	var baseMobs map[int][]byte
 	var summonMobs [][]byte
 	var vineMob []byte
+	var casteloOrcNPC []byte
 	var castleQuests []content.CastleQuest
 	if *contentDir != "" {
 		statusFile = filepath.Join(*contentDir, "Common", "serv00.htm")
@@ -272,6 +273,13 @@ func run(logger *slog.Logger) error {
 		} else {
 			vineMob = vm
 			logger.Info("vine template loaded")
+		}
+		// The Xamã Orc opens the Castelo Orc run; the handler raises it itself, so
+		// it stands whether or not the NPC overlay owns the merchants.
+		if xm, err := content.LoadNPCTemplate(*contentDir, "COrc_Xama"); err != nil {
+			logger.Warn("Castelo Orc NPC template not loaded (the run cannot be opened)", "err", err)
+		} else {
+			casteloOrcNPC = xm
 		}
 		if cq, err := content.LoadCastleQuests(filepath.Join(*contentDir, "Common", "Settings", "CastleQuest.txt")); err != nil {
 			logger.Warn("castle quests not loaded (Castle/Zakum disabled)", "err", err)
@@ -539,7 +547,7 @@ func run(logger *slog.Logger) error {
 		eventSeed = 1
 	}
 	dispatch := handler.New(handler.Config{
-		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemNames: itemNames, ItemEffects: itemEffects, ItemReqs: itemReqs,
+		Log: logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, CasteloOrcNPC: casteloOrcNPC, ItemPrices: itemPrices, ItemNames: itemNames, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemDurations: itemDurations, MountRates: mountRates, MountAbsorb: mountAbsorb, MountBonus: mountBonus, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights, Attributes: attributes,
 		SancRate:        sancRate,
 		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
