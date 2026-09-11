@@ -24,7 +24,7 @@ import (
 // já são e o que o decodificador aceita.
 
 // SetIcon desenha bmpPath na primeira célula livre do atlas e aponta o item
-// para ela, devolvendo o id do ícone gravado (1-based, como o cliente conta).
+// para ela. O retorno é o id do ícone gravado (1-based, como o cliente conta).
 //
 // O BMP tem de caber na célula de 35×35; um menor é centralizado, que é como as
 // artes do cliente já estão dentro das suas células.
@@ -104,13 +104,13 @@ func SetIcon(clientDir string, item int, bmpPath string) (int, error) {
 // for a blank cell instead finds none, and taking a cell below the last
 // referenced one would blank an icon some item is using.
 func freeIcon(itemToIcon []int) int {
-	max := -1
+	ultimo := -1
 	for _, icon := range itemToIcon {
-		if icon > max {
-			max = icon
+		if icon > ultimo {
+			ultimo = icon
 		}
 	}
-	return max + 1
+	return ultimo + 1
 }
 
 // encodeWYT writes the wrapper and an uncompressed 32-bit TGA, the shape the

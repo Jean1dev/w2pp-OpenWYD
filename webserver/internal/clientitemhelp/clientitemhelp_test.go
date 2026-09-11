@@ -51,7 +51,7 @@ func TestSetInsereNaOrdem(t *testing.T) {
 	if i3222 < 0 {
 		t.Fatalf("o bloco novo não foi escrito:\n%s", got)
 	}
-	if !(i410 < i3222 && i3222 < i3343) {
+	if i410 >= i3222 || i3222 >= i3343 {
 		t.Errorf("ordem dos índices errada: 410=%d 3222=%d 3343=%d", i410, i3222, i3343)
 	}
 }

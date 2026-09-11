@@ -29,8 +29,8 @@ const (
 	Premium  uint32 = 0xFFFF00FF // o selo "[Item_Premium]"
 )
 
-// Linha é uma linha da descrição: a cor e o texto, com espaços normais — a
-// conversão para "_" é feita na gravação.
+// Linha é uma linha da descrição: a cor e o texto, com espaços normais — o
+// espaço vira "_" na gravação.
 type Linha struct {
 	Cor   uint32
 	Texto string
@@ -41,8 +41,8 @@ type Linha struct {
 // Um bloco sem linhas remove a descrição.
 //
 // O arquivo é reescrito byte a byte fora do bloco tocado: os outros itens saem
-// exatamente como entraram, porque um acento perdido numa conversão de ida e
-// volta apareceria como pergunta na tela de todo mundo.
+// exatamente como entraram, porque um acento perdido ao decodificar e codificar
+// de novo apareceria como pergunta na tela de todo mundo.
 func Set(data []byte, item int, linhas []Linha) ([]byte, error) {
 	if item <= 0 {
 		return nil, fmt.Errorf("clientitemhelp: item %d inválido", item)
