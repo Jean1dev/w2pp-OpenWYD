@@ -195,6 +195,20 @@ type World struct {
 	// AccountSaving. Loop-owned.
 	quitSaves map[int64]int
 
+	// deliveryPlaced holds, per account, the delivery_queue ids this process has
+	// already put into the in-memory cargo, for as long as the cargo is loaded.
+	// Two drains of the same mailbox — the login and a deliver-now, or two
+	// deliver-nows from the site while the game is open — each fetch the pending
+	// list before the other's ack commits, and without this the second one would
+	// place the same paid item again. Loop-owned.
+	deliveryPlaced map[int64]map[int64]bool
+	// deliveryUnacked holds the placed ids whose 'delivered' mark has not
+	// committed yet. Every cargo save of that account carries them, so the cargo
+	// that holds the items and the mark land in one transaction: a plain SaveCargo
+	// that wrote the items while their rows stayed 'pending' would deliver them a
+	// second time at the next login. Loop-owned.
+	deliveryUnacked map[int64][]int64
+
 	// guilds is the minimal guild registry (guild.go): name/fame keyed by guild
 	// id. In-memory only — there is no guild-creation flow yet to persist
 	// against. Loop-owned.
@@ -296,12 +310,15 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 		ground:    make([]*GroundItem, MaxItem),
 		cargo:     make(map[int64]*CargoState),
 		quitSaves: make(map[int64]int),
-		guilds:    make(map[uint16]GuildInfo),
-		grid:      newGrid(cfg.GridDim),
-		rng:       rng.New(),
-		events:    make(chan event, cfg.EventQueue),
-		callbacks: make(chan event, 256),
-		done:      make(chan struct{}),
+
+		deliveryPlaced:  make(map[int64]map[int64]bool),
+		deliveryUnacked: make(map[int64][]int64),
+		guilds:          make(map[uint16]GuildInfo),
+		grid:            newGrid(cfg.GridDim),
+		rng:             rng.New(),
+		events:          make(chan event, cfg.EventQueue),
+		callbacks:       make(chan event, 256),
+		done:            make(chan struct{}),
 	}
 }
 
@@ -434,7 +451,7 @@ func (w *World) shutdown() {
 	// Persist any account warehouses still loaded (account-scoped, so saved once
 	// per account, independent of the per-session character saves above).
 	for accountID := range w.cargo {
-		if err := w.persist.SaveCargo(context.Background(), w.cargoSave(accountID)); err != nil {
+		if err := saveCargoFor(context.Background(), w.persist, w.cargoSave(accountID), w.deliveryUnacked[accountID]); err != nil {
 			w.log.Warn("save cargo on shutdown failed", "account", accountID, "err", err)
 		}
 	}
@@ -665,10 +682,21 @@ func (w *World) ApplyDeliveries(s *Session, pending []Delivery) (delivered, held
 	if cargo == nil {
 		return 0, 0
 	}
+	placed := w.deliveryPlaced[accountID]
+	if placed == nil {
+		placed = make(map[int64]bool)
+		w.deliveryPlaced[accountID] = placed
+	}
 	var deliveredIDs []int64
 	for _, d := range pending {
+		if placed[d.ID] {
+			// Already in this cargo from an earlier drain whose list was fetched
+			// first; its ack may simply not have committed yet.
+			continue
+		}
 		if w.AddToCargo(cargo, d.Item) >= 0 {
 			deliveredIDs = append(deliveredIDs, d.ID)
+			placed[d.ID] = true
 		} else {
 			held++
 		}
@@ -682,17 +710,65 @@ func (w *World) ApplyDeliveries(s *Session, pending []Delivery) (delivered, held
 		return 0, held
 	}
 
+	w.deliveryUnacked[accountID] = append(w.deliveryUnacked[accountID], deliveredIDs...)
+	w.saveCargoAcking(accountID)
+	return len(deliveredIDs), held
+}
+
+// saveCargoAcking persists the account cargo together with every placed-but-
+// unacked delivery id, in one transaction, and forgets the ids once it commits.
+// A failed save keeps them, so the next cargo save of the account — another
+// drain, a character switch, the logout — tries the pair again. Loop-only.
+func (w *World) saveCargoAcking(accountID int64) {
 	cs := w.cargoSave(accountID)
+	ids := append([]int64(nil), w.deliveryUnacked[accountID]...)
 	p := w.persist
-	w.Go(s, func() func(*World, *Session) {
-		e := p.SaveCargoWithDeliveries(context.Background(), cs, deliveredIDs, nil)
-		return func(w *World, _ *Session) {
+	w.GoDetached(func() func(*World) {
+		e := p.SaveCargoWithDeliveries(context.Background(), cs, ids, nil)
+		return func(w *World) {
 			if e != nil {
 				w.log.Warn("save cargo with deliveries failed", "account", accountID, "err", e)
+				return
 			}
+			w.forgetAcked(accountID, ids)
 		}
 	})
-	return len(deliveredIDs), held
+}
+
+// forgetAcked drops ids from the account's unacked list after their mark
+// committed. Loop-only.
+func (w *World) forgetAcked(accountID int64, ids []int64) {
+	pend := w.deliveryUnacked[accountID]
+	if len(pend) == 0 {
+		return
+	}
+	done := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		done[id] = true
+	}
+	kept := pend[:0]
+	for _, id := range pend {
+		if !done[id] {
+			kept = append(kept, id)
+		}
+	}
+	if len(kept) == 0 {
+		delete(w.deliveryUnacked, accountID)
+		return
+	}
+	w.deliveryUnacked[accountID] = kept
+}
+
+// saveCargoFor is the cargo write every other path uses: the plain SaveCargo,
+// or — when the account has placed deliveries whose mark has not committed —
+// SaveCargoWithDeliveries with those ids, so the items never reach the database
+// without their rows leaving 'pending'. Safe off the loop: it only touches the
+// snapshot and ids it is given.
+func saveCargoFor(ctx context.Context, p Persistence, cs CargoSave, unacked []int64) error {
+	if len(unacked) == 0 {
+		return p.SaveCargo(ctx, cs)
+	}
+	return p.SaveCargoWithDeliveries(ctx, cs, unacked, nil)
 }
 
 // cargoSave snapshots an account's warehouse into a CargoSave. Loop-only.
@@ -715,13 +791,20 @@ func (w *World) ReleaseCargo(accountID int64) {
 		return
 	}
 	cs := w.cargoSave(accountID)
+	// The cargo leaves memory, so the drain bookkeeping goes with it: this save
+	// either commits the cargo AND the pending marks, or neither — and a next
+	// login then finds the rows 'pending' and the items not in the saved cargo,
+	// and delivers them exactly once.
+	unacked := w.deliveryUnacked[accountID]
 	delete(w.cargo, accountID)
+	delete(w.deliveryPlaced, accountID)
+	delete(w.deliveryUnacked, accountID)
 	w.holdAccount(accountID)
 	w.saveWG.Add(1)
 	go func() {
 		defer w.saveWG.Done()
 		defer w.releaseAccountLater(accountID)
-		if err := w.persist.SaveCargo(context.Background(), cs); err != nil {
+		if err := saveCargoFor(context.Background(), w.persist, cs, unacked); err != nil {
 			w.log.Warn("save cargo failed", "account", cs.AccountID, "err", err)
 		}
 	}()
@@ -787,12 +870,15 @@ func (w *World) SaveCargoThen(s *Session, then func(*World, *Session)) {
 		return
 	}
 	cs := w.cargoSave(s.AccountID)
+	unacked := append([]int64(nil), w.deliveryUnacked[s.AccountID]...)
 	p := w.persist
 	w.Go(s, func() func(*World, *Session) {
-		err := p.SaveCargo(context.Background(), cs)
+		err := saveCargoFor(context.Background(), p, cs, unacked)
 		return func(w *World, s *Session) {
 			if err != nil {
 				w.log.Warn("save cargo failed", "account", cs.AccountID, "err", err)
+			} else {
+				w.forgetAcked(cs.AccountID, unacked)
 			}
 			then(w, s)
 		}
