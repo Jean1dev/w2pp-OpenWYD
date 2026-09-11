@@ -56,25 +56,38 @@ func TestCasteloOrcPortaoCorpoDoCreateItem(t *testing.T) {
 	}
 }
 
-// The leader's key on the gate opens the run and the gate; without the key
-// nothing moves. The end of the run locks it again.
-func TestCasteloOrcChaveNoPortaoAbreACorrida(t *testing.T) {
+// The leader's key on the gate starts the run, and the gate stays locked the
+// whole time: open, it would let a second party walk in behind the first.
+func TestCasteloOrcChaveNoPortaoNaoAbreOPortao(t *testing.T) {
 	d, w, s, e, g := casteloOrcGateFixture(t)
 	d.casteloOrcGateRequest(w, s, e)
-	if d.casteloOrc.active || g.State != world.StateLocked {
-		t.Fatal("o portão abriu sem a chave")
+	if d.casteloOrc.active {
+		t.Fatal("a corrida começou sem a chave")
 	}
 	e.Carry[2] = world.Item{Index: itemChaveCasteloOrc}
 	d.casteloOrcGateRequest(w, s, e)
-	if !d.casteloOrc.active || g.State != world.StateOpen {
-		t.Fatalf("corrida ativa %v, portão %d; want ativa e aberto", d.casteloOrc.active, g.State)
+	if !d.casteloOrc.active {
+		t.Fatal("a chave no portão não começou a corrida")
 	}
 	if e.Carry[2].Index != 0 {
 		t.Error("a chave não foi consumida")
 	}
+	if g.State != world.StateLocked {
+		t.Errorf("portão no estado %d durante a corrida, want trancado", g.State)
+	}
 	d.endCasteloOrc(w, "teste")
 	if g.State != world.StateLocked {
 		t.Errorf("portão no estado %d depois da corrida, want trancado", g.State)
+	}
+}
+
+// The Xamã's way in leaves the gate shut too.
+func TestCasteloOrcXamaNaoAbreOPortao(t *testing.T) {
+	d, w, s, e, g := casteloOrcGateFixture(t)
+	e.Carry[0] = world.Item{Index: itemChaveCasteloOrc}
+	d.casteloOrcQuestNPC(w, s, e, raiseXama(t, d, w))
+	if !d.casteloOrc.active || g.State != world.StateLocked {
+		t.Errorf("corrida ativa %v, portão %d; want ativa e trancado", d.casteloOrc.active, g.State)
 	}
 }
 

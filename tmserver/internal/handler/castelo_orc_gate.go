@@ -9,18 +9,20 @@ import (
 // standing in the arch at (2487,2129) — is the Castelo Orc run's door. It is the
 // only world object this server draws: the gates the legacy seeds from
 // InitItem.csv were never sent to the client, and turning them all on at once
-// would shut doors across the map that nobody asked for. This one stays locked,
-// opens when a run starts (the leader's key on it, or handed to the Xamã) and
-// locks again when the run ends.
+// would shut doors across the map that nobody asked for.
+//
+// This one never opens. An open door would let a second party in behind the
+// first (team rule, 11/09/2026): the leader's key on it — or handed to the Xamã —
+// starts a run and takes the party through, and the gate stays locked. Its key
+// requirement is the legacy's (EF_KEYID 5, the Chave Portão Orc Sul's); the
+// generic key path in gate.go never sees it.
 //
 // The wire is the legacy's: MSG_CreateItem when the gate enters a player's view
-// (GridMulticast, SendFunc.cpp:862) and when it relocks (the minute timer,
-// ProcessSecMinTimer.cpp:2696), MSG_UpdateItem when it opens
-// (_MSG_UpdateItem.cpp:102), MSG_DecayItem when it leaves the view
-// (SendFunc.cpp:845). What stops a player at a closed gate is the client, which
-// raises the ground under it; the server has no height check on player movement.
-// UNVERIFIED in game: that the 7662 client draws and blocks this gate from these
-// packets alone.
+// (GridMulticast, SendFunc.cpp:862), MSG_DecayItem when it leaves
+// (SendFunc.cpp:845). Confirmed in game on 11/09/2026 that the 7662 client draws
+// it from these; that a closed one also stops a player walking into it is the
+// client's doing (it raises the ground under the gate) and is still UNVERIFIED —
+// the server has no height check on player movement.
 const (
 	itemPortaoOrcSul = 462
 	// gateHeightClosed is GetCreateItem's Height for a closed gate: -204 stored in
@@ -45,9 +47,9 @@ func (d *Dispatcher) casteloOrcGate(w *world.World) *world.GroundItem {
 				d.casteloOrcGateID = g.ID
 			}
 		})
-		// Every gate is seeded open (CreateItem, Server.cpp:8075); the run's door
-		// starts shut.
-		if g := w.GroundItem(d.casteloOrcGateID); g != nil && !d.casteloOrc.active {
+		// Every gate is seeded open (CreateItem, Server.cpp:8075); this one is
+		// shut for good.
+		if g := w.GroundItem(d.casteloOrcGateID); g != nil {
 			g.State = world.StateLocked
 		}
 	}
@@ -97,30 +99,8 @@ func (d *Dispatcher) syncCasteloOrcGate(w *world.World, s *world.Session, x, y i
 	}
 }
 
-// setCasteloOrcGate opens or locks the gate and tells everyone in view: an open
-// goes out as MSG_UpdateItem to a client that already draws the gate, anything
-// else as a fresh MSG_CreateItem.
-func (d *Dispatcher) setCasteloOrcGate(w *world.World, state int16) {
-	g := d.casteloOrcGate(w)
-	if g == nil || g.State == state {
-		return
-	}
-	g.State = state
-	key := gateSeenKey(g.ID)
-	w.ForEachInViewAt(g.X, g.Y, -1, func(s *world.Session, _ *world.Entity) {
-		if state == world.StateOpen && w.Seen(s, key) {
-			body := (&protocol.MsgUpdateItemBody{ItemID: int32(world.GroundItemIDOffset + g.ID), State: world.StateOpen}).Encode()
-			w.SendTo(s, protocol.Header{Type: protocol.MsgUpdateItem, ID: protocol.IDScene}, body)
-			return
-		}
-		w.MarkSeen(s, key)
-		w.SendTo(s, protocol.Header{Type: protocol.MsgCreateItem, ID: protocol.IDScene}, d.gateCreateBody(g))
-	})
-	d.log.Info("castelo orc gate", "id", g.ID, "state", state)
-}
-
 // casteloOrcGateRequest is a click on the Portão Orc Sul: the Xamã's opening,
-// answered in the message panel.
+// answered in the message panel. The gate itself does not move.
 func (d *Dispatcher) casteloOrcGateRequest(w *world.World, s *world.Session, e *world.Entity) {
 	d.casteloOrcTryOpen(w, s, e, func(text string) { sendClientMessage(w, s, text) })
 }

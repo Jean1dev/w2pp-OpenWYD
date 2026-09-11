@@ -11,16 +11,17 @@ import (
 
 // The Castelo Orc run: a new rule, not the legacy's. A party leader uses the
 // Chave Portão Orc Sul on the Portão Orc Sul (or hands it to the Xamã Orc beside
-// it); the gate opens, the castle is emptied of its open-world orcs and of
-// anyone outside the party, the quest's own monsters rise (world blocks
-// CasteloOrcGenFirst..Last) and the party is dropped just inside the arch with
-// fifteen minutes on the clock. One party at a time, server-wide, like the Sala
-// Secreta: the castle, its blocks and the sweep are shared.
+// it). The gate stays shut — open, it would let a second party in behind the
+// first — and the party is taken through it: the castle is emptied of its
+// open-world orcs and of anyone outside the party, the quest's own monsters rise
+// (world blocks CasteloOrcGenFirst..Last) and the party is dropped just inside
+// the arch with fifteen minutes on the clock. One party at a time, server-wide,
+// like the Sala Secreta: the castle, its blocks and the sweep are shared.
 //
 // It ends on the clock, two minutes after the Grão-Lorde falls (the loot
 // window), or a minute after the last member left the castle. Then the quest's
-// monsters go, the gate locks, whoever is still inside is sent back to the
-// /erion landing, and the open-world orcs refill on their own generator timers.
+// monsters go, whoever is still inside is sent back to the /erion landing, and
+// the open-world orcs refill on their own generator timers.
 //
 // Not modeled yet: a completion prize and any level or tier gate. Nothing
 // survives a restart — a boot mid-run simply ends it, as with the Água and the
@@ -188,7 +189,6 @@ func (d *Dispatcher) openCasteloOrc(w *world.World, e *world.Entity) {
 			spawned += len(ids)
 		}
 	}
-	d.setCasteloOrcGate(w, world.StateOpen)
 
 	for _, conn := range party {
 		if s := w.Session(conn); s != nil {
@@ -322,8 +322,7 @@ func (d *Dispatcher) casteloOrcBossKilled(w *world.World, mob *world.Entity) {
 	d.log.Info("castelo orc boss down", "leader", r.leaderName)
 }
 
-// endCasteloOrc takes the quest's monsters away, locks the gate and empties the
-// castle.
+// endCasteloOrc takes the quest's monsters away and empties the castle.
 func (d *Dispatcher) endCasteloOrc(w *world.World, why string) {
 	for idx := world.CasteloOrcGenFirst; idx <= world.CasteloOrcGenLast; idx++ {
 		w.ClearGenerator(idx)
@@ -331,7 +330,6 @@ func (d *Dispatcher) endCasteloOrc(w *world.World, why string) {
 	d.casteloOrcSweep(w, false)
 	d.log.Info("castelo orc finished", "leader", d.casteloOrc.leaderName, "why", why, "boss_down", d.casteloOrc.bossDown)
 	d.casteloOrc = casteloOrcRun{}
-	d.setCasteloOrcGate(w, world.StateLocked)
 }
 
 // ensureCasteloOrcNPC raises the Xamã at the Portão Sul arch when it is not

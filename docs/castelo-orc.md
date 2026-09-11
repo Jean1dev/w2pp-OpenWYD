@@ -13,8 +13,7 @@ party e as decisões ficam no artefato "Atlas de Quests W2PP".
 ✅ Amuleto com add sorteado <br/>
 ✅ A corrida: a Chave Portão Orc Sul abre o castelo (no portão ou com o Xamã), um
 grupo por vez, 15 min <br/>
-✅ O Portão Orc Sul no arco: trancado, abre com a corrida e volta a trancar no fim
-(a confirmar em jogo) <br/>
+✅ O Portão Orc Sul no arco: sempre trancado; a chave leva o grupo para dentro <br/>
 ⏳ Prêmio de conclusão e trava de nível/evolução <br/>
 
 ## A chave
@@ -59,7 +58,7 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
     fim;
   - quem não é do grupo e está dentro vai para a chegada do `/erion`;
   - nascem o boss, os 4 seguidores, os 3 guardiões e 60 de tropa;
-  - o portão abre;
+  - o portão continua fechado;
   - o grupo cai sob o arco do Portão Sul (2494,2128), cada um numa casa livre,
     com o contador de 15 min. Até 11/09 caía em (2446,2134), que fica fora da
     muralha oeste.
@@ -81,18 +80,19 @@ O **Portão Orc Sul** (item 462, `EF_KEYID 5`, o mesmo da chave 465) está no
 portões do `InitItem`, mas nunca os mandava ao cliente. Agora manda este, e só
 este: ligar todos mudaria portas pelo mapa inteiro sem ninguém ter pedido.
 
-- Fica **trancado** fora da corrida, **abre** quando a corrida começa e **tranca**
-  quando ela acaba.
-- O pacote é o do legado: `MSG_CreateItem` quando o portão entra na visão e
-  quando tranca, `MSG_UpdateItem` quando abre, `MSG_DecayItem` quando sai da
-  visão.
+- **Nunca abre.** Aberto, deixaria um segundo grupo entrar atrás do primeiro
+  (regra da equipe, 11/09). A chave no portão, ou com o Xamã, começa a corrida e
+  teleporta o grupo para dentro; o portão fica trancado o tempo todo.
+- O pacote é o do legado: `MSG_CreateItem` quando o portão entra na visão,
+  `MSG_DecayItem` quando sai. Confirmado em jogo em 11/09 que o cliente desenha o
+  portão.
 - Clicar no portão com a chave é o mesmo que entregar a chave ao Xamã: mesmas
   regras, e a resposta sai no painel de mensagens.
 - Quem impede a passagem pelo portão fechado é o cliente, que eleva o chão
   embaixo dele. O servidor não confere altura no movimento do jogador.
-  **A confirmar em jogo** que o cliente 7662 desenha e bloqueia só com esses
-  pacotes.
-- Os outros portões do castelo (463, 464, 468) continuam sem ser mandados.
+  **A confirmar em jogo** que o portão fechado bloqueia quem tenta atravessar.
+- Os outros portões do castelo (463, 464, 468) não são mandados ao cliente: as
+  passagens deles ficam abertas.
 
 **O Ferreiro Penado** em (2515,2158), no cemitério ao sul, é um NPC do legado
 (bloco 3439, Merchant 100, grau 26). O legado não tem quest para o grau 26:
@@ -204,7 +204,8 @@ A corrida inteira, com conta de GM:
 ```
 /gm item 465                    a Chave Portão Orc Sul na bolsa
 vá até o arco do Portão Sul do castelo (2487,2129): o portão deve estar fechado
-clique no portão como líder do grupo (ou no Xamã Orc, ao lado)
+clique no portão como líder do grupo (ou no Xamã Orc, ao lado): o grupo vai
+para dentro e o portão continua fechado
 ```
 
 Um monstro solto, perto do castelo e sem corrida:
