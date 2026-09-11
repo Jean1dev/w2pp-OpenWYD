@@ -272,12 +272,14 @@ func TestGenerateMobNegativeCapSpawnsStaticMerchant(t *testing.T) {
 // the map. Neighbouring blocks and the kingdom guardian towers — ordinary
 // population on a 10-minute generator next to each king — must keep spawning.
 func TestIsEventOwnedGenerator(t *testing.T) {
-	for _, idx := range []int{1078, 4236, 4237, 4238, 4239} {
+	// 23-26: the Torre_de_Thor of the Noatum castle war, reported standing in
+	// Noatum's square outside any war.
+	for _, idx := range []int{23, 24, 25, 26, 1078, 4236, 4237, 4238, 4239} {
 		if !IsEventOwnedGenerator(idx) {
 			t.Errorf("IsEventOwnedGenerator(%d) = false, want true", idx)
 		}
 	}
-	for _, idx := range []int{0, 1077, 1079, 4235, 4240, 2783, 2844, 3824, 3829} {
+	for _, idx := range []int{0, 22, 27, 1077, 1079, 4235, 4240, 2783, 2844, 3824, 3829} {
 		if IsEventOwnedGenerator(idx) {
 			t.Errorf("IsEventOwnedGenerator(%d) = true, want false", idx)
 		}

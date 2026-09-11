@@ -119,11 +119,20 @@ func IsWaterDungeonGenerator(idx int) bool {
 //	4236 "Torre_"     — Torre_RvR, inside the RvR box (1023-1280 × 1919-2179).
 //	4237 "Torre__"    — Torre_RvR, same box.
 //	4238/4239 "Torre_Real" — the royal towers on the kings' corridor.
+//	23-26 "Torre_de_Thor" — the towers of the Noatum castle war, TORRE_NOATUM1-3
+//	                    (Basedef.h:357-359). The legacy raises 23-25 when the
+//	                    castle opens (Server.cpp:6815-6819) and never 26; outside
+//	                    the war they stood in Noatum's square for everyone.
 //
-// The RvR war itself is not modeled yet (handler/chat.go), so 4236-4239 have no
-// owner to spawn them at all: until one exists they simply stay out of the world,
-// which is what the original does with them outside the event.
+// The RvR war and the Noatum castle war are not modeled yet (handler/castle.go
+// is the Castle quest, not the war), so these have no owner to spawn them at
+// all: until one exists they simply stay out of the world, which is what the
+// original does with them outside the event.
 var eventOwnedGenerators = map[int]bool{
+	23:   true,
+	24:   true,
+	25:   true,
+	26:   true,
 	1078: true,
 	4236: true,
 	4237: true,

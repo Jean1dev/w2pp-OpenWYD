@@ -106,3 +106,35 @@ func TestLoadNPCGeneratorsReal(t *testing.T) {
 		}
 	}
 }
+
+// TestBlocosDesligadosPorIndice pins the blocks that are switched off BY INDEX —
+// world.eventOwnedGenerators (23-26) and migration 0047 — to the NPCs they were
+// meant for. An index is a position in NPCGener.txt: remove a block above them
+// and the same numbers silently switch off someone else.
+func TestBlocosDesligadosPorIndice(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "Release", "TMsrv", "run", "NPCGener.txt")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("NPCGener.txt unavailable: %v", err)
+	}
+	gens, err := LoadNPCGenerators(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[int]string{
+		23: "Torre_de_Thor", 24: "Torre_de_Thor", 25: "Torre_de_Thor", 26: "Torre_de_Thor",
+		3903: "Camponesa_", 4511: "Merc_Fantasma", 4849: "Mercador", 4852: "Mercador",
+		5995: "Torcedor", 5996: "Torcedor_", 5997: "Torcedor__", 5998: "Torcedor___",
+		5999: "Pescador", 6058: "Cap_Rowena", 6077: "Curandeiro",
+		// The two the square keeps.
+		3442: "Perzen", 3809: "GodGovernment",
+	}
+	for idx, leader := range want {
+		if idx >= len(gens) || gens[idx].Leader != leader {
+			got := ""
+			if idx < len(gens) {
+				got = gens[idx].Leader
+			}
+			t.Errorf("bloco %d = %q, want %q — o NPCGener mudou; revise eventOwnedGenerators e a migração 0047", idx, got, leader)
+		}
+	}
+}
