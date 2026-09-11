@@ -674,14 +674,11 @@ void LoadItemTiers() {
     CloseHandle(f);
 }
 
-// A refinação do item do tooltip, como BASE_GetItemSanc (Basedef.cpp:2136): o
-// valor do efeito 116-125, ou do EF_SANC (43), entre os três do item; de 230 em
-// diante, +10 … +15 em faixas de quatro. O item são os 8 bytes que o desvio do
-// slot copiou: sIndex e três pares (efeito, valor).
-int TooltipRefine() {
-    BYTE item[8];
-    memcpy(item, &g_itemRaw0, 4);
-    memcpy(item + 4, &g_itemRaw1, 4);
+// A refinação de um item, como BASE_GetItemSanc (Basedef.cpp:2136): o valor do
+// efeito 116-125, ou do EF_SANC (43), entre os três do item; de 230 em diante,
+// +10 … +15 em faixas de quatro. item são os 8 bytes do STRUCT_ITEM: sIndex e
+// três pares (efeito, valor).
+int RefineOf(const BYTE* item) {
     const BYTE* effect = item + 2;
     int raw = -1;
     for (int i = 0; i < 3 && raw < 0; i++) {
@@ -701,6 +698,13 @@ int TooltipRefine() {
         return 10 + (raw - 230) / 4;
     }
     return raw % 10;
+}
+
+int TooltipRefine() {
+    BYTE item[8];
+    memcpy(item, &g_itemRaw0, 4);
+    memcpy(item + 4, &g_itemRaw1, 4);
+    return RefineOf(item);
 }
 
 int FamilyByName(const char* name) {
@@ -959,6 +963,180 @@ bool InstallTooltipHook() {
     return true;
 }
 
+// --- Moldura do slot ----------------------------------------------------------
+//
+// O slot de item (bolsa, equipamento, loja, baú) é um controle de vtable
+// 0x5F4FF4, construído em 0x40D3DE com o STRUCT_ITEM em +0x670 — o mesmo campo
+// que o tooltip lê. O Render dele (vtable +0x58, 0x40DD40) entrega um nó só, o
+// do ícone, em +0x64. O brilho de gema que o cliente já põe no item +10 é um
+// efeito da malha 3D do ícone (nó +0x44), e trocar a cor dali seria desmontar o
+// renderizador; em vez disso, o slot com raridade ganha dois desenhos nossos,
+// com o mesmo nó de cor sólida do painel do tooltip: um fundo na cor do nível,
+// entregue ANTES do ícone (fica atrás dele), e uma moldura de 2 px com relevo,
+// entregue DEPOIS (fica por cima da borda do ícone).
+//
+// Cada slot tem os seus próprios nós, guardados por endereço do controle: um
+// slot desenha uma vez por quadro, então nó nenhum é reaproveitado enquanto ainda
+// está numa lista — a mesma garantia dos nós fixos do tooltip.
+
+constexpr DWORD kSlotRenderEntry = 0x5F504C;    // vtable 0x5F4FF4 + 0x58
+constexpr DWORD kSlotRenderOriginal = 0x40DD40; // o que deve estar lá na 7662
+constexpr DWORD kSlotItemPtr = 0x670;           // STRUCT_ITEM* do slot
+constexpr DWORD kNodeVisible = 0x34;            // o desenho só pinta nó com 1 aqui
+constexpr DWORD kItemCatalog = 0xFB9608;        // o ItemList do cliente em memória
+constexpr int kCatalogRecord = 140;             // nome no começo de cada registro
+constexpr int kMaxItemIndex = 0x2D50;           // o próprio Render recusa acima disso
+constexpr float kSlotFrame = 2.0f;              // px
+constexpr int kSlotNodes = 5;                   // fundo e os quatro lados
+constexpr int kMaxSlots = 512;
+
+// O fundo do slot por família de cor, na ordem de kFamilies — a paleta de slots
+// (comum, raro, épico, mítico, divino); verde e laranja no mesmo tom escuro.
+const BYTE kSlotBackground[][3] = {
+    {18, 22, 26}, // cinza: Comum
+    {14, 26, 18}, // verde: Incomum
+    {14, 22, 32}, // azul: Raro
+    {21, 16, 31}, // roxo: Épico
+    {28, 21, 8},  // dourado: Divino
+    {30, 19, 8},  // laranja: Lendário
+    {28, 14, 24}, // vermelho: Mítico
+};
+static_assert(ARRAYSIZE(kSlotBackground) == ARRAYSIZE(kFamilies), "um fundo por família");
+
+struct SlotDeco {
+    void* slot;
+    BYTE nodes[kSlotNodes][kNodeSize];
+};
+SlotDeco g_slotDeco[kMaxSlots];
+PanelRenderFn g_slotRender = nullptr;
+BYTE g_solidNode[kNodeSize];
+bool g_solidReady = false;
+int g_mountFamily[kAdultMountHi - kAdultMountLo + 1];
+bool g_mountFamilyReady = false;
+
+// O modelo de nó de cor sólida: o do painel do tooltip, que já existe quando a
+// interface existe. Marcado visível, porque o painel pode estar escondido.
+bool SolidNodeReady() {
+    if (g_solidReady) {
+        return true;
+    }
+    void* panel = TooltipPanel();
+    if (panel == nullptr) {
+        return false;
+    }
+    memcpy(g_solidNode, reinterpret_cast<BYTE*>(panel) + kPanelNode, kNodeSize);
+    *reinterpret_cast<DWORD*>(g_solidNode + kNodeVisible) = 1;
+    *reinterpret_cast<DWORD*>(g_solidNode + kNodeNext) = 0;
+    g_solidReady = true;
+    return true;
+}
+
+SlotDeco* DecoFor(void* slot) {
+    DWORD h = (reinterpret_cast<DWORD>(slot) >> 4) * 2654435761u;
+    for (int i = 0; i < kMaxSlots; i++) {
+        SlotDeco& d = g_slotDeco[(h + i) % kMaxSlots];
+        if (d.slot == slot) {
+            return &d;
+        }
+        if (d.slot == nullptr) {
+            d.slot = slot;
+            return &d;
+        }
+    }
+    return nullptr; // tabela cheia: esse slot fica sem moldura
+}
+
+// A família de uma montaria na bolsa: pelo nome no catálogo em memória, contra o
+// GamePatch.txt — a mesma regra do tooltip. -1 quando ela não está no arquivo.
+int MountFamily(int index) {
+    if (!g_mountFamilyReady) {
+        for (int i = 0; i < ARRAYSIZE(g_mountFamily); i++) {
+            const char* name = reinterpret_cast<const char*>(kItemCatalog + (kAdultMountLo + i) * kCatalogRecord);
+            const Rarity* r = RarityOf(name);
+            g_mountFamily[i] = r != nullptr && r->label[0] != 0 ? r->family : -1;
+        }
+        g_mountFamilyReady = true;
+    }
+    return g_mountFamily[index - kAdultMountLo];
+}
+
+// A família de cor do item do slot, ou -1 se ele não tem raridade.
+int SlotFamily(const BYTE* item) {
+    const int index = *reinterpret_cast<const short*>(item);
+    if (index < 0 || index > kMaxItemIndex) {
+        return -1;
+    }
+    if (index >= kAdultMountLo && index <= kAdultMountHi) {
+        return MountFamily(index);
+    }
+    const Tier* tier = ItemTier(index, RefineOf(item));
+    return tier != nullptr ? FamilyByName(tier->family) : -1;
+}
+
+void PutNode(BYTE* b, float x, float y, float w, float h, DWORD color, void* list, int layer) {
+    memcpy(b, g_solidNode, kNodeSize);
+    float r[4] = {x, y, w, h};
+    memcpy(b + kNodeRect, r, sizeof(r));
+    *reinterpret_cast<DWORD*>(b + kNodeColor) = color;
+    *reinterpret_cast<DWORD*>(b + kNodeNext) = 0;
+    reinterpret_cast<AppendNodeFn>(kAppendNode)(list, b, layer);
+}
+
+void __fastcall HookedSlotRender(void* self, void* edx, void* list, float x, float y, int layer, int extra) {
+    BYTE* s = reinterpret_cast<BYTE*>(self);
+    const BYTE* item = *reinterpret_cast<const BYTE**>(s + kSlotItemPtr);
+    SlotDeco* deco = nullptr;
+    int family = -1;
+    float px = 0, py = 0, w = 0, h = 0;
+    if (item != nullptr && layer >= 0 && layer < kLayers &&
+        *reinterpret_cast<DWORD*>(s + kPanelNode + kNodeVisible) == 1 && SolidNodeReady()) {
+        family = SlotFamily(item);
+        if (family >= 0) {
+            deco = DecoFor(self);
+        }
+    }
+    if (deco != nullptr) {
+        // O retângulo que o Render vai dar ao ícone (0x40DD7A): posição do pai
+        // mais a do controle, e o tamanho dele — em pixel inteiro, para dentro.
+        const float* pos = reinterpret_cast<const float*>(s + 0x4C);
+        px = ceilf(x + pos[0] - 0.01f);
+        py = ceilf(y + pos[1] - 0.01f);
+        w = floorf(x + pos[0] + pos[2] + 0.01f) - px;
+        h = floorf(y + pos[1] + pos[3] + 0.01f) - py;
+        if (w < 3 * kSlotFrame || h < 3 * kSlotFrame) {
+            deco = nullptr;
+        } else {
+            const BYTE* bg = kSlotBackground[family];
+            PutNode(deco->nodes[0], px, py, w, h, 0xF0000000 | (bg[0] << 16) | (bg[1] << 8) | bg[2], list, layer);
+        }
+    }
+    g_slotRender(self, edx, list, x, y, layer, extra);
+    if (deco != nullptr) {
+        const float t = kSlotFrame;
+        const DWORD light = FamilyColor(family, 0.9f), dark = FamilyColor(family, 0.35f);
+        PutNode(deco->nodes[1], px, py, w, t, light, list, layer);          // em cima
+        PutNode(deco->nodes[2], px, py, t, h, light, list, layer);          // esquerda
+        PutNode(deco->nodes[3], px, py + h - t, w, t, dark, list, layer);   // embaixo
+        PutNode(deco->nodes[4], px + w - t, py, t, h, dark, list, layer);   // direita
+    }
+}
+
+bool InstallSlotRenderHook() {
+    DWORD* entry = reinterpret_cast<DWORD*>(kSlotRenderEntry);
+    if (*entry != kSlotRenderOriginal) {
+        return false; // outra build
+    }
+    DWORD oldProtect = 0;
+    if (!VirtualProtect(entry, sizeof(DWORD), PAGE_READWRITE, &oldProtect)) {
+        return false;
+    }
+    g_slotRender = reinterpret_cast<PanelRenderFn>(kSlotRenderOriginal);
+    *entry = reinterpret_cast<DWORD>(&HookedSlotRender);
+    VirtualProtect(entry, sizeof(DWORD), oldProtect, &oldProtect);
+    return true;
+}
+// -----------------------------------------------------------------------------
+
 } // namespace
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID) {
@@ -967,6 +1145,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID) {
         if (InstallTooltipHook()) {
             g_slotHooked = InstallSlotHook();
         }
+        InstallSlotRenderHook();
     }
     return TRUE;
 }

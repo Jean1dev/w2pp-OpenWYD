@@ -50,6 +50,16 @@ lê a refinação do item sob o mouse como `BASE_GetItemSanc`.
 As cores das linhas continuam as do cliente nos equipamentos; a paleta é só
 das montarias.
 
+## Moldura do slot
+
+Todo slot de item com raridade (bolsa, equipamento, loja, baú) ganha um fundo
+na cor de slot do nível, atrás do ícone, e uma moldura de 2 px com relevo por
+cima. O DLL troca o `Render` do controle de slot (vtable `0x5F4FF4`, entrada
+`+0x58`, `0x40DD40`) e entrega os próprios nós antes e depois do ícone; o
+brilho de gema que o cliente já põe no item +10 é da malha 3D e continua lá.
+Montaria na bolsa usa o `GamePatch.txt`, pelo nome do catálogo em memória
+(`0xFB9608`).
+
 ## Como o desenho funciona
 
 O tooltip é o painel `0x102` da janela; o cliente o desenha como um nó de cor
