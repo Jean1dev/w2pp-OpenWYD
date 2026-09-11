@@ -175,8 +175,9 @@ func TestEntregaParaQuemNaoEstaConectadoContinuaNaFila(t *testing.T) {
 }
 
 func TestBauCheioNaoViraEntregaConfirmada(t *testing.T) {
-	// The login drain loses these the same way. Reporting a delivery here would
-	// send the player looking for something that is not there.
+	// The item stays in the mailbox until there is room. Reporting a delivery
+	// here would send the player looking for something that is not there yet,
+	// and not saying it waits would send the moderator to deliver it again.
 	j := &fakeJogo{estado: jogo.Estado{Players: []jogo.Player{
 		{Conta: "ana", Personagem: "Heroina", Jogando: true},
 	}}, perdidos: 1}
@@ -190,6 +191,9 @@ func TestBauCheioNaoViraEntregaConfirmada(t *testing.T) {
 	destino, _ := url.QueryUnescape(rec.Header().Get("Location"))
 	if !strings.Contains(destino, "cheio") {
 		t.Errorf("aviso = %q, não diz que o baú está cheio", destino)
+	}
+	if !strings.Contains(destino, "continua na fila") && !strings.Contains(destino, "Continua na fila") {
+		t.Errorf("aviso = %q, não diz que o item continua na fila", destino)
 	}
 	if strings.Contains(destino, "chegou agora") {
 		t.Error("um item que não coube foi anunciado como entregue")

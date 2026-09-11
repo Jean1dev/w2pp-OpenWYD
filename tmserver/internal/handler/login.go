@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -95,13 +96,18 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		w.SetCargo(out.AccountID, &cargo)
 		// Drain any pending donate web-shop grants (fetched in the same login
 		// round-trip) into the freshly-loaded cargo (issue #34); items land in the
-		// next free slot, or are lost when full. Encode AFTER the drain so the
-		// client vault cache includes freshly delivered items.
-		w.ApplyDeliveries(s, out.PendingDeliveries)
+		// next free slot, or stay in the mailbox when it is full. Encode AFTER the
+		// drain so the client vault cache includes freshly delivered items.
+		_, held := w.ApplyDeliveries(s, out.PendingDeliveries)
 		s.Mode = world.UserSelChar
 		coin, cargoItems := d.cargoWire(w.Cargo(out.AccountID))
 		body := protocol.EncodeCNFAccountLoginBody(s.AccountName, d.selCharsFrom(out.Characters), coin, cargoItems)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFAccountLogin, ID: protocol.IDSelChar}, body)
+		if held > 0 {
+			// The player paid for these and cannot see them yet. Saying why is
+			// what keeps "abre espaço" from becoming a support ticket.
+			sendClientMessage(w, s, fmt.Sprintf("%d item(ns) da loja esperam espaço no baú. Abra espaço e entre de novo.", held))
+		}
 	case world.LoginBadPassword:
 		d.fails[s.AccountName]++
 		d.log.Warn("account login: bad password", "conn", s.Conn, "account", s.AccountName, "fails", d.fails[s.AccountName])

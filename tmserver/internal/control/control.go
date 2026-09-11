@@ -412,8 +412,10 @@ func (s *Server) DeliverNow(ctx context.Context, req *gamev1.DeliverNowRequest) 
 				return
 			}
 			resp.Found = true
-			entregues, perdidos := w.ApplyDeliveries(sess, pendentes)
-			resp.Delivered, resp.Lost = int32(entregues), int32(perdidos)
+			// Lost keeps its wire name, but no item is lost any more: it counts
+			// the grants that found no free slot and stay in the mailbox.
+			entregues, semEspaco := w.ApplyDeliveries(sess, pendentes)
+			resp.Delivered, resp.Lost = int32(entregues), int32(semEspaco)
 		})
 		return resp
 	})
@@ -421,7 +423,7 @@ func (s *Server) DeliverNow(ctx context.Context, req *gamev1.DeliverNowRequest) 
 		return nil, err
 	}
 	s.log.Info("control: mailbox drained on request", "account", nome,
-		"delivered", out.GetDelivered(), "lost", out.GetLost())
+		"delivered", out.GetDelivered(), "held", out.GetLost())
 	return out, nil
 }
 

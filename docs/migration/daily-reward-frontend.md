@@ -127,8 +127,10 @@ Consequências para a UI:
 - Após `CLAIM_RESULT_OK`, mostre algo como **"item será entregue no seu armazém no próximo login"**.
 - Se o jogador resgatar enquanto está **online**, o item chega **no próximo login** (não instantâneo —
   MVP com dreno só no login).
-- **Se o armazém estiver cheio (128 espaços), o item é perdido** — vale avisar o jogador a manter
-  espaço livre antes de resgatar.
+- **Se o armazém estiver cheio (128 espaços), o item espera na fila** — não se perde: fica
+  `pending` e chega no próximo login (ou num "entregar agora" do painel) em que houver espaço. O
+  jogo avisa na entrada quantos itens esperam. Vale avisar o jogador a manter espaço livre, pra
+  não ficar esperando.
 - O limite diário reseta à **meia-noite UTC**, não 24h corridas desde o último resgate — deixe isso
   claro na UI (ex.: "resgates renovam às 00:00 UTC") em vez de mostrar uma contagem regressiva de 24h.
 

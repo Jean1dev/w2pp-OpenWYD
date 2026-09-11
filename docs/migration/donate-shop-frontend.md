@@ -130,8 +130,10 @@ Consequências para a UI:
 - Após `BUY_RESULT_OK`, mostre algo como **"item será entregue no seu armazém no próximo login"**.
 - Se o jogador comprar enquanto está **online**, o item chega **no próximo login** (não instantâneo —
   MVP com dreno só no login).
-- **Se o armazém estiver cheio (128 espaços), o item é perdido** — vale avisar o jogador a manter
-  espaço livre antes de comprar.
+- **Se o armazém estiver cheio (128 espaços), o item espera na fila** — não se perde: fica
+  `pending` e chega no próximo login (ou num "entregar agora" do painel) em que houver espaço. O
+  jogo avisa na entrada quantos itens esperam. Vale avisar o jogador a manter espaço livre, pra
+  não ficar esperando.
 - O saldo (`donate_balance`) é debitado na hora da compra, independente de o jogador estar online.
 
 ## 7. Fluxo de sessão (login web)

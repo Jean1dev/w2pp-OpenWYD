@@ -166,8 +166,9 @@ type Entrega struct {
 	// the mailbox keeps the items and the next login drains them.
 	Conectado bool
 	Entregues int32
-	// Perdidos counts items the warehouse had no room for. The login drain loses
-	// them the same way — the panel has to be able to say so instead of
+	// Perdidos counts items the warehouse had no room for. The name is kept
+	// for the callers, but they are not lost: they stay in the mailbox for the
+	// next login or deliver-now. The panel still has to say so instead of
 	// reporting a delivery that did not happen.
 	Perdidos   int32
 	Personagem string

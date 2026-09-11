@@ -643,15 +643,20 @@ func (w *World) SetCargo(accountID int64, st *CargoState) {
 // same off-loop round-trip as the account login itself (dbclient.AccountLogin),
 // so draining the mailbox costs no extra backend round-trip. Called from the loop
 // right after the cargo is installed at login: places each item in the next free
-// cargo slot (lost when the cargo is full) and persists the cargo + acks the
-// queue rows in one backend transaction, off the loop. Loop-only.
+// cargo slot and persists the cargo + acks the delivered queue rows in one
+// backend transaction, off the loop. Loop-only.
 //
-// It returns how the mailbox split — delivered into the warehouse, and lost for
-// want of a free slot. The login path ignores both (nobody is watching), but the
-// admin panel's deliver-now cannot: reporting a delivery that the warehouse
-// dropped is how a moderator tells a player to go look for something that is not
-// there.
-func (w *World) ApplyDeliveries(s *Session, pending []Delivery) (delivered, lost int) {
+// A grant that finds no free slot is HELD, not dropped: its row stays 'pending'
+// and the next login or deliver-now tries it again. These are paid items. One
+// that vanished because the warehouse happened to be full is a card
+// chargeback, and chargebacks in volume get the merchant account closed —
+// waiting for room costs nothing by comparison.
+//
+// It returns how the mailbox split — delivered into the warehouse, and held for
+// want of a free slot. The admin panel's deliver-now reports both, so a
+// moderator can tell the player to make room instead of reporting a delivery
+// that did not happen.
+func (w *World) ApplyDeliveries(s *Session, pending []Delivery) (delivered, held int) {
 	if s == nil || s.AccountID == 0 || len(pending) == 0 {
 		return 0, 0
 	}
@@ -660,30 +665,34 @@ func (w *World) ApplyDeliveries(s *Session, pending []Delivery) (delivered, lost
 	if cargo == nil {
 		return 0, 0
 	}
-	var deliveredIDs, lostIDs []int64
+	var deliveredIDs []int64
 	for _, d := range pending {
 		if w.AddToCargo(cargo, d.Item) >= 0 {
 			deliveredIDs = append(deliveredIDs, d.ID)
 		} else {
-			lostIDs = append(lostIDs, d.ID)
+			held++
 		}
 	}
-	if len(lostIDs) > 0 {
-		w.log.Warn("donate deliveries lost: cargo full", "account", accountID, "count", len(lostIDs))
+	if held > 0 {
+		w.log.Warn("donate deliveries held: cargo full", "account", accountID, "count", held)
 	}
-	w.log.Info("drained donate deliveries", "account", accountID, "delivered", len(deliveredIDs), "lost", len(lostIDs))
+	w.log.Info("drained donate deliveries", "account", accountID, "delivered", len(deliveredIDs), "held", held)
+	if len(deliveredIDs) == 0 {
+		// Nothing moved: the cargo is unchanged and every row is still pending.
+		return 0, held
+	}
 
 	cs := w.cargoSave(accountID)
 	p := w.persist
 	w.Go(s, func() func(*World, *Session) {
-		e := p.SaveCargoWithDeliveries(context.Background(), cs, deliveredIDs, lostIDs)
+		e := p.SaveCargoWithDeliveries(context.Background(), cs, deliveredIDs, nil)
 		return func(w *World, _ *Session) {
 			if e != nil {
 				w.log.Warn("save cargo with deliveries failed", "account", accountID, "err", e)
 			}
 		}
 	})
-	return len(deliveredIDs), len(lostIDs)
+	return len(deliveredIDs), held
 }
 
 // cargoSave snapshots an account's warehouse into a CargoSave. Loop-only.

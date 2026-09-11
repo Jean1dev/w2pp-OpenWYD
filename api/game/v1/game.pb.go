@@ -893,9 +893,11 @@ type DeliverNowResponse struct {
 	// found is false when the account is not connected. Its mailbox keeps the
 	// items and the next login drains them, so this is not a failure.
 	Found bool `protobuf:"varint,1,opt,name=found,proto3" json:"found,omitempty"`
-	// delivered and lost split what the mailbox held. A warehouse with no free
-	// slot loses the item exactly as the login drain does — the panel has to be
-	// able to say so instead of reporting a delivery that did not happen.
+	// delivered and lost split what the mailbox held. lost keeps its name for
+	// the wire, but nothing is lost any more: it counts the grants that found no
+	// free warehouse slot and stay pending for the next login or deliver-now —
+	// the panel has to be able to say so instead of reporting a delivery that
+	// did not happen.
 	Delivered     int32  `protobuf:"varint,2,opt,name=delivered,proto3" json:"delivered,omitempty"`
 	Lost          int32  `protobuf:"varint,3,opt,name=lost,proto3" json:"lost,omitempty"`
 	CharacterName string `protobuf:"bytes,4,opt,name=character_name,json=characterName,proto3" json:"character_name,omitempty"`

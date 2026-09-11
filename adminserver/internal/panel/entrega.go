@@ -122,12 +122,13 @@ func (h *Handler) avisoDaEntrega(r *http.Request, conta, nomeItem string) string
 	case !ent.Conectado:
 		return naFila
 	case ent.Perdidos > 0 && ent.Entregues == 0:
-		// The warehouse had no free slot. The login drain loses these the same
-		// way, so saying "delivered" would send the player looking for something
-		// that is not there.
-		return nomeItem + " NÃO coube: o baú da conta está cheio. Peça para abrir espaço e entregue de novo."
+		// The warehouse had no free slot. The item stays in the mailbox — the
+		// game no longer drops a paid item for want of room — but saying
+		// "delivered" would send the player looking for something that is not
+		// there yet.
+		return nomeItem + " NÃO coube agora: o baú da conta está cheio. Continua na fila e chega quando houver espaço (no próximo login ou num novo \"entregar agora\")."
 	case ent.Perdidos > 0:
-		return nomeItem + " chegou em parte — o baú encheu no meio. Peça para abrir espaço e confira o que faltou."
+		return nomeItem + " chegou em parte — o baú encheu no meio. O que faltou continua na fila e chega quando houver espaço."
 	default:
 		return nomeItem + " chegou agora no baú da conta, sem precisar relogar."
 	}

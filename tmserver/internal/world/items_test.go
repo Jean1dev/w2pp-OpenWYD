@@ -3,7 +3,8 @@ package world
 import "testing"
 
 // TestAddToCargo places items in the first free slot and reports -1 when full —
-// the donate-shop delivery target (issue #34): a full cargo means the item is lost.
+// the donate-shop delivery target (issue #34): a full cargo leaves the grant in
+// the mailbox (ApplyDeliveries holds it).
 func TestAddToCargo(t *testing.T) {
 	w := New(Config{GridDim: 16}, slogDiscard(), nil, nil)
 
@@ -21,14 +22,14 @@ func TestAddToCargo(t *testing.T) {
 		t.Errorf("slot 1 index = %d, want 100", st.Items[1].Index)
 	}
 
-	// Fill the rest; the cargo is now full and further adds are lost.
+	// Fill the rest; the cargo is now full and further adds find no slot.
 	for i := 2; i < MaxCargo; i++ {
 		if got := w.AddToCargo(st, Item{Index: int16(i)}); got != i {
 			t.Fatalf("fill slot %d = %d", i, got)
 		}
 	}
 	if got := w.AddToCargo(st, Item{Index: 999}); got != -1 {
-		t.Errorf("AddToCargo into full cargo = %d, want -1 (lost)", got)
+		t.Errorf("AddToCargo into full cargo = %d, want -1 (no slot)", got)
 	}
 }
 
