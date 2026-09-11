@@ -154,7 +154,7 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 		d.refinePedraArch(w, s, e, dst, body, src)
 		return
 	}
-	if d.itemAbility(*dst, efNoSanc) != 0 {
+	if d.itemAbility(*dst, efNoSanc) != 0 || isCapaCelestial(dst.Index) {
 		d.refineReject(w, s, e, src, NoticeCantRefineMore)
 		return
 	}
@@ -216,6 +216,26 @@ func (d *Dispatcher) refineItem(w *world.World, s *world.Session, e *world.Entit
 		return
 	}
 	d.refineFail(w, s, e, t, src, anvil, level, pity)
+}
+
+// Capas do Celestial: Mestre de Hekalotia (3197), Mestre de Akelonia (3198) e
+// Mestre dos Aventureiros (3199), as que o Celestial ganha ao nascer
+// (_MSG_UseItem.cpp:3150-3158).
+const (
+	capaCelestialLo = 3197
+	capaCelestialHi = 3199
+)
+
+// isCapaCelestial diz se o item é uma capa do Celestial, que Poeira nenhuma
+// refina — nem Lactolerium nem Oriharucon.
+//
+// Regra nossa, pedida em 2026-09-11 ("não é assim que refina"). O legado deixa:
+// a trava de slot do refino barra só o rosto e os slots 12-14
+// (_MSG_UseItem.cpp:338), e as capas 3191-3199 não têm EF_NOSANC. O pedido foi
+// só a do Celestial: a Elite do Mortal (3191-3193) e a Herói do Arch (3194-3196)
+// seguem refinando como no legado.
+func isCapaCelestial(index int16) bool {
+	return index >= capaCelestialLo && index <= capaCelestialHi
 }
 
 // refineTintura converts a tintura into its matching Feijão Mágico. This is a

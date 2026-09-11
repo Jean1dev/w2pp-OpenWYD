@@ -204,6 +204,24 @@ func TestRefineGates(t *testing.T) {
 			want:    NoticeCantRefineMore,
 		},
 		{
+			name:   "capa do Celestial não refina com Lac",
+			dust:   itemPoeiraLac,
+			target: world.Item{Index: 3197},
+			want:   NoticeCantRefineMore,
+		},
+		{
+			name:   "capa do Celestial não refina com Ori",
+			dust:   itemPoeiraOri,
+			target: world.Item{Index: 3198},
+			want:   NoticeCantRefineMore,
+		},
+		{
+			name:   "capa do Celestial não refina nem com Lactolerium 100",
+			dust:   itemLacto100,
+			target: world.Item{Index: 3199},
+			want:   NoticeCantRefineMore,
+		},
+		{
 			name: "an item with all three effect slots taken has nowhere to store a level",
 			dust: itemPoeiraLac,
 			target: world.Item{Index: itemArmor, Effects: [3]world.Effect{
@@ -227,6 +245,32 @@ func TestRefineGates(t *testing.T) {
 				t.Error("a refused refine consumed the dust")
 			}
 		})
+	}
+}
+
+// TestCapaCelestialTravaSoElaVestidaOuNaMochila: a trava vale com a capa do
+// Celestial vestida no slot 15, e só nela — a Herói do Arch (3194) e a Elite do
+// Mortal (3191) seguem refinando como no legado.
+func TestCapaCelestialTravaSoElaVestidaOuNaMochila(t *testing.T) {
+	f := newRefineFixture(t, alwaysRate(100), nil)
+	f.e.Equip[15] = world.Item{Index: 3197}
+	f.e.Carry[0] = world.Item{Index: itemPoeiraLac}
+	body := protocol.MsgUseItemBody{
+		SourType: world.ItemPlaceCarry, SourPos: 0,
+		DestType: world.ItemPlaceEquip, DestPos: 15,
+	}
+	f.d.refineItem(f.w, f.s, f.e, body, 0, volDustLac)
+	if f.e.Equip[15] != (world.Item{Index: 3197}) || f.e.Carry[0].Empty() {
+		t.Errorf("capa do Celestial vestida refinou: capa %+v, poeira %+v", f.e.Equip[15], f.e.Carry[0])
+	}
+
+	for _, capa := range []int16{3191, 3194} {
+		g := newRefineFixture(t, alwaysRate(100), nil)
+		g.e.Carry[1] = world.Item{Index: capa}
+		g.refine(itemPoeiraLac)
+		if got := refine.Level(g.target()); got != 1 {
+			t.Errorf("a capa %d devia seguir refinando com Lac (legado), ficou em +%d", capa, got)
+		}
 	}
 }
 
