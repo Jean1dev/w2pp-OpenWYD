@@ -105,6 +105,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	})
 	d.guardQuest256Areas(w)
 	d.guardGuildAreas(w)
+	d.guardCampoDeTreino(w)
 	d.regenPlayers(w)
 	d.sweepAffects(w)
 	d.sweepMobAffects(w) // ProcessAffect for monsters (mobskill.go)
