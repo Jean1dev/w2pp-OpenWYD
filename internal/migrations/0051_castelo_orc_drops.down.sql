@@ -3,8 +3,7 @@ DELETE FROM drop_rule WHERE mob IN (
     'COrc_Chefe', 'COrc_Cavaleiro', 'COrc_Arqueiro', 'COrc_MeioOrc'
 );
 DELETE FROM drop_rule WHERE item = 465 AND mob IN (
-    '*', 'Hidra_Dourada', 'Hidra_Imortal', 'Mestre_Elfo', 'Servo_Elfo',
-    'Adamant_Tauron', 'Aeon_Tauron', 'Aranha_Inferno', 'Arqueiro_Tauron',
+    '*', 'Adamant_Tauron', 'Aeon_Tauron', 'Aranha_Inferno', 'Arqueiro_Tauron',
     'Cav._Lugefer', 'Ladrao_Tauron', 'Lugefer', 'Manticora', 'Taron_Assassino',
     'Treant', 'Verme_', 'Tauron_Agmo', 'Verme_Agmo'
 );

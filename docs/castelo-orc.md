@@ -19,21 +19,26 @@ vez, 15 min <br/>
 
 É a **Chave Portão Orc Sul (465)**, a primeira das quatro chaves do castelo no
 legado, item que o cliente já conhece. A migração tira a chave de todo monstro
-(`*` a 0%) e a devolve só onde o design quis:
+(`*` a 0%). Ela volta só em três lugares:
 
-| Onde | Monstro | Chance |
+| Onde | Como | Meta |
 |---|---|---|
-| Arena da Quest 256 das Hidras (nível 265–320) | Hidra_Dourada · Hidra_Imortal | 0,49% · 0,25% — 1 chave a cada 4 limpezas |
-| Arena da Quest 256 dos Elfos (nível 320–350) | Mestre_Elfo · Servo_Elfo | 1,52% · 0,76% — 1 chave a cada 3 limpezas |
-| Deserto | Adamant_Tauron, Aeon_Tauron, Aranha_Inferno, Arqueiro_Tauron, Cav._Lugefer, Ladrao_Tauron, Lugefer, Manticora, Taron_Assassino, Treant, Verme_, Tauron_Agmo, Verme_Agmo | 0,1% cada — 1 chave a cada 1.000 abates |
+| Quest 256 das Hidras (nível 265–320) | na entrada paga, sorteada (`casteloOrcKeyOnEntry`) | 1 a cada 4 entradas |
+| Quest 256 dos Elfos (nível 320–350) | na entrada paga, sorteada | 1 a cada 3 entradas |
+| Deserto | drop dos monstros que só nascem lá (Adamant_Tauron, Aeon_Tauron, Aranha_Inferno, Arqueiro_Tauron, Cav._Lugefer, Ladrao_Tauron, Lugefer, Manticora, Taron_Assassino, Treant, Verme_, Tauron_Agmo, Verme_Agmo), 0,1% cada | 1 a cada 1.000 abates |
 
 - **Por que o `*` a 0%:** hoje o Guarda_Orc_ do castelo aberto dá a 465 sempre (slot
   56), e ele renasce a cada 6 min.
 - **Templates escolhidos:** só os que nascem apenas nesses lugares. O Tauron comum
   tem 1.648 dos seus 1.826 fora do deserto (Monster City e outros) e ficou de fora.
-- **Uma "limpeza"** é matar a arena inteira uma vez (69 hidras, 28 elfos). As arenas
-  não têm relógio e renascem sozinhas (os Elfos, um grupo a cada ~24 s): quem fica
-  farmando tira mais chaves que a meta.
+- **Nas arenas os monstros não dão a chave.** As arenas não têm relógio e renascem
+  sozinhas: a chave no abate premiaria quem acampa lá dentro. Ela sai na entrada,
+  quando o ticket (Mana do Batedor nas Hidras, Emblema do Guarda nos Elfos) é gasto
+  no NPC ou usado da bolsa.
+- **O Mestre Grifo leva de graça para as mesmas arenas e não dá chave**: senão,
+  entrar e sair farmaria chaves.
+- O sorteio usa o gerador dos eventos, não o dos drops, para não mexer na ordem
+  que os testes de drop e refino fixam.
 - **O Sentinela da quest** carrega a 466 (Portão Orc Leste), e não a 465: senão cada
   corrida pagaria a entrada da seguinte.
 

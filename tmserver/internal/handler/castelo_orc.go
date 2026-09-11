@@ -98,3 +98,34 @@ func stampAccessoryAdd(w *world.World, it *world.Item, table []addRoll) {
 	it.Effects[1] = world.Effect{Effect: line.effect, Value: uint8(value)}
 	it.Effects[2] = world.Effect{}
 }
+
+// casteloOrcKeyOneIn is how many paid entries of a Quest 256 arena hand out one
+// Castelo Orc key, by the step's quest flag: one in four of the Hydra arena
+// (step 4), one in three of the Elf arena (step 5). The arenas' monsters drop
+// no key at all — the arenas have no clock and refill themselves, so a key on
+// a kill would reward camping inside rather than entering.
+var casteloOrcKeyOneIn = map[uint8]int{4: 4, 5: 3}
+
+// casteloOrcKeyOnEntry rolls the key for a player who has just spent a Quest
+// 256 ticket on step 4 or 5. Only a paid entry rolls: the Mestre Grifo's free
+// ride into the same arenas does not call this, or walking in and out would
+// farm keys.
+//
+// The roll comes from the world-event stream, not the drop stream: the draws
+// the drop and refine goldens pin must keep their order.
+func (d *Dispatcher) casteloOrcKeyOnEntry(w *world.World, s *world.Session, e *world.Entity, step quest256Step) {
+	n, ok := casteloOrcKeyOneIn[step.flag]
+	if !ok || d.eventRNG.Intn(n) != 0 {
+		return
+	}
+	slot := firstEmptyAccessibleCarry(e)
+	if slot < 0 {
+		sendClientMessage(w, s, "Bolsa cheia: a Chave Portão Orc Sul se perdeu.")
+		d.log.Info("castelo orc key lost to a full bag", "conn", s.Conn, "quest_flag", step.flag)
+		return
+	}
+	e.Carry[slot] = world.Item{Index: itemChaveCasteloOrc}
+	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+	sendClientMessage(w, s, "Você ganhou a Chave Portão Orc Sul: ela abre o Castelo Orc.")
+	d.log.Info("castelo orc key on quest entry", "conn", s.Conn, "quest_flag", step.flag)
+}

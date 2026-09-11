@@ -259,3 +259,58 @@ func TestCasteloOrcAbandonoLiberaOCastelo(t *testing.T) {
 		t.Error("o castelo ficou preso com o grupo fora")
 	}
 }
+
+// sorteioFixo answers every roll with the same draw: 0 wins a one-in-n roll,
+// anything else loses it.
+type sorteioFixo int
+
+func (r sorteioFixo) Intn(n int) int { return int(r) % n }
+
+// The Hydra and Elf arenas hand out the key on a paid entry — one in four, one
+// in three — and no other Quest 256 step does.
+func TestCasteloOrcChaveNaEntradaDaQuest(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		step  quest256Step
+		roll  sorteioFixo
+		chave bool
+	}{
+		{"hidras, sorteio ganho", quest256Steps[3], 0, true},
+		{"hidras, sorteio perdido", quest256Steps[3], 1, false},
+		{"elfos, sorteio ganho", quest256Steps[4], 0, true},
+		{"elfos, sorteio perdido", quest256Steps[4], 2, false},
+		{"coveiro nunca dá", quest256Steps[0], 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d, w, killer := mobKilledWorld(t)
+			d.eventRNG = tc.roll
+			d.casteloOrcKeyOnEntry(w, &world.Session{Conn: killer.ID, Mode: world.UserPlay}, killer, tc.step)
+			if _, ok := carryHas(killer, itemChaveCasteloOrc); ok != tc.chave {
+				t.Errorf("chave na bolsa = %v, want %v", ok, tc.chave)
+			}
+		})
+	}
+}
+
+// Spending the Mana do Batedor on the Hydra arena rolls the key; the Mestre
+// Grifo's free ride into the same arena never does.
+func TestCasteloOrcChaveSoNaEntradaPaga(t *testing.T) {
+	d, w, e := mobKilledWorld(t)
+	d.eventRNG = sorteioFixo(0)
+	e.Level = 300
+	e.Carry[0] = world.Item{Index: itemManaDoBatedor}
+	if !d.useQuest256Ticket(w, &world.Session{Conn: e.ID, Mode: world.UserPlay}, e, 0) {
+		t.Fatal("o ticket das Hidras não foi tratado")
+	}
+	if _, ok := carryHas(e, itemChaveCasteloOrc); !ok {
+		t.Error("a entrada paga nas Hidras não sorteou a chave")
+	}
+
+	d2, w2, e2 := mobKilledWorld(t)
+	d2.eventRNG = sorteioFixo(0)
+	e2.Level = 300
+	d2.mestreGrifo(w2, &world.Session{Conn: e2.ID, Mode: world.UserPlay}, e2, e2)
+	if _, ok := carryHas(e2, itemChaveCasteloOrc); ok {
+		t.Error("o Mestre Grifo, que leva de graça, deu a chave")
+	}
+}

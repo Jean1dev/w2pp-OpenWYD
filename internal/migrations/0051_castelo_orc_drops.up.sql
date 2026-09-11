@@ -71,18 +71,15 @@ INSERT INTO drop_rule (mob, item, chance) VALUES
     -- legado, é o que o Xamã Orc pede. Ela sai de todo monstro ('*' a 0% — hoje o
     -- Guarda_Orc_ do castelo aberto a dá sempre, a cada 6 min) e volta onde o
     -- design quis, na meta que ele fixou:
-    --   Arena da Quest 256 das Hidras   1 chave a cada 4 limpezas (33 Douradas + 36 Imortais)
-    --   Arena da Quest 256 dos Elfos    1 chave a cada 3 limpezas (16 Mestres + 12 Servos)
     --   Deserto                         1 chave a cada 1.000 abates
-    -- As arenas não têm relógio e renascem sozinhas (os Elfos, um grupo a cada
-    -- 24 s): quem fica farmando tira mais que isso. No Deserto entram os
+    -- As arenas da Quest 256 das Hidras e dos Elfos dão a chave na ENTRADA, e não
+    -- no abate: 1 a cada 4 entradas pagas nas Hidras, 1 a cada 3 nos Elfos
+    -- (handler/castelo_orc.go, casteloOrcKeyOnEntry). As arenas não têm relógio e
+    -- renascem sozinhas, então a chave no abate premiaria quem acampa lá dentro.
+    -- Os monstros delas ficam no '*' a 0%. No Deserto entram os
     -- templates que só nascem lá; o Tauron comum tem 1.648 dos seus 1.826 fora
     -- do deserto e fica de fora.
     ('*', 465, 0),
-    ('Hidra_Dourada',   465,  49),
-    ('Hidra_Imortal',   465,  25),
-    ('Mestre_Elfo',     465, 152),
-    ('Servo_Elfo',      465,  76),
     ('Adamant_Tauron',  465,  10),
     ('Aeon_Tauron',     465,  10),
     ('Aranha_Inferno',  465,  10),

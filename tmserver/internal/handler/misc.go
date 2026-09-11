@@ -947,6 +947,7 @@ func (d *Dispatcher) quest256NPC(w *world.World, s *world.Session, e *world.Enti
 	e.Carry[slot] = world.Item{}
 	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
 	d.teleportQuest256Step(w, s, e, step)
+	d.casteloOrcKeyOnEntry(w, s, e, step)
 	d.log.Info("quest256 NPC teleport", "conn", s.Conn, "item", ticket, "level", e.Level, "quest_flag", step.flag)
 }
 

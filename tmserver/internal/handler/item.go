@@ -709,6 +709,7 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 	// a matching client-side travel animation; a bare right-click has none, so the
 	// delay just left the player staring at nothing for ~10s after the item vanished.
 	d.teleportQuest256Step(w, s, e, step)
+	d.casteloOrcKeyOnEntry(w, s, e, step)
 	d.log.Info("quest256 ticket teleport", "conn", s.Conn, "item", itemIdx, "level", e.Level, "quest_flag", step.flag)
 	return true
 }
