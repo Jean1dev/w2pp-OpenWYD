@@ -557,6 +557,56 @@ func TestMuroDeEspinhosDerrubadoNaoVolta(t *testing.T) {
 	}
 }
 
+// TestForcaEspectralAlcancaUmaCasaAMais: the book gives +1 of reach, and the
+// port's own skill-range gate must not refuse the cell the book is bought for.
+func TestForcaEspectralAlcancaUmaCasaAMais(t *testing.T) {
+	if got := skillReach(&world.Entity{LearnedSkill: learnedSpectral}, 5); got != 6 {
+		t.Errorf("alcance com Força Espectral = %d, want 6", got)
+	}
+	if got := skillReach(&world.Entity{LearnedSkill: learnedConcentracao}, 5); got != 5 {
+		t.Errorf("alcance sem Força Espectral = %d, want 5", got)
+	}
+}
+
+// TestConcentracaoTiraDezPontosDaEsquiva: +10% de acerto is ten points (100 in
+// the thousandths of the roll) off the target's dodge, where it is not clamped.
+func TestConcentracaoTiraDezPontosDaEsquiva(t *testing.T) {
+	d := New(Config{})
+	alvo := &world.Entity{ID: 2, Dex: 600}
+	sem := d.parryRate(&world.Entity{ID: 1, Dex: 100}, alvo)
+	com := d.parryRate(&world.Entity{ID: 1, Dex: 100, LearnedSkill: learnedConcentracao}, alvo)
+	if sem-com != concentracaoAccuracy || concentracaoAccuracy != 100 {
+		t.Fatalf("esquiva sem/com Concentração = %d/%d, want 100 de diferença", sem, com)
+	}
+}
+
+// TestLivroRessurreicaoVintePorCentoNoLugar: one death in five gets up where it
+// fell with 40% of each pool; the rest take the legacy's way back to the city,
+// with its random 1-50%. MaxHp 999 keeps the two apart: 40% is 399, and the city
+// branch only ever gives multiples of 10.
+func TestLivroRessurreicaoVintePorCentoNoLugar(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	const n = 2000
+	noLugar := 0
+	for i := 0; i < n; i++ {
+		e := &world.Entity{ID: 1, Mode: world.MobUser, MaxHP: 999, MaxMP: 999}
+		d.applyBookResurrection(w, &world.Session{Conn: 1}, e)
+		switch {
+		case e.HP == 399:
+			noLugar++
+			if e.MP != 399 {
+				t.Fatalf("de pé no lugar com mana %d, want 399 (40%%)", e.MP)
+			}
+		case e.HP < 10 || e.HP > 500 || e.HP%10 != 0:
+			t.Fatalf("volta à cidade com vida %d, want 1-50%% em múltiplos de 10", e.HP)
+		}
+	}
+	if pct := noLugar * 100 / n; pct < 17 || pct > 23 {
+		t.Fatalf("levantou no lugar em %d%% das mortes, want ~20%%", pct)
+	}
+}
+
 // TestForcaEspectralMarcaOGolpe: the book's whole effect in the legacy is bit 8
 // of DoubleCritical on every swing of whoever learned it, on top of the rest.
 func TestForcaEspectralMarcaOGolpe(t *testing.T) {

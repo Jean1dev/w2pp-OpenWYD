@@ -26,10 +26,10 @@ Evidencia usa os codigos definidos em `README.md`.
 |-------:|------|--------|------|--------|-----:|-----------:|----------|-------------|----------------|--------|-----------|
 | 96 | Poder_Superior | 1 | buff | 0 | 60 | 75 | 0/0 | A39/5/3 | affect 39 aplica +100 ExpBonus; gate vivo usa bit 0 | IMPLEMENTED | CSV+CAST+AFF+SCORE+WIN |
 | 97 | Canhão_Guardião | 1 | dano | 4 | 0 | 0 | 2/2000 | - | dano elemental type 2 base 2000; exige item 746 no grid | IMPLEMENTED | CSV+CAST+DMG+WIN |
-| 98 | Muro_de_Espinhos | 1 | desconhecido | 6 | 42 | 36 | 0/0 | - | cria Vinha em celula valida usando template configurado | IMPLEMENTED | CSV+CAST+LEGACY+WIN |
-| 99 | Ressureição | 1 | desconhecido | 0 | 0 | 35 | 0/0 | - | morto pode castar e revive com HP/MP randomicos | IMPLEMENTED | CSV+CAST+LEGACY+WIN |
-| 100 | Concentração | 1 | passivo | 0 | 0 | 40 | 0/0 | A20/0/0 | branch legado de Accuracy nao tem consumidor server-side; gameplay no-op | IMPLEMENTED | CSV+LEGACY+WIN |
-| 101 | Força_Espectral | 1 | passivo | 0 | 0 | 39 | 0/0 | - | passiva sem consumidor server-side neste build | IMPLEMENTED | CSV+WIN |
+| 98 | Muro_de_Espinhos | 1 | desconhecido | 6 | 42 | 36 | 0/0 | - | cria Vinha em celula valida usando template configurado; apanha na cidade, some em 40 ticks, derrubada nao volta | IMPLEMENTED | CSV+CAST+LEGACY+WIN+TEST |
+| 99 | Ressureição | 1 | desconhecido | 0 | 0 | 35 | 0/0 | - | morto pode castar; REGRA DA EQUIPE: 20% levanta no lugar com 40% de HP/MP, senao volta a cidade com HP/MP 1-50% (legado: ~35% no lugar) | IMPLEMENTED | CSV+CAST+LEGACY+WIN+TEST |
+| 100 | Concentração | 1 | passivo | 0 | 0 | 40 | 0/0 | A20/0/0 | REGRA DA EQUIPE: +10% de acerto = +100 no attackerdex do parry (o Accuracy += 50 do legado nunca era lido) | IMPLEMENTED | CSV+LEGACY+WIN+TEST |
+| 101 | Força_Espectral | 1 | passivo | 0 | 0 | 39 | 0/0 | - | DoubleCritical bit 8 em todo golpe (_MSG_Attack.cpp:1740, efeito visual); REGRA DA EQUIPE: +1 de alcance — a trava de alcance de skill do port aceita Range+1 (o alcance fisico o servidor nao limita) | IMPLEMENTED | CSV+LEGACY+WIN+TEST |
 | 102 | Limite_da_Alma | 1 | buff | 0 | 75 | 0 | 0/0 | A29/0/150 | affect 29 aplica Soul no score quando `Soul` esta populado | IMPLEMENTED | CSV+AFF+SCORE+WIN |
 | 200 | Proteção_Divina | 2 | buff | 0 | 300 | 255 | 0/0 | A6/0/150 | affect 6 modelado; gate vivo usa bit 8 | IMPLEMENTED | CSV+CAST+AFF+SCORE+WIN |
 | 201 | Bênção_Divina | 2 | desconhecido | 0 | 15 | 350 | 0/0 | - | sem consumidor server-side neste build | IMPLEMENTED | CSV+WIN |

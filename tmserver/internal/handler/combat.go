@@ -719,7 +719,7 @@ func (d *Dispatcher) validateSkillTarget(w *world.World, s *world.Session, caste
 		w.AddCrackError(s, 10, 27)
 		return false
 	}
-	if sp.Range > 0 && mobDistance(caster.X, caster.Y, target.X, target.Y) > sp.Range {
+	if sp.Range > 0 && mobDistance(caster.X, caster.Y, target.X, target.Y) > skillReach(caster, sp.Range) {
 		return false
 	}
 	// TargetType is otherwise client/UI guidance in the local legacy _MSG_Attack
@@ -731,6 +731,21 @@ func (d *Dispatcher) validateSkillTarget(w *world.World, s *world.Session, caste
 		return false
 	}
 	return true
+}
+
+// skillReach is how far a skill reaches for this caster: the SkillData range,
+// plus one for whoever learned Força Espectral.
+//
+// The +1 is the book's rule as the team knows it from the live game (2026-09-11);
+// the legacy server has no code for it because it never checked skill range at
+// all — this gate is the port's own — so the reach must have lived in the
+// client. Without the +1 here the port would refuse the very cell the book is
+// wanted for.
+func skillReach(caster *world.Entity, spellRange int) int {
+	if caster.LearnedSkill&learnedSpectral != 0 {
+		return spellRange + 1
+	}
+	return spellRange
 }
 
 func foemaMultiBuffTargetCap(special int) int {
@@ -1423,15 +1438,28 @@ func healExpGain(caster, target *world.Entity, before int32) int64 {
 	return int64(gain)
 }
 
+// The Ressurreição book (skill 99, cast by a dead player), as the team knows it
+// from the live game (2026-09-11): one time in five the player gets up where
+// they fell, with 40% of life and of mana; otherwise they go back to the city.
+//
+// DIVERGENCE FROM THE LEGACY, deliberate. It rolled rand()%115, folding 101-114
+// back by 15, and got up on the spot below 40 — about 35% — with a random 1-50%
+// of each pool either way (_MSG_Attack.cpp:1251-1282). The city branch keeps
+// that random pool.
+const (
+	bookResurrectPct     = 20
+	bookResurrectPoolPct = 40
+)
+
 func (d *Dispatcher) applyBookResurrection(w *world.World, s *world.Session, e *world.Entity) {
 	if e.HP != 0 {
 		return
 	}
-	rev := w.Rand().Intn(115)
-	if rev > 100 {
-		rev -= 15
-	}
-	if rev >= 40 {
+	var hp, mp int32
+	if w.Rand().Intn(100) < bookResurrectPct {
+		hp = effectiveMaxHP(e) * bookResurrectPoolPct / 100
+		mp = effectiveMaxMP(e) * bookResurrectPoolPct / 100
+	} else {
 		e.HP = 2
 		s.CrackError = 0
 		s.ReqHp = e.HP
@@ -1440,10 +1468,12 @@ func (d *Dispatcher) applyBookResurrection(w *world.World, s *world.Session, e *
 		d.sendSetHpMp(w, s, e)
 		d.recall(w, s, e)
 		d.sendEtc(w, s, e)
+		hp = int32((w.Rand().Intn(50) + 1) * int((effectiveMaxHP(e)+1)/100))
+		mp = int32((w.Rand().Intn(50) + 1) * int((effectiveMaxMP(e)+1)/100))
 	}
-	hp := int32((w.Rand().Intn(50) + 1) * int((effectiveMaxHP(e)+1)/100))
-	mp := int32((w.Rand().Intn(50) + 1) * int((effectiveMaxMP(e)+1)/100))
-	e.HP, e.MP = hp, mp
+	// A pool under 100 made the legacy's (MaxHp+1)/100 zero: "revived" at 0 HP,
+	// which is still dead.
+	e.HP, e.MP = max(hp, 1), mp
 	s.CrackError = 0
 	s.ReqHp, s.ReqMp = e.HP, e.MP
 	d.sendScore(w, s, e)
@@ -1508,6 +1538,13 @@ func (d *Dispatcher) parryRateWith(attacker, target *world.Entity, accuracyDex i
 	attackDex := accuracyDex / 5
 	if attacker.LearnedSkill&0x1000000 != 0 {
 		attackDex += 100
+	}
+	// Concentração: +10% de acerto, the book's rule as the team knows it
+	// (2026-09-11). The legacy wrote Accuracy += 50 (CMob.cpp:735-736) into a
+	// field no line ever reads, so the book did nothing there either. The parry
+	// roll is in thousandths, so 100 takes ten points off the target's dodge.
+	if attacker.LearnedSkill&learnedConcentracao != 0 {
+		attackDex += concentracaoAccuracy
 	}
 	if attacker.Rsv&world.RsvCast != 0 {
 		attackDex += 500
@@ -1631,8 +1668,16 @@ func writeDoubleCritical(payload []byte, doubleCritical uint8) {
 	}
 }
 
-// learnedSpectral is the Força Espectral Sephira book's LearnedSkill bit.
-const learnedSpectral = 1 << 29
+// LearnedSkill bits of the Sephira books with a passive effect (item Vol-7:
+// Concentração is Vol 35, Força Espectral Vol 36).
+const (
+	learnedConcentracao = 1 << 28
+	learnedSpectral     = 1 << 29
+)
+
+// concentracaoAccuracy is Concentração's +10% de acerto, in the thousandths of
+// the parry roll.
+const concentracaoAccuracy = 100
 
 // markSpectral is all Força Espectral does in the legacy: no arithmetic, only
 // DoubleCritical bit 8 on every swing of whoever learned it, ORed in last,
