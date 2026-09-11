@@ -451,10 +451,13 @@
     {{end}}
 
     {{/* Agora: o servidor rodando neste instante. */}}
-    {{if or .HasJogo .HasEvento}}
+    {{if or .HasJogo (or .HasEvento .HasBlocos)}}
     <span class="grupo">
       {{if .HasJogo}}<a href="/servidor" {{if eq .Nav "servidor"}}class="on"{{end}}>Servidor</a>{{end}}
       {{if .HasJogo}}<a href="/mapa" {{if eq .Nav "mapa"}}class="on"{{end}}>Quem está onde</a>{{end}}
+      {{/* Blocos fica em "Agora" e não com NPCs/Monstros: o que ela mostra e mexe
+           são os mobs vivos neste instante, e cada botão vale na hora. */}}
+      {{if .HasBlocos}}<a href="/blocos" {{if eq .Nav "blocos"}}class="on"{{end}}>Blocos</a>{{end}}
       {{if .HasEvento}}<a href="/eventos" {{if eq .Nav "eventos"}}class="on"{{end}}>Eventos</a>{{end}}
     </span>
     {{end}}

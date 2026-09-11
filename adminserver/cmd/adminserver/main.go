@@ -137,6 +137,7 @@ func run(logger *slog.Logger) error {
 	// without a token rather than dialled and failing on every call: the panel
 	// would show a Servidor tab that only ever reports a rejection.
 	var live panel.Live
+	var blocos panel.BlocosDoJogo // same link; a separate field so a nil stays a nil interface
 	if *jogoAddr != "" {
 		token := os.Getenv("W2PP_CONTROL_TOKEN")
 		if token == "" {
@@ -148,7 +149,8 @@ func run(logger *slog.Logger) error {
 			return fmt.Errorf("tmserver dial: %w", cerr)
 		}
 		defer func() { _ = conn.Close() }()
-		live = jogo.New(conn, token)
+		cliente := jogo.New(conn, token)
+		live, blocos = cliente, cliente
 		logger.Info("live game link enabled", "addr", *jogoAddr)
 	} else {
 		logger.Info("live game pages disabled",
@@ -200,6 +202,7 @@ func run(logger *slog.Logger) error {
 		Censo:       store.New(pool),
 		Chat:        store.New(pool),
 		Jogo:        live,
+		Blocos:      blocos,
 		Audit:       audit.New(pool),
 		Sessions:    session.New(*sessionTTL),
 		Logger:      logger,

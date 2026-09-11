@@ -31,6 +31,7 @@ func TestTodaAcaoTemRotulo(t *testing.T) {
 		ActionSetMountAbsorb, ActionClearMountAbsorb,
 		ActionSetMountBonus, ActionClearMountBonus,
 		ActionSetCombineRate, ActionClearCombineRate, ActionSetCombineBands, ActionSetCombineTag,
+		ActionBlockCommand,
 	}
 	for _, a := range acoes {
 		e := Entry{Action: a}

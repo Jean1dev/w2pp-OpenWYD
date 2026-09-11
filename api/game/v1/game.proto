@@ -65,6 +65,57 @@ service GameControlService {
   // login. Ending the sessions first does the same saving with no deadline
   // attached, and the shutdown that follows finds an empty world.
   rpc Drain(DrainRequest) returns (DrainResponse);
+
+  // ListBlocks finds NPCGener blocks — by number, by leader template name, or
+  // near a tile — with how many of their mobs are alive right now and whether
+  // the block is switched off. The panel's "Blocos" page.
+  rpc ListBlocks(ListBlocksRequest) returns (ListBlocksResponse);
+  // BlockCommand runs one of the in-game block commands (npc off|on, gerar,
+  // criar, matar, recarregar) as a GM standing at (x, y) would, and returns
+  // the lines the GM would have read. Same code as "/gm", so the two cannot
+  // drift apart.
+  rpc BlockCommand(BlockCommandRequest) returns (BlockCommandResponse);
+}
+
+message ListBlocksRequest {
+  // Absent = any block. A plain int32 could not say "any": 0 is a real block.
+  optional int32 index = 1;
+  string name = 2;     // substring of the leader template name, any case
+  int32 x = 3;         // with radius > 0: only blocks starting near (x, y)
+  int32 y = 4;
+  int32 radius = 5;
+  int32 limit = 6;     // 0 = the server's cap
+}
+
+message ListBlocksResponse {
+  repeated Block blocks = 1;
+  int32 total = 2;     // how many matched before the limit
+}
+
+// Block is one NPCGener block as the game holds it right now.
+message Block {
+  int32 index = 1;     // position in NPCGener.txt (Entity.GenIndex)
+  string name = 2;     // leader template
+  int32 x = 3;         // start waypoint
+  int32 y = 4;
+  int32 alive = 5;
+  int32 max = 6;
+  int32 minute = 7;    // MinuteGenerate; <= 0 means only events raise it in the legacy
+  bool off = 8;        // switched off by staff
+  bool db_managed = 9; // a merchant of the NPC panel
+  bool event_owned = 10;
+  bool has_templates = 11;
+}
+
+message BlockCommandRequest {
+  string line = 1;     // e.g. "npc off 23", "gerar 396 aqui", "matar bloco 396"
+  int32 x = 2;         // where "around you" is
+  int32 y = 3;
+  string by = 4;       // the staff account, for the game's log and the switch row
+}
+
+message BlockCommandResponse {
+  repeated string lines = 1;
 }
 
 message ListOnlineRequest {}

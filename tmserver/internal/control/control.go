@@ -127,6 +127,7 @@ type Server struct {
 	log       *slog.Logger
 	teleporta Teleporter
 	overlays  Overlays
+	blocos    BlockRunner // optional; see SetBlockRunner
 }
 
 // NewServer builds the control service. It fails when the token is empty or the

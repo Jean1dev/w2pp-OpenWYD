@@ -65,6 +65,7 @@ const (
 	ActionClearCombineRate   = "CLEAR_COMBINE_RATE"
 	ActionSetCombineBands    = "SET_COMBINE_BANDS"
 	ActionSetCombineTag      = "SET_COMBINE_TAG"
+	ActionBlockCommand       = "BLOCK_COMMAND"
 	ActionClearXPRule        = "CLEAR_XP_RULE"
 	ActionSetMountGrowth     = "SET_MOUNT_GROWTH"
 	ActionClearMountGrowth   = "CLEAR_MOUNT_GROWTH"
@@ -281,6 +282,7 @@ var rotulos = map[string]string{
 	ActionClearCombineRate:   "Devolveu a taxa de uma máquina ao arquivo",
 	ActionSetCombineBands:    "Mudou as faixas de conjunto de uma máquina",
 	ActionSetCombineTag:      "Marcou a operação (ADD/ABS) de uma máquina",
+	ActionBlockCommand:       "Mexeu num bloco de NPCs ou monstros no jogo",
 	ActionClearDropBonus:     "Voltou a escada do bônus de drop ao legado",
 	ActionSetDropRule:        "Gravou uma regra na Mesa de Drops",
 	ActionDeleteDropRule:     "Apagou uma regra da Mesa de Drops",

@@ -79,16 +79,8 @@ func (d *Dispatcher) runGMCommand(w *world.World, s *world.Session, args []byte)
 		d.gmQuestReset(w, s, rest)
 	case "weather", "clima":
 		d.gmWeather(w, s, rest)
-	case "npc":
-		d.gmNPC(w, s, rest)
-	case "gerar", "generate":
-		d.gmGenerate(w, s, rest)
-	case "criar", "create":
-		d.gmCreate(w, s, rest)
-	case "matar", "kill":
-		d.gmKill(w, s, rest)
-	case "recarregar", "reloadnpc":
-		d.gmReloadNPC(w, s)
+	case "npc", "gerar", "generate", "criar", "create", "matar", "kill", "recarregar", "reloadnpc":
+		d.gmBloco(w, s, sub, rest) // gmnpc.go — the same commands the staff panel sends
 	default:
 		d.log.Warn("gm command: unknown subcommand", "account", s.AccountName, "cmd", sub)
 	}

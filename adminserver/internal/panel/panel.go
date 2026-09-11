@@ -284,6 +284,7 @@ type Config struct {
 	Censo       Censo
 	Chat        Chat
 	Jogo        Live
+	Blocos      BlocosDoJogo
 	GameData    GameData
 	Writer      Writer
 	Audit       AuditLog
@@ -477,6 +478,12 @@ func (h *Handler) Routes() http.Handler {
 	if h.cfg.Platform != nil {
 		mux.Handle("POST /servidor/reiniciar", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.reiniciar))))
 	}
+	if h.cfg.Blocos != nil {
+		// Staff, not admin: the same commands a moderator already has in game
+		// with /gm, so refusing them here would only send them to the client.
+		mux.Handle("GET /blocos", h.requireStaff(http.HandlerFunc(h.blocos)))
+		mux.Handle("POST /blocos/comando", h.requireStaff(http.HandlerFunc(h.comandoBloco)))
+	}
 	mux.Handle("POST /contas/{nome}/cargo", h.requireStaff(h.onlyAdmin(http.HandlerFunc(h.setCargo))))
 	mux.Handle("POST /contas/{nome}/bloqueio", h.requireStaff(http.HandlerFunc(h.setBloqueio)))
 	mux.Handle("POST /contas/{nome}/vip", h.requireStaff(http.HandlerFunc(h.setVip)))
@@ -562,6 +569,7 @@ type page struct {
 	HasCenso     bool // o censo de itens precisa da leitura do banco
 	HasChat      bool // o registro de conversa precisa da leitura do banco
 	HasJogo      bool // the live pages exist only when the game link is configured
+	HasBlocos    bool // the block page needs the game link with block commands
 	HasSeguro    bool // the safe restart needs BOTH the game link and the hosting API
 	HasEvento    bool // the event switches need the database read
 	HasDenun     bool // the report queue needs the database read
@@ -613,6 +621,7 @@ func (h *Handler) pageFor(r *http.Request, nav string) page {
 		HasCenso:     h.cfg.Censo != nil,
 		HasChat:      h.cfg.Chat != nil,
 		HasJogo:      h.cfg.Jogo != nil,
+		HasBlocos:    h.cfg.Blocos != nil,
 		HasSeguro:    h.cfg.Jogo != nil && h.cfg.Platform != nil,
 		HasEvento:    h.cfg.Eventos != nil,
 		HasDenun:     h.cfg.Denuncias != nil,

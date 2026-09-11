@@ -10,21 +10,25 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// GM commands over the NPCGener blocks and the mobs they raise — what the
-// legacy had as "generate", "create" and "reloadnpc" (imple.cpp:663-686, 842),
-// plus a way to find a block's number and to switch it off for good:
+// Commands over the NPCGener blocks and the mobs they raise — what the legacy
+// had as "generate", "create" and "reloadnpc" (imple.cpp:663-686, 842), plus a
+// way to find a block's number and to switch it off for good:
 //
-//	/gm npc [raio]          lists the blocks around you, with their numbers
-//	/gm npc off <bloco>     switches a block off: its mobs go, and it stops
-//	/gm npc on <bloco>      switches it back on and raises it now
-//	/gm gerar <bloco> [aqui] raises the block (at its place, or around you)
-//	/gm criar <nome>        creates one mob by template name, around you
-//	/gm matar [raio]        kills the monsters around you (default 3)
-//	/gm matar bloco <bloco> kills every live mob of a block, wherever it is
-//	/gm recarregar          re-reads the database switches and tops up every block
+//	npc [raio]            lists the blocks around you, with their numbers
+//	npc off <bloco>       switches a block off: its mobs go, and it stops
+//	npc on <bloco>        switches it back on and raises it now
+//	gerar <bloco> [aqui]  raises the block (at its place, or around you)
+//	criar <nome>          creates one mob by template name, around you
+//	matar [raio]          kills the monsters around you (default 3)
+//	matar bloco <bloco>   kills every live mob of a block, wherever it is
+//	recarregar            re-reads the database switches and tops up every block
 //
-// A block's number is its position in NPCGener.txt (Entity.GenIndex); /gm npc
-// is how a GM learns it without opening the file.
+// The same commands run from two places: typed in game after "/gm", and sent by
+// the staff panel through the control API (RunBlockCommand). Each one answers
+// with lines of text; the game shows them to the GM, the panel on the page.
+// "Around you" is the GM's tile in game and the coordinates typed in the panel.
+//
+// A block's number is its position in NPCGener.txt (Entity.GenIndex).
 
 const (
 	gmNPCListRadius    = 10
@@ -34,51 +38,86 @@ const (
 	gmKillMaxRadius    = 40
 )
 
-func (d *Dispatcher) gmNPC(w *world.World, s *world.Session, rest string) {
-	fields := strings.Fields(rest)
-	if len(fields) > 0 {
-		switch strings.ToLower(fields[0]) {
-		case "off", "desligar":
-			d.gmNPCSwitch(w, s, fields[1:], true)
-			return
-		case "on", "ligar":
-			d.gmNPCSwitch(w, s, fields[1:], false)
-			return
-		case "perto":
-			fields = fields[1:]
-		}
-	}
-	radius := gmNPCListRadius
-	if len(fields) > 0 {
-		r, err := strconv.Atoi(fields[0])
-		if err != nil || r <= 0 {
-			sendClientMessage(w, s, "Uso: /gm npc [raio] | /gm npc off <bloco> | /gm npc on <bloco>")
-			return
-		}
-		radius = min(r, gmNPCListMaxRadius)
-	}
+// blocoOrigem is who runs a block command and where "around you" is.
+type blocoOrigem struct {
+	by   string
+	x, y int16
+	s    *world.Session // the GM's session in game; nil from the panel
+}
+
+// gmBloco runs a block command typed in game and shows the answer to the GM.
+func (d *Dispatcher) gmBloco(w *world.World, s *world.Session, sub, rest string) {
 	e := w.Entity(s.Conn)
 	if e == nil {
 		return
 	}
-	lines := d.nearbyBlocks(w, e.X, e.Y, radius)
-	if len(lines) == 0 {
-		sendClientMessage(w, s, fmt.Sprintf("Nenhum mob ou bloco num raio de %d.", radius))
-		return
-	}
-	for i, l := range lines {
-		if i == gmNPCListMaxLines {
-			sendClientMessage(w, s, fmt.Sprintf("... e mais %d. Diminua o raio.", len(lines)-i))
-			break
-		}
+	for _, l := range d.blocoCmd(w, blocoOrigem{by: s.AccountName, x: e.X, y: e.Y, s: s}, sub+" "+rest) {
 		sendClientMessage(w, s, l)
 	}
+}
+
+// RunBlockCommand runs a block command for the staff panel, around (x, y), and
+// returns its answer. Called INSIDE the game loop (control.BlockCommand).
+func (d *Dispatcher) RunBlockCommand(w *world.World, by string, x, y int16, line string) []string {
+	return d.blocoCmd(w, blocoOrigem{by: by, x: x, y: y}, line)
+}
+
+func (d *Dispatcher) blocoCmd(w *world.World, o blocoOrigem, line string) []string {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return nil
+	}
+	sub, args := strings.ToLower(fields[0]), fields[1:]
+	d.log.Info("block command", "by", o.by, "in_game", o.s != nil, "line", line, "x", o.x, "y", o.y)
+	switch sub {
+	case "npc":
+		return d.npcCmd(w, o, args)
+	case "gerar", "generate":
+		return d.gerarCmd(w, o, args)
+	case "criar", "create":
+		return d.criarCmd(w, o, args)
+	case "matar", "kill":
+		return d.matarCmd(w, o, args)
+	case "recarregar", "reloadnpc":
+		return d.recarregarCmd(w)
+	}
+	return []string{fmt.Sprintf("Comando %q não existe.", sub)}
+}
+
+func (d *Dispatcher) npcCmd(w *world.World, o blocoOrigem, args []string) []string {
+	if len(args) > 0 {
+		switch strings.ToLower(args[0]) {
+		case "off", "desligar":
+			return d.npcSwitchCmd(w, o, args[1:], true)
+		case "on", "ligar":
+			return d.npcSwitchCmd(w, o, args[1:], false)
+		case "perto":
+			args = args[1:]
+		}
+	}
+	radius := gmNPCListRadius
+	if len(args) > 0 {
+		r, err := strconv.Atoi(args[0])
+		if err != nil || r <= 0 {
+			return []string{"Uso: npc [raio] | npc off <bloco> | npc on <bloco>"}
+		}
+		radius = min(r, gmNPCListMaxRadius)
+	}
+	lines := d.nearbyBlocks(w, o.x, o.y, radius)
+	if len(lines) == 0 {
+		return []string{fmt.Sprintf("Nenhum mob ou bloco num raio de %d.", radius)}
+	}
+	if len(lines) > gmNPCListMaxLines {
+		extra := len(lines) - gmNPCListMaxLines
+		lines = append(lines[:gmNPCListMaxLines], fmt.Sprintf("... e mais %d. Diminua o raio.", extra))
+	}
+	return lines
 }
 
 // nearbyBlocks describes what stands within radius of (x, y), one line per block
 // and nearest first: live mobs grouped by the block that raised them, blocks
 // switched off whose start is in range (so the GM can find them to switch on),
-// and mobs raised by no block, which only /gm matar can remove.
+// and mobs raised by no block, which only matar can remove.
 func (d *Dispatcher) nearbyBlocks(w *world.World, x, y int16, radius int) []string {
 	type bloco struct {
 		idx, n, dist int
@@ -144,80 +183,86 @@ func (d *Dispatcher) nearbyBlocks(w *world.World, x, y int16, radius int) []stri
 	return out
 }
 
-// gmNPCSwitch switches a block off or on here and now, then writes it to the
+// npcSwitchCmd switches a block off or on here and now, then writes it to the
 // database so it holds after a restart and on every other server.
-func (d *Dispatcher) gmNPCSwitch(w *world.World, s *world.Session, args []string, off bool) {
+func (d *Dispatcher) npcSwitchCmd(w *world.World, o blocoOrigem, args []string, off bool) []string {
 	verb := "on"
 	if off {
 		verb = "off"
 	}
 	if len(args) == 0 {
-		sendClientMessage(w, s, "Uso: /gm npc "+verb+" <bloco>  (o número vem do /gm npc)")
-		return
+		return []string{"Uso: npc " + verb + " <bloco>  (o número vem da lista npc)"}
 	}
 	idx, err := strconv.Atoi(args[0])
 	g := w.GeneratorAt(idx)
 	if err != nil || g == nil {
-		sendClientMessage(w, s, fmt.Sprintf("Bloco %q não existe (0..%d).", args[0], w.GeneratorCount()-1))
-		return
+		return []string{fmt.Sprintf("Bloco %q não existe (0..%d).", args[0], w.GeneratorCount()-1)}
 	}
 	d.genOffEpoch++
+	var out []string
 	if off {
 		d.switchGeneratorOff(w, idx)
-		sendClientMessage(w, s, fmt.Sprintf("Bloco #%d %s desligado.", idx, g.Name))
+		out = append(out, fmt.Sprintf("Bloco #%d %s desligado.", idx, g.Name))
 	} else {
 		d.switchGeneratorOn(w, idx, true)
-		sendClientMessage(w, s, fmt.Sprintf("Bloco #%d %s ligado.", idx, g.Name))
+		out = append(out, fmt.Sprintf("Bloco #%d %s ligado.", idx, g.Name))
 	}
-	d.log.Info("gm npc "+verb, "account", s.AccountName, "index", idx, "leader", g.Name)
+	d.log.Info("npc "+verb, "by", o.by, "index", idx, "leader", g.Name)
 	if d.genOffSource == nil {
-		sendClientMessage(w, s, "Sem banco: vale só até reiniciar.")
-		return
+		return append(out, "Sem banco: vale só até reiniciar.")
 	}
-	src, by := d.genOffSource, s.AccountName
-	w.Go(s, func() func(*world.World, *world.Session) {
+	src, by := d.genOffSource, o.by
+	persist := func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), gmCommandTimeout)
 		defer cancel()
-		err := src.SetOff(ctx, int32(idx), off, by)
-		return func(w *world.World, s *world.Session) {
+		return src.SetOff(ctx, int32(idx), off, by)
+	}
+	if o.s != nil {
+		w.Go(o.s, func() func(*world.World, *world.Session) {
+			err := persist()
+			return func(w *world.World, s *world.Session) {
+				if err != nil {
+					d.log.Error("npc "+verb+" not persisted", "by", by, "index", idx, "err", err)
+					sendClientMessage(w, s, "Não gravei no banco: vale só até reiniciar. Tente de novo.")
+				}
+			}
+		})
+		return out
+	}
+	// From the panel there is no session to tell later; the page reloads the
+	// list, which reads the database state through the game's poll.
+	w.GoDetached(func() func(*world.World) {
+		err := persist()
+		return func(*world.World) {
 			if err != nil {
-				d.log.Error("gm npc "+verb+" not persisted", "account", s.AccountName, "index", idx, "err", err)
-				sendClientMessage(w, s, "Não gravei no banco: vale só até reiniciar. Tente de novo.")
+				d.log.Error("npc "+verb+" not persisted", "by", by, "index", idx, "err", err)
 			}
 		}
 	})
+	return out
 }
 
-// gmGenerate raises one group of a block — the legacy "generate". The block's
-// cap still holds: a boss that is alive is not raised twice.
-func (d *Dispatcher) gmGenerate(w *world.World, s *world.Session, rest string) {
-	fields := strings.Fields(rest)
-	if len(fields) == 0 {
-		sendClientMessage(w, s, "Uso: /gm gerar <bloco> [aqui]")
-		return
+// gerarCmd raises one group of a block — the legacy "generate". The block's cap
+// still holds: a boss that is alive is not raised twice.
+func (d *Dispatcher) gerarCmd(w *world.World, o blocoOrigem, args []string) []string {
+	if len(args) == 0 {
+		return []string{"Uso: gerar <bloco> [aqui]"}
 	}
-	idx, err := strconv.Atoi(fields[0])
+	idx, err := strconv.Atoi(args[0])
 	g := w.GeneratorAt(idx)
 	switch {
 	case err != nil || g == nil:
-		sendClientMessage(w, s, fmt.Sprintf("Bloco %q não existe (0..%d).", fields[0], w.GeneratorCount()-1))
-		return
+		return []string{fmt.Sprintf("Bloco %q não existe (0..%d).", args[0], w.GeneratorCount()-1)}
 	case g.Off:
-		sendClientMessage(w, s, fmt.Sprintf("Bloco #%d está desligado. Ligue com /gm npc on %d.", idx, idx))
-		return
+		return []string{fmt.Sprintf("Bloco #%d está desligado. Ligue com npc on %d.", idx, idx)}
 	case g.DBManaged:
 		// Raised here it would stand without the panel's shop.
-		sendClientMessage(w, s, fmt.Sprintf("Bloco #%d é NPC do painel; ele volta sozinho quando ligado.", idx))
-		return
-	}
-	e := w.Entity(s.Conn)
-	if e == nil {
-		return
+		return []string{fmt.Sprintf("Bloco #%d é NPC do painel; ele volta sozinho quando ligado.", idx)}
 	}
 	var ids []int
-	aqui := len(fields) > 1 && strings.EqualFold(fields[1], "aqui")
+	aqui := len(args) > 1 && strings.EqualFold(args[1], "aqui")
 	if aqui {
-		ids = w.GenerateMobNear(idx, e.X, e.Y)
+		ids = w.GenerateMobNear(idx, o.x, o.y)
 	} else {
 		ids = w.GenerateMob(idx)
 	}
@@ -226,25 +271,23 @@ func (d *Dispatcher) gmGenerate(w *world.World, s *world.Session, rest string) {
 		if limite < 0 {
 			limite = 1 // GenerateMob reads a negative cap as one
 		}
-		sendClientMessage(w, s, fmt.Sprintf("Nada gerado: #%d tem %d de %d vivos. Use /gm matar bloco %d antes.",
-			idx, g.CurrentNumMob, limite, idx))
-		return
+		return []string{fmt.Sprintf("Nada gerado: #%d tem %d de %d vivos. Use matar bloco %d antes.",
+			idx, g.CurrentNumMob, limite, idx)}
 	}
 	d.revealSpawned(w, ids)
 	lead := w.Entity(ids[0])
-	sendClientMessage(w, s, fmt.Sprintf("Gerados %d de #%d %s em (%d,%d).", len(ids), idx, g.Name, lead.X, lead.Y))
-	d.log.Info("gm generate", "account", s.AccountName, "index", idx, "mobs", len(ids), "aqui", aqui)
+	d.log.Info("generate", "by", o.by, "index", idx, "mobs", len(ids), "aqui", aqui)
+	return []string{fmt.Sprintf("Gerados %d de #%d %s em (%d,%d).", len(ids), idx, g.Name, lead.X, lead.Y)}
 }
 
-// gmCreate creates one mob from any template a block uses, around the GM — the
-// legacy "create" (imple.cpp:675). It belongs to no block and does not come back
-// when it dies: this is a one-off for an event, not world population.
-func (d *Dispatcher) gmCreate(w *world.World, s *world.Session, rest string) {
-	name := firstToken(rest)
-	if name == "" {
-		sendClientMessage(w, s, "Uso: /gm criar <nome do template>")
-		return
+// criarCmd creates one mob from any template a block uses, around the caller —
+// the legacy "create" (imple.cpp:675). It belongs to no block and does not come
+// back when it dies: this is a one-off for an event, not world population.
+func (d *Dispatcher) criarCmd(w *world.World, o blocoOrigem, args []string) []string {
+	if len(args) == 0 {
+		return []string{"Uso: criar <nome do template>"}
 	}
+	name := args[0]
 	var tmpl []byte
 	var tmplName string // the file name, so the one-off drops what the Mesa de Drops says
 	var similar []string
@@ -267,29 +310,22 @@ func (d *Dispatcher) gmCreate(w *world.World, s *world.Session, rest string) {
 		if len(similar) > 0 {
 			msg += " Parecidos: " + strings.Join(similar, ", ")
 		}
-		sendClientMessage(w, s, msg)
-		return
+		return []string{msg}
 	}
-	e := w.Entity(s.Conn)
-	if e == nil {
-		return
-	}
-	x, y, ok := w.EmptyCellNear(e.X, e.Y)
+	x, y, ok := w.EmptyCellNear(o.x, o.y)
 	if !ok {
-		sendClientMessage(w, s, "Não há espaço livre aqui.")
-		return
+		return []string{fmt.Sprintf("Não há espaço livre em (%d,%d).", o.x, o.y)}
 	}
 	id := w.SpawnMobAt(world.MobSpawn{Template: tmpl, TemplateName: tmplName, X: x, Y: y, GenIndex: -1})
 	if id < 0 {
-		sendClientMessage(w, s, "O mundo está cheio.")
-		return
+		return []string{"O mundo está cheio."}
 	}
 	// The template is kept only for the respawn queue; without it the mob dies
-	// for good, which is what a one-off from a GM must do.
+	// for good, which is what a one-off must do.
 	w.Entity(id).Template = nil
 	d.revealSpawned(w, []int{id})
-	sendClientMessage(w, s, fmt.Sprintf("Criado %s em (%d,%d).", w.Entity(id).Name, x, y))
-	d.log.Info("gm create", "account", s.AccountName, "template", name, "mob", id)
+	d.log.Info("create", "by", o.by, "template", name, "mob", id)
+	return []string{fmt.Sprintf("Criado %s em (%d,%d).", w.Entity(id).Name, x, y)}
 }
 
 func containsFold(list []string, s string) bool {
@@ -301,24 +337,21 @@ func containsFold(list []string, s string) bool {
 	return false
 }
 
-// gmKill kills monsters: those around the GM, or every live mob of one block.
-// It is a death (removeType 1), so the block's own rules decide whether and when
-// they return — to stop that, switch the block off.
+// matarCmd kills monsters: those around the caller, or every live mob of one
+// block. It is a death (removeType 1), so the block's own rules decide whether
+// and when they return — to stop that, switch the block off.
 //
-// Around the GM it spares service NPCs and city guards (those leave with /gm npc
-// off) and anybody's summons; naming a block kills what the block raised,
-// whatever it is, because the GM asked for exactly that.
-func (d *Dispatcher) gmKill(w *world.World, s *world.Session, rest string) {
-	fields := strings.Fields(rest)
-	if len(fields) >= 1 && strings.EqualFold(fields[0], "bloco") {
-		if len(fields) < 2 {
-			sendClientMessage(w, s, "Uso: /gm matar bloco <bloco>")
-			return
+// Around the caller it spares service NPCs and city guards (those leave with
+// npc off) and anybody's summons; naming a block kills what the block raised,
+// whatever it is, because the caller asked for exactly that.
+func (d *Dispatcher) matarCmd(w *world.World, o blocoOrigem, args []string) []string {
+	if len(args) >= 1 && strings.EqualFold(args[0], "bloco") {
+		if len(args) < 2 {
+			return []string{"Uso: matar bloco <bloco>"}
 		}
-		idx, err := strconv.Atoi(fields[1])
+		idx, err := strconv.Atoi(args[1])
 		if err != nil || w.GeneratorAt(idx) == nil {
-			sendClientMessage(w, s, fmt.Sprintf("Bloco %q não existe (0..%d).", fields[1], w.GeneratorCount()-1))
-			return
+			return []string{fmt.Sprintf("Bloco %q não existe (0..%d).", args[1], w.GeneratorCount()-1)}
 		}
 		n := 0
 		w.ForEachMob(func(id int, m *world.Entity) {
@@ -327,40 +360,34 @@ func (d *Dispatcher) gmKill(w *world.World, s *world.Session, rest string) {
 				n++
 			}
 		})
-		sendClientMessage(w, s, fmt.Sprintf("Mortos %d do bloco #%d.", n, idx))
-		d.log.Info("gm kill block", "account", s.AccountName, "index", idx, "mobs", n)
-		return
+		d.log.Info("kill block", "by", o.by, "index", idx, "mobs", n)
+		return []string{fmt.Sprintf("Mortos %d do bloco #%d.", n, idx)}
 	}
 	radius := gmKillRadius
-	if len(fields) >= 1 {
-		r, err := strconv.Atoi(fields[0])
+	if len(args) >= 1 {
+		r, err := strconv.Atoi(args[0])
 		if err != nil || r < 0 {
-			sendClientMessage(w, s, "Uso: /gm matar [raio] | /gm matar bloco <bloco>")
-			return
+			return []string{"Uso: matar [raio] | matar bloco <bloco>"}
 		}
 		radius = min(r, gmKillMaxRadius)
 	}
-	e := w.Entity(s.Conn)
-	if e == nil {
-		return
-	}
 	n := 0
 	w.ForEachMob(func(id int, m *world.Entity) {
-		if chebyshev(e.X, e.Y, m.X, m.Y) > radius || m.Summoner != 0 || m.NonCombatNPC || m.Merchant != 0 {
+		if chebyshev(o.x, o.y, m.X, m.Y) > radius || m.Summoner != 0 || m.NonCombatNPC || m.Merchant != 0 {
 			return
 		}
 		w.DespawnMob(id, 1)
 		n++
 	})
-	sendClientMessage(w, s, fmt.Sprintf("Mortos %d num raio de %d.", n, radius))
-	d.log.Info("gm kill", "account", s.AccountName, "radius", radius, "mobs", n)
+	d.log.Info("kill", "by", o.by, "radius", radius, "mobs", n)
+	return []string{fmt.Sprintf("Mortos %d num raio de %d.", n, radius)}
 }
 
-// gmReloadNPC is the legacy "reloadnpc" as this server can do it. The file
+// recarregarCmd is the legacy "reloadnpc" as this server can do it. The file
 // itself ships with the deploy, so there is nothing on disk to re-read; what it
 // does is re-read the database now (block switches and the NPC panel) and top
 // every block up to its cap, bringing back whatever is missing.
-func (d *Dispatcher) gmReloadNPC(w *world.World, s *world.Session) {
+func (d *Dispatcher) recarregarCmd(w *world.World) []string {
 	d.forceGeneratorOffReload()
 	d.forceNPCConfigReload()
 	n := 0
@@ -373,6 +400,5 @@ func (d *Dispatcher) gmReloadNPC(w *world.World, s *world.Session) {
 		d.revealSpawned(w, ids)
 		n += len(ids)
 	}
-	sendClientMessage(w, s, fmt.Sprintf("Recarregado: %d mobs repostos; o banco é relido no próximo segundo.", n))
-	d.log.Info("gm reloadnpc", "account", s.AccountName, "mobs", n)
+	return []string{fmt.Sprintf("Recarregado: %d mobs repostos; o banco é relido no próximo segundo.", n)}
 }

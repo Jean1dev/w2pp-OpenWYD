@@ -704,6 +704,8 @@ func run(logger *slog.Logger) error {
 		if lerr != nil {
 			return fmt.Errorf("listen on control address: %w", lerr)
 		}
+		// The panel's "Blocos" page runs the same block commands as "/gm".
+		ctl.SetBlockRunner(dispatch.RunBlockCommand)
 		gsrv := grpc.NewServer(grpc.UnaryInterceptor(ctl.Interceptor()))
 		gamev1.RegisterGameControlServiceServer(gsrv, ctl)
 		go func() {

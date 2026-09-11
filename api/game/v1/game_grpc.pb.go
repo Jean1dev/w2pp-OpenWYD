@@ -19,13 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GameControlService_ListOnline_FullMethodName = "/game.v1.GameControlService/ListOnline"
-	GameControlService_Kick_FullMethodName       = "/game.v1.GameControlService/Kick"
-	GameControlService_Broadcast_FullMethodName  = "/game.v1.GameControlService/Broadcast"
-	GameControlService_Unstuck_FullMethodName    = "/game.v1.GameControlService/Unstuck"
-	GameControlService_DeliverNow_FullMethodName = "/game.v1.GameControlService/DeliverNow"
-	GameControlService_Overlays_FullMethodName   = "/game.v1.GameControlService/Overlays"
-	GameControlService_Drain_FullMethodName      = "/game.v1.GameControlService/Drain"
+	GameControlService_ListOnline_FullMethodName   = "/game.v1.GameControlService/ListOnline"
+	GameControlService_Kick_FullMethodName         = "/game.v1.GameControlService/Kick"
+	GameControlService_Broadcast_FullMethodName    = "/game.v1.GameControlService/Broadcast"
+	GameControlService_Unstuck_FullMethodName      = "/game.v1.GameControlService/Unstuck"
+	GameControlService_DeliverNow_FullMethodName   = "/game.v1.GameControlService/DeliverNow"
+	GameControlService_Overlays_FullMethodName     = "/game.v1.GameControlService/Overlays"
+	GameControlService_Drain_FullMethodName        = "/game.v1.GameControlService/Drain"
+	GameControlService_ListBlocks_FullMethodName   = "/game.v1.GameControlService/ListBlocks"
+	GameControlService_BlockCommand_FullMethodName = "/game.v1.GameControlService/BlockCommand"
 )
 
 // GameControlServiceClient is the client API for GameControlService service.
@@ -92,6 +94,15 @@ type GameControlServiceClient interface {
 	// login. Ending the sessions first does the same saving with no deadline
 	// attached, and the shutdown that follows finds an empty world.
 	Drain(ctx context.Context, in *DrainRequest, opts ...grpc.CallOption) (*DrainResponse, error)
+	// ListBlocks finds NPCGener blocks — by number, by leader template name, or
+	// near a tile — with how many of their mobs are alive right now and whether
+	// the block is switched off. The panel's "Blocos" page.
+	ListBlocks(ctx context.Context, in *ListBlocksRequest, opts ...grpc.CallOption) (*ListBlocksResponse, error)
+	// BlockCommand runs one of the in-game block commands (npc off|on, gerar,
+	// criar, matar, recarregar) as a GM standing at (x, y) would, and returns
+	// the lines the GM would have read. Same code as "/gm", so the two cannot
+	// drift apart.
+	BlockCommand(ctx context.Context, in *BlockCommandRequest, opts ...grpc.CallOption) (*BlockCommandResponse, error)
 }
 
 type gameControlServiceClient struct {
@@ -172,6 +183,26 @@ func (c *gameControlServiceClient) Drain(ctx context.Context, in *DrainRequest, 
 	return out, nil
 }
 
+func (c *gameControlServiceClient) ListBlocks(ctx context.Context, in *ListBlocksRequest, opts ...grpc.CallOption) (*ListBlocksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBlocksResponse)
+	err := c.cc.Invoke(ctx, GameControlService_ListBlocks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gameControlServiceClient) BlockCommand(ctx context.Context, in *BlockCommandRequest, opts ...grpc.CallOption) (*BlockCommandResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockCommandResponse)
+	err := c.cc.Invoke(ctx, GameControlService_BlockCommand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GameControlServiceServer is the server API for GameControlService service.
 // All implementations must embed UnimplementedGameControlServiceServer
 // for forward compatibility.
@@ -236,6 +267,15 @@ type GameControlServiceServer interface {
 	// login. Ending the sessions first does the same saving with no deadline
 	// attached, and the shutdown that follows finds an empty world.
 	Drain(context.Context, *DrainRequest) (*DrainResponse, error)
+	// ListBlocks finds NPCGener blocks — by number, by leader template name, or
+	// near a tile — with how many of their mobs are alive right now and whether
+	// the block is switched off. The panel's "Blocos" page.
+	ListBlocks(context.Context, *ListBlocksRequest) (*ListBlocksResponse, error)
+	// BlockCommand runs one of the in-game block commands (npc off|on, gerar,
+	// criar, matar, recarregar) as a GM standing at (x, y) would, and returns
+	// the lines the GM would have read. Same code as "/gm", so the two cannot
+	// drift apart.
+	BlockCommand(context.Context, *BlockCommandRequest) (*BlockCommandResponse, error)
 	mustEmbedUnimplementedGameControlServiceServer()
 }
 
@@ -266,6 +306,12 @@ func (UnimplementedGameControlServiceServer) Overlays(context.Context, *Overlays
 }
 func (UnimplementedGameControlServiceServer) Drain(context.Context, *DrainRequest) (*DrainResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Drain not implemented")
+}
+func (UnimplementedGameControlServiceServer) ListBlocks(context.Context, *ListBlocksRequest) (*ListBlocksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBlocks not implemented")
+}
+func (UnimplementedGameControlServiceServer) BlockCommand(context.Context, *BlockCommandRequest) (*BlockCommandResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BlockCommand not implemented")
 }
 func (UnimplementedGameControlServiceServer) mustEmbedUnimplementedGameControlServiceServer() {}
 func (UnimplementedGameControlServiceServer) testEmbeddedByValue()                            {}
@@ -414,6 +460,42 @@ func _GameControlService_Drain_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GameControlService_ListBlocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBlocksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GameControlServiceServer).ListBlocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GameControlService_ListBlocks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GameControlServiceServer).ListBlocks(ctx, req.(*ListBlocksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GameControlService_BlockCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GameControlServiceServer).BlockCommand(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GameControlService_BlockCommand_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GameControlServiceServer).BlockCommand(ctx, req.(*BlockCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GameControlService_ServiceDesc is the grpc.ServiceDesc for GameControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -448,6 +530,14 @@ var GameControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Drain",
 			Handler:    _GameControlService_Drain_Handler,
+		},
+		{
+			MethodName: "ListBlocks",
+			Handler:    _GameControlService_ListBlocks_Handler,
+		},
+		{
+			MethodName: "BlockCommand",
+			Handler:    _GameControlService_BlockCommand_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

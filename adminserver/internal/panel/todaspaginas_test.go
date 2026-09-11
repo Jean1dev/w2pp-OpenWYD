@@ -91,6 +91,7 @@ func painelCompleto(t *testing.T) http.Handler {
 			droprule.Rule{Mob: "Kentania", Item: 2000, Chance: 800},
 			droprule.Rule{Mob: droprule.AllMobs, Item: 1415, Chance: 0},
 		),
+		Blocos:     &fakeBlocos{lista: torresDeNoatum()},
 		Sessions:   session.New(time.Hour),
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		SecureOnly: true,
@@ -153,6 +154,8 @@ func TestTodaPaginaRenderiza(t *testing.T) {
 		"/eventos",
 		"/servidor",
 		"/mapa",
+		"/blocos",
+		"/blocos?nome=torre&x=1050&y=1700&raio=30",
 	}
 
 	for _, rota := range rotas {
@@ -202,7 +205,7 @@ func TestTodaPaginaRenderizaSemAsOpcionais(t *testing.T) {
 
 	// And what must be a clean 404 rather than a crash.
 	opcionais := []string{
-		"/trocas", "/censo", "/chat", "/servidor", "/mapa", "/eventos",
+		"/trocas", "/censo", "/chat", "/servidor", "/mapa", "/eventos", "/blocos",
 		"/denuncias", "/guildas", "/rates/xp", "/rates/montarias",
 		"/itens", "/npcs", "/monstros", "/drops",
 		"/contas/ana/donate", "/contas/ana/personagens/0",
@@ -294,6 +297,7 @@ func TestTodoPostExigeCSRF(t *testing.T) {
 		{"/servidor/reiniciar-seguro", url.Values{}},
 		{"/servidor/desligar", url.Values{}},
 		{"/servidor/ligar", url.Values{}},
+		{"/blocos/comando", url.Values{"acao": {"desligar"}, "bloco": {"23"}}},
 	}
 
 	for _, c := range rotas {

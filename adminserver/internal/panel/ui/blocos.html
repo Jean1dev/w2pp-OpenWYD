@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Blocos — Painel OpenWYD</title>
+{{template "head" .}}
+<style>
+  form.busca-blocos {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px; align-items: end; margin: 0 0 22px; max-width: 760px;
+  }
+  form.busca-blocos label, form.ponto label {
+    display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 4px;
+  }
+  form.busca-blocos input, form.ponto input {
+    width: 100%; box-sizing: border-box; padding: 7px 9px; font: inherit; font-size: 13.5px;
+    color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 3px;
+  }
+  form.busca-blocos input:focus, form.ponto input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  form.busca-blocos .nome { grid-column: span 2; }
+  .resposta { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+  .resposta p { margin: 0; }
+  .resposta p + p { margin-top: 3px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.acao { white-space: nowrap; }
+  td.acao .acoes { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  td.acao form { margin: 0; }
+  td.acao button { padding: 4px 9px; font-size: 12px; }
+  .marcas { display: flex; gap: 5px; flex-wrap: wrap; }
+  .marca {
+    font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px; white-space: nowrap;
+    color: var(--ink-2); background: var(--chip-bg);
+  }
+  .ponto-caixa {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;
+    margin: 26px 0 0;
+  }
+  form.ponto {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px;
+  }
+  form.ponto h3 { margin: 0 0 10px; font-size: 14.5px; }
+  form.ponto .linha { display: flex; gap: 8px; align-items: end; }
+  form.ponto .linha > div { flex: 1; }
+  form.ponto .dica { font-size: 12.5px; color: var(--ink-3); margin: 8px 0 0; }
+</style>
+</head>
+<body>
+{{template "topbar" .}}
+
+<main>
+  <h1>Blocos</h1>
+  <p class="sub">Os blocos do NPCGener com o que cada um tem vivo no jogo agora — e as
+  mesmas ações que um GM tem com <code>/gm</code>.</p>
+
+  {{template "quando-vale" "agora"}}
+
+  {{if .Resposta}}
+  <div class="aviso resposta">
+    {{range .Resposta}}<p>{{.}}</p>{{end}}
+  </div>
+  {{end}}
+  {{if .Erro}}<div class="nota perigo">{{.Erro}}</div>{{end}}
+
+  <form class="busca-blocos" method="get" action="/blocos" role="search">
+    <div class="nome">
+      <label for="b-nome">Nome do monstro ou NPC</label>
+      <input id="b-nome" name="nome" value="{{.Busca.Nome}}" placeholder="Torre, Kefra, Mercador…">
+    </div>
+    <div>
+      <label for="b-bloco">Número</label>
+      <input id="b-bloco" name="bloco" value="{{.Busca.Bloco}}" inputmode="numeric" placeholder="23">
+    </div>
+    <div>
+      <label for="b-x">X</label>
+      <input id="b-x" name="x" value="{{.Busca.X}}" inputmode="numeric" placeholder="2100">
+    </div>
+    <div>
+      <label for="b-y">Y</label>
+      <input id="b-y" name="y" value="{{.Busca.Y}}" inputmode="numeric" placeholder="2100">
+    </div>
+    <div>
+      <label for="b-raio">Raio</label>
+      <input id="b-raio" name="raio" value="{{.Busca.Raio}}" inputmode="numeric" placeholder="20">
+    </div>
+    <div><button type="submit" class="principal">Buscar</button></div>
+  </form>
+
+  {{if .Pesquisou}}
+    {{if .Lista}}
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th class="num">Bloco</th>
+            <th>Nome</th>
+            <th class="num">Onde nasce</th>
+            <th class="num">Vivos</th>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Lista}}
+          <tr>
+            <td class="num">#{{.Numero}}</td>
+            <td>{{.Nome}}</td>
+            <td class="num">{{.X}}, {{.Y}}</td>
+            <td class="num">{{.Vivos}} / {{.Max}}</td>
+            <td>
+              <span class="marcas">
+                {{if .Desligado}}<span class="chip-danger">desligado</span>{{end}}
+                {{if .DoPainel}}<span class="marca" title="Mercador do painel de NPCs: volta com a loja quando ligado">do painel</span>{{end}}
+                {{if .DeEvento}}<span class="marca" title="Um evento ou uma masmorra gera este bloco, não o mundo">de evento</span>{{end}}
+                {{if le .Minuto 0}}{{if not .DeEvento}}<span class="marca" title="MinuteGenerate {{.Minuto}}: no jogo original este bloco só nascia por evento">só evento no original</span>{{end}}{{end}}
+                {{if .SemMolde}}<span class="marca" title="O template não carregou: este bloco nunca nasce">sem template</span>{{end}}
+              </span>
+            </td>
+            <td class="acao">
+              <div class="acoes">
+              {{if .Desligado}}
+              <form method="post" action="/blocos/comando">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="volta" value="{{$.Volta}}">
+                <input type="hidden" name="acao" value="ligar">
+                <input type="hidden" name="bloco" value="{{.Numero}}">
+                <button type="submit" class="principal">Ligar</button>
+              </form>
+              {{else}}
+              <form method="post" action="/blocos/comando">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="volta" value="{{$.Volta}}">
+                <input type="hidden" name="acao" value="desligar">
+                <input type="hidden" name="bloco" value="{{.Numero}}">
+                <button type="submit" class="perigo" title="Tira do jogo o que o bloco gerou e ele para de gerar, até ligar de novo">Desligar</button>
+              </form>
+              {{if not .DoPainel}}
+              <form method="post" action="/blocos/comando">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="volta" value="{{$.Volta}}">
+                <input type="hidden" name="acao" value="gerar">
+                <input type="hidden" name="bloco" value="{{.Numero}}">
+                <button type="submit" title="Gera um grupo no lugar do bloco, respeitando o limite de vivos">Gerar</button>
+              </form>
+              {{if $.TemPonto}}
+              <form method="post" action="/blocos/comando">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="volta" value="{{$.Volta}}">
+                <input type="hidden" name="acao" value="gerar-no-ponto">
+                <input type="hidden" name="bloco" value="{{.Numero}}">
+                <input type="hidden" name="x" value="{{$.PontoX}}">
+                <input type="hidden" name="y" value="{{$.PontoY}}">
+                <button type="submit" title="Gera o grupo em volta do ponto da busca">Gerar em {{$.PontoX}}, {{$.PontoY}}</button>
+              </form>
+              {{end}}
+              {{end}}
+              {{end}}
+              {{if gt .Vivos 0}}
+              <form method="post" action="/blocos/comando">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="volta" value="{{$.Volta}}">
+                <input type="hidden" name="acao" value="matar-bloco">
+                <input type="hidden" name="bloco" value="{{.Numero}}">
+                <button type="submit" class="perigo" title="Mata todos os vivos do bloco; ele volta pelas regras dele, a menos que esteja desligado">Matar</button>
+              </form>
+              {{end}}
+              </div>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{if .Cortada}}<p class="dica">Mostrando {{len .Lista}} de {{.Total}}. Afine a busca.</p>{{end}}
+    {{else if not .Erro}}
+    <p class="vazio">Nenhum bloco com essa busca.</p>
+    {{end}}
+  {{else}}
+  <div class="nota">
+    Busque pelo nome, pelo número do bloco ou por um ponto do mapa com raio. O
+    número é a posição do bloco no NPCGener — o mesmo que <code>/gm npc</code>
+    mostra dentro do jogo.
+  </div>
+  {{end}}
+
+  {{if .TemPonto}}
+  <div class="ponto-caixa">
+    <form class="ponto" method="post" action="/blocos/comando">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="volta" value="{{.Volta}}">
+      <input type="hidden" name="acao" value="matar-em-volta">
+      <input type="hidden" name="x" value="{{.PontoX}}">
+      <input type="hidden" name="y" value="{{.PontoY}}">
+      <h3>Em volta de {{.PontoX}}, {{.PontoY}}</h3>
+      <div class="linha">
+        <div>
+          <label for="m-raio">Raio</label>
+          <input id="m-raio" name="raio" value="3" inputmode="numeric">
+        </div>
+        <button type="submit" class="perigo">Matar os monstros</button>
+      </div>
+      <p class="dica">Poupa mercadores, guardas e invocações de jogador. Máximo 40.</p>
+    </form>
+    <form class="ponto" method="post" action="/blocos/comando">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="volta" value="{{.Volta}}">
+      <input type="hidden" name="acao" value="criar">
+      <input type="hidden" name="x" value="{{.PontoX}}">
+      <input type="hidden" name="y" value="{{.PontoY}}">
+      <h3>Criar um monstro aqui</h3>
+      <div class="linha">
+        <div>
+          <label for="c-nome">Template</label>
+          <input id="c-nome" name="nome" placeholder="Kefra" required>
+        </div>
+        <button type="submit">Criar</button>
+      </div>
+      <p class="dica">Nome exato do template do NPCGener. Não pertence a bloco nenhum e
+      não volta quando morre.</p>
+    </form>
+  </div>
+  {{else}}
+  <p class="dica">Com X e Y na busca aparecem também <em>matar em volta</em>, <em>criar
+  um monstro</em> e <em>gerar no ponto</em>.</p>
+  {{end}}
+
+  <h2>Repor o mundo</h2>
+  <form method="post" action="/blocos/comando" class="acao-bloco">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="volta" value="{{.Volta}}">
+    <input type="hidden" name="acao" value="recarregar">
+    <button type="submit">Recarregar</button>
+    <p class="dica">Relê do banco os blocos desligados e o painel de NPCs, e repõe o que
+    falta em cada bloco até o limite. O NPCGener em si só muda com um deploy.</p>
+  </form>
+</main>
+</body>
+</html>
