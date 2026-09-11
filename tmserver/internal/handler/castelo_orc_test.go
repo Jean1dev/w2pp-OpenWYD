@@ -99,11 +99,11 @@ var casteloOrcDesign = map[string]struct {
 	res              int8
 	key              int16
 }{
-	"COrc_GraoLorde": {"Grão-Lorde Orc", 350, 6000000, 3000, 2700, 25, 0},
+	"COrc_GraoLorde": {"Grão-Lorde Orc", 350, 3000000, 3000, 2700, 25, 0},
 	"COrc_Guarda":    {"Guarda do Lorde", 320, 150000, 2200, 2450, 15, 0},
-	"COrc_Sentinela": {"Sentinela Orc", 330, 900000, 2400, 2500, 20, 466},
-	"COrc_Capitao":   {"Capitão Orc", 330, 900000, 2400, 2500, 20, 467},
-	"COrc_Chefe":     {"Chefe Orc", 330, 900000, 2400, 2500, 20, 469},
+	"COrc_Sentinela": {"Sentinela Orc", 330, 450000, 2400, 2500, 20, 466},
+	"COrc_Capitao":   {"Capitão Orc", 330, 450000, 2400, 2500, 20, 467},
+	"COrc_Chefe":     {"Chefe Orc", 330, 450000, 2400, 2500, 20, 469},
 	"COrc_Cavaleiro": {"Cavaleiro Orc", 300, 18000, 1800, 2300, 10, 0},
 	"COrc_Arqueiro":  {"Arqueiro Orc", 300, 18000, 1800, 2300, 10, 0},
 	"COrc_MeioOrc":   {"Meio Orc", 300, 18000, 1800, 2300, 10, 0},
@@ -179,6 +179,27 @@ func TestCasteloOrcTemplatesBatemComODesign(t *testing.T) {
 			if it.Index != 0 {
 				t.Errorf("%s: drop de template %d no slot %d; o saque é da Mesa de Drops", file, it.Index, slot)
 			}
+		}
+	}
+}
+
+// The Grão-Lorde carries a Espada Bastarda +11 in each hand. +10 and up are not
+// the plain number in EF_SANC: the client reads anything under 230 modulo 10, so
+// a raw 11 showed as +1; +11 is 234..237 (protocol/visual.go).
+func TestCasteloOrcBossComDuasEspadasMais11(t *testing.T) {
+	root := releaseDir(t)
+	b, _, err := npctemplate.Load(root, "COrc_GraoLorde")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := savefmt.DecodeMob(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, slot := range []int{6, 7} {
+		it := m.Equip[slot]
+		if it.Index != 907 || it.Effects[0].Effect != efSanc || it.Effects[0].Value < 234 || it.Effects[0].Value > 237 {
+			t.Errorf("mão %d: %d %+v, want Espada Bastarda (907) com EF_SANC 234..237 (+11)", slot, it.Index, it.Effects[0])
 		}
 	}
 }

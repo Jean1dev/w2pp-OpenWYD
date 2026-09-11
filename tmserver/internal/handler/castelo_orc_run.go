@@ -61,10 +61,14 @@ var (
 	// casteloOrcEntry is where the party lands: an Orc_Arqueiro_ spawn by the
 	// south-west wall, a few steps from the Sentinela, the first guardian.
 	casteloOrcEntry = [2]int16{2446, 2134}
-	// casteloOrcExit is the /erion landing (chat.go), where the Xamã stands and
-	// where a finished run sends everyone back.
+	// casteloOrcExit is the /erion landing (chat.go), where a finished run
+	// sends everyone back.
 	casteloOrcExit = [2]int16{2461, 2003}
-	casteloOrcNPC  = [2]int16{2464, 2006}
+	// casteloOrcNPC puts the Xamã in the arch of the Portão Sul (gate 462 at
+	// 2487,2129), on the Sentinela's side: the castle's own door is where its
+	// key is handed over. The server still sends no gate to the client, so the
+	// arch stands empty until that lands.
+	casteloOrcNPC = [2]int16{2484, 2129}
 )
 
 // casteloOrcWorldBlocks are the open-world castle blocks ([373-394], [402-497];
@@ -310,7 +314,7 @@ func (d *Dispatcher) endCasteloOrc(w *world.World, why string) {
 	d.casteloOrc = casteloOrcRun{}
 }
 
-// ensureCasteloOrcNPC raises the Xamã at the /erion landing when it is not
+// ensureCasteloOrcNPC raises the Xamã at the Portão Sul arch when it is not
 // standing. It is spawned here and not from NPCGener on purpose: a Merchant NPC
 // in NPCGener belongs to the NPC overlay when W2PP_NPC_EDITING is on, and would
 // then need a `dbserver import-npcs` run to appear at all.

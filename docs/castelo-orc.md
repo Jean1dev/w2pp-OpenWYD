@@ -45,7 +45,7 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
 ## A corrida (`handler/castelo_orc_run.go`)
 
 - **Quem abre:** o **Xamã Orc** (template `COrc_Xama`, Merchant 100, grau 40), de pé
-  na chegada do `/erion` (2461,2003). Só o líder do grupo (ou quem está sozinho)
+  no arco do Portão Sul (2484,2129), do lado do Sentinela. Só o líder do grupo (ou quem está sozinho)
   abre, e a chave é consumida.
 - **O Xamã nasce pelo código**, não pelo NPCGener. NPC com Merchant no NPCGener
   vira do overlay de NPCs quando `W2PP_NPC_EDITING` está ligado e só apareceria
@@ -77,17 +77,22 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
 
 | Template | Nome no jogo | Nv | HP | Defesa | Dano | Resist. | Bloco |
 |---|---|---|---|---|---|---|---|
-| `COrc_GraoLorde` | Grão-Lorde Orc | 350 | 6.000.000 | 3.000 | 2.700 | 25 | 6099 |
+| `COrc_GraoLorde` | Grão-Lorde Orc | 350 | 3.000.000 | 3.000 | 2.700 | 25 | 6099 |
 | `COrc_Guarda` | Guarda do Lorde | 320 | 150.000 | 2.200 | 2.450 | 15 | 6100 (grupo de 4) |
-| `COrc_Sentinela` | Sentinela Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6101 · chave 466 |
-| `COrc_Capitao` | Capitão Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6102 · chave 467 |
-| `COrc_Chefe` | Chefe Orc | 330 | 900.000 | 2.400 | 2.500 | 20 | 6103 · chave 469 |
+| `COrc_Sentinela` | Sentinela Orc | 330 | 450.000 | 2.400 | 2.500 | 20 | 6101 · chave 466 |
+| `COrc_Capitao` | Capitão Orc | 330 | 450.000 | 2.400 | 2.500 | 20 | 6102 · chave 467 |
+| `COrc_Chefe` | Chefe Orc | 330 | 450.000 | 2.400 | 2.500 | 20 | 6103 · chave 469 |
 | `COrc_Cavaleiro` | Cavaleiro Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6104 (grupos de 4–5) |
 | `COrc_Arqueiro` | Arqueiro Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6105 |
 | `COrc_MeioOrc` | Meio Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6106 |
 
-O boss usa o corpo do Troll_Martelo (rosto 213), a Espada Bastarda +11 e monta um
-Lobo. A montaria e o brilho da arma são só aparência: o servidor não soma o
+O boss usa o corpo do Troll_Martelo (rosto 213), uma Espada Bastarda +11 em cada
+mão e monta um Lobo. O HP dos bosses (Grão-Lorde e guardiões) caiu pela metade
+depois do primeiro teste em jogo.
+
+**Refino no visual do mob:** de +10 para cima o EF_SANC não é o número. O cliente
+lê valores abaixo de 230 como o resto por 10 (um 11 aparece como +1); +10 é
+230–233, +11 é 234–237, e assim de 4 em 4 (`protocol/visual.go`). O boss usa 234. A montaria e o brilho da arma são só aparência: o servidor não soma o
 equipamento de mob no score.
 
 **Por que esses números:**
@@ -146,7 +151,7 @@ A corrida inteira, com conta de GM:
 
 ```
 /gm item 465                    a Chave Portão Orc Sul na bolsa
-/erion                          a chegada, onde o Xamã Orc está
+vá até o arco do Portão Sul do castelo (2484,2129), onde o Xamã Orc está
 (clique no Xamã como líder do grupo)
 ```
 
