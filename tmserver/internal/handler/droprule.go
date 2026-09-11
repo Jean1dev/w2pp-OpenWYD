@@ -103,6 +103,7 @@ func (d *Dispatcher) dropTableRolls(w *world.World, reward, mob *world.Entity, b
 			setItemAmount(&it, 1)
 		}
 		d.rolarBonusDrop(w, &it, int(mob.Level), bonusDrop)
+		d.casteloOrcFinish(w, mob, &it)
 		if d.castleKeyDrop(w, reward, it) {
 			continue
 		}

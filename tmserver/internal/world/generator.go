@@ -173,10 +173,27 @@ func IsSecretRoomGenerator(idx int) bool {
 	return idx >= SecretRoomGenFirst && idx <= SecretRoomGenLast
 }
 
+// CasteloOrcGenFirst/Last bound the Castelo Orc quest blocks, appended at the
+// end of NPCGener.txt (boss, followers, three gate guardians, three troop
+// blocks — handler/castelo_orc.go). They are the quest's own monsters, sized for
+// Mortals 320-400: populated at boot they would stand in Erion's open castle
+// for everyone, and on the 15s respawn queue they would come back behind
+// anybody who cleared them. Until the quest spawns them itself, a GM raises
+// them with "gerar <bloco> aqui" or "criar <template>".
+const (
+	CasteloOrcGenFirst = 6099
+	CasteloOrcGenLast  = 6106
+)
+
+// IsCasteloOrcGenerator reports whether a block belongs to the Castelo Orc quest.
+func IsCasteloOrcGenerator(idx int) bool {
+	return idx >= CasteloOrcGenFirst && idx <= CasteloOrcGenLast
+}
+
 // IsEventOwnedGenerator reports whether a block belongs to a scripted event
 // rather than to the world population.
 func IsEventOwnedGenerator(idx int) bool {
-	return eventOwnedGenerators[idx] || IsSecretRoomGenerator(idx)
+	return eventOwnedGenerators[idx] || IsSecretRoomGenerator(idx) || IsCasteloOrcGenerator(idx)
 }
 
 // ClearGenerator removes every live entity and queued respawn owned by one

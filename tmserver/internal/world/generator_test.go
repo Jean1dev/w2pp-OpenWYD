@@ -286,6 +286,22 @@ func TestIsEventOwnedGenerator(t *testing.T) {
 	}
 }
 
+// The Castelo Orc quest blocks sit at the end of NPCGener and belong to the
+// quest: out of the boot populate and the respawn queue, with their neighbours
+// (the last shop block, and whatever is appended after) left alone.
+func TestIsCasteloOrcGenerator(t *testing.T) {
+	for idx := CasteloOrcGenFirst; idx <= CasteloOrcGenLast; idx++ {
+		if !IsCasteloOrcGenerator(idx) || !IsEventOwnedGenerator(idx) {
+			t.Errorf("bloco %d devia ser da quest e de evento", idx)
+		}
+	}
+	for _, idx := range []int{CasteloOrcGenFirst - 1, CasteloOrcGenLast + 1, 373, 483, 497} {
+		if IsCasteloOrcGenerator(idx) || IsEventOwnedGenerator(idx) {
+			t.Errorf("bloco %d não é da quest", idx)
+		}
+	}
+}
+
 // A fallen war tower must stay down: the 15s respawn queue that keeps ordinary
 // MinuteGenerate<=0 monsters alive is exactly what made the towers reappear.
 func TestEventOwnedGeneratorSkipsRespawnQueue(t *testing.T) {

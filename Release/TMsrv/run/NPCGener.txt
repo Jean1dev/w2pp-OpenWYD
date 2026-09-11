@@ -158448,3 +158448,236 @@
 	DestY:		2095
 	DestRange:	1
 	DestWait:	8
+
+
+// Castelo Orc (quest): Grão-Lorde, o boss da última sala. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6099]
+	MinuteGenerate:	-1
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		COrc_GraoLorde
+	Follower:	COrc_GraoLorde
+	RouteType:	2
+	Formation:	0
+	StartX:		2533
+	StartY:		2120
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2533
+	Segment1Y:	2120
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2533
+	Segment2Y:	2120
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2533
+	DestY:		2120
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): Guarda do Lorde, os seguidores do boss. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6100]
+	MinuteGenerate:	-1
+	MaxNumMob:	4
+	MinGroup:	3
+	MaxGroup:	3
+	Leader:		COrc_Guarda
+	Follower:	COrc_Guarda
+	RouteType:	2
+	Formation:	0
+	StartX:		2528
+	StartY:		2124
+	StartRange:	4
+	StartWait:	9
+	Segment1X:	2528
+	Segment1Y:	2124
+	Segment1Range:	4
+	Segment1Wait:	5
+	Segment2X:	2528
+	Segment2Y:	2124
+	Segment2Range:	4
+	Segment2Wait:	8
+	DestX:		2528
+	DestY:		2124
+	DestRange:	4
+	DestWait:	6
+
+
+// Castelo Orc (quest): Sentinela, guardião do Portão Sul (chave 465). Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6101]
+	MinuteGenerate:	-1
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		COrc_Sentinela
+	Follower:	COrc_Sentinela
+	RouteType:	2
+	Formation:	0
+	StartX:		2470
+	StartY:		2133
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2470
+	Segment1Y:	2133
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2470
+	Segment2Y:	2133
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2470
+	DestY:		2133
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): Capitão, guardião do Último Portão Sul (chave 467). Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6102]
+	MinuteGenerate:	-1
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		COrc_Capitao
+	Follower:	COrc_Capitao
+	RouteType:	2
+	Formation:	0
+	StartX:		2499
+	StartY:		2118
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2499
+	Segment1Y:	2118
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2499
+	Segment2Y:	2118
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2499
+	DestY:		2118
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): Chefe, guardião do Último Portão Leste (chave 469). Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6103]
+	MinuteGenerate:	-1
+	MaxNumMob:	1
+	MinGroup:	0
+	MaxGroup:	0
+	Leader:		COrc_Chefe
+	Follower:	COrc_Chefe
+	RouteType:	2
+	Formation:	0
+	StartX:		2533
+	StartY:		2157
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2533
+	Segment1Y:	2157
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2533
+	Segment2Y:	2157
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2533
+	DestY:		2157
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa de Cavaleiros. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6104]
+	MinuteGenerate:	-1
+	MaxNumMob:	20
+	MinGroup:	3
+	MaxGroup:	4
+	Leader:		COrc_Cavaleiro
+	Follower:	COrc_Cavaleiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2470
+	StartY:		2105
+	StartRange:	8
+	StartWait:	9
+	Segment1X:	2470
+	Segment1Y:	2105
+	Segment1Range:	8
+	Segment1Wait:	5
+	Segment2X:	2470
+	Segment2Y:	2105
+	Segment2Range:	8
+	Segment2Wait:	8
+	DestX:		2470
+	DestY:		2105
+	DestRange:	8
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa de Arqueiros. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6105]
+	MinuteGenerate:	-1
+	MaxNumMob:	20
+	MinGroup:	3
+	MaxGroup:	4
+	Leader:		COrc_Arqueiro
+	Follower:	COrc_Arqueiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2495
+	StartY:		2140
+	StartRange:	8
+	StartWait:	9
+	Segment1X:	2495
+	Segment1Y:	2140
+	Segment1Range:	8
+	Segment1Wait:	5
+	Segment2X:	2495
+	Segment2Y:	2140
+	Segment2Range:	8
+	Segment2Wait:	8
+	DestX:		2495
+	DestY:		2140
+	DestRange:	8
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa de Meio Orcs. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// ********************************************
+#	[6106]
+	MinuteGenerate:	-1
+	MaxNumMob:	20
+	MinGroup:	3
+	MaxGroup:	4
+	Leader:		COrc_MeioOrc
+	Follower:	COrc_MeioOrc
+	RouteType:	2
+	Formation:	0
+	StartX:		2515
+	StartY:		2085
+	StartRange:	8
+	StartWait:	9
+	Segment1X:	2515
+	Segment1Y:	2085
+	Segment1Range:	8
+	Segment1Wait:	5
+	Segment2X:	2515
+	Segment2Y:	2085
+	Segment2Range:	8
+	Segment2Wait:	8
+	DestX:		2515
+	DestY:		2085
+	DestRange:	8
+	DestWait:	6
+
