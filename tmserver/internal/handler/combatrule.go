@@ -52,7 +52,8 @@ func (d *Dispatcher) setCombatRules(r combatrule.Rules) bool {
 		d.log.Warn("combat rule outside its ranges, keeping the current one",
 			"weapon_int_magic_pct", r.WeaponIntMagicPct, "mob_resist_base", r.MobResistBase,
 			"pvp_skill_pct", r.PvPSkillPct, "pvp_melee_pct", r.PvPMeleePct,
-			"spell_int_accuracy_pct", r.SpellIntAccuracyPct, "max_miss_streak", r.MaxMissStreak)
+			"spell_int_accuracy_pct", r.SpellIntAccuracyPct, "max_miss_streak", r.MaxMissStreak,
+			"weapon_damage_grants", r.WeaponDamageGrants)
 		return false
 	}
 	if r == d.combatRules {
@@ -90,6 +91,7 @@ func (d *Dispatcher) applyCombatRules(w *world.World, r combatrule.Rules) {
 		"spell_damage_multi", r.SpellDamageMulti, "mob_resist_base", r.MobResistBase,
 		"pvp_skill_pct", r.PvPSkillPct, "pvp_melee_pct", r.PvPMeleePct,
 		"spell_int_accuracy_pct", r.SpellIntAccuracyPct, "max_miss_streak", r.MaxMissStreak,
+		"weapon_damage_grants", r.WeaponDamageGrants,
 		"scores_refreshed", n)
 }
 
@@ -127,7 +129,8 @@ func (d *Dispatcher) ApplyCombatRulesBoot() {
 		"pvp_skill_pct", d.combatRules.PvPSkillPct,
 		"pvp_melee_pct", d.combatRules.PvPMeleePct,
 		"spell_int_accuracy_pct", d.combatRules.SpellIntAccuracyPct,
-		"max_miss_streak", d.combatRules.MaxMissStreak)
+		"max_miss_streak", d.combatRules.MaxMissStreak,
+		"weapon_damage_grants", d.combatRules.WeaponDamageGrants)
 }
 
 // pollCombatRules reloads the rule when the version moves. Called from the

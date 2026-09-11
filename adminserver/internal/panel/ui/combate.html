@@ -143,6 +143,11 @@
                  inputmode="numeric" required value="{{.Combate.Regra.MaxMissStreak}}">
           <span class="faixa">{{.Combate.MinErros}} a {{.Combate.MaxErros}}. Depois disso a próxima magia acerta; 0 desliga (legado).</span>
         </label>
+        <label class="num">Bônus de arma no golpe físico (vezes)
+          <input name="arma_fisico" type="number" min="{{.Combate.MinArmaFis}}" max="{{.Combate.MaxArmaFis}}" step="1"
+                 inputmode="numeric" required value="{{.Combate.Regra.WeaponDamageGrants}}">
+          <span class="faixa">{{.Combate.MinArmaFis}} a {{.Combate.MaxArmaFis}}. Quantas evoluções aprendidas somam o bônus da arma no Ataque; 3 = legado.</span>
+        </label>
       </div>
       <button type="submit" class="principal">Gravar a regra</button>
     </form>
@@ -164,6 +169,7 @@
         <input type="hidden" name="pvp_melee" value="{{.Combate.Kersef.PvPMeleePct}}">
         <input type="hidden" name="precisao" value="{{.Combate.Kersef.SpellIntAccuracyPct}}">
         <input type="hidden" name="erros" value="{{.Combate.Kersef.MaxMissStreak}}">
+        <input type="hidden" name="arma_fisico" value="{{.Combate.Kersef.WeaponDamageGrants}}">
         <button type="submit">Usar a regra do Kersef</button>
       </form>
       {{if .Combate.Configurada}}

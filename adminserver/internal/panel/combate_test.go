@@ -88,6 +88,7 @@ func TestTelaDeCombateMostraPadraoEKersef(t *testing.T) {
 		"Magia da arma por INT", "Multiplicador de dano na magia", "Resistência de monstro à magia",
 		"Dano de skill em jogador (%)", "Dano de golpe físico em jogador (%)",
 		"Precisão da magia pela INT (%)", "Máximo de erros seguidos no mesmo alvo",
+		"Bônus de arma no golpe físico", "1× = conta uma vez, como a magia",
 		"o erro cai para ~12%", "0 desliga (legado: cada sorteio vale sozinho)",
 		// a explicação dos dois de PvP
 		"dividido por 4 (a Perfuração)",
@@ -115,6 +116,7 @@ func TestTelaDeCombateComRegraGravada(t *testing.T) {
 	regra := combatrule.Kersef()
 	regra.PvPSkillPct, regra.PvPMeleePct = 60, 80
 	regra.SpellIntAccuracyPct, regra.MaxMissStreak = 30, 4
+	regra.WeaponDamageGrants = 2
 	c.cfg = combatrule.Config{Version: 4, Configured: true, Rules: regra}
 	get := signedIn(t, newTestPanelCombate(t, roleAdmin, c, newFakeAudit()))
 	corpo := get("/rates/combate").Body.String()
@@ -131,6 +133,7 @@ func TestTelaDeCombateComRegraGravada(t *testing.T) {
 		`name="pvp_melee" type="number"`, `required value="80"`,
 		`name="precisao" type="number"`, `required value="30"`,
 		`name="erros" type="number"`, `required value="4"`,
+		`name="arma_fisico" type="number"`, `required value="2"`,
 	} {
 		if !strings.Contains(corpo, campo) {
 			t.Errorf("o formulário não veio preenchido: falta %s", campo)
@@ -160,7 +163,7 @@ func TestGravarARegraEAuditar(t *testing.T) {
 
 	rec := post("/rates/combate", url.Values{
 		"csrf": {token}, "arma": {"40"}, "multi": {"1"}, "resist": {"120"},
-		"pvp_skill": {"60"}, "pvp_melee": {"80"}, "precisao": {"30"}, "erros": {"4"},
+		"pvp_skill": {"60"}, "pvp_melee": {"80"}, "precisao": {"30"}, "erros": {"4"}, "arma_fisico": {"2"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, corpo = %s", rec.Code, rec.Body.String())
@@ -169,6 +172,7 @@ func TestGravarARegraEAuditar(t *testing.T) {
 		WeaponIntMagicPct: 40, SpellDamageMulti: true, MobResistBase: 120,
 		PvPSkillPct: 60, PvPMeleePct: 80,
 		SpellIntAccuracyPct: 30, MaxMissStreak: 4,
+		WeaponDamageGrants: 2,
 	}
 	if got := c.atual(); !got.Configured || got.Rules != quer {
 		t.Fatalf("gravou %+v, quero %+v", got, quer)
@@ -189,7 +193,7 @@ func TestGravarARegraEAuditar(t *testing.T) {
 	if novo["magia_da_arma"] != "40%" || novo["multiplicador_na_magia"] != "ligado" ||
 		novo["resistencia_de_monstro"] != int32(120) ||
 		novo["skill_em_jogador"] != "60%" || novo["golpe_em_jogador"] != "80%" ||
-		novo["precisao_pela_int"] != "30%" || novo["erros_seguidos"] != int32(4) {
+		novo["precisao_pela_int"] != "30%" || novo["erros_seguidos"] != int32(4) || novo["bonus_de_arma"] != "2×" {
 		t.Errorf("a auditoria guardou %+v", novo)
 	}
 }
@@ -205,6 +209,7 @@ func TestAtalhoDoKersefGravaOKersef(t *testing.T) {
 		`name="arma" value="100"`, `name="multi" value="1"`, `name="resist" value="150"`,
 		`name="pvp_skill" value="100"`, `name="pvp_melee" value="100"`,
 		`name="precisao" value="0"`, `name="erros" value="0"`,
+		`name="arma_fisico" value="3"`,
 	} {
 		if !strings.Contains(corpo, campo) {
 			t.Errorf("o atalho do Kersef não leva %s", campo)
@@ -214,7 +219,7 @@ func TestAtalhoDoKersefGravaOKersef(t *testing.T) {
 	post, token := signedInPost(t, h)
 	if rec := post("/rates/combate", url.Values{
 		"csrf": {token}, "arma": {"100"}, "multi": {"1"}, "resist": {"150"},
-		"pvp_skill": {"100"}, "pvp_melee": {"100"}, "precisao": {"0"}, "erros": {"0"},
+		"pvp_skill": {"100"}, "pvp_melee": {"100"}, "precisao": {"0"}, "erros": {"0"}, "arma_fisico": {"3"},
 	}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -229,7 +234,7 @@ func TestRegraForaDaFaixaERecusada(t *testing.T) {
 
 	valido := url.Values{
 		"arma": {"0"}, "multi": {"0"}, "resist": {"100"}, "pvp_skill": {"100"}, "pvp_melee": {"100"},
-		"precisao": {"50"}, "erros": {"2"},
+		"precisao": {"50"}, "erros": {"2"}, "arma_fisico": {"1"},
 	}
 	casos := []struct {
 		nome  string
@@ -263,6 +268,11 @@ func TestRegraForaDaFaixaERecusada(t *testing.T) {
 		// 0 e desligar a precisão calado.
 		{"precisão ausente", "precisao", ""},
 		{"erros seguidos ausente", "erros", ""},
+		{"bônus de arma zero", "arma_fisico", "0"},
+		{"bônus de arma acima de 3", "arma_fisico", "4"},
+		{"bônus de arma não numérico", "arma_fisico", "tres"},
+		// Um campo perdido não pode voltar o golpe físico ao triplo do legado calado.
+		{"bônus de arma ausente", "arma_fisico", ""},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nome, func(t *testing.T) {
@@ -318,7 +328,7 @@ func TestModeradorNaoMexeNaRegraDeCombate(t *testing.T) {
 	post, token := signedInPost(t, h)
 	if rec := post("/rates/combate", url.Values{
 		"csrf": {token}, "arma": {"100"}, "multi": {"1"}, "resist": {"150"},
-		"pvp_skill": {"100"}, "pvp_melee": {"100"}, "precisao": {"0"}, "erros": {"0"},
+		"pvp_skill": {"100"}, "pvp_melee": {"100"}, "precisao": {"0"}, "erros": {"0"}, "arma_fisico": {"3"},
 	}); rec.Code != http.StatusForbidden {
 		t.Fatalf("gravar: status = %d, quero 403", rec.Code)
 	}

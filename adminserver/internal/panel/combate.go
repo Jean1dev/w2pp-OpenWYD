@@ -59,6 +59,8 @@ type combateView struct {
 	MaxPrecisao int32
 	MinErros    int32
 	MaxErros    int32
+	MinArmaFis  int32
+	MaxArmaFis  int32
 }
 
 func pctTexto(v int32) string { return fmt.Sprintf("%d%%", v) }
@@ -71,6 +73,9 @@ func ligadoTexto(v bool) string {
 }
 
 func baseTexto(v int32) string { return strconv.Itoa(int(v)) }
+
+// vezesTexto says how many evolutions add the weapon term: "1×", "3×".
+func vezesTexto(v int32) string { return fmt.Sprintf("%d×", v) }
 
 // errosTexto says the miss streak the way the screen explains it: 0 is not "zero
 // misses allowed" but the feature switched off.
@@ -147,6 +152,16 @@ func combateBotoes(r combatrule.Rules) []combateBotao {
 			Agora: errosTexto(r.MaxMissStreak), Padrao: errosTexto(p.MaxMissStreak),
 			Kersef: errosTexto(k.MaxMissStreak), Mudado: r.MaxMissStreak != p.MaxMissStreak,
 		},
+		{
+			Nome: "Bônus de arma no golpe físico",
+			Explica: "Cada classe soma ao Ataque um bônus da arma, DES×a + FOR×b conforme o tipo. " +
+				"O legado soma esse bônus uma vez POR EVOLUÇÃO aprendida (no TK: Confiança, Trans, " +
+				"Espada Mágica), então quem tem as três leva três vezes — numa TK +11 com FOR 2.802 " +
+				"eram ~6.200 de um Ataque de 12.630. 1× = conta uma vez, como a magia; 3× = o legado. " +
+				"Vale para TK, FM e BM (a HT só tem uma evolução que soma).",
+			Agora: vezesTexto(r.WeaponDamageGrants), Padrao: vezesTexto(p.WeaponDamageGrants),
+			Kersef: vezesTexto(k.WeaponDamageGrants), Mudado: r.WeaponDamageGrants != p.WeaponDamageGrants,
+		},
 	}
 }
 
@@ -179,6 +194,7 @@ func (h *Handler) combate(w http.ResponseWriter, r *http.Request) {
 			MinPvP: combatrule.MinPvPPct, MaxPvP: combatrule.MaxPvPPct,
 			MinPrecisao: combatrule.MinSpellIntAccuracy, MaxPrecisao: combatrule.MaxSpellIntAccuracy,
 			MinErros: combatrule.MinMissStreak, MaxErros: combatrule.MaxMissStreak,
+			MinArmaFis: combatrule.MinWeaponDamageGrants, MaxArmaFis: combatrule.MaxWeaponDamageGrants,
 		},
 		Historico: h.combateHistorico(r.Context()),
 	})
@@ -226,10 +242,10 @@ func (h *Handler) setCombate(w http.ResponseWriter, r *http.Request) {
 	h.voltarParaCombate(w, r, fmt.Sprintf(
 		"Regra gravada: magia da arma por INT %d%%, multiplicador na magia %s, "+
 			"resistência de monstro %d, skill em jogador %d%%, golpe físico em jogador %d%%, "+
-			"precisão da magia pela INT %d%%, máximo de erros seguidos %s. "+
+			"precisão da magia pela INT %d%%, máximo de erros seguidos %s, bônus de arma %s. "+
 			"O jogo passa a usar em até 15 segundos.",
 		regra.WeaponIntMagicPct, ligadoTexto(regra.SpellDamageMulti), regra.MobResistBase,
-		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak)))
+		regra.PvPSkillPct, regra.PvPMeleePct, regra.SpellIntAccuracyPct, errosTexto(regra.MaxMissStreak), vezesTexto(regra.WeaponDamageGrants)))
 }
 
 // limparCombate drops the row, back to the decided default.
@@ -305,10 +321,16 @@ func combateDoForm(r *http.Request) (combatrule.Rules, string) {
 		return combatrule.Rules{}, fmt.Sprintf("O máximo de erros seguidos precisa ser um número entre %d e %d.",
 			combatrule.MinMissStreak, combatrule.MaxMissStreak)
 	}
+	armaFis, ok := faixaDoForm(r, "arma_fisico", combatrule.MinWeaponDamageGrants, combatrule.MaxWeaponDamageGrants)
+	if !ok {
+		return combatrule.Rules{}, fmt.Sprintf("O bônus de arma no golpe físico precisa ser um número entre %d e %d.",
+			combatrule.MinWeaponDamageGrants, combatrule.MaxWeaponDamageGrants)
+	}
 	return combatrule.Rules{
 		WeaponIntMagicPct: int32(arma), SpellDamageMulti: multi, MobResistBase: int32(resist),
 		PvPSkillPct: pvpSkill, PvPMeleePct: pvpMelee,
 		SpellIntAccuracyPct: precisao, MaxMissStreak: erros,
+		WeaponDamageGrants: armaFis,
 	}, ""
 }
 
@@ -340,6 +362,7 @@ func combateParaAudit(c combatrule.Config) map[string]any {
 		"golpe_em_jogador":       pctTexto(c.Rules.PvPMeleePct),
 		"precisao_pela_int":      pctTexto(c.Rules.SpellIntAccuracyPct),
 		"erros_seguidos":         c.Rules.MaxMissStreak,
+		"bonus_de_arma":          vezesTexto(c.Rules.WeaponDamageGrants),
 	}
 }
 

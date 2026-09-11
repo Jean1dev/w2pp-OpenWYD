@@ -29,6 +29,7 @@ func TestCheckDaRegraDeCombateBateComOCodigo(t *testing.T) {
 		{"0045_combat_rule_pvp.up.sql", "pvp_melee_pct", [2]int{combatrule.MinPvPPct, combatrule.MaxPvPPct}},
 		{"0046_combat_rule_precisao.up.sql", "spell_int_accuracy_pct", [2]int{combatrule.MinSpellIntAccuracy, combatrule.MaxSpellIntAccuracy}},
 		{"0046_combat_rule_precisao.up.sql", "max_miss_streak", [2]int{combatrule.MinMissStreak, combatrule.MaxMissStreak}},
+		{"0052_combat_rule_bonus_arma.up.sql", "weapon_damage_grants", [2]int{combatrule.MinWeaponDamageGrants, combatrule.MaxWeaponDamageGrants}},
 	}
 	for _, c := range casos {
 		b, err := migrations.FS.ReadFile(c.arquivo)
@@ -102,5 +103,22 @@ func TestColunasDePrecisaoNascemNoPadraoDecidido(t *testing.T) {
 		if n, _ := strconv.Atoi(m[1]); int32(n) != quer {
 			t.Errorf("DEFAULT de %s é %d, mas combatrule.Default() diz %d", coluna, n, quer)
 		}
+	}
+}
+
+// TestBonusDeArmaNasceNoPadraoDecidido: a 0052 também nasce no padrão decidido
+// (1), não no legado (3) — a linha já gravada passa a contar o bônus uma vez.
+func TestBonusDeArmaNasceNoPadraoDecidido(t *testing.T) {
+	b, err := migrations.FS.ReadFile("0052_combat_rule_bonus_arma.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	def := regexp.MustCompile(`ADD COLUMN\s+weapon_damage_grants\s+[^,;]*`).FindString(string(b))
+	m := regexp.MustCompile(`DEFAULT\s+(\d+)`).FindStringSubmatch(def)
+	if !strings.Contains(def, "NOT NULL") || m == nil {
+		t.Fatalf("weapon_damage_grants precisa de NOT NULL DEFAULT, achei: %s", def)
+	}
+	if n, _ := strconv.Atoi(m[1]); int32(n) != combatrule.Default().WeaponDamageGrants {
+		t.Errorf("DEFAULT de weapon_damage_grants é %d, mas combatrule.Default() diz %d", n, combatrule.Default().WeaponDamageGrants)
 	}
 }

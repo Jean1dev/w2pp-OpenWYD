@@ -36,6 +36,8 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	regra.PvPSkillPct, regra.PvPMeleePct = 60, 80
 	// E os de precisão fora do padrão (50/2) e do Kersef (0/0).
 	regra.SpellIntAccuracyPct, regra.MaxMissStreak = 30, 4
+	// E o bônus de arma fora do padrão (1) e do Kersef (3).
+	regra.WeaponDamageGrants = 2
 	s := NewCombatRule(&fakeCombatRuleStore{cfg: combatrule.Config{
 		Version: 4, Configured: true, Rules: regra,
 	}})
@@ -59,6 +61,9 @@ func TestCombatRuleServerCarriesEveryKnob(t *testing.T) {
 	if resp.GetSpellIntAccuracyPct() != 30 || resp.GetMaxMissStreak() != 4 {
 		t.Errorf("precisão chegou como %d%% e %d erros, quero 30%% e 4",
 			resp.GetSpellIntAccuracyPct(), resp.GetMaxMissStreak())
+	}
+	if resp.WeaponDamageGrants == nil || resp.GetWeaponDamageGrants() != 2 {
+		t.Errorf("bônus de arma chegou como %v, quero presente e 2", resp.WeaponDamageGrants)
 	}
 }
 

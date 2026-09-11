@@ -57,7 +57,7 @@ const (
 	selectCombatRule = `
 		SELECT weapon_int_magic_pct, spell_damage_multi, mob_resist_base,
 		       pvp_skill_pct, pvp_melee_pct,
-		       spell_int_accuracy_pct, max_miss_streak
+		       spell_int_accuracy_pct, max_miss_streak, weapon_damage_grants
 		  FROM combat_rule WHERE id = TRUE`
 	selectCombatRuleForUpdate = selectCombatRule + ` FOR UPDATE`
 )
@@ -73,7 +73,7 @@ func readCombatRule(ctx context.Context, tx pgx.Tx, version int64, forUpdate boo
 	err := tx.QueryRow(ctx, q).
 		Scan(&cfg.Rules.WeaponIntMagicPct, &cfg.Rules.SpellDamageMulti, &cfg.Rules.MobResistBase,
 			&cfg.Rules.PvPSkillPct, &cfg.Rules.PvPMeleePct,
-			&cfg.Rules.SpellIntAccuracyPct, &cfg.Rules.MaxMissStreak)
+			&cfg.Rules.SpellIntAccuracyPct, &cfg.Rules.MaxMissStreak, &cfg.Rules.WeaponDamageGrants)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return combatrule.Unconfigured(version), nil
@@ -122,8 +122,9 @@ func (s *Store) SetCombatRule(ctx context.Context, r combatrule.Rules, moderator
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO combat_rule (id, weapon_int_magic_pct, spell_damage_multi, mob_resist_base,
 			                         pvp_skill_pct, pvp_melee_pct, spell_int_accuracy_pct, max_miss_streak,
+			                         weapon_damage_grants,
 			                         updated_by, updated_at)
-			VALUES (TRUE, $1, $2, $3, $4, $5, $6, $7, $8, now())
+			VALUES (TRUE, $1, $2, $3, $4, $5, $6, $7, $8, $9, now())
 			ON CONFLICT (id) DO UPDATE SET
 				weapon_int_magic_pct   = EXCLUDED.weapon_int_magic_pct,
 				spell_damage_multi     = EXCLUDED.spell_damage_multi,
@@ -132,10 +133,11 @@ func (s *Store) SetCombatRule(ctx context.Context, r combatrule.Rules, moderator
 				pvp_melee_pct          = EXCLUDED.pvp_melee_pct,
 				spell_int_accuracy_pct = EXCLUDED.spell_int_accuracy_pct,
 				max_miss_streak        = EXCLUDED.max_miss_streak,
+				weapon_damage_grants   = EXCLUDED.weapon_damage_grants,
 				updated_by             = EXCLUDED.updated_by,
 				updated_at             = now()`,
 			r.WeaponIntMagicPct, r.SpellDamageMulti, r.MobResistBase,
-			r.PvPSkillPct, r.PvPMeleePct, r.SpellIntAccuracyPct, r.MaxMissStreak, nullableID(moderatorID)); err != nil {
+			r.PvPSkillPct, r.PvPMeleePct, r.SpellIntAccuracyPct, r.MaxMissStreak, r.WeaponDamageGrants, nullableID(moderatorID)); err != nil {
 			return fmt.Errorf("store: upsert combat rule: %w", err)
 		}
 		return bumpCombatRuleVersion(ctx, tx)

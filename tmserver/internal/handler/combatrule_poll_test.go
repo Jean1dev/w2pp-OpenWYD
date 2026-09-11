@@ -115,6 +115,7 @@ func TestSetCombatRulesDizSeMudou(t *testing.T) {
 		{"precisão de volta ao legado", func(r *combatrule.Rules) { r.SpellIntAccuracyPct = 0 }},
 		{"máximo de erros seguidos", func(r *combatrule.Rules) { r.MaxMissStreak = 5 }},
 		{"erros seguidos desligado", func(r *combatrule.Rules) { r.MaxMissStreak = 0 }},
+		{"bônus de arma no golpe físico", func(r *combatrule.Rules) { r.WeaponDamageGrants = 2 }},
 	} {
 		nova := d.combatRules
 		c.mudar(&nova)

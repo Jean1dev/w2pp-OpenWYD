@@ -223,12 +223,23 @@ func (d *Dispatcher) classWeaponDamage(e *world.Entity) int32 {
 	if table == nil {
 		return 0
 	}
+	// The legacy adds the term once per learned evolution skill (Basedef.cpp:
+	// 3252/3309/3378 for the TK), so a TK, FM or BM with all three carries it
+	// three times: ~6.2K of a 12.6K attack on a +11 TK with 2.802 FOR and a
+	// two-handed sword. The panel caps how many of those grants count
+	// (combatrule.WeaponDamageGrants; decided 1, like the magic term; 3 is the
+	// legacy).
+	grants := d.combatRules.WeaponDamageGrants
 	var total int32
 	for _, bit := range classSkillBits(e.Class) {
+		if grants <= 0 {
+			break
+		}
 		if e.LearnedSkill&(1<<bit) == 0 {
 			continue
 		}
 		total += weaponTableBonus(e.Str, e.Dex, nUnique, table)
+		grants--
 	}
 	return total
 }

@@ -1298,6 +1298,11 @@ message GetCombatRuleResponse {
   // 0..10: skill misses in a row on the same target before the next one is
   // forced to land. 0 turns it off (the legacy). `optional` for the same reason.
   optional int32 max_miss_streak = 9;
+  // 1..3: how many learned evolution skills add the class weapon term (DEX×a +
+  // FOR×b) to the melee Damage. 3 is the legacy (once per skill). `optional`
+  // so a dbServer that predates it maps to combatrule.Default(), not to 0,
+  // which is outside the range and would make the whole rule invalid.
+  optional int32 weapon_damage_grants = 10;
 }
 
 // NpcGeneratorService is the staff switch per NPCGener block

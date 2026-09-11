@@ -9773,8 +9773,13 @@ type GetCombatRuleResponse struct {
 	// 0..10: skill misses in a row on the same target before the next one is
 	// forced to land. 0 turns it off (the legacy). `optional` for the same reason.
 	MaxMissStreak *int32 `protobuf:"varint,9,opt,name=max_miss_streak,json=maxMissStreak,proto3,oneof" json:"max_miss_streak,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// 1..3: how many learned evolution skills add the class weapon term (DEX×a +
+	// FOR×b) to the melee Damage. 3 is the legacy (once per skill). `optional`
+	// so a dbServer that predates it maps to combatrule.Default(), not to 0,
+	// which is outside the range and would make the whole rule invalid.
+	WeaponDamageGrants *int32 `protobuf:"varint,10,opt,name=weapon_damage_grants,json=weaponDamageGrants,proto3,oneof" json:"weapon_damage_grants,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetCombatRuleResponse) Reset() {
@@ -9866,6 +9871,13 @@ func (x *GetCombatRuleResponse) GetSpellIntAccuracyPct() int32 {
 func (x *GetCombatRuleResponse) GetMaxMissStreak() int32 {
 	if x != nil && x.MaxMissStreak != nil {
 		return *x.MaxMissStreak
+	}
+	return 0
+}
+
+func (x *GetCombatRuleResponse) GetWeaponDamageGrants() int32 {
+	if x != nil && x.WeaponDamageGrants != nil {
+		return *x.WeaponDamageGrants
 	}
 	return 0
 }
@@ -11154,7 +11166,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x18CombatRuleVersionRequest\"5\n" +
 	"\x19CombatRuleVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x16\n" +
-	"\x14GetCombatRuleRequest\"\xb6\x03\n" +
+	"\x14GetCombatRuleRequest\"\x86\x04\n" +
 	"\x15GetCombatRuleResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x12\x1e\n" +
 	"\n" +
@@ -11166,9 +11178,12 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\rpvp_skill_pct\x18\x06 \x01(\x05R\vpvpSkillPct\x12\"\n" +
 	"\rpvp_melee_pct\x18\a \x01(\x05R\vpvpMeleePct\x128\n" +
 	"\x16spell_int_accuracy_pct\x18\b \x01(\x05H\x00R\x13spellIntAccuracyPct\x88\x01\x01\x12+\n" +
-	"\x0fmax_miss_streak\x18\t \x01(\x05H\x01R\rmaxMissStreak\x88\x01\x01B\x19\n" +
+	"\x0fmax_miss_streak\x18\t \x01(\x05H\x01R\rmaxMissStreak\x88\x01\x01\x125\n" +
+	"\x14weapon_damage_grants\x18\n" +
+	" \x01(\x05H\x02R\x12weaponDamageGrants\x88\x01\x01B\x19\n" +
 	"\x17_spell_int_accuracy_pctB\x12\n" +
-	"\x10_max_miss_streak\"\x1c\n" +
+	"\x10_max_miss_streakB\x17\n" +
+	"\x15_weapon_damage_grants\"\x1c\n" +
 	"\x1aGeneratorOffVersionRequest\"7\n" +
 	"\x1bGeneratorOffVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\"\x19\n" +

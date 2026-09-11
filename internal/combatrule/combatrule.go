@@ -49,22 +49,31 @@ type Rules struct {
 	// same target before the next one is forced to land. 0 turns it off (the
 	// legacy: every roll stands on its own).
 	MaxMissStreak int32
+	// WeaponDamageGrants caps how many times the class weapon term (DEX×a +
+	// FOR×b by weapon kind, score_derive.go classWeaponDamage) reaches the melee
+	// Damage. The legacy adds it once per learned evolution skill
+	// (Basedef.cpp:3252/3309/3378 for the TK), so a TK, FM or BM with all three
+	// carries it three times — half the attack of a +11 TK. 3 is the legacy; 1
+	// counts it once, the same rule the magic term already follows.
+	WeaponDamageGrants int32
 }
 
 // The ranges each knob may take. They are what makes sense for the formula, not
 // arbitrary: a weapon term above Kersef's own 100% has never been played, and a
 // resist base under 50 would let a resistant monster heal from spells.
 const (
-	MinWeaponIntMagicPct = 0
-	MaxWeaponIntMagicPct = 100
-	MinMobResistBase     = 50
-	MaxMobResistBase     = 150
-	MinPvPPct            = 1
-	MaxPvPPct            = 200
-	MinSpellIntAccuracy  = 0
-	MaxSpellIntAccuracy  = 100
-	MinMissStreak        = 0
-	MaxMissStreak        = 10
+	MinWeaponIntMagicPct  = 0
+	MaxWeaponIntMagicPct  = 100
+	MinMobResistBase      = 50
+	MaxMobResistBase      = 150
+	MinPvPPct             = 1
+	MaxPvPPct             = 200
+	MinSpellIntAccuracy   = 0
+	MaxSpellIntAccuracy   = 100
+	MinMissStreak         = 0
+	MaxMissStreak         = 10
+	MinWeaponDamageGrants = 1
+	MaxWeaponDamageGrants = 3
 
 	// LegacyMobResistBase is the constant the original applies to everyone.
 	LegacyMobResistBase = 150
@@ -73,14 +82,14 @@ const (
 // Default is the rule in force when nobody has configured one.
 func Default() Rules {
 	return Rules{WeaponIntMagicPct: 0, SpellDamageMulti: false, MobResistBase: 100, PvPSkillPct: 100, PvPMeleePct: 100,
-		SpellIntAccuracyPct: 50, MaxMissStreak: 2}
+		SpellIntAccuracyPct: 50, MaxMissStreak: 2, WeaponDamageGrants: 1}
 }
 
 // Kersef is the rule as ported, kept so the panel can show — and restore — what
 // the server did before the decision.
 func Kersef() Rules {
 	return Rules{WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: LegacyMobResistBase, PvPSkillPct: 100, PvPMeleePct: 100,
-		SpellIntAccuracyPct: 0, MaxMissStreak: 0}
+		SpellIntAccuracyPct: 0, MaxMissStreak: 0, WeaponDamageGrants: MaxWeaponDamageGrants}
 }
 
 // Valid reports whether every knob is inside its range.
@@ -90,7 +99,8 @@ func (r Rules) Valid() bool {
 		r.PvPSkillPct >= MinPvPPct && r.PvPSkillPct <= MaxPvPPct &&
 		r.PvPMeleePct >= MinPvPPct && r.PvPMeleePct <= MaxPvPPct &&
 		r.SpellIntAccuracyPct >= MinSpellIntAccuracy && r.SpellIntAccuracyPct <= MaxSpellIntAccuracy &&
-		r.MaxMissStreak >= MinMissStreak && r.MaxMissStreak <= MaxMissStreak
+		r.MaxMissStreak >= MinMissStreak && r.MaxMissStreak <= MaxMissStreak &&
+		r.WeaponDamageGrants >= MinWeaponDamageGrants && r.WeaponDamageGrants <= MaxWeaponDamageGrants
 }
 
 // Config is the rule as the panel left it (migration 0044_combat_rule), plus the

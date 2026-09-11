@@ -33,11 +33,13 @@ func TestCombatRuleFetch(t *testing.T) {
 				WeaponIntMagicPct: 30, SpellDamageMulti: true, MobResistBase: 120,
 				PvpSkillPct: 60, PvpMeleePct: 80,
 				SpellIntAccuracyPct: proto.Int32(30), MaxMissStreak: proto.Int32(4),
+				WeaponDamageGrants: proto.Int32(2),
 			},
 			want: combatrule.Config{Version: 6, Configured: true, Rules: combatrule.Rules{
 				WeaponIntMagicPct: 30, SpellDamageMulti: true, MobResistBase: 120,
 				PvPSkillPct: 60, PvPMeleePct: 80,
 				SpellIntAccuracyPct: 30, MaxMissStreak: 4,
+				WeaponDamageGrants: 2,
 			}},
 		},
 		{
@@ -73,6 +75,7 @@ func TestCombatRuleFetch(t *testing.T) {
 				WeaponIntMagicPct: 100, SpellDamageMulti: true, MobResistBase: 150,
 				PvpSkillPct: 100, PvpMeleePct: 100,
 				SpellIntAccuracyPct: proto.Int32(0), MaxMissStreak: proto.Int32(0),
+				WeaponDamageGrants: proto.Int32(3),
 			},
 			want: combatrule.Config{Version: 9, Configured: true, Rules: combatrule.Kersef()},
 		},
@@ -105,11 +108,31 @@ func TestCombatRuleFetch(t *testing.T) {
 }
 
 // kersefComPrecisaoPadrao is Kersef as read from a dbServer that predates the
-// precision fields: everything it sent, plus the decided default for the two it
-// did not.
+// precision and weapon-grant fields: everything it sent, plus the decided
+// default for the three it did not.
 func kersefComPrecisaoPadrao() combatrule.Rules {
 	r := combatrule.Kersef()
 	r.SpellIntAccuracyPct = combatrule.Default().SpellIntAccuracyPct
 	r.MaxMissStreak = combatrule.Default().MaxMissStreak
+	r.WeaponDamageGrants = combatrule.Default().WeaponDamageGrants
 	return r
+}
+
+// TestBonusDeArmaAusenteEOPadrao: um dbServer anterior ao campo não manda o bônus
+// de arma, e o zero que o Go leria está fora da faixa (1 a 3) — invalidaria a
+// regra inteira. Ausente é o padrão decidido, o mesmo que a 0052 dá à linha.
+func TestBonusDeArmaAusenteEOPadrao(t *testing.T) {
+	src := &CombatRuleSource{api: &fakeCombatRuleClient{resp: &dbv1.GetCombatRuleResponse{
+		Version: 10, Configured: true,
+		WeaponIntMagicPct: 0, MobResistBase: 100, PvpSkillPct: 100, PvpMeleePct: 100,
+		SpellIntAccuracyPct: proto.Int32(50), MaxMissStreak: proto.Int32(2),
+	}}}
+	got, err := src.Fetch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Rules.WeaponDamageGrants != combatrule.Default().WeaponDamageGrants || !got.Rules.Valid() {
+		t.Errorf("bônus de arma ausente = %d (válida %v), want o padrão %d",
+			got.Rules.WeaponDamageGrants, got.Rules.Valid(), combatrule.Default().WeaponDamageGrants)
+	}
 }

@@ -54,5 +54,6 @@ func (s *CombatRuleServer) GetCombatRule(ctx context.Context, _ *dbv1.GetCombatR
 		// dbServer from one that predates the fields (see the proto).
 		SpellIntAccuracyPct: proto.Int32(cfg.Rules.SpellIntAccuracyPct),
 		MaxMissStreak:       proto.Int32(cfg.Rules.MaxMissStreak),
+		WeaponDamageGrants:  proto.Int32(cfg.Rules.WeaponDamageGrants),
 	}, nil
 }

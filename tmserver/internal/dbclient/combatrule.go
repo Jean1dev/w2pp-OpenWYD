@@ -56,6 +56,7 @@ func (c *CombatRuleSource) Fetch(ctx context.Context) (combatrule.Config, error)
 			PvPMeleePct:         pvpPct(resp.GetPvpMeleePct()),
 			SpellIntAccuracyPct: presentOr(resp.SpellIntAccuracyPct, padrao.SpellIntAccuracyPct),
 			MaxMissStreak:       presentOr(resp.MaxMissStreak, padrao.MaxMissStreak),
+			WeaponDamageGrants:  presentOr(resp.WeaponDamageGrants, padrao.WeaponDamageGrants),
 		},
 	}, nil
 }
