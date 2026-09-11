@@ -1,4 +1,4 @@
--- 0051_castelo_orc_drops — o saque da quest do Castelo Orc e a chave que a abre.
+-- 0053_castelo_orc_drops — o saque da quest do Castelo Orc e a chave que a abre.
 --
 -- Os oito templates COrc_* (Release/TMsrv/run/npc) nascem sem drop próprio: o
 -- Carry deles só guarda uma chave de portão em cada guardião (slot 56, sempre).

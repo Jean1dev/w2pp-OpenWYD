@@ -8,7 +8,7 @@ party e as decisões ficam no artefato "Atlas de Quests W2PP".
 ## Estado
 
 ✅ Os oito monstros da quest (templates `COrc_*`) <br/>
-✅ O saque e a chave na Mesa de Drops (migração `0051_castelo_orc_drops`) <br/>
+✅ O saque e a chave na Mesa de Drops (migração `0053_castelo_orc_drops`) <br/>
 ✅ 0 XP para os monstros da quest <br/>
 ✅ Amuleto com add sorteado <br/>
 ✅ A corrida: o Xamã Orc abre o castelo com a Chave Portão Orc Sul, um grupo por

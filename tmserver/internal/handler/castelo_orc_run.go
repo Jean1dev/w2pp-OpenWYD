@@ -28,7 +28,7 @@ import (
 const (
 	// itemChaveCasteloOrc is the entry key: Chave_Portão_Orc_Sul, the first of the
 	// legacy castle's four gate keys. Where it drops is the Mesa de Drops' call
-	// (migration 0051): the Quest 256 Hydra and Elf arenas and the Desert.
+	// (migration 0053): the Quest 256 Hydra and Elf arenas and the Desert.
 	itemChaveCasteloOrc = 465
 	gradeCasteloOrc     = 40 // the Xamã Orc's EF_GRADE0 (Merchant 100); no shipped template uses 40
 

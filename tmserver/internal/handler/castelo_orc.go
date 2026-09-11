@@ -9,7 +9,7 @@ import (
 // blocks world.CasteloOrcGenFirst..Last). The quest is a new rule, not the
 // legacy's: a run through Erion's castle, sized for Mortals 320-400, that pays
 // in gold and loot and never in experience. The loot table is the Mesa de
-// Drops (migration 0051); what the table cannot say — the stat roll on an
+// Drops (migration 0053); what the table cannot say — the stat roll on an
 // amulet or a ring — is finished here.
 //
 // Keyed on the template FILE, as the Mesa de Drops is, so a GM's "criar" or a

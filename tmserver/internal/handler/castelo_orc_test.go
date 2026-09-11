@@ -262,7 +262,7 @@ func TestCasteloOrcMigracaoDeDrops(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := migrations.FS.ReadFile("0051_castelo_orc_drops.up.sql")
+	b, err := migrations.FS.ReadFile("0053_castelo_orc_drops.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
