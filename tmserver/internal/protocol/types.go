@@ -81,6 +81,7 @@ const (
 	MsgDeleteItem          Type = 0x02E4 // 228  destroy a carry item (_MSG_DeleteItem)
 	MsgSplitItem           Type = 0x02E5 // 229  split a stack (_MSG_SplitItem)
 	MsgUpdateItem          Type = 0x0374 // 116  C↔S gate/door open (_MSG_UpdateItem)
+	MsgCreateItem          Type = 0x026E // 110  S→C world object in view (_MSG_CreateItem; the legacy flags it C2G)
 	MsgSendAffect          Type = 0x03B9 // 953  buff/debuff snapshot (STRUCT_AFFECT[32])
 	MsgTradingItem         Type = 0x0376 // 886
 	MsgTrade               Type = 0x0383 // 899

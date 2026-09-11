@@ -94,6 +94,7 @@ func TestMessageTypeValues(t *testing.T) {
 		{"_MSG_CreateMob (Basedef.h:1917)", MsgCreateMob, 100 | flagGame2Client | flagClient2Game},
 		{"_MSG_RemoveMob (Basedef.h:1946)", MsgRemoveMob, 101 | flagGame2Client},
 		{"_MSG_PKInfo (Basedef.h:1954)", MsgPKInfo, 102 | flagGame2Client},
+		{"_MSG_CreateItem (Basedef.h:1956)", MsgCreateItem, 110 | flagClient2Game},
 		{"_MSG_PKMode (Basedef.h:2164)", MsgPKMode, 153 | flagGame2Client | flagClient2Game},
 		{"_MSG_SendItem (Basedef.h:2036)", MsgSendItem, 130 | flagGame2Client},
 		{"_MSG_UpdateCarry (Basedef.h:1813)", MsgUpdateCarry, 133 | flagGame2Client},

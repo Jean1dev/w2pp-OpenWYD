@@ -1029,6 +1029,7 @@ func seedWorldItems(w *world.World, dir string, logger *slog.Logger) {
 		// Gates seed open (parity with CreateItem); locking arrives with the deferred
 		// event/timer systems. SeedWorldItem returns -1 only when the id table is full.
 		if id := w.SeedWorldItem(world.Item{Index: it.Index}, it.PosX, it.PosY, world.StateOpen); id >= 0 {
+			w.GroundItem(id).Rotate = it.Rotate // MSG_CreateItem carries it (the Castelo Orc gate)
 			seeded++
 		}
 	}

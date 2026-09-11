@@ -1041,6 +1041,53 @@ func (m *MsgUpdateItemBody) Encode() []byte {
 	return b
 }
 
+// CreateItemData is MSG_CreateItem (Basedef.h:1957-1971): a world object — a
+// gate, a door — the client should draw at (GridX, GridY). ItemID is the ground
+// id + GroundItemIDOffset, the same number the client sends back in
+// MSG_UpdateItem. State is the gate state (1 open, 3 locked). Height is what
+// GetCreateItem (GetFunc.cpp:1321) puts there: -204 (0x34 once it is a byte) for a
+// closed gate, the ground height under it for an open one.
+type CreateItemData struct {
+	GridX, GridY uint16
+	ItemID       uint16
+	Item         WireItem
+	Rotate       uint8
+	State        uint8
+	Height       uint8
+	Create       uint8
+}
+
+// CreateItemBodySize is the body after the 12-byte header: sizeof(MSG_CreateItem)
+// is 30. A shorter frame makes the client read past it (pacote curto).
+const CreateItemBodySize = 18
+
+// EncodeCreateItemBody writes an MSG_CreateItem body.
+func EncodeCreateItemBody(d CreateItemData) []byte {
+	b := make([]byte, CreateItemBodySize)
+	le.PutUint16(b[0:2], d.GridX)
+	le.PutUint16(b[2:4], d.GridY)
+	le.PutUint16(b[4:6], d.ItemID)
+	encodeWireItem(b[6:14], d.Item)
+	b[14] = d.Rotate
+	b[15] = d.State
+	b[16] = d.Height
+	b[17] = d.Create
+	return b
+}
+
+// DecayItemBodySize is MSG_DecayItem's body (Basedef.h:1974-1980): ItemID and a
+// short the legacy always zeroes.
+const DecayItemBodySize = 4
+
+// EncodeDecayItemBody writes an MSG_DecayItem body: the world object ItemID
+// (ground id + GroundItemIDOffset) leaves the client's view (SendRemoveItem,
+// SendFunc.cpp:618).
+func EncodeDecayItemBody(itemID uint16) []byte {
+	b := make([]byte, DecayItemBodySize)
+	le.PutUint16(b[0:2], itemID)
+	return b
+}
+
 // MsgAccountSecureBody — MSG_AccountSecure (C↔S, 0x0FDE), Basedef.h:1588-1595: the
 // numeric PIN. NumericToken is the (legacy-plaintext) 6-char PIN; ChangeNumeric is
 // 0 to verify, 1 to set/change. The PIN is never persisted in plaintext — the

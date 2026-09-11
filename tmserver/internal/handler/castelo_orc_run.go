@@ -9,22 +9,22 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
-// The Castelo Orc run: a new rule, not the legacy's. A party leader hands the
-// Xamã Orc the Chave Portão Orc Sul; the castle is emptied of its open-world
-// orcs and of anyone outside the party, the quest's own monsters rise (world blocks
-// CasteloOrcGenFirst..Last) and the party is dropped at the south-west wall with
+// The Castelo Orc run: a new rule, not the legacy's. A party leader uses the
+// Chave Portão Orc Sul on the Portão Orc Sul (or hands it to the Xamã Orc beside
+// it); the gate opens, the castle is emptied of its open-world orcs and of
+// anyone outside the party, the quest's own monsters rise (world blocks
+// CasteloOrcGenFirst..Last) and the party is dropped just inside the arch with
 // fifteen minutes on the clock. One party at a time, server-wide, like the Sala
 // Secreta: the castle, its blocks and the sweep are shared.
 //
 // It ends on the clock, two minutes after the Grão-Lorde falls (the loot
 // window), or a minute after the last member left the castle. Then the quest's
-// monsters go, whoever is still inside is sent back to the /erion landing, and
-// the open-world orcs refill on their own generator timers.
+// monsters go, the gate locks, whoever is still inside is sent back to the
+// /erion landing, and the open-world orcs refill on their own generator timers.
 //
-// Not modeled yet: the gates relocking behind the party (the server never sends
-// a gate to the client), a completion prize, and any level or tier gate.
-// Nothing survives a restart — a boot mid-run simply ends it, as with the Água
-// and the Carta.
+// Not modeled yet: a completion prize and any level or tier gate. Nothing
+// survives a restart — a boot mid-run simply ends it, as with the Água and the
+// Carta.
 const (
 	// itemChaveCasteloOrc is the entry key: Chave_Portão_Orc_Sul, the first of the
 	// legacy castle's four gate keys. Where it drops is the Mesa de Drops' call
@@ -58,16 +58,17 @@ const (
 var casteloOrcBox = areaBox{2430, 2045, 2562, 2166}
 
 var (
-	// casteloOrcEntry is where the party lands: an Orc_Arqueiro_ spawn by the
-	// south-west wall, a few steps from the Sentinela, the first guardian.
-	casteloOrcEntry = [2]int16{2446, 2134}
+	// casteloOrcEntry is where the party lands: under the arch of the Portão Sul,
+	// inside the walled yard the Capitão guards. Until 11/09/2026 it was
+	// (2446,2134), an Orc_Arqueiro_ spawn that turned out to be outside the west
+	// wall.
+	casteloOrcEntry = [2]int16{2494, 2128}
 	// casteloOrcExit is the /erion landing (chat.go), where a finished run
 	// sends everyone back.
 	casteloOrcExit = [2]int16{2461, 2003}
 	// casteloOrcNPC puts the Xamã in the arch of the Portão Sul (gate 462 at
 	// 2487,2129), on the Sentinela's side: the castle's own door is where its
-	// key is handed over. The server still sends no gate to the client, so the
-	// arch stands empty until that lands.
+	// key is handed over.
 	casteloOrcNPC = [2]int16{2484, 2129}
 )
 
@@ -115,13 +116,20 @@ func (d *Dispatcher) casteloOrcSuppresses(idx int) bool {
 
 // casteloOrcQuestNPC is the Xamã Orc (Merchant 100, grade 40).
 func (d *Dispatcher) casteloOrcQuestNPC(w *world.World, s *world.Session, e, npc *world.Entity) {
+	d.casteloOrcTryOpen(w, s, e, func(text string) { sendSay(w, npc, text) })
+}
+
+// casteloOrcTryOpen opens a run for e's party when the castle is free, e leads
+// (or plays alone) and carries the key, which is consumed. The Xamã and the gate
+// share it; say is where each one answers.
+func (d *Dispatcher) casteloOrcTryOpen(w *world.World, s *world.Session, e *world.Entity, say func(string)) {
 	if d.casteloOrc.active {
-		sendSay(w, npc, fmt.Sprintf("Um grupo já está no castelo. Volte em %d min.", (d.casteloOrc.secondsLeft+59)/60))
+		say(fmt.Sprintf("Um grupo já está no castelo. Volte em %d min.", (d.casteloOrc.secondsLeft+59)/60))
 		return
 	}
 	// Members carry their leader's conn; only a leader or a soloist opens a run.
 	if e.Leader != 0 {
-		sendSay(w, npc, "Só o líder do grupo pode abrir o castelo.")
+		say("Só o líder do grupo pode abrir o castelo.")
 		return
 	}
 	slot := -1
@@ -134,13 +142,13 @@ func (d *Dispatcher) casteloOrcQuestNPC(w *world.World, s *world.Session, e, npc
 	if slot < 0 {
 		// The catalog spells names with underscores; the NPC says them with spaces.
 		key := strings.ReplaceAll(d.itemName(itemChaveCasteloOrc), "_", " ")
-		sendSay(w, npc, fmt.Sprintf("Traga a %s para abrir o castelo.", key))
+		say(fmt.Sprintf("Traga a %s para abrir o castelo.", key))
 		return
 	}
 	consumeOneItem(&e.Carry[slot])
 	d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
 	d.openCasteloOrc(w, e)
-	sendSay(w, npc, "O castelo é de vocês por 15 minutos.")
+	say("O castelo é de vocês por 15 minutos.")
 }
 
 // openCasteloOrc starts a run for e's party.
@@ -180,10 +188,17 @@ func (d *Dispatcher) openCasteloOrc(w *world.World, e *world.Entity) {
 			spawned += len(ids)
 		}
 	}
+	d.setCasteloOrcGate(w, world.StateOpen)
 
 	for _, conn := range party {
 		if s := w.Session(conn); s != nil {
-			d.doTeleport(w, s, casteloOrcEntry[0], casteloOrcEntry[1])
+			// A cell each: a teleport onto an occupied cell wipes its occupant off
+			// the grid (SetEntityPos).
+			x, y, ok := w.EmptyCellNear(casteloOrcEntry[0], casteloOrcEntry[1])
+			if !ok {
+				x, y = casteloOrcEntry[0], casteloOrcEntry[1]
+			}
+			d.doTeleport(w, s, x, y)
 			d.sendCasteloOrcCountdown(w, s)
 			sendClientMessage(w, s, "Castelo Orc: 15 minutos. Derrube o Grão-Lorde.")
 		}
@@ -222,12 +237,12 @@ func (d *Dispatcher) casteloOrcSweep(w *world.World, strangersOnly bool) {
 // sendCasteloOrcCountdown sends the run's clock: the same MsgStartTime, in the
 // same unit (seconds), as the water rooms and the Pesadelo send.
 //
-// The 7662 client does NOT draw it here. WYD.exe shows that counter only on a
-// fixed list of fifteen 128×128 map fields (the draw loop at 0x47DAA4 compares
+// The stock 7662 client does NOT draw it here. WYD.exe shows that counter only on
+// a fixed list of fifteen 128×128 map fields (the draw loop at 0x47DAA4 compares
 // the current field against hardcoded pairs — Água, Pesadelo, Carta, Duelo…)
 // and hides it anywhere else; the castle sits on field (19,16), which is not on
-// the list. It is still sent, so a client patch that adds the field lights it
-// up with no server change. Until then the minutes go out as text on the resync.
+// the list. The GamePatch.dll adds the field (client/gamepatch/timerfields.cpp);
+// a client without it sees only the minutes that go out as text on the resync.
 func (d *Dispatcher) sendCasteloOrcCountdown(w *world.World, s *world.Session) {
 	body := protocol.EncodeStandardParm(int32(d.casteloOrc.secondsLeft))
 	w.SendTo(s, protocol.Header{Type: protocol.MsgStartTime, ID: protocol.IDScene}, body)
@@ -307,7 +322,8 @@ func (d *Dispatcher) casteloOrcBossKilled(w *world.World, mob *world.Entity) {
 	d.log.Info("castelo orc boss down", "leader", r.leaderName)
 }
 
-// endCasteloOrc takes the quest's monsters away and empties the castle.
+// endCasteloOrc takes the quest's monsters away, locks the gate and empties the
+// castle.
 func (d *Dispatcher) endCasteloOrc(w *world.World, why string) {
 	for idx := world.CasteloOrcGenFirst; idx <= world.CasteloOrcGenLast; idx++ {
 		w.ClearGenerator(idx)
@@ -315,6 +331,7 @@ func (d *Dispatcher) endCasteloOrc(w *world.World, why string) {
 	d.casteloOrcSweep(w, false)
 	d.log.Info("castelo orc finished", "leader", d.casteloOrc.leaderName, "why", why, "boss_down", d.casteloOrc.bossDown)
 	d.casteloOrc = casteloOrcRun{}
+	d.setCasteloOrcGate(w, world.StateLocked)
 }
 
 // ensureCasteloOrcNPC raises the Xamã at the Portão Sul arch when it is not

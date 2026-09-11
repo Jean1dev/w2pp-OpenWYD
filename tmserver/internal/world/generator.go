@@ -174,15 +174,16 @@ func IsSecretRoomGenerator(idx int) bool {
 }
 
 // CasteloOrcGenFirst/Last bound the Castelo Orc quest blocks, appended at the
-// end of NPCGener.txt (boss, followers, three gate guardians, three troop
-// blocks — handler/castelo_orc.go). They are the quest's own monsters, sized for
+// end of NPCGener.txt (boss, followers, three gate guardians, and twelve troop
+// blocks of five on the legacy castle's own inner spawn points —
+// handler/castelo_orc.go). They are the quest's own monsters, sized for
 // Mortals 320-400: populated at boot they would stand in Erion's open castle
 // for everyone, and on the 15s respawn queue they would come back behind
 // anybody who cleared them. Until the quest spawns them itself, a GM raises
 // them with "gerar <bloco> aqui" or "criar <template>".
 const (
 	CasteloOrcGenFirst = 6099
-	CasteloOrcGenLast  = 6106
+	CasteloOrcGenLast  = 6115
 )
 
 // IsCasteloOrcGenerator reports whether a block belongs to the Castelo Orc quest.

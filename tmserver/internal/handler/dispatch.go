@@ -414,6 +414,10 @@ type Dispatcher struct {
 	casteloOrc        casteloOrcRun
 	casteloOrcNPCTmpl []byte
 	casteloOrcNPCID   int
+	// casteloOrcGateID is the ground id of the Portão Orc Sul (InitItem 462),
+	// looked up on first use (castelo_orc_gate.go): 0 before that, -1 when
+	// InitItem.csv did not seed it.
+	casteloOrcGateID int
 }
 
 // worldEventRNGSeed is the fallback seed for eventRNG, used when Config leaves

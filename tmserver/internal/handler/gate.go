@@ -40,6 +40,12 @@ func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Hea
 	if g == nil || !g.Static {
 		return // not a gate
 	}
+	// The Castelo Orc run's door (castelo_orc_gate.go): its key starts a run, and
+	// the run, not the click, opens and locks it.
+	if cg := d.casteloOrcGate(w); cg != nil && cg.ID == id {
+		d.casteloOrcGateRequest(w, s, e)
+		return
+	}
 
 	// Key gate: only when the gate is (or is being set) locked AND it carries a key
 	// requirement. itemAbility includes catalog base effects because static gates

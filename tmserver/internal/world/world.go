@@ -175,6 +175,7 @@ type World struct {
 	sessions []*Session    // index = conn ∈ [0, MaxUser)
 	entities []*Entity     // index space shared with players (domain-model.md §1)
 	ground   []*GroundItem // pItem[]: items on the floor, index ∈ [1, MaxItem)
+	static   []int         // ground ids of the seeded world objects (gates/doors), in seed order
 	grid     *Grid
 	rng      *rng.MSVC // loop-owned MSVC LCG (parity; like the original global rand())
 

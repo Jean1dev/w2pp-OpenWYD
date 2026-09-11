@@ -158599,85 +158599,357 @@
 // ********************************************
 #	[6104]
 	MinuteGenerate:	-1
-	MaxNumMob:	20
-	MinGroup:	3
+	MaxNumMob:	5
+	MinGroup:	4
 	MaxGroup:	4
 	Leader:		COrc_Cavaleiro
 	Follower:	COrc_Cavaleiro
 	RouteType:	2
 	Formation:	0
-	StartX:		2470
-	StartY:		2105
-	StartRange:	8
+	StartX:		2493
+	StartY:		2116
+	StartRange:	2
 	StartWait:	9
-	Segment1X:	2470
-	Segment1Y:	2105
-	Segment1Range:	8
+	Segment1X:	2493
+	Segment1Y:	2116
+	Segment1Range:	2
 	Segment1Wait:	5
-	Segment2X:	2470
-	Segment2Y:	2105
-	Segment2Range:	8
+	Segment2X:	2493
+	Segment2Y:	2116
+	Segment2Range:	2
 	Segment2Wait:	8
-	DestX:		2470
-	DestY:		2105
-	DestRange:	8
+	DestX:		2493
+	DestY:		2116
+	DestRange:	2
 	DestWait:	6
 
 
-// Castelo Orc (quest): tropa de Arqueiros. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// Castelo Orc (quest): tropa COrc_Arqueiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
 // ********************************************
+
 #	[6105]
 	MinuteGenerate:	-1
-	MaxNumMob:	20
-	MinGroup:	3
+	MaxNumMob:	5
+	MinGroup:	4
 	MaxGroup:	4
 	Leader:		COrc_Arqueiro
 	Follower:	COrc_Arqueiro
 	RouteType:	2
 	Formation:	0
-	StartX:		2495
-	StartY:		2140
-	StartRange:	8
+	StartX:		2492
+	StartY:		2134
+	StartRange:	2
 	StartWait:	9
-	Segment1X:	2495
-	Segment1Y:	2140
-	Segment1Range:	8
+	Segment1X:	2492
+	Segment1Y:	2134
+	Segment1Range:	2
 	Segment1Wait:	5
-	Segment2X:	2495
-	Segment2Y:	2140
-	Segment2Range:	8
+	Segment2X:	2492
+	Segment2Y:	2134
+	Segment2Range:	2
 	Segment2Wait:	8
-	DestX:		2495
-	DestY:		2140
-	DestRange:	8
+	DestX:		2492
+	DestY:		2134
+	DestRange:	2
 	DestWait:	6
 
 
-// Castelo Orc (quest): tropa de Meio Orcs. Bloco de evento: não nasce no boot nem renasce sozinho (world.IsCasteloOrcGenerator).
+// Castelo Orc (quest): tropa COrc_MeioOrc num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
 // ********************************************
+
 #	[6106]
 	MinuteGenerate:	-1
-	MaxNumMob:	20
-	MinGroup:	3
+	MaxNumMob:	5
+	MinGroup:	4
 	MaxGroup:	4
 	Leader:		COrc_MeioOrc
 	Follower:	COrc_MeioOrc
 	RouteType:	2
 	Formation:	0
-	StartX:		2515
-	StartY:		2085
-	StartRange:	8
+	StartX:		2512
+	StartY:		2124
+	StartRange:	2
 	StartWait:	9
-	Segment1X:	2515
-	Segment1Y:	2085
-	Segment1Range:	8
+	Segment1X:	2512
+	Segment1Y:	2124
+	Segment1Range:	2
 	Segment1Wait:	5
-	Segment2X:	2515
-	Segment2Y:	2085
-	Segment2Range:	8
+	Segment2X:	2512
+	Segment2Y:	2124
+	Segment2Range:	2
 	Segment2Wait:	8
-	DestX:		2515
-	DestY:		2085
-	DestRange:	8
+	DestX:		2512
+	DestY:		2124
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_Cavaleiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6107]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_Cavaleiro
+	Follower:	COrc_Cavaleiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2523
+	StartY:		2112
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2523
+	Segment1Y:	2112
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2523
+	Segment2Y:	2112
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2523
+	DestY:		2112
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_Arqueiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6108]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_Arqueiro
+	Follower:	COrc_Arqueiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2513
+	StartY:		2127
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2513
+	Segment1Y:	2127
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2513
+	Segment2Y:	2127
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2513
+	DestY:		2127
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_MeioOrc num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6109]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_MeioOrc
+	Follower:	COrc_MeioOrc
+	RouteType:	2
+	Formation:	0
+	StartX:		2526
+	StartY:		2121
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2526
+	Segment1Y:	2121
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2526
+	Segment2Y:	2121
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2526
+	DestY:		2121
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_Cavaleiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6110]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_Cavaleiro
+	Follower:	COrc_Cavaleiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2514
+	StartY:		2141
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2514
+	Segment1Y:	2141
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2514
+	Segment2Y:	2141
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2514
+	DestY:		2141
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_Arqueiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6111]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_Arqueiro
+	Follower:	COrc_Arqueiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2509
+	StartY:		2143
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2509
+	Segment1Y:	2143
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2509
+	Segment2Y:	2143
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2509
+	DestY:		2143
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_MeioOrc num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6112]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_MeioOrc
+	Follower:	COrc_MeioOrc
+	RouteType:	2
+	Formation:	0
+	StartX:		2531
+	StartY:		2112
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2531
+	Segment1Y:	2112
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2531
+	Segment2Y:	2112
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2531
+	DestY:		2112
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_Cavaleiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6113]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_Cavaleiro
+	Follower:	COrc_Cavaleiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2536
+	StartY:		2143
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2536
+	Segment1Y:	2143
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2536
+	Segment2Y:	2143
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2536
+	DestY:		2143
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_Arqueiro num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6114]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_Arqueiro
+	Follower:	COrc_Arqueiro
+	RouteType:	2
+	Formation:	0
+	StartX:		2524
+	StartY:		2140
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2524
+	Segment1Y:	2140
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2524
+	Segment2Y:	2140
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2524
+	DestY:		2140
+	DestRange:	2
+	DestWait:	6
+
+
+// Castelo Orc (quest): tropa COrc_MeioOrc num ponto de spawn do castelo do legado. Bloco de evento (world.IsCasteloOrcGenerator).
+// ********************************************
+
+#	[6115]
+	MinuteGenerate:	-1
+	MaxNumMob:	5
+	MinGroup:	4
+	MaxGroup:	4
+	Leader:		COrc_MeioOrc
+	Follower:	COrc_MeioOrc
+	RouteType:	2
+	Formation:	0
+	StartX:		2522
+	StartY:		2153
+	StartRange:	2
+	StartWait:	9
+	Segment1X:	2522
+	Segment1Y:	2153
+	Segment1Range:	2
+	Segment1Wait:	5
+	Segment2X:	2522
+	Segment2Y:	2153
+	Segment2Range:	2
+	Segment2Wait:	8
+	DestX:		2522
+	DestY:		2153
+	DestRange:	2
 	DestWait:	6
 

@@ -59,6 +59,9 @@ type GroundItem struct {
 	Mode   int
 	State  int16 // gate state for Static world objects (STATE_OPEN/STATE_LOCKED); 0 for dropped items
 	Static bool  // true for boot-seeded gates/doors: never picked up or decayed
+	// Rotate is the InitItem rotation (its 4th column), which MSG_CreateItem
+	// carries: it turns the gate model and its ground mask. 0 for dropped items.
+	Rotate int16
 }
 
 // CreateGroundItem places item on the floor at (x,y) and indexes it in the
@@ -108,10 +111,22 @@ func (w *World) SeedWorldItem(item Item, x, y, state int16) int {
 	for id := 1; id < MaxItem; id++ {
 		if w.ground[id] == nil {
 			w.ground[id] = &GroundItem{ID: id, Item: item, X: x, Y: y, Mode: 1, State: state, Static: true}
+			w.static = append(w.static, id)
 			return id
 		}
 	}
 	return -1
+}
+
+// ForEachStaticItem calls fn for every seeded world object (gate/door), in seed
+// order. They are few (InitItem.csv) and never on the item grid, so this list is
+// how the view code finds the ones near a player. Loop-only.
+func (w *World) ForEachStaticItem(fn func(g *GroundItem)) {
+	for _, id := range w.static {
+		if g := w.ground[id]; g != nil {
+			fn(g)
+		}
+	}
 }
 
 // GroundItem returns the floor item with the given id, or nil.

@@ -51,8 +51,8 @@ func casteloOrcFixture(t *testing.T) (*Dispatcher, *world.World, *world.Session,
 	gens[casteloOrcBossGen+2] = casteloOrcBlock("COrc_Sentinela", 2470, 2133, 1, 0)
 	gens[casteloOrcBossGen+3] = casteloOrcBlock("COrc_Capitao", 2499, 2118, 1, 0)
 	gens[casteloOrcBossGen+4] = casteloOrcBlock("COrc_Chefe", 2533, 2157, 1, 0)
-	for i, x := range []int16{2470, 2495, 2515} {
-		gens[casteloOrcBossGen+5+i] = casteloOrcBlock("COrc_Tropa", x, 2105, 20, 3)
+	for gen := casteloOrcBossGen + 5; gen <= world.CasteloOrcGenLast; gen++ {
+		gens[gen] = casteloOrcBlock("COrc_Tropa", int16(2490+2*(gen-casteloOrcBossGen)), 2130, 5, 4)
 	}
 	w.RegisterGenerators(gens)
 	w.GenerateMob(402)
@@ -133,8 +133,8 @@ func TestCasteloOrcChaveAbreOCastelo(t *testing.T) {
 		t.Errorf("boss %d, seguidores %d; want 1 e 4", live(w, casteloOrcBossGen), live(w, casteloOrcFollowerGen))
 	}
 	for gen := casteloOrcBossGen + 5; gen <= world.CasteloOrcGenLast; gen++ {
-		if live(w, gen) != 20 {
-			t.Errorf("bloco de tropa %d com %d mobs, want 20", gen, live(w, gen))
+		if live(w, gen) != 5 {
+			t.Errorf("bloco de tropa %d com %d mobs, want 5", gen, live(w, gen))
 		}
 	}
 }

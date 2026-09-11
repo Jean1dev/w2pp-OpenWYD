@@ -645,6 +645,8 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	})
 	// (C) the newcomer sees the NPCs/monsters in view.
 	d.revealMobsInView(w, s)
+	// (D) and the Castelo Orc gate, when it stands in view.
+	d.syncCasteloOrcGate(w, s, self.X, self.Y)
 }
 
 // revealMobsInView sends a MSG_CreateMob for every NPC/monster now in the player's
