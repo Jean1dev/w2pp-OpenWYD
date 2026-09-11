@@ -10,6 +10,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobspawns"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
@@ -265,6 +266,44 @@ func TestListDropItemsMapping(t *testing.T) {
 	got := resp.GetItems()[0]
 	if got.GetItemIndex() != 1000 || got.GetItemName() != "Adaga" || got.GetMobs()[0].GetRateDivisor() != 4 {
 		t.Errorf("items[0] = %+v, want mapped drop item", got)
+	}
+}
+
+// TestListDropItemsDizOndeNasce: each mob carries where it spawns, matched by
+// file name even when NPCGener writes it with another case or the legacy
+// trailing dot; a mob no generator names comes back empty with origins_known
+// set, and without an index the report says it does not know.
+func TestListDropItemsDizOndeNasce(t *testing.T) {
+	fake := &fakeNpcAdmin{
+		listDropItemsRes: npcadmin.OK,
+		listDropItems: []droptool.ItemDropEntry{{
+			ItemIndex: 4031, ItemName: "Pedra_da_Fenix",
+			Mobs: []droptool.ItemDropMob{
+				{TemplateName: "Chefe_Treina", EffectiveDivisor: 200},
+				{TemplateName: "@@Gargula", EffectiveDivisor: 50},
+			},
+		}},
+	}
+	s := NewNpcAdmin(fake)
+
+	resp, _ := s.ListDropItems(context.Background(), &webv1.ListDropItemsRequest{ModeratorId: 7})
+	if resp.GetOriginsKnown() {
+		t.Error("sem índice, a resposta diz que sabe onde nasce")
+	}
+
+	s.SetOrigins(mobspawns.Index{
+		"chefe_treina.": {{Place: "Campo de Treino", Points: 2, Amount: 2, RespawnMin: 3, X: 2100, Y: 2100}},
+	})
+	resp, _ = s.ListDropItems(context.Background(), &webv1.ListDropItemsRequest{ModeratorId: 7})
+	if !resp.GetOriginsKnown() {
+		t.Fatal("com índice, origins_known ficou falso")
+	}
+	mobs := resp.GetItems()[0].GetMobs()
+	if o := mobs[0].GetOrigins(); len(o) != 1 || o[0].GetPlace() != "Campo de Treino" || o[0].GetX() != 2100 {
+		t.Errorf("Chefe_Treina nasce em %+v, want Campo de Treino", o)
+	}
+	if o := mobs[1].GetOrigins(); len(o) != 0 {
+		t.Errorf("@@Gargula não é de gerador nenhum e veio com %+v", o)
 	}
 }
 

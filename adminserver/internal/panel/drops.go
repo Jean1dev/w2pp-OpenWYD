@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/gamedata"
 )
@@ -25,12 +26,18 @@ func (h *Handler) drops(w http.ResponseWriter, r *http.Request) {
 	item := r.URL.Query().Get("item")
 	mob := r.URL.Query().Get("mob")
 
+	// The "ajustar" link on a result row comes back here with the rule's monster
+	// and item, so the Mesa form opens filled in for exactly that pair.
+	regraMob, regraItem := r.URL.Query().Get("regra_mob"), r.URL.Query().Get("regra_item")
+	soNoMapa := r.URL.Query().Get("nasce") == "1"
+
 	// An empty search would fetch the whole cross product and render a page
 	// nobody can read. Asking for a term first is cheaper than truncating it.
 	if item == "" && mob == "" {
 		h.render(w, "drops.html", dropsPage{
 			page: h.pageFor(r, "drops"), Limite: dropsLimit, Extras: r.URL.Query(),
 			Mesa: h.mesaDaTela(r), Aviso: r.URL.Query().Get("aviso"),
+			RegraMob: regraMob, RegraItem: regraItem, SoNoMapa: soNoMapa,
 		})
 		return
 	}
@@ -43,6 +50,23 @@ func (h *Handler) drops(w http.ResponseWriter, r *http.Request) {
 	truncado := len(achados) > dropsLimit
 	if truncado {
 		achados = achados[:dropsLimit]
+	}
+	// Two thirds of the templates spawn from no generator, and a drop on one of
+	// them is a drop no player meets on the map. Hiding them is what makes the
+	// list answer "where do players actually get this".
+	escondidos := 0
+	if soNoMapa {
+		for i := range achados {
+			mobs := achados[i].Mobs[:0]
+			for _, m := range achados[i].Mobs {
+				if m.OrigensLidas && !m.NasceEmGerador() {
+					escondidos++
+					continue
+				}
+				mobs = append(mobs, m)
+			}
+			achados[i].Mobs = mobs
+		}
 	}
 
 	// Sorting applies inside EACH item's mob list, not across them: the page is
@@ -74,6 +98,7 @@ func (h *Handler) drops(w http.ResponseWriter, r *http.Request) {
 		page: h.pageFor(r, "drops"), Item: item, Mob: mob, Itens: achados, Truncado: truncado,
 		Limite: dropsLimit, Pediu: true, Ordem: o, Extras: r.URL.Query(),
 		Mesa: h.mesaDaTela(r), Aviso: r.URL.Query().Get("aviso"),
+		RegraMob: regraMob, RegraItem: regraItem, SoNoMapa: soNoMapa, Escondidos: escondidos,
 	})
 }
 
@@ -90,6 +115,26 @@ type dropsPage struct {
 	Extras    url.Values
 	Mesa      mesaView
 	Aviso     string
+
+	// RegraMob and RegraItem fill the Mesa form in, from a row's "ajustar".
+	RegraMob, RegraItem string
+	// SoNoMapa hides the monsters no generator spawns; Escondidos counts them.
+	SoNoMapa   bool
+	Escondidos int
+}
+
+// LinkAjuste is the row's "ajustar": this same search, with the Mesa form
+// filled in for the row's monster and item.
+func (p dropsPage) LinkAjuste(template string, item int32) string {
+	q := url.Values{}
+	for k, v := range p.Extras {
+		if k != "regra_mob" && k != "regra_item" && k != "aviso" {
+			q[k] = v
+		}
+	}
+	q.Set("regra_mob", template)
+	q.Set("regra_item", strconv.Itoa(int(item)))
+	return "/drops?" + q.Encode() + "#mesa"
 }
 
 // nomeDeMob is what the row shows: the readable name when the catalog has one,

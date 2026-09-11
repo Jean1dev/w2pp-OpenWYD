@@ -376,6 +376,11 @@ message DropItemMob {
   //
   // Computed with a killer drop bonus of 0: the floor every player shares.
   int32 effective_divisor = 6;
+  // origins is where this template spawns from NPCGener, busiest first — the
+  // same index the mob editor shows. Empty with ListDropItemsResponse.origins_known
+  // set means no generator spawns it: the drop is on a template no player meets
+  // in the open world (an instance, quest or summon may still create it).
+  repeated AdminMobOrigin origins = 7;
 }
 
 message DropItemEntry {
@@ -395,6 +400,9 @@ message ListDropItemsRequest {
 message ListDropItemsResponse {
   AdminResult result = 1;
   repeated DropItemEntry items = 2;
+  // origins_known is false when the spawn index was not built (no content tree
+  // at boot); an empty origins list then means "unknown", not "spawns nowhere".
+  bool origins_known = 3;
 }
 
 message MobDropItem {

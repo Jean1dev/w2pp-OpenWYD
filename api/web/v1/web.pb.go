@@ -2861,8 +2861,13 @@ type DropItemMob struct {
 	//
 	// Computed with a killer drop bonus of 0: the floor every player shares.
 	EffectiveDivisor int32 `protobuf:"varint,6,opt,name=effective_divisor,json=effectiveDivisor,proto3" json:"effective_divisor,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// origins is where this template spawns from NPCGener, busiest first — the
+	// same index the mob editor shows. Empty with ListDropItemsResponse.origins_known
+	// set means no generator spawns it: the drop is on a template no player meets
+	// in the open world (an instance, quest or summon may still create it).
+	Origins       []*AdminMobOrigin `protobuf:"bytes,7,rep,name=origins,proto3" json:"origins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DropItemMob) Reset() {
@@ -2935,6 +2940,13 @@ func (x *DropItemMob) GetEffectiveDivisor() int32 {
 		return x.EffectiveDivisor
 	}
 	return 0
+}
+
+func (x *DropItemMob) GetOrigins() []*AdminMobOrigin {
+	if x != nil {
+		return x.Origins
+	}
+	return nil
 }
 
 type DropItemEntry struct {
@@ -3074,9 +3086,12 @@ func (x *ListDropItemsRequest) GetIncludeZeroDropItems() bool {
 }
 
 type ListDropItemsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Result        AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
-	Items         []*DropItemEntry       `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Result AdminResult            `protobuf:"varint,1,opt,name=result,proto3,enum=web.v1.AdminResult" json:"result,omitempty"`
+	Items  []*DropItemEntry       `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	// origins_known is false when the spawn index was not built (no content tree
+	// at boot); an empty origins list then means "unknown", not "spawns nowhere".
+	OriginsKnown  bool `protobuf:"varint,3,opt,name=origins_known,json=originsKnown,proto3" json:"origins_known,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3123,6 +3138,13 @@ func (x *ListDropItemsResponse) GetItems() []*DropItemEntry {
 		return x.Items
 	}
 	return nil
+}
+
+func (x *ListDropItemsResponse) GetOriginsKnown() bool {
+	if x != nil {
+		return x.OriginsKnown
+	}
+	return false
 }
 
 type MobDropItem struct {
@@ -11178,14 +11200,15 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12.\n" +
 	"\x05items\x18\x02 \x03(\v2\x18.web.v1.ItemCatalogEntryR\x05items\x12'\n" +
 	"\x0fcatalog_version\x18\x03 \x01(\tR\x0ecatalogVersion\x12*\n" +
-	"\x11icon_pack_version\x18\x04 \x01(\tR\x0ficonPackVersion\"\xce\x01\n" +
+	"\x11icon_pack_version\x18\x04 \x01(\tR\x0ficonPackVersion\"\x80\x02\n" +
 	"\vDropItemMob\x12#\n" +
 	"\rtemplate_name\x18\x01 \x01(\tR\ftemplateName\x12\x19\n" +
 	"\bmob_name\x18\x02 \x01(\tR\amobName\x12\x1b\n" +
 	"\tmob_level\x18\x03 \x01(\x05R\bmobLevel\x12\x12\n" +
 	"\x04slot\x18\x04 \x01(\x05R\x04slot\x12!\n" +
 	"\frate_divisor\x18\x05 \x01(\x05R\vrateDivisor\x12+\n" +
-	"\x11effective_divisor\x18\x06 \x01(\x05R\x10effectiveDivisor\"t\n" +
+	"\x11effective_divisor\x18\x06 \x01(\x05R\x10effectiveDivisor\x120\n" +
+	"\aorigins\x18\a \x03(\v2\x16.web.v1.AdminMobOriginR\aorigins\"t\n" +
 	"\rDropItemEntry\x12\x1d\n" +
 	"\n" +
 	"item_index\x18\x01 \x01(\x05R\titemIndex\x12\x1b\n" +
@@ -11198,10 +11221,11 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\n" +
 	"item_query\x18\x03 \x01(\tR\titemQuery\x12\x1b\n" +
 	"\tmob_query\x18\x04 \x01(\tR\bmobQuery\x125\n" +
-	"\x17include_zero_drop_items\x18\x05 \x01(\bR\x14includeZeroDropItems\"q\n" +
+	"\x17include_zero_drop_items\x18\x05 \x01(\bR\x14includeZeroDropItems\"\x96\x01\n" +
 	"\x15ListDropItemsResponse\x12+\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x13.web.v1.AdminResultR\x06result\x12+\n" +
-	"\x05items\x18\x02 \x03(\v2\x15.web.v1.DropItemEntryR\x05items\"\xad\x01\n" +
+	"\x05items\x18\x02 \x03(\v2\x15.web.v1.DropItemEntryR\x05items\x12#\n" +
+	"\rorigins_known\x18\x03 \x01(\bR\foriginsKnown\"\xad\x01\n" +
 	"\vMobDropItem\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x1d\n" +
 	"\n" +
@@ -12202,224 +12226,225 @@ var file_api_web_v1_web_proto_depIdxs = []int32{
 	38,  // 14: web.v1.ListMerchantTemplatesResponse.templates:type_name -> web.v1.MerchantTemplate
 	1,   // 15: web.v1.ListItemCatalogResponse.result:type_name -> web.v1.AdminResult
 	41,  // 16: web.v1.ListItemCatalogResponse.items:type_name -> web.v1.ItemCatalogEntry
-	44,  // 17: web.v1.DropItemEntry.mobs:type_name -> web.v1.DropItemMob
-	1,   // 18: web.v1.ListDropItemsResponse.result:type_name -> web.v1.AdminResult
-	45,  // 19: web.v1.ListDropItemsResponse.items:type_name -> web.v1.DropItemEntry
-	48,  // 20: web.v1.MobDropEntry.items:type_name -> web.v1.MobDropItem
-	1,   // 21: web.v1.ListMobDropsResponse.result:type_name -> web.v1.AdminResult
-	49,  // 22: web.v1.ListMobDropsResponse.mobs:type_name -> web.v1.MobDropEntry
-	1,   // 23: web.v1.ListItemPricesResponse.result:type_name -> web.v1.AdminResult
-	52,  // 24: web.v1.ListItemPricesResponse.prices:type_name -> web.v1.ItemPrice
-	1,   // 25: web.v1.ListMapZonesResponse.result:type_name -> web.v1.AdminResult
-	55,  // 26: web.v1.ListMapZonesResponse.zones:type_name -> web.v1.MapZone
-	1,   // 27: web.v1.ListMobTemplatesResponse.result:type_name -> web.v1.AdminResult
-	58,  // 28: web.v1.ListMobTemplatesResponse.templates:type_name -> web.v1.MobTemplateFile
-	61,  // 29: web.v1.AdminMobTemplateStat.equip:type_name -> web.v1.AdminMobTemplateEquipItem
-	1,   // 30: web.v1.GetMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
-	62,  // 31: web.v1.GetMobTemplateStatResponse.stat:type_name -> web.v1.AdminMobTemplateStat
-	62,  // 32: web.v1.GetMobTemplateStatResponse.file_stat:type_name -> web.v1.AdminMobTemplateStat
-	65,  // 33: web.v1.GetMobTemplateStatResponse.origins:type_name -> web.v1.AdminMobOrigin
-	62,  // 34: web.v1.UpsertMobTemplateStatRequest.stat:type_name -> web.v1.AdminMobTemplateStat
-	1,   // 35: web.v1.UpsertMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
-	61,  // 36: web.v1.SetMobTemplateEquipRequest.items:type_name -> web.v1.AdminMobTemplateEquipItem
-	1,   // 37: web.v1.GetAttributeMapInfoResponse.result:type_name -> web.v1.AdminResult
-	72,  // 38: web.v1.GetAttributeMapInfoResponse.info:type_name -> web.v1.AttributeMapInfo
-	73,  // 39: web.v1.AttributeMapInfo.histogram:type_name -> web.v1.AttributeMapValueCount
-	74,  // 40: web.v1.AttributeMapInfo.meanings:type_name -> web.v1.AttributeMapMeaning
-	2,   // 41: web.v1.TransformAttributeMapRequest.operation:type_name -> web.v1.AttributeMapTransformOperation
-	75,  // 42: web.v1.TransformAttributeMapRequest.rect:type_name -> web.v1.AttributeMapRect
-	76,  // 43: web.v1.TransformAttributeMapRequest.filter:type_name -> web.v1.AttributeMapTransformFilter
-	1,   // 44: web.v1.TransformAttributeMapResponse.result:type_name -> web.v1.AdminResult
-	73,  // 45: web.v1.TransformAttributeMapResponse.before_histogram:type_name -> web.v1.AttributeMapValueCount
-	73,  // 46: web.v1.TransformAttributeMapResponse.after_histogram:type_name -> web.v1.AttributeMapValueCount
-	1,   // 47: web.v1.ListShopItemsResponse.result:type_name -> web.v1.AdminResult
-	79,  // 48: web.v1.ListShopItemsResponse.items:type_name -> web.v1.DonateShopItem
-	79,  // 49: web.v1.UpsertShopItemRequest.item:type_name -> web.v1.DonateShopItem
-	1,   // 50: web.v1.UpsertShopItemResponse.result:type_name -> web.v1.AdminResult
-	1,   // 51: web.v1.CreditDonateBalanceResponse.result:type_name -> web.v1.AdminResult
-	79,  // 52: web.v1.ListStoreItemsResponse.items:type_name -> web.v1.DonateShopItem
-	3,   // 53: web.v1.BuyResponse.result:type_name -> web.v1.BuyResult
-	1,   // 54: web.v1.ListRewardItemsResponse.result:type_name -> web.v1.AdminResult
-	94,  // 55: web.v1.ListRewardItemsResponse.items:type_name -> web.v1.DailyRewardItem
-	94,  // 56: web.v1.UpsertRewardItemRequest.item:type_name -> web.v1.DailyRewardItem
-	1,   // 57: web.v1.UpsertRewardItemResponse.result:type_name -> web.v1.AdminResult
-	1,   // 58: web.v1.GetWorldEventConfigResponse.result:type_name -> web.v1.AdminResult
-	101, // 59: web.v1.GetWorldEventConfigResponse.config:type_name -> web.v1.WorldEventConfig
-	101, // 60: web.v1.SetWorldEventConfigRequest.config:type_name -> web.v1.WorldEventConfig
-	94,  // 61: web.v1.ListRewardsResponse.items:type_name -> web.v1.DailyRewardItem
-	4,   // 62: web.v1.ClaimResponse.result:type_name -> web.v1.ClaimResult
-	1,   // 63: web.v1.SavePayerProfileResponse.result:type_name -> web.v1.AdminResult
-	5,   // 64: web.v1.CreateTopupOrderRequest.payment_method:type_name -> web.v1.PaymentMethod
-	1,   // 65: web.v1.CreateTopupOrderResponse.result:type_name -> web.v1.AdminResult
-	6,   // 66: web.v1.ConfirmTopupOrderResponse.result:type_name -> web.v1.TopupResult
-	7,   // 67: web.v1.GetTopupOrderResponse.status:type_name -> web.v1.TopupStatus
-	5,   // 68: web.v1.RevenueByMethod.payment_method:type_name -> web.v1.PaymentMethod
-	121, // 69: web.v1.GetRevenueSummaryRequest.window:type_name -> web.v1.RevenueWindow
-	8,   // 70: web.v1.GetRevenueSummaryRequest.bucket:type_name -> web.v1.RevenueBucket
-	1,   // 71: web.v1.GetRevenueSummaryResponse.result:type_name -> web.v1.AdminResult
-	122, // 72: web.v1.GetRevenueSummaryResponse.totals:type_name -> web.v1.RevenueTotals
-	123, // 73: web.v1.GetRevenueSummaryResponse.by_method:type_name -> web.v1.RevenueByMethod
-	124, // 74: web.v1.GetRevenueSummaryResponse.series:type_name -> web.v1.RevenuePoint
-	5,   // 75: web.v1.TopupOrderRow.payment_method:type_name -> web.v1.PaymentMethod
-	7,   // 76: web.v1.TopupOrderRow.status:type_name -> web.v1.TopupStatus
-	121, // 77: web.v1.ListTopupOrdersRequest.window:type_name -> web.v1.RevenueWindow
-	7,   // 78: web.v1.ListTopupOrdersRequest.status:type_name -> web.v1.TopupStatus
-	5,   // 79: web.v1.ListTopupOrdersRequest.payment_method:type_name -> web.v1.PaymentMethod
-	1,   // 80: web.v1.ListTopupOrdersResponse.result:type_name -> web.v1.AdminResult
-	127, // 81: web.v1.ListTopupOrdersResponse.orders:type_name -> web.v1.TopupOrderRow
-	121, // 82: web.v1.ListTopBuyersRequest.window:type_name -> web.v1.RevenueWindow
-	1,   // 83: web.v1.ListTopBuyersResponse.result:type_name -> web.v1.AdminResult
-	130, // 84: web.v1.ListTopBuyersResponse.buyers:type_name -> web.v1.TopBuyerRow
-	9,   // 85: web.v1.DonateLedgerRow.action:type_name -> web.v1.DonateLedgerAction
-	121, // 86: web.v1.ListDonateSpendRequest.window:type_name -> web.v1.RevenueWindow
-	9,   // 87: web.v1.ListDonateSpendRequest.action:type_name -> web.v1.DonateLedgerAction
-	1,   // 88: web.v1.ListDonateSpendResponse.result:type_name -> web.v1.AdminResult
-	133, // 89: web.v1.ListDonateSpendResponse.entries:type_name -> web.v1.DonateLedgerRow
-	1,   // 90: web.v1.SearchAccountsResponse.result:type_name -> web.v1.AdminResult
-	136, // 91: web.v1.SearchAccountsResponse.accounts:type_name -> web.v1.AccountSummary
-	1,   // 92: web.v1.GetItemStatResponse.result:type_name -> web.v1.AdminResult
-	139, // 93: web.v1.GetItemStatResponse.stat:type_name -> web.v1.AdminItemStat
-	139, // 94: web.v1.UpsertItemStatRequest.stat:type_name -> web.v1.AdminItemStat
-	144, // 95: web.v1.ListMountGrowthCurvesResponse.curves:type_name -> web.v1.AdminMountGrowthCurve
-	149, // 96: web.v1.ListMountAbsorbResponse.absorb:type_name -> web.v1.AdminMountAbsorb
-	156, // 97: web.v1.ListMountBonusResponse.bonus:type_name -> web.v1.AdminMountBonus
-	10,  // 98: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
-	12,  // 99: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
-	14,  // 100: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
-	17,  // 101: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
-	20,  // 102: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
-	23,  // 103: web.v1.ItemCatalogService.ListItems:input_type -> web.v1.ListItemsRequest
-	28,  // 104: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
-	30,  // 105: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
-	32,  // 106: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
-	34,  // 107: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
-	35,  // 108: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
-	36,  // 109: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
-	37,  // 110: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
-	39,  // 111: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
-	42,  // 112: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
-	46,  // 113: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
-	50,  // 114: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
-	53,  // 115: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
-	56,  // 116: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
-	59,  // 117: web.v1.MobTemplateAdminService.ListMobTemplates:input_type -> web.v1.ListMobTemplatesRequest
-	63,  // 118: web.v1.MobTemplateAdminService.GetMobTemplateStat:input_type -> web.v1.GetMobTemplateStatRequest
-	66,  // 119: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:input_type -> web.v1.UpsertMobTemplateStatRequest
-	68,  // 120: web.v1.MobTemplateAdminService.SetMobTemplateEquip:input_type -> web.v1.SetMobTemplateEquipRequest
-	69,  // 121: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:input_type -> web.v1.DeleteMobTemplateStatRequest
-	70,  // 122: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
-	77,  // 123: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
-	80,  // 124: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
-	82,  // 125: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
-	84,  // 126: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
-	85,  // 127: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
-	86,  // 128: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
-	88,  // 129: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
-	90,  // 130: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
-	92,  // 131: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
-	95,  // 132: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
-	97,  // 133: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
-	99,  // 134: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
-	100, // 135: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
-	102, // 136: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
-	104, // 137: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
-	105, // 138: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
-	107, // 139: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
-	109, // 140: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
-	111, // 141: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
-	113, // 142: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
-	115, // 143: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
-	117, // 144: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
-	119, // 145: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
-	125, // 146: web.v1.DonateRevenueAdminService.GetRevenueSummary:input_type -> web.v1.GetRevenueSummaryRequest
-	128, // 147: web.v1.DonateRevenueAdminService.ListTopupOrders:input_type -> web.v1.ListTopupOrdersRequest
-	131, // 148: web.v1.DonateRevenueAdminService.ListTopBuyers:input_type -> web.v1.ListTopBuyersRequest
-	134, // 149: web.v1.DonateRevenueAdminService.ListDonateSpend:input_type -> web.v1.ListDonateSpendRequest
-	137, // 150: web.v1.DonateRevenueAdminService.SearchAccounts:input_type -> web.v1.SearchAccountsRequest
-	140, // 151: web.v1.ItemStatAdminService.GetItemStat:input_type -> web.v1.GetItemStatRequest
-	142, // 152: web.v1.ItemStatAdminService.UpsertItemStat:input_type -> web.v1.UpsertItemStatRequest
-	143, // 153: web.v1.ItemStatAdminService.DeleteItemStat:input_type -> web.v1.DeleteItemStatRequest
-	145, // 154: web.v1.MountGrowthAdminService.ListMountGrowthCurves:input_type -> web.v1.ListMountGrowthCurvesRequest
-	147, // 155: web.v1.MountGrowthAdminService.SetMountGrowthCurve:input_type -> web.v1.SetMountGrowthCurveRequest
-	148, // 156: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:input_type -> web.v1.ClearMountGrowthCurveRequest
-	152, // 157: web.v1.MountGrowthAdminService.ListMountAbsorb:input_type -> web.v1.ListMountAbsorbRequest
-	154, // 158: web.v1.MountGrowthAdminService.SetMountAbsorb:input_type -> web.v1.SetMountAbsorbRequest
-	155, // 159: web.v1.MountGrowthAdminService.ClearMountAbsorb:input_type -> web.v1.ClearMountAbsorbRequest
-	157, // 160: web.v1.MountGrowthAdminService.ListMountBonus:input_type -> web.v1.ListMountBonusRequest
-	159, // 161: web.v1.MountGrowthAdminService.SetMountBonus:input_type -> web.v1.SetMountBonusRequest
-	160, // 162: web.v1.MountGrowthAdminService.ClearMountBonus:input_type -> web.v1.ClearMountBonusRequest
-	150, // 163: web.v1.MountGrowthAdminService.MountConfigVersion:input_type -> web.v1.MountConfigVersionRequest
-	11,  // 164: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
-	13,  // 165: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
-	16,  // 166: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
-	19,  // 167: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
-	22,  // 168: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
-	24,  // 169: web.v1.ItemCatalogService.ListItems:output_type -> web.v1.ListItemsResponse
-	29,  // 170: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
-	31,  // 171: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
-	33,  // 172: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
-	25,  // 173: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
-	25,  // 174: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
-	25,  // 175: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
-	25,  // 176: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
-	40,  // 177: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
-	43,  // 178: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
-	47,  // 179: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
-	51,  // 180: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
-	54,  // 181: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
-	57,  // 182: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
-	60,  // 183: web.v1.MobTemplateAdminService.ListMobTemplates:output_type -> web.v1.ListMobTemplatesResponse
-	64,  // 184: web.v1.MobTemplateAdminService.GetMobTemplateStat:output_type -> web.v1.GetMobTemplateStatResponse
-	67,  // 185: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:output_type -> web.v1.UpsertMobTemplateStatResponse
-	25,  // 186: web.v1.MobTemplateAdminService.SetMobTemplateEquip:output_type -> web.v1.AdminAck
-	25,  // 187: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:output_type -> web.v1.AdminAck
-	71,  // 188: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
-	78,  // 189: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
-	81,  // 190: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
-	83,  // 191: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
-	25,  // 192: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
-	25,  // 193: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
-	87,  // 194: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
-	89,  // 195: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
-	91,  // 196: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
-	93,  // 197: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
-	96,  // 198: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
-	98,  // 199: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
-	25,  // 200: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
-	25,  // 201: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
-	103, // 202: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
-	25,  // 203: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
-	106, // 204: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
-	108, // 205: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
-	110, // 206: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
-	112, // 207: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
-	114, // 208: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
-	116, // 209: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
-	118, // 210: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
-	120, // 211: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
-	126, // 212: web.v1.DonateRevenueAdminService.GetRevenueSummary:output_type -> web.v1.GetRevenueSummaryResponse
-	129, // 213: web.v1.DonateRevenueAdminService.ListTopupOrders:output_type -> web.v1.ListTopupOrdersResponse
-	132, // 214: web.v1.DonateRevenueAdminService.ListTopBuyers:output_type -> web.v1.ListTopBuyersResponse
-	135, // 215: web.v1.DonateRevenueAdminService.ListDonateSpend:output_type -> web.v1.ListDonateSpendResponse
-	138, // 216: web.v1.DonateRevenueAdminService.SearchAccounts:output_type -> web.v1.SearchAccountsResponse
-	141, // 217: web.v1.ItemStatAdminService.GetItemStat:output_type -> web.v1.GetItemStatResponse
-	25,  // 218: web.v1.ItemStatAdminService.UpsertItemStat:output_type -> web.v1.AdminAck
-	25,  // 219: web.v1.ItemStatAdminService.DeleteItemStat:output_type -> web.v1.AdminAck
-	146, // 220: web.v1.MountGrowthAdminService.ListMountGrowthCurves:output_type -> web.v1.ListMountGrowthCurvesResponse
-	25,  // 221: web.v1.MountGrowthAdminService.SetMountGrowthCurve:output_type -> web.v1.AdminAck
-	25,  // 222: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:output_type -> web.v1.AdminAck
-	153, // 223: web.v1.MountGrowthAdminService.ListMountAbsorb:output_type -> web.v1.ListMountAbsorbResponse
-	25,  // 224: web.v1.MountGrowthAdminService.SetMountAbsorb:output_type -> web.v1.AdminAck
-	25,  // 225: web.v1.MountGrowthAdminService.ClearMountAbsorb:output_type -> web.v1.AdminAck
-	158, // 226: web.v1.MountGrowthAdminService.ListMountBonus:output_type -> web.v1.ListMountBonusResponse
-	25,  // 227: web.v1.MountGrowthAdminService.SetMountBonus:output_type -> web.v1.AdminAck
-	25,  // 228: web.v1.MountGrowthAdminService.ClearMountBonus:output_type -> web.v1.AdminAck
-	151, // 229: web.v1.MountGrowthAdminService.MountConfigVersion:output_type -> web.v1.MountConfigVersionResponse
-	164, // [164:230] is the sub-list for method output_type
-	98,  // [98:164] is the sub-list for method input_type
-	98,  // [98:98] is the sub-list for extension type_name
-	98,  // [98:98] is the sub-list for extension extendee
-	0,   // [0:98] is the sub-list for field type_name
+	65,  // 17: web.v1.DropItemMob.origins:type_name -> web.v1.AdminMobOrigin
+	44,  // 18: web.v1.DropItemEntry.mobs:type_name -> web.v1.DropItemMob
+	1,   // 19: web.v1.ListDropItemsResponse.result:type_name -> web.v1.AdminResult
+	45,  // 20: web.v1.ListDropItemsResponse.items:type_name -> web.v1.DropItemEntry
+	48,  // 21: web.v1.MobDropEntry.items:type_name -> web.v1.MobDropItem
+	1,   // 22: web.v1.ListMobDropsResponse.result:type_name -> web.v1.AdminResult
+	49,  // 23: web.v1.ListMobDropsResponse.mobs:type_name -> web.v1.MobDropEntry
+	1,   // 24: web.v1.ListItemPricesResponse.result:type_name -> web.v1.AdminResult
+	52,  // 25: web.v1.ListItemPricesResponse.prices:type_name -> web.v1.ItemPrice
+	1,   // 26: web.v1.ListMapZonesResponse.result:type_name -> web.v1.AdminResult
+	55,  // 27: web.v1.ListMapZonesResponse.zones:type_name -> web.v1.MapZone
+	1,   // 28: web.v1.ListMobTemplatesResponse.result:type_name -> web.v1.AdminResult
+	58,  // 29: web.v1.ListMobTemplatesResponse.templates:type_name -> web.v1.MobTemplateFile
+	61,  // 30: web.v1.AdminMobTemplateStat.equip:type_name -> web.v1.AdminMobTemplateEquipItem
+	1,   // 31: web.v1.GetMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
+	62,  // 32: web.v1.GetMobTemplateStatResponse.stat:type_name -> web.v1.AdminMobTemplateStat
+	62,  // 33: web.v1.GetMobTemplateStatResponse.file_stat:type_name -> web.v1.AdminMobTemplateStat
+	65,  // 34: web.v1.GetMobTemplateStatResponse.origins:type_name -> web.v1.AdminMobOrigin
+	62,  // 35: web.v1.UpsertMobTemplateStatRequest.stat:type_name -> web.v1.AdminMobTemplateStat
+	1,   // 36: web.v1.UpsertMobTemplateStatResponse.result:type_name -> web.v1.AdminResult
+	61,  // 37: web.v1.SetMobTemplateEquipRequest.items:type_name -> web.v1.AdminMobTemplateEquipItem
+	1,   // 38: web.v1.GetAttributeMapInfoResponse.result:type_name -> web.v1.AdminResult
+	72,  // 39: web.v1.GetAttributeMapInfoResponse.info:type_name -> web.v1.AttributeMapInfo
+	73,  // 40: web.v1.AttributeMapInfo.histogram:type_name -> web.v1.AttributeMapValueCount
+	74,  // 41: web.v1.AttributeMapInfo.meanings:type_name -> web.v1.AttributeMapMeaning
+	2,   // 42: web.v1.TransformAttributeMapRequest.operation:type_name -> web.v1.AttributeMapTransformOperation
+	75,  // 43: web.v1.TransformAttributeMapRequest.rect:type_name -> web.v1.AttributeMapRect
+	76,  // 44: web.v1.TransformAttributeMapRequest.filter:type_name -> web.v1.AttributeMapTransformFilter
+	1,   // 45: web.v1.TransformAttributeMapResponse.result:type_name -> web.v1.AdminResult
+	73,  // 46: web.v1.TransformAttributeMapResponse.before_histogram:type_name -> web.v1.AttributeMapValueCount
+	73,  // 47: web.v1.TransformAttributeMapResponse.after_histogram:type_name -> web.v1.AttributeMapValueCount
+	1,   // 48: web.v1.ListShopItemsResponse.result:type_name -> web.v1.AdminResult
+	79,  // 49: web.v1.ListShopItemsResponse.items:type_name -> web.v1.DonateShopItem
+	79,  // 50: web.v1.UpsertShopItemRequest.item:type_name -> web.v1.DonateShopItem
+	1,   // 51: web.v1.UpsertShopItemResponse.result:type_name -> web.v1.AdminResult
+	1,   // 52: web.v1.CreditDonateBalanceResponse.result:type_name -> web.v1.AdminResult
+	79,  // 53: web.v1.ListStoreItemsResponse.items:type_name -> web.v1.DonateShopItem
+	3,   // 54: web.v1.BuyResponse.result:type_name -> web.v1.BuyResult
+	1,   // 55: web.v1.ListRewardItemsResponse.result:type_name -> web.v1.AdminResult
+	94,  // 56: web.v1.ListRewardItemsResponse.items:type_name -> web.v1.DailyRewardItem
+	94,  // 57: web.v1.UpsertRewardItemRequest.item:type_name -> web.v1.DailyRewardItem
+	1,   // 58: web.v1.UpsertRewardItemResponse.result:type_name -> web.v1.AdminResult
+	1,   // 59: web.v1.GetWorldEventConfigResponse.result:type_name -> web.v1.AdminResult
+	101, // 60: web.v1.GetWorldEventConfigResponse.config:type_name -> web.v1.WorldEventConfig
+	101, // 61: web.v1.SetWorldEventConfigRequest.config:type_name -> web.v1.WorldEventConfig
+	94,  // 62: web.v1.ListRewardsResponse.items:type_name -> web.v1.DailyRewardItem
+	4,   // 63: web.v1.ClaimResponse.result:type_name -> web.v1.ClaimResult
+	1,   // 64: web.v1.SavePayerProfileResponse.result:type_name -> web.v1.AdminResult
+	5,   // 65: web.v1.CreateTopupOrderRequest.payment_method:type_name -> web.v1.PaymentMethod
+	1,   // 66: web.v1.CreateTopupOrderResponse.result:type_name -> web.v1.AdminResult
+	6,   // 67: web.v1.ConfirmTopupOrderResponse.result:type_name -> web.v1.TopupResult
+	7,   // 68: web.v1.GetTopupOrderResponse.status:type_name -> web.v1.TopupStatus
+	5,   // 69: web.v1.RevenueByMethod.payment_method:type_name -> web.v1.PaymentMethod
+	121, // 70: web.v1.GetRevenueSummaryRequest.window:type_name -> web.v1.RevenueWindow
+	8,   // 71: web.v1.GetRevenueSummaryRequest.bucket:type_name -> web.v1.RevenueBucket
+	1,   // 72: web.v1.GetRevenueSummaryResponse.result:type_name -> web.v1.AdminResult
+	122, // 73: web.v1.GetRevenueSummaryResponse.totals:type_name -> web.v1.RevenueTotals
+	123, // 74: web.v1.GetRevenueSummaryResponse.by_method:type_name -> web.v1.RevenueByMethod
+	124, // 75: web.v1.GetRevenueSummaryResponse.series:type_name -> web.v1.RevenuePoint
+	5,   // 76: web.v1.TopupOrderRow.payment_method:type_name -> web.v1.PaymentMethod
+	7,   // 77: web.v1.TopupOrderRow.status:type_name -> web.v1.TopupStatus
+	121, // 78: web.v1.ListTopupOrdersRequest.window:type_name -> web.v1.RevenueWindow
+	7,   // 79: web.v1.ListTopupOrdersRequest.status:type_name -> web.v1.TopupStatus
+	5,   // 80: web.v1.ListTopupOrdersRequest.payment_method:type_name -> web.v1.PaymentMethod
+	1,   // 81: web.v1.ListTopupOrdersResponse.result:type_name -> web.v1.AdminResult
+	127, // 82: web.v1.ListTopupOrdersResponse.orders:type_name -> web.v1.TopupOrderRow
+	121, // 83: web.v1.ListTopBuyersRequest.window:type_name -> web.v1.RevenueWindow
+	1,   // 84: web.v1.ListTopBuyersResponse.result:type_name -> web.v1.AdminResult
+	130, // 85: web.v1.ListTopBuyersResponse.buyers:type_name -> web.v1.TopBuyerRow
+	9,   // 86: web.v1.DonateLedgerRow.action:type_name -> web.v1.DonateLedgerAction
+	121, // 87: web.v1.ListDonateSpendRequest.window:type_name -> web.v1.RevenueWindow
+	9,   // 88: web.v1.ListDonateSpendRequest.action:type_name -> web.v1.DonateLedgerAction
+	1,   // 89: web.v1.ListDonateSpendResponse.result:type_name -> web.v1.AdminResult
+	133, // 90: web.v1.ListDonateSpendResponse.entries:type_name -> web.v1.DonateLedgerRow
+	1,   // 91: web.v1.SearchAccountsResponse.result:type_name -> web.v1.AdminResult
+	136, // 92: web.v1.SearchAccountsResponse.accounts:type_name -> web.v1.AccountSummary
+	1,   // 93: web.v1.GetItemStatResponse.result:type_name -> web.v1.AdminResult
+	139, // 94: web.v1.GetItemStatResponse.stat:type_name -> web.v1.AdminItemStat
+	139, // 95: web.v1.UpsertItemStatRequest.stat:type_name -> web.v1.AdminItemStat
+	144, // 96: web.v1.ListMountGrowthCurvesResponse.curves:type_name -> web.v1.AdminMountGrowthCurve
+	149, // 97: web.v1.ListMountAbsorbResponse.absorb:type_name -> web.v1.AdminMountAbsorb
+	156, // 98: web.v1.ListMountBonusResponse.bonus:type_name -> web.v1.AdminMountBonus
+	10,  // 99: web.v1.AccountWebService.CreateAccount:input_type -> web.v1.CreateAccountRequest
+	12,  // 100: web.v1.AccountWebService.VerifyCredentials:input_type -> web.v1.VerifyCredentialsRequest
+	14,  // 101: web.v1.RankingWebService.ListExpRanking:input_type -> web.v1.ListExpRankingRequest
+	17,  // 102: web.v1.RankingWebService.ListDuelRanking:input_type -> web.v1.ListDuelRankingRequest
+	20,  // 103: web.v1.CharacterWebService.ListMyCharacters:input_type -> web.v1.ListMyCharactersRequest
+	23,  // 104: web.v1.ItemCatalogService.ListItems:input_type -> web.v1.ListItemsRequest
+	28,  // 105: web.v1.NpcAdminService.ListNpcs:input_type -> web.v1.ListNpcsRequest
+	30,  // 106: web.v1.NpcAdminService.GetNpc:input_type -> web.v1.GetNpcRequest
+	32,  // 107: web.v1.NpcAdminService.UpsertNpc:input_type -> web.v1.UpsertNpcRequest
+	34,  // 108: web.v1.NpcAdminService.SetNpcVisibility:input_type -> web.v1.SetNpcVisibilityRequest
+	35,  // 109: web.v1.NpcAdminService.SetNpcShop:input_type -> web.v1.SetNpcShopRequest
+	36,  // 110: web.v1.NpcAdminService.SetItemPrice:input_type -> web.v1.SetItemPriceRequest
+	37,  // 111: web.v1.NpcAdminService.DeleteNpc:input_type -> web.v1.DeleteNpcRequest
+	39,  // 112: web.v1.NpcAdminService.ListMerchantTemplates:input_type -> web.v1.ListMerchantTemplatesRequest
+	42,  // 113: web.v1.NpcAdminService.ListItemCatalog:input_type -> web.v1.ListItemCatalogRequest
+	46,  // 114: web.v1.NpcAdminService.ListDropItems:input_type -> web.v1.ListDropItemsRequest
+	50,  // 115: web.v1.NpcAdminService.ListMobDrops:input_type -> web.v1.ListMobDropsRequest
+	53,  // 116: web.v1.NpcAdminService.ListItemPrices:input_type -> web.v1.ListItemPricesRequest
+	56,  // 117: web.v1.NpcAdminService.ListMapZones:input_type -> web.v1.ListMapZonesRequest
+	59,  // 118: web.v1.MobTemplateAdminService.ListMobTemplates:input_type -> web.v1.ListMobTemplatesRequest
+	63,  // 119: web.v1.MobTemplateAdminService.GetMobTemplateStat:input_type -> web.v1.GetMobTemplateStatRequest
+	66,  // 120: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:input_type -> web.v1.UpsertMobTemplateStatRequest
+	68,  // 121: web.v1.MobTemplateAdminService.SetMobTemplateEquip:input_type -> web.v1.SetMobTemplateEquipRequest
+	69,  // 122: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:input_type -> web.v1.DeleteMobTemplateStatRequest
+	70,  // 123: web.v1.AttributeMapAdminService.GetAttributeMapInfo:input_type -> web.v1.GetAttributeMapInfoRequest
+	77,  // 124: web.v1.AttributeMapAdminService.TransformAttributeMap:input_type -> web.v1.TransformAttributeMapRequest
+	80,  // 125: web.v1.DonateAdminService.ListShopItems:input_type -> web.v1.ListShopItemsRequest
+	82,  // 126: web.v1.DonateAdminService.UpsertShopItem:input_type -> web.v1.UpsertShopItemRequest
+	84,  // 127: web.v1.DonateAdminService.SetShopItemEnabled:input_type -> web.v1.SetShopItemEnabledRequest
+	85,  // 128: web.v1.DonateAdminService.DeleteShopItem:input_type -> web.v1.DeleteShopItemRequest
+	86,  // 129: web.v1.DonateAdminService.CreditDonateBalance:input_type -> web.v1.CreditDonateBalanceRequest
+	88,  // 130: web.v1.DonateShopService.ListShopItems:input_type -> web.v1.ListStoreItemsRequest
+	90,  // 131: web.v1.DonateShopService.GetBalance:input_type -> web.v1.GetBalanceRequest
+	92,  // 132: web.v1.DonateShopService.Buy:input_type -> web.v1.BuyRequest
+	95,  // 133: web.v1.DailyRewardAdminService.ListRewardItems:input_type -> web.v1.ListRewardItemsRequest
+	97,  // 134: web.v1.DailyRewardAdminService.UpsertRewardItem:input_type -> web.v1.UpsertRewardItemRequest
+	99,  // 135: web.v1.DailyRewardAdminService.SetRewardItemEnabled:input_type -> web.v1.SetRewardItemEnabledRequest
+	100, // 136: web.v1.DailyRewardAdminService.DeleteRewardItem:input_type -> web.v1.DeleteRewardItemRequest
+	102, // 137: web.v1.WorldEventAdminService.GetWorldEventConfig:input_type -> web.v1.GetWorldEventConfigRequest
+	104, // 138: web.v1.WorldEventAdminService.SetWorldEventConfig:input_type -> web.v1.SetWorldEventConfigRequest
+	105, // 139: web.v1.DailyRewardService.ListRewards:input_type -> web.v1.ListRewardsRequest
+	107, // 140: web.v1.DailyRewardService.GetClaimStatus:input_type -> web.v1.GetClaimStatusRequest
+	109, // 141: web.v1.DailyRewardService.Claim:input_type -> web.v1.ClaimRequest
+	111, // 142: web.v1.DonateTopupService.GetPayerProfile:input_type -> web.v1.GetPayerProfileRequest
+	113, // 143: web.v1.DonateTopupService.SavePayerProfile:input_type -> web.v1.SavePayerProfileRequest
+	115, // 144: web.v1.DonateTopupService.CreateTopupOrder:input_type -> web.v1.CreateTopupOrderRequest
+	117, // 145: web.v1.DonateTopupService.ConfirmTopupOrder:input_type -> web.v1.ConfirmTopupOrderRequest
+	119, // 146: web.v1.DonateTopupService.GetTopupOrder:input_type -> web.v1.GetTopupOrderRequest
+	125, // 147: web.v1.DonateRevenueAdminService.GetRevenueSummary:input_type -> web.v1.GetRevenueSummaryRequest
+	128, // 148: web.v1.DonateRevenueAdminService.ListTopupOrders:input_type -> web.v1.ListTopupOrdersRequest
+	131, // 149: web.v1.DonateRevenueAdminService.ListTopBuyers:input_type -> web.v1.ListTopBuyersRequest
+	134, // 150: web.v1.DonateRevenueAdminService.ListDonateSpend:input_type -> web.v1.ListDonateSpendRequest
+	137, // 151: web.v1.DonateRevenueAdminService.SearchAccounts:input_type -> web.v1.SearchAccountsRequest
+	140, // 152: web.v1.ItemStatAdminService.GetItemStat:input_type -> web.v1.GetItemStatRequest
+	142, // 153: web.v1.ItemStatAdminService.UpsertItemStat:input_type -> web.v1.UpsertItemStatRequest
+	143, // 154: web.v1.ItemStatAdminService.DeleteItemStat:input_type -> web.v1.DeleteItemStatRequest
+	145, // 155: web.v1.MountGrowthAdminService.ListMountGrowthCurves:input_type -> web.v1.ListMountGrowthCurvesRequest
+	147, // 156: web.v1.MountGrowthAdminService.SetMountGrowthCurve:input_type -> web.v1.SetMountGrowthCurveRequest
+	148, // 157: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:input_type -> web.v1.ClearMountGrowthCurveRequest
+	152, // 158: web.v1.MountGrowthAdminService.ListMountAbsorb:input_type -> web.v1.ListMountAbsorbRequest
+	154, // 159: web.v1.MountGrowthAdminService.SetMountAbsorb:input_type -> web.v1.SetMountAbsorbRequest
+	155, // 160: web.v1.MountGrowthAdminService.ClearMountAbsorb:input_type -> web.v1.ClearMountAbsorbRequest
+	157, // 161: web.v1.MountGrowthAdminService.ListMountBonus:input_type -> web.v1.ListMountBonusRequest
+	159, // 162: web.v1.MountGrowthAdminService.SetMountBonus:input_type -> web.v1.SetMountBonusRequest
+	160, // 163: web.v1.MountGrowthAdminService.ClearMountBonus:input_type -> web.v1.ClearMountBonusRequest
+	150, // 164: web.v1.MountGrowthAdminService.MountConfigVersion:input_type -> web.v1.MountConfigVersionRequest
+	11,  // 165: web.v1.AccountWebService.CreateAccount:output_type -> web.v1.CreateAccountResponse
+	13,  // 166: web.v1.AccountWebService.VerifyCredentials:output_type -> web.v1.VerifyCredentialsResponse
+	16,  // 167: web.v1.RankingWebService.ListExpRanking:output_type -> web.v1.ListExpRankingResponse
+	19,  // 168: web.v1.RankingWebService.ListDuelRanking:output_type -> web.v1.ListDuelRankingResponse
+	22,  // 169: web.v1.CharacterWebService.ListMyCharacters:output_type -> web.v1.ListMyCharactersResponse
+	24,  // 170: web.v1.ItemCatalogService.ListItems:output_type -> web.v1.ListItemsResponse
+	29,  // 171: web.v1.NpcAdminService.ListNpcs:output_type -> web.v1.ListNpcsResponse
+	31,  // 172: web.v1.NpcAdminService.GetNpc:output_type -> web.v1.GetNpcResponse
+	33,  // 173: web.v1.NpcAdminService.UpsertNpc:output_type -> web.v1.UpsertNpcResponse
+	25,  // 174: web.v1.NpcAdminService.SetNpcVisibility:output_type -> web.v1.AdminAck
+	25,  // 175: web.v1.NpcAdminService.SetNpcShop:output_type -> web.v1.AdminAck
+	25,  // 176: web.v1.NpcAdminService.SetItemPrice:output_type -> web.v1.AdminAck
+	25,  // 177: web.v1.NpcAdminService.DeleteNpc:output_type -> web.v1.AdminAck
+	40,  // 178: web.v1.NpcAdminService.ListMerchantTemplates:output_type -> web.v1.ListMerchantTemplatesResponse
+	43,  // 179: web.v1.NpcAdminService.ListItemCatalog:output_type -> web.v1.ListItemCatalogResponse
+	47,  // 180: web.v1.NpcAdminService.ListDropItems:output_type -> web.v1.ListDropItemsResponse
+	51,  // 181: web.v1.NpcAdminService.ListMobDrops:output_type -> web.v1.ListMobDropsResponse
+	54,  // 182: web.v1.NpcAdminService.ListItemPrices:output_type -> web.v1.ListItemPricesResponse
+	57,  // 183: web.v1.NpcAdminService.ListMapZones:output_type -> web.v1.ListMapZonesResponse
+	60,  // 184: web.v1.MobTemplateAdminService.ListMobTemplates:output_type -> web.v1.ListMobTemplatesResponse
+	64,  // 185: web.v1.MobTemplateAdminService.GetMobTemplateStat:output_type -> web.v1.GetMobTemplateStatResponse
+	67,  // 186: web.v1.MobTemplateAdminService.UpsertMobTemplateStat:output_type -> web.v1.UpsertMobTemplateStatResponse
+	25,  // 187: web.v1.MobTemplateAdminService.SetMobTemplateEquip:output_type -> web.v1.AdminAck
+	25,  // 188: web.v1.MobTemplateAdminService.DeleteMobTemplateStat:output_type -> web.v1.AdminAck
+	71,  // 189: web.v1.AttributeMapAdminService.GetAttributeMapInfo:output_type -> web.v1.GetAttributeMapInfoResponse
+	78,  // 190: web.v1.AttributeMapAdminService.TransformAttributeMap:output_type -> web.v1.TransformAttributeMapResponse
+	81,  // 191: web.v1.DonateAdminService.ListShopItems:output_type -> web.v1.ListShopItemsResponse
+	83,  // 192: web.v1.DonateAdminService.UpsertShopItem:output_type -> web.v1.UpsertShopItemResponse
+	25,  // 193: web.v1.DonateAdminService.SetShopItemEnabled:output_type -> web.v1.AdminAck
+	25,  // 194: web.v1.DonateAdminService.DeleteShopItem:output_type -> web.v1.AdminAck
+	87,  // 195: web.v1.DonateAdminService.CreditDonateBalance:output_type -> web.v1.CreditDonateBalanceResponse
+	89,  // 196: web.v1.DonateShopService.ListShopItems:output_type -> web.v1.ListStoreItemsResponse
+	91,  // 197: web.v1.DonateShopService.GetBalance:output_type -> web.v1.GetBalanceResponse
+	93,  // 198: web.v1.DonateShopService.Buy:output_type -> web.v1.BuyResponse
+	96,  // 199: web.v1.DailyRewardAdminService.ListRewardItems:output_type -> web.v1.ListRewardItemsResponse
+	98,  // 200: web.v1.DailyRewardAdminService.UpsertRewardItem:output_type -> web.v1.UpsertRewardItemResponse
+	25,  // 201: web.v1.DailyRewardAdminService.SetRewardItemEnabled:output_type -> web.v1.AdminAck
+	25,  // 202: web.v1.DailyRewardAdminService.DeleteRewardItem:output_type -> web.v1.AdminAck
+	103, // 203: web.v1.WorldEventAdminService.GetWorldEventConfig:output_type -> web.v1.GetWorldEventConfigResponse
+	25,  // 204: web.v1.WorldEventAdminService.SetWorldEventConfig:output_type -> web.v1.AdminAck
+	106, // 205: web.v1.DailyRewardService.ListRewards:output_type -> web.v1.ListRewardsResponse
+	108, // 206: web.v1.DailyRewardService.GetClaimStatus:output_type -> web.v1.GetClaimStatusResponse
+	110, // 207: web.v1.DailyRewardService.Claim:output_type -> web.v1.ClaimResponse
+	112, // 208: web.v1.DonateTopupService.GetPayerProfile:output_type -> web.v1.GetPayerProfileResponse
+	114, // 209: web.v1.DonateTopupService.SavePayerProfile:output_type -> web.v1.SavePayerProfileResponse
+	116, // 210: web.v1.DonateTopupService.CreateTopupOrder:output_type -> web.v1.CreateTopupOrderResponse
+	118, // 211: web.v1.DonateTopupService.ConfirmTopupOrder:output_type -> web.v1.ConfirmTopupOrderResponse
+	120, // 212: web.v1.DonateTopupService.GetTopupOrder:output_type -> web.v1.GetTopupOrderResponse
+	126, // 213: web.v1.DonateRevenueAdminService.GetRevenueSummary:output_type -> web.v1.GetRevenueSummaryResponse
+	129, // 214: web.v1.DonateRevenueAdminService.ListTopupOrders:output_type -> web.v1.ListTopupOrdersResponse
+	132, // 215: web.v1.DonateRevenueAdminService.ListTopBuyers:output_type -> web.v1.ListTopBuyersResponse
+	135, // 216: web.v1.DonateRevenueAdminService.ListDonateSpend:output_type -> web.v1.ListDonateSpendResponse
+	138, // 217: web.v1.DonateRevenueAdminService.SearchAccounts:output_type -> web.v1.SearchAccountsResponse
+	141, // 218: web.v1.ItemStatAdminService.GetItemStat:output_type -> web.v1.GetItemStatResponse
+	25,  // 219: web.v1.ItemStatAdminService.UpsertItemStat:output_type -> web.v1.AdminAck
+	25,  // 220: web.v1.ItemStatAdminService.DeleteItemStat:output_type -> web.v1.AdminAck
+	146, // 221: web.v1.MountGrowthAdminService.ListMountGrowthCurves:output_type -> web.v1.ListMountGrowthCurvesResponse
+	25,  // 222: web.v1.MountGrowthAdminService.SetMountGrowthCurve:output_type -> web.v1.AdminAck
+	25,  // 223: web.v1.MountGrowthAdminService.ClearMountGrowthCurve:output_type -> web.v1.AdminAck
+	153, // 224: web.v1.MountGrowthAdminService.ListMountAbsorb:output_type -> web.v1.ListMountAbsorbResponse
+	25,  // 225: web.v1.MountGrowthAdminService.SetMountAbsorb:output_type -> web.v1.AdminAck
+	25,  // 226: web.v1.MountGrowthAdminService.ClearMountAbsorb:output_type -> web.v1.AdminAck
+	158, // 227: web.v1.MountGrowthAdminService.ListMountBonus:output_type -> web.v1.ListMountBonusResponse
+	25,  // 228: web.v1.MountGrowthAdminService.SetMountBonus:output_type -> web.v1.AdminAck
+	25,  // 229: web.v1.MountGrowthAdminService.ClearMountBonus:output_type -> web.v1.AdminAck
+	151, // 230: web.v1.MountGrowthAdminService.MountConfigVersion:output_type -> web.v1.MountConfigVersionResponse
+	165, // [165:231] is the sub-list for method output_type
+	99,  // [99:165] is the sub-list for method input_type
+	99,  // [99:99] is the sub-list for extension type_name
+	99,  // [99:99] is the sub-list for extension extendee
+	0,   // [0:99] is the sub-list for field type_name
 }
 
 func init() { file_api_web_v1_web_proto_init() }

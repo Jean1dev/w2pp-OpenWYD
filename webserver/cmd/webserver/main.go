@@ -142,6 +142,8 @@ func run(logger *slog.Logger) error {
 		logger.Warn("item icon manifest not configured; catalog is fallback-only",
 			"configuration", "W2PP_ITEM_ICONS_MANIFEST")
 	}
+	// Where each template spawns, shared by the mob editor and the drop report.
+	var spawnOrigins mobspawns.Index
 	if *contentDir != "" {
 		templates, npcStats, err := npctemplates.Scan(*contentDir, logger)
 		if err != nil {
@@ -204,6 +206,7 @@ func run(logger *slog.Logger) error {
 		} else {
 			logger.Info("indexed mob spawn origins", "templates", len(origins))
 			mobTemplateAdmin.SetOrigins(origins)
+			spawnOrigins = origins
 		}
 
 		exclusions, err := droptool.LoadContentExclusions(*contentDir)
@@ -223,7 +226,11 @@ func run(logger *slog.Logger) error {
 	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterCharacterWebServiceServer(srv, grpcsrv.NewCharacters(characters.New(st)))
 	webv1.RegisterItemCatalogServiceServer(srv, grpcsrv.NewItemCatalog(itemCatalog))
-	webv1.RegisterNpcAdminServiceServer(srv, grpcsrv.NewNpcAdmin(npcAdmin))
+	npcAdminSrv := grpcsrv.NewNpcAdmin(npcAdmin)
+	if spawnOrigins != nil {
+		npcAdminSrv.SetOrigins(spawnOrigins) // the drop report's "onde nasce"
+	}
+	webv1.RegisterNpcAdminServiceServer(srv, npcAdminSrv)
 	webv1.RegisterMobTemplateAdminServiceServer(srv, grpcsrv.NewMobTemplateAdmin(mobTemplateAdmin))
 	webv1.RegisterItemStatAdminServiceServer(srv, grpcsrv.NewItemStatAdmin(itemStatAdmin))
 	webv1.RegisterMountGrowthAdminServiceServer(srv, grpcsrv.NewMountGrowthAdmin(mountGrowthAdmin))

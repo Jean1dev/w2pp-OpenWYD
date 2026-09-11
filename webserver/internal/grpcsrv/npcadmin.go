@@ -2,6 +2,7 @@ package grpcsrv
 
 import (
 	"context"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -11,6 +12,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/internal/mapzones"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/droptool"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/itemcatalog"
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/mobspawns"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npcadmin"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/npctemplates"
 )
@@ -37,6 +39,10 @@ type NpcAdmin interface {
 type NpcAdminServer struct {
 	webv1.UnimplementedNpcAdminServiceServer
 	admin NpcAdmin
+	// origins is where each template spawns (mobspawns), for the drop report's
+	// "onde nasce". Nil when the index was not built: the report then says the
+	// place is unknown rather than that the mob spawns nowhere.
+	origins *originLookup
 }
 
 // NewNpcAdmin builds the NpcAdminService over the given admin logic.
@@ -181,12 +187,49 @@ func (s *NpcAdminServer) ListDropItems(ctx context.Context, req *webv1.ListDropI
 	}
 	out := make([]*webv1.DropItemEntry, 0, len(items))
 	for _, item := range items {
-		out = append(out, dropItemEntryToProto(item))
+		out = append(out, dropItemEntryToProto(item, s.origins))
 	}
-	return &webv1.ListDropItemsResponse{Result: resultToProto(res), Items: out}, nil
+	return &webv1.ListDropItemsResponse{Result: resultToProto(res), Items: out, OriginsKnown: s.origins != nil}, nil
 }
 
-func dropItemEntryToProto(item droptool.ItemDropEntry) *webv1.DropItemEntry {
+// SetOrigins installs the spawn index for the drop report's "onde nasce".
+// Wiring-time only.
+func (s *NpcAdminServer) SetOrigins(idx mobspawns.Index) { s.origins = newOriginLookup(idx) }
+
+// originLookup finds a template's spawn origins by its FILE name. The index is
+// keyed by the name NPCGener.txt writes, and the two disagree in exactly the
+// ways npctemplate already normalizes — case, and a legacy trailing dot
+// ("Chefe_Treina." for the file Chefe_Treina). An exact hit is tried first.
+type originLookup struct {
+	exact  mobspawns.Index
+	folded map[string][]mobspawns.Origin
+}
+
+func newOriginLookup(idx mobspawns.Index) *originLookup {
+	if idx == nil {
+		return nil
+	}
+	l := &originLookup{exact: idx, folded: make(map[string][]mobspawns.Origin, len(idx))}
+	for name, list := range idx {
+		k := foldTemplateName(name)
+		l.folded[k] = append(l.folded[k], list...)
+	}
+	return l
+}
+
+func foldTemplateName(s string) string { return strings.ToLower(strings.TrimRight(s, ".")) }
+
+func (l *originLookup) of(template string) []mobspawns.Origin {
+	if l == nil {
+		return nil
+	}
+	if list, ok := l.exact[template]; ok {
+		return list
+	}
+	return l.folded[foldTemplateName(template)]
+}
+
+func dropItemEntryToProto(item droptool.ItemDropEntry, origins *originLookup) *webv1.DropItemEntry {
 	mobs := make([]*webv1.DropItemMob, 0, len(item.Mobs))
 	for _, mob := range item.Mobs {
 		mobs = append(mobs, &webv1.DropItemMob{
@@ -196,6 +239,7 @@ func dropItemEntryToProto(item droptool.ItemDropEntry) *webv1.DropItemEntry {
 			Slot:             mob.Slot,
 			RateDivisor:      mob.RateDivisor,
 			EffectiveDivisor: mob.EffectiveDivisor,
+			Origins:          adminMobOriginsToProto(origins.of(mob.TemplateName)),
 		})
 	}
 	return &webv1.DropItemEntry{ItemIndex: item.ItemIndex, ItemName: item.ItemName, Mobs: mobs}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
 )
@@ -27,6 +28,32 @@ type DropMob struct {
 	// with the four hard slot overrides applied — not the raw table entry, which
 	// would report the guaranteed slot 11 as a one-in-four rarity.
 	Divisor int32
+
+	// Origens is where NPCGener spawns this template, busiest first.
+	// OrigensLidas is false when the webServer had no spawn index: an empty
+	// Origens then means "not known", and only with it true does it mean that no
+	// generator spawns the mob — a drop no player meets in the open world.
+	Origens      []MobOrigem
+	OrigensLidas bool
+}
+
+// NasceEmGerador reports whether some generator spawns the mob. Only
+// meaningful with OrigensLidas.
+func (m DropMob) NasceEmGerador() bool { return len(m.Origens) > 0 }
+
+// OutrosLugares is how many places beyond the first (the busiest) spawn it.
+func (m DropMob) OutrosLugares() int { return max(len(m.Origens)-1, 0) }
+
+// Lugares lists every place, for the tooltip behind "e mais N".
+func (m DropMob) Lugares() string {
+	var b strings.Builder
+	for i, o := range m.Origens {
+		if i > 0 {
+			b.WriteString("; ")
+		}
+		fmt.Fprintf(&b, "%s (%d, %d)", o.Local, o.X, o.Y)
+	}
+	return b.String()
 }
 
 // Mortes is how many of this mob you kill, on average, for one drop.
@@ -89,13 +116,21 @@ func (c *Client) Drops(ctx context.Context, moderatorID int64, item, mob string)
 	for _, it := range resp.GetItems() {
 		d := Drop{ItemIndex: it.GetItemIndex(), ItemName: it.GetItemName()}
 		for _, m := range it.GetMobs() {
-			d.Mobs = append(d.Mobs, DropMob{
+			dm := DropMob{
 				TemplateName: m.GetTemplateName(),
 				MobName:      m.GetMobName(),
 				MobLevel:     m.GetMobLevel(),
 				Slot:         m.GetSlot(),
 				Divisor:      m.GetEffectiveDivisor(),
-			})
+				OrigensLidas: resp.GetOriginsKnown(),
+			}
+			for _, o := range m.GetOrigins() {
+				dm.Origens = append(dm.Origens, MobOrigem{
+					Local: o.GetPlace(), Pontos: o.GetPoints(), Quantidade: o.GetAmount(),
+					RespawnMin: o.GetRespawnMinutes(), X: o.GetX(), Y: o.GetY(),
+				})
+			}
+			d.Mobs = append(d.Mobs, dm)
 		}
 		out = append(out, d)
 	}

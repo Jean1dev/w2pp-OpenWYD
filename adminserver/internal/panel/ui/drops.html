@@ -48,6 +48,13 @@
     border-radius: 3px; font-variant-numeric: tabular-nums;
   }
   .campos-regra input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  td.onde strong { display: block; font-weight: 600; color: var(--ink); font-size: 13.5px; }
+  td.onde .det { display: block; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  td.onde .orfao {
+    font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); background: var(--chip-bg); padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+  }
+  .so-mapa { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
   form.apagar { margin: 0; }
   form.apagar button { font-size: 12px; padding: 3px 9px; }
 </style>
@@ -66,7 +73,7 @@
   {{if .Aviso}}<div class="aviso">{{.Aviso}}</div>{{end}}
 
   {{if .Mesa.Tem}}
-  <div class="caixa">
+  <div class="caixa" id="mesa">
     <h2>Mesa de Drops</h2>
     <p class="sub">
       Cada regra diz a chance exata de <strong>um item</strong> cair de
@@ -125,12 +132,12 @@
       <div class="campos-regra">
         <label>
           Monstro
-          <input type="text" name="mob" placeholder="nome do arquivo, ou todos"
+          <input type="text" name="mob" placeholder="nome do arquivo, ou todos" value="{{.RegraMob}}"
                  autocapitalize="off" spellcheck="false" autocomplete="off" required>
         </label>
         <label>
           Item (índice)
-          <input type="number" name="item" min="391" max="6499" required>
+          <input type="number" name="item" min="391" max="6499" value="{{.RegraItem}}" required>
         </label>
         <label>
           Chance (%)
@@ -161,8 +168,15 @@
            autocapitalize="off" spellcheck="false" autofocus>
     <input name="mob" value="{{.Mob}}" placeholder="Nome do monstro"
            autocapitalize="off" spellcheck="false">
+    <label class="so-mapa" title="Esconde os monstros que nenhum gerador cria — quem o jogador não encontra no mapa">
+      <input type="checkbox" name="nasce" value="1" {{if .SoNoMapa}}checked{{end}}>
+      só quem nasce no mapa
+    </label>
     <button type="submit">Buscar</button>
   </form>
+  {{if and .SoNoMapa .Escondidos}}
+    <p class="sub">{{.Escondidos}} fonte{{if gt .Escondidos 1}}s{{end}} escondida{{if gt .Escondidos 1}}s{{end}}: monstro{{if gt .Escondidos 1}}s{{end}} que nenhum gerador cria.</p>
+  {{end}}
 
   {{if not .Pediu}}
     <div class="vazio">
@@ -181,10 +195,12 @@
               <tr>
                 {{$o := $.Ordem}}{{$e := $.Extras}}
                 {{template "coluna" (dict "Rotulo" "Monstro" "Classe" "" "Marca" ($o.Marca "monstro") "Href" ($o.Link "/drops" "monstro" $e))}}
+                <th>Onde nasce</th>
                 {{template "coluna" (dict "Rotulo" "Nível" "Classe" "num" "Marca" ($o.Marca "nivel") "Href" ($o.Link "/drops" "nivel" $e))}}
                 <th class="num">Slot</th>
                 {{template "coluna" (dict "Rotulo" "Chance por morte" "Classe" "pct" "Marca" ($o.Marca "chance") "Href" ($o.Link "/drops" "chance" $e))}}
                 <th class="pct">Mortes até cair</th>
+                {{if and $.IsAdmin $.Mesa.Tem}}<th></th>{{end}}
               </tr>
             </thead>
             <tbody>
@@ -195,6 +211,16 @@
                 <td>
                   {{if .MobName}}{{.MobName}}<span class="arquivo">{{.TemplateName}}</span>{{else}}{{.TemplateName}}{{end}}
                 </td>
+                <td class="onde">
+                  {{if .NasceEmGerador}}
+                    {{$primeiro := index .Origens 0}}
+                    <strong>{{$primeiro.Local}}</strong>
+                    <span class="det">{{$primeiro.X}}, {{$primeiro.Y}}{{if $primeiro.Renasce}} · renasce a cada {{$primeiro.RespawnMin}} min{{else}} · não renasce sozinho{{end}}</span>
+                    {{if .OutrosLugares}}<span class="det" title="{{.Lugares}}">e mais {{.OutrosLugares}} lugar{{if gt .OutrosLugares 1}}es{{end}}</span>{{end}}
+                  {{else if .OrigensLidas}}
+                    <span class="orfao" title="Nenhum gerador do NPCGener cria este monstro. Ele ainda pode vir de masmorra, quest ou invocação.">não nasce no mapa</span>
+                  {{else}}—{{end}}
+                </td>
                 <td class="num">{{.MobLevel}}</td>
                 <td class="num">{{.Slot}}</td>
                 <td class="pct">
@@ -204,6 +230,9 @@
                   {{else if .Garantido}}<span class="sempre">sempre cai</span>{{else}}{{.Porcentagem}}{{end}}
                 </td>
                 <td class="pct">{{if $mesa}}—{{else if .Garantido}}1{{else}}{{.Mortes}}{{end}}</td>
+                {{if and $.IsAdmin $.Mesa.Tem}}
+                <td><a href="{{$.LinkAjuste .TemplateName $item.ItemIndex}}" title="Abre a Mesa de Drops já preenchida com este monstro e este item">ajustar</a></td>
+                {{end}}
               </tr>
               {{end}}
             </tbody>
