@@ -204,6 +204,16 @@ const (
 	// logged in again and asked to take over (ProcessDBMessage.cpp:1315).
 	// Appended at the end for the reason NoticeLevelLimit gives.
 	NoticeAccountFromOthers
+
+	// NoticeLevelLimit2 is _NN_Level_Limit2 (Language.txt:340, "Seu nível não
+	// permite o uso disto."): the Pedra da Fúria used below the level-90 lock
+	// (_MSG_UseItem.cpp:3627). Appended at the end for the reason
+	// NoticeLevelLimit gives.
+	NoticeLevelLimit2
+	// NoticeFailure is _NN_FAILURE (Language.txt:476, "Resultou em falha."): the
+	// Pedra da Fúria roll that loses (_MSG_UseItem.cpp:3563/3680). Appended at the
+	// end for the reason NoticeLevelLimit gives.
+	NoticeFailure
 )
 
 // noticeKey maps a Notice to its key in the shipped client string table
@@ -307,6 +317,9 @@ var noticeKey = map[Notice]string{
 	NoticeOnlyByWaterScroll: "_NN_Only_By_Water_Scroll", // 228
 
 	NoticeAccountFromOthers: "_NN_Your_Account_From_Others", // 134
+
+	NoticeLevelLimit2: "_NN_Level_Limit2", // 340
+	NoticeFailure:     "_NN_FAILURE",      // 476
 }
 
 // noticeText is the compiled fallback for notices with no Language.txt line: the

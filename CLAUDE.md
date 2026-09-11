@@ -112,8 +112,9 @@ chat/misc). Session state follows the `CUser.Mode` state machine (`UserEmpty`→
 Chat **slash commands** (`/armia`, `/buffs`, `/sair`, …) arrive as a *whisper* whose target name is
 the command keyword (the legacy `_MSG_MessageWhisper` quirk), so `handler/chat.go` intercepts them in
 the whisper handler before normal delivery. Implemented: city/RvR teleports, `/buffs` (clear affects),
-`/sair` (leave guild). Deferred commands (`/destravar40/90`, `/arcana`, guild create) wait on systems
-not modeled yet — see `docs/game.md` (✅/⏳ status) and `docs/migration/celestial-system-plan.md`.
+guild commands, `/sair` (leave guild). `/destravar40/90` and `/arcana` are staff-only: players go
+through the Odin combine (40) and the Pedra da Fúria (90, Arcana). See `docs/game.md` (✅/⏳ status)
+and `docs/migration/celestial-system-plan.md`.
 
 ### Protocol & parity notes
 

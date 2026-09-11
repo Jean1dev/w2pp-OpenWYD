@@ -153,9 +153,9 @@ var (
 // the command. Returns true when name was a command (handled); false to fall through to
 // the normal whisper delivery. Mirrors the dispatch in _MSG_MessageWhisper.cpp.
 //
-// UNVERIFIED / deferred: the unlock/quest commands (destravar40/90, arcana,
-// crias) depend on the Arch/Celestial and quest systems that are not modeled yet,
-// so they are not handled here.
+// The Celestial unlock commands (destravar40/90, arcana) are staff-only: each has
+// a player path now (the Odin combine for 40, the Pedra da Fúria for 90 and the
+// Arcana), and a command anybody could type skipped every requirement of both.
 func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, args []byte) bool {
 	cmd := strings.TrimPrefix(name, "/")
 	if dest, ok := teleportCmds[cmd]; ok {
@@ -200,16 +200,22 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.leaveGuild(w, s)
 		return true
 	}
-	if cmd == "destravar40" {
-		d.destravarCelestial(w, s, false)
-		return true
-	}
-	if cmd == "destravar90" {
-		d.destravarCelestial(w, s, true)
-		return true
-	}
-	if cmd == "arcana" {
-		d.arcana(w, s)
+	if cmd == "destravar40" || cmd == "destravar90" || cmd == "arcana" {
+		// Staff only. A player gets the same silence a denied /gm gets; the
+		// attempt is logged, since only someone who read the old docs would try.
+		if s.AccessLevel < world.AccessModerator {
+			d.log.Warn("celestial unlock command denied: not staff",
+				"conn", s.Conn, "account", s.AccountName, "cmd", cmd)
+			return true
+		}
+		switch cmd {
+		case "destravar40":
+			d.destravarCelestial(w, s, false)
+		case "destravar90":
+			d.destravarCelestial(w, s, true)
+		default:
+			d.arcana(w, s)
+		}
 		return true
 	}
 	if cmd == "time" {
@@ -311,8 +317,7 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 // Celestial unlock constants (_MSG_MessageWhisper.cpp:628/645/676).
 const (
 	celestialUnlockParm = 1    // _MSG_CombineComplete Parm on a successful unlock
-	furyStoneIndex      = 3502 // /destravar90 reward (FuryStone), granted to carry
-	arcanaItemIndex     = 3507 // /arcana reward, placed in Equip[1]
+	arcanaItemIndex     = 3507 // Cythera Arcana, placed in Equip[1]
 	arcanaEquipSlot     = 1
 )
 
@@ -320,7 +325,8 @@ const (
 // (ninety=true): the Celestial level-40/90 unlock (_MSG_MessageWhisper.cpp:628/645).
 // It sets the QuestInfo.Celestial gate flag so CheckGetLevel lets the character pass
 // level 40/90 (CMob.cpp:1107), signals the client, and persists the flag. /destravar90
-// additionally hands out the FuryStone (item 3502) and plays the unlock emote.
+// additionally hands out the Cythera Mística (item 3502, what the Pedra da Fúria
+// gives at 90) and plays the unlock emote. Staff only (runCommand).
 //
 // The command is only effective for a Celestial — for anyone else it is a no-op
 // (there is no gate to unlock on the Mortal/Arch curve), matching the design in
@@ -348,7 +354,7 @@ func (d *Dispatcher) destravarCelestialFor(w *world.World, s *world.Session, e *
 			return
 		}
 		e.CelLv90 = 1
-		d.grantCarry(w, s, e, furyStoneIndex)
+		d.grantCarry(w, s, e, itemCytheraMistica)
 	} else {
 		if e.CelLv40 != 0 {
 			return
@@ -366,6 +372,7 @@ func (d *Dispatcher) destravarCelestialFor(w *world.World, s *world.Session, e *
 // arcana handles /arcana: the Cythera Arcana quest turn-in (_MSG_MessageWhisper.cpp:676).
 // It sets QuestInfo.Circle, places the reward (item 3507) in Equip[1], signals the
 // client, plays the unlock emote, and persists. Only effective for a Celestial.
+// Staff only (runCommand); the player's way is the Pedra da Fúria at 199.
 func (d *Dispatcher) arcana(w *world.World, s *world.Session) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.ClassMaster != classMasterCelestial {

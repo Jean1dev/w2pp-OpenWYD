@@ -16,9 +16,9 @@
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave em si é feito na NPC Lindy, ver abaixo) <br/>
 ✅ /reino: teleporta de acordo com a capa — capa de Hekalotia (azul) leva ao rei de Hekalotia, capa de Akelonia (vermelha) ao rei de Akelonia, e qualquer capa neutra (sem capa, Capa Branca do Monstro #550, capa verde/Manto do Aprendiz #4006, …) à cidade dos reinos — comando novo, não existe na fonte legada <br/>
 ⏳ /crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) — sem coordenada na fonte legada <br/>
-✅ /destravar40: destrava o level 40 do celestial (seta o gate `QuestInfo.Celestial.Lv40`; efetivo só para chars Celestial) <br/>
-✅ /destravar90: destrava o level 90 do celestial (gate `Lv90` + dá a FuryStone item 3502) <br/>
-✅ /arcana: realiza a quest da cythera arcana (seta `Circle` + põe o item 3507 no Equip[1]) <br/>
+✅ /destravar40: só staff (GM). O jogador destrava o 40 na combinação do Odin (receita do Destrave Lv40) <br/>
+✅ /destravar90: só staff (GM). O jogador destrava o 90 usando a Pedra da Fúria (3020) no nível 90 com 500 de fama; ganha a Cythera Mística (3502) <br/>
+✅ /arcana: só staff (GM). O jogador faz a Arcana usando a Pedra da Fúria no nível 200 com 500 de fama e as 4 Pedras Secretas; a Cythera vira a Arcana (3507) <br/>
 ⏳ /create: (nome da guild): cria guild — sistema de guild não modelado <br/>
 ✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
 ⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>
@@ -118,7 +118,7 @@ mas o personagem **volta para o nível da quest**, perdendo os níveis ganhos
 indevidamente. Isso é uma divergência deliberada do servidor original, que exige
 o nível exato e deixaria a conta travada para sempre.
 
-Para destravar o lv 40 e 90 do Cele utilize o comando /destravar40 e /destravar90
+Para destravar o lv 40 do Cele, faça a combinação do Destrave Lv40 no Odin. Para o lv 90, use a Pedra da Fúria (500 de fama).
 
-Pegue lv 200 no seu Cele e vire Sub Cele, faça a quest da Cythera Arcana e os três resets. (Escreva /arcana para fazer a quest da Arcana automaticamente).
+Pegue lv 200 no seu Cele, faça a quest da Cythera Arcana (Pedra da Fúria + as 4 Pedras Secretas + 500 de fama). O Sub Celestial e os três resets ainda não existem neste servidor.
 • Refine a capa para +9 logo após disso.

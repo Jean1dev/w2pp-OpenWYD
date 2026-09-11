@@ -537,6 +537,9 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	case itemSeloDoGuerreiro:
 		d.useSeloDoGuerreiro(w, s, e, src)
 		return
+	case itemPedraDaFuria:
+		d.usePedraDaFuria(w, s, e, src)
+		return
 	case itemPedraMisteriosa:
 		d.rejectUnimplementedConsumable(w, s, e, src)
 		return
