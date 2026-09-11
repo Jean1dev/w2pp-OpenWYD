@@ -69,9 +69,13 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
   pelos próprios timers.
 - **Reinício do servidor** encerra a corrida (nada é persistido), como na Água e
   na Carta.
-- **O contador é o mesmo da Água**: o `MsgStartTime` em segundos, como a Água e o
-  Pesadelo mandam. Sai com 900 na abertura, corta para 120 quando o boss cai e é
-  reenviado ao grupo a cada minuto, para quem relogou ou morreu e voltou.
+- **Contador: o cliente não desenha aqui.** O servidor manda o mesmo `MsgStartTime`
+  da Água e do Pesadelo (900 s na abertura, 120 quando o boss cai, reenvio a cada
+  minuto), mas o WYD.exe 7662 só desenha esse contador numa lista fixa de 15
+  campos do mapa (blocos de 128×128; laço em 0x47DAA4) e o castelo fica no campo
+  (19,16), fora dela. Por enquanto o tempo vai em texto a cada minuto ("Castelo
+  Orc: N min"). A correção é um patch no cliente que acrescente o campo (19,16) à
+  lista; o servidor não precisa mudar.
 
 ## Os monstros
 

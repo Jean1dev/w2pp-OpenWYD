@@ -43,9 +43,9 @@ const (
 	// casteloOrcNPCCheckEvery is how often the Xamã is looked for and raised
 	// again if something removed it.
 	casteloOrcNPCCheckEvery = 10
-	// casteloOrcResyncEvery re-pushes the clock to the party, the way the water
-	// rooms re-push theirs on every change: a member who relogged or died and
-	// walked back in gets the counter again within a minute.
+	// casteloOrcResyncEvery re-pushes the clock to the party, with the minutes
+	// left in text: see sendCasteloOrcCountdown for why the text is the part the
+	// players see.
 	casteloOrcResyncEvery = 60
 
 	casteloOrcNPCTemplate = "COrc_Xama"
@@ -219,12 +219,15 @@ func (d *Dispatcher) casteloOrcSweep(w *world.World, strangersOnly bool) {
 	}
 }
 
-// sendCasteloOrcCountdown shows the run's clock: the same MsgStartTime, in the
-// same unit, as the water rooms' counter the players already know
-// (sendWaterCountdown sends its 2-second units ×2, i.e. seconds) and the
-// Pesadelo's. The client counts it down by itself; the resync only corrects it.
-// It cannot reuse sendWaterCountdown: that one takes a uint8, and 900 does not
-// fit.
+// sendCasteloOrcCountdown sends the run's clock: the same MsgStartTime, in the
+// same unit (seconds), as the water rooms and the Pesadelo send.
+//
+// The 7662 client does NOT draw it here. WYD.exe shows that counter only on a
+// fixed list of fifteen 128×128 map fields (the draw loop at 0x47DAA4 compares
+// the current field against hardcoded pairs — Água, Pesadelo, Carta, Duelo…)
+// and hides it anywhere else; the castle sits on field (19,16), which is not on
+// the list. It is still sent, so a client patch that adds the field lights it
+// up with no server change. Until then the minutes go out as text on the resync.
 func (d *Dispatcher) sendCasteloOrcCountdown(w *world.World, s *world.Session) {
 	body := protocol.EncodeStandardParm(int32(d.casteloOrc.secondsLeft))
 	w.SendTo(s, protocol.Header{Type: protocol.MsgStartTime, ID: protocol.IDScene}, body)
@@ -261,7 +264,7 @@ func (d *Dispatcher) tickCasteloOrc(w *world.World) {
 		return
 	}
 	if casteloOrcResyncDue(r.secondsLeft) {
-		d.broadcastCasteloOrcCountdown(w, "")
+		d.broadcastCasteloOrcCountdown(w, fmt.Sprintf("Castelo Orc: %d min", r.secondsLeft/60))
 	}
 
 	r.sinceFollower++
