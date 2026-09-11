@@ -93,20 +93,24 @@ func TestCasteloOrcNaoMexeNoDropDeOutroMonstro(t *testing.T) {
 // casteloOrcDesign is the quest as designed (Atlas de Quests, 2026-09-11): the
 // numbers a Mortal party of 320-400 at +6..+9 was calibrated against. A change
 // here is a balance change, and should be one on purpose.
+//
+// The Dano column assumes the monster swing reads the player's armour as it is
+// (dano − AC/2) against the legacy's doubled player HP (65346fe8). It was 2300-2700
+// while the port tripled that armour; a change to either rule moves all of it.
 var casteloOrcDesign = map[string]struct {
 	name             string
 	lvl, hp, ac, dmg int32
 	res              int8
 	key              int16
 }{
-	"COrc_GraoLorde": {"Grão-Lorde Orc", 350, 3000000, 3000, 2700, 25, 0},
-	"COrc_Guarda":    {"Guarda do Lorde", 320, 150000, 2200, 2450, 15, 0},
-	"COrc_Sentinela": {"Sentinela Orc", 330, 450000, 2400, 2500, 20, 466},
-	"COrc_Capitao":   {"Capitão Orc", 330, 450000, 2400, 2500, 20, 467},
-	"COrc_Chefe":     {"Chefe Orc", 330, 450000, 2400, 2500, 20, 469},
-	"COrc_Cavaleiro": {"Cavaleiro Orc", 300, 18000, 1800, 2300, 10, 0},
-	"COrc_Arqueiro":  {"Arqueiro Orc", 300, 18000, 1800, 2300, 10, 0},
-	"COrc_MeioOrc":   {"Meio Orc", 300, 18000, 1800, 2300, 10, 0},
+	"COrc_GraoLorde": {"Grão-Lorde Orc", 350, 3000000, 3000, 2020, 25, 0},
+	"COrc_Guarda":    {"Guarda do Lorde", 320, 150000, 2200, 1520, 15, 0},
+	"COrc_Sentinela": {"Sentinela Orc", 330, 450000, 2400, 1620, 20, 466},
+	"COrc_Capitao":   {"Capitão Orc", 330, 450000, 2400, 1620, 20, 467},
+	"COrc_Chefe":     {"Chefe Orc", 330, 450000, 2400, 1620, 20, 469},
+	"COrc_Cavaleiro": {"Cavaleiro Orc", 300, 18000, 1800, 1220, 10, 0},
+	"COrc_Arqueiro":  {"Arqueiro Orc", 300, 18000, 1800, 1220, 10, 0},
+	"COrc_MeioOrc":   {"Meio Orc", 300, 18000, 1800, 1220, 10, 0},
 }
 
 func releaseDir(t *testing.T) string {

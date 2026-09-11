@@ -114,3 +114,18 @@ está no painel.
 Antes de gravar qualquer coisa na memória, o DLL confere os bytes da função do
 tooltip. Se não forem os da build 7662, ele não faz nada: tooltip sem cor, em
 vez de jogo caindo.
+
+## Contador de quest em campos novos (`timerfields.cpp`)
+
+O `MsgStartTime` (0x3A1) liga o contador de tempo da Água e do Pesadelo, mas o
+`WYD.exe` só o desenha numa lista fixa de 15 campos de 128x128 do mapa (laço em
+`0x47DAA4`). Fora deles, ele esconde o contador e zera a flag. O DLL desvia o
+primeiro par da lista (`0x47DACA`) e acrescenta:
+
+| Campo | Onde |
+|---|---|
+| (19,16) | Castelo Orc de Erion (x 2432–2559, y 2048–2175) |
+
+Campo novo: mais um par de `cmp`/`jne` em `FieldHook`. O servidor não muda: ele
+já manda o 0x3A1. O desvio se instala sozinho, por um objeto global, e confere
+os 16 bytes antes de gravar, como os outros.

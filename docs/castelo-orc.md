@@ -69,26 +69,26 @@ legado, item que o cliente já conhece. A migração tira a chave de todo monstr
   pelos próprios timers.
 - **Reinício do servidor** encerra a corrida (nada é persistido), como na Água e
   na Carta.
-- **Contador: o cliente não desenha aqui.** O servidor manda o mesmo `MsgStartTime`
+- **Contador: precisa do GamePatch.** O servidor manda o mesmo `MsgStartTime`
   da Água e do Pesadelo (900 s na abertura, 120 quando o boss cai, reenvio a cada
   minuto), mas o WYD.exe 7662 só desenha esse contador numa lista fixa de 15
   campos do mapa (blocos de 128×128; laço em 0x47DAA4) e o castelo fica no campo
-  (19,16), fora dela. Por enquanto o tempo vai em texto a cada minuto ("Castelo
-  Orc: N min"). A correção é um patch no cliente que acrescente o campo (19,16) à
-  lista; o servidor não precisa mudar.
+  (19,16), fora dela. O `client/gamepatch/timerfields.cpp` acrescenta o campo
+  (19,16); o cliente sem esse GamePatch.dll continua sem contador. O tempo também
+  vai em texto a cada minuto ("Castelo Orc: N min"), para todo cliente.
 
 ## Os monstros
 
 | Template | Nome no jogo | Nv | HP | Defesa | Dano | Resist. | Bloco |
 |---|---|---|---|---|---|---|---|
-| `COrc_GraoLorde` | Grão-Lorde Orc | 350 | 3.000.000 | 3.000 | 2.700 | 25 | 6099 |
-| `COrc_Guarda` | Guarda do Lorde | 320 | 150.000 | 2.200 | 2.450 | 15 | 6100 (grupo de 4) |
-| `COrc_Sentinela` | Sentinela Orc | 330 | 450.000 | 2.400 | 2.500 | 20 | 6101 · chave 466 |
-| `COrc_Capitao` | Capitão Orc | 330 | 450.000 | 2.400 | 2.500 | 20 | 6102 · chave 467 |
-| `COrc_Chefe` | Chefe Orc | 330 | 450.000 | 2.400 | 2.500 | 20 | 6103 · chave 469 |
-| `COrc_Cavaleiro` | Cavaleiro Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6104 (grupos de 4–5) |
-| `COrc_Arqueiro` | Arqueiro Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6105 |
-| `COrc_MeioOrc` | Meio Orc | 300 | 18.000 | 1.800 | 2.300 | 10 | 6106 |
+| `COrc_GraoLorde` | Grão-Lorde Orc | 350 | 3.000.000 | 3.000 | 2.020 | 25 | 6099 |
+| `COrc_Guarda` | Guarda do Lorde | 320 | 150.000 | 2.200 | 1.520 | 15 | 6100 (grupo de 4) |
+| `COrc_Sentinela` | Sentinela Orc | 330 | 450.000 | 2.400 | 1.620 | 20 | 6101 · chave 466 |
+| `COrc_Capitao` | Capitão Orc | 330 | 450.000 | 2.400 | 1.620 | 20 | 6102 · chave 467 |
+| `COrc_Chefe` | Chefe Orc | 330 | 450.000 | 2.400 | 1.620 | 20 | 6103 · chave 469 |
+| `COrc_Cavaleiro` | Cavaleiro Orc | 300 | 18.000 | 1.800 | 1.220 | 10 | 6104 (grupos de 4–5) |
+| `COrc_Arqueiro` | Arqueiro Orc | 300 | 18.000 | 1.800 | 1.220 | 10 | 6105 |
+| `COrc_MeioOrc` | Meio Orc | 300 | 18.000 | 1.800 | 1.220 | 10 | 6106 |
 
 O boss usa o corpo do Troll_Martelo (rosto 213), uma Espada Bastarda +11 em cada
 mão e monta um Lobo. O HP dos bosses (Grão-Lorde e guardiões) caiu pela metade
@@ -100,10 +100,14 @@ lê valores abaixo de 230 como o resto por 10 (um 11 aparece como +1); +10 é
 equipamento de mob no score.
 
 **Por que esses números:**
-- O golpe de mob no jogador faz `Dano − 1,5 × Defesa` (a defesa entra ×3; ver a
-  memória "mob bate com defesa ×3"). Com set de +6 a +9, um Mortal 320 tem
-  1.300–1.600 de defesa. Por isso o Dano fica entre 2.300 e 2.700: abaixo disso,
-  todo golpe tira 1.
+- O golpe de mob no jogador faz `Dano − Defesa/2`, com sorteio de 99–110% e ×0,75
+  montado, contra o HP do jogador em dobro, como no legado (`65346fe8`). Com set
+  de +6 a +9, um Mortal 320 tem 1.150–1.600 de defesa. Com estes números, na
+  simulação de party (TK, FM, BM e HT montados), cada golpe tira do TK: boss
+  23–25% do HP, guardião 16–18%, seguidor 14–16%, tropa 8–11%. FM e BM levam
+  quase o dobro disso em porcentagem.
+- Até 11/09/2026 a defesa entrava ×3 também contra mob, e o Dano era 2.300–2.700.
+  Na regra de hoje, aqueles números tiravam 35–73% do HP por golpe do boss.
 - As resistências são positivas de propósito. O servidor lê a resistência como
   número sem sinal, e um −20 vira 100, o que corta pela metade o dano de skill.
 - O 0 XP está no código (`handler/castelo_orc.go`) e não em Clan 4. Clan 4 é o clã
