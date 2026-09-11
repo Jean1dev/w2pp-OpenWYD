@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -21,6 +22,87 @@ func bmEntity(learned int32) *world.Entity {
 	e := &world.Entity{Class: 2, AC: 100, MaxHP: 1000, LearnedSkill: learned}
 	e.Equip[0].Index = 21 // the BM body/class item
 	return e
+}
+
+func TestTransformCostumeVisual(t *testing.T) {
+	for value, mesh := range []uint16{22, 23, 24, 25, 32} {
+		for _, index := range []int16{0, 4149, 4150, 4175, 4188, 4189} {
+			t.Run(fmt.Sprintf("form%d/item%d", value+1, index), func(t *testing.T) {
+				e := bmEntity(0)
+				e.Equip[12] = world.Item{Index: index, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}, ExpiresAt: 2000000000}
+				before := e.Equip
+				baseV, baseA := equipVisual(e)
+				e.Affect[0] = world.Affect{Type: 16, Value: uint8(value + 1), Time: 10}
+				v, a := equipVisual(e)
+				wantV, wantA := baseV, baseA
+				wantV[0], wantA[0] = mesh, 0
+				if index >= 4150 && index <= 4188 {
+					wantV[12], wantA[12] = 0, 0
+				}
+				if v != wantV || a != wantA {
+					t.Fatalf("transformed visual = %v/%v, want %v/%v", v, a, wantV, wantA)
+				}
+				e.Affect[0] = world.Affect{}
+				if v, a := equipVisual(e); v != baseV || a != baseA {
+					t.Fatal("removing transform did not restore equipment and glow")
+				}
+				if e.Equip != before {
+					t.Fatal("visual derivation mutated real equipment")
+				}
+			})
+		}
+	}
+}
+
+func TestTransformCostumeGuard(t *testing.T) {
+	for _, class := range []uint8{0, 1, 2, 3} {
+		for _, value := range []uint8{0, 1, 6, 200} {
+			if class == 2 && value == 1 {
+				continue
+			}
+			e := bmEntity(0)
+			e.Class = class
+			e.Equip[12] = world.Item{Index: 4150, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+			wantV, wantA := equipVisual(e)
+			e.Affect[0] = world.Affect{Type: 16, Value: value, Time: 10}
+			if v, a := equipVisual(e); v != wantV || a != wantA {
+				t.Errorf("class %d value %d changed equipment appearance", class, value)
+			}
+		}
+	}
+}
+
+func TestTransformCostumeChangeRetainsBonuses(t *testing.T) {
+	d := New(Config{})
+	e := bmEntity(0)
+	e.BaseStr = 100
+	e.Affect[0] = world.Affect{Type: 16, Value: 2, Time: 10}
+	for _, item := range []world.Item{
+		{Index: 4150, Effects: [3]world.Effect{{Effect: efStr, Value: 20}}},
+		{Index: 4188, Effects: [3]world.Effect{{Effect: efStr, Value: 30}}},
+		{},
+	} {
+		e.Equip[12] = item
+		e.EquipVisual, e.EquipAnct = equipVisual(e)
+		d.refreshScore(e)
+		if e.Str != 100+int16(item.Effects[0].Value) {
+			t.Fatalf("costume %d: Str = %d, costume bonus lost", item.Index, e.Str)
+		}
+		if e.EquipVisual[12] != 0 || e.EquipAnct[12] != 0 || e.Equip[12] != item {
+			t.Fatal("costume change did not preserve hidden real equipment")
+		}
+		data := createMobFrom(e, 0)
+		if data.Equip[0] != 23 || data.Equip[12] != 0 || data.AnctCode[12] != 0 {
+			t.Fatal("new observer would see costume instead of transformed appearance")
+		}
+		e.Affect[0] = world.Affect{}
+		v, a := equipVisual(e)
+		wantV, wantA := protocol.VisualEquip(itemToSel(item), 12)
+		if v[12] != wantV || a[12] != wantA {
+			t.Fatal("transform removal restored stale costume")
+		}
+		e.Affect[0] = world.Affect{Type: 16, Value: 2, Time: 10}
+	}
 }
 
 func TestApplyTransformScore(t *testing.T) {
@@ -182,6 +264,7 @@ func TestTransformCastBroadcastsMesh(t *testing.T) {
 		LearnedSkill: 1 << 18, // skill 66 learned (66%24 = bit 18)
 	}
 	st.Equip[0] = world.Item{Index: 21}
+	st.Equip[12] = world.Item{Index: 4150, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
 	db.loadResult = st
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -209,6 +292,8 @@ func TestTransformCastBroadcastsMesh(t *testing.T) {
 
 	c := enterWorld(t, ln.Addr().String())
 	defer c.Close()
+	observer := enterWorldAs(t, ln.Addr().String(), "tradeb")
+	defer observer.Close()
 
 	skillAttackFrame(t, c, serverTime, 1, 66, damSkill) // self-cast (conn 1)
 
@@ -224,6 +309,10 @@ func TestTransformCastBroadcastsMesh(t *testing.T) {
 		if got := binary.LittleEndian.Uint16(payload[0:2]); got != 23 {
 			t.Fatalf("post-cast UpdateEquip slot0 = %d, want 23 (Urso mesh)", got)
 		}
+		if binary.LittleEndian.Uint16(payload[24:26]) != 0 || payload[44] != 0 {
+			t.Fatal("post-cast costume visual/glow is still visible")
+		}
+		assertTransformEquip(t, observer, 1, 23, 0, 0)
 		return
 	}
 	t.Fatal("transform cast landed but no UpdateEquip mesh broadcast was sent")
@@ -241,12 +330,15 @@ func TestTransformExpiryRevertsMesh(t *testing.T) {
 		Affects: []world.Affect{{Type: 16, Value: 2, Level: 100, Time: 1}},
 	}
 	st.Equip[0] = world.Item{Index: 21}
+	st.Equip[12] = world.Item{Index: 4188, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
 	db.loadResult = st
 	addr, stop := startServerAffectTick(t, db)
 	defer stop()
 
 	c := enterWorld(t, addr)
 	defer c.Close()
+	observer := enterWorldAs(t, addr, "tradeb")
+	defer observer.Close()
 
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -260,7 +352,63 @@ func TestTransformExpiryRevertsMesh(t *testing.T) {
 		if got := binary.LittleEndian.Uint16(payload[0:2]); got != 21 {
 			t.Fatalf("post-expiry UpdateEquip slot0 = %d, want 21 (reverted body item)", got)
 		}
+		wantV, wantA := protocol.VisualEquip(itemToSel(st.Equip[12]), 12)
+		if binary.LittleEndian.Uint16(payload[24:26]) != wantV || payload[44] != wantA {
+			t.Fatal("expiry did not restore costume visual/glow")
+		}
+		assertTransformEquip(t, observer, 1, 21, wantV, wantA)
 		return
 	}
 	t.Fatal("transform expired but no UpdateEquip revert was broadcast")
+}
+
+func assertTransformEquip(t *testing.T, c net.Conn, id, mesh, costume uint16, glow uint8) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		h, body, ok := readMaybeHeader(t, c)
+		if !ok || h.Type != protocol.MsgUpdateEquip || h.ID != id {
+			continue
+		}
+		if len(body) != 48 || binary.LittleEndian.Uint16(body[:2]) != mesh || binary.LittleEndian.Uint16(body[24:26]) != costume || body[44] != glow {
+			t.Fatalf("unexpected transform UpdateEquip: %x", body)
+		}
+		return
+	}
+	t.Fatal("missing transform UpdateEquip")
+}
+
+func TestTransformCostumePersistedLoginAndNewObserver(t *testing.T) {
+	db := newDB()
+	st := world.CharacterState{
+		Slot: 0, Name: "Beast", Class: 2, X: 2100, Y: 2100,
+		HP: 500, MaxHP: 500, Level: 50,
+		Affects: []world.Affect{{Type: 16, Value: 5, Level: 100, Time: 100}},
+	}
+	st.Equip[0] = world.Item{Index: 21}
+	st.Equip[12] = world.Item{Index: 4150, Effects: [3]world.Effect{{Effect: efSanc, Value: 9}}}
+	db.loadResult = st
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+	assertCreate := func(c net.Conn) {
+		t.Helper()
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			h, body, ok := readMaybeHeaderRaw(t, c)
+			if !ok || h.Type != protocol.MsgCreateMob || len(body) < 190 || binary.LittleEndian.Uint16(body[4:6]) != 1 {
+				continue
+			}
+			if binary.LittleEndian.Uint16(body[22:24]) != 32 || binary.LittleEndian.Uint16(body[46:48]) != 0 || body[186] != 0 {
+				t.Fatalf("persisted transform CreateMob has wrong body/costume: %x", body)
+			}
+			return
+		}
+		t.Fatal("missing transformed CreateMob")
+	}
+	assertCreate(c)
+	observer := enterWorldAs(t, addr, "tradeb")
+	defer observer.Close()
+	assertCreate(observer)
 }

@@ -1739,6 +1739,13 @@ func equipVisual(e *world.Entity) ([16]uint16, [16]uint8) {
 	if value, _, ok := activeTransform(e); ok {
 		v[0] = transMesh(value)
 		a[0] = 0
+		// Costumes compete with the beast mesh on the client (issue #320).
+		// The legacy costume range/slot is in ProcessSecMinTimer.cpp:601.
+		// Hide only the visual: real equipment must retain its bonuses and
+		// reappear automatically when the transform ends.
+		if costume := e.Equip[12].Index; costume >= 4150 && costume <= 4188 {
+			v[12], a[12] = 0, 0
+		}
 	}
 	return v, a
 }

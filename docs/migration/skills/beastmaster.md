@@ -76,6 +76,16 @@ O orcamento de pets e **da party inteira**, nao por jogador: `generateSummon` co
 
 ## Divergencias deliberadas
 
+- Issue #320: durante uma transformacao BM valida, `equipVisual` oculta apenas o
+  indice visual e o brilho dos trajes 4150..4188 no slot 12, mantendo o modelo
+  animal no slot 0. A faixa/slot vem de `ProcessSecMinTimer.cpp:601` e do catalogo
+  `ItemList.csv`. O item real permanece equipado, com seus bonus e persistencia;
+  ao terminar a transformacao, reaparece o traje atualmente equipado. A mesma
+  derivacao alimenta UpdateEquip e CreateMob, inclusive no login com affect
+  persistido e para novos observadores. A precedencia visual precisa de validacao
+  manual no cliente 7662. Regressao: testes `TestTransformCostume*`,
+  `TestTransformCastBroadcastsMesh` e `TestTransformExpiryRevertsMesh`.
+
 - `Proteção_Elemental` (53) buffa os indices `Resist[0]`, `[1]` e `[3]` — Fogo, Gelo e Trovao —
   pulando `[2]` (Sagrado). O legado (`Basedef.cpp:4239`) soma em locais chamados `Fogo/Trovao/Gelo`,
   mas esses locais estao trocados na origem (`Basedef.cpp:3919` liga `Sagrado←Resist[0]`,
