@@ -583,8 +583,9 @@ func TestConcentracaoTiraDezPontosDaEsquiva(t *testing.T) {
 
 // TestLivroRessurreicaoVintePorCentoNoLugar: one death in five gets up where it
 // fell with 40% of each pool; the rest take the legacy's way back to the city,
-// with its random 1-50%. MaxHp 999 keeps the two apart: 40% is 399, and the city
-// branch only ever gives multiples of 10.
+// with its random 1-50%. Both read the player's doubled pools (scoreMaxHP), so
+// MaxHp 999 is a pool of 1998: 40% is 799, and the city branch only ever gives
+// multiples of (1998+1)/100 = 19, which 799 is not — the two stay apart.
 func TestLivroRessurreicaoVintePorCentoNoLugar(t *testing.T) {
 	d := New(Config{})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
@@ -594,13 +595,13 @@ func TestLivroRessurreicaoVintePorCentoNoLugar(t *testing.T) {
 		e := &world.Entity{ID: 1, Mode: world.MobUser, MaxHP: 999, MaxMP: 999}
 		d.applyBookResurrection(w, &world.Session{Conn: 1}, e)
 		switch {
-		case e.HP == 399:
+		case e.HP == 799:
 			noLugar++
-			if e.MP != 399 {
-				t.Fatalf("de pé no lugar com mana %d, want 399 (40%%)", e.MP)
+			if e.MP != 799 {
+				t.Fatalf("de pé no lugar com mana %d, want 799 (40%% de 1998)", e.MP)
 			}
-		case e.HP < 10 || e.HP > 500 || e.HP%10 != 0:
-			t.Fatalf("volta à cidade com vida %d, want 1-50%% em múltiplos de 10", e.HP)
+		case e.HP < 19 || e.HP > 950 || e.HP%19 != 0:
+			t.Fatalf("volta à cidade com vida %d, want 1-50%% de 1998 em múltiplos de 19", e.HP)
 		}
 	}
 	if pct := noLugar * 100 / n; pct < 17 || pct > 23 {
