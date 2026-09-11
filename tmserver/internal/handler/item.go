@@ -1479,7 +1479,7 @@ func (d *Dispatcher) useCoracaoDoce(w *world.World, s *world.Session, e *world.E
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	e.Affect[speedSlot] = world.Affect{Type: 2, Value: 2, Time: affect1H / 5}
+	renovarAfeto(&e.Affect[speedSlot], 2, 2, affect1H/5)
 
 	defSlot := e.EmptyAffect(11) // Defesa
 	if defSlot < 0 {
@@ -1487,13 +1487,29 @@ func (d *Dispatcher) useCoracaoDoce(w *world.World, s *world.Session, e *world.E
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	e.Affect[defSlot] = world.Affect{Type: 11, Time: affect1H / 5}
+	renovarAfeto(&e.Affect[defSlot], 11, -1, affect1H/5)
 
 	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 	d.sendScore(w, s, e)
 	d.sendAffect(w, s, e)
+}
+
+// renovarAfeto escreve um afeto de doce como o legado escreve: só o tipo, o
+// tempo e, quando o item define, o valor. O nível fica o que estava na casa.
+//
+// O legado faz `Affect[s].Type = 9; Affect[s].Time = AFFECT_1H/5;` e mais nada
+// (_MSG_UseItem.cpp:6030-6131). Como GetEmptyAffect devolve a casa que já tem o
+// mesmo tipo, comer um doce por cima do buff do Ajudante (ajudante.go) mantém o
+// dano e a defesa dele e só troca o tempo. O port escrevia a casa inteira, e o
+// Chocolate zerava os +172 de dano do Ajudante. valor < 0 = não mexe no valor.
+func renovarAfeto(af *world.Affect, tipo uint8, valor int, tempo uint32) {
+	af.Type = tipo
+	if valor >= 0 {
+		af.Value = uint8(valor)
+	}
+	af.Time = tempo
 }
 
 // useChocolateDoAmor consumes Chocolate do Amor (EF_VOLATILE 204): a short Dano
@@ -1505,7 +1521,7 @@ func (d *Dispatcher) useChocolateDoAmor(w *world.World, s *world.Session, e *wor
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	e.Affect[dmgSlot] = world.Affect{Type: 9, Time: affect1H / 5}
+	renovarAfeto(&e.Affect[dmgSlot], 9, -1, affect1H/5)
 
 	skillSlot := e.EmptyAffect(15) // Skill
 	if skillSlot < 0 {
@@ -1513,7 +1529,7 @@ func (d *Dispatcher) useChocolateDoAmor(w *world.World, s *world.Session, e *wor
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	e.Affect[skillSlot] = world.Affect{Type: 15, Value: 55, Time: affect1H / 5}
+	renovarAfeto(&e.Affect[skillSlot], 15, 55, affect1H/5)
 
 	consumeOneItem(&e.Carry[src])
 	d.refreshScore(e)

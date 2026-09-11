@@ -52,6 +52,10 @@ linters:
         # words stay, unreported, until somebody edits those lines and the
         # failure lands on them instead of on whoever wrote it.
         - independente
+        # Portuguese for "they", in a comment on the training-field Ajudante
+        # (ajudante.go). misspell reads it as a typo for "eels"; it is the most
+        # common pronoun in the language, so it will keep coming back.
+        - eles
   exclusions:
     generated: lax
     presets:
