@@ -132,11 +132,12 @@ var consumableGroups = []struct {
 	{Epico, match(`Grande Baú|Raid Box|Money Cube`)}, // grandes baús
 	{Raro, match(`Baú|Bau\b|Caixa|Pacote|Bolsa|Presente|Envelope|Esfera da Sorte|Caça Níquel|TOTO`)},
 	{Incomum, match(`Cupom|Coupon`)},
+	{Epico, match(`^Moeda WYD|^Barra de Ouro`)}, // crédito de cash (EF_DONATE), antes do grupo das moedas
 	{Incomum, match(`Moeda|Barra de Prata`)},
 	{Epico, match(`Traje Mont|Wooden horse`)},
 	{Epico, match(`Emblema|Medalha|Selo|Honor|Marca do`)},
 	{Epico, match(`^Classe `)},
-	{Epico, match(`Bênção|Proteção Divina|Trava de Item|Perdão|Reforma|Retorno da Habilidade|Cosmo Energia|Ticket Serviço|Peerage|Mandado`)},
+	{Epico, match(`Bênção|Proteção Divina|Trava de Item|Perdão|Reforma|Retorno da Habilidade|Ticket Serviço|Peerage|Mandado`)},
 	{Raro, match(`Evoca|Trans|Canhão|Muro de Espinhos|Ressurreição|Concentração|Força Espectral|Contrato`)},
 	{Incomum, match(`Pergaminho|Pergamino|Mapa|Chamado Real|Olho Crescente`)},
 	{Incomum, match(`Pesadelo|Portão do Inferno|Convite|Ingresso|Entrada|Passagem|Porta PvP|Portão Temporal|Carta de Duelo|Pedido de Caça|Chave|Declaração|Recusa|Escritura`)},

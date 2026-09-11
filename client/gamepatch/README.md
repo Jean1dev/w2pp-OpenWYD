@@ -98,12 +98,16 @@ Junto com os arquivos das montarias, pelo gerador:
 
 ```
 go run ./webserver/cmd/montariacliente -tabela montarias-cliente.txt ^
-    -cliente "<pasta do cliente original>" -gamepatch client\gamepatch\out\GamePatch.dll
+    -cliente "<pasta do cliente original>" -catalogo Release\Common\ItemList.csv ^
+    -gamepatch client\gamepatch\out\GamePatch.dll
 ```
 
 O gerador põe na pasta de saída o `WYD.exe`, o `ItemList.bin`, o
-`UI\strdef.bin` e este DLL, prontos para o launcher. O `GamePatch.txt` ainda é
-escrito à mão; a raridade ainda não está no painel.
+`UI\strdef.bin`, o `GamePatchItens.bin` e este DLL, prontos para o launcher.
+Com `-catalogo`, o `ItemList.bin` é reescrito a partir do catálogo do servidor
+(`webserver/internal/clientitemlist`) — o cliente passa a mostrar o que o
+servidor faz. O `GamePatch.txt` ainda é escrito à mão; a raridade ainda não
+está no painel.
 
 ## Segurança
 

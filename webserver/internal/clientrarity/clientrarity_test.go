@@ -152,6 +152,10 @@ func TestClassifyAcessoriosEConsumiveis(t *testing.T) {
 		{"Escritura de Oriharucon é material", Item{Index: 3445, Name: "Escritura de Oriharucon"}, Raro},
 		{"Escritura do Pesadelo é entrada", Item{Index: 5137, Name: "Escritura do Pesadelo"}, Incomum},
 		{"sobra do catálogo", Item{Index: 634, Name: "not used"}, None},
+		// Crédito de cash: Épico, e a Moeda WYD não cai no grupo das moedas.
+		{"Barra de Ouro", Item{Index: 3394, Name: "Barra de Ouro(1000Cash)"}, Epico},
+		{"Moeda WYD", Item{Index: 3393, Name: "Moeda WYD(200)"}, Epico},
+		{"Moeda de Prata segue Incomum", Item{Index: 4026, Name: "Moeda de Prata(1Mi)"}, Incomum},
 	} {
 		if got := Classify(tc.it); got != tc.want {
 			t.Errorf("%s: Classify = %v, want %v", tc.name, got, tc.want)

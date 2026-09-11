@@ -544,7 +544,7 @@ Com `-npc-editing` ligado — que é o estado de produção — os blocos de loj
 `npc_definition`. `applyShop` **zera o Carry inteiro** e escreve os slots vindos do `npc_shop_item`.
 Consequência: **editar o `Carry` do arquivo de template não muda nada para um lojista.**
 
-Isso custou caro uma vez: cinco itens denominados em crédito de doação (as Cosmo Energia, `EF_DONATE`
+Isso custou caro uma vez: cinco itens denominados em crédito de doação (as Cosmo Energia — hoje Moeda WYD e Barra de Ouro, 3393-3396 e 3441 —, `EF_DONATE`
 200 a 10000) ficaram **de graça** numa loja viva por dois dias depois de terem sido "removidos" — a
 remoção foi no arquivo, e a loja lia o banco. Foram apagados pelo painel em 09/09/2026, nos dois
 registros de `DonatesBars` (NPC 17 e 627), deixando cada loja só com o índice 5751, que não está no

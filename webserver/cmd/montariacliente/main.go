@@ -6,7 +6,12 @@
 // (webserver/internal/clientrarity), which GamePatch.dll turns into the border
 // and the "Item nível X" line of the tooltip.
 //
+// With -catalogo the client ItemList.bin is first rewritten from the server's
+// ItemList.csv (webserver/internal/clientitemlist), so the catalog the player
+// reads is the one the server runs; the mount absorption goes on top of it.
+//
 //	montariacliente -tabela montarias-cliente.txt -cliente "C:\...\WYD-Cliente-Pronto" \
+//	                -catalogo Release\Common\ItemList.csv \
 //	                -gamepatch client\gamepatch\out\GamePatch.dll
 //
 // The table is the file the panel serves at /rates/montarias/cliente.txt. The
@@ -25,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientitemlist"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientmount"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/clientrarity"
 )
@@ -34,6 +40,7 @@ func main() {
 	cliente := flag.String("cliente", "", "pasta do cliente original, com WYD.exe, ItemList.bin e UI\\strdef.bin (só é lida)")
 	saida := flag.String("saida", "", `pasta onde gravar os arquivos gerados (padrão: <cliente>\gerado-montarias)`)
 	gamepatch := flag.String("gamepatch", "", "GamePatch.dll compilado (client/gamepatch); vai junto para a pasta de saída")
+	catalogo := flag.String("catalogo", "", "ItemList.csv do servidor (Release/Common/ItemList.csv): o ItemList.bin do cliente é reescrito a partir dele")
 	flag.Parse()
 	if *tabela == "" || *cliente == "" {
 		flag.Usage()
@@ -42,7 +49,7 @@ func main() {
 	if *saida == "" {
 		*saida = filepath.Join(*cliente, "gerado-montarias")
 	}
-	if err := run(*tabela, *cliente, *saida, *gamepatch); err != nil {
+	if err := run(*tabela, *cliente, *saida, *gamepatch, *catalogo); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -53,7 +60,7 @@ type arquivo struct {
 	modo  os.FileMode
 }
 
-func run(tabela, cliente, saida, gamepatch string) error {
+func run(tabela, cliente, saida, gamepatch, catalogo string) error {
 	f, err := os.Open(tabela)
 	if err != nil {
 		return fmt.Errorf("montariacliente: abrir a tabela: %w", err)
@@ -83,6 +90,11 @@ func run(tabela, cliente, saida, gamepatch string) error {
 	if err != nil {
 		return err
 	}
+	if catalogo != "" {
+		if itemList, err = fromCatalog(catalogo, itemList); err != nil {
+			return err
+		}
+	}
 	strdef, err := ler(filepath.Join("UI", "strdef.bin"))
 	if err != nil {
 		return err
@@ -99,7 +111,7 @@ func run(tabela, cliente, saida, gamepatch string) error {
 	if err != nil {
 		return err
 	}
-	itens, err := clientrarity.ReadItemList(itemList)
+	itens, err := clientrarity.ReadItemList(novoItemList)
 	if err != nil {
 		return err
 	}
@@ -139,8 +151,26 @@ func run(tabela, cliente, saida, gamepatch string) error {
 		fmt.Printf("  %s %d", t, porNivel[t])
 	}
 	fmt.Println()
+	if catalogo == "" {
+		fmt.Println("sem -catalogo: o ItemList.bin segue o do cliente, que diverge do servidor")
+	}
 	if gamepatch == "" {
 		fmt.Println("sem -gamepatch: os números vão certos, mas as linhas ficam brancas")
 	}
 	return nil
+}
+
+// fromCatalog rewrites the client's ItemList.bin from the server's CSV.
+func fromCatalog(path string, clientItemList []byte) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("montariacliente: abrir o catálogo: %w", err)
+	}
+	rows, err := clientitemlist.ParseCSV(f)
+	_ = f.Close() // lido por inteiro acima; fechar um arquivo só de leitura não muda nada
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("catálogo do servidor: %d itens em %s\n", len(rows), path)
+	return clientitemlist.Build(rows, clientItemList)
 }
