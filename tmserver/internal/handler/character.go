@@ -671,7 +671,7 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		MaxHp: effectiveMaxHP(e), Hp: e.HP,
 		MaxMp: effectiveMaxMP(e), Mp: e.MP,
 		Str: e.Str, Int: e.Int, Dex: e.Dex, Con: e.Con,
-		Merchant:   e.Merchant,
+		Merchant:   merchantParaOCliente(e),
 		AttackRun:  attackRunOf(e),
 		Equip:      e.EquipVisual,
 		AnctCode:   e.EquipAnct,

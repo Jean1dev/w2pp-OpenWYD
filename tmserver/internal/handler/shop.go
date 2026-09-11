@@ -33,6 +33,7 @@ func (d *Dispatcher) reqShopList(w *world.World, s *world.Session, _ protocol.He
 	if npc.Merchant == 19 {
 		shopType = 3
 	}
+	abastecerLojaDeEmblema(npc) // o Unicórnio Puro vende por Emblema Orc (loja_de_emblema.go)
 	var list [27]protocol.SelItem
 	var contents strings.Builder
 	dropped := 0
@@ -109,6 +110,17 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 		return
 	}
 	price, ok := d.itemPrices[int(item.Index)]
+	if ehLojaDeEmblema(npc) {
+		// A loja do Unicórnio Puro cobra 1 Emblema Orc e nenhum gold
+		// (loja_de_emblema.go). O cliente não confere o gold antes de mandar a
+		// compra (WYD.exe 0x410902-0x410c77), então quem decide é só o servidor.
+		if !d.comprarComEmblema(w, s, e) {
+			d.log.Info("buy denied (sem emblema)", "conn", s.Conn, "item", item.Index)
+			return
+		}
+		price, ok = 0, true
+		sendClientMessage(w, s, msgCompraEmblema)
+	}
 	if !ok || price < 0 || price > e.Coin {
 		d.log.Info("buy denied", "conn", s.Conn, "item", item.Index, "price", price, "gold", e.Coin)
 		return
