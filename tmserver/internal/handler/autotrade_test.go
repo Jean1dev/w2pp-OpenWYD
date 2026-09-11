@@ -11,11 +11,15 @@ import (
 // autotradeDB seats a seller (tester, conn 1) and a buyer (tradeb, conn 2) in the
 // world with HP>0 (login spawns both in Armia, a village, within view range). The
 // seller's account Cargo holds one item to put on sale; the buyer carries gold.
+//
+// Both are level 1: a level-0 character with no gear and no experience is one
+// the dbserver just created, and that one is born in the training field
+// (pontoDeEntrada), outside the city a shop needs.
 func autotradeDB(sellItem int16) *fakeDB {
 	db := newDB()
 	db.loads = map[int64]world.CharacterState{
-		7:  {Slot: 0, Name: "Seller", HP: 1000, MaxHP: 1000, Coin: 1000},
-		11: {Slot: 0, Name: "Buyer", HP: 1000, MaxHP: 1000, Coin: 1_000_000},
+		7:  {Slot: 0, Name: "Seller", Level: 1, HP: 1000, MaxHP: 1000, Coin: 1000},
+		11: {Slot: 0, Name: "Buyer", Level: 1, HP: 1000, MaxHP: 1000, Coin: 1_000_000},
 	}
 	var cargo world.CargoState
 	cargo.Items[0] = world.Item{Index: sellItem}
