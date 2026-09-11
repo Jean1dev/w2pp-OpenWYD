@@ -54,6 +54,7 @@
 ✅ /gm unban \<jogador|conta\>: remove o bloqueio da conta <br/>
 ✅ /gm guildname \<id\> \<nome\>: registra o nome de uma guild (issue #131; só em memória — não há fluxo de criação de guild ainda) <br/>
 ✅ /gm guildfame \<id\> \<fama\>: registra a fama de uma guild (issue #131; mesma ferramenta admin-only do legado `+guildfame set`) <br/>
+✅ /gm dano [nome] (ou /gm ataque): mostra a conta do Ataque da janela parte por parte — itens, montaria, bônus de arma da classe, atributos, buffs e dano da arma <br/>
 ✅ /gm guerra torre aviso [min]: anuncia a Guerra de Torres agora; abre depois de `min` minutos (padrão 1) <br/>
 ✅ /gm guerra torre abrir [min]: abre a guerra na hora, por `min` minutos (padrão 24, o mesmo das 20:06 às 20:30) <br/>
 ✅ /gm guerra torre fim: encerra agora — a guilda com a torre ganha a fama, como no fim normal <br/>

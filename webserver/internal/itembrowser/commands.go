@@ -79,6 +79,14 @@ func CommandReference() CommandBus {
 				},
 			},
 			{
+				Name: "dano", Aliases: []string{"ataque"}, Args: "[nome]", Target: "você ou outro",
+				Summary: "Mostra a conta do Ataque da janela, parte por parte.",
+				Notes: []string{
+					"Itens (cada peça), montaria, bônus de arma da classe e quantas vezes ele conta, atributos, buffs, multiplicador e dano da arma.",
+					"Só mostra; não muda nada. Serve para decidir um balanceamento com o número real do personagem.",
+				},
+			},
+			{
 				Name: "summon", Aliases: []string{"puxar"}, Args: "<personagem>", Target: "outro jogador",
 				Summary: "Traz um jogador online até a SUA posição.",
 				Notes:   []string{"É o inverso do goto: aqui quem se move é o alvo."},
