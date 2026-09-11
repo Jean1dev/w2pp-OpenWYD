@@ -24,6 +24,24 @@ const (
 	campoDeTreinoSaidaY = 2101
 )
 
+// Onde nasce o Mortal novo (regra da equipe, 11/09/2026): dentro do campo, ao sul
+// do Chefe de Treino (NPCGener, 2121,2040), numa área que o AttributeMap marca
+// inteira com o bit do campo — 0x84 de x 2104 a 2128, y 2016 a 2044. O legado
+// nascia em Armia, na posição do template BaseMob (2096,2096).
+const (
+	campoDeTreinoNascimentoX = 2116
+	campoDeTreinoNascimentoY = 2030
+)
+
+// pontoDeEntrada é onde entra no mundo quem não tem posição guardada: o
+// personagem novo no campo de treino, qualquer outro na última cidade.
+func pontoDeEntrada(ultimaCidade int16, novo bool) (int16, int16) {
+	if novo {
+		return campoDeTreinoNascimentoX, campoDeTreinoNascimentoY
+	}
+	return world.CitySpawn(int(ultimaCidade))
+}
+
 // deveSairDoCampoDeTreino diz se e está no campo de treino sem poder: nível
 // acima de 35 na tela, ou qualquer Arch ou Celestial, seja qual for o nível
 // (`extra.ClassMaster != MORTAL`, _MSG_Action.cpp:215). A equipe fica, pela

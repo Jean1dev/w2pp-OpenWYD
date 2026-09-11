@@ -15,20 +15,22 @@ import (
 // fakeStore is an in-memory Store for unit tests (no PostgreSQL).
 type fakeStore struct {
 	// fama captures UpdateGuildFame calls.
-	fama       map[uint16]int32
-	presence   map[string]bool // captured SetCharacterPresence calls
-	reports    []domain.PlayerReport
-	chao       []domain.GroundEvent
-	byName     map[string]store.AccountAuth
-	byID       map[int64]store.AccountAuth
-	chars      map[int64][]domain.Character // accountID -> characters
-	createErr  error
-	archErr    error
-	archSlot   int
-	archChar   domain.Character
-	saveResult error
-	saveErr    error
-	savedChar  domain.Character
+	fama      map[uint16]int32
+	presence  map[string]bool // captured SetCharacterPresence calls
+	reports   []domain.PlayerReport
+	chao      []domain.GroundEvent
+	byName    map[string]store.AccountAuth
+	byID      map[int64]store.AccountAuth
+	chars     map[int64][]domain.Character // accountID -> characters
+	createErr error
+	archErr   error
+	archSlot  int
+	archChar  domain.Character
+	// createdChar is the last character CreateCharacter was asked to insert.
+	createdChar domain.Character
+	saveResult  error
+	saveErr     error
+	savedChar   domain.Character
 
 	cargoCoin  map[int64]int32         // accountID -> stored gold
 	cargoItems map[int64][]domain.Item // accountID -> stored items
@@ -104,10 +106,11 @@ func (f *fakeStore) LoadCharacter(_ context.Context, accountID int64, slot int) 
 	return domain.Character{}, store.ErrNotFound
 }
 
-func (f *fakeStore) CreateCharacter(_ context.Context, _ int64, _ domain.Character) (int64, error) {
+func (f *fakeStore) CreateCharacter(_ context.Context, _ int64, ch domain.Character) (int64, error) {
 	if f.createErr != nil {
 		return 0, f.createErr
 	}
+	f.createdChar = ch
 	return 42, nil
 }
 

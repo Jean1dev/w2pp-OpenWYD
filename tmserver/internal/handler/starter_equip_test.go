@@ -38,27 +38,6 @@ func TestStarterEquip(t *testing.T) {
 		t.Errorf("no-template seed = %+v", noTmpl)
 	}
 
-	// Starter inventory: the template's Carry potions land in empty slots, with
-	// their stack amount preserved.
-	var carry [world.MaxCarry]world.Item
-	d.grantStarterCarry(&carry, 1)
-	if carry[0].Index != 401 || carry[0].Effects[0].Effect != 61 || carry[0].Effects[0].Value != 120 {
-		t.Errorf("starter carry[0] = %+v, want potion 401 x120", carry[0])
-	}
-	if carry[1].Index != 406 {
-		t.Errorf("starter carry[1] = %d, want 406", carry[1].Index)
-	}
-
-	// grantStarterCarry preserves existing items, filling only empty slots.
-	occupied := [world.MaxCarry]world.Item{}
-	occupied[0] = world.Item{Index: 999}
-	d.grantStarterCarry(&occupied, 1)
-	if occupied[0].Index != 999 {
-		t.Errorf("grantStarterCarry overwrote slot 0: %+v", occupied[0])
-	}
-	if occupied[1].Index != 401 {
-		t.Errorf("starter potion not placed in first empty slot: %+v", occupied[1])
-	}
 }
 
 // TestEquipScoreRoundTrip is the base/current model: deriveBaseScore captures the

@@ -451,21 +451,23 @@ func (s *Server) SaveCastleQuestState(ctx context.Context, req *dbv1.SaveCastleQ
 // CreateCharacter creates a character in a free slot. A taken slot/name (unique
 // violation) returns ok=false, not an error.
 func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterRequest) (*dbv1.CreateCharacterResponse, error) {
-	// Initialize a playable level-1 character. The original DBSrv seeds these from
-	// per-class BaseMob templates (Release/DBsrv/run/BaseMob/{TK,FM,BM,HT}); until
-	// those are wired we set sane base stats + HP/MP and a starting position so the
-	// character can enter the world. (UNVERIFIED: exact per-class base attributes
-	// and starter equipment / spawn coords — placeholder values.)
+	// A new Mortal starts at level 0 (level 1 on screen) with no gold. The
+	// original DBSrv copies the whole per-class BaseMob template
+	// (CFileDB.cpp:983-993), 5 000 000 gold and a bag of potions included; the team
+	// decided on 2026-09-11 that a new character starts with the body items and
+	// nothing else, in the training field — the tmServer seeds the gear and picks
+	// that spawn on the first login (handler/character.go). (UNVERIFIED: exact
+	// per-class base attributes — placeholder values.)
 	ch := domain.Character{
 		Slot:        int(req.GetSlot()),
 		Name:        req.GetName(),
 		Class:       uint8(req.GetClass()),
 		ClassMaster: classMasterMortal,
-		Level:       1,
+		Level:       0,
 		Str:         12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
-		Coin:  1000000,           // starting gold (so the shop is usable)
-		SaveX: 2096, SaveY: 2096, // matches the BaseMob template spawn
+		Coin:  0,
+		SaveX: 2096, SaveY: 2096, // the Gema Estelar return point: Armia, as in the BaseMob template
 		PKPoint: pkPointNeutral, // Pontos Caos: a fresh character starts clean (issue #210)
 	}
 	id, err := s.store.CreateCharacter(ctx, req.GetAccountId(), ch)
@@ -494,7 +496,7 @@ func (s *Server) CreateArchCharacter(ctx context.Context, req *dbv1.CreateArchCh
 		Level:       1,
 		Str:         12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
-		Coin:  1000000,
+		Coin:  0, // _MSG_DBCreateArchCharacter zeroes it (CFileDB.cpp:1916)
 		SaveX: 2096, SaveY: 2096,
 		PKPoint: pkPointNeutral, // Pontos Caos: a fresh character starts clean (issue #210)
 		Equip: []domain.Item{{

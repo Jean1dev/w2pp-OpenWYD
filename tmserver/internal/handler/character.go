@@ -246,14 +246,19 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	}
 	// Seed the starter gear for characters that have none yet (newly created, or
 	// created before seeding existed). This restores the class look (the body item
-	// in equip slot 0 is what gives a TK/FM/BM/HT its appearance), hands out the
-	// class armor/weapon, AND the class starter inventory (HP/MP potions, etc. from
-	// the template's Carry). It persists on the next save. An empty equip is the
-	// "fresh character" marker, so the inventory is granted only once (not
-	// re-granted after a player uses up the potions).
-	if equipEmpty(st.Equip) {
+	// in equip slot 0 is what gives a TK/FM/BM/HT its appearance) and hands out the
+	// class armor/weapon. It persists on the next save. An empty equip is the
+	// "fresh character" marker; the Arch twin is created with its body item, so it
+	// never takes this path.
+	//
+	// The body items and nothing else: no potions, Esfera da Sorte or Baú de
+	// Experiência from the template's Carry, and no gold (dbserver). The legacy
+	// copied the whole BaseMob template, bag included (CFileDB.cpp:983-993); the
+	// team decided on 2026-09-11 that a new Mortal starts bare, in the training
+	// field (novo, below).
+	novo := equipEmpty(st.Equip)
+	if novo {
 		st.Equip = d.starterEquip(st.Class)
-		d.grantStarterCarry(&st.Carry, st.Class)
 	}
 	// Heal characters whose equip slots were corrupted by an earlier bug that let
 	// non-gear (a potion, a mount in the wrong hand) be equipped — most visibly a
@@ -291,7 +296,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	saveX, saveY := st.SaveX, st.SaveY
 	loginX, loginY := st.X, st.Y
 	if loginX == 0 && loginY == 0 {
-		loginX, loginY = world.CitySpawn(int(st.LastCity))
+		// Only a character that was just created is born in the training field:
+		// never seeded AND still at level 0 with no experience, which is how the
+		// dbserver creates one. An older character that merely has no gear keeps
+		// entering in its city.
+		loginX, loginY = pontoDeEntrada(st.LastCity, novo && st.Level == 0 && st.Exp == 0)
 		if x, y, ok := w.EmptyCellNear(loginX, loginY); ok {
 			loginX, loginY = x, y
 		}
@@ -944,34 +953,6 @@ func (d *Dispatcher) starterEquip(class int) [world.MaxEquip]world.Item {
 		}
 	}
 	return eq
-}
-
-// grantStarterCarry places the class template's starter inventory (HP/MP potions,
-// luck sphere, exp chest — STRUCT_MOB.Carry@268) into the character's first empty
-// carry slots, preserving anything already there. No-op if the class template is
-// unavailable.
-func (d *Dispatcher) grantStarterCarry(carry *[world.MaxCarry]world.Item, class int) {
-	tmpl, ok := d.baseMobs[class]
-	if !ok || len(tmpl) != content.BaseMobSize {
-		return
-	}
-	for _, it := range protocol.MobCarry(tmpl) {
-		if it.Index == 0 {
-			continue
-		}
-		dst := firstEmptyCarry(carry)
-		if dst < 0 {
-			return // inventory full
-		}
-		carry[dst] = world.Item{
-			Index: int16(it.Index),
-			Effects: [3]world.Effect{
-				{Effect: it.Eff[0][0], Value: it.Eff[0][1]},
-				{Effect: it.Eff[1][0], Value: it.Eff[1][1]},
-				{Effect: it.Eff[2][0], Value: it.Eff[2][1]},
-			},
-		}
-	}
 }
 
 // firstEmptyCarry returns the index of the first empty inventory slot, or -1.
