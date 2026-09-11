@@ -234,6 +234,10 @@ type Entity struct {
 	// TemplateName is the template file this mob was spawned from (MobSpawn).
 	TemplateName string
 	Merchant     uint8 // bit-packed: spawn city in bits 6-7 (lote2-movimento.md ChangeCity)
+	// MobMerchant is the OTHER merchant byte, STRUCT_MOB.Merchant @17: the one the
+	// legacy routes quest NPCs by (_MSG_Quest.cpp:33). The Treinadores are 36/40/41
+	// here and 100/104/105 in Merchant above; see internal/campotreino.
+	MobMerchant  uint8
 	NonCombatNPC bool  // true for town/service NPCs protected from player damage
 	Grade        uint8 // NPC sub-type for Merchant==100 quest NPCs (EF_GRADE0 of Equip[0])
 
@@ -253,7 +257,11 @@ type Entity struct {
 	// TerraMistica is MobExtra.QuestInfo.Mortal.TerraMistica (_MSG_Quest.cpp
 	// AMU_MISTICO, issue #139): set once the party quest is completed, so the
 	// NPC won't hand it out twice. Persisted.
-	TerraMistica         uint8
+	TerraMistica uint8
+	// NewbieQuest is MobExtra.QuestInfo.Mortal.Newbie (_MSG_Quest.cpp:1896-2100):
+	// which of the four training-field trainer steps is done (0..4). Each step
+	// demands the previous one, so it is persisted.
+	NewbieQuest          uint8
 	ArchLv355, ArchLv370 uint8
 	MortalLevel          uint16
 	CelestialArchLevel   uint8

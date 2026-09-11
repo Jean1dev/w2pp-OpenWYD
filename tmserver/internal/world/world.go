@@ -581,6 +581,7 @@ func (w *World) CharacterSaveFor(s *Session, e *Entity) CharacterSave {
 	cs.MortalLevel, cs.CelestialArchLevel, cs.ArchCristal = e.MortalLevel, e.CelestialArchLevel, e.ArchCristal
 	cs.NightmareTickets = e.NightmareTickets
 	cs.TerraMistica = e.TerraMistica
+	cs.NewbieQuest = e.NewbieQuest
 	cs.LastCity = e.LastCity
 	cs.SaveX, cs.SaveY = e.SaveX, e.SaveY
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin

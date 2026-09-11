@@ -686,8 +686,11 @@ type Character struct {
 	// MobExtra.NT: Pesadelo Arcano entries held. Escritura do Pesadelo grants 13
 	// and each admission to the A tier spends one (pesadelo-plan.md).
 	NightmareTickets int32 `protobuf:"varint,49,opt,name=nightmare_tickets,json=nightmareTickets,proto3" json:"nightmare_tickets,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// MobExtra.QuestInfo.Mortal.Newbie: which of the four training-field trainer
+	// steps the character has done (0..4, _MSG_Quest.cpp:1896-2100).
+	MortalNewbie  int32 `protobuf:"varint,50,opt,name=mortal_newbie,json=mortalNewbie,proto3" json:"mortal_newbie,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -1059,6 +1062,13 @@ func (x *Character) GetArchCristal() int32 {
 func (x *Character) GetNightmareTickets() int32 {
 	if x != nil {
 		return x.NightmareTickets
+	}
+	return 0
+}
+
+func (x *Character) GetMortalNewbie() int32 {
+	if x != nil {
+		return x.MortalNewbie
 	}
 	return 0
 }
@@ -10495,7 +10505,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x86\v\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xab\v\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -10551,7 +10561,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\fmortal_level\x18. \x01(\x05R\vmortalLevel\x120\n" +
 	"\x14celestial_arch_level\x18/ \x01(\x05R\x12celestialArchLevel\x12!\n" +
 	"\farch_cristal\x180 \x01(\x05R\varchCristal\x12+\n" +
-	"\x11nightmare_tickets\x181 \x01(\x05R\x10nightmareTickets\"\xe5\x01\n" +
+	"\x11nightmare_tickets\x181 \x01(\x05R\x10nightmareTickets\x12#\n" +
+	"\rmortal_newbie\x182 \x01(\x05R\fmortalNewbie\"\xe5\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

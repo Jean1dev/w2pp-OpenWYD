@@ -59,6 +59,18 @@ func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Hea
 				slot = d.carryKeySlot(e, gateKey, level)
 			}
 			if slot < 0 {
+				// Os três portões do campo de treino respondem com a fala do
+				// legado (_NN_No_Key): o notify abaixo manda um código numérico
+				// que o cliente não desenha, e no campo é justamente onde o
+				// jogador novo precisa entender que falta a chave.
+				if d.ehPortaoDoCampo(w, id) {
+					texto := msgSemChave
+					if t, ok := d.lang.Text("_NN_No_Key"); ok && !formatVerb.MatchString(t) {
+						texto = t
+					}
+					sendClientMessage(w, s, texto)
+					return
+				}
 				// sIndex 773 opens silently without a key message (legacy quirk).
 				if g.Item.Index != 773 {
 					d.notify(w, s, NoticeNoKey)

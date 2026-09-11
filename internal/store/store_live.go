@@ -174,7 +174,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
 		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
 		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_cristal,
-		       nightmare_tickets
+		       nightmare_tickets, newbie_quest
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
@@ -183,7 +183,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
 			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &ch.ArchLv355, &ch.ArchLv370, &skillBar, &shortSkill, &special,
 			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill, &ch.MortalLevel, &ch.CelestialArchLevel, &ch.ArchCristal,
-			&ch.NightmareTickets)
+			&ch.NightmareTickets, &ch.NewbieQuest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -388,7 +388,8 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			special=$24, skill_bar=$25, short_skill=$26, save_x=$27, save_y=$28,
 			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32, terra_mistica=$33,
 			arch_lv355=$34, arch_lv370=$35, pk_point=$36, guilty=$37, cur_kill=$38, tot_kill=$39,
-			mortal_level=$40, celestial_arch_level=$41, arch_cristal=$42, nightmare_tickets=$43
+			mortal_level=$40, celestial_arch_level=$41, arch_cristal=$42, nightmare_tickets=$43,
+			newbie_quest=$44
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -400,7 +401,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.SaveX, ch.SaveY,
 		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica, ch.ArchLv355, ch.ArchLv370,
 		ch.PKPoint, ch.Guilty, ch.CurKill, ch.TotKill, ch.MortalLevel, ch.CelestialArchLevel, ch.ArchCristal,
-		ch.NightmareTickets,
+		ch.NightmareTickets, ch.NewbieQuest,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

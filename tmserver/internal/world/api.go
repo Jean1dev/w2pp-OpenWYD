@@ -128,8 +128,9 @@ func (w *World) SpawnMobAt(sp MobSpawn) int {
 	b := protocol.ParseMobBasics(template)
 	e := &Entity{
 		ID: id, Mode: MobIdle, Name: b.Name, Clan: b.Clan, Class: b.Class, Merchant: b.Merchant,
-		AttackRun: b.AttackRun,
-		X:         x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
+		MobMerchant: b.MobMerchant,
+		AttackRun:   b.AttackRun,
+		X:           x, Y: y, SpawnX: x, SpawnY: y, Level: b.Level, AC: b.Ac, Damage: b.Damage, Exp: b.Exp,
 		MaxHP: b.MaxHp, HP: b.Hp, Str: b.Str, Int: b.Int, Dex: b.Dex, Con: b.Con,
 		// A mob's BaseScore must be seeded too, not just the CurrentScore above:
 		// handler.refreshScore runs on mobs as well (any skill that lands an affect

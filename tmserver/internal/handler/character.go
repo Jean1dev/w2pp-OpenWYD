@@ -357,6 +357,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.MortalLevel, e.CelestialArchLevel = st.MortalLevel, st.CelestialArchLevel
 		e.NightmareTickets = st.NightmareTickets
 		e.TerraMistica = st.TerraMistica
+		e.NewbieQuest = st.NewbieQuest
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned
@@ -647,6 +648,8 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	d.revealMobsInView(w, s)
 	// (D) and the Castelo Orc gate, when it stands in view.
 	d.syncCasteloOrcGate(w, s, self.X, self.Y)
+	// (E) e os três portões do campo de treino, pelo mesmo caminho.
+	d.syncPortoesDoCampo(w, s, self.X, self.Y)
 }
 
 // revealMobsInView sends a MSG_CreateMob for every NPC/monster now in the player's

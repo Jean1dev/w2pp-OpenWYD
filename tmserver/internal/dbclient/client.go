@@ -675,6 +675,7 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		CelLv90:            uint8(c.GetCelestialLv90()),
 		CelCircle:          uint8(c.GetCelestialCircle()),
 		TerraMistica:       uint8(c.GetMortalTerraMistica()),
+		NewbieQuest:        uint8(c.GetMortalNewbie()),
 		Soul:               uint8(c.GetSoul()),
 		Fame:               c.GetFame(),
 		PKPoint:            uint8(c.GetPkPoint()),
@@ -801,13 +802,17 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		NightmareTickets:   s.NightmareTickets,
 		CelestialLv90:      int32(s.CelLv90),
 		CelestialCircle:    int32(s.CelCircle),
-		PkPoint:            int32(s.PKPoint),
-		Guilty:             int32(s.Guilty),
-		CurKill:            int32(s.CurKill),
-		TotKill:            uint32(s.TotKill),
-		Special:            make([]int32, len(s.BaseSpecial)),
-		SkillBar:           make([]uint32, len(s.SkillBar)),
-		ShortSkill:         make([]uint32, len(s.ShortSkill)),
+		// The trainer step has to travel on the SAVE too: the dbServer writes the
+		// column from whatever the request carries, so a field left out here is
+		// written back as zero and the quest starts over at every logout.
+		MortalNewbie: int32(s.NewbieQuest),
+		PkPoint:      int32(s.PKPoint),
+		Guilty:       int32(s.Guilty),
+		CurKill:      int32(s.CurKill),
+		TotKill:      uint32(s.TotKill),
+		Special:      make([]int32, len(s.BaseSpecial)),
+		SkillBar:     make([]uint32, len(s.SkillBar)),
+		ShortSkill:   make([]uint32, len(s.ShortSkill)),
 	}
 	for i, v := range s.BaseSpecial {
 		c.Special[i] = int32(v)

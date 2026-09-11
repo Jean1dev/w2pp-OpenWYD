@@ -96,10 +96,11 @@ func insertCharacter(ctx context.Context, tx pgx.Tx, accountID int64, ch domain.
 			 resist_fire, resist_ice, resist_thunder, resist_magic,
 			 learned_skill, sec_learned_skill, magic, save_x, save_y, citizen, class_master, soul, fame,
 			 celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370, skill_bar, short_skill,
-			 pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_cristal, nightmare_tickets)
+			 pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_cristal, nightmare_tickets,
+			 newbie_quest)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
 			 $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,
-			 $44,$45,$46,$47,$48,$49,$50,$51,$52,$53)
+			 $44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54)
 		RETURNING id`,
 		accountID, ch.Slot, ch.Name, ch.Class, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Exp, ch.Coin,
 		ch.Str, ch.Int, ch.Dex, ch.Con, ch.ScoreBonus, ch.SpecialBonus, ch.SkillBonus,
@@ -109,7 +110,7 @@ func insertCharacter(ctx context.Context, tx pgx.Tx, accountID int64, ch domain.
 		ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica, ch.ArchLv355, ch.ArchLv370,
 		byteArrToInt16(ch.SkillBar[:]), byteArrToInt16(ch.ShortSkill[:]),
 		pkPoint, ch.Guilty, ch.CurKill, ch.TotKill, ch.MortalLevel, ch.CelestialArchLevel, ch.ArchCristal,
-		ch.NightmareTickets,
+		ch.NightmareTickets, ch.NewbieQuest,
 	).Scan(&id); err != nil {
 		return 0, fmt.Errorf("store: insert character %q: %w", ch.Name, err)
 	}

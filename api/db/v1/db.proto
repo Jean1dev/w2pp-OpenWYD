@@ -265,6 +265,9 @@ message Character {
   // MobExtra.NT: Pesadelo Arcano entries held. Escritura do Pesadelo grants 13
   // and each admission to the A tier spends one (pesadelo-plan.md).
   int32 nightmare_tickets = 49;
+  // MobExtra.QuestInfo.Mortal.Newbie: which of the four training-field trainer
+  // steps the character has done (0..4, _MSG_Quest.cpp:1896-2100).
+  int32 mortal_newbie = 50;
 }
 
 message Item {

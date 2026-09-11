@@ -117,4 +117,5 @@ func (d *Dispatcher) moveMulticast(w *world.World, moverID int, oldX, oldY int16
 	})
 	d.revealMobsInView(w, moverSess)
 	d.syncCasteloOrcGate(w, moverSess, newX, newY)
+	d.syncPortoesDoCampo(w, moverSess, newX, newY)
 }
