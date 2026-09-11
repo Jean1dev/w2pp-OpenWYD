@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/audit"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
@@ -98,8 +99,8 @@ func (h *Handler) spawnDaZona(ctx context.Context, zona level.Zone) spawnView {
 		}
 		v.Tempos = append(v.Tempos, spawnTempo{
 			Blocos: p.Blocks,
-			Antes:  minutosPara(p.Minutes),
-			Agora:  minutosPara(spawnrate.ScaleMinutes(p.Minutes, pct)),
+			Antes:  tempoDoGerador(p.Minutes),
+			Agora:  tempoDoGerador(spawnrate.ScaleMinutes(p.Minutes, pct)),
 		})
 	}
 	return v
@@ -117,11 +118,19 @@ func areaDaZona(zona level.Zone) (spawnrate.Area, bool) {
 	return 0, false
 }
 
-func minutosPara(n int) string {
-	if n == 1 {
-		return "1 minuto"
+// tempoDoGerador is a MinuteGenerate period as a clock reads it. The field's
+// unit is one pass of the legacy 12 s timer (spawnrate.MinTimerPass), so the
+// screen used to call a 24 s refill "2 minutos" — five times the real wait.
+func tempoDoGerador(ciclos int) string {
+	s := int(time.Duration(ciclos) * spawnrate.MinTimerPass / time.Second)
+	switch {
+	case s < 60:
+		return fmt.Sprintf("%ds", s)
+	case s%60 == 0:
+		return fmt.Sprintf("%d min", s/60)
+	default:
+		return fmt.Sprintf("%d min %ds", s/60, s%60)
 	}
-	return fmt.Sprintf("%d minutos", n)
 }
 
 func segundosPara(ms uint32) string {

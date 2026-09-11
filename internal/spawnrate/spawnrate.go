@@ -7,7 +7,11 @@
 // second enumeration on either side could only disagree with the first.
 package spawnrate
 
-import "github.com/jeanluca/w2pp-openwyd/internal/level"
+import (
+	"time"
+
+	"github.com/jeanluca/w2pp-openwyd/internal/level"
+)
 
 // Area is a set of map regions whose generators are re-timed together.
 //
@@ -83,9 +87,9 @@ const (
 	// with no row behaves as, and the one the panel starts every field at.
 	Neutral int32 = 100
 	// MinPercent and MaxPercent bound the dial. The floor is not zero because a
-	// zero period means "regenerate every single minute forever", which is not
-	// what anybody typing 0 expects; the ceiling stops a typo from taking a
-	// two-minute group to a day and a half.
+	// zero period means "regenerate on every single pass forever", which is not
+	// what anybody typing 0 expects; the ceiling stops a typo from stretching a
+	// group ten times over.
 	MinPercent int32 = 10
 	MaxPercent int32 = 1000
 )
@@ -110,10 +114,12 @@ func (c Config) Percent(a Area) int32 {
 	return pct
 }
 
-// ScaleMinutes re-times one generator's period. It never returns less than 1:
-// the minute timer fires on `minute % period`, and a period of zero would divide
-// by zero, while a negative one means "never regenerate" — the opposite of what
-// somebody speeding the world up is asking for.
+// ScaleMinutes re-times one generator's period. The period is NPCGener's
+// MinuteGenerate, counted in passes of the legacy "minute" timer — 12 s each
+// (TIMER_MIN, Server.cpp:4087), not minutes; see MinTimerPass. It never returns
+// less than 1: the timer fires on `pass % period`, and a period of zero would
+// divide by zero, while a negative one means "never regenerate" — the opposite
+// of what somebody speeding the world up is asking for.
 func ScaleMinutes(period int, percent int32) int {
 	if period <= 0 {
 		return period // a block the minute timer does not drive at all
@@ -138,16 +144,24 @@ func ScaleMillis(delay uint32, percent int32) uint32 {
 
 // Period is one respawn period an area's generators actually use, with how many
 // NPCGener.txt blocks carry it. It exists so the panel can say what the dial
-// will DO — "os grupos de 2 minutos passam a 4" — instead of asking somebody to
+// will DO — "os grupos de 24 s passam a 48 s" — instead of asking somebody to
 // reason about a percentage against numbers they cannot see.
 //
-// Minutes == 0 is the block with no minute period at all: those monsters go
-// through tmServer's individual respawn queue instead, and the dial moves them
-// by the same percentage.
+// Minutes is MinuteGenerate as the file writes it, and like the file's name it
+// lies: the unit is one pass of the legacy minute timer, MinTimerPass. Minutes
+// == 0 is the block with no timer period at all: those monsters go through
+// tmServer's individual respawn queue instead, and the dial moves them by the
+// same percentage.
 type Period struct {
 	Minutes int
 	Blocks  int
 }
+
+// MinTimerPass is how long one MinuteGenerate unit lasts: the legacy "minute"
+// timer fires every 12000 ms (Server.cpp:4087) and the generators count its
+// passes (ProcessSecMinTimer.cpp:2723-2733). A block written with
+// MinuteGenerate 2 refills every 24 s.
+const MinTimerPass = 12 * time.Second
 
 // periods is a census of Release/TMsrv/run/NPCGener.txt, transcribed rather
 // than read at runtime: this package does no I/O, and a panel figure that

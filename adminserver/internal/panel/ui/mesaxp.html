@@ -320,9 +320,9 @@
       de spawn pode mudar com gente jogando sem injustiça nenhuma — o monstro só
       aparece mais cedo ou mais tarde, e ninguém recebe nada diferente por isso.
       <br><br>
-      <strong>Por que porcentagem e não minutos.</strong> Os grupos do
-      {{.Spawn.Nome}} não têm um tempo só: o arquivo de conteúdo escreveu uns em
-      2 minutos, outros em 3, outros em 4. Um número absoluto achataria os três
+      <strong>Por que porcentagem e não um tempo fixo.</strong> Os grupos do
+      {{.Spawn.Nome}} não têm um tempo só: o arquivo de conteúdo escreveu uns a
+      cada 24 s, outros a cada 36 s, outros a cada 48 s. Um número absoluto achataria os três
       no mesmo e apagaria quem é chefe e quem é lixo. A porcentagem multiplica o
       tempo de cada grupo, então a diferença entre eles continua de pé.
       {{.Spawn.Neutro}}% é o arquivo intocado; 200% é o dobro da espera (up mais
@@ -365,7 +365,7 @@
     </div>
     <p class="legado" style="margin-top:10px">
       A <strong>fila individual</strong> é outro mecanismo: esses grupos não têm
-      período de minuto nenhum no arquivo, então cada monstro morto volta sozinho
+      período de reposição nenhum no arquivo, então cada monstro morto volta sozinho
       depois da espera, em vez de o grupo inteiro ser recomposto de uma vez. O
       ritmo move os dois juntos — senão uma dúzia de grupos do deserto ficaria
       para trás enquanto o resto desacelera.

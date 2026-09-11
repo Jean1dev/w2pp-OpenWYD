@@ -14,7 +14,7 @@ const towerGenerator = 1078
 var towerWarBox = areaBox{2445, 1850, 2546, 1920}
 
 func (d *Dispatcher) tickTowerWar(w *world.World) {
-	if d.tickCount%weatherTickPeriod != 0 {
+	if d.tickCount%minutoTicks != 0 {
 		return
 	}
 	switch d.events.tower.Step(d.now(), d.expEvents.NewbieEvent) {

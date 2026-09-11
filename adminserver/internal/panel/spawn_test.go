@@ -112,7 +112,9 @@ func TestCaixaDeSpawnSoApareceNoDeserto(t *testing.T) {
 }
 
 // TestATabelaMostraOEfeitoDoRitmo: uma porcentagem sozinha não diz nada. O que
-// decide se 200% é demais é ver que os grupos de 2 minutos viram 4.
+// decide se 200% é demais é ver que os grupos de 24 s viram 48 s. O arquivo
+// escreve 2, 3 e 4, mas a unidade é a passagem de 12 s do timer do legado
+// (spawnrate.MinTimerPass): a tela mostra o relógio, não o número cru.
 func TestATabelaMostraOEfeitoDoRitmo(t *testing.T) {
 	s := newFakeSpawn()
 	s.areas[0] = 200
@@ -120,9 +122,9 @@ func TestATabelaMostraOEfeitoDoRitmo(t *testing.T) {
 	corpo := abrirMesaNaZona(t, h, level.ZoneDesertoPilar).Body.String()
 
 	for _, quero := range []string{
-		"2 minutos", "4 minutos", // o grupo de 2 minutos a 200%
-		"6 minutos", // o de 3
-		"8 minutos", // o de 4
+		"24s", "48s", // o grupo de 2 ciclos a 200%
+		"36s", "1 min 12s", // o de 3
+		"1 min 36s", // o de 4 (48s -> 1 min 36s)
 		"30s",       // a fila individual, que anda junto
 		"editado",
 	} {
@@ -248,6 +250,23 @@ func TestCaixaDeSpawnNaoTemJavaScript(t *testing.T) {
 	for _, proibido := range []string{"<script", "onclick=", "onchange=", "javascript:"} {
 		if strings.Contains(corpo, proibido) {
 			t.Errorf("a página usa %q, e a CSP do painel mata isso calado", proibido)
+		}
+	}
+}
+
+// MinuteGenerate conta ciclos de 12 s, e a tela fala em relógio: 2 é 24 s, 5
+// é um minuto certo, 10 são dois minutos. Chamar 2 de "2 minutos" era dizer
+// cinco vezes a espera de verdade.
+func TestTempoDoGerador(t *testing.T) {
+	casos := []struct {
+		ciclos int
+		quer   string
+	}{
+		{1, "12s"}, {2, "24s"}, {4, "48s"}, {5, "1 min"}, {6, "1 min 12s"}, {10, "2 min"}, {50, "10 min"},
+	}
+	for _, c := range casos {
+		if got := tempoDoGerador(c.ciclos); got != c.quer {
+			t.Errorf("tempoDoGerador(%d) = %q, quer %q", c.ciclos, got, c.quer)
 		}
 	}
 }

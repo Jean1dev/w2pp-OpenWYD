@@ -506,7 +506,7 @@ Texto chaveado por blocos `# [n]` (`Release/TMsrv/run/NPCGener.txt`). Campos por
 
 ```
 #  [0]
-  MinuteGenerate: -1      # intervalo de respawn (-1 = ?)
+  MinuteGenerate: -1      # intervalo de reposição, em passagens de 12 s do timer TIMER_MIN (não minutos); <=0 = sem timer
   MaxNumMob:      100     # população máxima
   MinGroup/MaxGroup: 4/7  # tamanho do grupo
   Leader:  Ciclope_Forte  # mob líder (nome → ItemList/MobList)

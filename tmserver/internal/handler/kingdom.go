@@ -42,7 +42,7 @@ func (d *Dispatcher) tickKingdomRvR(w *world.World) {
 			d.sendDamageKingdom(w, box, clanAkelonia)
 		}
 	}
-	if d.tickCount%weatherTickPeriod == 0 {
+	if d.tickCount%minutoTicks == 0 {
 		d.advanceKingdomClear(w, &d.events.kingdom1, kingdom1Room)
 		d.advanceKingdomClear(w, &d.events.kingdom2, kingdom2Room)
 	}

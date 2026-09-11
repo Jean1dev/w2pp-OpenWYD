@@ -353,9 +353,13 @@ Int (BattleProcessor). Lógica fiel ao `CMob.cpp` (StandingBy/BattleProcessor/Ge
   caixas do GetEmptyMobGrid (GetFunc.cpp:2027, sem rand; check de altura-127 não feito no world).
   Contabilidade centralizada: `SpawnMobAt` incrementa CurrentNumMob (queue respawn também conta),
   `DespawnMob` decrementa (DeleteMob :7825) + limpa links de grupo (follower morto sai da
-  PartyList; líder morto liberta os followers → voltam a ter aggro próprio). **Timer**: 1×/min
-  (`d.tickCount%60`), bloco com `MinuteGenerate>0` dispara em `min%MG == idx%MG`
-  (ProcessSecMinTimer.cpp:2727; hacks de skip {0,1,2,5,6,7} e ≥500 NÃO portados). **Política**:
+  PartyList; líder morto liberta os followers → voltam a ter aggro próprio). **Timer**: 1× por
+  passagem do timer "de minuto" do legado, que é de **12 s** (TIMER_MIN = 12000 ms, Server.cpp:4087;
+  `minTimerTicks` = 12 em `handler/mintimer.go`); bloco com `MinuteGenerate>0` dispara em
+  `passagem%MG == idx%MG` (ProcessSecMinTimer.cpp:2727). **O campo não é minuto**: MinuteGenerate 10
+  repõe a cada 120 s. Até 11/09/2026 o rewrite rodava isto a cada 60 s (`d.tickCount%60`) e todo
+  bloco com timer repunha 5x mais devagar que o legado (hacks de skip {0,1,2,5,6,7} e ≥500 seguem
+  NÃO portados). **Política**:
   bloco de timer NÃO entra na fila de 15s (o timer repõe grupos inteiros); `MinuteGenerate<=0`
   (~45% dos blocos — no legado só spawna via evento!) usa a fila de 15s = divergência deliberada.
   Gate global `generateWorldCap`=20000 protege os slots. **Grupos em combate**: follower

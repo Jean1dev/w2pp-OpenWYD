@@ -63,7 +63,7 @@ func (d *Dispatcher) tickCastle(w *world.World) {
 		d.cleanupCastle(w)
 		d.persistCastle(w, -1, -1, false, "")
 	}
-	if d.tickCount%weatherTickPeriod == 0 && d.events.castle.TickMinute() {
+	if d.tickCount%minutoTicks == 0 && d.events.castle.TickMinute() {
 		d.cleanupCastle(w)
 		d.persistCastle(w, -1, -1, false, "")
 	}

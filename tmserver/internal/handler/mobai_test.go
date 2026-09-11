@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1213,9 +1214,10 @@ func TestGroupFocusesAttacker(t *testing.T) {
 	}
 }
 
-// TestGenerateMobsTimer: the minute timer fires a block on its
-// `minute % MinuteGenerate == idx % MinuteGenerate` phase
-// (ProcessSecMinTimer.cpp:2727-2735) and respects MaxNumMob saturation.
+// TestGenerateMobsTimer: the legacy "minute" timer fires a block on its
+// `pass % MinuteGenerate == idx % MinuteGenerate` phase
+// (ProcessSecMinTimer.cpp:2727-2735) — one pass every 12 ticks — and respects
+// MaxNumMob saturation.
 func TestGenerateMobsTimer(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log})
@@ -1228,27 +1230,58 @@ func TestGenerateMobsTimer(t *testing.T) {
 	}
 	w.RegisterGenerators([]*world.Generator{g})
 
-	d.tickCount = 60 // minute 1: 1%2 != 0%2 → no fire
+	d.tickCount = 12 // pass 1: 1%2 != 0%2 → no fire
 	d.generateMobs(w)
 	if g.CurrentNumMob != 0 {
 		t.Fatalf("fired off-phase: CurrentNumMob = %d, want 0", g.CurrentNumMob)
 	}
-	d.tickCount = 120 // minute 2: 2%2 == 0%2 → fire (leader-only group)
+	d.tickCount = 24 // pass 2: 2%2 == 0%2 → fire (leader-only group)
 	d.generateMobs(w)
 	if g.CurrentNumMob != 1 {
-		t.Fatalf("minute-2 fire: CurrentNumMob = %d, want 1", g.CurrentNumMob)
+		t.Fatalf("pass-2 fire: CurrentNumMob = %d, want 1", g.CurrentNumMob)
 	}
-	d.tickCount = 121 // not a minute boundary → no fire
+	d.tickCount = 25 // not a pass boundary → no fire
 	d.generateMobs(w)
-	d.tickCount = 240
+	d.tickCount = 48
 	d.generateMobs(w)
 	if g.CurrentNumMob != 2 {
-		t.Fatalf("minute-4 fire: CurrentNumMob = %d, want 2", g.CurrentNumMob)
+		t.Fatalf("pass-4 fire: CurrentNumMob = %d, want 2", g.CurrentNumMob)
 	}
-	d.tickCount = 360 // saturated (2 >= MaxNumMob)
+	d.tickCount = 72 // saturated (2 >= MaxNumMob)
 	d.generateMobs(w)
 	if g.CurrentNumMob != 2 {
 		t.Fatalf("saturated fire: CurrentNumMob = %d, want 2", g.CurrentNumMob)
+	}
+}
+
+// A MinuteGenerate unit is one pass of the legacy 12 s timer, not a minute:
+// TIMER_MIN fires every 12000 ms (Server.cpp:4087). Combatente's blocks are
+// written with 10, so they refill every 120 s. The rewrite used to read the
+// field as minutes and wait 600 s — five times the game it ports, which is the
+// defect this pins.
+func TestMinuteGenerateContaPassagensDe12s(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 64}, log, nil, d.Handle)
+	g := &world.Generator{
+		MinuteGenerate: 10, MinGroup: 0, MaxGroup: 0, MaxNumMob: 1000,
+		SegX: [5]int16{20}, SegY: [5]int16{20},
+		LeaderTmpl: aggressiveMob(),
+	}
+	w.RegisterGenerators([]*world.Generator{g})
+
+	var disparos []int
+	for tick := 1; tick <= 600; tick++ {
+		antes := g.CurrentNumMob
+		d.tickCount = tick
+		d.generateMobs(w)
+		if g.CurrentNumMob != antes {
+			disparos = append(disparos, tick)
+		}
+	}
+	quer := []int{120, 240, 360, 480, 600}
+	if !slices.Equal(disparos, quer) {
+		t.Errorf("MinuteGenerate 10 disparou nos segundos %v, queria %v (a cada 120 s)", disparos, quer)
 	}
 }
 

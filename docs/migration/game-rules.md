@@ -945,6 +945,30 @@ Orquestrados por `ProcessSecMinTimer.cpp` (tick de segundo/minuto) e classes ded
 `CastleQuest.txt` e `QuestsRate.txt` (em `Settings/`) parametrizam recompensas/taxas — carregar
 como config (Fase 7).
 
+### 6.1. O timer "de minuto" é de 12 segundos
+
+Apesar do nome, `TIMER_MIN` dispara a cada **12000 ms** (`Server.cpp:4087`, ao lado do `TIMER_SEC`
+de 500 ms), e o `ProcessMinTimer` conta as próprias passagens (`ProcessSecMinTimer.cpp:2523`).
+Todo contador do legado que anda nesse timer está em unidades de 12 s. O caso que mais pesa é o
+`MinuteGenerate` do `NPCGener.txt`: um bloco com 10 repõe o grupo a cada 120 s, não a cada 10
+minutos (`:2723-2733`).
+
+No rewrite a unidade vive em `handler/mintimer.go` (`minTimerTicks` = 12 tiques de 1 s) e em
+`spawnrate.MinTimerPass` (12 s), e o painel mostra o tempo de relógio, não o número cru.
+Fidelidade restaurada em 11/09/2026. Até então o gerador e o clima rodavam num "minuto" de 60 s, e
+todo bloco com timer repunha **5x mais devagar** que o legado: Combatente em 10 min em vez de 2,
+Morlock em 50 em vez de 10.
+
+**Auditoria pendente** — rotinas que ainda andam num minuto de relógio (`minutoTicks` = 60) e
+podem ter o mesmo defeito. A pergunta que decide cada uma: *ela conta passagens do timer do legado
+ou olha a hora do relógio?*
+
+| Rotina | Onde | O que o legado faz |
+|---|---|---|
+| Castelo Zakum | `castle.go` `tickCastle` → `events.castle.TickMinute` | `CCastleZakum::ProcessMinTimer`, chamado a cada passagem (`ProcessSecMinTimer.cpp:2620`) |
+| Salas do trono do reino | `kingdom.go` `tickKingdomRvR` | limpeza em dois passos do `ProcessMinTimer` (`:2621-2643`) |
+| Guerra de torre | `towerwar.go` `tickTowerWar` | `Step` olha a hora do relógio; provavelmente só a frequência da consulta muda |
+
 ---
 
 ## 7. Constantes mágicas a preservar (resumo)

@@ -13,9 +13,10 @@ import (
 // (ForceWeather = -1, Server.cpp:637).
 const weatherAuto = int32(-1)
 
-// weatherTickPeriod is the roll cadence in world ticks. The legacy rolls once
-// per ProcessMinTimer pass (ProcessSecMinTimer.cpp:2791) and our tick is 1s.
-const weatherTickPeriod = 60
+// weatherTickPeriod is the roll cadence in world ticks: one roll per legacy
+// ProcessMinTimer pass (ProcessSecMinTimer.cpp:2791), which is 12 s, not a
+// minute (minTimerTicks).
+const weatherTickPeriod = minTimerTicks
 
 // currentWeather is the single accessor for CurrentWeather. It feeds three
 // consumers: the MSG_CNFCharacterLogin snapshot (ProcessDBMessage.cpp:834), the
@@ -25,7 +26,7 @@ func (d *Dispatcher) currentWeather() int32 { return d.events.weather }
 // tickWeather ports the weather block at the tail of ProcessMinTimer
 // (ProcessSecMinTimer.cpp:2791-2818).
 //
-// The draw happens every minute even while a GM override pins the value: the
+// The draw happens on every pass even while a GM override pins the value: the
 // legacy rolls before it looks at ForceWeather, so skipping it would advance
 // the stream at a different rate. With an override active the roll is discarded
 // and the forced value is (re)applied instead.

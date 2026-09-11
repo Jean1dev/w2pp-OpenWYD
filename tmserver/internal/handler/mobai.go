@@ -382,17 +382,18 @@ func enemySelectRange(e *world.Entity) int {
 }
 
 // generateMobs is the per-generator regeneration timer (the GenerateMobs block
-// of ProcessSecMinTimer.cpp:2720-2760): once per minute (60 ticks at the 1s
-// cadence), every block whose MinuteGenerate is positive fires on its phase —
-// `minute % MinuteGenerate == idx % MinuteGenerate` — topping its population
+// of ProcessSecMinTimer.cpp:2720-2760): once per ProcessMinTimer pass (12 ticks,
+// minTimerTicks — not a minute, whatever the field is called), every block
+// whose MinuteGenerate is positive fires on its phase —
+// `pass % MinuteGenerate == idx % MinuteGenerate` — topping its population
 // back up in whole groups. Not ported: the hardcoded skip of blocks
 // {0,1,2,5,6,7} (a Coliseum event hack) and the MinuteGenerate>=500
 // event-relocation repurposing.
 func (d *Dispatcher) generateMobs(w *world.World) {
-	if d.tickCount%60 != 0 {
+	if d.tickCount%minTimerTicks != 0 {
 		return
 	}
-	minute := d.tickCount / 60
+	pass := d.tickCount / minTimerTicks
 	for idx := 0; idx < w.GeneratorCount(); idx++ {
 		g := w.GeneratorAt(idx)
 		if g == nil || g.MinuteGenerate <= 0 {
@@ -400,10 +401,11 @@ func (d *Dispatcher) generateMobs(w *world.World) {
 		}
 		// The block's own period, re-timed by the area dial (spawnrate.go).
 		// Scaling rather than replacing is what keeps a boss group scarcer than
-		// the trash around it: the desert alone mixes 2-, 3- and 4-minute
-		// blocks, and one flat number would erase that on the first click.
+		// the trash around it: the desert alone mixes 2-, 3- and 4-pass (24,
+		// 36 and 48 s) blocks, and one flat number would erase that on the
+		// first click.
 		period := spawnrate.ScaleMinutes(g.MinuteGenerate, d.spawnPercentFor(w, idx))
-		if minute%period != idx%period {
+		if pass%period != idx%period {
 			continue
 		}
 		d.revealSpawned(w, w.GenerateMob(idx))
