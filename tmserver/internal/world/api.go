@@ -291,10 +291,12 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// the party that just finished it, and the clear reward — which fires as the
 	// LAST mob dies — could then trigger again on the refill.
 	// Event props are the same exception for the same reason: a war tower that
-	// respawns fifteen seconds after it falls is not a war tower.
+	// respawns fifteen seconds after it falls is not a war tower. The Kefra and
+	// its guards are weekly (handler/kefra.go) and never take the queue either.
 	if removeType == 1 && e.Merchant == 0 && !e.NonCombatNPC && e.Template != nil && e.Summoner == 0 &&
 		!IsWaterDungeonGenerator(int(e.GenIndex)) &&
 		!IsEventOwnedGenerator(int(e.GenIndex)) &&
+		!IsKefraGenerator(int(e.GenIndex)) &&
 		(gen == nil || gen.MinuteGenerate <= 0) {
 		w.respawnQueue = append(w.respawnQueue, respawnEntry{
 			spawn: MobSpawn{

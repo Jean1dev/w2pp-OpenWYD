@@ -114,6 +114,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.sweepDuelArena(w)
 	d.tickKingdomRvR(w)
 	d.tickTowerWar(w)
+	d.tickKefraSemanal(w)
 	d.tickCastle(w)
 	d.tickWaterRooms(w)
 	d.tickCarta(w)

@@ -341,6 +341,15 @@ type Dispatcher struct {
 	spawnRatePolling  bool
 	spawnRatePollTick int
 	genAreas          []uint8
+	// genChefe marks the lone-boss generators (chefes.go), resolved once at
+	// boot; chefeHoras is their respawn in hours from world_event_config, 0
+	// until the first config arrives (read as the decided default).
+	genChefe   []bool
+	chefeHoras int32
+	// kefraVolta is the UTC day (YYYY-MM-DD) the weekly Kefra respawn last ran
+	// (kefra.go), so the per-minute tick fires once on the Tuesday, not sixty
+	// times in the hour.
+	kefraVolta string
 
 	// The NPCGener block switches, read LIVE and written by /gm npc
 	// (generatoroff.go). genOffVersion is the version last applied; genOffEpoch

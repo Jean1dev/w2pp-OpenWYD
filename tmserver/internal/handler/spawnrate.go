@@ -139,10 +139,12 @@ func (d *Dispatcher) spawnPercentFor(w *world.World, idx int) int32 {
 // InstallRespawnDelay hands the world the other half of the dial: the individual
 // 15s queue, which is the only path a block with no minute period ever takes.
 // Twelve of the desert's 253 blocks are exactly that, and leaving them out would
-// make "mais lerdo" quietly untrue for a corner of the map.
+// make "mais lerdo" quietly untrue for a corner of the map. The same hook gives
+// the lone bosses their wait in hours (chefes.go); it resolves and logs that
+// list here, at boot, after the populate and the NPC overlay.
 func (d *Dispatcher) InstallRespawnDelay(w *world.World) {
+	d.resolverChefes(w)
 	w.SetRespawnDelayFor(func(genIndex int32) uint32 {
-		return spawnrate.ScaleMillis(world.DefaultRespawnDelay,
-			d.spawnPercentFor(w, int(genIndex)))
+		return d.esperaDoRenascimento(w, int(genIndex))
 	})
 }

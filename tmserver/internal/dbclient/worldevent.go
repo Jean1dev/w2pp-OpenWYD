@@ -57,9 +57,10 @@ func (c *WorldEventConfig) UpdateProgress(ctx context.Context, expectedVersion i
 func dbWorldEventToConfig(cfg *dbv1.WorldEventConfig) worldcfg.EventConfig {
 	if cfg == nil {
 		return worldcfg.EventConfig{
-			NoticeEnabled:   true,
-			TowerWarEnabled: domain.DefaultTowerWarEnabled,
-			TowerWarHour:    domain.DefaultTowerWarHour,
+			NoticeEnabled:    true,
+			TowerWarEnabled:  domain.DefaultTowerWarEnabled,
+			TowerWarHour:     domain.DefaultTowerWarHour,
+			BossRespawnHours: domain.DefaultBossRespawnHours,
 		}
 	}
 	// The Tower War pair is `optional` on the wire. Absent means a dbServer that
@@ -75,6 +76,12 @@ func dbWorldEventToConfig(cfg *dbv1.WorldEventConfig) worldcfg.EventConfig {
 	if cfg.TowerWarHour != nil {
 		hora = *cfg.TowerWarHour
 	}
+	// The lone-boss respawn the same way (migration 0056): absent is a dbServer
+	// that predates it, and the decided 24 h runs instead of a zero.
+	chefes := int32(domain.DefaultBossRespawnHours)
+	if cfg.BossRespawnHours != nil {
+		chefes = *cfg.BossRespawnHours
+	}
 	return worldcfg.EventConfig{
 		Enabled: cfg.GetEnabled(), ItemIndex: cfg.GetItemIndex(), Rate: cfg.GetRate(),
 		StartIndex: cfg.GetStartIndex(), CurrentIndex: cfg.GetCurrentIndex(), EndIndex: cfg.GetEndIndex(),
@@ -82,5 +89,6 @@ func dbWorldEventToConfig(cfg *dbv1.WorldEventConfig) worldcfg.EventConfig {
 		DoubleExpEnabled: cfg.GetDoubleExpEnabled(), NewbieEventEnabled: cfg.GetNewbieEventEnabled(),
 		KefraLiveEnabled: cfg.GetKefraLiveEnabled(),
 		TowerWarEnabled:  ligada, TowerWarHour: hora,
+		BossRespawnHours: chefes,
 	}
 }

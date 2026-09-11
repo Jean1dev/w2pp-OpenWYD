@@ -50,6 +50,7 @@ message WorldEventConfig {
   bool kefra_live_enabled = 11;
   optional bool tower_war_enabled = 12;
   optional int32 tower_war_hour = 13;
+  optional int32 boss_respawn_hours = 14;
 }
 
 message GetWorldEventConfigRequest {
@@ -87,13 +88,16 @@ antes de salvar para evitar sobrescrever dados de uma aba antiga.
 | `double_exp_enabled` | `bool` | liga flag global de EXP dobrada no `tmServer` |
 | `newbie_event_enabled` | `bool` | liga flag global de evento newbie no `tmServer` |
 | `tower_war_enabled` | `optional bool` | liga/desliga a Guerra de Torres diária (padrão: ligada) |
-| `tower_war_hour` | `optional int32` | hora (0 a 23, relógio do servidor) em que a guerra começa; padrão 20 |
+| `tower_war_hour` | `optional int32` | hora (0 a 23, relógio do servidor, que é UTC) em que a guerra começa; padrão 20 |
+| `boss_respawn_hours` | `optional int32` | horas (1 a 168) até um chefe sozinho renascer — bloco sem período, até 3 monstros, 1 milhão de XP ou mais; padrão 24 |
 
-Os dois campos da Guerra de Torres são `optional` de propósito. No
-`SetWorldEventConfig`, um campo **ausente mantém o valor gravado** em vez de
+Os dois campos da Guerra de Torres e o dos chefes são `optional` de propósito.
+No `SetWorldEventConfig`, um campo **ausente mantém o valor gravado** em vez de
 zerá-lo — um BFF que ainda não conhece os campos não desliga a guerra à
-meia-noite só por salvar o XP em dobro. Presente e zerado é escolha: `false`
-desliga, `0` é meia-noite. O `GetWorldEventConfig` sempre manda os dois.
+meia-noite nem traz os chefes de volta a cada 15 segundos só por salvar o XP em
+dobro. Presente e zerado é escolha na guerra: `false` desliga, `0` é
+meia-noite; nos chefes, `0` é inválido. O `GetWorldEventConfig` sempre manda os
+três.
 
 `version` vem apenas no `GetWorldEventConfigResponse`. Ele é incrementado por
 edições de moderador e não muda quando o `tmServer` persiste progresso de

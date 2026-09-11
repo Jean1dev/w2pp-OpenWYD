@@ -6721,8 +6721,12 @@ type WorldEventConfig struct {
 	// rather than reset.
 	TowerWarEnabled *bool  `protobuf:"varint,12,opt,name=tower_war_enabled,json=towerWarEnabled,proto3,oneof" json:"tower_war_enabled,omitempty"`
 	TowerWarHour    *int32 `protobuf:"varint,13,opt,name=tower_war_hour,json=towerWarHour,proto3,oneof" json:"tower_war_hour,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// How long a lone boss takes to come back, in hours (migration 0056, 1..168).
+	// Like the Tower War pair: on SetWorldEventConfig, absent keeps the stored
+	// value rather than resetting it.
+	BossRespawnHours *int32 `protobuf:"varint,14,opt,name=boss_respawn_hours,json=bossRespawnHours,proto3,oneof" json:"boss_respawn_hours,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *WorldEventConfig) Reset() {
@@ -6842,6 +6846,13 @@ func (x *WorldEventConfig) GetTowerWarEnabled() bool {
 func (x *WorldEventConfig) GetTowerWarHour() int32 {
 	if x != nil && x.TowerWarHour != nil {
 		return *x.TowerWarHour
+	}
+	return 0
+}
+
+func (x *WorldEventConfig) GetBossRespawnHours() int32 {
+	if x != nil && x.BossRespawnHours != nil {
+		return *x.BossRespawnHours
 	}
 	return 0
 }
@@ -11526,7 +11537,7 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	"\aenabled\x18\x03 \x01(\bR\aenabled\"U\n" +
 	"\x17DeleteRewardItemRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\x12\x17\n" +
-	"\aitem_id\x18\x02 \x01(\x03R\x06itemId\"\x96\x04\n" +
+	"\aitem_id\x18\x02 \x01(\x03R\x06itemId\"\xe0\x04\n" +
 	"\x10WorldEventConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1d\n" +
 	"\n" +
@@ -11543,9 +11554,11 @@ const file_api_web_v1_web_proto_rawDesc = "" +
 	" \x01(\bR\x12newbieEventEnabled\x12,\n" +
 	"\x12kefra_live_enabled\x18\v \x01(\bR\x10kefraLiveEnabled\x12/\n" +
 	"\x11tower_war_enabled\x18\f \x01(\bH\x00R\x0ftowerWarEnabled\x88\x01\x01\x12)\n" +
-	"\x0etower_war_hour\x18\r \x01(\x05H\x01R\ftowerWarHour\x88\x01\x01B\x14\n" +
+	"\x0etower_war_hour\x18\r \x01(\x05H\x01R\ftowerWarHour\x88\x01\x01\x121\n" +
+	"\x12boss_respawn_hours\x18\x0e \x01(\x05H\x02R\x10bossRespawnHours\x88\x01\x01B\x14\n" +
 	"\x12_tower_war_enabledB\x11\n" +
-	"\x0f_tower_war_hour\"?\n" +
+	"\x0f_tower_war_hourB\x15\n" +
+	"\x13_boss_respawn_hours\"?\n" +
 	"\x1aGetWorldEventConfigRequest\x12!\n" +
 	"\fmoderator_id\x18\x01 \x01(\x03R\vmoderatorId\"\x96\x01\n" +
 	"\x1bGetWorldEventConfigResponse\x12+\n" +

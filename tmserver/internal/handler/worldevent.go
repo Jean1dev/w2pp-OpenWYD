@@ -117,6 +117,10 @@ func (d *Dispatcher) applyWorldEventConfig(w *world.World, snap worldcfg.Snapsho
 	// to ride on the newbie event above, which also changes EXP and monster HP
 	// for low levels.
 	d.setTowerSchedule(ev.TowerWarEnabled, int(ev.TowerWarHour))
+	// Lone bosses come back in hours (migration 0056, chefes.go). The wait is
+	// taken at each death, so a change reaches the next boss to die, not the
+	// ones already waiting.
+	d.setChefeHoras(ev.BossRespawnHours)
 	// No side effects to run, unlike the newbie event: KefraLive is one branch
 	// in the reward pipeline and touches nothing that is already in the world.
 	d.expEvents.KefraLive = ev.KefraLiveEnabled

@@ -54,6 +54,10 @@
       <div class="val">{{if .Cfg.TowerWarEnabled}}todo dia às {{.Cfg.TowerWarHour}}h{{else}}desligada{{end}}</div>
     </div>
     <div class="num-tile">
+      <div class="rot">Chefes sozinhos</div>
+      <div class="val">voltam em {{.Cfg.BossRespawnHours}}h</div>
+    </div>
+    <div class="num-tile">
       <div class="rot">Chuva de item</div>
       <div class="val">{{if .Caindo}}caindo{{else if .Cfg.Enabled}}parada{{else}}desligada{{end}}</div>
     </div>
@@ -117,6 +121,7 @@
             de cortar. Vale para todo mundo, em qualquer nível, e entra depois
             do XP em dobro na conta. O nome é do código do jogo original, e foi
             mantido para quem for procurar no log.
+            <br><strong>Ligado = XP em dobro no servidor inteiro. A Mesa de XP foi calibrada com esta chave desligada.</strong>
           </span>
         </span>
       </label>
@@ -146,8 +151,32 @@
         </label>
       </div>
       <p class="nota calma">
-        O horário é o do relógio do servidor. 20 quer dizer que o aviso sai às
-        20:00 e a guerra acaba às 20:30.
+        Hora do servidor, em <strong>UTC</strong>. Brasília é UTC−3: 20 aqui é
+        17h em Brasília; para a guerra começar às 20h de Brasília, use 23. O aviso
+        sai na hora cheia e a guerra acaba aos 30 minutos.
+      </p>
+    </div>
+
+    <div class="caixa">
+      <h2>Chefes sozinhos</h2>
+      <p class="nota calma">
+        Blocos sem período de renascimento, com até três monstros e 1 milhão de
+        XP ou mais — Verid, Sombra Negra, Golem Ancião, os Frenzy do Castelo
+        Zakun. No jogo original eles só apareciam em evento. Aqui voltam depois
+        do prazo abaixo; o resto do mundo continua voltando em 15 segundos. Vale
+        para quem morrer depois de salvar: quem já está esperando mantém o prazo
+        antigo.
+      </p>
+      <div class="grade-campos">
+        <label>
+          <span class="campo-rot">Voltam em (horas, {{.MinChefe}} a {{.MaxChefe}})</span>
+          <input type="number" name="chefes_horas" min="{{.MinChefe}}" max="{{.MaxChefe}}" step="1" required
+                 inputmode="numeric" value="{{.Cfg.BossRespawnHours}}" {{if not .IsAdmin}}disabled{{end}}>
+        </label>
+      </div>
+      <p class="nota calma">
+        O Kefra e os quatro guardas não entram aqui: voltam toda terça às 15h UTC
+        (meio-dia de Brasília), se tiverem morrido.
       </p>
     </div>
 

@@ -48,9 +48,10 @@ func (s *Store) UpsertWorldEventConfig(ctx context.Context, cfg domain.WorldEven
 			INSERT INTO world_event_config (
 				id, enabled, item_index, rate, start_index, current_index, end_index,
 				indexed, notice_enabled, double_exp_enabled, newbie_event_enabled,
-				kefra_live_enabled, tower_war_enabled, tower_war_hour, updated_by, updated_at
+				kefra_live_enabled, tower_war_enabled, tower_war_hour, boss_respawn_hours,
+				updated_by, updated_at
 			)
-			VALUES (TRUE,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now())
+			VALUES (TRUE,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now())
 			ON CONFLICT (id) DO UPDATE SET
 				enabled              = EXCLUDED.enabled,
 				item_index           = EXCLUDED.item_index,
@@ -65,12 +66,13 @@ func (s *Store) UpsertWorldEventConfig(ctx context.Context, cfg domain.WorldEven
 				kefra_live_enabled   = EXCLUDED.kefra_live_enabled,
 				tower_war_enabled    = EXCLUDED.tower_war_enabled,
 				tower_war_hour       = EXCLUDED.tower_war_hour,
+				boss_respawn_hours   = EXCLUDED.boss_respawn_hours,
 				updated_by           = EXCLUDED.updated_by,
 				updated_at           = now()`,
 			cfg.Enabled, cfg.ItemIndex, cfg.Rate, cfg.StartIndex, cfg.CurrentIndex,
 			cfg.EndIndex, cfg.Indexed, cfg.NoticeEnabled, cfg.DoubleExpEnabled,
 			cfg.NewbieEventEnabled, cfg.KefraLiveEnabled, cfg.TowerWarEnabled, cfg.TowerWarHour,
-			nullableID(moderatorID)); err != nil {
+			cfg.BossRespawnHours, nullableID(moderatorID)); err != nil {
 			return fmt.Errorf("store: upsert world event config: %w", err)
 		}
 		after, _ := fetchWorldEventConfigJSON(ctx, tx)
@@ -106,7 +108,7 @@ func (s *Store) UpdateWorldEventProgress(ctx context.Context, expectedVersion in
 const worldEventConfigSelect = `
 	SELECT enabled, item_index, rate, start_index, current_index, end_index,
 	       indexed, notice_enabled, double_exp_enabled, newbie_event_enabled,
-	       kefra_live_enabled, tower_war_enabled, tower_war_hour
+	       kefra_live_enabled, tower_war_enabled, tower_war_hour, boss_respawn_hours
 	FROM world_event_config WHERE id = TRUE`
 
 type worldEventScanRow interface {
@@ -118,7 +120,7 @@ func scanWorldEventConfig(row worldEventScanRow) (domain.WorldEventConfig, error
 	err := row.Scan(&cfg.Enabled, &cfg.ItemIndex, &cfg.Rate, &cfg.StartIndex,
 		&cfg.CurrentIndex, &cfg.EndIndex, &cfg.Indexed, &cfg.NoticeEnabled,
 		&cfg.DoubleExpEnabled, &cfg.NewbieEventEnabled, &cfg.KefraLiveEnabled,
-		&cfg.TowerWarEnabled, &cfg.TowerWarHour)
+		&cfg.TowerWarEnabled, &cfg.TowerWarHour, &cfg.BossRespawnHours)
 	return cfg, err
 }
 

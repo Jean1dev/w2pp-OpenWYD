@@ -99,6 +99,14 @@ const (
 	waterGenSpan = 12
 )
 
+// IsKefraGenerator reports whether an NPCGener block is the Kefra (396) or one
+// of its guards (397-400). They come back weekly (handler/kefra.go), never
+// through the 15 s queue: a boss that returns fifteen seconds after dying is not
+// a weekly boss.
+func IsKefraGenerator(idx int) bool {
+	return idx >= KefraBossGenIndex && idx <= KefraGuardLast
+}
+
 // IsWaterDungeonGenerator reports whether an NPCGener block belongs to a
 // Pergaminho da Água room.
 //

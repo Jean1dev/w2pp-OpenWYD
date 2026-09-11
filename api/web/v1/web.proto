@@ -945,6 +945,10 @@ message WorldEventConfig {
   // rather than reset.
   optional bool tower_war_enabled = 12;
   optional int32 tower_war_hour = 13;
+  // How long a lone boss takes to come back, in hours (migration 0056, 1..168).
+  // Like the Tower War pair: on SetWorldEventConfig, absent keeps the stored
+  // value rather than resetting it.
+  optional int32 boss_respawn_hours = 14;
 }
 
 message GetWorldEventConfigRequest { int64 moderator_id = 1; }

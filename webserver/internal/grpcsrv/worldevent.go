@@ -45,18 +45,21 @@ func (s *WorldEventAdminServer) GetWorldEventConfig(ctx context.Context, req *we
 
 // SetWorldEventConfig replaces the current event settings.
 //
-// The Tower War pair is the exception to "replaces": a caller that predates it
-// (the portal BFF until it learns the fields) sends neither, and a plain
-// replace would switch the daily war off at midnight every time somebody saved
-// the EXP switches. An absent field keeps what is stored instead.
+// The optional fields are the exception to "replaces": the Tower War pair and
+// the lone-boss respawn. A caller that predates them (the portal BFF until it
+// learns the fields) sends none, and a plain replace would switch the daily war
+// off at midnight — and bring the bosses back every few seconds, or fail the
+// column's CHECK — every time somebody saved the EXP switches. An absent field
+// keeps what is stored instead.
 func (s *WorldEventAdminServer) SetWorldEventConfig(ctx context.Context, req *webv1.SetWorldEventConfigRequest) (*webv1.AdminAck, error) {
 	in := req.GetConfig()
 	cfg := webProtoToWorldEventConfig(in)
 	// GetConfig is nil when the request carries no config at all; that is
-	// "nothing sent" for these two as well.
+	// "nothing sent" for these as well.
 	temLigada := in != nil && in.TowerWarEnabled != nil
 	temHora := in != nil && in.TowerWarHour != nil
-	if !temLigada || !temHora {
+	temChefes := in != nil && in.BossRespawnHours != nil
+	if !temLigada || !temHora || !temChefes {
 		res, _, atual, err := s.admin.Get(ctx, req.GetModeratorId())
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "set world event config: read current: %v", err)
@@ -69,6 +72,9 @@ func (s *WorldEventAdminServer) SetWorldEventConfig(ctx context.Context, req *we
 		}
 		if !temHora {
 			cfg.TowerWarHour = atual.TowerWarHour
+		}
+		if !temChefes {
+			cfg.BossRespawnHours = atual.BossRespawnHours
 		}
 	}
 	res, err := s.admin.Set(ctx, req.GetModeratorId(), cfg)
@@ -87,12 +93,13 @@ func worldEventConfigToWebProto(cfg domain.WorldEventConfig) *webv1.WorldEventCo
 		KefraLiveEnabled: cfg.KefraLiveEnabled,
 		// Always present, so the portal can tell a war switched off at midnight
 		// from a webServer too old to know about it.
-		TowerWarEnabled: proto.Bool(cfg.TowerWarEnabled),
-		TowerWarHour:    proto.Int32(cfg.TowerWarHour),
+		TowerWarEnabled:  proto.Bool(cfg.TowerWarEnabled),
+		TowerWarHour:     proto.Int32(cfg.TowerWarHour),
+		BossRespawnHours: proto.Int32(cfg.BossRespawnHours),
 	}
 }
 
-// webProtoToWorldEventConfig maps a request config. Absent Tower War fields come
+// webProtoToWorldEventConfig maps a request config. Absent optional fields come
 // out as their zero values here; SetWorldEventConfig replaces them with the
 // stored ones before anything is written.
 func webProtoToWorldEventConfig(cfg *webv1.WorldEventConfig) domain.WorldEventConfig {
@@ -103,6 +110,7 @@ func webProtoToWorldEventConfig(cfg *webv1.WorldEventConfig) domain.WorldEventCo
 		DoubleExpEnabled: cfg.GetDoubleExpEnabled(), NewbieEventEnabled: cfg.GetNewbieEventEnabled(),
 		KefraLiveEnabled: cfg.GetKefraLiveEnabled(),
 		TowerWarEnabled:  cfg.GetTowerWarEnabled(), TowerWarHour: cfg.GetTowerWarHour(),
+		BossRespawnHours: cfg.GetBossRespawnHours(),
 	}
 }
 

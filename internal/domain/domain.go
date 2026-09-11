@@ -296,6 +296,12 @@ type WorldEventConfig struct {
 	// levels — two decisions nobody wanted tied together.
 	TowerWarEnabled bool
 	TowerWarHour    int32
+	// BossRespawnHours is how long a lone boss takes to come back (migration
+	// 0056): a generator with no minute period, at most three monsters, worth a
+	// million EXP or more. The original never regenerates those outside events;
+	// the rewrite's 15 s queue made each one a farm. The rest of the world keeps
+	// the 15 s queue.
+	BossRespawnHours int32
 }
 
 // The daily Tower War as decided for this server: on, every day at 20:00. They
@@ -307,14 +313,24 @@ const (
 	MaxTowerWarHour        = 23
 )
 
+// The lone-boss respawn, in hours (migration 0056): decided at 24, and the
+// panel goes from 1 to a week. A week in milliseconds still fits the world's
+// 32-bit clock inside the wrap-safe comparison (world/respawn.go).
+const (
+	DefaultBossRespawnHours = 24
+	MinBossRespawnHours     = 1
+	MaxBossRespawnHours     = 168
+)
+
 // DefaultWorldEventConfig is the config of a server whose row was never
-// written: everything off except the item-rain notice, and the daily Tower War
-// on at its decided hour.
+// written: everything off except the item-rain notice, the daily Tower War on at
+// its decided hour, and lone bosses back after their decided wait.
 func DefaultWorldEventConfig() WorldEventConfig {
 	return WorldEventConfig{
-		NoticeEnabled:   true,
-		TowerWarEnabled: DefaultTowerWarEnabled,
-		TowerWarHour:    DefaultTowerWarHour,
+		NoticeEnabled:    true,
+		TowerWarEnabled:  DefaultTowerWarEnabled,
+		TowerWarHour:     DefaultTowerWarHour,
+		BossRespawnHours: DefaultBossRespawnHours,
 	}
 }
 

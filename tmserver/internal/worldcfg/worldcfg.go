@@ -23,6 +23,9 @@ type EventConfig struct {
 	// default (domain.DefaultTowerWar*), never the zero values.
 	TowerWarEnabled bool
 	TowerWarHour    int32
+	// BossRespawnHours is the lone-boss respawn (migration 0056). A dbServer too
+	// old to send it yields domain.DefaultBossRespawnHours.
+	BossRespawnHours int32
 }
 
 // Snapshot is the full world config at a given version.

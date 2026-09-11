@@ -70,7 +70,8 @@ func worldEventConfigToDBProto(cfg domain.WorldEventConfig) *dbv1.WorldEventConf
 		KefraLiveEnabled: cfg.KefraLiveEnabled,
 		// Always present: presence is how tmServer tells this dbServer from one
 		// that predates the fields (see the proto).
-		TowerWarEnabled: proto.Bool(cfg.TowerWarEnabled),
-		TowerWarHour:    proto.Int32(cfg.TowerWarHour),
+		TowerWarEnabled:  proto.Bool(cfg.TowerWarEnabled),
+		TowerWarHour:     proto.Int32(cfg.TowerWarHour),
+		BossRespawnHours: proto.Int32(cfg.BossRespawnHours),
 	}
 }

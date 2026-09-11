@@ -829,6 +829,10 @@ message WorldEventConfig {
   // (on, 20h) instead of reading the zero values as "off, at midnight".
   optional bool tower_war_enabled = 12;
   optional int32 tower_war_hour = 13;
+  // How long a lone boss takes to come back, in hours (migration 0056, 1..168).
+  // `optional` for the same reason as the Tower War pair: absent is a dbServer
+  // that predates the field, and tmServer then runs the decided default (24).
+  optional int32 boss_respawn_hours = 14;
 }
 
 message ListMobTemplateStatsRequest {}

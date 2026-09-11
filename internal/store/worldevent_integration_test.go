@@ -40,6 +40,7 @@ func TestWorldEventConfigCRUDAndProgress(t *testing.T) {
 		StartIndex: 100, CurrentIndex: 100, EndIndex: 200,
 		Indexed: true, NoticeEnabled: true, DoubleExpEnabled: true, KefraLiveEnabled: true,
 		TowerWarEnabled: false, TowerWarHour: 18,
+		BossRespawnHours: domain.DefaultBossRespawnHours,
 	}
 	if err := st.UpsertWorldEventConfig(ctx, cfg, modID); err != nil {
 		t.Fatalf("UpsertWorldEventConfig: %v", err)

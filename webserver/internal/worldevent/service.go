@@ -80,6 +80,11 @@ func validConfig(cfg domain.WorldEventConfig) bool {
 	if cfg.TowerWarHour < 0 || cfg.TowerWarHour > domain.MaxTowerWarHour {
 		return false
 	}
+	// Outside 1..168 the save would either die on the column's CHECK or bring
+	// the lone bosses back every few seconds.
+	if cfg.BossRespawnHours < domain.MinBossRespawnHours || cfg.BossRespawnHours > domain.MaxBossRespawnHours {
+		return false
+	}
 	if cfg.ItemIndex < 0 || cfg.ItemIndex > maxWorldEventItemIndex ||
 		cfg.Rate < 0 || cfg.StartIndex < 0 || cfg.CurrentIndex < 0 || cfg.EndIndex < 0 {
 		return false

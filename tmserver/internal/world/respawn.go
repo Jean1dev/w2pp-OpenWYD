@@ -33,7 +33,11 @@ func (w *World) SpawnDueRespawns(now uint32) []int {
 	var ids []int
 	kept := w.respawnQueue[:0]
 	for _, r := range w.respawnQueue {
-		if r.due > now {
+		// Compared as a signed difference, not r.due > now: the clock is 32-bit
+		// milliseconds and wraps every ~49.7 days, and a boss queued for hours
+		// just before the wrap would otherwise read as due at once. Any wait
+		// under ~24.8 days stays correct across it (the longest is a week).
+		if int32(r.due-now) > 0 {
 			kept = append(kept, r)
 			continue
 		}

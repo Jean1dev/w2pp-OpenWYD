@@ -138,6 +138,7 @@ func TestAdminSalvaOsInterruptores(t *testing.T) {
 		"primeiro": {"1"}, "atual": {"1"}, "ultimo": {"100"},
 		"numerado": {"1"}, "anunciar": {"1"},
 		"torre": {"1"}, "torre_hora": {"21"},
+		"chefes_horas": {"24"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303 (body: %s)", rec.Code, rec.Body.String())
@@ -161,6 +162,9 @@ func TestAdminSalvaOsInterruptores(t *testing.T) {
 	}
 	if !g.TowerWarEnabled || g.TowerWarHour != 21 {
 		t.Errorf("guerra de torres gravada = %v às %dh, want ligada às 21h", g.TowerWarEnabled, g.TowerWarHour)
+	}
+	if g.BossRespawnHours != 24 {
+		t.Errorf("chefes gravados em %d h, want 24 h", g.BossRespawnHours)
 	}
 	if len(log.written) != 1 || log.written[0].Action != audit.ActionSetWorldEvent {
 		t.Fatalf("auditoria = %+v", log.written)
@@ -261,7 +265,7 @@ func TestGuerraDeTorresDesmarcadaDesliga(t *testing.T) {
 	log := newFakeAudit()
 	post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, log))
 
-	rec := post("/eventos", url.Values{"csrf": {token}, "torre_hora": {"19"}})
+	rec := post("/eventos", url.Values{"csrf": {token}, "torre_hora": {"19"}, "chefes_horas": {"24"}})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303 (body: %s)", rec.Code, rec.Body.String())
 	}
@@ -288,7 +292,7 @@ func TestHoraDaTorreForaDaFaixaERecusada(t *testing.T) {
 		t.Run("hora="+hora, func(t *testing.T) {
 			ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
 			post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()))
-			rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {hora}})
+			rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {hora}, "chefes_horas": {"24"}})
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400", rec.Code)
 			}
@@ -305,7 +309,7 @@ func TestHoraDaTorreForaDaFaixaERecusada(t *testing.T) {
 func TestMeiaNoiteEHoraValida(t *testing.T) {
 	ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
 	post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()))
-	if rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {"0"}}); rec.Code != http.StatusSeeOther {
+	if rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {"0"}, "chefes_horas": {"24"}}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303", rec.Code)
 	}
 	if g := ev.gravado[0]; !g.TowerWarEnabled || g.TowerWarHour != 0 {
@@ -327,6 +331,70 @@ func TestAPaginaMostraAGuerraDeTorres(t *testing.T) {
 		"ganha +100 de fama",
 		`name="torre_hora"`, `value="21"`,
 		"Não mexe na Guerra de Torres",
+	} {
+		if !strings.Contains(body, quer) {
+			t.Errorf("a página não traz %q", quer)
+		}
+	}
+}
+
+// TestChefesSozinhosGravaAsHoras: o número vai do formulário para o banco e para
+// a auditoria, antes e depois.
+func TestChefesSozinhosGravaAsHoras(t *testing.T) {
+	ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
+	log := newFakeAudit()
+	post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, log))
+
+	rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {"20"}, "chefes_horas": {"48"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (body: %s)", rec.Code, rec.Body.String())
+	}
+	if g := ev.gravado[0]; g.BossRespawnHours != 48 {
+		t.Errorf("chefes gravados em %d h, want 48 h", g.BossRespawnHours)
+	}
+	antes, _ := log.written[0].Old.(map[string]any)
+	depois, _ := log.written[0].New.(map[string]any)
+	if antes["chefes_horas"] != int32(24) || depois["chefes_horas"] != int32(48) {
+		t.Errorf("auditoria = %v -> %v, want chefes_horas 24 -> 48", antes["chefes_horas"], depois["chefes_horas"])
+	}
+}
+
+// TestHorasDosChefesForaDaFaixaSaoRecusadas: zero traria os chefes a cada 15 s
+// de novo (e o banco recusaria), mais de 168 passa de uma semana, e o campo
+// vazio não vira um número que ninguém escolheu.
+func TestHorasDosChefesForaDaFaixaSaoRecusadas(t *testing.T) {
+	for _, horas := range []string{"0", "169", "-1", "", "vinte", "1.5"} {
+		t.Run("horas="+horas, func(t *testing.T) {
+			ev := &fakeEventos{cfg: domain.DefaultWorldEventConfig()}
+			post, token := signedInPost(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()))
+			rec := post("/eventos", url.Values{"csrf": {token}, "torre": {"1"}, "torre_hora": {"20"}, "chefes_horas": {horas}})
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			if !strings.Contains(rec.Body.String(), "chefes") {
+				t.Errorf("mensagem = %q, não diz que são as horas dos chefes", rec.Body.String())
+			}
+			if len(ev.gravado) != 0 {
+				t.Error("gravou com horas inválidas")
+			}
+		})
+	}
+}
+
+// TestAPaginaMostraOsChefesEOsAvisos: o bloco dos chefes e os dois avisos que
+// têm de estar onde a pessoa clica — a chave do KefraLive é, na prática, XP em
+// dobro no servidor inteiro, e o horário da guerra é UTC.
+func TestAPaginaMostraOsChefesEOsAvisos(t *testing.T) {
+	cfg := domain.DefaultWorldEventConfig()
+	cfg.BossRespawnHours = 36
+	ev := &fakeEventos{cfg: cfg}
+	body := getSignedIn(t, newTestPanelEventos(t, roleAdmin, ev, newFakeAudit()), "/eventos").Body.String()
+	for _, quer := range []string{
+		"Chefes sozinhos", "voltam em 36h", `name="chefes_horas"`, `value="36"`,
+		"Ligado = XP em dobro no servidor inteiro.",
+		"A Mesa de XP foi calibrada com esta chave desligada.",
+		"Brasília é UTC−3",
+		"O Kefra e os quatro guardas não entram aqui",
 	} {
 		if !strings.Contains(body, quer) {
 			t.Errorf("a página não traz %q", quer)

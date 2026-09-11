@@ -61,7 +61,7 @@ func TestAuthorization(t *testing.T) {
 			if r, _, _, err := s.Get(context.Background(), tc.moderator); err != nil || r != tc.want {
 				t.Errorf("Get = (%v,%v), want %v", r, err, tc.want)
 			}
-			if r, err := s.Set(context.Background(), tc.moderator, domain.WorldEventConfig{}); err != nil || r != tc.want {
+			if r, err := s.Set(context.Background(), tc.moderator, domain.DefaultWorldEventConfig()); err != nil || r != tc.want {
 				t.Errorf("Set = (%v,%v), want %v", r, err, tc.want)
 			}
 		})
@@ -84,18 +84,23 @@ func TestSetValidation(t *testing.T) {
 		Enabled: true, ItemIndex: 777, Rate: 10,
 		StartIndex: 100, CurrentIndex: 100, EndIndex: 200,
 		Indexed: true, NoticeEnabled: true,
+		BossRespawnHours: domain.DefaultBossRespawnHours,
 	}
 	bad := []domain.WorldEventConfig{
-		{Enabled: true, ItemIndex: 0, Rate: 10, StartIndex: 1, CurrentIndex: 1, EndIndex: 2},
-		{Enabled: true, ItemIndex: maxWorldEventItemIndex + 1, Rate: 10, StartIndex: 1, CurrentIndex: 1, EndIndex: 2},
-		{Enabled: true, ItemIndex: 1, Rate: 0, StartIndex: 1, CurrentIndex: 1, EndIndex: 2},
-		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 0, CurrentIndex: 0, EndIndex: 2},
-		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 10, CurrentIndex: 9, EndIndex: 20},
-		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 10, CurrentIndex: 21, EndIndex: 20},
+		{Enabled: true, ItemIndex: 0, Rate: 10, StartIndex: 1, CurrentIndex: 1, EndIndex: 2, BossRespawnHours: 24},
+		{Enabled: true, ItemIndex: maxWorldEventItemIndex + 1, Rate: 10, StartIndex: 1, CurrentIndex: 1, EndIndex: 2, BossRespawnHours: 24},
+		{Enabled: true, ItemIndex: 1, Rate: 0, StartIndex: 1, CurrentIndex: 1, EndIndex: 2, BossRespawnHours: 24},
+		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 0, CurrentIndex: 0, EndIndex: 2, BossRespawnHours: 24},
+		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 10, CurrentIndex: 9, EndIndex: 20, BossRespawnHours: 24},
+		{Enabled: true, ItemIndex: 1, Rate: 1, StartIndex: 10, CurrentIndex: 21, EndIndex: 20, BossRespawnHours: 24},
 		// A Guerra de Torres numa hora que o relógio nunca mostra nunca começaria, e
 		// vale mesmo com a chuva de item desligada.
-		{TowerWarEnabled: true, TowerWarHour: 24},
-		{TowerWarEnabled: true, TowerWarHour: -1},
+		{TowerWarEnabled: true, TowerWarHour: 24, BossRespawnHours: 24},
+		{TowerWarEnabled: true, TowerWarHour: -1, BossRespawnHours: 24},
+		// Os chefes sozinhos fora de 1..168: zero os traria a cada 15 s (e o banco
+		// recusaria), e mais de uma semana passa do teto decidido.
+		{TowerWarEnabled: true, TowerWarHour: 20, BossRespawnHours: 0},
+		{TowerWarEnabled: true, TowerWarHour: 20, BossRespawnHours: domain.MaxBossRespawnHours + 1},
 	}
 
 	st := newFake()
@@ -120,7 +125,7 @@ func TestSetValidation(t *testing.T) {
 func TestSetAllowsExpOnlyConfig(t *testing.T) {
 	st := newFake()
 	s := New(st)
-	cfg := domain.WorldEventConfig{DoubleExpEnabled: true, NewbieEventEnabled: true}
+	cfg := domain.WorldEventConfig{DoubleExpEnabled: true, NewbieEventEnabled: true, BossRespawnHours: 24}
 	if r, err := s.Set(context.Background(), 1, cfg); err != nil || r != OK {
 		t.Fatalf("Set(exp-only) = (%v,%v), want OK", r, err)
 	}
