@@ -155,3 +155,9 @@ func tierKeyFor(classMaster uint8) uint8 {
 		return TierCelestial
 	}
 }
+
+// TierKey maps a character's ClassMaster to the tier the configuration is keyed
+// by, collapsing the three celestial ClassMaster values onto TierCelestial.
+// Exported so a caller that needs the branch a character is paid on — the /xp
+// screen reads the configured rate — asks the same function ExpReward asks.
+func TierKey(classMaster uint8) uint8 { return tierKeyFor(classMaster) }

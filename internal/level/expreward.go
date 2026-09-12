@@ -222,11 +222,7 @@ func ExpRewardOutcome(in ExpRewardInput) (int64, ExpLoss) {
 		exp = eMob
 	}
 
-	bonus := in.ExpBonus
-	if in.ExpBonus > 0 && in.ExpBonus < 500 {
-		if r.fairyContent {
-			bonus += in.FairyContent
-		}
+	if bonus := ItemBonusApplied(in.Zone, in.ExpBonus, in.FairyContent); bonus != 0 {
 		exp += exp * int64(bonus) / 100
 	}
 
@@ -254,6 +250,28 @@ func ExpRewardOutcome(in ExpRewardInput) (int64, ExpLoss) {
 		return 0, ExpLossNone
 	}
 	return exp, ExpLossNone
+}
+
+// ItemBonusApplied is the item/affect bonus a reward actually receives, in
+// percent. Two legacy rules live here and nowhere else:
+//
+//	The whole bonus is dropped — the Fada Suprema's +30 with it — unless
+//	ExpBonus is inside (0, 500). A character stacking past 500% earns the BASE
+//	rate, which is the opposite of what the stacking suggests.
+//
+//	Only the Água and general-field branches add FairyContent, so the Fada
+//	Suprema is worth 46% outside Pesadelo and 16% inside it.
+//
+// ExpRewardOutcome reads it, and so does the /xp screen, so a player is never
+// shown a bonus the reward did not apply.
+func ItemBonusApplied(zone Zone, expBonus, fairyContent int32) int32 {
+	if expBonus <= 0 || expBonus >= 500 {
+		return 0
+	}
+	if zone.rule().fairyContent {
+		return expBonus + fairyContent
+	}
+	return expBonus
 }
 
 // CelestialLevelOffset is what ExpReward adds to a celestial character's level

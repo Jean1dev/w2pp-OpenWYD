@@ -12,15 +12,35 @@ func (d *Dispatcher) expBonus(e *world.Entity) int32 {
 	return e.AffExpBonus + e.EquipExpBonus
 }
 
+// expBonusParcelas is equipExpBonus split by where each point came from. It
+// exists for the /xp screen: "+150%" answers nothing for a player who wants to
+// know which piece is carrying it. The split is produced by the same pass that
+// produces the total, so the screen and the reward cannot disagree.
+type expBonusParcelas struct {
+	Fada        int32 // the fairy in Equip[13]
+	Montaria    int32 // a cash-shop mount ridden in Equip[14]
+	Grade7      int32 // grade-7 pieces, +2 each
+	Grade7Pecas int
+	Joia        int32 // +10..+15 pieces carrying gem 2, +2 each
+	JoiaPecas   int
+}
+
+// Total is the equipment bonus in percent.
+func (p expBonusParcelas) Total() int32 { return p.Fada + p.Montaria + p.Grade7 + p.Joia }
+
 func (d *Dispatcher) equipExpBonus(e *world.Entity) int32 {
-	var bonus int32
-	bonus += fairyExpBonus(e.Equip[fairyEquipSlot].Index)
+	return d.equipExpBonusParcelas(e).Total()
+}
+
+func (d *Dispatcher) equipExpBonusParcelas(e *world.Entity) expBonusParcelas {
+	var p expBonusParcelas
+	p.Fada = fairyExpBonus(e.Equip[fairyEquipSlot].Index)
 	// The cash-shop mounts give EXP while ridden (Shire +3, Thoroughbred +5,
 	// Klazedale +7, Tigre de Fogo and Dragão Vermelho +12) — a new rule, decided
 	// with their attribute rows in mountbonus. An expired one is already out of
 	// the slot (dropExpired), so the slot is the whole condition.
 	if extra, ok := mountbonus.TempExtra(e.Equip[mountEquipSlot].Index); ok {
-		bonus += extra.ExpPct
+		p.Montaria = extra.ExpPct
 	}
 	for slot := range e.Equip {
 		it := e.Equip[slot]
@@ -28,13 +48,15 @@ func (d *Dispatcher) equipExpBonus(e *world.Entity) int32 {
 			continue
 		}
 		if d.itemGrades[int(it.Index)] == 7 {
-			bonus += 2
+			p.Grade7 += 2
+			p.Grade7Pecas++
 		}
 		if itemGem(it) == 2 {
-			bonus += 2
+			p.Joia += 2
+			p.JoiaPecas++
 		}
 	}
-	return bonus
+	return p
 }
 
 func fairyExpBonus(idx int16) int32 {

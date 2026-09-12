@@ -429,7 +429,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			if pvpHit {
 				dmg = applyTierDefense(e.ClassMaster, target.ClassMaster, dmg)
 			}
-			dmg = applyHuntressForceDamage(e, target, tid, dmg)
+			dmg = applyForceDamage(e, target, tid, dmg)
 			// Ataque PvP, then the defender's flat reflect and Defesa PvP
 			// (_MSG_Attack.cpp:1322-1331, 1494-1510), before the mount takes its share.
 			if pvpHit {
@@ -1575,23 +1575,36 @@ func (d *Dispatcher) parryRateWith(attacker, target *world.Entity, accuracyDex i
 	return combat.ParryRate(int(effectiveDex(target)), target.Parry, attackDex, int(attacker.Rsv))
 }
 
-func applyHuntressForceDamage(attacker, target *world.Entity, tid, dmg int) int {
+// applyForceDamage adds the attacker's flat forced damage, from both of the
+// sources the legacy accumulates into one `ForceDamage` (CMob.cpp:820-874 plus
+// BASE_GetCurrentScore): the Ligação Espectral affect (37) and the Esmeralda gem
+// (gem_bonus.go).
+//
+// It lands AFTER the defence was subtracted and after perfuracao quartered the
+// blow, which is what makes these points worth so much more than the same
+// number on the damage stat: they arrive whole, on a blow the target already
+// ground down.
+func applyForceDamage(attacker, target *world.Entity, tid, dmg int) int {
 	if attacker == nil || target == nil || dmg <= 0 {
 		return dmg
 	}
 	if !world.IsPlayer(tid) && attacker.AffForceMobDamage != 0 {
 		dmg += int(attacker.AffForceMobDamage)
 	}
-	if attacker.AffForceDamage == 0 {
+	force := attacker.AffForceDamage + attacker.EquipForceDamage
+	if force == 0 {
 		return dmg
 	}
 	// The player/summon quarter used to live here, which made it run only for an
 	// attacker carrying forced damage. It is perfuracao now, applied to every
 	// blow before this; forced damage is added to what is left, as in the legacy.
+	//
+	// `if (dam <= 1) dam = ForceDamage` (:1311): against a target that ground the
+	// blow down to nothing, forced damage REPLACES it instead of adding to it.
 	if dmg <= 1 {
-		return int(attacker.AffForceDamage)
+		return int(force)
 	}
-	return dmg + int(attacker.AffForceDamage)
+	return dmg + int(force)
 }
 
 // applyAirBladeProc returns the blow with the proc added, and the proc alone —

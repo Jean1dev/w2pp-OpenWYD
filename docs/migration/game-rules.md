@@ -872,6 +872,47 @@ if alvo é player e dam>0:
 Efeitos de status no golpe: `RSV_FROST` (50% → affect 36) e `RSV_DRAIN` (50% → affect 40) com
 `Special[1]` (`:1511+`).
 
+### 4.5.1. De onde saem esses acumuladores — o laço de gemas (`CMob.cpp:820-874`)
+
+Um único laço pelos 16 slots de equipamento enche **quatro** acumuladores, e o port os trouxe em
+frentes diferentes. A tabela é o mapa de qual já está ligado e onde:
+
+```text
+para cada slot 0..15 com item:
+    isanc = 0, ou 1..6 conforme o refino +10..+15
+    # BASE_GetItemSanc devolve REF_10..REF_15 = 10/12/15/18/22/27 — códigos, não níveis
+
+    Grade == 5              → DropBonus     += 8
+    Grade == 7              → ExpBonus      += 2
+    Grade == 8              → ReflectDamage += 20
+    Grade == 6              → ForceDamage   += (i == 20)   # sempre 0: o laço para em 15
+
+    gem 0 (Diamante)        → DropBonus     += 8
+    gem 1 (Esmeralda)       → ForceDamage   += (Grade == 6 ? 80 : 40) * isanc
+    gem 2 (Coral)           → ExpBonus      += 2
+    gem 3 (Garnet)          → ReflectDamage += (Grade == 8 ? 80 : 40) * isanc
+```
+
+| Acumulador | Fonte | Onde é gasto | Port |
+|---|---|---|---|
+| `DropBonus` | Grade 5, gem 0, fadas | odds do drop + `SetItemBonus` | ✅ `drop_bonus.go` |
+| `ExpBonus` | Grade 7, gem 2, fadas, Baú, montaria de loja | recompensa de XP | ✅ `exp_bonus.go` |
+| `ForceDamage` (perfuração) | **gem 1**, afeto 37 | `_MSG_Attack.cpp:1309` | ✅ `gem_bonus.go` |
+| `ReflectDamage` (absorção plana) | Grade 8, skill do BM | `:1496`, `GetFunc.cpp:1639`/`:1938` | ✅ `pvp.go` |
+|  ↳ parcela da gema | **gem 3 (Garnet)** | idem | ❌ fora, por decisão — ver abaixo |
+| `ReflectPvP` (absorção %) | `EF_LWORDGUILD`/10 | idem | ✅ `pvp.go` |
+| `PvPDamage` (ataque %) | `EF_HWORDGUILD`/10 | `_MSG_Attack.cpp:1322` | ✅ `pvp.go` |
+
+**Perfuração é somada DEPOIS do corte de defesa e depois do ÷4 de PvP** (`applyForceDamage`, chamada
+logo após `perfuracao`), e quando o golpe já tinha sido reduzido a 1 ou menos ela **substitui** o dano
+em vez de somar (`:1311`). É por isso que um número que parece modesto ao lado do Ataque decide um
+duelo: contra alvo blindado, é quase todo o golpe. Uma peça +15 grade 6 vale 480.
+
+> **Garnet fora, de propósito.** `reflectDamage` (pvp.go) lê a Grade 8 e a skill do BM, mas não a gema
+> 3. A justificativa escrita lá — "sockets are not modeled" — não se sustenta: `itemGem` lê o socket e
+> já é usado por `drop_bonus.go` e `exp_bonus.go`. Ainda assim a exclusão foi mantida: ligar a gema
+> aumenta a absorção de quem a monta e isso é decisão de balanceamento, não conserto de port.
+
 ### 4.6. Conversão atributo→dano (no `BASE_GetCurrentScore`, `Basedef.cpp:3014+`)
 
 `CurrentScore.Damage` parte do equip e recebe `EF_DAMAGE` (`:3028`); o **balanceamento por classe**

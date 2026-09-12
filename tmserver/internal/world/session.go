@@ -435,6 +435,13 @@ type Entity struct {
 	// of an item falling AND the bonus rolled onto it when it does.
 	EquipDropBonus int32
 
+	// EquipForceDamage is the perfuração half of the same walk (CMob.cpp:866):
+	// the Esmeralda gem (gem 1) on a +10..+15 piece, worth 40 per refine step
+	// above +9, or 80 on a Grade 6 piece. It is a FLAT number added to a landed
+	// blow after the target's defence has already come off, which is what makes
+	// it perfuração and not damage (_MSG_Attack.cpp:1309).
+	EquipForceDamage int32
+
 	EquipVisual [16]uint16 // visual item codes for MSG_CreateMob/UpdateEquip
 	EquipAnct   [16]uint8  // refine/ancient glow overlay bytes paired with EquipVisual
 

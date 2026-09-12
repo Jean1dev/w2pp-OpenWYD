@@ -59,6 +59,13 @@ var zoneRects = []zoneRect{
 // Name is the zone's name in the language the panel and the design docs use.
 func (z Zone) Name() string { return z.rule().name }
 
+// CountsFairyContent reports whether the zone adds the Fada Suprema's flat +30
+// to the item bonus. Exported because the /xp screen has to say WHERE the fairy
+// is worth 46% and where it is worth 16%, and stating the rule a second time
+// there would give the player an answer that can drift from the one ExpReward
+// actually pays.
+func (z Zone) CountsFairyContent() bool { return z.rule().fairyContent }
+
 // IsPesadelo reports whether the zone is one of the three Pesadelo instances.
 func (z Zone) IsPesadelo() bool {
 	switch z {

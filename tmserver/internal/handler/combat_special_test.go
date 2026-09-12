@@ -339,12 +339,12 @@ func huntressSkill86DB() *fakeDB {
 func TestHuntressForceDamageApplication(t *testing.T) {
 	attacker := &world.Entity{AffForceMobDamage: 25, AffForceDamage: 40}
 	mob := &world.Entity{ID: world.MaxUser}
-	if got := applyHuntressForceDamage(attacker, mob, mob.ID, 100); got != 165 {
+	if got := applyForceDamage(attacker, mob, mob.ID, 100); got != 165 {
 		t.Fatalf("force damage vs mob = %d, want 165", got)
 	}
 	player := &world.Entity{ID: 2}
 	// The quarter is perfuracao's now, applied before this: forced damage only adds.
-	if got := applyHuntressForceDamage(attacker, player, player.ID, 100); got != 140 {
+	if got := applyForceDamage(attacker, player, player.ID, 100); got != 140 {
 		t.Fatalf("force damage vs player = %d, want 140", got)
 	}
 }

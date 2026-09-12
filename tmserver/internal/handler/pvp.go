@@ -6,7 +6,7 @@ import "github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 // to a blow AFTER the formula, when the target is a player.
 //
 // This port had kept only a sliver of it. The "Perfuração" quarter was there,
-// but nested inside the ForceDamage branch (applyHuntressForceDamage), so it only
+// but nested inside the ForceDamage branch (applyForceDamage), so it only
 // ran for an attacker carrying forced damage — practically nobody. The two are
 // separate statements in the original: every blow on a player is quartered, and
 // forced damage is added afterwards. Without the quarter a Mortal FM at +11 took

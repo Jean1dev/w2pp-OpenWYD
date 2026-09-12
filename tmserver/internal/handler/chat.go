@@ -242,6 +242,14 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		d.showChaosPoints(w, s)
 		return true
 	}
+	if cmd == "xp" || cmd == "bonus" {
+		d.showXPBonus(w, s)
+		return true
+	}
+	if cmd == "status" {
+		d.showStatus(w, s)
+		return true
+	}
 	if cmd == "gritar" || cmd == "spk" {
 		d.magicTrumpet(w, s, args)
 		return true
