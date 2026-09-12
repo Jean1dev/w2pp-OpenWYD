@@ -564,12 +564,75 @@ func TestDeliveriesAreIsolatedAndHideStaffIDs(t *testing.T) {
 	if e.Pendentes[1].Efeitos[0] != [2]int{43, 7} {
 		t.Errorf("efeitos = %v", e.Pendentes[1].Efeitos)
 	}
-	if strings.Contains(rec.Body.String(), "77") || strings.Contains(rec.Body.String(), "3314") {
-		t.Errorf("alfa's deliveries leak a staff id or beta's item: %s", rec.Body.String())
+	confereCamposDoItem(t, "alfa", itensCrus(t, rec.Body.Bytes()))
+	for _, i := range append(append([]itemSite{}, e.Pendentes...), e.Perdidos...) {
+		if i.Item == itemDaBeta {
+			t.Errorf("alfa's deliveries carry beta's item: %+v", i)
+		}
 	}
-	b := c.pede("GET", "/site/v1/contas/2/entregas", "").Body.String()
-	if !strings.Contains(b, "3314") || strings.Contains(b, "412") || strings.Contains(b, "1481") {
-		t.Errorf("beta's deliveries = %s", b)
+
+	recB := c.pede("GET", "/site/v1/contas/2/entregas", "")
+	confereStatus(t, recB, http.StatusOK, "")
+	var b struct {
+		Pendentes []itemSite `json:"pendentes"`
+		Perdidos  []itemSite `json:"perdidos"`
+	}
+	if err := json.Unmarshal(recB.Body.Bytes(), &b); err != nil {
+		t.Fatal(err)
+	}
+	confereCamposDoItem(t, "beta", itensCrus(t, recB.Body.Bytes()))
+	if len(b.Pendentes) != 1 || b.Pendentes[0].Item != itemDaBeta {
+		t.Errorf("beta's deliveries = %+v", b)
+	}
+	for _, i := range append(append([]itemSite{}, b.Pendentes...), b.Perdidos...) {
+		if i.Item == 412 || i.Item == 1481 {
+			t.Errorf("beta's deliveries carry alfa's item: %+v", i)
+		}
+	}
+}
+
+// itemDaBeta is the item only account 2 has, used to prove one account's answer
+// never carries the other's.
+const itemDaBeta = 3314
+
+// camposDoItemSite is the exact set of fields a delivery may carry to the
+// player. The staff id lives in delivery_queue.source ("painel:<id>") and must
+// never be one of them.
+var camposDoItemSite = []string{"id", "item", "efeitos", "expira_em", "criado_em", "origem"}
+
+// itensCrus returns both lists as raw JSON objects, so the test can look at the
+// FIELDS the player receives and not only at the ones this package decodes.
+func itensCrus(t *testing.T, corpo []byte) []map[string]json.RawMessage {
+	t.Helper()
+	var r struct {
+		Pendentes []map[string]json.RawMessage `json:"pendentes"`
+		Perdidos  []map[string]json.RawMessage `json:"perdidos"`
+	}
+	if err := json.Unmarshal(corpo, &r); err != nil {
+		t.Fatal(err)
+	}
+	return append(r.Pendentes, r.Perdidos...)
+}
+
+// confereCamposDoItem asserts the exact field set of every delivery.
+//
+// This replaces a substring hunt for the staff id in the whole body, which was
+// a lottery against the clock: criado_em carries a nanosecond fraction, and one
+// that happened to contain "77" failed this test three times on the main (runs
+// 34654405870, 34655615060 and 34676655973). It also proved less than it looked
+// - a NEW field carrying the id would have passed whenever the digits did not
+// line up. Asserting the set fails loudly on the field, not on the digits.
+func confereCamposDoItem(t *testing.T, onde string, itens []map[string]json.RawMessage) {
+	t.Helper()
+	for _, item := range itens {
+		for _, campo := range camposDoItemSite {
+			if _, ok := item[campo]; !ok {
+				t.Errorf("%s: delivery without the %q field: %v", onde, campo, item)
+			}
+		}
+		if len(item) != len(camposDoItemSite) {
+			t.Errorf("%s: delivery with %d fields, want exactly %v: %v", onde, len(item), camposDoItemSite, item)
+		}
 	}
 }
 
