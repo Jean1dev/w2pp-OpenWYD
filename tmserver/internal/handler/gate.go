@@ -47,6 +47,14 @@ func (d *Dispatcher) updateItem(w *world.World, s *world.Session, _ protocol.Hea
 		return
 	}
 
+	// O Portão Orc Leste (castelo_orc_portao_leste.go) nunca abre, como o Sul: a
+	// corrida entra por teleporte, e uma porta aberta deixa um segundo grupo
+	// entrar atrás do primeiro.
+	if lg := d.casteloOrcPortaoLeste(w); lg != nil && lg.ID == id {
+		sendClientMessage(w, s, msgPortaoOrcLesteTrancado)
+		return
+	}
+
 	// Key gate: only when the gate is (or is being set) locked AND it carries a key
 	// requirement. itemAbility includes catalog base effects because static gates
 	// usually carry EF_KEYID in ItemList rather than in their instance slots.

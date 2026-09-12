@@ -428,6 +428,10 @@ type Dispatcher struct {
 	// InitItem.csv did not seed it.
 	casteloOrcGateID int
 
+	// casteloOrcLesteID é o id de chão do Portão Orc Leste (InitItem 463),
+	// procurado uma vez: 0 = ainda não procurei, -1 = não está no InitItem.csv.
+	casteloOrcLesteID int
+
 	// portoesCampoIDs são os ids de chão dos três portões do campo de treino
 	// (campo_de_treino_portoes.go), procurados uma vez: [0] == 0 quer dizer
 	// "ainda não procurei", -1 em cada posição que o InitItem não tem.

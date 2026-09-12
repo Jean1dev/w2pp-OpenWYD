@@ -650,6 +650,7 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	d.syncCasteloOrcGate(w, s, self.X, self.Y)
 	// (E) e os três portões do campo de treino, pelo mesmo caminho.
 	d.syncPortoesDoCampo(w, s, self.X, self.Y)
+	d.syncCasteloOrcLeste(w, s, self.X, self.Y)
 }
 
 // revealMobsInView sends a MSG_CreateMob for every NPC/monster now in the player's
