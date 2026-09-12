@@ -28,6 +28,7 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/donate"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/entrega"
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/jogo"
+	"github.com/jeanluca/w2pp-openwyd/internal/domain"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
@@ -57,6 +58,30 @@ type fakeBanco struct {
 	killsTotal        int
 	killsLimite       int
 	killsDeslocamento int
+	// eventos e taxas: a configuração que o painel mostra, e os erros para
+	// provar que a rota não inventa resposta quando o banco falha
+	eventosJogo domain.WorldEventConfig
+	eventosErr  error
+	drop        domain.DropBonusConfig
+	dropErr     error
+}
+
+func (f *fakeBanco) WorldEventConfig(_ context.Context) (domain.WorldEventConfig, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.eventosErr != nil {
+		return domain.WorldEventConfig{}, f.eventosErr
+	}
+	return f.eventosJogo, nil
+}
+
+func (f *fakeBanco) DropBonus(_ context.Context) (domain.DropBonusConfig, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.dropErr != nil {
+		return domain.DropBonusConfig{}, f.dropErr
+	}
+	return f.drop, nil
 }
 
 func (f *fakeBanco) Nome(_ context.Context, id int64) (string, error) {
@@ -287,6 +312,7 @@ func novoCenario(t *testing.T) *cenario {
 
 	api, err := New(Config{
 		Chave: chaveTeste, Contas: c.banco, Credenciais: c.banco, Leitura: c.banco,
+		Eventos: c.banco, Taxas: c.banco,
 		Carteira: c.banco, Entregas: c.banco, Jogo: jogo.New(conn, "token-do-jogo"),
 		Audit: c.audit, Sessoes: c.sessoes,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),

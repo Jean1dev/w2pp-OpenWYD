@@ -145,12 +145,17 @@ type Config struct {
 	Contas      Contas
 	Credenciais Credenciais
 	Leitura     Leitura
-	Carteira    Carteira
-	Entregas    Entregas
-	Jogo        Jogo
-	Audit       Auditoria
-	Sessoes     SessoesDoPainel
-	Logger      *slog.Logger
+	// Eventos and Taxas are optional, like Jogo: without them those two routes
+	// answer 503 instead of an empty page. Both are satisfied by *store.Store,
+	// so wiring them costs the adminserver nothing new.
+	Eventos  EventosLeitura
+	Taxas    TaxasLeitura
+	Carteira Carteira
+	Entregas Entregas
+	Jogo     Jogo
+	Audit    Auditoria
+	Sessoes  SessoesDoPainel
+	Logger   *slog.Logger
 	// Agora is the clock. nil means time.Now; tests move it.
 	Agora func() time.Time
 }
@@ -192,6 +197,8 @@ func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /site/v1/jogo", a.jogo)
 	mux.HandleFunc("GET /site/v1/ranking/kills", a.rankingKills)
+	mux.HandleFunc("GET /site/v1/eventos", a.eventos)
+	mux.HandleFunc("GET /site/v1/taxas", a.taxas)
 	mux.HandleFunc("GET /site/v1/contas/{id}/estado", a.naConta(a.estado))
 	mux.HandleFunc("GET /site/v1/contas/{id}/historico", a.naConta(a.historico))
 	mux.HandleFunc("GET /site/v1/contas/{id}/entregas", a.naConta(a.entregas))

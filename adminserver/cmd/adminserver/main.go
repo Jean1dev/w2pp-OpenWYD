@@ -241,10 +241,16 @@ func run(logger *slog.Logger) error {
 	// exist only here, and the staff routes do not exist here at all.
 	var siteSrv *http.Server
 	if *siteAddr != "" {
+		// One Store for the three reads the site does through it: credentials,
+		// the event switches and the drop ladders. They are the same rows the
+		// staff screens read, so a second decoder here could only disagree.
+		st := store.New(pool)
 		api, err := siteapi.New(siteapi.Config{
 			Chave:       chaveSite,
 			Contas:      accounts.New(pool),
-			Credenciais: store.New(pool),
+			Credenciais: st,
+			Eventos:     st,
+			Taxas:       st,
 			Leitura:     siteapi.NovoLeitor(pool),
 			Carteira:    donate.New(pool),
 			Entregas:    entrega.New(pool),
