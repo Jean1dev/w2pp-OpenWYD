@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/jeanluca/w2pp-openwyd/adminserver/internal/entrega"
+	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
 
 // ErrContaNaoExiste is returned for an id with no account behind it.
@@ -92,4 +93,66 @@ func (l *Leitor) Perdidos(ctx context.Context, contaID int64, limite int) ([]ent
 		return nil, fmt.Errorf("siteapi: iterate lost deliveries: %w", err)
 	}
 	return out, nil
+}
+
+// KillRanking is one line of the kill board: a character and how many other
+// players it has killed in its lifetime.
+type KillRanking struct {
+	Nome     string
+	Classe   int16
+	Evolucao int16 // class_master
+	Reino    int16 // clan
+	Nivel    int32
+	Kills    int32 // tot_kill
+}
+
+// Kills lists the kill ranking, most kills first, plus the total the filter
+// leaves — the site pages through the list and has to know where it ends.
+//
+// character.tot_kill is the lifetime PvP kill count the GAME keeps: it goes up by
+// one per kill in tmserver/internal/handler/pvpkilled.go (stopping at 32767) and
+// is persisted by internal/store. Nothing here writes; this is a read of a column
+// the game owns.
+//
+// Who is left out, and why:
+//   - tot_kill = 0: nobody killed anyone, and a page of zeros is not a ranking.
+//   - level >= 1000: the same cut the game's own XP ranking makes
+//     (internal/store/ranking.go), so the two boards show the same people. The
+//     number's origin is not documented there either.
+//   - blocked accounts, by the single definition of "blocked right now" that the
+//     login and the panel already share (store.BlockedNowSQL).
+//   - staff (role <> 'player'), so a moderator's character is not on a player board.
+//
+// BlockedNowSQL names its columns unqualified. That is safe here because
+// `character` has no is_blocked/blocked_until of its own, so they can only bind
+// to `account`.
+func (l *Leitor) Kills(ctx context.Context, limite, deslocamento int) ([]KillRanking, int, error) {
+	rows, err := l.pool.Query(ctx, `
+		SELECT c.name, c.class, c.class_master, c.clan, c.level, c.tot_kill, count(*) OVER()
+		  FROM character c
+		  JOIN account a ON a.id = c.account_id
+		 WHERE c.tot_kill > 0
+		   AND c.level < 1000
+		   AND a.role = 'player'
+		   AND NOT `+store.BlockedNowSQL+`
+		 ORDER BY c.tot_kill DESC, c.level DESC, c.name ASC
+		 LIMIT $1 OFFSET $2`, limite, deslocamento)
+	if err != nil {
+		return nil, 0, fmt.Errorf("siteapi: kill ranking: %w", err)
+	}
+	defer rows.Close()
+
+	out := []KillRanking{}
+	total := 0
+	for rows.Next() {
+		var k KillRanking
+		if err := rows.Scan(&k.Nome, &k.Classe, &k.Evolucao, &k.Reino, &k.Nivel, &k.Kills, &total); err != nil {
+			return nil, 0, fmt.Errorf("siteapi: scan kill ranking: %w", err)
+		}
+		out = append(out, k)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("siteapi: iterate kill ranking: %w", err)
+	}
+	return out, total, nil
 }

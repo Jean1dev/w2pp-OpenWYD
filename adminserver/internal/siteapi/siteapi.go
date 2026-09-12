@@ -64,6 +64,10 @@ const (
 	limiteHistorico = 50 // the site shows the most recent 50 wallet movements
 	limiteEntregas  = 50 // per list: waiting and lost
 	maxCorpoBytes   = 1 << 10
+
+	limiteRankingPadrao = 100 // the ranking page walks the board 100 at a time
+	limiteRankingMax    = 200 // ceiling, so a typed URL cannot ask for the whole table
+	deslocamentoMax     = 1 << 20
 )
 
 // senhaMaxSite is one byte stricter than accounts.MaxSenhaBytes on purpose. The
@@ -100,6 +104,7 @@ type Credenciais interface {
 type Leitura interface {
 	Nome(ctx context.Context, id int64) (string, error)
 	Perdidos(ctx context.Context, contaID int64, limite int) ([]entrega.Pendente, error)
+	Kills(ctx context.Context, limite, deslocamento int) ([]KillRanking, int, error)
 }
 
 // Carteira is the wallet timeline.
@@ -186,6 +191,7 @@ func New(cfg Config) (*API, error) {
 func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /site/v1/jogo", a.jogo)
+	mux.HandleFunc("GET /site/v1/ranking/kills", a.rankingKills)
 	mux.HandleFunc("GET /site/v1/contas/{id}/estado", a.naConta(a.estado))
 	mux.HandleFunc("GET /site/v1/contas/{id}/historico", a.naConta(a.historico))
 	mux.HandleFunc("GET /site/v1/contas/{id}/entregas", a.naConta(a.entregas))
@@ -446,6 +452,54 @@ func origem(source string) string {
 	default:
 		return "outro"
 	}
+}
+
+type linhaKill struct {
+	Nome     string `json:"nome"`
+	Classe   int16  `json:"classe"`
+	Evolucao int16  `json:"evolucao"`
+	Reino    int16  `json:"reino"`
+	Nivel    int32  `json:"nivel"`
+	Kills    int32  `json:"kills"`
+}
+
+// rankingKills is the kill board. No account in the path: it is the same public
+// list for everyone, and it carries only what a ranking shows — name, class,
+// evolution, realm, level and the kill count. No account id, ever.
+func (a *API) rankingKills(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limite := inteiroDaURL(q.Get("limite"), limiteRankingPadrao, 1, limiteRankingMax)
+	deslocamento := inteiroDaURL(q.Get("deslocamento"), 0, 0, deslocamentoMax)
+	linhas, total, err := a.cfg.Leitura.Kills(r.Context(), limite, deslocamento)
+	if err != nil {
+		a.interno(w, "read kill ranking", 0, err)
+		return
+	}
+	// Os dois têm os mesmos campos, na mesma ordem: a troca de tipo só acrescenta
+	// as etiquetas JSON. Se um dia divergirem, isto para de compilar, que é o
+	// aviso certo na hora certa.
+	out := make([]linhaKill, 0, len(linhas))
+	for _, k := range linhas {
+		out = append(out, linhaKill(k))
+	}
+	responde(w, http.StatusOK, map[string]any{"total": total, "linhas": out})
+}
+
+// inteiroDaURL reads a number from the query string, held between min and max.
+// Junk falls back to the default instead of failing the call: this is a public
+// list, not a form, and a broken page number should still show the board.
+func inteiroDaURL(s string, padrao, minimo, maximo int) int {
+	n, err := strconv.Atoi(s)
+	if s == "" || err != nil {
+		n = padrao
+	}
+	if n < minimo {
+		n = minimo
+	}
+	if n > maximo {
+		n = maximo
+	}
+	return n
 }
 
 // --- escritas ---

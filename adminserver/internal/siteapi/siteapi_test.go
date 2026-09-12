@@ -52,6 +52,11 @@ type fakeBanco struct {
 	pendentes map[int64][]entrega.Pendente
 	perdidos  map[int64][]entrega.Pendente
 	senhas    int // SetPassword calls
+	// ranking de kills: o que devolver e o que o handler pediu
+	kills             []KillRanking
+	killsTotal        int
+	killsLimite       int
+	killsDeslocamento int
 }
 
 func (f *fakeBanco) Nome(_ context.Context, id int64) (string, error) {
