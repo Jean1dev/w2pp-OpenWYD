@@ -564,7 +564,7 @@ func TestDeliveriesAreIsolatedAndHideStaffIDs(t *testing.T) {
 	if e.Pendentes[1].Efeitos[0] != [2]int{43, 7} {
 		t.Errorf("efeitos = %v", e.Pendentes[1].Efeitos)
 	}
-	confereCamposDoItem(t, "alfa", itensCrus(t, rec.Body.Bytes()))
+	confereResposta(t, "alfa", rec.Body.Bytes())
 	for _, i := range append(append([]itemSite{}, e.Pendentes...), e.Perdidos...) {
 		if i.Item == itemDaBeta {
 			t.Errorf("alfa's deliveries carry beta's item: %+v", i)
@@ -580,7 +580,7 @@ func TestDeliveriesAreIsolatedAndHideStaffIDs(t *testing.T) {
 	if err := json.Unmarshal(recB.Body.Bytes(), &b); err != nil {
 		t.Fatal(err)
 	}
-	confereCamposDoItem(t, "beta", itensCrus(t, recB.Body.Bytes()))
+	confereResposta(t, "beta", recB.Body.Bytes())
 	if len(b.Pendentes) != 1 || b.Pendentes[0].Item != itemDaBeta {
 		t.Errorf("beta's deliveries = %+v", b)
 	}
@@ -600,38 +600,59 @@ const itemDaBeta = 3314
 // never be one of them.
 var camposDoItemSite = []string{"id", "item", "efeitos", "expira_em", "criado_em", "origem"}
 
-// itensCrus returns both lists as raw JSON objects, so the test can look at the
-// FIELDS the player receives and not only at the ones this package decodes.
-func itensCrus(t *testing.T, corpo []byte) []map[string]json.RawMessage {
+// camposDaResposta is the exact set of keys the deliveries answer itself
+// carries. It is asserted for the same reason the item's set is: a field
+// added ONE LEVEL UP - "por": "painel:77" - would slip past every other check
+// here.
+var camposDaResposta = []string{"pendentes", "perdidos"}
+
+// confereResposta asserts the field set of the answer and of every delivery
+// in it, reading the raw JSON rather than what this package decodes: a field
+// this package does not know about still reaches the player.
+//
+// This replaces a substring hunt for the staff id in the whole body, which
+// was a lottery against the clock: criado_em carries a nanosecond fraction,
+// and one that happened to contain "77" failed this test three times on the
+// main (runs 34654405870, 34655615060 and 34676655973). It also proved less
+// than it looked - a NEW field carrying the id would have passed whenever the
+// digits did not line up. Asserting the sets fails on the field, not on the
+// digits.
+func confereResposta(t *testing.T, onde string, corpo []byte) {
 	t.Helper()
-	var r struct {
-		Pendentes []map[string]json.RawMessage `json:"pendentes"`
-		Perdidos  []map[string]json.RawMessage `json:"perdidos"`
-	}
-	if err := json.Unmarshal(corpo, &r); err != nil {
+	var topo map[string]json.RawMessage
+	if err := json.Unmarshal(corpo, &topo); err != nil {
 		t.Fatal(err)
 	}
-	return append(r.Pendentes, r.Perdidos...)
+	confereCampos(t, onde, topo, camposDaResposta)
+	for _, nome := range camposDaResposta {
+		crua, ok := topo[nome]
+		if !ok {
+			continue // already reported above
+		}
+		var itens []map[string]json.RawMessage
+		if err := json.Unmarshal(crua, &itens); err != nil {
+			t.Fatalf("%s: %s: %v", onde, nome, err)
+		}
+		for _, item := range itens {
+			confereCampos(t, onde+": "+nome, item, camposDoItemSite)
+		}
+	}
 }
 
-// confereCamposDoItem asserts the exact field set of every delivery.
-//
-// This replaces a substring hunt for the staff id in the whole body, which was
-// a lottery against the clock: criado_em carries a nanosecond fraction, and one
-// that happened to contain "77" failed this test three times on the main (runs
-// 34654405870, 34655615060 and 34676655973). It also proved less than it looked
-// - a NEW field carrying the id would have passed whenever the digits did not
-// line up. Asserting the set fails loudly on the field, not on the digits.
-func confereCamposDoItem(t *testing.T, onde string, itens []map[string]json.RawMessage) {
+// confereCampos asserts an object carries exactly these fields, naming the
+// ones it should not have.
+func confereCampos(t *testing.T, onde string, obj map[string]json.RawMessage, esperados []string) {
 	t.Helper()
-	for _, item := range itens {
-		for _, campo := range camposDoItemSite {
-			if _, ok := item[campo]; !ok {
-				t.Errorf("%s: delivery without the %q field: %v", onde, campo, item)
-			}
+	permitido := make(map[string]bool, len(esperados))
+	for _, campo := range esperados {
+		permitido[campo] = true
+		if _, ok := obj[campo]; !ok {
+			t.Errorf("%s: field %q missing: %v", onde, campo, obj)
 		}
-		if len(item) != len(camposDoItemSite) {
-			t.Errorf("%s: delivery with %d fields, want exactly %v: %v", onde, len(item), camposDoItemSite, item)
+	}
+	for campo := range obj {
+		if !permitido[campo] {
+			t.Errorf("%s: field %q is not in the contract %v: %v", onde, campo, esperados, obj)
 		}
 	}
 }
