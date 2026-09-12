@@ -382,17 +382,36 @@ func (a *API) historico(w http.ResponseWriter, r *http.Request, c alvo) {
 
 // eventoDoSite is one wallet line as the player may see it.
 //
+// Every title is written here, and only here. donate writes titles for the
+// staff panel, which goes on reading its own; the site does not sell — the
+// player donates and picks a gift (Hanna's decision, 12/09/2026) — so
+// "Recarga confirmada" and "Comprou X" would contradict every screen the
+// player came from.
+//
 // A staff adjustment loses its title and detail: donate writes "Ajuste manual
 // por <moderator>" and the reason the moderator typed, and neither is the
 // player's data — the name is another account's, and the reason is a note
-// written for colleagues.
+// written for colleagues. A purchase loses its detail for a smaller reason:
+// "Loja de donate" names a shop this site does not have.
 func eventoDoSite(e donate.Evento) (eventoSite, bool) {
 	s := eventoSite{
 		Tipo: string(e.Tipo), Quando: e.Quando.UTC(), Creditos: e.Creditos,
 		Titulo: e.Titulo, Detalhe: e.Detalhe, Saldo: e.Saldo, Entrega: e.Entregue,
 	}
 	switch e.Tipo {
-	case donate.TipoRecarga, donate.TipoPendente, donate.TipoCompra:
+	case donate.TipoRecarga:
+		s.Titulo = "Doação confirmada"
+	case donate.TipoPendente:
+		s.Titulo = "Doação não confirmada"
+	case donate.TipoCompra:
+		// The gift's name comes from ItemTitulo, not from pulling the panel's
+		// sentence apart. An item registered without a title has no name to show,
+		// and what donate falls back to is a shop row number.
+		s.Titulo = "Brinde resgatado"
+		if e.ItemTitulo != "" {
+			s.Titulo += ": " + e.ItemTitulo
+		}
+		s.Detalhe = ""
 	case donate.TipoAjuste:
 		s.Titulo, s.Detalhe = "Ajuste da equipe", ""
 	default:

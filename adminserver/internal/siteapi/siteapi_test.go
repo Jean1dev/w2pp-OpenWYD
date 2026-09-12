@@ -279,7 +279,7 @@ func novoCenario(t *testing.T) *cenario {
 			bloqueada: map[int64]bool{},
 			eventos: map[int64][]donate.Evento{
 				idAlfa: {
-					{Tipo: donate.TipoCompra, Quando: time.Now(), Creditos: -10, Titulo: "Comprou Poeira da Alfa", Detalhe: "Loja de donate", Saldo: &saldo, Entregue: "pending"},
+					{Tipo: donate.TipoCompra, Quando: time.Now(), Creditos: -10, Titulo: "Comprou Poeira da Alfa", ItemTitulo: "Poeira da Alfa", Detalhe: "Loja de donate", Saldo: &saldo, Entregue: "pending"},
 					{Tipo: donate.TipoAjuste, Quando: time.Now(), Creditos: 5, Titulo: "Ajuste manual por moderadorx", Detalhe: "Motivo: nota interna"},
 					{Tipo: donate.Tipo("futuro"), Quando: time.Now(), Titulo: "tipo que esta versao nao conhece"},
 				},
@@ -501,11 +501,46 @@ func TestWalletHistoryIsIsolatedAndHidesStaff(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &h); err != nil {
 		t.Fatal(err)
 	}
-	if len(h.Eventos) != 2 || h.Eventos[0].Titulo != "Comprou Poeira da Alfa" || h.Eventos[1].Titulo != "Ajuste da equipe" || h.Eventos[1].Detalhe != "" {
+	if len(h.Eventos) != 2 || h.Eventos[0].Titulo != "Brinde resgatado: Poeira da Alfa" || h.Eventos[1].Titulo != "Ajuste da equipe" || h.Eventos[1].Detalhe != "" {
 		t.Errorf("eventos = %+v", h.Eventos)
 	}
 	if b := c.pede("GET", "/site/v1/contas/2/historico", "").Body.String(); strings.Contains(b, "Alfa") || !strings.Contains(b, "beta123") {
 		t.Errorf("beta's history = %s", b)
+	}
+}
+
+// TestWalletTitlesSpeakDonationNotPurchase freezes the four sentences the door
+// rewrites. The wallet history is the one player screen whose words are written
+// on the panel side, so a change over there - or a merge that drops this
+// rewrite - has to fail here instead of putting "Comprou" on a site that does
+// not sell.
+func TestWalletTitlesSpeakDonationNotPurchase(t *testing.T) {
+	casos := []struct {
+		nome    string
+		e       donate.Evento
+		titulo  string
+		detalhe string
+	}{
+		{"recarga paga", donate.Evento{Tipo: donate.TipoRecarga, Titulo: "Recarga confirmada", Detalhe: "PIX · R$ 10,00 · ref. x"}, "Doação confirmada", "PIX · R$ 10,00 · ref. x"},
+		{"recarga que nunca confirmou", donate.Evento{Tipo: donate.TipoPendente, Titulo: "Recarga não confirmada", Detalhe: "PIX · R$ 10,00 · ref. y"}, "Doação não confirmada", "PIX · R$ 10,00 · ref. y"},
+		{"brinde com nome", donate.Evento{Tipo: donate.TipoCompra, Titulo: "Comprou Poeira da Alfa", ItemTitulo: "Poeira da Alfa", Detalhe: "Loja de donate"}, "Brinde resgatado: Poeira da Alfa", ""},
+		{"brinde cadastrado sem titulo", donate.Evento{Tipo: donate.TipoCompra, Titulo: "Comprou oferta #7", ItemID: 7, Detalhe: "Loja de donate"}, "Brinde resgatado", ""},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nome, func(t *testing.T) {
+			s, ok := eventoDoSite(caso.e)
+			if !ok {
+				t.Fatalf("%s: recusado", caso.nome)
+			}
+			if s.Titulo != caso.titulo || s.Detalhe != caso.detalhe {
+				t.Errorf("titulo=%q detalhe=%q, want %q e %q", s.Titulo, s.Detalhe, caso.titulo, caso.detalhe)
+			}
+			for _, palavra := range []string{"Recarga", "Comprou", "Loja", "oferta"} {
+				if strings.Contains(s.Titulo+" "+s.Detalhe, palavra) {
+					t.Errorf("%s ainda diz %q: titulo=%q detalhe=%q", caso.nome, palavra, s.Titulo, s.Detalhe)
+				}
+			}
+		})
 	}
 }
 
