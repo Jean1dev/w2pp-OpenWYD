@@ -159,7 +159,7 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 
 	// A pile in a machine slot costs one unit, not the pile (combine_pilha.go).
 	// Refused before anything is spent when the remainder has nowhere to go.
-	if !d.separarUnidadesParaMaquina(w, s, e, slotsAtivosDoCombine(slotByPos[:], active)) {
+	if !d.separarUnidadesParaMaquina(w, s, e, slotsAtivosDoCombine(slotByPos[:], active), umaUnidade) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}

@@ -46,10 +46,13 @@ func (d *Dispatcher) variantInputs(w *world.World, s *world.Session, payload []b
 // consumePositions charges the input slots of one recipe, skipping the ones
 // `keep` names.
 //
+// precisa says how many units each slot is charged; nil means one per slot,
+// which is every recipe except the two priced in poeira (combine_pilha.go).
+//
 // It reports false when an input holds a pile whose remainder has nowhere to go
 // (combine_pilha.go): the caller must refuse the recipe, and nothing has been
 // consumed at that point.
-func (d *Dispatcher) consumePositions(w *world.World, s *world.Session, e *world.Entity, slots [protocol.MaxCombine]int, active []int, keep func(int) bool) bool {
+func (d *Dispatcher) consumePositions(w *world.World, s *world.Session, e *world.Entity, slots [protocol.MaxCombine]int, active []int, keep func(int) bool, precisa func(int) int) bool {
 	alvo := make([]int, 0, len(active))
 	for _, i := range active {
 		if keep != nil && keep(i) {
@@ -57,7 +60,7 @@ func (d *Dispatcher) consumePositions(w *world.World, s *world.Session, e *world
 		}
 		alvo = append(alvo, slots[i])
 	}
-	if !d.separarUnidadesParaMaquina(w, s, e, alvo) {
+	if !d.separarUnidadesParaMaquina(w, s, e, alvo, precisa) {
 		return false
 	}
 	for _, sl := range alvo {
@@ -94,7 +97,7 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 		return
 	}
 	rate := d.mais10Chance(it[0])
-	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 }) {
+	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 }, umaUnidade) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
@@ -134,7 +137,7 @@ func (d *Dispatcher) combineItemTiny(w *world.World, s *world.Session, _ protoco
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 }) {
+	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 }, umaUnidade) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
@@ -166,7 +169,7 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 		return
 	}
 	rate := d.agathaChance(it[:])
-	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 }) {
+	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 }, umaUnidade) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
@@ -196,7 +199,7 @@ func (d *Dispatcher) combineItemShany(w *world.World, s *world.Session, _ protoc
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	if !d.consumePositions(w, s, e, sl, active, nil) {
+	if !d.consumePositions(w, s, e, sl, active, nil, umaUnidade) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
@@ -225,7 +228,7 @@ func (d *Dispatcher) combineItemAlquimia(w *world.World, s *world.Session, _ pro
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	if !d.consumePositions(w, s, e, sl, active, nil) {
+	if !d.consumePositions(w, s, e, sl, active, nil, umaUnidade) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
@@ -275,7 +278,9 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	if !d.consumePositions(w, s, e, sl, active, nil) {
+	// O Lindy é cobrado em poeira: dez do 413 nas células 0 e 1, que é o que
+	// MatchLindy exigiu. Cobrar uma daria a receita por um décimo do preço.
+	if !d.consumePositions(w, s, e, sl, active, nil, precisaDeDez(sl[0], sl[1])) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
@@ -408,7 +413,13 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 			return
 		}
 	}
-	if !d.consumePositions(w, s, e, sl, active, nil) {
+	// A "Misteriosa" (id 2) é cobrada em poeira: dez do 413 na célula 2, que é o
+	// que MatchEhre exigiu ali. As outras receitas do Ehre gastam uma por célula.
+	precisa := umaUnidade
+	if id == 2 {
+		precisa = precisaDeDez(sl[2])
+	}
+	if !d.consumePositions(w, s, e, sl, active, nil, precisa) {
 		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}

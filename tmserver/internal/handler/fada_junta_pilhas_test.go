@@ -183,7 +183,7 @@ func TestMaquinaSeparaAPilha(t *testing.T) {
 	s := &world.Session{Conn: 0, Mode: world.UserPlay}
 	e.Carry[3] = world.Item{Index: 2390, Effects: [3]world.Effect{{Effect: efAmount, Value: 120}}}
 
-	if !d.separarUnidadesParaMaquina(w, s, e, []int{3}) {
+	if !d.separarUnidadesParaMaquina(w, s, e, []int{3}, umaUnidade) {
 		t.Fatal("a máquina recusou uma pilha com a bolsa vazia")
 	}
 	if got := itemAmount(e.Carry[3]); got != 1 {
@@ -213,7 +213,7 @@ func TestMaquinaRecusaSemEspacoParaOResto(t *testing.T) {
 	}
 	e.Carry[3] = world.Item{Index: 2390, Effects: [3]world.Effect{{Effect: efAmount, Value: 120}}}
 
-	if d.separarUnidadesParaMaquina(w, s, e, []int{3}) {
+	if d.separarUnidadesParaMaquina(w, s, e, []int{3}, umaUnidade) {
 		t.Error("a máquina aceitou a pilha sem ter onde devolver o resto")
 	}
 	if got := itemAmount(e.Carry[3]); got != 120 {
@@ -228,7 +228,7 @@ func TestMaquinaNaoMexeEmSlotDeUmaUnidade(t *testing.T) {
 	s := &world.Session{Conn: 0, Mode: world.UserPlay}
 	e.Carry[0] = world.Item{Index: 2390}
 
-	if !d.separarUnidadesParaMaquina(w, s, e, []int{0}) {
+	if !d.separarUnidadesParaMaquina(w, s, e, []int{0}, umaUnidade) {
 		t.Fatal("a máquina recusou um item sem pilha")
 	}
 	if e.Carry[0].Index != 2390 || !e.Carry[1].Empty() {
@@ -288,5 +288,72 @@ func TestEntregaNaoRoubaOSlotDoSerialDeEvento(t *testing.T) {
 	}
 	if got := e.Carry[slot].Effects; got != numerado.Effects {
 		t.Errorf("efeitos = %v, quero o serial intacto %v", got, numerado.Effects)
+	}
+}
+
+// TestMaquinaCobraDezQuandoAReceitaPedeDez is the exploit the split opened and
+// this closes. Three recipes are priced in poeira — Ehre "Misteriosa", Lindy and
+// the Odin +12 — and they match on the AMOUNT in the slot (>= 10). Leaving a
+// single unit there handed out the result for a tenth of its price.
+func TestMaquinaCobraDezQuandoAReceitaPedeDez(t *testing.T) {
+	d, w, e := fixturaPilha(t)
+	s := &world.Session{Conn: 0, Mode: world.UserPlay}
+	e.Carry[2] = world.Item{Index: 413, Effects: [3]world.Effect{{Effect: efAmount, Value: 120}}}
+
+	if !d.separarUnidadesParaMaquina(w, s, e, []int{2}, precisaDeDez(2)) {
+		t.Fatal("a máquina recusou com a bolsa vazia")
+	}
+	if got := itemAmount(e.Carry[2]); got != 10 {
+		t.Errorf("o slot da máquina ficou com %d poeiras, quero 10", got)
+	}
+	resto := -1
+	for i := 0; i < baseCarrySlots; i++ {
+		if i != 2 && e.Carry[i].Index == 413 {
+			resto = i
+		}
+	}
+	if resto < 0 {
+		t.Fatal("o resto da pilha não foi devolvido")
+	}
+	if got := itemAmount(e.Carry[resto]); got != 110 {
+		t.Errorf("resto = %d, quero 110 (120 − 10)", got)
+	}
+}
+
+// Dez exatos é o caso do jogador que montou o slot à mão: nada a separar, e o
+// slot tem de ficar intocado para a receita continuar batendo.
+func TestMaquinaNaoMexeEmDezExatos(t *testing.T) {
+	d, w, e := fixturaPilha(t)
+	s := &world.Session{Conn: 0, Mode: world.UserPlay}
+	e.Carry[2] = world.Item{Index: 413, Effects: [3]world.Effect{{Effect: efAmount, Value: 10}}}
+
+	if !d.separarUnidadesParaMaquina(w, s, e, []int{2}, precisaDeDez(2)) {
+		t.Fatal("a máquina recusou dez poeiras exatas")
+	}
+	if got := itemAmount(e.Carry[2]); got != 10 {
+		t.Errorf("o slot ficou com %d, quero os 10 intactos", got)
+	}
+	if !e.Carry[0].Empty() {
+		t.Error("a máquina espalhou poeira pela bolsa sem precisar")
+	}
+}
+
+// precisaDeDez cobra dez SÓ nos slots nomeados: as outras células da mesma
+// receita seguem valendo uma unidade.
+func TestPrecisaDeDezSoNosSlotsNomeados(t *testing.T) {
+	precisa := precisaDeDez(0, 1)
+	if got := precisa(0); got != 10 {
+		t.Errorf("slot 0 = %d, quero 10", got)
+	}
+	if got := precisa(1); got != 10 {
+		t.Errorf("slot 1 = %d, quero 10", got)
+	}
+	for _, sl := range []int{2, 3, 6} {
+		if got := precisa(sl); got != 1 {
+			t.Errorf("slot %d = %d, quero 1", sl, got)
+		}
+	}
+	if got := umaUnidade(0); got != 1 {
+		t.Errorf("umaUnidade = %d, quero 1", got)
 	}
 }

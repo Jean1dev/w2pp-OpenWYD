@@ -104,13 +104,20 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 		}
 	}
 
-	// A pile in a machine slot costs one unit, not the pile (combine_pilha.go).
+	// A pile in a machine slot costs what the recipe spends, not the pile
+	// (combine_pilha.go). The +12 is priced in poeira: ten of item 413 in each
+	// of the first two cells, which is what OdinPlus12 matched on — charging one
+	// there would sell a +12 for a tenth of its cost.
 	ativos := make([]int, 0, len(active))
 	for _, i := range active {
 		ativos = append(ativos, slots[i])
 	}
-	if !d.separarUnidadesParaMaquina(w, s, e, ativos) {
-		d.refuseCombine(w, s, msgWrongCombination)
+	precisa := umaUnidade
+	if id == combine.OdinPlus12 {
+		precisa = precisaDeDez(slots[0], slots[1])
+	}
+	if !d.separarUnidadesParaMaquina(w, s, e, ativos, precisa) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
 		return
 	}
 

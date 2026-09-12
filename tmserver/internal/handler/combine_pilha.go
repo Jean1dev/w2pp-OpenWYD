@@ -19,8 +19,19 @@ import "github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 // slot. From there the machine sees what it always saw, a slot holding one item,
 // and the player keeps the rest of the pile.
 
-// separarUnidadesParaMaquina leaves one unit in each machine input slot, moving
-// the remainder of any pile to a free bag slot.
+// umaUnidade is the price of an input in almost every recipe: one item.
+func umaUnidade(int) int { return 1 }
+
+// separarUnidadesParaMaquina leaves in each machine input slot exactly what the
+// recipe is going to spend — precisa(slot) units — and moves the rest of any
+// pile to a free bag slot.
+//
+// The quantity is NOT always one. Three recipes are priced in poeira: the Ehre
+// "Misteriosa" (10 of item 413 in cell 2), the Lindy (10 in cells 0 and 1) and
+// the Odin +12 (10 in cells 0 and 1). They read the amount in the slot and the
+// machine wipes the slot, which is how the legacy charges ten of something —
+// leaving a single unit there would hand out the result for a tenth of its
+// price. Whatever a recipe demands, it pays.
 //
 // It reports false when a remainder has nowhere to go. The caller MUST refuse
 // the recipe then, before anything is consumed: the alternative is eating a
@@ -29,35 +40,59 @@ import "github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 // Call it after the inputs are validated and before they are charged. Earlier
 // would change the items the client's copy is compared against; later is too
 // late, the pile is already gone.
-func (d *Dispatcher) separarUnidadesParaMaquina(w *world.World, s *world.Session, e *world.Entity, slots []int) bool {
+func (d *Dispatcher) separarUnidadesParaMaquina(w *world.World, s *world.Session, e *world.Entity, slots []int, precisa func(int) int) bool {
+	if precisa == nil {
+		precisa = umaUnidade
+	}
 	for _, sl := range slots {
 		if !carrySlotAccessible(e, sl) {
 			continue
 		}
 		n := itemAmount(e.Carry[sl])
-		if n <= 1 {
+		gasta := precisa(sl)
+		if gasta < 1 {
+			gasta = 1
+		}
+		// Not enough in the slot to owe a remainder — including the case the
+		// recipe wanted ten and found ten, which is the whole slot and needs no
+		// splitting at all.
+		if n <= gasta {
 			continue
 		}
 		livre := firstEmptyAccessibleCarry(e)
 		if livre < 0 {
 			d.log.Info("machine refused: no room to split a stack",
-				"conn", s.Conn, "slot", sl, "item", e.Carry[sl].Index, "amount", n)
+				"conn", s.Conn, "slot", sl, "item", e.Carry[sl].Index, "amount", n, "spends", gasta)
 			return false
 		}
 		resto := e.Carry[sl]
-		setItemAmount(&resto, n-1)
+		setItemAmount(&resto, n-gasta)
 		e.Carry[livre] = resto
 
-		unidade := e.Carry[sl]
-		setItemAmount(&unidade, 1)
-		e.Carry[sl] = unidade
+		cobrado := e.Carry[sl]
+		setItemAmount(&cobrado, gasta)
+		e.Carry[sl] = cobrado
 
 		sendCarrySlot(w, s, e, livre)
 		sendCarrySlot(w, s, e, sl)
 		d.log.Info("machine split a stack",
-			"conn", s.Conn, "item", unidade.Index, "slot", sl, "remainder", n-1, "moved_to", livre)
+			"conn", s.Conn, "item", cobrado.Index, "slot", sl,
+			"spends", gasta, "remainder", n-gasta, "moved_to", livre)
 	}
 	return true
+}
+
+// precisaDeDez builds a precisa() that charges ten units in the named slots and
+// one everywhere else — the shape of the three poeira-priced recipes.
+func precisaDeDez(slots ...int) func(int) int {
+	return func(sl int) int {
+		for _, dez := range slots {
+			if sl == dez {
+				return 10
+			}
+		}
+		return 1
+	}
 }
 
 // slotsAtivosDoCombine lists the bag slots a machine run is about to charge, in
