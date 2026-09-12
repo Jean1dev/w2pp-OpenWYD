@@ -567,6 +567,14 @@ func TestForcaEspectralAlcancaUmaCasaAMais(t *testing.T) {
 	if got := skillReach(&world.Entity{LearnedSkill: learnedConcentracao}, 5); got != 5 {
 		t.Errorf("alcance sem Força Espectral = %d, want 5", got)
 	}
+	// E o livro soma por cima do piso: uma skill corpo a corpo (Range 1) alcança 2
+	// para qualquer um e 3 para quem tem a Força Espectral.
+	if got := skillReach(&world.Entity{}, 1); got != alcanceDeContato {
+		t.Errorf("alcance de skill corpo a corpo = %d, want %d", got, alcanceDeContato)
+	}
+	if got := skillReach(&world.Entity{LearnedSkill: learnedSpectral}, 1); got != alcanceDeContato+1 {
+		t.Errorf("alcance corpo a corpo com Força Espectral = %d, want %d", got, alcanceDeContato+1)
+	}
 }
 
 // TestConcentracaoTiraDezPontosDaEsquiva: +10% de acerto is ten points (100 in
@@ -969,9 +977,16 @@ func TestValidateSkillTargetCommonGates(t *testing.T) {
 		t.Fatalf("CrackError after MaxTarget reject = %d, want 10", s.CrackError)
 	}
 
+	// O portão continua existindo, mas nunca abaixo do alcance de contato: o alvo a
+	// 2 casas passa mesmo com Range 1 (era isso que zerava Carga e Espada da Fênix),
+	// e só além disso é recusado.
 	cast.spell.MaxTarget = 13
 	cast.spell.Range = 1
-	if d.validateSkillTarget(w, s, caster, target, 0, cast, 1000) {
+	if !d.validateSkillTarget(w, s, caster, target, 0, cast, 1000) {
+		t.Fatal("alvo a 2 casas recusado: o piso de alcance de contato não foi aplicado")
+	}
+	longe := &world.Entity{ID: 3, X: 12, Y: 5}
+	if d.validateSkillTarget(w, s, caster, longe, 0, cast, 1000) {
 		t.Fatal("range gate accepted target beyond spell range")
 	}
 

@@ -735,8 +735,24 @@ func (d *Dispatcher) validateSkillTarget(w *world.World, s *world.Session, caste
 	return true
 }
 
+// alcanceDeContato é o alcance mínimo de uma skill de corpo a corpo.
+//
+// Vem do catálogo, não de chute: EF_RANGE de arma corpo a corpo é 2 em 499 dos
+// 971 itens de ItemList.csv que trazem o efeito (1 aparece em 194, os 4-7 são
+// arco e besta). Quatro skills de dano do SkillData têm Range 1 — Carga (8),
+// Golpe Mortal (10) e Espada da Fênix (12) do TransKnight, mais Julgamento
+// Divino (30) da Foema — ou seja, exigem estar MAIS PERTO do que a espada que as
+// desfere alcança. Era o que fazia as quatro ativarem, gastarem mana e não
+// ferirem: o portão recusava exatamente a casa em que o jogador estava batendo.
+//
+// A folga também cobre a diferença de medição. O legado mede a distância com as
+// posições que vêm DENTRO do pacote (_MSG_Attack.cpp:424, `m->PosX/m->TargetX`),
+// coerentes entre si porque o cliente declara as duas; este port mede com as
+// posições que o servidor tem, que ficam um passo atrás durante a perseguição.
+const alcanceDeContato = 2
+
 // skillReach is how far a skill reaches for this caster: the SkillData range,
-// plus one for whoever learned Força Espectral.
+// never below alcanceDeContato, plus one for whoever learned Força Espectral.
 //
 // The +1 is the book's rule as the team knows it from the live game (2026-09-11);
 // the legacy server has no code for it because it never checked skill range at
@@ -744,10 +760,14 @@ func (d *Dispatcher) validateSkillTarget(w *world.World, s *world.Session, caste
 // client. Without the +1 here the port would refuse the very cell the book is
 // wanted for.
 func skillReach(caster *world.Entity, spellRange int) int {
-	if caster.LearnedSkill&learnedSpectral != 0 {
-		return spellRange + 1
+	reach := spellRange
+	if reach < alcanceDeContato {
+		reach = alcanceDeContato
 	}
-	return spellRange
+	if caster.LearnedSkill&learnedSpectral != 0 {
+		return reach + 1
+	}
+	return reach
 }
 
 func foemaMultiBuffTargetCap(special int) int {

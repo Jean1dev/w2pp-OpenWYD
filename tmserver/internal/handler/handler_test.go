@@ -650,8 +650,8 @@ func TestLoginOK(t *testing.T) {
 	if got := cstr(payload[36:52]); got != "Hero" {
 		t.Errorf("slot-0 name = %q, want Hero", got)
 	}
-	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 49 {
-		t.Errorf("slot-0 wire level = %d, want 49 so the client displays 50", lvl)
+	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 50 {
+		t.Errorf("slot-0 wire level = %d, want the raw 50 — the client prints what it receives", lvl)
 	}
 	// slot-0 gold is the real value, not a placeholder: Coin[0] at sel@20 + 792.
 	if coin := binary.LittleEndian.Uint32(payload[812:816]); coin != 987654 {
@@ -732,22 +732,21 @@ func TestLoginSendsCargo(t *testing.T) {
 	}
 }
 
-func TestSelCharWireLevel(t *testing.T) {
-	tests := []struct {
-		name  string
-		level int
-		want  int32
-	}{
-		{name: "zero", level: 0, want: 0},
-		{name: "one", level: 1, want: 0},
-		{name: "normal", level: 50, want: 49},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := selCharWireLevel(tt.level); got != tt.want {
-				t.Errorf("selCharWireLevel(%d) = %d, want %d", tt.level, got, tt.want)
-			}
-		})
+// TestSelCharWireLevelIsRaw pins the character-select preview to the legacy's
+// DBGetSelChar (CFileDB.cpp:2651), which copies STRUCT_SCORE across untouched.
+// A level-1 correction sat here on the theory that the client's display was
+// one-based; it is not, and a level-400 character showed 399 on the selection
+// screen and 400 once in the world.
+func TestSelCharWireLevelIsRaw(t *testing.T) {
+	d := New(Config{})
+	for _, level := range []int{0, 1, 50, 399, 400} {
+		got := d.selCharsFrom([]world.CharSummary{{Slot: 0, Name: "TK", Level: level}})
+		if len(got) != 1 {
+			t.Fatalf("selCharsFrom returned %d rows, want 1", len(got))
+		}
+		if got[0].Level != int32(level) {
+			t.Errorf("wire level for a level-%d character = %d, want %d", level, got[0].Level, level)
+		}
 	}
 }
 

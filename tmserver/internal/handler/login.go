@@ -195,17 +195,21 @@ func (d *Dispatcher) cargoWire(st *world.CargoState) (int32, [128]protocol.SelIt
 // selCharsFrom maps the dbServer character summaries to protocol.SelChar rows for
 // the byte-exact STRUCT_SELCHAR (MSG_CNFAccountLogin / MSG_CNFNewCharacter). The
 // summary carries the real score (gold, HP/MP, attributes) so the selection
-// screen previews each slot's actual character, not placeholders. Level is the
-// one exception: this client renders SelChar.Score.Level as one-based, so the
-// wire preview stores level-1 while the in-world CharacterLogin snapshot keeps
-// the authoritative level unchanged.
+// screen previews each slot's actual character, not placeholders.
+//
+// Level rides RAW, exactly as the legacy does: DBGetSelChar copies the whole
+// STRUCT_SCORE across with no adjustment (CFileDB.cpp:2651) and the client
+// prints what it receives. A level-1 correction lived here between June 2026
+// and this fix, on the theory that the client's display was one-based. It is
+// not: a level-400 character previewed as 399 on the selection screen and then
+// entered the world at 400.
 func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
 	out := make([]protocol.SelChar, 0, len(chars))
 	for _, c := range chars {
 		sc := protocol.SelChar{
 			Slot:  c.Slot,
 			Name:  c.Name,
-			Level: selCharWireLevel(c.Level),
+			Level: int32(c.Level),
 			Exp:   c.Exp,
 			Guild: c.GuildID,
 			Coin:  c.Coin,
@@ -224,11 +228,4 @@ func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar 
 		out = append(out, sc)
 	}
 	return out
-}
-
-func selCharWireLevel(level int) int32 {
-	if level <= 0 {
-		return 0
-	}
-	return int32(level - 1)
 }

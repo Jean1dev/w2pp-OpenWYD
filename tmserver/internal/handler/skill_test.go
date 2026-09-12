@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -770,5 +771,98 @@ func TestEighthSkillGoldRefusalSaysThePrice(t *testing.T) {
 	}
 	if len(protocol.ClientText(got)) > 94 {
 		t.Errorf("%q is %d bytes encoded, over the panel's 94", got, len(protocol.ClientText(got)))
+	}
+}
+
+// TestSkillsComAlcanceUmAcertam cobre o defeito relatado em jogo: Carga e Espada
+// da Fênix "ativavam e não davam dano". As quatro skills de dano do catálogo com
+// Range 1 exigiam estar mais perto do que a espada que as desfere alcança
+// (EF_RANGE 2), então o portão de alcance do port recusava, calado, exatamente a
+// casa em que o jogador estava batendo.
+//
+// O teste roda contra o catálogo REAL, não contra spells de mentira: o Range vem
+// do arquivo, então tanto a volta do portão sem piso quanto uma mudança de
+// catálogo quebram aqui.
+func TestSkillsComAlcanceUmAcertam(t *testing.T) {
+	spells, err := content.LoadSkillData(filepath.Join("..", "..", "..", "Release", "Common", "SkillData.csv"))
+	if err != nil {
+		t.Skipf("SkillData.csv indisponível: %v", err)
+	}
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 64}, slog.Default(), nil, nil)
+	s := &world.Session{Conn: 1}
+
+	// Duas casas: a distância em que uma arma corpo a corpo bate (EF_RANGE 2), e a
+	// que o portão recusava quando o Range 1 do catálogo valia ao pé da letra.
+	caster := &world.Entity{ID: 1, X: 10, Y: 10}
+	target := &world.Entity{ID: 2, X: 12, Y: 10}
+
+	for _, tt := range []struct {
+		idx  int
+		nome string
+	}{
+		{8, "Carga"}, {10, "Golpe Mortal"}, {12, "Espada da Fênix"}, {30, "Julgamento Divino"},
+	} {
+		sp, ok := spells.Get(tt.idx)
+		if !ok {
+			t.Fatalf("skill %d (%s) ausente do SkillData", tt.idx, tt.nome)
+		}
+		if sp.Range != 1 {
+			t.Fatalf("skill %d (%s): Range = %d, esperado 1 — o catálogo mudou e o teste perdeu o sentido",
+				tt.idx, tt.nome, sp.Range)
+		}
+		cast := castInfo{isSkill: true, spell: sp}
+		if !d.validateSkillTarget(w, s, caster, target, 0, cast, 1000) {
+			t.Errorf("skill %d (%s) recusada a 2 casas, a distância em que a espada bate", tt.idx, tt.nome)
+		}
+	}
+}
+
+// TestSkillsAlcanceUmCausamDano fecha a verificação em jogo das quatro skills de
+// Range 1: passar pelo portão de alvo não basta, o golpe tem de sair com dano.
+// Roda o pipeline real (SkillBaseDamage → mitigação → resistência) com o
+// catálogo de verdade e com personagens no formato dos que reportaram o bug —
+// TransKnight de FOR alta e Foema de INT alta, ambos nível 400.
+func TestSkillsAlcanceUmCausamDano(t *testing.T) {
+	spells, err := content.LoadSkillData(filepath.Join("..", "..", "..", "Release", "Common", "SkillData.csv"))
+	if err != nil {
+		t.Skipf("SkillData.csv indisponível: %v", err)
+	}
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 64}, slog.Default(), nil, nil)
+
+	tk := &world.Entity{ID: 1, X: 10, Y: 10, Class: 0, Level: 400, Str: 2802, Dex: 712, Con: 189}
+	foema := &world.Entity{ID: 3, X: 10, Y: 10, Class: 1, Level: 400, Int: 2848, Con: 189}
+	// Alvo com AC de mob de campo: alto o bastante para a mitigação morder, longe
+	// do absurdo que zeraria qualquer golpe.
+	novoAlvo := func() *world.Entity {
+		return &world.Entity{ID: 2, X: 12, Y: 10, Level: 200, HP: 100000, AC: 300}
+	}
+
+	for _, tt := range []struct {
+		idx    int
+		nome   string
+		caster *world.Entity
+	}{
+		{8, "Carga", tk},
+		{10, "Golpe Mortal", tk},
+		{12, "Espada da Fênix", tk},
+		{30, "Julgamento Divino", foema},
+	} {
+		sp, ok := spells.Get(tt.idx)
+		if !ok {
+			t.Fatalf("skill %d (%s) ausente do SkillData", tt.idx, tt.nome)
+		}
+		target := novoAlvo()
+		cast := castInfo{isSkill: true, spell: sp}
+		if !d.validateSkillTarget(w, &world.Session{Conn: 1}, tt.caster, target, 0, cast, 1000) {
+			t.Fatalf("skill %d (%s) recusada antes de calcular dano", tt.idx, tt.nome)
+		}
+		dmg := d.resolveSkillHit(w, tt.caster, target, int(target.ID), tt.idx, cast)
+		if dmg <= 0 {
+			t.Errorf("skill %d (%s) resolveu %d de dano; esperado golpe positivo", tt.idx, tt.nome, dmg)
+			continue
+		}
+		t.Logf("skill %d (%s): %d de dano", tt.idx, tt.nome, dmg)
 	}
 }
