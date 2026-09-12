@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/combat"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
 func TestTextoStatus(t *testing.T) {
@@ -14,57 +16,59 @@ func TestTextoStatus(t *testing.T) {
 		want []string
 	}{
 		{
-			// A Mortal with nothing: no tier protects it, so the Defesa de
-			// Evolução says nothing at all rather than printing three 100%s.
-			name: "mortal sem nada",
-			st:   estadoStatus{Defesa: 3811, Tier: classMasterMortal},
+			// A Mortal with nothing but DEX: no tier protects it and it carries no
+			// PvP gear, so the sheet is the two rolls plus the Defesa.
+			// DEX 300 → dodge 150, accuracy 60, mirror 90 (9.0%).
+			name: "mortal so com dex",
+			st: estadoStatus{
+				Esquiva: 150, Precisao: 60, EsquivaEspelho: 90,
+				Defesa: 3811, Tier: classMasterMortal,
+			},
 			want: []string{
+				"Acerto 91.0% · Esquiva 9.0% — contra alguém igual a você.",
+				"Precisão 60 (tira da esquiva do alvo) · a sua esquiva 150 em 1000, teto 650.",
 				"Defesa 3811 · contra jogador vale 11433, porque a Defesa conta 3x em PvP.",
-				"Bônus de drop dos seus itens: nenhum.",
 				"Bônus de XP: digite /xp.",
 			},
 		},
 		{
-			// An Arch is only protected from Mortals; another Arch hits it whole,
-			// so only one Defesa de Evolução line is produced.
+			// DEX 700 with a mount lending 20 evasion → dodge 370, accuracy 140,
+			// mirror 230. An Arch is only protected from Mortals.
 			name: "arch com bloco pvp",
 			st: estadoStatus{
-				Defesa:    5000,
-				Tier:      classMasterArch,
-				AtaquePvP: 12,
-				DefesaPvP: 8,
-				Reflect:   40,
-				DropBonus: 18,
+				Esquiva: 370, Precisao: 140, EsquivaEspelho: 230,
+				Reflect: 40, AtaquePvP: 12, DefesaPvP: 8,
+				Defesa: 5000, Tier: classMasterArch, DropBonus: 18,
 			},
 			want: []string{
+				"Acerto 77.0% · Esquiva 23.0% — contra alguém igual a você.",
+				"Precisão 140 (tira da esquiva do alvo) · a sua esquiva 370 em 1000, teto 650.",
+				"Contra jogador: absorve 40 de cada golpe · e mais 8% do que sobrou · você bate +12%",
 				"Defesa 5000 · contra jogador vale 15000, porque a Defesa conta 3x em PvP.",
 				"Defesa de Evolução: um Mortal te acerta com 20% do dano dele.",
-				"Em PvP: ataque +12% · defesa +8% · absorve 40 por golpe",
 				"Bônus de drop dos seus itens: +18%",
 				"Bônus de XP: digite /xp.",
 			},
 		},
 		{
+			// Perfuração leads the PvP line: it is the only number that ignores
+			// armour outright.
 			name: "celestial completo",
 			st: estadoStatus{
-				Defesa:      8000,
-				Tier:        classMasterCelestial,
-				AtaquePvP:   12,
-				DefesaPvP:   8,
-				Reflect:     40,
-				Perfuracao:  480,
-				TemMontaria: true,
-				MontariaPvP: 40,
-				MontariaPvE: 25,
-				AbsHp:       20,
-				DropBonus:   26,
+				Esquiva: 520, Precisao: 200, EsquivaEspelho: 320,
+				Perfuracao: 480, Reflect: 40, AtaquePvP: 12, DefesaPvP: 8,
+				Defesa: 8000, Tier: classMasterCelestial,
+				TemMontaria: true, MontariaPvP: 40, MontariaPvE: 25,
+				AbsHp: 20, DropBonus: 26,
 			},
 			want: []string{
+				"Acerto 68.0% · Esquiva 32.0% — contra alguém igual a você.",
+				"Precisão 200 (tira da esquiva do alvo) · a sua esquiva 520 em 1000, teto 650.",
+				"Contra jogador: perfuração +480 que passa pela defesa · absorve 40 de cada golpe",
+				"  e mais 8% do que sobrou · você bate +12%",
 				"Defesa 8000 · contra jogador vale 24000, porque a Defesa conta 3x em PvP.",
 				"Defesa de Evolução: um Mortal te acerta com 10% do dano dele.",
 				"Defesa de Evolução: um Arch te acerta com 40% do dano dele.",
-				"Em PvP: ataque +12% · defesa +8% · absorve 40 por golpe",
-				"  perfuração +480 que passa pela defesa",
 				"A sua montaria come 40% do golpe de jogador e 25% do de monstro.",
 				"Jóia da Absorção: metade dos golpes devolve 20% do dano em vida, até 350.",
 				"Bônus de drop dos seus itens: +26%",
@@ -87,20 +91,57 @@ func TestTextoStatus(t *testing.T) {
 	}
 }
 
+// The two halves reported must be the ones the attack path rolls, not a restated
+// copy: dodge is ParryRate with no attacker, accuracy is precisaoDe, and the two
+// together must reproduce exactly what parryRate returns for this character
+// swinging at a copy of itself.
+func TestStatusEsquivaEAcertoBatemComORoll(t *testing.T) {
+	d := New(Config{})
+	for _, dex := range []int16{12, 300, 700, 1200, 3500} {
+		e := &world.Entity{ID: 3, Dex: dex, Parry: 20}
+		espelho := &world.Entity{ID: 4, Dex: dex, Parry: 20}
+
+		precisao := precisaoDe(e, int(effectiveDex(e)))
+		esperado := combat.ParryRate(int(effectiveDex(espelho)), espelho.Parry, precisao, int(e.Rsv))
+
+		if got := d.parryRate(e, espelho); got != esperado {
+			t.Errorf("DEX %d: a conta do /status deu %d, o roll do combate dá %d", dex, esperado, got)
+		}
+		// And the defender half on its own is the same expression with a zero
+		// attacker, which is what the screen prints as "a sua esquiva".
+		if esquiva := combat.ParryRate(int(effectiveDex(e)), e.Parry, 0, 0); esquiva < esperado {
+			t.Errorf("DEX %d: esquiva crua %d menor que a esquiva já descontada %d", dex, esquiva, esperado)
+		}
+	}
+}
+
+func TestPctMilesimos(t *testing.T) {
+	cases := []struct {
+		v    int
+		want string
+	}{
+		{0, "0.0%"},
+		{1, "0.1%"},
+		{90, "9.0%"},
+		{230, "23.0%"},
+		{650, "65.0%"}, // o teto do roll
+		{1000, "100.0%"},
+	}
+	for _, tc := range cases {
+		if got := pctMilesimos(tc.v); got != tc.want {
+			t.Errorf("pctMilesimos(%d) = %q, want %q", tc.v, got, tc.want)
+		}
+	}
+}
+
 // Same rule as the /xp lines: the panel cuts past MessageLength-2 CP1252 bytes.
 func TestTextoStatusCabeNoPainel(t *testing.T) {
 	st := estadoStatus{
-		Defesa:      32767,
-		Tier:        classMasterCelestial,
-		AtaquePvP:   999,
-		DefesaPvP:   999,
-		Reflect:     99999,
-		Perfuracao:  999999,
-		TemMontaria: true,
-		MontariaPvP: 100,
-		MontariaPvE: 100,
-		AbsHp:       100,
-		DropBonus:   999,
+		Esquiva: 650, Precisao: 9999, EsquivaEspelho: 650,
+		Perfuracao: 999999, Reflect: 99999, AtaquePvP: 999, DefesaPvP: 999,
+		Defesa: 32767, Tier: classMasterCelestial,
+		TemMontaria: true, MontariaPvP: 100, MontariaPvE: 100,
+		AbsHp: 100, DropBonus: 999,
 	}
 	for i, linha := range textoStatus(st) {
 		if n := len(protocol.ClientText(linha)); n > linhaPainelMax {
@@ -119,7 +160,7 @@ func TestCommandStatus(t *testing.T) {
 
 	whisperFrame(t, conn, "status", "")
 	got := decodePanel(expect(t, conn, protocol.MsgMessagePanel))
-	if !strings.HasPrefix(got, "Defesa ") {
-		t.Fatalf("/status = %q, want the Defesa headline", got)
+	if !strings.HasPrefix(got, "Acerto ") {
+		t.Fatalf("/status = %q, want the hit/dodge headline", got)
 	}
 }

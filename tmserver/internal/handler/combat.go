@@ -1562,7 +1562,10 @@ func (d *Dispatcher) skillParryRate(attacker, target *world.Entity) int {
 	return d.parryRateWith(attacker, target, acc)
 }
 
-func (d *Dispatcher) parryRateWith(attacker, target *world.Entity, accuracyDex int) int {
+// precisaoDe is the attacker half of the parry roll: what gets SUBTRACTED from
+// the target's dodge, in thousandths. Split out of parryRateWith so the /status
+// screen reports the same number the roll uses instead of restating it.
+func precisaoDe(attacker *world.Entity, accuracyDex int) int {
 	attackDex := accuracyDex / 5
 	if attacker.LearnedSkill&0x1000000 != 0 {
 		attackDex += 100
@@ -1578,7 +1581,12 @@ func (d *Dispatcher) parryRateWith(attacker, target *world.Entity, accuracyDex i
 		attackDex += 500
 	}
 	attackDex += int(attacker.AffAccuracy)
-	return combat.ParryRate(int(effectiveDex(target)), target.Parry, attackDex, int(attacker.Rsv))
+	return attackDex
+}
+
+func (d *Dispatcher) parryRateWith(attacker, target *world.Entity, accuracyDex int) int {
+	return combat.ParryRate(int(effectiveDex(target)), target.Parry,
+		precisaoDe(attacker, accuracyDex), int(attacker.Rsv))
 }
 
 // applyForceDamage adds the attacker's flat forced damage, from both of the
