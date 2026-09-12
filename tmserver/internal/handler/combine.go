@@ -157,6 +157,13 @@ func (d *Dispatcher) combineItem(w *world.World, s *world.Session, h protocol.He
 		}
 	}
 
+	// A pile in a machine slot costs one unit, not the pile (combine_pilha.go).
+	// Refused before anything is spent when the remainder has nowhere to go.
+	if !d.separarUnidadesParaMaquina(w, s, e, slotsAtivosDoCombine(slotByPos[:], active)) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
+
 	// Consume the inputs BEFORE the roll (lost on failure, by design).
 	for _, pos := range active {
 		sl := slotByPos[pos]
@@ -319,6 +326,12 @@ func (d *Dispatcher) refuseCombine(w *world.World, s *world.Session, text string
 // the +10 machine alone wants seven filled cells, two identical items, a Pedra do
 // Sábio and four jewels chosen by the item's own grade.
 const msgWrongCombination = "Há algo de errado na combinação."
+
+// msgPilhaSemEspaco refuses a machine run whose input holds a pile the bag
+// cannot split: one unit goes into the machine and the remainder needs a free
+// slot (combine_pilha.go). The alternative is charging the whole pile for one
+// attempt, so the refusal says what to do about it.
+const msgPilhaSemEspaco = "Sem espaço na bolsa para separar a pilha."
 
 // combineNeedsGold is _DN_D_Cost (Language.txt:204) built with the price, so the
 // player learns the number instead of guessing it.

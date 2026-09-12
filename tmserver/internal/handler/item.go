@@ -235,9 +235,45 @@ func isSplittable(index int16) bool {
 	switch index {
 	case 412, 413, 414, 416, 419, 420, itemPedraDoSabio:
 		return true
+	case itemBarraPrata10Mi, itemBarraPrata50Mi, itemBarraPrata100Mi, itemBarraPrata1Bi:
+		return true
 	}
-	return index >= 2390 && index <= 2419 || index >= itemQuestRewardBase && index <= itemQuestRewardLast
+	switch {
+	case index >= 2390 && index <= 2419: // Âmagos, todos
+		return true
+	case index >= itemGemaBase && index <= itemGemaLast: // Diamante, Esmeralda, Coral, Garnet
+		return true
+	case index >= itemAguaMBase && index <= itemAguaMLast: // Pergaminho da Água (M) LV1-8 + Neses
+		return true
+	case index >= itemAguaNBase && index <= itemAguaALast: // idem (N) e (A), faixas contíguas
+		return true
+	}
+	return index >= itemQuestRewardBase && index <= itemQuestRewardLast
 }
+
+// The stackable families added for the merging fairy (carry.go). They are all
+// consumed through consumeOneItem, which spends one unit and leaves the pile —
+// that is what makes them safe to pile up in the first place.
+const (
+	// The four base jewels of the Anct/+10 recipes (jewelBase is the same 2441).
+	itemGemaBase = 2441
+	itemGemaLast = 2444
+
+	// The Água chains, scroll LV1..LV8 plus the Evocação Neses that ends each
+	// one: M is 777-785, and N (3173-3181) runs straight into A (3182-3190).
+	itemAguaMBase = 777
+	itemAguaMLast = 785
+	itemAguaNBase = 3173
+	itemAguaALast = 3190
+
+	// The gold bars — "Barra de Prata" in the catalog, which is what the game
+	// calls a bar of gold. The Mithril bars (3027-3030) are machine material and
+	// stay out.
+	itemBarraPrata100Mi = 4010
+	itemBarraPrata1Bi   = 4011
+	itemBarraPrata10Mi  = 4028
+	itemBarraPrata50Mi  = 4029
+)
 
 // itemPedraDoSabio is the Pedra do Sábio (ItemList.csv:2903), the Huntress
 // extraction catalyst — see combineExtracao.

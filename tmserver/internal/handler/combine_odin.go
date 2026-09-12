@@ -104,6 +104,16 @@ func (d *Dispatcher) combineOdin(w *world.World, s *world.Session, e *world.Enti
 		}
 	}
 
+	// A pile in a machine slot costs one unit, not the pile (combine_pilha.go).
+	ativos := make([]int, 0, len(active))
+	for _, i := range active {
+		ativos = append(ativos, slots[i])
+	}
+	if !d.separarUnidadesParaMaquina(w, s, e, ativos) {
+		d.refuseCombine(w, s, msgWrongCombination)
+		return
+	}
+
 	// Consume every active input slot unconditionally — the ingredients are
 	// spent whether or not the recipe below ultimately produces anything
 	// (_MSG_CombineItemOdin.cpp:93-100), the same "spent either way" rule the

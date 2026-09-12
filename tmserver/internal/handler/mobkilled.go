@@ -169,20 +169,18 @@ func (d *Dispatcher) rolarBonusDrop(w *world.World, it *world.Item, nivelMob, bo
 // putMobDrop mirrors legacy PutItem for common mob loot. A full accessible Carry
 // loses the rolled item and receives the same no-space notification; there is no
 // fallback to the ground.
+//
+// It goes through putCarryItem, so a merging fairy piles the drop onto the stack
+// it belongs to instead of taking a new slot (carry.go).
 func (d *Dispatcher) putMobDrop(w *world.World, reward *world.Entity, it world.Item) bool {
 	if reward == nil {
 		return false
 	}
-	slot := firstEmptyAccessibleCarry(reward)
-	if slot < 0 {
+	if d.putCarryItem(w, reward, it) < 0 {
 		if s := w.Session(reward.ID); s != nil {
 			d.notify(w, s, NoticeNoSpaceToTrade)
 		}
 		return false
-	}
-	reward.Carry[slot] = it
-	if s := w.Session(reward.ID); s != nil {
-		d.sendSlot(w, s, world.ItemPlaceCarry, slot, it)
 	}
 	return true
 }

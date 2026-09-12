@@ -578,14 +578,10 @@ func (d *Dispatcher) claimWaterReward(variant, room int) bool {
 // A full inventory silently drops it, exactly like the legacy PutItem.
 func (d *Dispatcher) grantNextWaterScroll(w *world.World, leader *world.Entity, variant, room int) {
 	next := world.Item{Index: waterVariants[variant].rewardBase + int16(room)}
-	slot := firstEmptyAccessibleCarry(leader)
-	if slot < 0 {
+	// Through putCarryItem, so a merging fairy stacks the scroll onto the ones
+	// already in the bag instead of spending a slot per room (carry.go).
+	if d.putCarryItem(w, leader, next) < 0 {
 		d.log.Warn("water reward lost: leader inventory full", "leader", leader.Name, "item", next.Index)
-		return
-	}
-	leader.Carry[slot] = next
-	if ls := w.Session(leader.ID); ls != nil {
-		d.sendSlot(w, ls, world.ItemPlaceCarry, slot, next)
 	}
 }
 

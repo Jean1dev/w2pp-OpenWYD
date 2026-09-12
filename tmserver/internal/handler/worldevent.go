@@ -166,18 +166,14 @@ func (d *Dispatcher) tryWorldEventDrop(w *world.World, reward *world.Entity, niv
 	// worth more for whoever happened to be wearing the right fairy.
 	d.rolarBonusDrop(w, &item, nivelMob, 0)
 
-	slot := firstEmptyAccessibleCarry(reward)
-	if slot < 0 {
+	// putCarryItem, so a merging fairy piles this onto its own kind (carry.go).
+	if d.putCarryItem(w, reward, item) < 0 {
 		conn := -1
 		if reward != nil {
 			conn = reward.ID
 		}
 		d.log.Warn("world event drop lost: carry full", "conn", conn, "item", cfg.ItemIndex, "serial", serial)
 		return
-	}
-	reward.Carry[slot] = item
-	if s := w.Session(reward.ID); s != nil {
-		d.sendSlot(w, s, world.ItemPlaceCarry, slot, item)
 	}
 	if cfg.NoticeEnabled {
 		noticeSerial := int32(0)

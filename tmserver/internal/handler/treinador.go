@@ -253,16 +253,10 @@ func (d *Dispatcher) sorteioDoTreinador(it *world.Item, nivel int) {
 // entregaDoTreinador põe o prêmio na bolsa. Bolsa cheia perde o item, como o
 // PutItem do legado, mas aqui o jogador ao menos fica sabendo.
 func (d *Dispatcher) entregaDoTreinador(w *world.World, s *world.Session, e *world.Entity, it world.Item) {
-	slot := firstEmptyAccessibleCarry(e)
-	if slot < 0 {
-		if s != nil {
-			sendClientMessage(w, s, "Bolsa cheia: o prêmio do treinador se perdeu.")
-		}
-		return
-	}
-	e.Carry[slot] = it
-	if s != nil {
-		d.sendSlot(w, s, world.ItemPlaceCarry, slot, it)
+	// putCarryItem, so a merging fairy piles the prize onto its own kind
+	// instead of spending a slot per delivery (carry.go).
+	if d.putCarryItem(w, e, it) < 0 && s != nil {
+		sendClientMessage(w, s, "Bolsa cheia: o prêmio do treinador se perdeu.")
 	}
 }
 

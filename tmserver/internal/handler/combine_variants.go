@@ -43,14 +43,28 @@ func (d *Dispatcher) variantInputs(w *world.World, s *world.Session, payload []b
 	return e, items, slots, active, ok
 }
 
-func consumePositions(w *world.World, s *world.Session, e *world.Entity, slots [protocol.MaxCombine]int, active []int, keep func(int) bool) {
+// consumePositions charges the input slots of one recipe, skipping the ones
+// `keep` names.
+//
+// It reports false when an input holds a pile whose remainder has nowhere to go
+// (combine_pilha.go): the caller must refuse the recipe, and nothing has been
+// consumed at that point.
+func (d *Dispatcher) consumePositions(w *world.World, s *world.Session, e *world.Entity, slots [protocol.MaxCombine]int, active []int, keep func(int) bool) bool {
+	alvo := make([]int, 0, len(active))
 	for _, i := range active {
 		if keep != nil && keep(i) {
 			continue
 		}
-		e.Carry[slots[i]] = world.Item{}
-		sendCarrySlot(w, s, e, slots[i])
+		alvo = append(alvo, slots[i])
 	}
+	if !d.separarUnidadesParaMaquina(w, s, e, alvo) {
+		return false
+	}
+	for _, sl := range alvo {
+		e.Carry[sl] = world.Item{}
+		sendCarrySlot(w, s, e, sl)
+	}
+	return true
 }
 
 func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
@@ -80,7 +94,10 @@ func (d *Dispatcher) combineItemAilyn(w *world.World, s *world.Session, _ protoc
 		return
 	}
 	rate := d.mais10Chance(it[0])
-	consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 })
+	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 }) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	e.Coin -= ailynCost
 	d.sendEtc(w, s, e)
 	roll, success := combine.Roll(w.Rand(), rate)
@@ -117,7 +134,10 @@ func (d *Dispatcher) combineItemTiny(w *world.World, s *world.Session, _ protoco
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 })
+	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i < 2 }) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	if _, success := combine.Roll(w.Rand(), rate); !success {
 		e.Carry[sl[0]] = world.Item{}
 		sendCarrySlot(w, s, e, sl[0])
@@ -146,7 +166,10 @@ func (d *Dispatcher) combineItemAgatha(w *world.World, s *world.Session, _ proto
 		return
 	}
 	rate := d.agathaChance(it[:])
-	consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 })
+	if !d.consumePositions(w, s, e, sl, active, func(i int) bool { return i == 1 }) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	roll, success := combine.Roll(w.Rand(), rate)
 	if !success {
 		d.announceAgatha(w, e.Name, it[0].Index, roll, rate, false)
@@ -173,7 +196,10 @@ func (d *Dispatcher) combineItemShany(w *world.World, s *world.Session, _ protoc
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	consumePositions(w, s, e, sl, active, nil)
+	if !d.consumePositions(w, s, e, sl, active, nil) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	if _, success := combine.Roll(w.Rand(), d.machineKeyRate("Shany", "ChanceBase", d.compRate.ChanceBase("Shany"))); !success {
 		combineLost(w, s)
 		return
@@ -199,7 +225,10 @@ func (d *Dispatcher) combineItemAlquimia(w *world.World, s *world.Session, _ pro
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	consumePositions(w, s, e, sl, active, nil)
+	if !d.consumePositions(w, s, e, sl, active, nil) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	rate := d.huntressChance("Alquimia", e)
 	result := int16(3200 + id)
 	acao := "criar " + d.itemName(result)
@@ -246,7 +275,10 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 		d.refuseCombine(w, s, msgWrongCombination)
 		return
 	}
-	consumePositions(w, s, e, sl, active, nil)
+	if !d.consumePositions(w, s, e, sl, active, nil) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	// The unlock is certain unless the Mesa das Máquinas gives it a chance; only
 	// then does it roll, so an untouched server keeps its RNG stream. A lost roll
 	// costs the items, as on every other machine, and neither the Fame nor the
@@ -376,7 +408,10 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 			return
 		}
 	}
-	consumePositions(w, s, e, sl, active, nil)
+	if !d.consumePositions(w, s, e, sl, active, nil) {
+		d.refuseCombine(w, s, msgPilhaSemEspaco)
+		return
+	}
 	rates := d.compRate.EhreRates()
 	rate := rates[id]
 	// A Mesa das Máquinas ganha do arquivo. O Ehre é a única família em que cada

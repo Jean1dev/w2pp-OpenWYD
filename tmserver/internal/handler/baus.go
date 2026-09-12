@@ -143,11 +143,30 @@ func (d *Dispatcher) openChest(w *world.World, s *world.Session, e *world.Entity
 		prize.Effects[1].Value = rollAdultVitality(w)
 	}
 	consumeOneItem(&e.Carry[src])
-	e.Carry[dst] = prize
 
-	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
-	if dst != src {
-		d.sendSlot(w, s, world.ItemPlaceCarry, dst, e.Carry[dst])
+	// With a merging fairy a stackable prize goes onto the pile it belongs to
+	// (carry.go) — the whole point when a chest hands out Âmagos or gems one at
+	// a time. The slot reserved above simply goes unused then.
+	//
+	// Everyone else keeps the old placement, which is deliberate: the prize
+	// appearing in the chest's own slot is how a player follows what happened.
+	// That placement is also why the chest's slot is pushed only AFTER the prize
+	// is written — when dst is src, the one SendItem for that slot has to carry
+	// the prize, not the emptied chest.
+	if fadaJuntaPilhas(e) && isSplittable(prize.Index) {
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		if d.putCarryItem(w, e, prize) < 0 {
+			sendClientMessage(w, s, msgFullCarry)
+			d.log.Warn("prêmio do baú perdido: bolsa cheia",
+				"conn", s.Conn, "bau", chest, "premio", prize.Index)
+			return true
+		}
+	} else {
+		e.Carry[dst] = prize
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		if dst != src {
+			d.sendSlot(w, s, world.ItemPlaceCarry, dst, e.Carry[dst])
+		}
 	}
 	sendClientMessage(w, s, fmt.Sprintf("!Chegou o item %s", d.itemName(prize.Index)))
 	d.log.Info("baú aberto", "conn", s.Conn, "account", s.AccountName, "bau", chest, "premio", prize.Index)

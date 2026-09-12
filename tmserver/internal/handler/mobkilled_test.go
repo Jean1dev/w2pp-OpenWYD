@@ -517,13 +517,18 @@ func TestKillGrantsExpOverWire(t *testing.T) {
 	t.Fatal("never received the MsgAttack echo")
 }
 
+// The prize is item 522 and not the 777 this test used to name: a numbered event
+// item cannot be a stackable one. All three effect slots hold the serial, and a
+// stackable needs one of them for EF_AMOUNT — which is also why Marcavel refuses
+// stackables outright (serial.go). 777 stopped qualifying when the Pergaminho da
+// Água joined the stackable families (item.go).
 func TestKillWorldEventDropSendsCarrySlot(t *testing.T) {
 	mob := expMobTemplate(10, 1000, 0)
 	binary.LittleEndian.PutUint32(mob[92+16:], 1)
 	binary.LittleEndian.PutUint32(mob[92+24:], 1)
 	addr, stop := startServerExpMob(t, skillCombatDB(0), mob, func(_ *Dispatcher, w *world.World) {
 		w.SetWorldEventConfig(world.EventConfig{
-			Version: 3, Enabled: true, ItemIndex: 777, Rate: 1,
+			Version: 3, Enabled: true, ItemIndex: 522, Rate: 1,
 			StartIndex: 100, CurrentIndex: 100, EndIndex: 101,
 			Indexed: true,
 		})
@@ -542,8 +547,8 @@ func TestKillWorldEventDropSendsCarrySlot(t *testing.T) {
 		if ty != protocol.MsgSendItem {
 			continue
 		}
-		if place, slot, idx := le16(payload[0:2]), le16(payload[2:4]), le16(payload[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 777 {
-			t.Fatalf("event SendItem = place %d slot %d index %d, want carry/0/777", place, slot, idx)
+		if place, slot, idx := le16(payload[0:2]), le16(payload[2:4]), le16(payload[4:6]); place != world.ItemPlaceCarry || slot != 0 || idx != 522 {
+			t.Fatalf("event SendItem = place %d slot %d index %d, want carry/0/522", place, slot, idx)
 		}
 		if payload[6] != eventSerialHi || payload[7] != 0 ||
 			payload[8] != eventSerialLo || payload[9] != 100 ||
