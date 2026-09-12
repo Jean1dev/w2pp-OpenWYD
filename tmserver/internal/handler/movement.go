@@ -53,6 +53,13 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 		d.removeTrade(w, s)
 		return
 	}
+	// Walking closes a shop ONLY in the legacy-pose shape, where the seller's own
+	// body is the stall and moving would walk the shop away with him. With a clone
+	// the stall stays where it was put and the owner is free to go — which is the
+	// whole point of it. shopPinsOwner is what tells the two apart.
+	if shopPinsOwner(s) {
+		d.closeAutoTrade(w, s)
+	}
 	var body protocol.MsgActionBody
 	if err := body.Decode(payload); err != nil {
 		return

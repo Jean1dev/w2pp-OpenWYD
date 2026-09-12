@@ -99,7 +99,7 @@ func (d *Dispatcher) removeSamaritano(w *world.World, e *world.Entity) {
 // before broadcast. Skill casts are validated (learned mask, class, Passive) and
 // charged mana here, mirroring _MSG_Attack.cpp.
 func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header, payload []byte) {
-	if s.TradeMode != 0 {
+	if shopPinsOwner(s) {
 		return // cannot attack while auto-trading
 	}
 	if s.Mode != world.UserPlay {

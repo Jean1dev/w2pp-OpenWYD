@@ -200,11 +200,21 @@ func (d *Dispatcher) syncTradedSlots(w *world.World, s *world.Session, e *world.
 	}
 }
 
-// quitTrade handles _MSG_QuitTrade (0x0384): cancel the trade.
+// quitTrade handles _MSG_QuitTrade (0x0384): cancel the trade AND close an open
+// personal shop.
+//
+// This is the one message that means both, because it is the one the client sends
+// when the player himself closes either window — it is how a seller takes his own
+// stall down. cancelTrade no longer touches the shop (see its note), so the shop
+// half has to be said here explicitly. Leaving it implicit is what broke it: with
+// the shop dropped from cancelTrade, closing the stall silently stopped working
+// while the client still cleared its own window, so the shop went on selling from
+// a stall its owner believed he had closed.
 func (d *Dispatcher) quitTrade(w *world.World, s *world.Session, _ protocol.Header, _ []byte) {
 	if e := w.Entity(s.Conn); e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		w.AddCrackError(s, 10, 17)
 	}
+	d.closeAutoTrade(w, s)
 	d.cancelTrade(w, s)
 }
 
@@ -229,11 +239,19 @@ func (d *Dispatcher) refuseTrade(w *world.World, s, other *world.Session, n Noti
 // no trade to cancel, because those callers fire on ordinary play and a QuitTrade on
 // every attack would be noise. The original guards the same way, but at the CALL
 // site — _MSG_PKMode.cpp:27 wraps its RemoveTrade in `if (Trade.OpponentID)`.
+// It NO LONGER closes an open personal shop, and that is a deliberate divergence
+// from the original (RemoveTrade does both, Server.cpp:8124). It had to be: with
+// the stall raised as a clone the owner goes on playing, and every one of this
+// hook's fifteen callers is ordinary play — dropping an item, toggling PK,
+// starting a trade, a combine slot out of reach. Tearing the shop down on any of
+// them made "the shop stays up" a promise the server broke constantly, in ways
+// nobody could connect to a cause.
+//
+// A shop now comes down for three reasons only: the owner closes it, the session
+// ends (logout, disconnect, character select), or the shop's own anti-tamper
+// checks fail. Those call closeAutoTrade directly.
 func (d *Dispatcher) removeTrade(w *world.World, s *world.Session) {
-	// RemoveTrade in the original also closes an open personal shop (Server.cpp:8124);
-	// this is what makes walking/buying/item-ops/quit-trade tear the stall down.
 	if !s.Trade.Active {
-		d.closeAutoTrade(w, s)
 		return
 	}
 	d.cancelTrade(w, s)
@@ -252,8 +270,13 @@ func (d *Dispatcher) removeTrade(w *world.World, s *world.Session) {
 //
 // So every path where the client is SITTING ON A REPLY uses this one; the anti-dup
 // hook above keeps the guard.
+// It does NOT close an open personal shop either, for the reason spelled out on
+// removeTrade above: a trade and a stall are separate things now. The trade moves
+// items out of the Carry; the shop sells out of the account Cargo, guarded by its
+// own memcmp against the live slot. Cancelling one has no business closing the
+// other — and this was the path that made a merely REFUSED trade offer take the
+// seller's shop down with it.
 func (d *Dispatcher) cancelTrade(w *world.World, s *world.Session) {
-	d.closeAutoTrade(w, s)
 	opp := s.Trade.OpponentID
 	s.Trade = world.TradeState{}
 	if s.Mode == world.UserPlay {

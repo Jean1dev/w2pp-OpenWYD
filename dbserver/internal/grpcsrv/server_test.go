@@ -15,26 +15,27 @@ import (
 // fakeStore is an in-memory Store for unit tests (no PostgreSQL).
 type fakeStore struct {
 	// fama captures UpdateGuildFame calls.
-	fama      map[uint16]int32
-	presence  map[string]bool // captured SetCharacterPresence calls
-	reports   []domain.PlayerReport
-	chao      []domain.GroundEvent
-	byName    map[string]store.AccountAuth
-	byID      map[int64]store.AccountAuth
-	chars     map[int64][]domain.Character // accountID -> characters
-	createErr error
-	archErr   error
-	archSlot  int
-	archChar  domain.Character
+	fama map[uint16]int32
+	// shopPoints is the personal-shop wallet, accumulated like the real store.
+	shopPoints map[int64]int32
+	presence   map[string]bool // captured SetCharacterPresence calls
+	reports    []domain.PlayerReport
+	chao       []domain.GroundEvent
+	byName     map[string]store.AccountAuth
+	byID       map[int64]store.AccountAuth
+	chars      map[int64][]domain.Character // accountID -> characters
+	createErr  error
+	archErr    error
+	archSlot   int
+	archChar   domain.Character
 	// createdChar is the last character CreateCharacter was asked to insert.
 	createdChar domain.Character
 	saveResult  error
 	saveErr     error
 	savedChar   domain.Character
-
-	cargoCoin  map[int64]int32         // accountID -> stored gold
-	cargoItems map[int64][]domain.Item // accountID -> stored items
-	savedCargo struct {                // last SaveCargo args, for assertions
+	cargoCoin   map[int64]int32         // accountID -> stored gold
+	cargoItems  map[int64][]domain.Item // accountID -> stored items
+	savedCargo  struct {                // last SaveCargo args, for assertions
 		accountID int64
 		coin      int32
 		items     []domain.Item

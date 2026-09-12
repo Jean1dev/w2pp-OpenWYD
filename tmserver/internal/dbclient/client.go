@@ -969,6 +969,21 @@ func (c *Client) ClearAllPresence(ctx context.Context) (int64, error) {
 	return resp.GetCleared(), nil
 }
 
+// AddShopPoints credits the account's personal-shop points wallet and returns the
+// new balance (0060_shop_points).
+func (c *Client) AddShopPoints(ctx context.Context, accountID int64, delta int32, characterName, reason string) (int32, error) {
+	resp, err := c.api.AddShopPoints(ctx, &dbv1.AddShopPointsRequest{
+		AccountId:     accountID,
+		Delta:         delta,
+		CharacterName: characterName,
+		Reason:        reason,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("dbclient: pontos de lojinha: %w", err)
+	}
+	return resp.GetBalance(), nil
+}
+
 func tradeItemsToProto(in []world.TradeItem) []*dbv1.TradeItem {
 	out := make([]*dbv1.TradeItem, 0, len(in))
 	for _, it := range in {
@@ -980,4 +995,13 @@ func tradeItemsToProto(in []world.TradeItem) []*dbv1.TradeItem {
 		})
 	}
 	return out
+}
+
+// ShopPoints reads the account's personal-shop points balance (0060_shop_points).
+func (c *Client) ShopPoints(ctx context.Context, accountID int64) (int32, error) {
+	resp, err := c.api.ShopPoints(ctx, &dbv1.ShopPointsRequest{AccountId: accountID})
+	if err != nil {
+		return 0, fmt.Errorf("dbclient: ler pontos de lojinha: %w", err)
+	}
+	return resp.GetBalance(), nil
 }

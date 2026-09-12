@@ -25,6 +25,7 @@
 ✅ /buffs: Remove todos os buffs do personagem <br/>
 ✅ /xp (ou /bonus): mostra todos os bônus de XP ativos — o total que vale no chão onde o personagem está, de onde cada ponto vem (Baú de XP com o tempo restante, fada, montaria de loja, peças grade 7, peças com joia), os eventos do servidor e a taxa da zona na Mesa de XP. Avisa os dois casos que somem calados: de 500% para cima o jogo ignora o bônus inteiro, e os +30% da Fada Suprema não valem dentro do Pesadelo. Em grupo diz a regra (vale o maior bônus de quem está na luta) e não um número, porque esse depende de quem está perto na hora do abate. Comando novo, não existe na fonte legada <br/>
 ✅ /status: a ficha de combate que a janela de personagem não tem. Começa pelo que decide o duelo — **acerto e esquiva** em percentual contra um oponente igual, mais os dois números crus por trás deles (a precisão, que é descontada da esquiva do alvo, e a esquiva própria em milésimos, teto 650) —, depois **perfuração e absorção** e o resto do bloco de PvP do equipamento. Só então vem o contexto: Defesa de Evolução, o quanto a montaria absorve, a Jóia da Absorção e o bônus de drop. A Defesa **não** é repetida: a janela do personagem já a mostra. Cada linha só aparece se o personagem tiver aquilo. Não existe "taxa de acerto" absoluta: a rolagem é sempre a sua precisão MENOS a esquiva do outro, por isso o percentual é medido contra uma cópia do próprio personagem. Comando novo, não existe na fonte legada <br/>
+✅ /pontos: mostra os pontos de lojinha da **conta** e, quando há uma barraca de pé, quanto ela rende por janela e quanto falta para o próximo crédito. Comando novo, não existe na fonte legada — ver "Lojinha" abaixo <br/>
 ✅ /cp: mostra os pontos de caos atuais do personagem (`PKPoint-75`; 0 = nick branco). Recuperam de duas formas: +1 por hora online (gate do `RegenMob` legado) e **+1 por nível subido**, ambas com teto no neutro 75 — o ganho por nível é um desvio consciente do legado, pedido na issue #279 <br/>
 ✅ /nt: mostra quantas entradas de Pesadelo Arcano o personagem tem (`extra.NT`). Persistido em `character.nightmare_tickets`; a Escritura do Pesadelo dá 13 e cada entrada no Arcano gasta 1 ([pesadelo-plan.md](./migration/pesadelo-plan.md)) <br/>
 ✅ /nig: mostra o horário de cada tier do Pesadelo — qual está aberto e quanto falta para os outros. Desvio consciente: o legado imprime só o relógio (`!!HHMMSS`) e deixa o cliente calcular <br/>
@@ -70,6 +71,59 @@
 > `ban`/`unban` gravam em `account.is_blocked` — o login já rejeita contas bloqueadas; a migração do ban administrativo para o binServer
 > (entitlement) fica para uma issue futura (`web-platform-plan.md §binServer`).
 
+
+# Lojinha
+
+A barraca de venda (autotrade) **não prende mais o vendedor**. Ao abrir a lojinha o
+servidor ergue um **clone** ao lado do dono — um Carbúnculo mercador
+(`Release/TMsrv/run/npc/Merc_Carbunkle`) com o nome do dono — e o personagem sai
+livre para andar, caçar e mexer na bolsa enquanto a barraca continua vendendo.
+
+Desvio consciente do legado, onde o vendedor **era** a barraca (`_MSG_SendAutoTrade.cpp`)
+e qualquer ação derrubava a loja. Só é possível porque o cliente não pergunta se uma
+barraca é jogador: o `MSG_CreateMobTrade` copia o título para a entidade sem testar o
+id, e o clique responde com o id cru (confirmado desmontando o `WYD.exe` 7662 em
+`0x0048541D` e `0x004604D1`).
+
+**A barraca só cai em três situações**, e nenhuma delas é jogar normalmente:
+
+1. o dono fecha a lojinha;
+2. a **sessão acaba** — sair do jogo, voltar à seleção de personagem ou cair a conexão;
+3. o anti-fraude do próprio autotrade recusa (o item do baú não bate com o anunciado).
+
+Andar, atacar, lootear, arrastar item, alternar o modo PK, entrar numa troca (mesmo
+recusada), usar a máquina, o Pergaminho da Água, o Pesadelo, a gema ou o bilhete de
+quest **não derrubam a loja**. Antes derrubavam, porque o `RemoveTrade` do legado
+fechava a barraca junto com a troca e é chamado de quinze lugares de jogo comum —
+ver a nota em `removeTrade` (`handler/trade.go`).
+
+O dono pode ir para **outro mapa** e a barraca continua vendendo. O baú **não viaja
+com ele**: o Cargo é da conta, o servidor o guarda por `account_id` e só o descarrega
+quando a conta desconecta (`World.ReleaseCargo`). A única distância que importa numa
+venda é a do **comprador** até a barraca.
+
+O que **não** mudou:
+- A loja continua vendendo do **baú da conta** (Cargo), e a compra continua protegida
+  pelo memcmp contra o slot vivo — mexer no baú com a loja aberta não duplica nada,
+  apenas faz a próxima compra daquele slot falhar.
+- Sem `-content` (ou sem o template) a loja volta ao comportamento do legado: abre,
+  prende o vendedor, e aí sim **andar fecha** — porque nessa forma ele *é* a barraca.
+
+## Pontos por tempo de lojinha
+
+Uma barraca aberta **com pelo menos um item à venda** rende **3 pontos a cada 15
+minutos**, ou **7** se o dono estiver com uma **Fada Azul** equipada (3901, 3904 ou
+3907 — as três durações). Os pontos são da **conta**, não do personagem, e vivem numa
+carteira própria (`shop_points`), separada do saldo de doação.
+
+Vender a última peça para o relógio na hora; reabastecer não paga o tempo em que a
+prateleira ficou vazia. O saldo aparece com `/pontos` no jogo e na página da conta no
+painel. **Gastar** os pontos ainda não existe — só o acúmulo.
+
+> Divergência deliberada: no legado só a Fada Azul de 3 dias (3901) dá bônus de drop;
+> as de 5 e 7 dias dão XP (`CMob.cpp:716` vs `731`). Aqui as três valem os 7 pontos,
+> porque quem compra "a fada azul" de 7 dias não espera ganhar menos que a de 3. A
+> divergência é só desta recompensa — o bônus de drop continua fiel ao legado.
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
 

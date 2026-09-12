@@ -47,6 +47,8 @@ type Store interface {
 	RecordChat(ctx context.Context, linhas []domain.ChatLinha) error
 	SetCharacterPresence(ctx context.Context, name string, online bool) (bool, error)
 	ClearAllPresence(ctx context.Context) (int64, error)
+	AddShopPoints(ctx context.Context, accountID int64, delta int32, characterName, reason string) (int32, error)
+	ShopPoints(ctx context.Context, accountID int64) (int32, error)
 	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (domain.Guild, error)
 	SetGuildMember(ctx context.Context, accountID int64, slot int, characterName string, guildID uint16, guildLevel uint8) error
 	LeaveGuild(ctx context.Context, accountID int64, slot int) error
@@ -705,6 +707,23 @@ func (s *Server) ClearAllPresence(ctx context.Context, _ *dbv1.ClearAllPresenceR
 	return &dbv1.ClearAllPresenceResponse{Cleared: n}, nil
 }
 
+// AddShopPoints credits the personal-shop points wallet (0060_shop_points) and
+// answers with the new balance.
+func (s *Server) AddShopPoints(ctx context.Context, req *dbv1.AddShopPointsRequest) (*dbv1.AddShopPointsResponse, error) {
+	if req.GetAccountId() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "account_id obrigatório")
+	}
+	if req.GetDelta() == 0 {
+		return nil, status.Error(codes.InvalidArgument, "delta não pode ser zero")
+	}
+	saldo, err := s.store.AddShopPoints(ctx, req.GetAccountId(), req.GetDelta(),
+		req.GetCharacterName(), req.GetReason())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "pontos de lojinha: %v", err)
+	}
+	return &dbv1.AddShopPointsResponse{Balance: saldo}, nil
+}
+
 func tradeItemsFromProto(in []*dbv1.TradeItem) []domain.TradeItem {
 	out := make([]domain.TradeItem, 0, len(in))
 	for _, it := range in {
@@ -718,4 +737,16 @@ func tradeItemsFromProto(in []*dbv1.TradeItem) []domain.TradeItem {
 		})
 	}
 	return out
+}
+
+// ShopPoints reads one account's shop-points balance (0060_shop_points).
+func (s *Server) ShopPoints(ctx context.Context, req *dbv1.ShopPointsRequest) (*dbv1.ShopPointsResponse, error) {
+	if req.GetAccountId() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "account_id obrigatório")
+	}
+	saldo, err := s.store.ShopPoints(ctx, req.GetAccountId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "ler pontos de lojinha: %v", err)
+	}
+	return &dbv1.ShopPointsResponse{Balance: saldo}, nil
 }

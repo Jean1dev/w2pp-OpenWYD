@@ -123,6 +123,18 @@ service AccountService {
   // characters marked online forever.
   rpc ClearAllPresence(ClearAllPresenceRequest) returns (ClearAllPresenceResponse);
 
+  // AddShopPoints credits the account's personal-shop points wallet
+  // (0060_shop_points) and returns the new balance. Called once per completed
+  // quarter-hour that a stocked shop stays open.
+  //
+  // The delta is applied BY THE DATABASE (balance + delta), not by writing back a
+  // total, because two characters of one account can complete a window at the
+  // same instant.
+  rpc AddShopPoints(AddShopPointsRequest) returns (AddShopPointsResponse);
+  // ShopPoints reads one account's shop-points balance, for the in-game /pontos
+  // command. A missing wallet row is zero, not an error.
+  rpc ShopPoints(ShopPointsRequest) returns (ShopPointsResponse);
+
   // Guild lifecycle and war/city state (issue #114). These RPCs are modern
   // tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
   // GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
@@ -529,6 +541,21 @@ message ClearAllPresenceRequest {}
 // cleared is how many characters were still marked — non-zero after an unclean
 // shutdown, and worth logging at boot.
 message ClearAllPresenceResponse { int64 cleared = 1; }
+
+message AddShopPointsRequest {
+  int64 account_id = 1;
+  // delta may be negative (a spend); the wallet's CHECK refuses to go below zero
+  // and the whole transaction, audit row included, rolls back.
+  int32 delta = 2;
+  // character_name records who had the stall standing. Informative only: the
+  // wallet belongs to the account, and character names are not unique here.
+  string character_name = 3;
+  string reason = 4;
+}
+message AddShopPointsResponse { int32 balance = 1; }
+
+message ShopPointsRequest { int64 account_id = 1; }
+message ShopPointsResponse { int32 balance = 1; }
 
 message Guild {
   uint32 id = 1;      // legacy ushort guild id

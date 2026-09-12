@@ -40,7 +40,7 @@ func (d *Dispatcher) dropItem(w *world.World, s *world.Session, _ protocol.Heade
 		d.removeTrade(w, s) // dropping mid-trade cancels it (anti-dup)
 		return
 	}
-	if s.TradeMode != 0 {
+	if shopPinsOwner(s) {
 		d.notify(w, s, NoticeCantAutoTrade)
 		return
 	}
@@ -109,7 +109,7 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 		d.removeTrade(w, s) // picking up mid-trade cancels it (anti-dup)
 		return
 	}
-	if s.TradeMode != 0 {
+	if shopPinsOwner(s) {
 		d.notify(w, s, NoticeCantAutoTrade)
 		return
 	}
@@ -765,10 +765,19 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 		d.removeTrade(w, s)
 		return true
 	}
-	if s.TradeMode != 0 {
-		s.TradeMode = 0
-		d.removeTrade(w, s)
-		return true
+	// The ticket teleports its user, and the shop stays where it was — that is
+	// fine, and the reason is worth stating because it reads wrong at first: the
+	// stall sells out of the account Cargo, which the world keys by account id and
+	// unloads only when the account's session ends (World.ReleaseCargo). It does
+	// not travel with the character and does not care where he stands. The only
+	// distance that matters to a sale is the BUYER's distance to the stall.
+	//
+	// So the shop survives the trip, like it survives every other teleport (Água,
+	// Pesadelo, gema). Only the legacy pose has to close here, and only because
+	// there the seller IS the stall: teleporting him would carry the shop along
+	// with him to the destination.
+	if shopPinsOwner(s) {
+		d.closeAutoTrade(w, s)
 	}
 	// DELIBERATE DIVERGENCE: Mortal only. The legacy admits Arch as well
 	// (_MSG_Quest.cpp:340 and its five siblings all read
@@ -2961,7 +2970,7 @@ func (d *Dispatcher) tradingItem(w *world.World, s *world.Session, _ protocol.He
 		d.removeTrade(w, s) // moving an item mid-trade cancels it
 		return
 	}
-	if s.TradeMode != 0 {
+	if shopPinsOwner(s) {
 		d.notify(w, s, NoticeCantAutoTrade)
 		return
 	}

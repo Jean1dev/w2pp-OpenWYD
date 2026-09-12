@@ -659,8 +659,13 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
 	w.ForEachMobInView(s.Conn, func(me *world.Entity) {
 		if w.MarkSeen(s, me.ID) {
-			w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
-				protocol.EncodeCreateMobBody(createMobFrom(me, 0)))
+			// Through createMobViewPacket, not EncodeCreateMobBody: a personal-shop
+			// clone is a mob, and a mob revealed with the plain packet reaches the
+			// client with an empty title — which is the exact byte the client gates
+			// the shop on, so the stall would be there and refuse to open for
+			// anyone who walked up after it was raised.
+			typ, body := createMobViewPacket(w, me, 0)
+			w.SendTo(s, protocol.Header{Type: typ, ID: protocol.IDScene}, body)
 		}
 	})
 }
@@ -716,14 +721,35 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 // packet, so clients that enter view after the shop opened still see the stall.
 func createMobViewPacket(w *world.World, e *world.Entity, createType uint16) (protocol.Type, []byte) {
 	data := createMobFrom(e, createType)
-	if world.IsPlayer(e.ID) {
-		s := w.Session(e.ID)
-		if s != nil && s.Mode == world.UserPlay && s.TradeMode == 1 && s.AutoTrade != nil {
-			data.Con = 0 // GetCreateMobTrade parity: shop pose hides the Con field.
-			return protocol.MsgCreateMobTrade, protocol.EncodeCreateMobTradeBody(data, nil, s.AutoTrade.Title)
-		}
+	if s := shopSessionOf(w, e); s != nil {
+		data.Con = 0 // GetCreateMobTrade parity: shop pose hides the Con field.
+		return protocol.MsgCreateMobTrade, protocol.EncodeCreateMobTradeBody(data, nil, s.AutoTrade.Title)
 	}
 	return protocol.MsgCreateMob, protocol.EncodeCreateMobBody(data)
+}
+
+// shopSessionOf returns the session whose personal shop this entity IS, or nil
+// when it is not a stall. It answers for both shapes a shop can take: the clone
+// mob (Entity.ShopOwner points at its owner) and the legacy pose, where the
+// seller's own body is the stall.
+func shopSessionOf(w *world.World, e *world.Entity) *world.Session {
+	conn := e.ID
+	if !world.IsPlayer(e.ID) {
+		if e.ShopOwner == 0 {
+			return nil
+		}
+		conn = e.ShopOwner
+	}
+	s := w.Session(conn)
+	if s == nil || s.Mode != world.UserPlay || s.TradeMode != 1 || s.AutoTrade == nil {
+		return nil
+	}
+	// A clone must still be the one this shop owns. Without this an id recycled
+	// out from under a stale ShopOwner would answer for someone else's shop.
+	if !world.IsPlayer(e.ID) && s.AutoTrade.CloneID != e.ID {
+		return nil
+	}
+	return s
 }
 
 // playerPKPoint is pkPoint(e) for a player, or 0 for a mob (mobs never carry PK
@@ -786,11 +812,12 @@ func (d *Dispatcher) returnToCharacterSelection(w *world.World, s *world.Session
 				// the next character selected on this session (issue #21/#47).
 				e.ResetAffects()
 			}
-			// Drop any open personal shop (issue #115): the RemoveMob above already
-			// cleared the stall pose for viewers, so just clear the session-only
-			// state so it can't leak into the next character on this connection.
-			s.AutoTrade = nil
-			s.TradeMode = 0
+			// Drop any open personal shop (issue #115). Through closeAutoTrade, not by
+			// clearing the fields: the shop may have a clone standing in the world, and
+			// the RemoveMob above only removed the PLAYER. Zeroing the session state here
+			// would strand the stall — an entity nobody owns, that no longer resolves to a
+			// shop, and that nothing left alive knows to take down.
+			d.closeAutoTrade(w, s)
 			s.Mode = world.UserSelChar
 			w.Send(s, protocol.MsgCNFCharacterLogout, nil)
 			if after != nil {
@@ -814,8 +841,10 @@ func (d *Dispatcher) returnPersistedCharacterToSelection(w *world.World, s *worl
 			e.Mode = world.MobUserDock
 			e.ResetAffects()
 		}
-		s.AutoTrade = nil
-		s.TradeMode = 0
+		// Same reason as the sibling path above: closeAutoTrade, so a shop clone
+		// standing in the world comes down with its owner instead of being
+		// stranded by a field assignment.
+		d.closeAutoTrade(w, s)
 		s.Mode = world.UserSelChar
 		w.Send(s, protocol.MsgCNFCharacterLogout, nil)
 		if after != nil {

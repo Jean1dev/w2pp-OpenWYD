@@ -51,6 +51,8 @@ const (
 	AccountService_RecordChat_FullMethodName              = "/db.v1.AccountService/RecordChat"
 	AccountService_SetCharacterPresence_FullMethodName    = "/db.v1.AccountService/SetCharacterPresence"
 	AccountService_ClearAllPresence_FullMethodName        = "/db.v1.AccountService/ClearAllPresence"
+	AccountService_AddShopPoints_FullMethodName           = "/db.v1.AccountService/AddShopPoints"
+	AccountService_ShopPoints_FullMethodName              = "/db.v1.AccountService/ShopPoints"
 	AccountService_CreateGuild_FullMethodName             = "/db.v1.AccountService/CreateGuild"
 	AccountService_SetGuildMember_FullMethodName          = "/db.v1.AccountService/SetGuildMember"
 	AccountService_LeaveGuild_FullMethodName              = "/db.v1.AccountService/LeaveGuild"
@@ -177,6 +179,17 @@ type AccountServiceClient interface {
 	// started has nobody in-play, and this is what keeps a crash from stranding
 	// characters marked online forever.
 	ClearAllPresence(ctx context.Context, in *ClearAllPresenceRequest, opts ...grpc.CallOption) (*ClearAllPresenceResponse, error)
+	// AddShopPoints credits the account's personal-shop points wallet
+	// (0060_shop_points) and returns the new balance. Called once per completed
+	// quarter-hour that a stocked shop stays open.
+	//
+	// The delta is applied BY THE DATABASE (balance + delta), not by writing back a
+	// total, because two characters of one account can complete a window at the
+	// same instant.
+	AddShopPoints(ctx context.Context, in *AddShopPointsRequest, opts ...grpc.CallOption) (*AddShopPointsResponse, error)
+	// ShopPoints reads one account's shop-points balance, for the in-game /pontos
+	// command. A missing wallet row is zero, not an error.
+	ShopPoints(ctx context.Context, in *ShopPointsRequest, opts ...grpc.CallOption) (*ShopPointsResponse, error)
 	// Guild lifecycle and war/city state (issue #114). These RPCs are modern
 	// tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
 	// GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
@@ -447,6 +460,26 @@ func (c *accountServiceClient) ClearAllPresence(ctx context.Context, in *ClearAl
 	return out, nil
 }
 
+func (c *accountServiceClient) AddShopPoints(ctx context.Context, in *AddShopPointsRequest, opts ...grpc.CallOption) (*AddShopPointsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddShopPointsResponse)
+	err := c.cc.Invoke(ctx, AccountService_AddShopPoints_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) ShopPoints(ctx context.Context, in *ShopPointsRequest, opts ...grpc.CallOption) (*ShopPointsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShopPointsResponse)
+	err := c.cc.Invoke(ctx, AccountService_ShopPoints_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountServiceClient) CreateGuild(ctx context.Context, in *CreateGuildRequest, opts ...grpc.CallOption) (*CreateGuildResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateGuildResponse)
@@ -706,6 +739,17 @@ type AccountServiceServer interface {
 	// started has nobody in-play, and this is what keeps a crash from stranding
 	// characters marked online forever.
 	ClearAllPresence(context.Context, *ClearAllPresenceRequest) (*ClearAllPresenceResponse, error)
+	// AddShopPoints credits the account's personal-shop points wallet
+	// (0060_shop_points) and returns the new balance. Called once per completed
+	// quarter-hour that a stocked shop stays open.
+	//
+	// The delta is applied BY THE DATABASE (balance + delta), not by writing back a
+	// total, because two characters of one account can complete a window at the
+	// same instant.
+	AddShopPoints(context.Context, *AddShopPointsRequest) (*AddShopPointsResponse, error)
+	// ShopPoints reads one account's shop-points balance, for the in-game /pontos
+	// command. A missing wallet row is zero, not an error.
+	ShopPoints(context.Context, *ShopPointsRequest) (*ShopPointsResponse, error)
 	// Guild lifecycle and war/city state (issue #114). These RPCs are modern
 	// tmServer↔dbServer calls replacing the legacy DBSrv CPSock relays for
 	// GuildInfo, GuildAlly, War, Guilds.txt, Chall_*, and Guild_* files.
@@ -807,6 +851,12 @@ func (UnimplementedAccountServiceServer) SetCharacterPresence(context.Context, *
 }
 func (UnimplementedAccountServiceServer) ClearAllPresence(context.Context, *ClearAllPresenceRequest) (*ClearAllPresenceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ClearAllPresence not implemented")
+}
+func (UnimplementedAccountServiceServer) AddShopPoints(context.Context, *AddShopPointsRequest) (*AddShopPointsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddShopPoints not implemented")
+}
+func (UnimplementedAccountServiceServer) ShopPoints(context.Context, *ShopPointsRequest) (*ShopPointsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ShopPoints not implemented")
 }
 func (UnimplementedAccountServiceServer) CreateGuild(context.Context, *CreateGuildRequest) (*CreateGuildResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateGuild not implemented")
@@ -1306,6 +1356,42 @@ func _AccountService_ClearAllPresence_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_AddShopPoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddShopPointsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).AddShopPoints(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_AddShopPoints_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).AddShopPoints(ctx, req.(*AddShopPointsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_ShopPoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShopPointsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).ShopPoints(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_ShopPoints_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).ShopPoints(ctx, req.(*ShopPointsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountService_CreateGuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateGuildRequest)
 	if err := dec(in); err != nil {
@@ -1678,6 +1764,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClearAllPresence",
 			Handler:    _AccountService_ClearAllPresence_Handler,
+		},
+		{
+			MethodName: "AddShopPoints",
+			Handler:    _AccountService_AddShopPoints_Handler,
+		},
+		{
+			MethodName: "ShopPoints",
+			Handler:    _AccountService_ShopPoints_Handler,
 		},
 		{
 			MethodName: "CreateGuild",

@@ -249,6 +249,7 @@ func run(logger *slog.Logger) error {
 	var summonMobs [][]byte
 	var vineMob []byte
 	var casteloOrcNPC []byte
+	var shopCloneMob []byte
 	var castleQuests []content.CastleQuest
 	if *contentDir != "" {
 		statusFile = filepath.Join(*contentDir, "Common", "serv00.htm")
@@ -281,6 +282,20 @@ func run(logger *slog.Logger) error {
 			logger.Warn("Castelo Orc NPC template not loaded (the run cannot be opened)", "err", err)
 		} else {
 			casteloOrcNPC = xm
+		}
+		// The body a personal shop stands in (a lojinha solta). Merc_Carbunkle is
+		// the merchant Carbúnculo — the closest thing the 1991 shipped templates
+		// have to the "coelhinho" the stall was asked to be; there is no rabbit
+		// template in the tree at all.
+		//
+		// A warning and not a hard error: without it sendAutoTrade falls back to
+		// the legacy pose, and a shop that pins its seller is worse than this
+		// one, not broken.
+		if cm, err := content.LoadNPCTemplate(*contentDir, "Merc_Carbunkle"); err != nil {
+			logger.Warn("template da lojinha não carregado (a barraca vai prender o vendedor, como no legado)", "err", err)
+		} else {
+			shopCloneMob = cm
+			logger.Info("template da lojinha carregado", "npc", "Merc_Carbunkle")
 		}
 		if cq, err := content.LoadCastleQuests(filepath.Join(*contentDir, "Common", "Settings", "CastleQuest.txt")); err != nil {
 			logger.Warn("castle quests not loaded (Castle/Zakum disabled)", "err", err)
@@ -591,6 +606,10 @@ func run(logger *slog.Logger) error {
 		StatusFile:    statusFile,
 		ItemRanges:    itemRanges,
 		LogSends:      *logSends,
+		// The body a personal shop stands in (world/shopclone.go). Empty without
+		// -content, and that is a working state: the shop falls back to the
+		// legacy pose that pins its seller.
+		ShopCloneTemplate: shopCloneMob,
 		// Which items are worth an identity (0033_item_serial). The rule reads
 		// the item catalog, which the dispatcher has and the world does not.
 		Marcavel: dispatch.Marcavel,

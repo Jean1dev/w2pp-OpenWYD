@@ -101,6 +101,10 @@
       <div class="val">{{.Conta.DonateBalance}}</div>
     </div>
     <div class="campo">
+      <div class="rot">Pontos de lojinha</div>
+      <div class="val">{{.Conta.ShopPoints}}</div>
+    </div>
+    <div class="campo">
       <div class="rot">Personagens</div>
       <div class="val">{{len .Personagens}}</div>
     </div>
@@ -254,6 +258,44 @@
   {{if .NaoLeu.entregas}}
   <h2>Na fila</h2>
   {{template "falha-de-leitura" "a fila de entrega"}}
+  {{end}}
+
+  {{if .NaoLeu.pontos}}
+  <h2>Pontos de lojinha</h2>
+  {{template "falha-de-leitura" "o extrato de pontos de lojinha"}}
+  {{end}}
+
+  {{if .Pontos}}
+  <h2>Pontos de lojinha</h2>
+  <p class="sub">
+    O que a lojinha rendeu: 3 pontos a cada 15 minutos com a barraca aberta e ao
+    menos um item à venda, 7 com Fada Azul. Os pontos são da conta, não do
+    personagem — a coluna Personagem diz apenas quem estava com a barraca de pé.
+  </p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Quando</th>
+          <th>Personagem</th>
+          <th class="num">Pontos</th>
+          <th class="num">Saldo</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Pontos}}
+        <tr>
+          <td>{{.Quando.Local.Format "02/01/2006 15:04"}}</td>
+          <td>{{if .Personagem}}{{.Personagem}}{{else}}&mdash;{{end}}</td>
+          <td class="num">{{if gt .Delta 0}}+{{end}}{{.Delta}}</td>
+          <td class="num">{{.SaldoApos}}</td>
+          <td>{{if .Motivo}}{{.Motivo}}{{else}}&mdash;{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
   {{end}}
 
   {{if .Pendentes}}

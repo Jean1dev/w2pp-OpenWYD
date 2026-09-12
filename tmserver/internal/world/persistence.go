@@ -394,6 +394,17 @@ type Persistence interface {
 	// characters marked online forever.
 	ClearAllPresence(ctx context.Context) (int64, error)
 
+	// AddShopPoints credits a personal-shop reward to the account's shop-points
+	// wallet (0044_shop_points) and returns the new balance. Called off the loop
+	// via World.Go, once per completed quarter-hour of open shop.
+	//
+	// Best-effort on the wire but NOT on the arithmetic: the delta is applied by
+	// the database (balance = balance + delta), never by writing back a total the
+	// server computed, because two characters on the same account can be paid at
+	// the same time and a read-modify-write would lose one of them.
+	AddShopPoints(ctx context.Context, accountID int64, delta int32, characterName, reason string) (int32, error)
+	ShopPoints(ctx context.Context, accountID int64) (int32, error)
+
 	// Guild lifecycle/state (issue #114). These calls block on dbServer and must
 	// be made through World.Go/GoDetached by loop handlers.
 	CreateGuild(ctx context.Context, accountID int64, slot int, characterName, guildName string, clan, citizen uint8, serverIndex int, cost int32) (GuildRecord, bool, error)
@@ -531,6 +542,16 @@ func (NopPersistence) SetCharacterPresence(context.Context, string, bool) error 
 
 // ClearAllPresence reports nothing to clear.
 func (NopPersistence) ClearAllPresence(context.Context) (int64, error) { return 0, nil }
+
+// AddShopPoints keeps no wallet, so it answers a zero balance. A no-op
+// persistence means a server booted without -dbserver: shops still open and
+// still pay nothing, which is the same bargain every other write makes here.
+func (NopPersistence) AddShopPoints(context.Context, int64, int32, string, string) (int32, error) {
+	return 0, nil
+}
+
+// ShopPoints reports an empty wallet.
+func (NopPersistence) ShopPoints(context.Context, int64) (int32, error) { return 0, nil }
 
 // CreateGuild is unsupported without a backend.
 func (NopPersistence) CreateGuild(context.Context, int64, int, string, string, uint8, uint8, int, int32) (GuildRecord, bool, error) {

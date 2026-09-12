@@ -155,6 +155,20 @@ type AutoTradeState struct {
 	Title string
 	Tax   int16
 	Slots [MaxAutoTrade]AutoTradeSlot
+
+	// CloneID is the mob entity that stands in for the seller (Entity.ShopOwner
+	// points back). MaxUser or above when the stall is a separate body; 0 when
+	// the shop had to fall back to the legacy pose, which is what happens when no
+	// clone template is configured or the world is out of mob slots.
+	CloneID int
+
+	// OpenedAt and PaidUntil drive the shop-points clock (pontos por tempo de
+	// lojinha), both on the loop clock (World.Now, ClientTick ms) like the respawn
+	// queue. OpenedAt is when the stall went up; PaidUntil is the end of the last
+	// quarter-hour already credited, so a shop that closes mid-window is paid for
+	// its completed windows only, and never twice for the same one.
+	OpenedAt  uint32
+	PaidUntil uint32
 }
 
 // AutoTradeSlot is one shop offer: the item (copy of the seller's Cargo slot), its
@@ -456,6 +470,22 @@ type Entity struct {
 	// its owner's party leader (or the owner), matching the legacy binding.
 	Summoner  int
 	PartyList [MaxParty]int
+
+	// ShopOwner is the conn of the player whose personal shop this mob IS, and it
+	// is what makes the "lojinha solta" possible: the stall is its own entity, so
+	// the owner walks away while it keeps selling. 0 = not a shop clone.
+	//
+	// A divergence from the legacy, where the seller himself was the stall. It is
+	// only viable because the client gates the shop on the entity's title buffer
+	// (+0x9BC) and not on its id: MSG_CreateMobTrade marks ANY entity as a stall,
+	// and the click answers _MSG_ReqTradeList with the raw id — the id < MAX_USER
+	// test lives in the other branch, the one for entities without a title.
+	// Confirmed by disassembly of WYD.exe 7662 (0x0048541D and 0x004604D1).
+	//
+	// It is a back-reference, not ownership: the shop itself lives on the owner's
+	// Session.AutoTrade, which points back here through CloneID. Both die together
+	// in closeAutoTrade.
+	ShopOwner int
 
 	Equip [MaxEquip]Item // equipped items
 	Carry [MaxCarry]Item // inventory; for mobs this is also the loot table (§2.2)

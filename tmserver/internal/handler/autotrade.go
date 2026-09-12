@@ -12,7 +12,8 @@ import (
 // completed buy, so closing the shop never returns anything. All state lives on the
 // Session (session-only, never persisted) and every handler runs inside the loop
 // goroutine, so the buy transaction is atomic without locks. Closing the shop is
-// RemoveTrade (handler.removeTrade), NOT _MSG_Deprivate (which is a guild op).
+// closeAutoTrade, NOT _MSG_Deprivate (which is a guild op) and — diverging from the
+// legacy — no longer RemoveTrade: see the note on removeTrade in trade.go.
 
 // autoTradePriceMax is the per-item price ceiling (_MSG_SendAutoTrade.cpp:76).
 const autoTradePriceMax = 1_999_999_999
@@ -59,7 +60,7 @@ func (d *Dispatcher) sendAutoTrade(w *world.World, s *world.Session, _ protocol.
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
 		w.AddCrackError(s, 10, 88)
-		d.removeTrade(w, s)
+		d.closeAutoTrade(w, s)
 		return
 	}
 	// Can't open a shop mid-trade or while one is already open.
@@ -69,7 +70,7 @@ func (d *Dispatcher) sendAutoTrade(w *world.World, s *world.Session, _ protocol.
 	}
 	village := world.Village(e.X, e.Y)
 	if village < 0 || village > 4 || inAutoTradeForbiddenRect(e.X, e.Y) {
-		d.removeTrade(w, s)
+		d.closeAutoTrade(w, s)
 		d.notify(w, s, NoticeOnlyVillage)
 		return
 	}
@@ -109,7 +110,7 @@ func (d *Dispatcher) sendAutoTrade(w *world.World, s *world.Session, _ protocol.
 		// match the (unchanged) Cargo item, but the buy path clears both on sale, so a
 		// duplicate reference just goes empty on the first purchase.
 		if !sameItem(ws.Item, cargo.Items[pos]) {
-			d.removeTrade(w, s)
+			d.closeAutoTrade(w, s)
 			return
 		}
 		// EF_NOTRADE, the same gate the trade window uses. The original refuses here
@@ -126,11 +127,58 @@ func (d *Dispatcher) sendAutoTrade(w *world.World, s *world.Session, _ protocol.
 		shop.Slots[i].Price = ws.Coin
 	}
 
+	// At least one item on sale, checked before the shop is stored. The shop-points
+	// clock below only runs for a stocked stall, and an empty shop is now free to
+	// keep open — the owner walks away from it — so it would otherwise be pure
+	// idle income for anyone with a spare account.
+	if !shopStocked(shop) {
+		d.notify(w, s, NoticeCantAutoTrade)
+		return
+	}
+
 	s.AutoTrade = shop
 	s.TradeMode = 1
+	shop.OpenedAt = w.Now()
+	shop.PaidUntil = shop.OpenedAt
+	// The stall goes up FIRST, then the list. sendShopList stamps the stall's id
+	// into Index, and the clone's id only exists after raiseShopStall — echoing
+	// the list first would hand the owner his own conn as the shop's address.
+	d.raiseShopStall(w, s, e)
 	d.sendShopList(w, s, s.Conn) // SendAutoTrade(conn, conn): echo the owner its list
-	d.sendShopPose(w, s, e)
-	d.log.Info("autotrade opened", "conn", s.Conn, "title", shop.Title, "tax", shop.Tax)
+	d.log.Info("autotrade opened", "conn", s.Conn, "title", shop.Title, "tax", shop.Tax,
+		"clone", shop.CloneID)
+}
+
+// shopStocked reports whether a shop has anything left to sell. It reads the same
+// two fields a buy clears, so a stall whose last item sells goes unstocked on the
+// spot and stops earning.
+func shopStocked(shop *world.AutoTradeState) bool {
+	for i := range shop.Slots {
+		if shop.Slots[i].CargoPos >= 0 && !shop.Slots[i].Item.Empty() {
+			return true
+		}
+	}
+	return false
+}
+
+// shopAt resolves the entity id a client sent into the shop behind it: the
+// seller's session and the body the buyer has to stand next to. It accepts both
+// shapes — the clone mob and the legacy pose — and it is the reason the callers
+// no longer test the id against MaxUser: with a stall of its own, a shop id is
+// legitimately a mob id.
+func shopAt(w *world.World, id int) (*world.Session, *world.Entity) {
+	if id <= 0 || id >= world.MaxMob {
+		return nil, nil
+	}
+	e := w.Entity(id)
+	if e == nil {
+		return nil, nil
+	}
+	s := shopSessionOf(w, e)
+	if s == nil {
+		return nil, nil
+	}
+	return s, e
 }
 
 // reqTradeList handles _MSG_ReqTradeList (0x039A): browse another player's shop.
@@ -141,19 +189,21 @@ func (d *Dispatcher) reqTradeList(w *world.World, s *world.Session, _ protocol.H
 		return
 	}
 	autoID, ok := protocol.StandardParm(payload)
-	if !ok || autoID <= 0 || int(autoID) >= world.MaxUser {
+	if !ok {
 		return
 	}
-	seller := w.Session(int(autoID))
-	te := w.Entity(int(autoID))
-	if seller == nil || te == nil || seller.TradeMode == 0 || seller.AutoTrade == nil {
+	// No MaxUser bound here any more: with the stall raised as its own body, the
+	// id the client clicked is a mob id. shopAt is what validates it, and it
+	// answers nil for anything that is not actually somebody's open shop.
+	seller, te := shopAt(w, int(autoID))
+	if seller == nil {
 		return
 	}
 	if !autoTradeInRange(e, te) {
-		d.log.Info("autotrade list too far", "conn", s.Conn, "seller", autoID)
+		d.log.Info("autotrade list too far", "conn", s.Conn, "stall", autoID, "seller", seller.Conn)
 		return
 	}
-	d.sendShopList(w, s, int(autoID))
+	d.sendShopList(w, s, seller.Conn)
 }
 
 // reqBuy handles _MSG_ReqBuy (0x0398): buy one item from a shop. The whole
@@ -176,16 +226,16 @@ func (d *Dispatcher) reqBuy(w *world.World, s *world.Session, _ protocol.Header,
 		return
 	}
 	targetID := int(m.TargetID)
-	if targetID <= 0 || targetID >= world.MaxUser {
+	seller, te := shopAt(w, targetID)
+	if seller == nil {
 		return
 	}
-	seller := w.Session(targetID)
-	te := w.Entity(targetID)
-	if seller == nil || te == nil || seller.AutoTrade == nil || seller.TradeMode == 0 {
-		return
-	}
+	// Against the STALL, not the seller. That is the whole point of the clone:
+	// the seller is somewhere else, and measuring the buyer's distance to him
+	// would fail every purchase the moment he walked off — or, worse, let someone
+	// buy from a stall they are nowhere near because its owner happens to be.
 	if !autoTradeInRange(e, te) {
-		d.log.Info("autotrade buy too far", "conn", s.Conn, "seller", targetID)
+		d.log.Info("autotrade buy too far", "conn", s.Conn, "stall", targetID, "seller", seller.Conn)
 		return
 	}
 	pos := int(m.Pos)
@@ -261,14 +311,19 @@ func (d *Dispatcher) reqBuy(w *world.World, s *world.Session, _ protocol.Header,
 
 // sendShopList sends the shop owned by sellerConn to s (SendFunc.cpp:SendAutoTrade).
 // It reuses the MSG_SendAutoTrade struct S→C with the Size=528 wire quirk, ID set to
-// the scene id and Index to the seller's conn.
+// the scene id and Index to the STALL's entity id.
+//
+// The Index is the stall, not the seller's conn, and that is load-bearing: it is
+// what the client echoes back as MSG_ReqBuy.TargetID, and the buy path measures
+// the buyer's distance against whatever that id names. Sending the seller's conn
+// would point every purchase at a body that is somewhere else entirely.
 func (d *Dispatcher) sendShopList(w *world.World, s *world.Session, sellerConn int) {
 	seller := w.Session(sellerConn)
 	if seller == nil || seller.AutoTrade == nil {
 		return
 	}
 	at := seller.AutoTrade
-	body := protocol.MsgSendAutoTradeBody{Title: at.Title, Tax: at.Tax, Index: int16(sellerConn)}
+	body := protocol.MsgSendAutoTradeBody{Title: at.Title, Tax: at.Tax, Index: int16(shopStallID(seller))}
 	for i := range at.Slots {
 		sl := at.Slots[i]
 		if sl.CargoPos < 0 || sl.Item.Empty() {
@@ -282,30 +337,108 @@ func (d *Dispatcher) sendShopList(w *world.World, s *world.Session, sellerConn i
 	w.SendTo(s, protocol.Header{Type: protocol.MsgSendAutoTrade, ID: protocol.IDScene}, body.EncodeList())
 }
 
-// sendShopPose shows the seller in the stall pose to itself and everyone in view
-// (_MSG_SendAutoTrade.cpp:112-120). The pose is the MSG_CreateMobTrade Type, not a
-// CreateType value; Score.Con is zeroed for parity.
-func (d *Dispatcher) sendShopPose(w *world.World, s *world.Session, e *world.Entity) {
+// shopPinsOwner reports whether an open personal shop still pins its owner in
+// place — the legacy behaviour, and now only the fallback shape.
+//
+// It is the gate behind every "you can't do that while your shop is open" refusal
+// (attacking, dropping, picking up, dragging an item). Those all exist for one
+// reason: the seller's own body WAS the stall, so letting him act meant letting a
+// shop walk, swing and loot. Once the stall is a clone that reason is gone, and
+// the owner goes back to being an ordinary player who happens to own a shop.
+//
+// The shop's own safety does not rest on these refusals and never did: what makes
+// the sale safe is the memcmp in reqBuy against the live Cargo slot. An owner who
+// shuffles his warehouse under an open shop does not duplicate anything — he makes
+// the next purchase of that slot fail.
+func shopPinsOwner(s *world.Session) bool {
+	if s.TradeMode == 0 {
+		return false
+	}
+	return s.AutoTrade == nil || s.AutoTrade.CloneID < world.MaxUser
+}
+
+// shopStallID is the entity id that IS this session's shop: the clone when one
+// was raised, and the seller's own conn when it was not (legacy pose fallback).
+func shopStallID(s *world.Session) int {
+	if s.AutoTrade != nil && s.AutoTrade.CloneID >= world.MaxUser {
+		return s.AutoTrade.CloneID
+	}
+	return s.Conn
+}
+
+// raiseShopStall puts the stall into the world and shows it to everyone in view.
+//
+// It prefers a clone — its own body, which is what frees the seller to walk — and
+// falls back to the legacy pose (_MSG_SendAutoTrade.cpp:112-120), where the
+// seller's own body becomes the stall, when no clone could be raised. The pose is
+// selected by the MSG_CreateMobTrade Type, not by a CreateType value; Score.Con
+// is zeroed for parity either way.
+func (d *Dispatcher) raiseShopStall(w *world.World, s *world.Session, e *world.Entity) {
+	tab := make([]byte, 26)
+
+	if id := w.SpawnShopClone(s.Conn, e.Name); id != 0 {
+		s.AutoTrade.CloneID = id
+		ce := w.Entity(id)
+		data := createMobFrom(ce, 0)
+		data.Con = 0
+		body := protocol.EncodeCreateMobTradeBody(data, tab, s.AutoTrade.Title)
+		// One broadcast reaches everyone INCLUDING the owner: BroadcastInView
+		// skips the session whose conn equals the source id, and the source here
+		// is the clone's mob id, which no session's conn can be. Sending the owner
+		// a separate copy would deliver the stall to him twice.
+		w.BroadcastInView(id, protocol.MsgCreateMobTrade, body)
+		// The owner's own body stays a normal avatar. Nothing to re-send: he was
+		// never put into the pose.
+		return
+	}
+
+	// Fallback: no clone template, no free cell, or no free mob slot. The shop
+	// still opens the legacy way — the seller IS the stall, so shopPinsOwner keeps
+	// his old restrictions and walking closes the shop (movement.go).
+	d.log.Info("autotrade sem clone, usando a pose do legado", "conn", s.Conn)
 	data := createMobFrom(e, 0)
 	data.Con = 0 // _MSG_SendAutoTrade.cpp:118
-	tab := make([]byte, 26)
 	body := protocol.EncodeCreateMobTradeBody(data, tab, s.AutoTrade.Title)
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMobTrade, ID: protocol.IDScene}, body)
 	w.BroadcastInView(s.Conn, protocol.MsgCreateMobTrade, body)
 }
 
-// closeAutoTrade shuts an open personal shop: it clears the state, closes the shop
-// UI on the owner (_MSG_QuitTrade signal), and re-emits a NORMAL MSG_CreateMob so
-// the stall pose reverts for the owner and everyone in view (RemoveTrade,
-// Server.cpp:8138-8145). No-op when no shop is open. Called from removeTrade (and
-// thus from every RemoveTrade trigger: quit-trade, walking, buying, item ops, …).
+// closeAutoTrade shuts an open personal shop: it settles the shop-points clock,
+// takes the stall down (the clone, or the legacy pose reverted with a normal
+// MSG_CreateMob — RemoveTrade, Server.cpp:8138-8145) and closes the shop UI on the
+// owner. No-op when no shop is open.
+//
+// It is called from exactly four places, and the shortness of that list is the
+// design: the owner's own quit-trade, the end of the session (SessionEnd and both
+// character-select paths), this file's anti-tamper refusals, and walking while in
+// the legacy pose. It is NOT called from removeTrade any more — see the note
+// there. A shop that came down for any other reason would be a shop the player
+// cannot keep.
 func (d *Dispatcher) closeAutoTrade(w *world.World, s *world.Session) {
 	if s.AutoTrade == nil && s.TradeMode == 0 {
 		return
 	}
+	// Settle the shop clock before the state goes away: the owner is owed every
+	// quarter-hour the stall actually completed, and closing is the one moment
+	// that number can still be read.
+	d.creditShopPoints(w, s)
+
+	clone := 0
+	if s.AutoTrade != nil {
+		clone = s.AutoTrade.CloneID
+	}
 	s.AutoTrade = nil
 	s.TradeMode = 0
 	w.Send(s, protocol.MsgQuitTrade, nil)
+
+	if clone != 0 {
+		// The stall was its own body: take it down and leave the owner alone. He
+		// was never in the pose, so re-sending his avatar would be a pointless
+		// CreateMob for an entity nobody's client got wrong.
+		w.DespawnShopClone(clone, s.Conn)
+		return
+	}
+
 	e := w.Entity(s.Conn)
 	if e == nil || e.Mode != world.MobUser {
 		return

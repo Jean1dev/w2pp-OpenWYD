@@ -16,6 +16,7 @@ import (
 type fakeAPI struct {
 	presenceReq     *dbv1.SetCharacterPresenceRequest
 	presenceCleared int64
+	shopPoints      int32 // running personal-shop balance, as the real wallet accumulates
 	loginResp       *dbv1.AccountLoginResponse
 	listResp        *dbv1.ListCharactersResponse
 	loadResp        *dbv1.LoadCharacterResponse
@@ -488,4 +489,13 @@ func (f *fakeAPI) RecordGround(_ context.Context, req *dbv1.RecordGroundRequest,
 func (f *fakeAPI) RecordReport(_ context.Context, req *dbv1.RecordReportRequest, _ ...grpc.CallOption) (*dbv1.RecordReportResponse, error) {
 	f.reports = append(f.reports, req)
 	return &dbv1.RecordReportResponse{Ok: true}, nil
+}
+
+func (f *fakeAPI) AddShopPoints(_ context.Context, req *dbv1.AddShopPointsRequest, _ ...grpc.CallOption) (*dbv1.AddShopPointsResponse, error) {
+	f.shopPoints += req.GetDelta()
+	return &dbv1.AddShopPointsResponse{Balance: f.shopPoints}, nil
+}
+
+func (f *fakeAPI) ShopPoints(context.Context, *dbv1.ShopPointsRequest, ...grpc.CallOption) (*dbv1.ShopPointsResponse, error) {
+	return &dbv1.ShopPointsResponse{Balance: f.shopPoints}, nil
 }

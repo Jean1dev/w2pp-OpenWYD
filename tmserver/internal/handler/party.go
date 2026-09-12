@@ -214,6 +214,14 @@ func (d *Dispatcher) removeParty(w *world.World, s *world.Session, _ protocol.He
 // inherited the rows. Registered with world.SetSessionEndHandler and also called
 // from characterLogout. Idempotent — the second run finds an empty party.
 func (d *Dispatcher) SessionEnd(w *world.World, s *world.Session) {
+	// Take the personal shop down first, and before the partyless early return
+	// below. This hook is the ONLY teardown a dropped socket runs, and a stall is
+	// now an entity of its own: without this, killing the client while a shop is
+	// open leaves the clone standing in the city forever, pointing at a conn that
+	// has been recycled to somebody else. It also settles the shop-points clock,
+	// so a seller who disconnects is still paid for the windows he completed.
+	d.closeAutoTrade(w, s)
+
 	e := w.Entity(s.Conn)
 	if e == nil || !isInParty(e) {
 		return // nothing to unlink; don't push a party packet at a partyless client

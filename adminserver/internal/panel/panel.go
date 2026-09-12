@@ -84,6 +84,9 @@ type AuditLog interface {
 // reading and changing an account are different privileges and different risks.
 type Writer interface {
 	Get(ctx context.Context, id int64) (accounts.Details, error)
+	// PontosDeLojinha é o extrato da carteira de pontos de lojinha da conta
+	// (0060_shop_points): de onde veio o saldo que a página mostra.
+	PontosDeLojinha(ctx context.Context, id int64, limite int) ([]accounts.PontoDeLojinha, error)
 	PendingSince(ctx context.Context, since time.Time) (int, time.Time, error)
 	SetPassword(ctx context.Context, targetID int64, hash string) error
 	Criar(ctx context.Context, nome, hash, email string) (int64, error)
@@ -798,6 +801,18 @@ func (h *Handler) conta(w http.ResponseWriter, r *http.Request) {
 		det = accounts.Details{}
 	}
 
+	// The ledger explains the balance above. A failure here does not blank the
+	// page, for the same reason the roster and the mailbox do not: what brings
+	// most visits to this page is the role and the block status, and those are
+	// what must survive a bad read.
+	var pontos []accounts.PontoDeLojinha
+	if ps, perr := h.cfg.Writer.PontosDeLojinha(r.Context(), auth.ID, 20); perr != nil {
+		h.cfg.Logger.Error("shop points ledger failed", "account", nome, "id", auth.ID, "err", perr)
+		naoLeu.nao("pontos")
+	} else {
+		pontos = ps
+	}
+
 	// Which of the characters the game currently owns. The list shows it because
 	// it decides what the operator can do next: an item for a character in play
 	// goes through the mailbox, not the editor.
@@ -852,11 +867,12 @@ func (h *Handler) conta(w http.ResponseWriter, r *http.Request) {
 		PodeEntregar bool
 		Aviso        string
 		EhVoce       bool
+		Pontos       []accounts.PontoDeLojinha
 	}{
 		p,
 		contaView{
 			ID: auth.ID, Name: nome, Role: auth.Role, IsBlocked: auth.IsBlocked,
-			Email: det.Email, DonateBalance: det.DonateBalance,
+			Email: det.Email, DonateBalance: det.DonateBalance, ShopPoints: det.ShopPoints,
 			VipUntil: det.VipUntil, VipActive: accounts.VipActive(det.VipUntil),
 			Bloqueio: det.Bloqueio,
 		},
@@ -871,6 +887,7 @@ func (h *Handler) conta(w http.ResponseWriter, r *http.Request) {
 		// refused: the writer rejects self-changes anyway, and offering a control
 		// that always fails is worse than not offering it.
 		p.AccountID == auth.ID,
+		pontos,
 	})
 }
 
@@ -1004,6 +1021,7 @@ type contaView struct {
 	IsBlocked     bool
 	Email         string
 	DonateBalance int32
+	ShopPoints    int32 // carteira de pontos de lojinha (0060_shop_points)
 	VipUntil      *time.Time
 	VipActive     bool // expiry compared against now, which is the whole mechanism
 	Bloqueio      accounts.Bloqueio

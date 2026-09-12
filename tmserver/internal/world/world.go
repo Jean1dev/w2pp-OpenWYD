@@ -164,6 +164,13 @@ type Config struct {
 	// built-in default. The client-edge HTTP status check is undocumented in
 	// protocol-spec.md (CPSock-only) — discovered from a live client capture.
 	StatusFile string
+
+	// ShopCloneTemplate is the raw 816-byte STRUCT_MOB the personal-shop clone is
+	// built from (Release/TMsrv/run/npc/Merc_Carbunkle). NIL IS A SUPPORTED
+	// STATE, not an oversight: without it a shop falls back to the legacy pose
+	// that pins the seller in place, which is what every test world and a
+	// content-less boot get.
+	ShopCloneTemplate []byte
 }
 
 // World holds all mutable game state. Every field is touched only by Run's

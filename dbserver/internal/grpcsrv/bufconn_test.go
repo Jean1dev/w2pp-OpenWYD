@@ -107,3 +107,18 @@ func (f *fakeStore) ClearAllPresence(context.Context) (int64, error) {
 	}
 	return n, nil
 }
+
+// shopPoints is the in-memory personal-shop wallet, keyed by account id. Credits
+// accumulate here exactly as the real store accumulates them in Postgres, so a
+// test can assert on the running balance and not just on the last call.
+func (f *fakeStore) AddShopPoints(_ context.Context, accountID int64, delta int32, _, _ string) (int32, error) {
+	if f.shopPoints == nil {
+		f.shopPoints = map[int64]int32{}
+	}
+	f.shopPoints[accountID] += delta
+	return f.shopPoints[accountID], nil
+}
+
+func (f *fakeStore) ShopPoints(_ context.Context, accountID int64) (int32, error) {
+	return f.shopPoints[accountID], nil
+}

@@ -293,18 +293,25 @@ var ErrVipDays = errors.New("accounts: vip day count out of range")
 type Details struct {
 	Email         string
 	DonateBalance int32
-	VipUntil      *time.Time // nil means the account has never been VIP
-	Bloqueio      Bloqueio   // why the account is blocked, when, and by whom
+	// ShopPoints is the personal-shop wallet (0060_shop_points): what the
+	// account earned by keeping a stocked lojinha open. A missing wallet row
+	// reads as zero, so an account that never opened a shop shows 0 rather than
+	// failing the whole page.
+	ShopPoints int32
+	VipUntil   *time.Time // nil means the account has never been VIP
+	Bloqueio   Bloqueio   // why the account is blocked, when, and by whom
 }
 
 // Get reads the panel-facing fields of one account.
 func (s *Store) Get(ctx context.Context, id int64) (Details, error) {
 	var d Details
 	err := s.pool.QueryRow(ctx, `
-		SELECT email, donate_balance, vip_until,
+		SELECT email, donate_balance,
+		       COALESCE((SELECT balance FROM shop_points WHERE account_id = account.id), 0),
+		       vip_until,
 		       is_blocked, block_reason, blocked_at, blocked_by, blocked_until
 		  FROM account WHERE id = $1`, id).
-		Scan(&d.Email, &d.DonateBalance, &d.VipUntil,
+		Scan(&d.Email, &d.DonateBalance, &d.ShopPoints, &d.VipUntil,
 			&d.Bloqueio.Blocked, &d.Bloqueio.Reason, &d.Bloqueio.At, &d.Bloqueio.By, &d.Bloqueio.Until)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Details{}, ErrNotFound
@@ -707,4 +714,52 @@ func (s *Store) Criar(ctx context.Context, nome, hash, email string) (int64, err
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// PontoDeLojinha is one movement of an account's personal-shop wallet, as the
+// account page shows it.
+//
+// Personagem is who had the stall standing and is informative only — the wallet
+// belongs to the ACCOUNT, and character names are not unique on this server.
+type PontoDeLojinha struct {
+	Personagem string
+	Delta      int32
+	SaldoApos  int32
+	Motivo     string
+	Quando     time.Time
+}
+
+// PontosDeLojinha reads the latest movements of one account's shop-points wallet,
+// newest first. It answers the question the balance alone cannot: where those
+// points came from, and when.
+//
+// An empty result is normal (an account that never kept a shop open), so the
+// caller shows an empty extrato rather than an error.
+func (s *Store) PontosDeLojinha(ctx context.Context, id int64, limite int) ([]PontoDeLojinha, error) {
+	if limite <= 0 || limite > 200 {
+		limite = 50
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT character_name, delta, balance_after, reason, created_at
+		  FROM shop_points_audit
+		 WHERE account_id = $1
+		 ORDER BY created_at DESC, id DESC
+		 LIMIT $2`, id, limite)
+	if err != nil {
+		return nil, fmt.Errorf("accounts: extrato de pontos de %d: %w", id, err)
+	}
+	defer rows.Close()
+
+	var out []PontoDeLojinha
+	for rows.Next() {
+		var p PontoDeLojinha
+		if err := rows.Scan(&p.Personagem, &p.Delta, &p.SaldoApos, &p.Motivo, &p.Quando); err != nil {
+			return nil, fmt.Errorf("accounts: ler linha do extrato de pontos: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("accounts: percorrer extrato de pontos: %w", err)
+	}
+	return out, nil
 }

@@ -277,6 +277,8 @@ type fakeWriter struct {
 	vipDays      []int
 	vipCleared   int
 	prevRole     string
+	pontos       []accounts.PontoDeLojinha
+	pontosErr    error
 	prevBlk      bool
 	prevVip      *time.Time
 	pendentes    int
@@ -4928,4 +4930,12 @@ func (f *fakeGameData) ClearMountBonus(_ context.Context, _ int64, mountIndex in
 	defer f.mu.Unlock()
 	f.bonusLimpo = append(f.bonusLimpo, mountIndex)
 	return nil
+}
+
+// PontosDeLojinha answers the shop-points extrato. pontos is nil by default, so
+// the account page renders without the ledger unless a test fills it in.
+func (f *fakeWriter) PontosDeLojinha(_ context.Context, _ int64, _ int) ([]accounts.PontoDeLojinha, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.pontos, f.pontosErr
 }
