@@ -1,6 +1,10 @@
 package handler
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
+)
 
 // TestFadaLevaNaAgua pins which fairies carry the party: the Verde family (the
 // XP one, Suprema included) and the Vermelha. The Azul and the Verde-Azul pay
@@ -37,9 +41,10 @@ func TestFadaLevaNaAgua(t *testing.T) {
 	}
 }
 
-// TestProximaSalaDaAgua walks the chain. The jump that matters is the last
-// numbered room (7, the LV8 one): its reward is the Evocação Neses, so the room
-// after it is the boss — never the dead room 8, which no item can open.
+// TestProximaSalaDaAgua walks the chain. Two jumps matter: the last numbered
+// room (7, the LV8 one) leads to the boss because its reward is the Evocação
+// Neses — never to the dead room 8, which no item can open — and the boss leads
+// back to Sala 1, which is the lap the fairy runs until the bag is empty.
 func TestProximaSalaDaAgua(t *testing.T) {
 	for room := 0; room < waterDeadRoom-1; room++ {
 		if got := proximaSalaDaAgua(room); got != room+1 {
@@ -51,6 +56,61 @@ func TestProximaSalaDaAgua(t *testing.T) {
 	}
 	if proximaSalaDaAgua(waterDeadRoom-1) == waterDeadRoom {
 		t.Error("a fada levou o grupo para a sala morta 8")
+	}
+	if got := proximaSalaDaAgua(waterBossRoom); got != 0 {
+		t.Errorf("depois do Boss veio a sala %d, want a Sala 1 (0)", got)
+	}
+}
+
+// TestPergaDaBolsaParaRecomecar is the lap after the boss: it is paid from the
+// bag, not by a reward, so what the bag holds decides both whether the cycle
+// goes on and where it goes.
+func TestPergaDaBolsaParaRecomecar(t *testing.T) {
+	const (
+		nLV1 = 3173 // volatil 131 → sala 0
+		nLV3 = 3175 // volatil 133 → sala 2
+		mLV1 = 777  // volatil 21, outra corrente
+		fada = 3900
+	)
+	vols := map[int]int{nLV1: 131, nLV3: 133, mLV1: 21}
+
+	casos := []struct {
+		nome      string
+		bolsa     []int16
+		queroSala int
+		queroSlot int
+		queroOK   bool
+	}{
+		{"o LV1 recomeca na Sala 1", []int16{nLV1}, 0, 0, true},
+		// O mais baixo ganha: recomeçar cedo aproveita a corrida inteira em vez
+		// de queimar o LV3 numa corrida curta.
+		{"com LV3 e LV1, vale o LV1", []int16{nLV3, nLV1}, 0, 1, true},
+		{"só o LV3 abre a Sala 3", []int16{nLV3}, 2, 0, true},
+		{"bolsa sem pergaminho encerra o ciclo", []int16{fada}, 0, -1, false},
+		{"pergaminho de outra corrente nao serve", []int16{mLV1}, 0, -1, false},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			e := &world.Entity{}
+			for i, idx := range c.bolsa {
+				e.Carry[i] = world.Item{Index: idx}
+			}
+			sala, slot, ok := pergaDaBolsaParaRecomecar(vols, e, waterN)
+			if ok != c.queroOK {
+				t.Fatalf("ok = %v, want %v", ok, c.queroOK)
+			}
+			if ok && (sala != c.queroSala || slot != c.queroSlot) {
+				t.Errorf("= sala %d slot %d, want sala %d slot %d", sala, slot, c.queroSala, c.queroSlot)
+			}
+		})
+	}
+
+	// Um pergaminho guardado num slot que a bolsa não desbloqueou não pode pagar
+	// a volta: cobrar dele gastaria um item que o próprio jogador não usaria.
+	e := &world.Entity{}
+	e.Carry[baseCarrySlots] = world.Item{Index: nLV1}
+	if _, _, ok := pergaDaBolsaParaRecomecar(vols, e, waterN); ok {
+		t.Error("a fada cobrou um pergaminho fora do limite da bolsa")
 	}
 }
 
@@ -96,10 +156,39 @@ func TestSaidaDaAguaCaiNoQuadradoDoPergaminho(t *testing.T) {
 	}
 }
 
-// TestFadaEsperaDaParaPegarODrop keeps the pause honest: it is counted in 1s
+// TestSaidaDoBossTemPortaPropria: a sala do Boss sai num ponto medido em jogo,
+// e as numeradas ficam com o da corrente. As duas exigências do quadrado valem
+// igual — o pergaminho tem de funcionar onde o jogador cai, e cair fora de
+// qualquer sala.
+func TestSaidaDoBossTemPortaPropria(t *testing.T) {
+	if waterBossExit != [2]int16{1966, 1775} {
+		t.Errorf("saida do Boss = %v, want 1966/1775 (medido em jogo)", waterBossExit)
+	}
+	if got := waterRoomExit(waterBossRoom); got != waterBossExit {
+		t.Errorf("waterRoomExit(Boss) = %v, want %v", got, waterBossExit)
+	}
+	for room := 0; room < waterDeadRoom; room++ {
+		if got := waterRoomExit(room); got != waterExit {
+			t.Errorf("waterRoomExit(%d) = %v, want %v", room, got, waterExit)
+		}
+	}
+	if !onWaterStagingTile(waterBossExit[0], waterBossExit[1]) {
+		t.Errorf("a saida do Boss (%d,%d) nao cai no quadrado que aceita o pergaminho",
+			waterBossExit[0], waterBossExit[1])
+	}
+	for variant := range waterVariants {
+		if insideAnyWaterRoom(variant, waterBossExit[0], waterBossExit[1]) {
+			t.Errorf("a saida do Boss caiu dentro de uma sala da corrente %d", variant)
+		}
+	}
+}
+
+// TestFadaEsperaCabeNaJanelaDaSala keeps the pause honest: it is counted in 1s
 // ticks and has to fit inside the 30s the cleared room still has, or the party
-// would be thrown out before the ride ever fires.
-func TestFadaEsperaDaParaPegarODrop(t *testing.T) {
+// would be thrown out before the ride ever fires. It does NOT exist to give
+// anyone time to pick loot up — mob loot goes straight into the killer's bag
+// (putMobDrop) and never onto the floor.
+func TestFadaEsperaCabeNaJanelaDaSala(t *testing.T) {
 	if fadaEsperaNaAgua <= 0 {
 		t.Fatalf("fadaEsperaNaAgua = %d: a fada levaria o grupo antes do drop cair", fadaEsperaNaAgua)
 	}

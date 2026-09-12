@@ -115,6 +115,20 @@ const (
 // player lands.
 var waterExit = [2]int16{1965, 1773}
 
+// waterBossExit is where the boss room drops everyone, in all three chains: the
+// spot measured in game (X 1966, Y 1775), also inside the staging square
+// (1966/4 == 491, 1775/4 == 443), so a scroll still works where the player
+// lands. The numbered rooms keep waterExit.
+var waterBossExit = [2]int16{1966, 1775}
+
+// waterRoomExit is the way out of one room.
+func waterRoomExit(room int) [2]int16 {
+	if room >= waterDeadRoom {
+		return waterBossExit
+	}
+	return waterExit
+}
+
 // waterMCelestialMaxLevel caps the Celestial's access to the M chain. Arch has
 // no cap of its own — MaxLevel (399) is already the ceiling for that tier.
 const waterMCelestialMaxLevel = 40
@@ -531,6 +545,11 @@ func (d *Dispatcher) waterRoomCleared(w *world.World, reward, mob *world.Entity)
 			d.grantNextWaterScroll(w, leader, variant, room)
 			d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa! Use o proximo pergaminho.")
 		}
+	} else if d.agendarAvancoDaFada(w, leader, variant, room) {
+		// The boss is down and the fairy starts the chain over, spending a scroll
+		// from the bag (fada_leva_agua.go). Without a fairy — or without a scroll
+		// left — the run simply ends here, as it always did.
+		d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa! A fada recomeca a corrida.")
 	} else {
 		d.announceWaterRoom(w, leader, waterRoomLabel(room)+" limpa!")
 	}
@@ -667,8 +686,9 @@ func (d *Dispatcher) clearWaterRoom(w *world.World, variant, room int) {
 	})
 	// Teleport outside the iteration: doTeleport mutates position and view, which
 	// ForEachPlaying is walking.
+	exit := waterRoomExit(room)
 	for _, s := range evicted {
-		d.doTeleport(w, s, waterExit[0], waterExit[1])
+		d.doTeleport(w, s, exit[0], exit[1])
 	}
 	// Take the monsters with them. The legacy leaves them standing, which is the
 	// leak that filled the block to MaxNumMob and made the next run open into an

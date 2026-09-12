@@ -20,9 +20,13 @@ import "github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 
 const (
 	// fadaEsperaNaAgua is the pause between the last monster dying and the party
-	// being moved, in 1s ticks: long enough to pick up what fell, short enough to
-	// feel automatic.
-	fadaEsperaNaAgua = 5
+	// being moved, in 1s ticks.
+	//
+	// Three seconds, not five: there is nothing on the floor to pick up — mob
+	// loot is delivered straight into the killer's bag (putMobDrop) — so the
+	// pause only has to read as a beat between rooms rather than a teleport in
+	// the middle of the fight.
+	fadaEsperaNaAgua = 3
 )
 
 // fadaLevaNaAgua reports whether a fairy carries the party through the chain:
@@ -49,13 +53,47 @@ type avancoDaFada struct {
 }
 
 // proximaSalaDaAgua is the room the chain moves to. The last numbered room (7,
-// the one whose reward is the Evocação Neses) leads to the boss; the dead room 8
-// is never entered.
+// the one whose reward is the Evocação Neses) leads to the boss, the boss starts
+// the chain over at Sala 1, and the dead room 8 is never entered.
 func proximaSalaDaAgua(room int) int {
-	if room == waterDeadRoom-1 {
+	switch {
+	case room >= waterDeadRoom:
+		return 0 // the boss is down: run it again
+	case room == waterDeadRoom-1:
 		return waterBossRoom
 	}
 	return room + 1
+}
+
+// pergaDaBolsaParaRecomecar finds the scroll that pays for a lap after the boss,
+// and the room it opens.
+//
+// Every ride between numbered rooms is paid by the reward that was not minted
+// (see the note at the top of this file). A lap after the boss has no reward
+// behind it — the boss pays loot, not a scroll — so it spends a real scroll out
+// of the bag, and running out of them is what ends the cycle.
+//
+// The LOWEST room available is taken, so the run restarts as early as the bag
+// allows instead of jumping to whatever deep scroll is lying around. Slots the
+// bag has not unlocked are not touched: charging one would consume an item the
+// player could not have used himself.
+func pergaDaBolsaParaRecomecar(vols map[int]int, e *world.Entity, variant int) (sala, slot int, ok bool) {
+	sala, slot = 0, -1
+	limite := activeCarryLimit(e)
+	for i := 0; i < limite; i++ {
+		it := e.Carry[i]
+		if it.Empty() {
+			continue
+		}
+		v, r, pergaminho := waterRoomForVolatile(vols[int(it.Index)])
+		if !pergaminho || v != variant {
+			continue
+		}
+		if slot < 0 || r < sala {
+			sala, slot = r, i
+		}
+	}
+	return sala, slot, slot >= 0
 }
 
 // agendarAvancoDaFada queues the ride, and reports whether it took it. False
@@ -125,6 +163,20 @@ func (d *Dispatcher) tickFadaDaAgua(w *world.World) {
 			continue
 		}
 		proxima := proximaSalaDaAgua(a.room)
+		// A lap after the boss is paid from the bag instead of by the reward that
+		// was not minted, and the scroll found there decides which room opens.
+		// No scroll left is the one thing that ends the cycle for good.
+		cobrar := -1
+		if a.room >= waterDeadRoom {
+			sala, slot, achou := pergaDaBolsaParaRecomecar(d.itemVolatiles, leader, a.variant)
+			if !achou {
+				d.announceWaterRoom(w, leader, "Sem pergaminho na bolsa: a fada para aqui.")
+				d.log.Info("fairy cycle ended: no scroll in the bag",
+					"leader", leader.Name, "variant", a.variant)
+				continue
+			}
+			proxima, cobrar = sala, slot
+		}
 		if ocupante, ocupada := d.waterRoomBusy(w, a.variant, proxima); ocupada {
 			if a.prazo--; a.prazo > 0 {
 				restantes = append(restantes, a)
@@ -134,6 +186,13 @@ func (d *Dispatcher) tickFadaDaAgua(w *world.World) {
 				"variant", a.variant, "room", proxima, "occupant", ocupante)
 			d.entregarPergaminhoDaFada(w, leader, a, "proxima sala ocupada")
 			continue
+		}
+		// Charged only now, with the room about to open: every path above leaves
+		// on a refusal, and a scroll eaten there would be a scroll paid for a
+		// room nobody entered.
+		if cobrar >= 0 {
+			consumeOneItem(&leader.Carry[cobrar])
+			d.sendSlot(w, s, world.ItemPlaceCarry, cobrar, leader.Carry[cobrar])
 		}
 		d.abrirSalaDaAgua(w, s, leader, a.variant, proxima)
 		d.announceWaterRoom(w, leader, "A fada levou o grupo: "+waterRoomLabel(proxima)+".")
@@ -151,6 +210,14 @@ func (d *Dispatcher) entregarPergaminhoDaFada(w *world.World, leader *world.Enti
 		// when a leader disconnects mid-room today.
 		d.log.Info("fairy advance dropped: leader gone",
 			"variant", a.variant, "room", a.room, "motivo", motivo)
+		return
+	}
+	// A failed lap after the boss has nothing to hand back: the boss pays loot,
+	// never a scroll, and rewardBase+9 is not an item at all. The cycle just ends.
+	if a.room >= waterDeadRoom {
+		d.announceWaterRoom(w, leader, "A fada para aqui.")
+		d.log.Info("fairy cycle ended after the boss",
+			"leader", leader.Name, "variant", a.variant, "motivo", motivo)
 		return
 	}
 	d.grantNextWaterScroll(w, leader, a.variant, a.room)
