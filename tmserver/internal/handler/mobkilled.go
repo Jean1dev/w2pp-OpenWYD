@@ -66,7 +66,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 
 	// Gold drop → reward target's coin (clamped). The new total is pushed to the target's
 	// client (MSG_UpdateEtc); otherwise the gain isn't visible until relog.
-	if gold := loot.GoldDrop(w.Rand(), int(mob.Level), int(mob.Coin)); gold > 0 {
+	if gold := ouroDaMorte(w, mob); gold > 0 {
 		reward.Coin += int32(gold)
 		if reward.Coin > coinCap {
 			reward.Coin = coinCap
@@ -123,6 +123,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		}
 	}
 	d.dropTableRolls(w, reward, mob, bonusDrop)
+	d.repletionDoCampo(w, reward, mob)
 
 	sendDieAction(w, mob)
 
