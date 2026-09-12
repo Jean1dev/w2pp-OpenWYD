@@ -1,6 +1,10 @@
 package handler
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
+)
 
 func TestTierDamagePct(t *testing.T) {
 	tests := []struct {
@@ -93,5 +97,34 @@ func TestTierDefenseHoldsTheIntendedOdds(t *testing.T) {
 	// And the figure that feels right but is not: a 25% cut stops exactly one.
 	if got := holdsAgainst(75); got != 1 {
 		t.Errorf("a 25%% cut holds against %d attackers, want 1", got)
+	}
+}
+
+// A gema Esmeralda não fura a Defesa de Evolução.
+//
+// Perfuração é plana e entra depois da armadura do alvo, então se a redução por
+// evolução rodasse antes dela — como rodava até 12/09/2026 — os 480 de uma peça
+// +15 chegariam inteiros a um Celestial, valendo mais que o golpe a que estavam
+// presos. Este teste prende a ORDEM: o valor final tem de ser a fração do tier
+// sobre (golpe + perfuração), não sobre o golpe apenas.
+func TestPerfuracaoPassaPelaDefesaDeEvolucao(t *testing.T) {
+	const alvo = 3 // um jogador
+	atacante := &world.Entity{ClassMaster: classMasterMortal, EquipForceDamage: 480}
+	defensor := &world.Entity{ClassMaster: classMasterCelestial}
+
+	// A ordem do pipeline em combat.go: perfuração primeiro, tier depois.
+	comGema := applyForceDamage(atacante, defensor, alvo, 100)
+	final := applyTierDefense(atacante.ClassMaster, defensor.ClassMaster, comGema)
+
+	if comGema != 580 {
+		t.Fatalf("golpe com a gema = %d, want 580", comGema)
+	}
+	// 580 × 10% — e não 10 + 480, que é o que a ordem antiga dava.
+	if final != 58 {
+		t.Errorf("Mortal com Esmeralda +15 em Celestial = %d, want 58", final)
+	}
+	if final >= int(atacante.EquipForceDamage) {
+		t.Errorf("a perfuração (%d) chegou inteira: a regra de evolução não a tocou",
+			atacante.EquipForceDamage)
 	}
 }

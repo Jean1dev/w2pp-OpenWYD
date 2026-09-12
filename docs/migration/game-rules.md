@@ -908,6 +908,13 @@ logo após `perfuracao`), e quando o golpe já tinha sido reduzido a 1 ou menos 
 em vez de somar (`:1311`). É por isso que um número que parece modesto ao lado do Ataque decide um
 duelo: contra alvo blindado, é quase todo o golpe. Uma peça +15 grade 6 vale 480.
 
+> **Mas ela NÃO fura a Defesa de Evolução** (decisão do Marco, 12/09/2026). `applyTierDefense` roda
+> **depois** de `applyForceDamage`, então a fração do tier incide sobre golpe + perfuração. Na ordem
+> anterior os 480 de uma peça +15 chegavam inteiros a um Celestial, somados a um golpe já cortado a
+> um décimo — valendo mais que o próprio golpe, e piorando a cada vez que o teto de refino sobe
+> (começamos em +11; +15 é questão de tempo). Um Mortal com Esmeralda +15 grade 6 em Celestial:
+> `(golpe + 480) × 10%`, não `golpe×10% + 480`. Preso em `TestPerfuracaoPassaPelaDefesaDeEvolucao`.
+
 > **Garnet fora, de propósito.** `reflectDamage` (pvp.go) lê a Grade 8 e a skill do BM, mas não a gema
 > 3. A justificativa escrita lá — "sockets are not modeled" — não se sustenta: `itemGem` lê o socket e
 > já é usado por `drop_bonus.go` e `exp_bonus.go`. Ainda assim a exclusão foi mantida: ligar a gema

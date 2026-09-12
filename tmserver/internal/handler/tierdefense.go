@@ -24,6 +24,12 @@ package handler
 //
 // It applies to PvP only. Mobs carry ClassMaster 0 and would otherwise be read
 // as Mortals and lose 80% of their damage to any Arch standing there.
+//
+// It runs AFTER applyForceDamage, so perfuração is reduced with the rest of the
+// blow. That ordering is load-bearing: forced damage is flat and lands after the
+// target's armour, so a Mortal with an Esmeralda +15 would otherwise deal a
+// Celestial 480 points the rule never touches — more than the blow it was
+// attached to, and growing every time the refine ceiling moves up.
 const (
 	tierDamageFull         int32 = 100
 	tierMortalIntoArch     int32 = 20

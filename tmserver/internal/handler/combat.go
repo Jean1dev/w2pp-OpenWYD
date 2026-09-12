@@ -421,15 +421,21 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			if pvpHit {
 				dmg = d.applyPvPRule(dmg, skillHit)
 			}
+			dmg = applyForceDamage(e, target, tid, dmg)
 			// Defesa de Evolução (tierdefense.go) — a server rule, not parity, so it
-			// has no legacy position to copy. It goes FIRST, before every other
-			// adjustment, because it is the defender's tier resisting the blow
-			// itself: everything after, the mount absorb included, should work on
+			// has no legacy position to copy. It comes AFTER perfuração on purpose:
+			// forced damage is damage the attacker deals, so the defender's tier has
+			// to resist it like any other. Applied before it, the Esmeralda gem was
+			// the one thing in the game that ignored the rule — a +15 piece added its
+			// 480 whole on top of a blow already cut to a tenth, which is exactly the
+			// "Mortal derruba Celestial" this rule exists to prevent, and it would
+			// only get worse as the refine ceiling rises.
+			//
+			// Everything after it — the PvP stats, the mount absorb — still works on
 			// what actually got through. PvP only; a mob is not a Mortal.
 			if pvpHit {
 				dmg = applyTierDefense(e.ClassMaster, target.ClassMaster, dmg)
 			}
-			dmg = applyForceDamage(e, target, tid, dmg)
 			// Ataque PvP, then the defender's flat reflect and Defesa PvP
 			// (_MSG_Attack.cpp:1322-1331, 1494-1510), before the mount takes its share.
 			if pvpHit {
