@@ -1,4 +1,4 @@
--- 0057_sub_celestial — onde mora a SEGUNDA VIDA do Celestial.
+-- 0060_sub_celestial — onde mora a SEGUNDA VIDA do Celestial.
 --
 -- O Sub Celestial é uma segunda vida do mesmo personagem: o jogador cria o Sub
 -- com a Pedra Ideal (já sendo Celestial 120+, com o Sephirot no espaço 11) e daí
@@ -43,6 +43,18 @@ ALTER TABLE character
 -- para onde voltar, e um "ativo = 1" sem vida guardada deixaria o jogador preso
 -- na segunda vida sem caminho de volta. A trava fica no banco porque é onde ela
 -- não depende de ninguém lembrar.
-ALTER TABLE character
-    ADD CONSTRAINT character_sub_celestial_coerente
-    CHECK (sub_celestial_ativo = 0 OR sub_celestial_guardada IS NOT NULL);
+-- Postgres não tem ADD CONSTRAINT IF NOT EXISTS, e sem o guarda uma segunda
+-- passagem desta migração morre no meio. Isso não é hipótese: a 0060 foi
+-- aplicada à mão na cópia antes de existir deploy, e o boot seguinte tentaria
+-- aplicá-la de novo — as colunas passariam pelo IF NOT EXISTS e a trava
+-- derrubaria o servidor na subida.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'character_sub_celestial_coerente'
+    ) THEN
+        ALTER TABLE character
+            ADD CONSTRAINT character_sub_celestial_coerente
+            CHECK (sub_celestial_ativo = 0 OR sub_celestial_guardada IS NOT NULL);
+    END IF;
+END $$;

@@ -139,7 +139,7 @@ type CharacterState struct {
 	ArchCristal        uint8
 	// NightmareTickets is MobExtra.NT: Pesadelo Arcano entries (pesadelo-plan.md).
 	NightmareTickets int32
-	// A SEGUNDA VIDA DO CELESTIAL (0057_sub_celestial). Os campos acima sao
+	// A SEGUNDA VIDA DO CELESTIAL (0060_sub_celestial). Os campos acima sao
 	// sempre a vida ATIVA; a guardada viaja inteira como JSON. Trocar de vida e
 	// trocar o conteudo dos dois lugares, e por isso o resto do servidor nao
 	// precisa saber que existe segunda vida.
@@ -252,7 +252,7 @@ type CharacterSave struct {
 	CelestialArchLevel uint8
 	ArchCristal        uint8
 	NightmareTickets   int32
-	// A SEGUNDA VIDA DO CELESTIAL (0057_sub_celestial). Os campos acima sao
+	// A SEGUNDA VIDA DO CELESTIAL (0060_sub_celestial). Os campos acima sao
 	// sempre a vida ATIVA; a guardada viaja inteira como JSON. Trocar de vida e
 	// trocar o conteudo dos dois lugares, e por isso o resto do servidor nao
 	// precisa saber que existe segunda vida.
