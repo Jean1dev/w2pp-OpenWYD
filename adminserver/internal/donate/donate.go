@@ -62,9 +62,13 @@ type Evento struct {
 	Detalhe  string
 	// Saldo is the balance the source recorded right after this event, when it
 	// recorded one (purchases and adjustments do; top-ups do not).
-	Saldo    *int64
-	ItemID   int64  // donate_shop_item id for a purchase, 0 otherwise
-	Entregue string // delivery status for a purchase: pending/delivered/lost, or ""
+	Saldo  *int64
+	ItemID int64 // donate_shop_item id for a purchase, 0 otherwise
+	// ItemTitulo is the shop item's registered title for a purchase, carried
+	// apart from Titulo so a reader that writes its own sentence does not have
+	// to take this one apart. The panel keeps reading Titulo.
+	ItemTitulo string
+	Entregue   string // delivery status for a purchase: pending/delivered/lost, or ""
 }
 
 // Saldo returns the account's current donate balance.
@@ -220,6 +224,7 @@ func (s *Store) auditoria(ctx context.Context, accountID int64, limite int) ([]E
 		case "purchase":
 			ev.Tipo = TipoCompra
 			ev.Creditos = -int64(campos["price"])
+			ev.ItemTitulo = titulo
 			ev.Titulo = "Comprou " + primeiroNaoVazio(titulo, fmt.Sprintf("oferta #%d", ev.ItemID))
 			ev.Detalhe = "Loja de donate"
 		case "credit_balance":
