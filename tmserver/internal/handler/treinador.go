@@ -51,6 +51,14 @@ const (
 // arma (_MSG_Quest.cpp:1973), mas o passo já contou como feito.
 const reqLvlMaximoDaArma = 39
 
+// Sem arma o passo 2 e o 3 não têm o que fazer. O legado contava o passo assim
+// mesmo e o jogador ouvia que a arma tinha melhorado — DIVERGÊNCIA DELIBERADA:
+// aqui o passo não anda e o NPC diz o motivo, para o jogador voltar com a arma.
+const (
+	msgTreinadorSemArma   = "Equipe a arma que quer melhorar e fale comigo de novo."
+	msgTreinadorArmaForte = "Esta arma é forte demais para mim: só mexo em armas até o nível 39."
+)
+
 // passoDoTreinador é um dos quatro passos. As falas são as do Language.txt
 // (230-245): jaFeito quando não é a vez deste NPC, semChave quando falta a
 // chave, completo quando o passo fecha (o NPC falando) e premio no painel.
@@ -134,6 +142,17 @@ func (d *Dispatcher) treinadorDoCampo(w *world.World, s *world.Session, e, npc *
 		return
 	}
 
+	// Os passos 2 e 3 trabalham na ARMA: sem ela, o passo não anda (armaDoNovato).
+	if idx == 1 || idx == 2 {
+		if _, _, motivo := d.armaDoNovato(e); motivo != "" {
+			d.falaDoTreinador(w, npc, passo.jaFeito)
+			if s != nil {
+				sendClientMessage(w, s, motivo)
+			}
+			return
+		}
+	}
+
 	e.NewbieQuest = passo.feitos + 1
 	d.falaDoTreinador(w, npc, passo.completo)
 	d.mensagemDoTreinador(w, s, passo.premio)
@@ -188,40 +207,61 @@ func (d *Dispatcher) premioDoChefeDeTreino() world.Item {
 	}
 }
 
+// armaDoNovato acha a arma em que o treinador vai trabalhar, e diz por que não
+// vai quando for o caso.
+//
+// DIVERGÊNCIA DELIBERADA: o legado lê só a mão direita (Equip[6],
+// _MSG_Quest.cpp:1966,2022), mas o nPos das armas iniciais aceita as DUAS mãos
+// (a 861 tem nPos 192, slots 6 e 7). Com a arma na esquerda o passo contava, o
+// NPC dizia "a opção da arma foi alterada" e nada mudava — foi o que apareceu em
+// jogo. Aqui as duas mãos valem, e a primeira que tiver arma manda.
+func (d *Dispatcher) armaDoNovato(e *world.Entity) (slot, reqLvl int, motivo string) {
+	for _, s := range [2]int{weaponSlotR, weaponSlotL} {
+		idx := int(e.Equip[s].Index)
+		if idx <= 0 || idx >= maxItemList {
+			continue
+		}
+		// Só ARMA: o escudo também mora na mão esquerda, e ele tem nPos 128,
+		// enquanto arma tem 64 (uma mão) ou 192 (as duas).
+		if pos := d.itemPos[idx]; pos != nPosWeapon1 && pos != nPosWeapon2 {
+			continue
+		}
+		req := int(d.itemReqs[idx].Lvl)
+		if req > reqLvlMaximoDaArma {
+			return s, req, msgTreinadorArmaForte
+		}
+		return s, req, ""
+	}
+	return -1, 0, msgTreinadorSemArma
+}
+
 // refazArmaDoNovato é o passo 2: a arma equipada perde os três efeitos e recebe
 // um sorteio novo pelo nível dela + 50 (SetItemBonus(&Equip[6], 50+ReqLv, 1, 0),
-// _MSG_Quest.cpp:1983). Arma acima de ReqLvl 39 não é tocada, e o legado nem
-// desfaz o passo por isso: quem chega aqui com uma arma alta perde o prêmio.
+// _MSG_Quest.cpp:1983).
 func (d *Dispatcher) refazArmaDoNovato(w *world.World, s *world.Session, e *world.Entity) {
-	arma := &e.Equip[weaponSlotR]
-	idx := int(arma.Index)
-	if idx <= 0 || idx >= maxItemList {
+	slot, reqLvl, motivo := d.armaDoNovato(e)
+	if motivo != "" {
 		return
 	}
-	reqLvl := int(d.itemReqs[idx].Lvl)
-	if reqLvl > reqLvlMaximoDaArma {
-		return
-	}
+	arma := &e.Equip[slot]
 	arma.Effects = [3]world.Effect{}
 	d.sorteioDoTreinador(arma, 50+reqLvl)
 	if s != nil {
-		d.sendSlot(w, s, world.ItemPlaceEquip, weaponSlotR, *arma)
+		d.sendSlot(w, s, world.ItemPlaceEquip, slot, *arma)
 	}
 }
 
 // refinaOEquipamentoDoNovato é o passo 3: os slots 1 a 7 perdem os efeitos,
 // ganham um sorteio novo e saem +3 (_MSG_Quest.cpp:2020-2039).
 //
-// FIDELIDADE AO LEGADO, inclusive na esquisitice: o nível usado em TODOS os
-// slots é o da ARMA (Equip[6]), porque o original relê `Equip[6].sIndex` dentro
-// do laço em vez de `Equip[j]`. Sem arma equipada, o `if` fecha e NADA é
-// refinado — o passo termina sem prêmio nenhum.
+// FIDELIDADE AO LEGADO na esquisitice que importa: o nível usado em TODOS os
+// slots é o da ARMA, porque o original relê o Equip[6] dentro do laço em vez do
+// Equip[j]. O que mudou é só de ONDE a arma vem (armaDoNovato, as duas mãos).
 func (d *Dispatcher) refinaOEquipamentoDoNovato(w *world.World, s *world.Session, e *world.Entity) {
-	armaIdx := int(e.Equip[weaponSlotR].Index)
-	if armaIdx <= 0 || armaIdx >= maxItemList {
+	_, reqLvl, motivo := d.armaDoNovato(e)
+	if motivo != "" {
 		return
 	}
-	reqLvl := int(d.itemReqs[armaIdx].Lvl)
 	for slot := 1; slot < 8; slot++ {
 		peca := &e.Equip[slot]
 		if peca.Index <= 0 {

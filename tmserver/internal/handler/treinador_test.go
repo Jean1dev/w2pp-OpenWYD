@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/refine"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
 
@@ -153,20 +154,101 @@ func TestPassoQuatroGastaOEmblemaEPremia(t *testing.T) {
 	}
 }
 
-// O passo 3 refina os slots 1 a 7 — e, fiel ao legado, o nível vem da ARMA
-// (Equip[6]): sem arma equipada, nada é refinado e o passo termina sem prêmio.
-func TestPassoTresSemArmaNaoRefinaNada(t *testing.T) {
+// armaInicial é a arma que toda classe traz do BaseMob: nPos 192, ou seja, cabe
+// nas DUAS mãos (slots 6 e 7). É esse nPos que o sorteio de bônus exige.
+const armaInicial = 861
+
+// A arma na mão ESQUERDA também vale. Era o caso do relato: o passo contava, o
+// NPC dizia que a arma tinha melhorado e a arma saía sem add nenhum, porque o
+// código olhava só a direita.
+func TestPassoDoisAceitaArmaNaMaoEsquerda(t *testing.T) {
+	d, w := mundoDoTreinador(t)
+	d.itemPos = map[int]int{armaInicial: 192}
+	e := novatoDoCampo(1, itemChaveSegundaPorta)
+	e.Equip[weaponSlotL] = world.Item{Index: armaInicial}
+
+	d.treinadorDoCampo(w, nil, e, npcDoTreinador(merchantTreinador2, 104, 0), 1)
+
+	if e.NewbieQuest != 2 {
+		t.Fatalf("NewbieQuest = %d, want 2", e.NewbieQuest)
+	}
+	arma := e.Equip[weaponSlotL]
+	if arma.Effects[1].Effect == 0 && arma.Effects[2].Effect == 0 {
+		t.Errorf("a arma na mão esquerda saiu sem add: %+v", arma.Effects)
+	}
+}
+
+// Sem arma nenhuma o passo NÃO anda e o jogador ouve o motivo — o legado gastava
+// o passo em silêncio.
+func TestPassoDoisSemArmaNaoGastaOPasso(t *testing.T) {
+	d, w := mundoDoTreinador(t)
+	e := novatoDoCampo(1, itemChaveSegundaPorta)
+
+	d.treinadorDoCampo(w, nil, e, npcDoTreinador(merchantTreinador2, 104, 0), 1)
+
+	if e.NewbieQuest != 1 {
+		t.Errorf("NewbieQuest = %d, want 1: sem arma o passo não pode andar", e.NewbieQuest)
+	}
+}
+
+// O passo 3 usa o nível da arma para refinar as peças; sem arma ele também não
+// anda, em vez de refinar nada e contar como feito.
+func TestPassoTresSemArmaNaoAnda(t *testing.T) {
 	d, w := mundoDoTreinador(t)
 	e := novatoDoCampo(2, itemChaveUltimaPorta)
-	e.Equip[2] = world.Item{Index: 100} // uma peça qualquer, sem arma no slot 6
+	e.Equip[2] = world.Item{Index: 100}
 	antes := e.Equip[2]
 
 	d.treinadorDoCampo(w, nil, e, npcDoTreinador(merchantTreinador3, 105, 0), 2)
 
-	if e.NewbieQuest != 3 {
-		t.Fatalf("NewbieQuest = %d, want 3: o passo conta mesmo sem arma", e.NewbieQuest)
+	if e.NewbieQuest != 2 {
+		t.Errorf("NewbieQuest = %d, want 2: sem arma o passo não anda", e.NewbieQuest)
 	}
 	if e.Equip[2] != antes {
-		t.Errorf("a peça mudou (%+v → %+v) sem arma equipada; o legado lê o Equip[6] no laço", antes, e.Equip[2])
+		t.Errorf("a peça mudou (%+v → %+v) sem arma equipada", antes, e.Equip[2])
+	}
+}
+
+// O escudo mora no mesmo slot 7 da arma de uma mão. Ele não é arma (nPos 128) e
+// o treinador não pode "melhorar" ele no lugar dela.
+func TestPassoDoisIgnoraEscudoNaMaoEsquerda(t *testing.T) {
+	d, w := mundoDoTreinador(t)
+	const escudo = 1701 // Escudo_de_Madeira, nPos 128
+	d.itemPos = map[int]int{escudo: 128}
+	e := novatoDoCampo(1, itemChaveSegundaPorta)
+	e.Equip[weaponSlotL] = world.Item{Index: escudo}
+	antes := e.Equip[weaponSlotL]
+
+	d.treinadorDoCampo(w, nil, e, npcDoTreinador(merchantTreinador2, 104, 0), 1)
+
+	if e.NewbieQuest != 1 {
+		t.Errorf("NewbieQuest = %d, want 1: escudo não é arma", e.NewbieQuest)
+	}
+	if e.Equip[weaponSlotL] != antes {
+		t.Errorf("o escudo foi mexido: %+v → %+v", antes, e.Equip[weaponSlotL])
+	}
+}
+
+// Com a arma na mão esquerda o passo 3 anda e as peças saem +3 — antes, sem
+// arma na direita, nada era refinado.
+func TestPassoTresRefinaComArmaNaMaoEsquerda(t *testing.T) {
+	d, w := mundoDoTreinador(t)
+	// A peça precisa de nPos de armadura: é por ele que o sorteio abre o slot de
+	// refino, e sem esse slot o +3 não tem onde ser escrito (BASE_SetItemSanc).
+	d.itemPos = map[int]int{armaInicial: 192, 100: 4}
+	e := novatoDoCampo(2, itemChaveUltimaPorta)
+	e.Equip[weaponSlotL] = world.Item{Index: armaInicial}
+	e.Equip[2] = world.Item{Index: 100}
+
+	d.treinadorDoCampo(w, nil, e, npcDoTreinador(merchantTreinador3, 105, 0), 2)
+
+	if e.NewbieQuest != 3 {
+		t.Fatalf("NewbieQuest = %d, want 3", e.NewbieQuest)
+	}
+	if got := refine.Level(e.Equip[2]); got != 3 {
+		t.Errorf("peça do slot 2 saiu +%d, want +3", got)
+	}
+	if got := refine.Level(e.Equip[weaponSlotL]); got != 3 {
+		t.Errorf("arma da mão esquerda saiu +%d, want +3", got)
 	}
 }
