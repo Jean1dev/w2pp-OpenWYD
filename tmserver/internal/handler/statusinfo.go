@@ -47,12 +47,15 @@ type estadoStatus struct {
 	AtaquePvP  int   // EF_HWORDGUILD percentage
 	DefesaPvP  int   // EF_LWORDGUILD percentage
 
-	Defesa int32 // effectiveAC: the same number the C window shows
 	// Tier is the character's ClassMaster, which decides how much damage each
 	// attacking tier keeps against it (tierdefense.go).
+	//
+	// The plain Defesa is deliberately NOT reported: the C window already shows
+	// it, and restating it here with its ×3 PvP multiplier only invited the
+	// reader to wonder which of the two numbers is "the real one".
 	Tier uint8
 
-	// MontariaPvP / MontariaPvE are the share an adult mount eats of a blow
+	// MontariaPvP / MontariaPvE are the share an adult mount absorbs of a blow
 	// from a player and from a monster. TemMontaria is false when there is no
 	// adult mount equipped, or it is down — a mount at zero HP absorbs nothing.
 	TemMontaria bool
@@ -81,7 +84,6 @@ func (d *Dispatcher) showStatus(w *world.World, s *world.Session) {
 		Reflect:        d.reflectDamage(e),
 		AtaquePvP:      d.pvpAttackPct(e),
 		DefesaPvP:      d.pvpDefensePct(e),
-		Defesa:         effectiveAC(e),
 		Tier:           e.ClassMaster,
 		AbsHp:          e.AffHpAbs,
 		DropBonus:      e.EquipDropBonus,
@@ -121,13 +123,11 @@ func textoStatus(st estadoStatus) []string {
 		linhas = append(linhas, juntarPartes("Contra jogador: ", partes, linhaPainelMax)...)
 	}
 
-	linhas = append(linhas, fmt.Sprintf(
-		"Defesa %d · contra jogador vale %d, porque a Defesa conta 3x em PvP.", st.Defesa, st.Defesa*3))
 	linhas = append(linhas, linhasEvolucao(st.Tier)...)
 
 	if st.TemMontaria {
 		linhas = append(linhas, fmt.Sprintf(
-			"A sua montaria come %d%% do golpe de jogador e %d%% do de monstro.",
+			"A sua montaria absorve %d%% do golpe de jogador e %d%% do de monstro.",
 			st.MontariaPvP, st.MontariaPvE))
 	}
 	if st.AbsHp > 0 {

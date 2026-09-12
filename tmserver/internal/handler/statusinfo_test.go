@@ -17,17 +17,16 @@ func TestTextoStatus(t *testing.T) {
 	}{
 		{
 			// A Mortal with nothing but DEX: no tier protects it and it carries no
-			// PvP gear, so the sheet is the two rolls plus the Defesa.
+			// PvP gear, so the sheet is just the two rolls.
 			// DEX 300 → dodge 150, accuracy 60, mirror 90 (9.0%).
 			name: "mortal so com dex",
 			st: estadoStatus{
 				Esquiva: 150, Precisao: 60, EsquivaEspelho: 90,
-				Defesa: 3811, Tier: classMasterMortal,
+				Tier: classMasterMortal,
 			},
 			want: []string{
 				"Acerto 91.0% · Esquiva 9.0% — contra alguém igual a você.",
 				"Precisão 60 (tira da esquiva do alvo) · a sua esquiva 150 em 1000, teto 650.",
-				"Defesa 3811 · contra jogador vale 11433, porque a Defesa conta 3x em PvP.",
 				"Bônus de XP: digite /xp.",
 			},
 		},
@@ -38,13 +37,12 @@ func TestTextoStatus(t *testing.T) {
 			st: estadoStatus{
 				Esquiva: 370, Precisao: 140, EsquivaEspelho: 230,
 				Reflect: 40, AtaquePvP: 12, DefesaPvP: 8,
-				Defesa: 5000, Tier: classMasterArch, DropBonus: 18,
+				Tier: classMasterArch, DropBonus: 18,
 			},
 			want: []string{
 				"Acerto 77.0% · Esquiva 23.0% — contra alguém igual a você.",
 				"Precisão 140 (tira da esquiva do alvo) · a sua esquiva 370 em 1000, teto 650.",
 				"Contra jogador: absorve 40 de cada golpe · e mais 8% do que sobrou · você bate +12%",
-				"Defesa 5000 · contra jogador vale 15000, porque a Defesa conta 3x em PvP.",
 				"Defesa de Evolução: um Mortal te acerta com 20% do dano dele.",
 				"Bônus de drop dos seus itens: +18%",
 				"Bônus de XP: digite /xp.",
@@ -57,7 +55,7 @@ func TestTextoStatus(t *testing.T) {
 			st: estadoStatus{
 				Esquiva: 520, Precisao: 200, EsquivaEspelho: 320,
 				Perfuracao: 480, Reflect: 40, AtaquePvP: 12, DefesaPvP: 8,
-				Defesa: 8000, Tier: classMasterCelestial,
+				Tier:        classMasterCelestial,
 				TemMontaria: true, MontariaPvP: 40, MontariaPvE: 25,
 				AbsHp: 20, DropBonus: 26,
 			},
@@ -66,10 +64,9 @@ func TestTextoStatus(t *testing.T) {
 				"Precisão 200 (tira da esquiva do alvo) · a sua esquiva 520 em 1000, teto 650.",
 				"Contra jogador: perfuração +480 que passa pela defesa · absorve 40 de cada golpe",
 				"  e mais 8% do que sobrou · você bate +12%",
-				"Defesa 8000 · contra jogador vale 24000, porque a Defesa conta 3x em PvP.",
 				"Defesa de Evolução: um Mortal te acerta com 10% do dano dele.",
 				"Defesa de Evolução: um Arch te acerta com 40% do dano dele.",
-				"A sua montaria come 40% do golpe de jogador e 25% do de monstro.",
+				"A sua montaria absorve 40% do golpe de jogador e 25% do de monstro.",
 				"Jóia da Absorção: metade dos golpes devolve 20% do dano em vida, até 350.",
 				"Bônus de drop dos seus itens: +26%",
 				"Bônus de XP: digite /xp.",
@@ -139,7 +136,7 @@ func TestTextoStatusCabeNoPainel(t *testing.T) {
 	st := estadoStatus{
 		Esquiva: 650, Precisao: 9999, EsquivaEspelho: 650,
 		Perfuracao: 999999, Reflect: 99999, AtaquePvP: 999, DefesaPvP: 999,
-		Defesa: 32767, Tier: classMasterCelestial,
+		Tier:        classMasterCelestial,
 		TemMontaria: true, MontariaPvP: 100, MontariaPvE: 100,
 		AbsHp: 100, DropBonus: 999,
 	}
