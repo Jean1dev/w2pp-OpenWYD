@@ -174,7 +174,12 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
 		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
 		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_cristal,
-		       nightmare_tickets, newbie_quest
+		       nightmare_tickets, newbie_quest,
+		       -- A vida guardada do Sub Celestial (0060_sub_celestial). O jsonb e
+		       -- NULO ate o personagem criar um Sub, entao entra por COALESCE: o
+		       -- domain carrega string vazia, nao ponteiro, para nao espalhar
+		       -- "pode ser nulo" por todo o caminho ate o handler.
+		       COALESCE(sub_celestial_guardada::text, ''), sub_celestial_level, sub_celestial_ativo, celestial_reset
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
@@ -183,7 +188,8 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
 			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &ch.ArchLv355, &ch.ArchLv370, &skillBar, &shortSkill, &special,
 			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill, &ch.MortalLevel, &ch.CelestialArchLevel, &ch.ArchCristal,
-			&ch.NightmareTickets, &ch.NewbieQuest)
+			&ch.NightmareTickets, &ch.NewbieQuest,
+			&ch.SubCelestialGuardada, &ch.SubCelestialLevel, &ch.SubCelestialAtivo, &ch.CelestialReset)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -389,7 +395,15 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32, terra_mistica=$33,
 			arch_lv355=$34, arch_lv370=$35, pk_point=$36, guilty=$37, cur_kill=$38, tot_kill=$39,
 			mortal_level=$40, celestial_arch_level=$41, arch_cristal=$42, nightmare_tickets=$43,
-			newbie_quest=$44
+			newbie_quest=$44,
+			-- NULLIF devolve o jsonb a NULO quando o personagem nao tem Sub: a
+			-- trava da migracao (ativo = 0 OU guardada NAO NULA) conta com isso,
+			-- e gravar a string vazia como jsonb seria erro de tipo no Postgres.
+			-- Os numeros andaram de 44-47 para 45-48: a main tomou o $44 para o
+			-- newbie_quest, e parametro trocado NAO quebra compilacao — grava a
+			-- coluna errada, calado.
+			sub_celestial_guardada=NULLIF($45, '')::jsonb, sub_celestial_level=$46,
+			sub_celestial_ativo=$47, celestial_reset=$48
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -402,6 +416,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica, ch.ArchLv355, ch.ArchLv370,
 		ch.PKPoint, ch.Guilty, ch.CurKill, ch.TotKill, ch.MortalLevel, ch.CelestialArchLevel, ch.ArchCristal,
 		ch.NightmareTickets, ch.NewbieQuest,
+		ch.SubCelestialGuardada, ch.SubCelestialLevel, ch.SubCelestialAtivo, ch.CelestialReset,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

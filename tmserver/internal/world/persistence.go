@@ -139,8 +139,20 @@ type CharacterState struct {
 	ArchCristal        uint8
 	// NightmareTickets is MobExtra.NT: Pesadelo Arcano entries (pesadelo-plan.md).
 	NightmareTickets int32
-	Soul             uint8
-	Fame             int32 // MobExtra.Fame
+	// A SEGUNDA VIDA DO CELESTIAL (0057_sub_celestial). Os campos acima sao
+	// sempre a vida ATIVA; a guardada viaja inteira como JSON. Trocar de vida e
+	// trocar o conteudo dos dois lugares, e por isso o resto do servidor nao
+	// precisa saber que existe segunda vida.
+	SubCelestialGuardada string
+	// SubCelestialLevel e o nivel da vida INATIVA, fora do JSON de proposito: a
+	// formula de pontos do Celestial CS o le em TODA derivacao de score.
+	SubCelestialLevel uint16
+	// SubCelestialAtivo: 0 a principal, 1 o Sub. Nao e redundante com
+	// ClassMaster — os dois estados carregam ClassMaster 4.
+	SubCelestialAtivo uint8
+	CelestialReset    uint8
+	Soul              uint8
+	Fame              int32 // MobExtra.Fame
 	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
 	// means "never persisted" (SetPKPoint never legitimately writes 0) — the login
 	// path treats that as neutral (75), the same convention as ClassMaster == 0.
@@ -240,6 +252,18 @@ type CharacterSave struct {
 	CelestialArchLevel uint8
 	ArchCristal        uint8
 	NightmareTickets   int32
+	// A SEGUNDA VIDA DO CELESTIAL (0057_sub_celestial). Os campos acima sao
+	// sempre a vida ATIVA; a guardada viaja inteira como JSON. Trocar de vida e
+	// trocar o conteudo dos dois lugares, e por isso o resto do servidor nao
+	// precisa saber que existe segunda vida.
+	SubCelestialGuardada string
+	// SubCelestialLevel e o nivel da vida INATIVA, fora do JSON de proposito: a
+	// formula de pontos do Celestial CS o le em TODA derivacao de score.
+	SubCelestialLevel uint16
+	// SubCelestialAtivo: 0 a principal, 1 o Sub. Nao e redundante com
+	// ClassMaster — os dois estados carregam ClassMaster 4.
+	SubCelestialAtivo uint8
+	CelestialReset    uint8
 	// PK/karma state (issue #210) — see CharacterState for field meanings.
 	PKPoint     uint8
 	Guilty      uint8

@@ -622,7 +622,7 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.usePedraDaFuria(w, s, e, src)
 		return
 	case itemPedraMisteriosa:
-		d.rejectUnimplementedConsumable(w, s, e, src)
+		d.usePedraMisteriosa(w, s, e, src)
 		return
 	}
 	// Baús go by sIndex too: the volatile does not tell them apart (baus.go).
@@ -1758,6 +1758,13 @@ const celestialArchLevelReq = 355
 // (:3027-3090). That tier is not modeled yet; a Celestial using the stone falls
 // through to the tier check below and is told it is not an Arch.
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
+	// A MESMA PEDRA faz duas coisas, e a diferenca e quem a usa: um Arch vira
+	// Celestial (o caminho abaixo), e um Celestial de nivel 120 com o Sephirot no
+	// espaco 11 NASCE UM SUB. criaSubCelestial devolve false so para o Arch, que
+	// e quem continua daqui.
+	if d.criaSubCelestial(w, s, e, src) {
+		return
+	}
 	// Every refusal below used to be silent: notify() sends a numeric code whose
 	// wire format is still a placeholder, so the client showed nothing and the
 	// stone simply came back. The player is now told which requirement failed,

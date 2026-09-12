@@ -280,6 +280,27 @@ message Character {
   // MobExtra.QuestInfo.Mortal.Newbie: which of the four training-field trainer
   // steps the character has done (0..4, _MSG_Quest.cpp:1896-2100).
   int32 mortal_newbie = 50;
+
+  // The Sub-Celestial second life (0060_sub_celestial).
+  //
+  // The columns above are always the ACTIVE life. The life that is put away
+  // travels whole in sub_celestial_guardada, as the JSON the migration stores,
+  // and swapping lives swaps the two places. Nothing else in the server needs to
+  // know a second life exists — it keeps reading what it always read.
+  //
+  // sub_celestial_level is the one exception, and it earns its own field: the
+  // Celestial CS point grant reads the INACTIVE life's level on every score
+  // derivation (internal/level/scorebonus.go), which is login, level-up and
+  // every equipment change. Parsing JSON that often would cost for nothing.
+  //
+  // sub_celestial_ativo says WHICH life is in use (0 main, 1 sub). It is not
+  // redundant with class_master: both states carry class_master 4.
+  string sub_celestial_guardada = 51;
+  int32 sub_celestial_level = 52;
+  int32 sub_celestial_ativo = 53;
+  // QuestInfo.Celestial.Reset, worth 200 points each in the grant formula. It
+  // was already read there and had nowhere to live, so it stayed at zero.
+  int32 celestial_reset = 54;
 }
 
 message Item {

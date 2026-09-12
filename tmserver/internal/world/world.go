@@ -587,6 +587,8 @@ func (w *World) CharacterSaveFor(s *Session, e *Entity) CharacterSave {
 	cs.ArchLv355, cs.ArchLv370 = e.ArchLv355, e.ArchLv370
 	cs.MortalLevel, cs.CelestialArchLevel, cs.ArchCristal = e.MortalLevel, e.CelestialArchLevel, e.ArchCristal
 	cs.NightmareTickets = e.NightmareTickets
+	cs.SubCelestialGuardada, cs.SubCelestialLevel = e.SubCelestialGuardada, e.SubCelestialLevel
+	cs.SubCelestialAtivo, cs.CelestialReset = e.SubCelestialAtivo, e.CelestialReset
 	cs.TerraMistica = e.TerraMistica
 	cs.NewbieQuest = e.NewbieQuest
 	cs.LastCity = e.LastCity

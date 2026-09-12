@@ -356,6 +356,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.ArchLv355, e.ArchLv370, e.ArchCristal = st.ArchLv355, st.ArchLv370, st.ArchCristal
 		e.MortalLevel, e.CelestialArchLevel = st.MortalLevel, st.CelestialArchLevel
 		e.NightmareTickets = st.NightmareTickets
+		e.SubCelestialGuardada, e.SubCelestialLevel = st.SubCelestialGuardada, st.SubCelestialLevel
+		e.SubCelestialAtivo, e.CelestialReset = st.SubCelestialAtivo, st.CelestialReset
 		e.TerraMistica = st.TerraMistica
 		e.NewbieQuest = st.NewbieQuest
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus

@@ -80,18 +80,34 @@ type Character struct {
 	CelestialArchLevel uint8  // MobExtra.QuestInfo.Celestial.ArchLevel
 	ArchCristal        uint8  // MobExtra.QuestInfo.Arch.Cristal — stages done (0..4)
 	NightmareTickets   int32  // MobExtra.NT: Pesadelo Arcano entries held (pesadelo-plan.md)
-	NewbieQuest        uint8  // MobExtra.QuestInfo.Mortal.Newbie: training-field trainer step (0..4)
-	Soul               uint8  // MobExtra.Soul
-	Fame               int32  // MobExtra.Fame
-	PKPoint            uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
-	Guilty             uint8  // KILL_MARK slot: PvP "red nick" decay counter
-	CurKill            uint8  // current PvP kill streak (MobName[13])
-	TotKill            uint16 // lifetime PvP kills (MobName[14..15])
-	SkillBar           [4]uint8
-	ShortSkill         [16]uint8
-	Equip              []Item // owner_kind = char_equip
-	Carry              []Item // owner_kind = char_carry
-	Affects            []Affect
+	// The Sub-Celestial second life (0057_sub_celestial). The fields ABOVE are
+	// always the ACTIVE life; SubCelestialGuardada carries the whole life that is
+	// put away, as JSON. Swapping lives swaps the two places, so nothing else in
+	// the server has to learn that a second life exists.
+	SubCelestialGuardada string // "" when the character has no Sub
+	// SubCelestialLevel is the INACTIVE life's level, out of the JSON on purpose:
+	// the Celestial CS point grant reads it on every score derivation
+	// (internal/level/scorebonus.go), which is login, level-up and every gear
+	// change. Parsing JSON that often would cost for nothing.
+	SubCelestialLevel uint16
+	// SubCelestialAtivo: 0 the main life is in use, 1 the Sub is. NOT redundant
+	// with ClassMaster — both states carry ClassMaster 4.
+	SubCelestialAtivo uint8
+	// CelestialReset is QuestInfo.Celestial.Reset, worth 200 points each in the
+	// grant formula. It was already read there and had nowhere to live.
+	CelestialReset uint8
+	NewbieQuest    uint8  // MobExtra.QuestInfo.Mortal.Newbie: training-field trainer step (0..4)
+	Soul           uint8  // MobExtra.Soul
+	Fame           int32  // MobExtra.Fame
+	PKPoint        uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
+	Guilty         uint8  // KILL_MARK slot: PvP "red nick" decay counter
+	CurKill        uint8  // current PvP kill streak (MobName[13])
+	TotKill        uint16 // lifetime PvP kills (MobName[14..15])
+	SkillBar       [4]uint8
+	ShortSkill     [16]uint8
+	Equip          []Item // owner_kind = char_equip
+	Carry          []Item // owner_kind = char_carry
+	Affects        []Affect
 }
 
 // KingdomCapeQuote is the persisted, versioned sapphire price snapshot.

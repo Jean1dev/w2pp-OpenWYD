@@ -291,9 +291,19 @@ type Entity struct {
 	// (migration 0025). Both the grant and the spend flush immediately, because
 	// an entry is bought with gold.
 	NightmareTickets int32
-	Soul             uint8 // MobExtra.Soul; 0 means no modeled soul
-	Fame             int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
-	QuestFlag        uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+	// A SEGUNDA VIDA DO CELESTIAL (0057_sub_celestial). Os campos de progressao
+	// acima sao sempre a vida ATIVA. A guardada viaja inteira como JSON e so a
+	// troca a le; o NIVEL dela fica fora do JSON porque a formula de pontos do
+	// Celestial CS o consulta em toda derivacao de score.
+	SubCelestialGuardada string
+	SubCelestialLevel    uint16
+	// SubCelestialAtivo: 0 a principal em uso, 1 o Sub. Nao e redundante com
+	// ClassMaster: os dois estados carregam ClassMaster 4.
+	SubCelestialAtivo uint8
+	CelestialReset    uint8
+	Soul              uint8 // MobExtra.Soul; 0 means no modeled soul
+	Fame              int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
+	QuestFlag         uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
 	// hits, but it does NOT by itself blink the nickname. Session-only, not persisted.

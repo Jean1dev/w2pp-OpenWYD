@@ -372,8 +372,12 @@ func scoreBonusInput(e *world.Entity) level.ScoreBonusInput {
 		MortalLevel:        e.MortalLevel,
 		ArchCristal:        e.ArchCristal,
 		CelestialArchLevel: e.CelestialArchLevel,
-		// CelestialReset and SubCelestialLevel are not modeled yet (the
-		// Sub-Celestial flow); they stay zero, which under-grants a reset
-		// character rather than inventing points.
+		// The Sub-Celestial flow now has somewhere to live (0057_sub_celestial),
+		// so these two stop being zero. SubCelestialLevel is the INACTIVE life's
+		// level: the CELESTIALCS branch counts it at half rate plus its own
+		// steps, which is why the level is a column of its own instead of living
+		// inside the stored-life JSON — this runs on every score derivation.
+		CelestialReset:    e.CelestialReset,
+		SubCelestialLevel: int32(e.SubCelestialLevel),
 	}
 }
