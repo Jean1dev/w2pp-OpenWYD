@@ -1,4 +1,4 @@
--- 0060_sub_celestial — onde mora a SEGUNDA VIDA do Celestial.
+-- 0061_sub_celestial — onde mora a SEGUNDA VIDA do Celestial.
 --
 -- O Sub Celestial é uma segunda vida do mesmo personagem: o jogador cria o Sub
 -- com a Pedra Ideal (já sendo Celestial 120+, com o Sephirot no espaço 11) e daí

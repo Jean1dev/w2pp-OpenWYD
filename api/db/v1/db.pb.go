@@ -689,7 +689,7 @@ type Character struct {
 	// MobExtra.QuestInfo.Mortal.Newbie: which of the four training-field trainer
 	// steps the character has done (0..4, _MSG_Quest.cpp:1896-2100).
 	MortalNewbie int32 `protobuf:"varint,50,opt,name=mortal_newbie,json=mortalNewbie,proto3" json:"mortal_newbie,omitempty"`
-	// The Sub-Celestial second life (0060_sub_celestial).
+	// The Sub-Celestial second life (0061_sub_celestial).
 	//
 	// The columns above are always the ACTIVE life. The life that is put away
 	// travels whole in sub_celestial_guardada, as the JSON the migration stores,

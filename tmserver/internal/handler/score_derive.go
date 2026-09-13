@@ -372,7 +372,7 @@ func scoreBonusInput(e *world.Entity) level.ScoreBonusInput {
 		MortalLevel:        e.MortalLevel,
 		ArchCristal:        e.ArchCristal,
 		CelestialArchLevel: e.CelestialArchLevel,
-		// The Sub-Celestial flow now has somewhere to live (0060_sub_celestial),
+		// The Sub-Celestial flow now has somewhere to live (0061_sub_celestial),
 		// so these two stop being zero. SubCelestialLevel is the INACTIVE life's
 		// level: the CELESTIALCS branch counts it at half rate plus its own
 		// steps, which is why the level is a column of its own instead of living

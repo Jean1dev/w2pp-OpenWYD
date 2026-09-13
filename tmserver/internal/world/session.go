@@ -291,7 +291,7 @@ type Entity struct {
 	// (migration 0025). Both the grant and the spend flush immediately, because
 	// an entry is bought with gold.
 	NightmareTickets int32
-	// A SEGUNDA VIDA DO CELESTIAL (0060_sub_celestial). Os campos de progressao
+	// A SEGUNDA VIDA DO CELESTIAL (0061_sub_celestial). Os campos de progressao
 	// acima sao sempre a vida ATIVA. A guardada viaja inteira como JSON e so a
 	// troca a le; o NIVEL dela fica fora do JSON porque a formula de pontos do
 	// Celestial CS o consulta em toda derivacao de score.

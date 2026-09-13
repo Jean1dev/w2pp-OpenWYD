@@ -175,7 +175,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
 		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_cristal,
 		       nightmare_tickets, newbie_quest,
-		       -- A vida guardada do Sub Celestial (0060_sub_celestial). O jsonb e
+		       -- A vida guardada do Sub Celestial (0061_sub_celestial). O jsonb e
 		       -- NULO ate o personagem criar um Sub, entao entra por COALESCE: o
 		       -- domain carrega string vazia, nao ponteiro, para nao espalhar
 		       -- "pode ser nulo" por todo o caminho ate o handler.
