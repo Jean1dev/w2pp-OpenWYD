@@ -31,9 +31,9 @@ func TestEquipmentResourcesCostumeCatalog(t *testing.T) {
 	for cls := uint8(0); cls < 4; cls++ {
 		for tier := uint8(0); tier <= classMasterSCelestial; tier++ {
 			for _, tt := range []struct {
-				item                int16
+				item                 int16
 				str, intel, dex, con int16
-				hp, mp              int32
+				hp, mp               int32
 			}{
 				{4185, 250, 250, 250, 250, 1500, 1500},
 				{4186, 250, 250, 250, 250, 1500, 1500},
