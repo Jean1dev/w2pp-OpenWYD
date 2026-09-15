@@ -370,8 +370,11 @@ func (w *World) CharacterSaveFor(s *Session, e *Entity) CharacterSave {
 	cs.SaveX, cs.SaveY = e.SaveX, e.SaveY
 	cs.Level, cs.Exp, cs.Coin = e.Level, e.Exp, e.Coin
 	cs.Str, cs.Int, cs.Dex, cs.Con = e.Str, e.Int, e.Dex, e.Con
-	cs.HP, cs.MaxHP = e.HP, e.MaxHP
-	cs.MP, cs.MaxMP = e.MP, e.MaxMP
+	// Keep the historical flat save representation: old saves lack equipment
+	// CON/INT resources. Login derives the base from this value, then adds the
+	// current equipment contribution once, including for pre-issue-321 saves.
+	cs.HP, cs.MaxHP = e.HP, e.MaxHP-e.EquipmentAttributeHP
+	cs.MP, cs.MaxMP = e.MP, e.MaxMP-e.EquipmentAttributeMP
 	cs.DivineEnd = e.DivineEnd // 0 once the buff has expired (cleared by the tick sweep)
 	cs.ScoreBonus, cs.SpecialBonus = e.ScoreBonus, e.SpecialBonus
 	cs.LearnedSkill, cs.SecLearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.SecLearnedSkill, e.BaseSpecial

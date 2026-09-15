@@ -42,6 +42,29 @@ TK {8,4,7,6,80,45}  FM {5,8,5,5,60,65}  BM {6,6,9,5,70,55}  HT {8,9,13,6,75,60}
 `MaxMp = baseMP + (Int-baseInt)*2 + Level*incMp`. (No level-up usamos o incremento
 `MaxHp += incHp[cls]`, equivalente.)
 
+### Recursos concedidos por atributos de equipamento (issue #321)
+
+O recálculo dos jogadores acrescenta `2 * CON do equipamento` ao HP máximo
+e `2 * INT do equipamento` ao MP máximo, após resolver catálogo, efeitos da
+instância e refinamento. Esses termos entram antes dos affects e percentuais.
+Não incluem atributos-base (já contemplados pela distribuição de pontos) nem
+CON dos buffs, que concedem seu próprio HP explicitamente.
+
+Os trajes 4185/4186 sem refinamento acrescentam 500 HP e 500 MP máximos;
+4187 acrescenta 1000 MP e 4188 acrescenta 1000 HP. Equipar não cura recursos
+atuais; remover limita HP/MP aos novos máximos efetivos. A conversão é comum
+aos equipamentos que concedem esses atributos e não se aplica a mobs/summons.
+
+`Basedef.cpp:3152-3163` fundamenta o fator 2, mas também duplica o máximo
+preexistente. Essa duplicação integral não é reproduzida: a correção mantém
+o modelo Go de base mais bônus. `Entity.EquipmentAttributeHP/MP` registra
+somente o novo termo em memória; `CharacterSaveFor` o desconta dos máximos
+salvos. Assim, saves antigos recebem o bônus no login e novos saves mantêm
+a representação anterior, sem migração ou acúmulo nas reconexões. HP/MP atuais
+continuam persistidos separadamente, como nos bônus percentuais existentes.
+A prévia da seleção de personagens mantém os máximos históricos persistidos;
+os pacotes de score dentro do jogo usam os máximos corrigidos.
+
 ## 4. `GetExpApply` (em código: `level.ExpApply`, path MORTAL)
 `GetFunc.cpp:1028`. `mult% = (target+1)*100/(attacker+1)`, teto 200; se `mult<80 && attacker+1>=50`
 → `mult*2-100` (pune killer muito acima do mob); `exp=(exp*mult+1)/100`. ARCH=50% base + quest-gates

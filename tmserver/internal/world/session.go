@@ -294,6 +294,10 @@ type Entity struct {
 	BaseStr, BaseInt, BaseDex, BaseCon int16
 	BaseAC, BaseDamage                 int32
 	BaseMaxHP, BaseMaxMP               int32
+	// EquipmentAttributeHP/MP are the equipment CON/INT resource contributions
+	// included in live maxima but excluded from saves for compatibility with
+	// characters saved before issue #321. Replaced on every score refresh.
+	EquipmentAttributeHP, EquipmentAttributeMP int32
 	// Magic, Parry (evasion) and Resist have NO base term: the legacy has none either.
 	// BASE_GetCurrentScore seeds a fresh local `magic` from equipment (Basedef.cpp:3194),
 	// accumulates the derived terms and stores it at :4729 — there is no BaseScore.Magic
