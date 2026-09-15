@@ -146,6 +146,9 @@ func (s *Server) LoadCharacter(ctx context.Context, req *dbv1.LoadCharacterReque
 
 // SaveCharacter persists a character's live state (partial; see store.SaveCharacter).
 func (s *Server) SaveCharacter(ctx context.Context, req *dbv1.SaveCharacterRequest) (*dbv1.SaveCharacterResponse, error) {
+	if stage := req.GetCharacter().GetArchCrystalStage(); stage < 0 || stage > 4 {
+		return nil, status.Error(codes.InvalidArgument, "arch crystal stage must be between 0 and 4")
+	}
 	ch := protoToCharacter(req.GetCharacter())
 	err := s.store.SaveCharacter(ctx, req.GetAccountId(), ch)
 	if errors.Is(err, store.ErrNotFound) {

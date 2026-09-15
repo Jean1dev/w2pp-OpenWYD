@@ -235,6 +235,7 @@ type Entity struct {
 	ArchLv355, ArchLv370 uint8
 	MortalLevel          uint16
 	CelestialArchLevel   uint8
+	ArchCrystalStage     uint8
 	Soul                 uint8 // MobExtra.Soul; 0 means no modeled soul
 	Fame                 int32 // MobExtra.Fame; loaded from DB, updated by Selo do Guerreiro, and shown by /nick
 	QuestFlag            uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)

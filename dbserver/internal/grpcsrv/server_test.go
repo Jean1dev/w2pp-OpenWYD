@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
@@ -456,6 +458,7 @@ func TestSaveCharacterRoundTrip(t *testing.T) {
 		Slot: 2, Name: "mage", Class: 3, Clan: 1, GuildId: 4, Level: 30, Exp: 99, Coin: 7,
 		Str: 1, Int: 2, Dex: 3, Con: 4, MaxHp: 200, Hp: 150, Fame: 88,
 		ClassMaster: 3, CelestialLv40: 1, CelestialCircle: 1,
+		ArchCrystalStage: 4, ArchLv355: 1, ArchLv370: 1,
 		Carry:   []*dbv1.Item{{Slot: 0, Index: 500, Eff1: 1, Effv1: 2}},
 		Affects: []*dbv1.Affect{{Type: 1, Value: 2, Level: 3, Time: 4}},
 	}
@@ -467,6 +470,13 @@ func TestSaveCharacterRoundTrip(t *testing.T) {
 
 	// protoToCharacter must have mapped the fields the store will persist.
 	got := fs.savedChar
+	if got.ArchCrystalStage != 4 || got.ArchLv355 != 1 || got.ArchLv370 != 1 {
+		t.Fatalf("Arch progress not saved: %+v", got)
+	}
+	out := characterToProto(got)
+	if out.GetArchCrystalStage() != 4 || out.GetArchLv355() != 1 || out.GetArchLv370() != 1 {
+		t.Fatalf("Arch progress not loaded: %+v", out)
+	}
 	if got.Slot != 2 || got.Name != "mage" || got.Level != 30 || got.Coin != 7 || got.Fame != 88 {
 		t.Fatalf("character not mapped: %+v", got)
 	}
@@ -542,6 +552,17 @@ func TestSaveCharacterNotFound(t *testing.T) {
 	}
 	if resp.GetOk() {
 		t.Fatal("expected ok=false when slot is empty")
+	}
+}
+
+func TestSaveCharacterRejectsInvalidArchCrystalStage(t *testing.T) {
+	for _, stage := range []int32{-1, 5, 256} {
+		_, err := New(&fakeStore{}).SaveCharacter(context.Background(), &dbv1.SaveCharacterRequest{
+			AccountId: 1, Character: &dbv1.Character{ArchCrystalStage: stage},
+		})
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("stage %d: got %v, want InvalidArgument", stage, err)
+		}
 	}
 }
 
