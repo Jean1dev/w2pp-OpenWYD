@@ -193,6 +193,7 @@ message Character {
   int32 arch_lv370 = 45; // QuestInfo.Arch.Level370
   int32 mortal_level = 46; // QuestInfo.Arch.MortalLevel
   int32 celestial_arch_level = 47; // QuestInfo.Celestial.ArchLevel band (1..5)
+  int32 kefra_ticket = 48; // Remaining Hall of Kefra entries (MobExtra.KefraTicket).
 }
 
 message Item {

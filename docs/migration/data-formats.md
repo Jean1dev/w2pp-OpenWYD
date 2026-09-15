@@ -397,6 +397,16 @@ penalidades). Composição (alinhamento natural x86, `time_t` = 8 bytes):
 isolada; derivada de `STRUCT_ACCOUNTFILE` por `DBGetSelChar`): posições, nomes, `STRUCT_SCORE[4]`,
 `STRUCT_ITEM Equip[4][16]`, guilda, coin, exp dos 4 chars.
 
+**KefraTicket (#325):** `int32` little-endian em `STRUCT_MOBEXTRA[452:456]`,
+após `LastNT` (440, 8 bytes) e `NT` (448, 4 bytes). A conversão legada importa
+esse valor para `character.kefra_ticket`. A migração `0022_kefra_ticket` adiciona
+a coluna `INTEGER NOT NULL DEFAULT 0`; personagens existentes começam com zero.
+O campo 48 (`kefra_ticket`) de `db.v1.Character` transporta o saldo entre tmserver
+e dbserver. A atualização do saldo participa da mesma transação do inventário.
+Aplicar a migração antes de atualizar os dois serviços; versões antigas não
+preservam esse campo no ciclo de carregamento/salvamento. O formato CPSock do
+cliente e o tamanho do arquivo legado não mudam.
+
 ### 1.6. Export e exclusão
 - `DBExportAccount` grava cópia em `S:/export/account<ServerIndex>/<NOME>` (`CFileDB.cpp:2513`) —
   caminho hardcoded num drive `S:` (ver Fase 7 para hardcodes).

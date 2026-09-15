@@ -454,7 +454,7 @@ func TestSaveCharacterRoundTrip(t *testing.T) {
 	fs := &fakeStore{}
 	in := &dbv1.Character{
 		Slot: 2, Name: "mage", Class: 3, Clan: 1, GuildId: 4, Level: 30, Exp: 99, Coin: 7,
-		Str: 1, Int: 2, Dex: 3, Con: 4, MaxHp: 200, Hp: 150, Fame: 88,
+		Str: 1, Int: 2, Dex: 3, Con: 4, MaxHp: 200, Hp: 150, Fame: 88, KefraTicket: 199,
 		ClassMaster: 3, CelestialLv40: 1, CelestialCircle: 1,
 		Carry:   []*dbv1.Item{{Slot: 0, Index: 500, Eff1: 1, Effv1: 2}},
 		Affects: []*dbv1.Affect{{Type: 1, Value: 2, Level: 3, Time: 4}},
@@ -465,9 +465,13 @@ func TestSaveCharacterRoundTrip(t *testing.T) {
 		t.Fatalf("SaveCharacter: ok=%v err=%v", resp.GetOk(), err)
 	}
 
+	if loaded := characterToProto(fs.savedChar); loaded.GetKefraTicket() != 199 {
+		t.Fatalf("loaded Kefra balance = %d, want 199", loaded.GetKefraTicket())
+	}
+
 	// protoToCharacter must have mapped the fields the store will persist.
 	got := fs.savedChar
-	if got.Slot != 2 || got.Name != "mage" || got.Level != 30 || got.Coin != 7 || got.Fame != 88 {
+	if got.Slot != 2 || got.Name != "mage" || got.Level != 30 || got.Coin != 7 || got.Fame != 88 || got.KefraTicket != 199 {
 		t.Fatalf("character not mapped: %+v", got)
 	}
 	if got.ClassMaster != 3 || got.CelLv40 != 1 || got.CelLv90 != 0 || got.CelCircle != 1 {

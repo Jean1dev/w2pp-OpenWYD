@@ -145,6 +145,11 @@ func (m MobExtra) SecLearnedSkill() int32 {
 // Fame returns the MobExtra Fame field (offset 8).
 func (m MobExtra) Fame() int32 { return int32(binary.LittleEndian.Uint32(m.Raw[8:12])) }
 
+// KefraTicket returns the remaining Hall entries (STRUCT_MOBEXTRA offset 452).
+func (m MobExtra) KefraTicket() int32 {
+	return int32(binary.LittleEndian.Uint32(m.Raw[452:456]))
+}
+
 // Soul returns the soul attribute byte (offset 12).
 func (m MobExtra) Soul() uint8 { return m.Raw[12] }
 

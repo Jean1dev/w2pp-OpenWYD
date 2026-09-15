@@ -136,6 +136,7 @@ type CharacterState struct {
 	CelestialArchLevel uint8
 	Soul               uint8
 	Fame               int32 // MobExtra.Fame
+	KefraTicket        int32 // Remaining Hall of Kefra entries.
 	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
 	// means "never persisted" (SetPKPoint never legitimately writes 0) — the login
 	// path treats that as neutral (75), the same convention as ClassMaster == 0.
@@ -220,6 +221,7 @@ type CharacterSave struct {
 	SecLearnedSkill int32
 	Soul            uint8
 	Fame            int32
+	KefraTicket     int32 // Remaining Hall of Kefra entries.
 	// Tier state persisted by the in-game save (world-owned): ClassMaster carries
 	// tier transformations; CelLv40/CelLv90/CelCircle are the celestial quest gates.
 	ClassMaster        uint8

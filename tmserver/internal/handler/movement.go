@@ -222,7 +222,20 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 		return
 	}
 	e := w.Entity(s.Conn)
-	if e == nil || e.HP == 0 {
+	if e == nil || e.HP <= 0 {
+		return
+	}
+	// GetFunc.cpp:994: only the Hall entrance spends a Kefra ticket. Keep
+	// rejected requests out of the MSVC stream; successful entries draw X then Y.
+	if e.X&^3 == 2364 && e.Y&^3 == 3892 {
+		if e.KefraTicket <= 0 {
+			return
+		}
+		e.KefraTicket--
+		x := 2364 + int16(w.Rand().Intn(3))
+		y := 3906 + int16(w.Rand().Intn(3))
+		sendKefraBalance(w, s, e.KefraTicket)
+		d.doTeleport(w, s, x, y)
 		return
 	}
 	// GetTeleportPosition only opens the Azran→Vale portal for the equipped

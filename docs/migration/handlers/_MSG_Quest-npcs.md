@@ -26,7 +26,7 @@
 | 100 | 14 | `CAPAVERDE_TELEPORT` | 2167 | teleporte (capa verde) |
 | 100 | 15 | `MOLARGARGULA` | 2236 | quest "molar gárgula" (flag Mortal) |
 | 100 | 16 | `TREINADORNEWBIE4` | 2046 | tutorial novato 4 |
-| 100 | 22 | `SOBREVIVENTE` | 2597 | NPC sobrevivente |
+| 100 | 22 | `SOBREVIVENTE` | 2597 | NPC sobrevivente — troca implementada (#325) |
 | 100 | 30 | `GUARDA_REAL_EVT1` | 2664 | guarda real (evento) |
 | 72 | — | `UXMAL` | 1313 | NPC Uxmal |
 | 36 | — | `TREINADORNEWBIE1` | 1895 | tutorial novato 1 |
@@ -152,3 +152,24 @@ está implementado; cidadania e o bloco condicional continuam pendentes.
 
 > **Status:** todos os **38 tipos de NPC / 36 `case`** mapeados (gatilho Merchant/grade → modo →
 > propósito → linha) + a cadeia Arch detalhada. Enumeração da Fase 5 concluída.
+
+## Sobrevivente — Hall de Kefra (#325)
+
+O NPC `MOB.Merchant=100`, `EF_GRADE0=22` converte o primeiro item **4127**
+(Pergaminho Selado) nos slots acessíveis do inventário em **100 acessos** ao Hall.
+A interação é imediata, tanto com `confirm=0` quanto com `confirm!=0`, e limpa
+inteiramente o slot selecionado, conforme `_MSG_Quest.cpp:2598-2623`. Não exige
+espaço livre. Sem pergaminho acessível, ou se a soma exceder `int32`, nada muda.
+O servidor envia o slot vazio e a mensagem `_DN_CHANGE_COUNT` (420) com o saldo.
+
+O template real `npc/Sobrevivente` tem `MOB.Merchant=100` no byte 17, mas
+`CurrentScore.Merchant=68` (o valor exposto por `Entity.Merchant`). O despacho
+aceita o discriminador legado do template e também `Entity.Merchant=100`, sempre
+com grade 22, sem alterar os dados enviados ao cliente.
+
+O saldo é individual por personagem e acompanha inventário e atributos no
+salvamento normal. A entrada no Hall usa o bloco `(2364,3892)` (coordenadas
+arredondadas para múltiplos de quatro), exige saldo positivo e desconta um acesso.
+O destino é `(2364+rand()%3,3906+rand()%3)`, com duas chamadas ao RNG MSVC, X antes
+de Y (`GetFunc.cpp:994-1004`). Uma tentativa sem saldo não consome RNG nem teleporta.
+Outras rotas e o ciclo de vida do boss Kefra não fazem parte desta implementação.
