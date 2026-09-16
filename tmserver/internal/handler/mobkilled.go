@@ -229,6 +229,9 @@ func sendDieAction(w *world.World, mob *world.Entity) {
 // UNVERIFIED / deferred: party distribution and the per-level reward items
 // (DoItemLevel).
 func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *world.Entity) {
+	if archExpLocked(killer) {
+		return
+	}
 	gain := level.SoloExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
 	if gain <= 0 {
 		return
@@ -249,6 +252,9 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 // grantDirectExp awards a fixed, already-calculated amount. Quest rewards must
 // not pass through monster level scaling, equipment bonuses, or EXP events.
 func (d *Dispatcher) grantDirectExp(w *world.World, s *world.Session, e *world.Entity, gain int64) int64 {
+	if archExpLocked(e) {
+		return 0
+	}
 	if gain <= 0 {
 		return 0
 	}
@@ -271,6 +277,12 @@ func (d *Dispatcher) grantDirectExp(w *world.World, s *world.Session, e *world.E
 	return applied
 }
 
+// archExpLocked uses >= so characters that bypassed a lock before issue #327
+// cannot keep progressing until Lindy completes their missing unlocks.
+func archExpLocked(e *world.Entity) bool {
+	return e.ClassMaster == classMasterArch && ((e.Level >= 354 && e.ArchLv355 == 0) || (e.Level >= 369 && e.ArchLv370 == 0))
+}
+
 // isCelestialTier reports whether the tier rides the Celestial curve (g_pNextLevel_2)
 // and cap (MAX_CLEVEL): CELESTIAL/CELESTIALCS/SCELESTIAL (CMob.cpp:1085).
 func isCelestialTier(classMaster uint8) bool {
@@ -290,6 +302,9 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 	celestial := isCelestialTier(e.ClassMaster)
 	levelCap := level.MaxLevelForTier(e.ClassMaster)
 	for e.Level < levelCap && e.Exp >= level.NextLevelExpTier(e.Level, e.ClassMaster) {
+		if archExpLocked(e) {
+			break
+		}
 		// Celestial quest gates: the 40/90 caps stay locked until /destravar40 and
 		// /destravar90 set the flags. At the gate CheckGetLevel returns 0 without
 		// leveling (CMob.cpp:1107), so stop the loop here.

@@ -134,6 +134,7 @@ type CharacterState struct {
 	ArchLv370          uint8
 	MortalLevel        uint16
 	CelestialArchLevel uint8
+	ArchCrystalStage   uint8
 	Soul               uint8
 	Fame               int32 // MobExtra.Fame
 	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
@@ -231,6 +232,7 @@ type CharacterSave struct {
 	ArchLv370          uint8
 	MortalLevel        uint16
 	CelestialArchLevel uint8
+	ArchCrystalStage   uint8
 	// PK/karma state (issue #210) — see CharacterState for field meanings.
 	PKPoint     uint8
 	Guilty      uint8

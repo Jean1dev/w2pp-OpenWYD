@@ -489,6 +489,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	if d.useQuest256Ticket(w, s, e, src) {
 		return
 	}
+	if e.Carry[src].Index >= archCrystalFirstItem && e.Carry[src].Index <= archCrystalFirstItem+3 {
+		d.useArchCrystal(w, s, e, src)
+		return
+	}
 	// Pedra Ideal (1742) right-clicked by an Arch (issue #222): the Arch→Celestial
 	// transformation. ClassMaster==Mortal falls through unchanged to the vol==0
 	// equip path below — that's the unrelated kingArch flow (equip + visit the
@@ -854,6 +858,11 @@ func (d *Dispatcher) useExpChest(w *world.World, s *world.Session, e *world.Enti
 // Exp directly to the next curve threshold, then calls CheckGetLevel; both sides
 // of its rand()%2 branch do the same in this fork.
 func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Entity, src int) {
+	if archExpLocked(e) {
+		d.sendChatText(w, s, "Conclua a liberacao de nivel na Lindy antes de usar Poeira de Fada.")
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
 	if e.Level < 0 {
 		return
 	}
@@ -1509,13 +1518,24 @@ const celestialArchLevelReq = 355
 // the in-game tooltip instructs "clique na pedra com o botão direito do mouse" and only
 // applies once the character is already Arch (the caller in useItem gates on that).
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
-	if e.ClassMaster != classMasterArch || e.Level < celestialArchLevelReq || e.MortalLevel < 99 {
+	var requirement string
+	switch {
+	case e.ClassMaster != classMasterArch:
+		requirement = "Somente um Arch pode evoluir para Celestial com a Pedra Ideal."
+	case e.Level < celestialArchLevelReq:
+		requirement = "Seu Arch precisa atingir o nivel 356 para usar a Pedra Ideal."
+	case e.MortalLevel < 99:
+		requirement = "O Mortal de origem precisa ter atingido o nivel 100 para criar o Celestial."
+	}
+	if requirement != "" {
 		d.notify(w, s, NoticeReqNotMet)
+		d.sendChatText(w, s, requirement)
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
 	if !e.Equip[1].Empty() {
 		d.notify(w, s, NoticeOnlyToEquips)
+		d.sendChatText(w, s, "Remova a armadura antes de usar a Pedra Ideal.")
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
@@ -1569,9 +1589,9 @@ func (d *Dispatcher) buildCelestialSnapshot(e *world.Entity, src int) {
 	e.SkillBar = [4]uint8{}
 	e.CelLv40, e.CelLv90, e.CelCircle = 0, 0, 0
 	body := int16(3500)
-	if archLevel >= 399 {
+	if e.ArchCrystalStage == 4 && archLevel >= 399 {
 		body = 3502
-	} else if archLevel >= 380 {
+	} else if e.ArchCrystalStage == 4 && archLevel >= 380 {
 		body = 3501
 	}
 	e.Equip[1] = world.Item{Index: body}

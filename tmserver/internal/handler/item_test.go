@@ -439,7 +439,7 @@ func TestUseEntradaTerritorio(t *testing.T) {
 // carry slot 0, at the given tier/level (issue #222).
 func idealStoneDB(classMaster uint8, lvl int) *fakeDB {
 	db := newDB()
-	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster, Level: lvl, MortalLevel: 99}
+	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster, Level: lvl, MortalLevel: 99, ArchCrystalStage: 4}
 	st.Carry[0] = world.Item{Index: idealStoneItem}
 	db.loadResult = st
 	return db
@@ -549,7 +549,7 @@ func TestCelestialArchBandsAndEquipment(t *testing.T) {
 	}
 	d := New(Config{})
 	for _, tc := range tests {
-		e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: tc.level, MortalLevel: 99, Clan: clanHekalotia}
+		e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: tc.level, MortalLevel: 99, ArchCrystalStage: 4, Clan: clanHekalotia}
 		e.Equip[0] = world.Item{Index: 21}
 		e.Carry[0] = world.Item{Index: idealStoneItem}
 		d.buildCelestialSnapshot(&e, 0)

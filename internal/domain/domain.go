@@ -78,6 +78,7 @@ type Character struct {
 	ArchLv370          uint8  // MobExtra.QuestInfo.Arch.Level370
 	MortalLevel        uint16 // MobExtra.QuestInfo.Arch.MortalLevel
 	CelestialArchLevel uint8  // MobExtra.QuestInfo.Celestial.ArchLevel
+	ArchCrystalStage   uint8  // QuestInfo.Arch.Cristal (0..4)
 	Soul               uint8  // MobExtra.Soul
 	Fame               int32  // MobExtra.Fame
 	PKPoint            uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)

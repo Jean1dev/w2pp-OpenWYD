@@ -165,7 +165,9 @@ func (d *Dispatcher) rewardCastlePlayer(w *world.World, e *world.Entity, q conte
 		}
 	}
 	if idx := int(e.ClassMaster); idx < len(q.ExpPrize) {
-		e.Exp += q.ExpPrize[idx]
+		if !archExpLocked(e) {
+			e.Exp += q.ExpPrize[idx]
+		}
 	}
 	e.Coin += q.CoinPrize
 	if e.Coin > coinCap {

@@ -345,7 +345,7 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		writeDamage(payload, i, int32(dmg))
 	}
 
-	if healExp > 0 {
+	if healExp > 0 && !archExpLocked(e) {
 		if healExp > 200 {
 			healExp = 200
 		}
