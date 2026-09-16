@@ -179,17 +179,32 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 	if !ok {
 		return
 	}
-	if e.ClassMaster != classMasterArch || (e.Level != 354 && e.Level != 369) || !combine.MatchLindy(it[:]) {
+	if e.ClassMaster != classMasterArch || e.Level < 354 || !combine.MatchLindy(it[:]) {
 		sendCombineComplete(w, s, combineInvalid)
 		return
 	}
-	if (e.Level == 354 && e.ArchLv355 != 0) || (e.Level == 369 && (e.ArchLv370 != 0 || e.Fame <= 0)) {
+	unlock355 := e.ArchLv355 == 0 && e.Level >= 354
+	unlock370 := !unlock355 && e.ArchLv370 == 0 && e.Level >= 369 && e.Fame > 0
+	if !unlock355 && !unlock370 {
 		sendCombineComplete(w, s, combineInvalid)
 		return
 	}
-	consumePositions(w, s, e, sl, active, nil)
-	if e.Level == 354 {
-		e.ArchLv355 = 1
+	// Each recipe position must represent a distinct ingredient. A forged
+	// packet must not reuse the same sapphire stack for several positions.
+	var used [world.MaxCarry]bool
+	for _, i := range active {
+		if used[sl[i]] {
+			sendCombineComplete(w, s, combineInvalid)
+			return
+		}
+		used[sl[i]] = true
+	}
+	staged := *e
+	for _, i := range active {
+		staged.Carry[sl[i]] = world.Item{}
+	}
+	if unlock355 {
+		staged.ArchLv355 = 1
 		cape := int16(3193)
 		switch e.Clan {
 		case 7:
@@ -197,14 +212,28 @@ func (d *Dispatcher) combineItemLindy(w *world.World, s *world.Session, _ protoc
 		case 8:
 			cape = 3192
 		}
-		e.Equip[reinoCapeSlot] = world.Item{Index: cape}
-		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, reinoCapeSlot, itemToSel(e.Equip[reinoCapeSlot])))
-	} else {
-		e.ArchLv370 = 1
-		e.Fame--
+		staged.Equip[reinoCapeSlot] = world.Item{Index: cape}
+	} else if unlock370 {
+		staged.ArchLv370 = 1
+		staged.Fame--
 	}
-	sendCombineComplete(w, s, combineSuccess)
-	w.SaveCharacterAsync(s)
+	d.refreshScore(&staged)
+	d.saveArchQuest(w, s, e, staged, func(w *world.World, s *world.Session, saved bool) {
+		for _, i := range active {
+			sendCarrySlot(w, s, e, sl[i])
+		}
+		if !saved {
+			sendCombineComplete(w, s, combineFailed)
+			return
+		}
+		if unlock355 {
+			d.sendSlot(w, s, world.ItemPlaceEquip, reinoCapeSlot, e.Equip[reinoCapeSlot])
+			d.refreshEquip(w, s, e)
+		}
+		d.sendEtc(w, s, e)
+		sendCombineComplete(w, s, combineSuccess)
+		d.sendChatText(w, s, "Liberacao de nivel concluida.")
+	})
 }
 
 // Ehre is implemented separately below because each recipe has a distinct output.

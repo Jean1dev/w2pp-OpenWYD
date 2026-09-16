@@ -49,15 +49,22 @@ func playerBaseDamage(e *world.Entity) int32 {
 // the old "base = current − equipment" subtraction produced a NEGATIVE base —
 // defense read ~0 while geared and went negative on unequip (issue #232).
 //
-// CAUTION: if the Arch quest crystals (+30/+20 BaseScore.Ac,
-// _MSG_UseItem.cpp:3412-3421, not ported) are ever implemented, this stops being
-// sufficient and BaseScore.Ac has to become a persisted column.
+// Crystal AC is reconstructed from the persisted quest stage only for Archs:
+// the Ideal Stone resets AC and must not reapply historical Arch bonuses.
 func playerBaseAC(e *world.Entity) int32 {
 	base := baseACArch
 	// ClassMaster == 0 means "never persisted" and is treated as MORTAL, the same
 	// convention completeCharacterLogin applies before this runs (character.go).
 	if e.ClassMaster == classMasterMortal || e.ClassMaster == 0 {
 		base = baseACMortal
+	}
+	if e.ClassMaster == classMasterArch {
+		if e.ArchCrystalStage >= 2 {
+			base += 30
+		}
+		if e.ArchCrystalStage == 4 {
+			base += 20
+		}
 	}
 	return base + max(e.Level-1, 0)
 }

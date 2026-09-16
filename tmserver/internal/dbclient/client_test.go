@@ -298,6 +298,7 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 		AccountID: 1, Slot: 1, Level: 21, Coin: 600, HP: 150, MaxHP: 200,
 		SecLearnedSkill: 0x01020304, Soul: 3, Fame: 456, KefraTicket: 99, SaveX: 1234, SaveY: 5678,
 		ClassMaster: 3, CelLv40: 1, CelCircle: 1, MortalLevel: 399, CelestialArchLevel: 5,
+		ArchCrystalStage: 4, ArchLv355: 1, ArchLv370: 1,
 		Carry: []world.SavedItem{{Slot: 3, Index: 1234, Eff1: 9, EffV1: 1}},
 	}
 	if err := newClient(api).SaveOnShutdown(context.Background(), save); err != nil {
@@ -307,6 +308,14 @@ func TestSaveOnShutdownMapping(t *testing.T) {
 		t.Fatalf("account id not sent: %d", api.saved.GetAccountId())
 	}
 	c := api.saved.GetCharacter()
+	if c.GetArchCrystalStage() != 4 || c.GetArchLv355() != 1 || c.GetArchLv370() != 1 {
+		t.Fatalf("Arch progression not mapped: %+v", c)
+	}
+	api.loadResp = &dbv1.LoadCharacterResponse{Character: c}
+	loaded, err := newClient(api).LoadCharacter(context.Background(), 1, 1)
+	if err != nil || loaded.ArchCrystalStage != 4 || loaded.ArchLv355 != 1 || loaded.ArchLv370 != 1 {
+		t.Fatalf("load Arch progression: %+v err=%v", loaded, err)
+	}
 	if c.GetLevel() != 21 || c.GetCoin() != 600 || c.GetHp() != 150 {
 		t.Fatalf("save not mapped: %+v", c)
 	}
