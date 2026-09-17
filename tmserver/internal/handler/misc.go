@@ -155,6 +155,10 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	if npc == nil || npc.Mode == world.MobEmpty {
 		return
 	}
+	if isSurvivorNPC(npc) {
+		d.survivorExchange(w, s, e)
+		return
+	}
 	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain.
 	// Grade is also 0 for Merchant-100 templates without EF_GRADE0; routing those
 	// here matches BASE_GetItemAbilityNosanc in the legacy server.

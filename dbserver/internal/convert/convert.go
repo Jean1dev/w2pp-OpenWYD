@@ -117,6 +117,7 @@ func character(slot int, m savefmt.Mob, ex savefmt.MobExtra, shortSkill [16]uint
 		ClassMaster:     ex.ClassMaster(),
 		Soul:            ex.Soul(),
 		Fame:            ex.Fame(),
+		KefraTicket:     ex.KefraTicket(),
 		SkillBar:        m.SkillBar,
 		ShortSkill:      shortSkill,
 		Equip:           items(m.Equip[:]),

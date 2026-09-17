@@ -81,6 +81,7 @@ type Character struct {
 	ArchCrystalStage   uint8  // QuestInfo.Arch.Cristal (0..4)
 	Soul               uint8  // MobExtra.Soul
 	Fame               int32  // MobExtra.Fame
+	KefraTicket        int32  // Remaining Hall of Kefra entries, per character.
 	PKPoint            uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
 	Guilty             uint8  // KILL_MARK slot: PvP "red nick" decay counter
 	CurKill            uint8  // current PvP kill streak (MobName[13])
