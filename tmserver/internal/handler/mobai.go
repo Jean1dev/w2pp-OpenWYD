@@ -717,7 +717,8 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 	// Player down: stop targeting it (the death/resurrection flow is deferred).
 	if target.HP == 0 {
 		if victimSession := w.Session(target.ID); victimSession != nil {
-			if loss := mobDeathExpLoss(target.Level, target.ClassMaster, target.PKPoint); loss > target.Exp {
+			loss := mobDeathExpLoss(target.Level, target.ClassMaster, target.PKPoint)
+			if loss > target.Exp {
 				loss = target.Exp
 			}
 			if loss > 0 {

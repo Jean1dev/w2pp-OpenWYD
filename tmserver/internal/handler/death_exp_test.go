@@ -4,10 +4,10 @@ import "testing"
 
 func TestMobDeathExpLoss(t *testing.T) {
 	tests := []struct {
-		name string
-		level int32
+		name                 string
+		level                int32
 		classMaster, pkPoint uint8
-		want int64
+		want                 int64
 	}{
 		{"protected mortal", 34, classMasterMortal, 75, 0},
 		{"level 35 clean", 35, classMasterMortal, 75, 3970},
