@@ -105,3 +105,6 @@ até validar por captura de tráfego. Por isso a distribuição de party fica DE
 2. enquanto `Exp >= NextLevelExp(Level)` e `Level<MaxLevel`: `Level++`; `MaxHp/MaxMp += inc`;
    no fim cura full + recalcula `ScoreBonus`.
 3. se subiu: `MSG_UpdateScore` + `MSG_Motion(14,3)` (self + in-view).
+4. se houve ganho sem level-up e a recompensa veio de uma invocação, envia `MSG_UpdateEtc`
+   ao dono. O ataque direto já carrega `CurrentExp` no eco `MSG_Attack`; a invocação não
+   gera esse eco para o dono, portanto precisa desta sincronização explícita.

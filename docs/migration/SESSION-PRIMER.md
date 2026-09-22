@@ -176,7 +176,9 @@ server-authoritative já existia; agora ao matar: drop de gold/loot + **despawn*
 + `ExpApply` scaling por nível + `ScoreBonus`/HP/MP por nível, **MORTAL solo**, da captura do agente;
 ao matar: `killer.Exp += ExpApply`, level-up incrementa Level/MaxHP/MaxMP + cura full + pontos de
 atributo, manda `MSG_UpdateScore` + efeito `MSG_Motion(14,3)`; exp/level/MaxHP/MaxMP persistem no DB;
-exp entregue via `MSG_Attack.CurrentExp` no eco do ataque ao próprio atacante), **IA de mob iteração 1**
+exp entregue via `MSG_Attack.CurrentExp` no eco do ataque ao próprio atacante; quando uma invocação
+mata o mob, o dono recebe `MSG_UpdateEtc` com o total atualizado, pois não existe eco de ataque
+do dono), **IA de mob iteração 1**
 (tick periódico `world/tick.go` + `handler/mobai.go`: monstro agro por proximidade/retaliação, persegue
 e ataca o player corpo-a-corpo — ver a seção do roadmap p/ detalhes e o que falta), **morte/respawn do
 player** (`_MSG_Restart` 0x0289: reviver HP=2 + recall à última cidade + refresh; sem penalidade de exp).

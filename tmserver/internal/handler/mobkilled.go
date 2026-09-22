@@ -246,7 +246,15 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 		w.Send(ks, protocol.MsgExpPanel, body)
 	}
 
-	d.applyLevelUps(w, ks, killer)
+	// A player attack carries the post-kill EXP in its authoritative attack
+	// echo. Summon kills do not produce that owner attack echo, so refresh the
+	// complete etc state here when the reward did not cross a level boundary.
+	// Level-up handling already sends MSG_UpdateEtc with the new score fields.
+	if applied := killer.Exp - previousExp; applied > 0 {
+		if !d.applyLevelUps(w, ks, killer) && ks != nil {
+			d.sendEtc(w, ks, killer)
+		}
+	}
 }
 
 // grantDirectExp awards a fixed, already-calculated amount. Quest rewards must
