@@ -9,6 +9,16 @@
 > reproduzir a **distribuição** e validar por amostragem (ver Fase 8 sobre seed/RNG). As constantes
 > mágicas abaixo **devem** ser idênticas.
 
+## 0. Perda de EXP ao morrer por monstro
+
+Na morte de um jogador causada por um monstro, o legado calcula `alpha` como a diferença entre
+os limiares de EXP do nível seguinte e do nível atual. A perda começa em `alpha/20`, usa os
+divisores 22, 25, 30, 35, 40, 45, 50, 55, 70, 85 e 100 a partir dos níveis 30, 40, 50, 60,
+70, 80, 90, 100, 150, 200 e 250, respectivamente. O valor é limitado a 150.000, multiplicado
+por 3 para `10 < PKPoint <= 25` ou por 5 nos demais casos, e limitado a 30.000. Mortais abaixo
+do nível 35 são protegidos. A implementação atual desconta imediatamente a EXP disponível e
+envia `MSG_UpdateEtc` para atualizar a barra do cliente.
+
 ---
 
 ## 1. Curva de EXP e distribuição em party (PvE)
