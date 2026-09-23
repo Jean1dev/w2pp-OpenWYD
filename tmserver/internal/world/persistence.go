@@ -315,6 +315,8 @@ type CastleQuestState struct {
 // DeleteCharacter/LoadCharacter are called OFF the loop via World.Go (blocking
 // I/O); SaveOnShutdown is called inline during the shutdown drain.
 type Persistence interface {
+	LoadKefraState(ctx context.Context) (KefraState, error)
+	SaveKefraState(ctx context.Context, state KefraState) error
 	SaveOnShutdown(ctx context.Context, save CharacterSave) error
 	QuoteKingdomCape(ctx context.Context) (KingdomCapeQuote, error)
 	PurchaseKingdomCape(ctx context.Context, expectedRevision int64, kingdom uint8, save CharacterSave) (KingdomCapeQuote, bool, error)

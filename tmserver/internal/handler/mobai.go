@@ -43,6 +43,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	// sweepAffects (per-player stagger) read this counter, and regenPlayers runs
 	// first, so it cannot live inside either sweep.
 	d.tickCount++
+	d.tickKefra(w)
 	d.ensureGuildStateLoaded(w)
 
 	// Dormancy gate: snapshot the (few) in-play player positions once, so the
@@ -382,7 +383,7 @@ func (d *Dispatcher) generateMobs(w *world.World) {
 	minute := d.tickCount / 60
 	for idx := 0; idx < w.GeneratorCount(); idx++ {
 		g := w.GeneratorAt(idx)
-		if g == nil || g.MinuteGenerate <= 0 {
+		if g == nil || g.MinuteGenerate <= 0 || world.IsKefraGenerator(idx) {
 			continue
 		}
 		if minute%g.MinuteGenerate != idx%g.MinuteGenerate {
@@ -702,6 +703,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 			} else {
 				sendDieAction(w, target)
 				w.DespawnMob(target.ID, 1)
+				d.kefraMobKilled(w, target)
 			}
 			dropCurrentTarget(e, target.ID)
 		} else {

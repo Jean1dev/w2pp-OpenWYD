@@ -37,6 +37,9 @@ const (
 // UNVERIFIED / deferred: party EXP distribution (the unreliable g_EmptyMob/UNK
 // divisors) and the _MSG_CNFMobKill kill confirmation.
 func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
+	// Record the event even if a summon owner disconnected before the kill.
+	// Refill auxiliaries after DespawnMob releases their population slot.
+	defer d.kefraMobKilled(w, mob)
 	d.kingdomKingKilled(w, mob)
 	reward := killer
 	if killer.Summoner != 0 {

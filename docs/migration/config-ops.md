@@ -5,6 +5,30 @@
 
 ---
 
+## Ciclo do Kefra no servidor Go (#342)
+
+- O renascimento semanal usa terça-feira às 12h em `time.Local`, o fuso local
+  do processo. Configure o fuso do sistema/container antes de iniciar o
+  tmserver; não há agenda própria configurável para esse evento.
+- A migração `0023_kefra_state` cria o registro global do ciclo em PostgreSQL.
+  `LoadKefraState`/`SaveKefraState` são RPCs internos; o cliente WYD não muda.
+  Execute a migração e atualize o dbserver antes do novo tmserver.
+- `-kefra-live` / `W2PP_KEFRA_LIVE` é somente a semente quando ainda não existe
+  registro: `false` (padrão) inicia com boss vivo e cidade fechada; `true`
+  inicia derrotado, com cidade aberta. **O registro persistido prevalece**
+  sobre a flag, inclusive depois de reinícios.
+- A leitura inicial é assíncrona. Até concluí-la, o evento não gera mobs nem
+  aceita entradas na cidade. Leituras e gravações que falham são registradas
+  nos logs e repetidas após cinco segundos, sem bloquear o loop. Gravações
+  são serializadas e revisões antigas ou repetidas não sobrescrevem o banco.
+- O encerramento normal salva também o estado mais recente do evento, mesmo
+  se houver uma gravação anterior em andamento. Uma queda abrupta enquanto
+  o banco está indisponível pode perder mudanças ainda não confirmadas.
+- Se o servidor estiver desligado na terça às 12h, a ocorrência é pulada no
+  carregamento. A cidade continua aberta até a próxima terça online.
+- Sem banco (`NopPersistence`), o ciclo funciona somente na memória do processo:
+  reiniciar usa novamente a flag inicial e não preserva a derrota anterior.
+
 ## 1. Topologia de deploy
 
 **3 processos** (todos Win32), tipicamente na mesma máquina ou LAN:

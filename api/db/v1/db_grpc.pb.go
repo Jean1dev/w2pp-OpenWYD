@@ -58,6 +58,8 @@ const (
 	AccountService_SaveGuildTowerState_FullMethodName     = "/db.v1.AccountService/SaveGuildTowerState"
 	AccountService_LoadCastleQuestState_FullMethodName    = "/db.v1.AccountService/LoadCastleQuestState"
 	AccountService_SaveCastleQuestState_FullMethodName    = "/db.v1.AccountService/SaveCastleQuestState"
+	AccountService_LoadKefraState_FullMethodName          = "/db.v1.AccountService/LoadKefraState"
+	AccountService_SaveKefraState_FullMethodName          = "/db.v1.AccountService/SaveKefraState"
 )
 
 // AccountServiceClient is the client API for AccountService service.
@@ -131,6 +133,8 @@ type AccountServiceClient interface {
 	SaveGuildTowerState(ctx context.Context, in *SaveGuildTowerStateRequest, opts ...grpc.CallOption) (*SaveGuildTowerStateResponse, error)
 	LoadCastleQuestState(ctx context.Context, in *LoadCastleQuestStateRequest, opts ...grpc.CallOption) (*LoadCastleQuestStateResponse, error)
 	SaveCastleQuestState(ctx context.Context, in *SaveCastleQuestStateRequest, opts ...grpc.CallOption) (*SaveCastleQuestStateResponse, error)
+	LoadKefraState(ctx context.Context, in *LoadKefraStateRequest, opts ...grpc.CallOption) (*LoadKefraStateResponse, error)
+	SaveKefraState(ctx context.Context, in *SaveKefraStateRequest, opts ...grpc.CallOption) (*SaveKefraStateResponse, error)
 }
 
 type accountServiceClient struct {
@@ -451,6 +455,26 @@ func (c *accountServiceClient) SaveCastleQuestState(ctx context.Context, in *Sav
 	return out, nil
 }
 
+func (c *accountServiceClient) LoadKefraState(ctx context.Context, in *LoadKefraStateRequest, opts ...grpc.CallOption) (*LoadKefraStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoadKefraStateResponse)
+	err := c.cc.Invoke(ctx, AccountService_LoadKefraState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) SaveKefraState(ctx context.Context, in *SaveKefraStateRequest, opts ...grpc.CallOption) (*SaveKefraStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveKefraStateResponse)
+	err := c.cc.Invoke(ctx, AccountService_SaveKefraState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility.
@@ -522,6 +546,8 @@ type AccountServiceServer interface {
 	SaveGuildTowerState(context.Context, *SaveGuildTowerStateRequest) (*SaveGuildTowerStateResponse, error)
 	LoadCastleQuestState(context.Context, *LoadCastleQuestStateRequest) (*LoadCastleQuestStateResponse, error)
 	SaveCastleQuestState(context.Context, *SaveCastleQuestStateRequest) (*SaveCastleQuestStateResponse, error)
+	LoadKefraState(context.Context, *LoadKefraStateRequest) (*LoadKefraStateResponse, error)
+	SaveKefraState(context.Context, *SaveKefraStateRequest) (*SaveKefraStateResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -624,6 +650,12 @@ func (UnimplementedAccountServiceServer) LoadCastleQuestState(context.Context, *
 }
 func (UnimplementedAccountServiceServer) SaveCastleQuestState(context.Context, *SaveCastleQuestStateRequest) (*SaveCastleQuestStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveCastleQuestState not implemented")
+}
+func (UnimplementedAccountServiceServer) LoadKefraState(context.Context, *LoadKefraStateRequest) (*LoadKefraStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LoadKefraState not implemented")
+}
+func (UnimplementedAccountServiceServer) SaveKefraState(context.Context, *SaveKefraStateRequest) (*SaveKefraStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveKefraState not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 func (UnimplementedAccountServiceServer) testEmbeddedByValue()                        {}
@@ -1204,6 +1236,42 @@ func _AccountService_SaveCastleQuestState_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_LoadKefraState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadKefraStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).LoadKefraState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_LoadKefraState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).LoadKefraState(ctx, req.(*LoadKefraStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_SaveKefraState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveKefraStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).SaveKefraState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_SaveKefraState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).SaveKefraState(ctx, req.(*SaveKefraStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1334,6 +1402,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveCastleQuestState",
 			Handler:    _AccountService_SaveCastleQuestState_Handler,
+		},
+		{
+			MethodName: "LoadKefraState",
+			Handler:    _AccountService_LoadKefraState_Handler,
+		},
+		{
+			MethodName: "SaveKefraState",
+			Handler:    _AccountService_SaveKefraState_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

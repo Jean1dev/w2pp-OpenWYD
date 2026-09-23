@@ -20,6 +20,8 @@ import (
 // *store.Store). Kept as an interface so the service is unit-testable without a
 // live database.
 type Store interface {
+	LoadKefraState(ctx context.Context) (domain.KefraState, error)
+	SaveKefraState(ctx context.Context, state domain.KefraState) error
 	AccountByName(ctx context.Context, name string) (store.AccountAuth, error)
 	AccountAuthByID(ctx context.Context, id int64) (store.AccountAuth, error)
 	ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error)

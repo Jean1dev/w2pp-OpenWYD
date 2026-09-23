@@ -225,6 +225,17 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 	if e == nil || e.HP <= 0 {
 		return
 	}
+	// GetFunc.cpp:1007: the city opens only after the boss is defeated.
+	if e.X&^3 == 2364 && e.Y&^3 == 3924 {
+		st, loaded := w.KefraState()
+		if !loaded || !st.Defeated {
+			return
+		}
+		x := 3250 + int16(w.Rand().Intn(3))
+		y := 1703 + int16(w.Rand().Intn(3))
+		d.doTeleport(w, s, x, y)
+		return
+	}
 	// GetFunc.cpp:994: only the Hall entrance spends a Kefra ticket. Keep
 	// rejected requests out of the MSVC stream; successful entries draw X then Y.
 	if e.X&^3 == 2364 && e.Y&^3 == 3892 {
