@@ -38,6 +38,9 @@ const (
 // _MSG_CNFMobKill kill confirmation. Water Scroll regions use their dedicated
 // legacy distribution below.
 func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
+	// Record the event even if a summon owner disconnected before the kill.
+	// Refill auxiliaries after DespawnMob releases their population slot.
+	defer d.kefraMobKilled(w, mob)
 	d.kingdomKingKilled(w, mob)
 	reward := killer
 	if killer.Summoner != 0 {

@@ -149,6 +149,11 @@ type World struct {
 	// successful event drops.
 	worldEvent EventConfig
 
+	// The loaded cycle also supplies the final shutdown snapshot, so a pending
+	// older asynchronous save cannot lose a defeat during a normal restart.
+	kefraState  KefraState
+	kefraLoaded bool
+
 	// newbieEvent mirrors the legacy NewbieEventServer flag (Server.cpp:617).
 	// The world itself only needs it for the spawn-time HP handicap; the EXP
 	// side lives in the dispatcher's ExpEvents. Loop-owned.
@@ -279,6 +284,13 @@ func (w *World) applyTimed(ev event) {
 // shutdown drains active sessions: persist players in-world, then stop their I/O.
 func (w *World) shutdown() {
 	close(w.done) // signal conn goroutines to stop sending events
+	if w.kefraLoaded && w.persist != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := w.persist.SaveKefraState(ctx, w.kefraState); err != nil {
+			w.log.Error("save kefra state on shutdown failed", "err", err)
+		}
+		cancel()
+	}
 	saved := 0
 	for _, s := range w.sessions {
 		if s == nil {

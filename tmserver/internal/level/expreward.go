@@ -17,7 +17,7 @@ const (
 type ExpEvents struct {
 	DoubleMode  bool
 	NewbieEvent bool
-	KefraLive   bool
+	KefraLive   bool // Legacy name: true means defeated (city open); false halves EXP.
 }
 
 // SoloExpReward computes the solo PvE experience for a killer at killerLevel
@@ -30,7 +30,7 @@ type ExpEvents struct {
 // Pipeline, in legacy order: GetExpApply level-ratio scaling → +MAX_LEVEL+1
 // level offset for celestial tiers → ×450/(30+myLevel) → the (0,10M] gate →
 // per-tier level divisors → ×0.6 → capped at the un-split GetExpApply value
-// (eMob, :1360) → item exp bonus → newbie +25% → double ×2 → Kefra-down ÷2 →
+// (eMob, :1360) → item exp bonus → newbie +25% → double ×2 → Kefra-alive ÷2 →
 // ±15% newbie swing.
 //
 // Not modeled (deferred with the systems they belong to): the party split and

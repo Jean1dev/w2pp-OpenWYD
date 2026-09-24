@@ -353,3 +353,76 @@ func TestSurvivorNPCShapes(t *testing.T) {
 func kefraPacketCount(w *world.World, s *world.Session) uint32 {
 	return w.SentOfType(s, protocol.MsgSendItem) + w.SentOfType(s, protocol.MsgMessagePanel) + w.SentOfType(s, protocol.MsgAction)
 }
+
+func TestKefraCityPortal(t *testing.T) {
+	addr, d, w, _ := startKefraServer(t, perzenDB(0))
+	c := enterWorld(t, addr)
+	defer c.Close()
+	runInLoop(t, w, func() {
+		s, _ := w.SessionByName("Hero")
+		e := w.Entity(s.Conn)
+		w.SetEntityPos(s.Conn, 2364, 3924)
+		before := *w.Rand()
+		d.reqTeleport(w, s, protocol.Header{}, nil)
+		if e.X != 2364 || e.Y != 3924 || *w.Rand() != before {
+			t.Error("unloaded event allowed entry")
+		}
+	})
+	for _, tc := range []struct {
+		name     string
+		defeated bool
+		x, y     int16
+		hp       int32
+		mode     world.Mode
+		allowed  bool
+	}{
+		{"alive", false, 2364, 3924, 100, world.UserPlay, false},
+		{"dead player", true, 2364, 3924, 0, world.UserPlay, false},
+		{"wrong mode", true, 2364, 3924, 100, world.UserSelChar, false},
+		{"west", true, 2363, 3924, 100, world.UserPlay, false},
+		{"east", true, 2368, 3924, 100, world.UserPlay, false},
+		{"north", true, 2364, 3923, 100, world.UserPlay, false},
+		{"south", true, 2364, 3928, 100, world.UserPlay, false},
+		{"first tile", true, 2364, 3924, 100, world.UserPlay, true},
+		{"last tile", true, 2367, 3927, 100, world.UserPlay, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var x, y int16
+			runInLoop(t, w, func() {
+				s, _ := w.SessionByName("Hero")
+				e := w.Entity(s.Conn)
+				w.SetKefraState(world.KefraState{Defeated: tc.defeated, NextSpawnUnix: 200, Revision: 1})
+				w.SetEntityPos(s.Conn, tc.x, tc.y)
+				e.HP, e.KefraTicket, e.Coin = tc.hp, 0, 777
+				s.Mode = tc.mode
+				*w.Rand() = *rng.NewSeeded(17)
+				expected := rng.NewSeeded(17)
+				packets := kefraPacketCount(w, s)
+				d.reqTeleport(w, s, protocol.Header{}, nil)
+				x, y = e.X, e.Y
+				if tc.allowed {
+					wantX, wantY := 3250+int16(expected.Intn(3)), 1703+int16(expected.Intn(3))
+					if x != wantX || y != wantY {
+						t.Errorf("destination=(%d,%d), want (%d,%d)", x, y, wantX, wantY)
+					}
+				} else if x != tc.x || y != tc.y || kefraPacketCount(w, s) != packets {
+					t.Error("rejected portal changed state")
+				}
+				if e.KefraTicket != 0 || e.Coin != 777 || *w.Rand() != *expected {
+					t.Error("portal charged resources or consumed incorrect RNG")
+				}
+				s.Mode = world.UserPlay
+			})
+			if tc.allowed {
+				ty, payload := read(t, c)
+				var action protocol.MsgActionBody
+				if err := action.Decode(payload); err != nil {
+					t.Fatal(err)
+				}
+				if ty != protocol.MsgAction || action.TargetX != x || action.TargetY != y || action.Effect != 1 {
+					t.Fatalf("teleport packet: %x %+v", ty, action)
+				}
+			}
+		})
+	}
+}

@@ -16,6 +16,8 @@ import (
 
 // fakeStore is an in-memory Store for unit tests (no PostgreSQL).
 type fakeStore struct {
+	kefraState domain.KefraState
+	kefraErr   error
 	byName     map[string]store.AccountAuth
 	byID       map[int64]store.AccountAuth
 	chars      map[int64][]domain.Character // accountID -> characters
@@ -44,6 +46,19 @@ type fakeStore struct {
 
 	duelResults []duelResult // RecordDuelResult calls, for assertions
 	duelErr     error        // forces RecordDuelResult to return this
+}
+
+func (f *fakeStore) LoadKefraState(context.Context) (domain.KefraState, error) {
+	return f.kefraState, f.kefraErr
+}
+func (f *fakeStore) SaveKefraState(_ context.Context, st domain.KefraState) error {
+	if f.kefraErr != nil {
+		return f.kefraErr
+	}
+	if st.Revision > f.kefraState.Revision {
+		f.kefraState = st
+	}
+	return nil
 }
 
 type duelResult struct{ winner, loser string }

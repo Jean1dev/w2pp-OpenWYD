@@ -122,7 +122,7 @@ if g_pRvrWar.Bonus == party.Clan:  exp += exp*5/100   # RvR +5%  (:1366-1370)
 if NewbieEventServer and party.Level < 100 and tier not Celestial*:
     exp += exp / 4                                    # +25% newbie  (:1372)
 if DOUBLEMODE:   exp *= 2                              # evento exp dobrada  (:1375)
-if KefraLive == 0:  exp /= 2                           # Kefra derrubado penaliza  (:1378)
+if KefraLive == 0:  exp /= 2                           # Kefra vivo penaliza  (:1378)
 if NewbieEventServer:  exp += exp*15/100  else  exp -= exp*15/100   # ±15%  (:1381-1384)
 
 # Log diário de exp (reset por dia)  (:1386-1391)
@@ -142,6 +142,34 @@ if party.MOB.Exp + exp > g_pNextLevel[MAX_LEVEL+1]:
 jogador) lista faixas de exp por área — **não** é parseada pelo servidor; serve de referência.
 
 ---
+
+### 1.6. Ciclo semanal do Kefra (#342)
+
+O gerador 396 e seus auxiliares 397–400 pertencem ao evento e não participam
+do spawn inicial comum, timer de geração ou fila de respawn de 15 segundos.
+A derrota do boss por jogador ou summon abre imediatamente a cidade. O nome
+legado `KefraLive` é invertido: **true significa derrotado**, cidade aberta e
+sem o corte de EXP pela metade. A recompensa da própria morte ainda usa o
+estado anterior, como no legado, que distribui EXP antes de registrar a derrota.
+
+O portal aceita o bloco de origem X=2364–2367, Y=3924–3927 e sorteia o destino
+`3250+rand()%3, 1703+rand()%3`, X antes de Y, usando o MSVC RNG do mundo.
+Não cobra moedas nem tickets. Entradas rejeitadas não consomem RNG. O portal
+do Hall em `(2364,3892)` continua consumindo seus próprios tickets.
+
+O renascimento ocorre na passagem por **terça-feira às 12h no fuso local do
+processo**. Cada ocorrência é consumida uma vez, mesmo se o boss anterior
+ainda estiver vivo. Nesse caso não é criada outra instância. Os auxiliares
+são gerados com o boss e repostos após mortes enquanto ele estiver vivo;
+após a derrota, os sobreviventes permanecem até morrer, sem reposição.
+
+O estado persistido contém derrota, próxima ocorrência, última ocorrência
+processada e revisão monotônica. Reiniciar restaura um boss vivo ou mantém
+sua ausência conforme o registro. Horários perdidos durante desligamentos
+são pulados: uma cidade aberta permanece aberta até a próxima terça online.
+Falhas de spawn são tentadas novamente sem duplicar instâncias existentes.
+O protocolo do cliente, os drops especiais, a fama de guilda e `/kefra`
+não são alterados por esta correção.
 
 ## 2. Drop
 

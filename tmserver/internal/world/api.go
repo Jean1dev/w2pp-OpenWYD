@@ -248,7 +248,8 @@ func (w *World) DespawnMob(id int, removeType int32) {
 	// combat (removeType 1). Summoned pets never respawn — they carry a
 	// Template too, but their lifecycle belongs to the summoner.
 	if removeType == 1 && e.Merchant == 0 && !e.NonCombatNPC && e.Template != nil && e.Summoner == 0 &&
-		(gen == nil || gen.MinuteGenerate <= 0) && !IsWaterGenerator(int(e.GenIndex)) {
+		!IsKefraGenerator(int(e.GenIndex)) && !IsWaterGenerator(int(e.GenIndex)) &&
+		(gen == nil || gen.MinuteGenerate <= 0) {
 		w.respawnQueue = append(w.respawnQueue, respawnEntry{
 			spawn: MobSpawn{
 				Template: e.Template, X: e.SpawnX, Y: e.SpawnY,

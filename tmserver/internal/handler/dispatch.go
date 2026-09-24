@@ -167,6 +167,7 @@ type Dispatcher struct {
 	itemExtra       map[int]int                  // item index → Extra (Anct/Adamantita combine result)
 	sancRate        refine.RateTable             // dust-refine success table (g_pSancRate)
 	expEvents       level.ExpEvents              // global EXP event flags
+	kefra           kefraRuntime                 // loop-owned weekly event I/O tracking
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
 	now             func() time.Time             // wall clock for calendar-gated guild ops
