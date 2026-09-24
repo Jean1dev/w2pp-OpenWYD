@@ -508,7 +508,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 
 	total := 0
 	for i := range wgens {
-		if wgens[i] != nil && !dbOwned[i] && !world.IsKefraGenerator(i) {
+		if wgens[i] != nil && !dbOwned[i] && !world.IsWaterGenerator(i) && !world.IsKefraGenerator(i) {
 			total += len(w.GenerateMob(i))
 		}
 	}
