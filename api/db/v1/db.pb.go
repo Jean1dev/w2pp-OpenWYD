@@ -5928,6 +5928,243 @@ func (x *MobTemplateStat) GetEquip() []*MobTemplateEquipItem {
 	return nil
 }
 
+// Global cycle; revision zero in a load response means no record exists yet.
+type KefraState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Defeated      bool                   `protobuf:"varint,1,opt,name=defeated,proto3" json:"defeated,omitempty"`
+	NextSpawnUnix int64                  `protobuf:"varint,2,opt,name=next_spawn_unix,json=nextSpawnUnix,proto3" json:"next_spawn_unix,omitempty"`
+	LastSpawnUnix int64                  `protobuf:"varint,3,opt,name=last_spawn_unix,json=lastSpawnUnix,proto3" json:"last_spawn_unix,omitempty"`
+	Revision      int64                  `protobuf:"varint,4,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KefraState) Reset() {
+	*x = KefraState{}
+	mi := &file_api_db_v1_db_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KefraState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KefraState) ProtoMessage() {}
+
+func (x *KefraState) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KefraState.ProtoReflect.Descriptor instead.
+func (*KefraState) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *KefraState) GetDefeated() bool {
+	if x != nil {
+		return x.Defeated
+	}
+	return false
+}
+
+func (x *KefraState) GetNextSpawnUnix() int64 {
+	if x != nil {
+		return x.NextSpawnUnix
+	}
+	return 0
+}
+
+func (x *KefraState) GetLastSpawnUnix() int64 {
+	if x != nil {
+		return x.LastSpawnUnix
+	}
+	return 0
+}
+
+func (x *KefraState) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+type LoadKefraStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadKefraStateRequest) Reset() {
+	*x = LoadKefraStateRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadKefraStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadKefraStateRequest) ProtoMessage() {}
+
+func (x *LoadKefraStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadKefraStateRequest.ProtoReflect.Descriptor instead.
+func (*LoadKefraStateRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{88}
+}
+
+type LoadKefraStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *KefraState            `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoadKefraStateResponse) Reset() {
+	*x = LoadKefraStateResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoadKefraStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoadKefraStateResponse) ProtoMessage() {}
+
+func (x *LoadKefraStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoadKefraStateResponse.ProtoReflect.Descriptor instead.
+func (*LoadKefraStateResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *LoadKefraStateResponse) GetState() *KefraState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type SaveKefraStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *KefraState            `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveKefraStateRequest) Reset() {
+	*x = SaveKefraStateRequest{}
+	mi := &file_api_db_v1_db_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveKefraStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveKefraStateRequest) ProtoMessage() {}
+
+func (x *SaveKefraStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveKefraStateRequest.ProtoReflect.Descriptor instead.
+func (*SaveKefraStateRequest) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *SaveKefraStateRequest) GetState() *KefraState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type SaveKefraStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveKefraStateResponse) Reset() {
+	*x = SaveKefraStateResponse{}
+	mi := &file_api_db_v1_db_proto_msgTypes[91]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveKefraStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveKefraStateResponse) ProtoMessage() {}
+
+func (x *SaveKefraStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_db_v1_db_proto_msgTypes[91]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveKefraStateResponse.ProtoReflect.Descriptor instead.
+func (*SaveKefraStateResponse) Descriptor() ([]byte, []int) {
+	return file_api_db_v1_db_proto_rawDescGZIP(), []int{91}
+}
+
+func (x *SaveKefraStateResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
 var File_api_db_v1_db_proto protoreflect.FileDescriptor
 
 const file_api_db_v1_db_proto_rawDesc = "" +
@@ -6400,7 +6637,20 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\aresist2\x18% \x01(\x05R\aresist2\x12\x18\n" +
 	"\aresist3\x18& \x01(\x05R\aresist3\x12\x18\n" +
 	"\aresist4\x18' \x01(\x05R\aresist4\x121\n" +
-	"\x05equip\x18( \x03(\v2\x1b.db.v1.MobTemplateEquipItemR\x05equip*\xb8\x01\n" +
+	"\x05equip\x18( \x03(\v2\x1b.db.v1.MobTemplateEquipItemR\x05equip\"\x94\x01\n" +
+	"\n" +
+	"KefraState\x12\x1a\n" +
+	"\bdefeated\x18\x01 \x01(\bR\bdefeated\x12&\n" +
+	"\x0fnext_spawn_unix\x18\x02 \x01(\x03R\rnextSpawnUnix\x12&\n" +
+	"\x0flast_spawn_unix\x18\x03 \x01(\x03R\rlastSpawnUnix\x12\x1a\n" +
+	"\brevision\x18\x04 \x01(\x03R\brevision\"\x17\n" +
+	"\x15LoadKefraStateRequest\"A\n" +
+	"\x16LoadKefraStateResponse\x12'\n" +
+	"\x05state\x18\x01 \x01(\v2\x11.db.v1.KefraStateR\x05state\"@\n" +
+	"\x15SaveKefraStateRequest\x12'\n" +
+	"\x05state\x18\x01 \x01(\v2\x11.db.v1.KefraStateR\x05state\"(\n" +
+	"\x16SaveKefraStateResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok*\xb8\x01\n" +
 	"\vLoginResult\x12\x1c\n" +
 	"\x18LOGIN_RESULT_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOGIN_RESULT_OK\x10\x01\x12\x1b\n" +
@@ -6417,7 +6667,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x11GuildRelationKind\x12\x1c\n" +
 	"\x18GUILD_RELATION_KIND_NONE\x10\x00\x12\x1c\n" +
 	"\x18GUILD_RELATION_KIND_ALLY\x10\x01\x12\x1b\n" +
-	"\x17GUILD_RELATION_KIND_WAR\x10\x022\xf5\x13\n" +
+	"\x17GUILD_RELATION_KIND_WAR\x10\x022\x93\x15\n" +
 	"\x0eAccountService\x12G\n" +
 	"\fAccountLogin\x12\x1a.db.v1.AccountLoginRequest\x1a\x1b.db.v1.AccountLoginResponse\x12M\n" +
 	"\x0eListCharacters\x12\x1c.db.v1.ListCharactersRequest\x1a\x1d.db.v1.ListCharactersResponse\x12J\n" +
@@ -6451,7 +6701,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x13LoadGuildTowerState\x12!.db.v1.LoadGuildTowerStateRequest\x1a\".db.v1.LoadGuildTowerStateResponse\x12\\\n" +
 	"\x13SaveGuildTowerState\x12!.db.v1.SaveGuildTowerStateRequest\x1a\".db.v1.SaveGuildTowerStateResponse\x12_\n" +
 	"\x14LoadCastleQuestState\x12\".db.v1.LoadCastleQuestStateRequest\x1a#.db.v1.LoadCastleQuestStateResponse\x12_\n" +
-	"\x14SaveCastleQuestState\x12\".db.v1.SaveCastleQuestStateRequest\x1a#.db.v1.SaveCastleQuestStateResponse2\xa3\x02\n" +
+	"\x14SaveCastleQuestState\x12\".db.v1.SaveCastleQuestStateRequest\x1a#.db.v1.SaveCastleQuestStateResponse\x12M\n" +
+	"\x0eLoadKefraState\x12\x1c.db.v1.LoadKefraStateRequest\x1a\x1d.db.v1.LoadKefraStateResponse\x12M\n" +
+	"\x0eSaveKefraState\x12\x1c.db.v1.SaveKefraStateRequest\x1a\x1d.db.v1.SaveKefraStateResponse2\xa3\x02\n" +
 	"\x10NpcConfigService\x12S\n" +
 	"\x10NpcConfigVersion\x12\x1e.db.v1.NpcConfigVersionRequest\x1a\x1f.db.v1.NpcConfigVersionResponse\x12Y\n" +
 	"\x12ListNpcDefinitions\x12 .db.v1.ListNpcDefinitionsRequest\x1a!.db.v1.ListNpcDefinitionsResponse\x12_\n" +
@@ -6474,7 +6726,7 @@ func file_api_db_v1_db_proto_rawDescGZIP() []byte {
 }
 
 var file_api_db_v1_db_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 87)
+var file_api_db_v1_db_proto_msgTypes = make([]protoimpl.MessageInfo, 92)
 var file_api_db_v1_db_proto_goTypes = []any{
 	(LoginResult)(0),                         // 0: db.v1.LoginResult
 	(PinResult)(0),                           // 1: db.v1.PinResult
@@ -6566,6 +6818,11 @@ var file_api_db_v1_db_proto_goTypes = []any{
 	(*ListMobTemplateStatsResponse)(nil),     // 87: db.v1.ListMobTemplateStatsResponse
 	(*MobTemplateEquipItem)(nil),             // 88: db.v1.MobTemplateEquipItem
 	(*MobTemplateStat)(nil),                  // 89: db.v1.MobTemplateStat
+	(*KefraState)(nil),                       // 90: db.v1.KefraState
+	(*LoadKefraStateRequest)(nil),            // 91: db.v1.LoadKefraStateRequest
+	(*LoadKefraStateResponse)(nil),           // 92: db.v1.LoadKefraStateResponse
+	(*SaveKefraStateRequest)(nil),            // 93: db.v1.SaveKefraStateRequest
+	(*SaveKefraStateResponse)(nil),           // 94: db.v1.SaveKefraStateResponse
 }
 var file_api_db_v1_db_proto_depIdxs = []int32{
 	0,  // 0: db.v1.AccountLoginResponse.result:type_name -> db.v1.LoginResult
@@ -6601,85 +6858,91 @@ var file_api_db_v1_db_proto_depIdxs = []int32{
 	85, // 30: db.v1.GetWorldEventConfigResponse.config:type_name -> db.v1.WorldEventConfig
 	89, // 31: db.v1.ListMobTemplateStatsResponse.overrides:type_name -> db.v1.MobTemplateStat
 	88, // 32: db.v1.MobTemplateStat.equip:type_name -> db.v1.MobTemplateEquipItem
-	3,  // 33: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
-	5,  // 34: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
-	8,  // 35: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
-	13, // 36: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
-	15, // 37: db.v1.AccountService.QuoteKingdomCape:input_type -> db.v1.QuoteKingdomCapeRequest
-	17, // 38: db.v1.AccountService.PurchaseKingdomCape:input_type -> db.v1.PurchaseKingdomCapeRequest
-	19, // 39: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
-	21, // 40: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
-	23, // 41: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
-	25, // 42: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
-	27, // 43: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
-	29, // 44: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
-	31, // 45: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
-	34, // 46: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
-	36, // 47: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
-	37, // 48: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
-	39, // 49: db.v1.AccountService.RecordDuelResult:input_type -> db.v1.RecordDuelResultRequest
-	43, // 50: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
-	45, // 51: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
-	47, // 52: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
-	48, // 53: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
-	50, // 54: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
-	51, // 55: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
-	53, // 56: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
-	55, // 57: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
-	58, // 58: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
-	60, // 59: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
-	63, // 60: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
-	65, // 61: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
-	68, // 62: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
-	70, // 63: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
-	72, // 64: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
-	74, // 65: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
-	86, // 66: db.v1.NpcConfigService.ListMobTemplateStats:input_type -> db.v1.ListMobTemplateStatsRequest
-	79, // 67: db.v1.WorldEventConfigService.WorldEventConfigVersion:input_type -> db.v1.WorldEventConfigVersionRequest
-	81, // 68: db.v1.WorldEventConfigService.GetWorldEventConfig:input_type -> db.v1.GetWorldEventConfigRequest
-	83, // 69: db.v1.WorldEventConfigService.UpdateWorldEventProgress:input_type -> db.v1.UpdateWorldEventProgressRequest
-	4,  // 70: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
-	7,  // 71: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
-	12, // 72: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
-	14, // 73: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
-	16, // 74: db.v1.AccountService.QuoteKingdomCape:output_type -> db.v1.QuoteKingdomCapeResponse
-	18, // 75: db.v1.AccountService.PurchaseKingdomCape:output_type -> db.v1.PurchaseKingdomCapeResponse
-	20, // 76: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
-	22, // 77: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
-	24, // 78: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
-	26, // 79: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
-	28, // 80: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
-	30, // 81: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
-	32, // 82: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
-	35, // 83: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
-	32, // 84: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
-	38, // 85: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
-	40, // 86: db.v1.AccountService.RecordDuelResult:output_type -> db.v1.RecordDuelResultResponse
-	44, // 87: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
-	46, // 88: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
-	46, // 89: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
-	49, // 90: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
-	46, // 91: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
-	52, // 92: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
-	54, // 93: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
-	56, // 94: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
-	59, // 95: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
-	61, // 96: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
-	64, // 97: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
-	66, // 98: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
-	69, // 99: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
-	71, // 100: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
-	73, // 101: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
-	75, // 102: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
-	87, // 103: db.v1.NpcConfigService.ListMobTemplateStats:output_type -> db.v1.ListMobTemplateStatsResponse
-	80, // 104: db.v1.WorldEventConfigService.WorldEventConfigVersion:output_type -> db.v1.WorldEventConfigVersionResponse
-	82, // 105: db.v1.WorldEventConfigService.GetWorldEventConfig:output_type -> db.v1.GetWorldEventConfigResponse
-	84, // 106: db.v1.WorldEventConfigService.UpdateWorldEventProgress:output_type -> db.v1.UpdateWorldEventProgressResponse
-	70, // [70:107] is the sub-list for method output_type
-	33, // [33:70] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	90, // 33: db.v1.LoadKefraStateResponse.state:type_name -> db.v1.KefraState
+	90, // 34: db.v1.SaveKefraStateRequest.state:type_name -> db.v1.KefraState
+	3,  // 35: db.v1.AccountService.AccountLogin:input_type -> db.v1.AccountLoginRequest
+	5,  // 36: db.v1.AccountService.ListCharacters:input_type -> db.v1.ListCharactersRequest
+	8,  // 37: db.v1.AccountService.LoadCharacter:input_type -> db.v1.LoadCharacterRequest
+	13, // 38: db.v1.AccountService.SaveCharacter:input_type -> db.v1.SaveCharacterRequest
+	15, // 39: db.v1.AccountService.QuoteKingdomCape:input_type -> db.v1.QuoteKingdomCapeRequest
+	17, // 40: db.v1.AccountService.PurchaseKingdomCape:input_type -> db.v1.PurchaseKingdomCapeRequest
+	19, // 41: db.v1.AccountService.CreateCharacter:input_type -> db.v1.CreateCharacterRequest
+	21, // 42: db.v1.AccountService.CreateArchCharacter:input_type -> db.v1.CreateArchCharacterRequest
+	23, // 43: db.v1.AccountService.DeleteCharacter:input_type -> db.v1.DeleteCharacterRequest
+	25, // 44: db.v1.AccountService.SetPin:input_type -> db.v1.SetPinRequest
+	27, // 45: db.v1.AccountService.VerifyPin:input_type -> db.v1.VerifyPinRequest
+	29, // 46: db.v1.AccountService.LoadCargo:input_type -> db.v1.LoadCargoRequest
+	31, // 47: db.v1.AccountService.SaveCargo:input_type -> db.v1.SaveCargoRequest
+	34, // 48: db.v1.AccountService.ListPendingDeliveries:input_type -> db.v1.ListPendingDeliveriesRequest
+	36, // 49: db.v1.AccountService.SaveCargoWithDeliveries:input_type -> db.v1.SaveCargoWithDeliveriesRequest
+	37, // 50: db.v1.AccountService.SetAccountBlocked:input_type -> db.v1.SetAccountBlockedRequest
+	39, // 51: db.v1.AccountService.RecordDuelResult:input_type -> db.v1.RecordDuelResultRequest
+	43, // 52: db.v1.AccountService.CreateGuild:input_type -> db.v1.CreateGuildRequest
+	45, // 53: db.v1.AccountService.SetGuildMember:input_type -> db.v1.SetGuildMemberRequest
+	47, // 54: db.v1.AccountService.LeaveGuild:input_type -> db.v1.LeaveGuildRequest
+	48, // 55: db.v1.AccountService.PromoteGuildMember:input_type -> db.v1.PromoteGuildMemberRequest
+	50, // 56: db.v1.AccountService.TransferGuildLeader:input_type -> db.v1.TransferGuildLeaderRequest
+	51, // 57: db.v1.AccountService.SetGuildRelation:input_type -> db.v1.SetGuildRelationRequest
+	53, // 58: db.v1.AccountService.ListGuilds:input_type -> db.v1.ListGuildsRequest
+	55, // 59: db.v1.AccountService.ListGuildRelations:input_type -> db.v1.ListGuildRelationsRequest
+	58, // 60: db.v1.AccountService.LoadGuildZones:input_type -> db.v1.LoadGuildZonesRequest
+	60, // 61: db.v1.AccountService.SaveGuildZone:input_type -> db.v1.SaveGuildZoneRequest
+	63, // 62: db.v1.AccountService.LoadGuildTowerState:input_type -> db.v1.LoadGuildTowerStateRequest
+	65, // 63: db.v1.AccountService.SaveGuildTowerState:input_type -> db.v1.SaveGuildTowerStateRequest
+	68, // 64: db.v1.AccountService.LoadCastleQuestState:input_type -> db.v1.LoadCastleQuestStateRequest
+	70, // 65: db.v1.AccountService.SaveCastleQuestState:input_type -> db.v1.SaveCastleQuestStateRequest
+	91, // 66: db.v1.AccountService.LoadKefraState:input_type -> db.v1.LoadKefraStateRequest
+	93, // 67: db.v1.AccountService.SaveKefraState:input_type -> db.v1.SaveKefraStateRequest
+	72, // 68: db.v1.NpcConfigService.NpcConfigVersion:input_type -> db.v1.NpcConfigVersionRequest
+	74, // 69: db.v1.NpcConfigService.ListNpcDefinitions:input_type -> db.v1.ListNpcDefinitionsRequest
+	86, // 70: db.v1.NpcConfigService.ListMobTemplateStats:input_type -> db.v1.ListMobTemplateStatsRequest
+	79, // 71: db.v1.WorldEventConfigService.WorldEventConfigVersion:input_type -> db.v1.WorldEventConfigVersionRequest
+	81, // 72: db.v1.WorldEventConfigService.GetWorldEventConfig:input_type -> db.v1.GetWorldEventConfigRequest
+	83, // 73: db.v1.WorldEventConfigService.UpdateWorldEventProgress:input_type -> db.v1.UpdateWorldEventProgressRequest
+	4,  // 74: db.v1.AccountService.AccountLogin:output_type -> db.v1.AccountLoginResponse
+	7,  // 75: db.v1.AccountService.ListCharacters:output_type -> db.v1.ListCharactersResponse
+	12, // 76: db.v1.AccountService.LoadCharacter:output_type -> db.v1.LoadCharacterResponse
+	14, // 77: db.v1.AccountService.SaveCharacter:output_type -> db.v1.SaveCharacterResponse
+	16, // 78: db.v1.AccountService.QuoteKingdomCape:output_type -> db.v1.QuoteKingdomCapeResponse
+	18, // 79: db.v1.AccountService.PurchaseKingdomCape:output_type -> db.v1.PurchaseKingdomCapeResponse
+	20, // 80: db.v1.AccountService.CreateCharacter:output_type -> db.v1.CreateCharacterResponse
+	22, // 81: db.v1.AccountService.CreateArchCharacter:output_type -> db.v1.CreateArchCharacterResponse
+	24, // 82: db.v1.AccountService.DeleteCharacter:output_type -> db.v1.DeleteCharacterResponse
+	26, // 83: db.v1.AccountService.SetPin:output_type -> db.v1.SetPinResponse
+	28, // 84: db.v1.AccountService.VerifyPin:output_type -> db.v1.VerifyPinResponse
+	30, // 85: db.v1.AccountService.LoadCargo:output_type -> db.v1.LoadCargoResponse
+	32, // 86: db.v1.AccountService.SaveCargo:output_type -> db.v1.SaveCargoResponse
+	35, // 87: db.v1.AccountService.ListPendingDeliveries:output_type -> db.v1.ListPendingDeliveriesResponse
+	32, // 88: db.v1.AccountService.SaveCargoWithDeliveries:output_type -> db.v1.SaveCargoResponse
+	38, // 89: db.v1.AccountService.SetAccountBlocked:output_type -> db.v1.SetAccountBlockedResponse
+	40, // 90: db.v1.AccountService.RecordDuelResult:output_type -> db.v1.RecordDuelResultResponse
+	44, // 91: db.v1.AccountService.CreateGuild:output_type -> db.v1.CreateGuildResponse
+	46, // 92: db.v1.AccountService.SetGuildMember:output_type -> db.v1.SetGuildMemberResponse
+	46, // 93: db.v1.AccountService.LeaveGuild:output_type -> db.v1.SetGuildMemberResponse
+	49, // 94: db.v1.AccountService.PromoteGuildMember:output_type -> db.v1.PromoteGuildMemberResponse
+	46, // 95: db.v1.AccountService.TransferGuildLeader:output_type -> db.v1.SetGuildMemberResponse
+	52, // 96: db.v1.AccountService.SetGuildRelation:output_type -> db.v1.SetGuildRelationResponse
+	54, // 97: db.v1.AccountService.ListGuilds:output_type -> db.v1.ListGuildsResponse
+	56, // 98: db.v1.AccountService.ListGuildRelations:output_type -> db.v1.ListGuildRelationsResponse
+	59, // 99: db.v1.AccountService.LoadGuildZones:output_type -> db.v1.LoadGuildZonesResponse
+	61, // 100: db.v1.AccountService.SaveGuildZone:output_type -> db.v1.SaveGuildZoneResponse
+	64, // 101: db.v1.AccountService.LoadGuildTowerState:output_type -> db.v1.LoadGuildTowerStateResponse
+	66, // 102: db.v1.AccountService.SaveGuildTowerState:output_type -> db.v1.SaveGuildTowerStateResponse
+	69, // 103: db.v1.AccountService.LoadCastleQuestState:output_type -> db.v1.LoadCastleQuestStateResponse
+	71, // 104: db.v1.AccountService.SaveCastleQuestState:output_type -> db.v1.SaveCastleQuestStateResponse
+	92, // 105: db.v1.AccountService.LoadKefraState:output_type -> db.v1.LoadKefraStateResponse
+	94, // 106: db.v1.AccountService.SaveKefraState:output_type -> db.v1.SaveKefraStateResponse
+	73, // 107: db.v1.NpcConfigService.NpcConfigVersion:output_type -> db.v1.NpcConfigVersionResponse
+	75, // 108: db.v1.NpcConfigService.ListNpcDefinitions:output_type -> db.v1.ListNpcDefinitionsResponse
+	87, // 109: db.v1.NpcConfigService.ListMobTemplateStats:output_type -> db.v1.ListMobTemplateStatsResponse
+	80, // 110: db.v1.WorldEventConfigService.WorldEventConfigVersion:output_type -> db.v1.WorldEventConfigVersionResponse
+	82, // 111: db.v1.WorldEventConfigService.GetWorldEventConfig:output_type -> db.v1.GetWorldEventConfigResponse
+	84, // 112: db.v1.WorldEventConfigService.UpdateWorldEventProgress:output_type -> db.v1.UpdateWorldEventProgressResponse
+	74, // [74:113] is the sub-list for method output_type
+	35, // [35:74] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_api_db_v1_db_proto_init() }
@@ -6693,7 +6956,7 @@ func file_api_db_v1_db_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_db_v1_db_proto_rawDesc), len(file_api_db_v1_db_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   87,
+			NumMessages:   92,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

@@ -14,6 +14,10 @@ import (
 // fakeAPI implements dbv1.AccountServiceClient, capturing requests and returning
 // canned responses, so the adapter's mapping is tested without a gRPC server.
 type fakeAPI struct {
+	kefraResp  *dbv1.LoadKefraStateResponse
+	kefraSaved *dbv1.SaveKefraStateRequest
+	kefraOK    bool
+	kefraErr   error
 	loginResp  *dbv1.AccountLoginResponse
 	listResp   *dbv1.ListCharactersResponse
 	loadResp   *dbv1.LoadCharacterResponse
@@ -35,6 +39,14 @@ type fakeAPI struct {
 
 	duelReq  *dbv1.RecordDuelResultRequest
 	duelResp *dbv1.RecordDuelResultResponse
+}
+
+func (f *fakeAPI) LoadKefraState(context.Context, *dbv1.LoadKefraStateRequest, ...grpc.CallOption) (*dbv1.LoadKefraStateResponse, error) {
+	return f.kefraResp, f.kefraErr
+}
+func (f *fakeAPI) SaveKefraState(_ context.Context, req *dbv1.SaveKefraStateRequest, _ ...grpc.CallOption) (*dbv1.SaveKefraStateResponse, error) {
+	f.kefraSaved = req
+	return &dbv1.SaveKefraStateResponse{Ok: f.kefraOK}, f.kefraErr
 }
 
 func (f *fakeAPI) AccountLogin(_ context.Context, _ *dbv1.AccountLoginRequest, _ ...grpc.CallOption) (*dbv1.AccountLoginResponse, error) {

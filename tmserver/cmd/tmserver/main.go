@@ -112,7 +112,7 @@ func run(logger *slog.Logger) error {
 	clientVersion := flag.Int("client-version", envInt("W2PP_CLIENT_VERSION", 7640), "MSG_AccountLogin.ClientVersion the client must send (protocol-spec says 7640; this 7662 'Cavaleiros de Kersef' build sends 12000)")
 	doubleExp := flag.Bool("double-exp", envBool("W2PP_DOUBLE_EXP", false), "DOUBLEMODE: double PvE experience (gameconfig double)")
 	newbieEvent := flag.Bool("newbie-event", envBool("W2PP_NEWBIE_EVENT", false), "NewbieEventServer: +15% exp and newbie under-100 bonus (gameconfig)")
-	kefraLive := flag.Bool("kefra-live", envBool("W2PP_KEFRA_LIVE", false), "KefraLive: when false, PvE exp is halved (default legacy KefraLive=0)")
+	kefraLive := flag.Bool("kefra-live", envBool("W2PP_KEFRA_LIVE", false), "initial Kefra defeated state (true opens city); persisted cycle takes precedence; false halves PvE exp")
 	logSends := flag.Bool("log-sends", envBool("W2PP_LOG_SENDS", false), "log every S→C frame (conn/type/id/len) — client-freeze diagnostics (investigacao-freeze-cliente.md); high volume, enable only while reproducing an incident")
 	// Cast-buff duration tuning (issue #229). The legacy formula is
 	// (AffectTime+1)*(100+Special)/100 ticks of 8s, which puts an endgame character
@@ -198,7 +198,7 @@ func run(logger *slog.Logger) error {
 		worldEvents = dbclient.NewWorldEventConfig(conn)
 		logger.Info("dbServer wired", "addr", *dbAddr)
 	} else {
-		logger.Warn("no -dbserver: using no-op persistence (logins report no account)")
+		logger.Warn("no -dbserver: using no-op persistence (logins report no account; Kefra cycle is not preserved across restarts)")
 	}
 
 	// The client fetches a channel-status page over HTTP before the CPSock
@@ -508,7 +508,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 
 	total := 0
 	for i := range wgens {
-		if wgens[i] != nil && !dbOwned[i] {
+		if wgens[i] != nil && !dbOwned[i] && !world.IsKefraGenerator(i) {
 			total += len(w.GenerateMob(i))
 		}
 	}

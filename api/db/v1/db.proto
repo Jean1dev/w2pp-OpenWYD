@@ -79,6 +79,8 @@ service AccountService {
   rpc SaveGuildTowerState(SaveGuildTowerStateRequest) returns (SaveGuildTowerStateResponse);
   rpc LoadCastleQuestState(LoadCastleQuestStateRequest) returns (LoadCastleQuestStateResponse);
   rpc SaveCastleQuestState(SaveCastleQuestStateRequest) returns (SaveCastleQuestStateResponse);
+  rpc LoadKefraState(LoadKefraStateRequest) returns (LoadKefraStateResponse);
+  rpc SaveKefraState(SaveKefraStateRequest) returns (SaveKefraStateResponse);
 }
 
 enum LoginResult {
@@ -648,3 +650,15 @@ message MobTemplateStat {
   int32 resist4 = 39;
   repeated MobTemplateEquipItem equip = 40;
 }
+
+// Global cycle; revision zero in a load response means no record exists yet.
+message KefraState {
+  bool defeated = 1;
+  int64 next_spawn_unix = 2;
+  int64 last_spawn_unix = 3;
+  int64 revision = 4;
+}
+message LoadKefraStateRequest {}
+message LoadKefraStateResponse { KefraState state = 1; }
+message SaveKefraStateRequest { KefraState state = 1; }
+message SaveKefraStateResponse { bool ok = 1; }
