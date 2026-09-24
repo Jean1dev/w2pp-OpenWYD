@@ -144,6 +144,7 @@ type handlerFunc func(w *world.World, s *world.Session, h protocol.Header, paylo
 // wrong-password counters) is only touched from the loop goroutine, so it needs
 // no locks.
 type Dispatcher struct {
+	waterRooms      [3][9]waterRoom // loop-owned; central aliases share slot 8
 	cfg             Config
 	log             *slog.Logger
 	routes          map[protocol.Type]handlerFunc

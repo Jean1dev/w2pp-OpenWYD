@@ -30,9 +30,9 @@ MAX_USER`) morre por um jogador (`conn < MAX_USER`).
 > Pesadelo (`MobKilled.cpp:443-590`). O branch que governa mapas normais (incl. campo de treino)
 > é o **branch geral** em `MobKilled.cpp:1272-1425`, que difere no fator `450/(30+myLevel)`, nas
 > tabelas de divisores e no cap `eMob`. As §1.3–1.5 abaixo documentam o branch geral (o que o Go
-> implementa em `tmserver/internal/level/expreward.go`); os branches por mapa (Pesadelo
-> `:443-590/:592-735/:737-849`, Pergaminho da Água `:851+`) ficam para quando esses mapas forem
-> modelados.
+> implementa em `tmserver/internal/level/expreward.go`); os branches de Pesadelo
+> (`:443-590/:592-735/:737-849`) seguem fora do Go. As regras de EXP N/M/A do Pergaminho da Água
+> (`MobKilled.cpp:851-1270`) agora são implementadas em `tmserver/internal/level/water_exp.go`.
 
 **Gate de clã:** toda a distribuição está dentro de `if (pMob[target].MOB.Clan != 4)`
 (`MobKilled.cpp:402`) — mob de clã 4 **nunca** dá EXP (gold/drop ficam fora do gate).

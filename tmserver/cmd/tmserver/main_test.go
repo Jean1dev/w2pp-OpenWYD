@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -12,6 +14,37 @@ import (
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/content"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
+
+func TestSpawnNPCsLeavesWaterGeneratorsForRoomLifecycle(t *testing.T) {
+	dir := t.TempDir()
+	runDir := filepath.Join(dir, "TMsrv", "run")
+	npcDir := filepath.Join(runDir, "npc")
+	if err := os.MkdirAll(npcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var text strings.Builder
+	for index := 0; index <= 10; index++ {
+		fmt.Fprintf(&text, "# [%d]\nLeader: Grunt\nMinGroup: 0\nMaxGroup: 0\nMaxNumMob: 1\nStartX: %d\nStartY: 20\n\n", index, 20+index*5)
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "NPCGener.txt"), []byte(text.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(npcDir, "Grunt"), testMobTemplate("Grunt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	w := world.New(world.Config{GridDim: 128}, log, nil, nil)
+	spawnNPCs(w, dir, false, nil, log)
+	if w.GeneratorAt(10) == nil || w.GeneratorAt(10).CurrentNumMob != 0 {
+		t.Fatal("water generator spawned during world startup")
+	}
+	if w.GeneratorAt(9) == nil || w.GeneratorAt(9).CurrentNumMob != 1 {
+		t.Fatal("ordinary generator failed to spawn")
+	}
+	for index := 0; index <= 10; index++ {
+		w.ClearGenerator(index)
+	}
+}
 
 func TestSpawnNPCsWarnsMissingTemplates(t *testing.T) {
 	dir := t.TempDir()

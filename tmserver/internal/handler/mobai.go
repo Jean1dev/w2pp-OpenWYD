@@ -103,6 +103,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.tickKingdomRvR(w)
 	d.tickTowerWar(w)
 	d.tickCastle(w)
+	d.tickWater(w)
 	d.respawnMobs(w)
 	d.generateMobs(w)
 	// World events (issue #116). tickWeather sits after generateMobs so this
@@ -383,7 +384,7 @@ func (d *Dispatcher) generateMobs(w *world.World) {
 	minute := d.tickCount / 60
 	for idx := 0; idx < w.GeneratorCount(); idx++ {
 		g := w.GeneratorAt(idx)
-		if g == nil || g.MinuteGenerate <= 0 {
+		if g == nil || g.MinuteGenerate <= 0 || world.IsWaterGenerator(idx) {
 			continue
 		}
 		if minute%g.MinuteGenerate != idx%g.MinuteGenerate {
