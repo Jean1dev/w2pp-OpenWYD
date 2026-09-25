@@ -659,6 +659,8 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		Soul:               uint8(c.GetSoul()),
 		Fame:               c.GetFame(),
 		KefraTicket:        c.GetKefraTicket(),
+		NightmareEntries:   c.GetNightmareEntries(),
+		LastNightmareUse:   c.GetLastNightmareUse(),
 		PKPoint:            uint8(c.GetPkPoint()),
 		Guilty:             uint8(c.GetGuilty()),
 		CurKill:            uint8(c.GetCurKill()),
@@ -763,13 +765,15 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Carry:      savedItemsToProto(s.Carry),
 		Equip:      savedItemsToProto(s.Equip),
 
-		ScoreBonus:      int32(s.ScoreBonus),
-		SpecialBonus:    int32(s.SpecialBonus),
-		LearnedSkill:    s.LearnedSkill,
-		SecLearnedSkill: s.SecLearnedSkill,
-		Soul:            int32(s.Soul),
-		Fame:            s.Fame,
-		KefraTicket:     s.KefraTicket,
+		ScoreBonus:       int32(s.ScoreBonus),
+		SpecialBonus:     int32(s.SpecialBonus),
+		LearnedSkill:     s.LearnedSkill,
+		SecLearnedSkill:  s.SecLearnedSkill,
+		Soul:             int32(s.Soul),
+		Fame:             s.Fame,
+		KefraTicket:      s.KefraTicket,
+		NightmareEntries: s.NightmareEntries,
+		LastNightmareUse: s.LastNightmareUse,
 		// Tier state: class_master (transformations) + the celestial quest gates.
 		// The load side never trusted class_master=0 (defaults to MORTAL); saving it
 		// here is what makes a tier change survive relog.

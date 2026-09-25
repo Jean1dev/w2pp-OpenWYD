@@ -197,6 +197,8 @@ message Character {
   int32 celestial_arch_level = 47; // QuestInfo.Celestial.ArchLevel band (1..5)
   int32 arch_crystal_stage = 48; // QuestInfo.Arch.Cristal (0..4)
   int32 kefra_ticket = 49; // Remaining Hall of Kefra entries (MobExtra.KefraTicket).
+  int32 nightmare_entries = 50; // Remaining Arcane Nightmare entries.
+  int64 last_nightmare_use = 51; // Unix time of the last deed use.
 }
 
 message Item {

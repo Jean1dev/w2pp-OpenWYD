@@ -152,6 +152,7 @@ type World struct {
 	// The loaded cycle also supplies the final shutdown snapshot, so a pending
 	// older asynchronous save cannot lose a defeat during a normal restart.
 	kefraState  KefraState
+	nightmare   NightmareState
 	kefraLoaded bool
 
 	// newbieEvent mirrors the legacy NewbieEventServer flag (Server.cpp:617).
@@ -374,6 +375,8 @@ func (w *World) CharacterSaveFor(s *Session, e *Entity) CharacterSave {
 	}
 	cs.Clan, cs.GuildID, cs.GuildLevel, cs.Soul, cs.Fame = e.Clan, e.Guild, e.GuildLevel, e.Soul, e.Fame
 	cs.KefraTicket = e.KefraTicket
+	cs.NightmareEntries = e.NightmareEntries
+	cs.LastNightmareUse = e.LastNightmareUse
 	cs.ClassMaster = e.ClassMaster
 	cs.CelLv40, cs.CelLv90, cs.CelCircle = e.CelLv40, e.CelLv90, e.CelCircle
 	cs.ArchLv355, cs.ArchLv370 = e.ArchLv355, e.ArchLv370

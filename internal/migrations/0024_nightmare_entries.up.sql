@@ -1,0 +1,2 @@
+ALTER TABLE character ADD COLUMN nightmare_entries INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE character ADD COLUMN last_nightmare_use BIGINT NOT NULL DEFAULT 0;

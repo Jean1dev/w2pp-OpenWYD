@@ -138,6 +138,8 @@ type CharacterState struct {
 	Soul               uint8
 	Fame               int32 // MobExtra.Fame
 	KefraTicket        int32 // Remaining Hall of Kefra entries.
+	NightmareEntries   int32 // Remaining Arcane Nightmare entries.
+	LastNightmareUse   int64 // Unix time of the last Nightmare deed use.
 	// PK/karma state (GetFunc.cpp KILL_MARK carry slot, issue #210). PKPoint == 0
 	// means "never persisted" (SetPKPoint never legitimately writes 0) — the login
 	// path treats that as neutral (75), the same convention as ClassMaster == 0.
@@ -216,13 +218,15 @@ type CharacterSave struct {
 	MaxMP      int32
 	DivineEnd  int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
 
-	ScoreBonus      uint16
-	SpecialBonus    uint16
-	LearnedSkill    int32
-	SecLearnedSkill int32
-	Soul            uint8
-	Fame            int32
-	KefraTicket     int32 // Remaining Hall of Kefra entries.
+	ScoreBonus       uint16
+	SpecialBonus     uint16
+	LearnedSkill     int32
+	SecLearnedSkill  int32
+	Soul             uint8
+	Fame             int32
+	KefraTicket      int32 // Remaining Hall of Kefra entries.
+	NightmareEntries int32 // Remaining Arcane Nightmare entries.
+	LastNightmareUse int64 // Unix time of the last Nightmare deed use.
 	// Tier state persisted by the in-game save (world-owned): ClassMaster carries
 	// tier transformations; CelLv40/CelLv90/CelCircle are the celestial quest gates.
 	ClassMaster        uint8

@@ -680,6 +680,8 @@ type Character struct {
 	CelestialArchLevel int32  `protobuf:"varint,47,opt,name=celestial_arch_level,json=celestialArchLevel,proto3" json:"celestial_arch_level,omitempty"` // QuestInfo.Celestial.ArchLevel band (1..5)
 	ArchCrystalStage   int32  `protobuf:"varint,48,opt,name=arch_crystal_stage,json=archCrystalStage,proto3" json:"arch_crystal_stage,omitempty"`       // QuestInfo.Arch.Cristal (0..4)
 	KefraTicket        int32  `protobuf:"varint,49,opt,name=kefra_ticket,json=kefraTicket,proto3" json:"kefra_ticket,omitempty"`                        // Remaining Hall of Kefra entries (MobExtra.KefraTicket).
+	NightmareEntries   int32  `protobuf:"varint,50,opt,name=nightmare_entries,json=nightmareEntries,proto3" json:"nightmare_entries,omitempty"`         // Remaining Arcane Nightmare entries.
+	LastNightmareUse   int64  `protobuf:"varint,51,opt,name=last_nightmare_use,json=lastNightmareUse,proto3" json:"last_nightmare_use,omitempty"`       // Unix time of the last deed use.
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1053,6 +1055,20 @@ func (x *Character) GetArchCrystalStage() int32 {
 func (x *Character) GetKefraTicket() int32 {
 	if x != nil {
 		return x.KefraTicket
+	}
+	return 0
+}
+
+func (x *Character) GetNightmareEntries() int32 {
+	if x != nil {
+		return x.NightmareEntries
+	}
+	return 0
+}
+
+func (x *Character) GetLastNightmareUse() int64 {
+	if x != nil {
+		return x.LastNightmareUse
 	}
 	return 0
 }
@@ -6207,7 +6223,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x87\v\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xe2\v\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -6263,7 +6279,9 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\fmortal_level\x18. \x01(\x05R\vmortalLevel\x120\n" +
 	"\x14celestial_arch_level\x18/ \x01(\x05R\x12celestialArchLevel\x12,\n" +
 	"\x12arch_crystal_stage\x180 \x01(\x05R\x10archCrystalStage\x12!\n" +
-	"\fkefra_ticket\x181 \x01(\x05R\vkefraTicket\"\xcd\x01\n" +
+	"\fkefra_ticket\x181 \x01(\x05R\vkefraTicket\x12+\n" +
+	"\x11nightmare_entries\x182 \x01(\x05R\x10nightmareEntries\x12,\n" +
+	"\x12last_nightmare_use\x183 \x01(\x03R\x10lastNightmareUse\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

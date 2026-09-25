@@ -3086,11 +3086,16 @@ func TestUseGemaEstelarPesadeloCarveOut(t *testing.T) {
 	const gema = 700
 	const pesadeloX, pesadeloY = 1200, 150
 	db := gemaEstelarDB(pesadeloX, pesadeloY, 0, 0, world.Item{Index: gema})
-	addr, stop := startServerClockVolGrid(t, db, map[int]int{gema: volGemaEstelar}, 1300)
-	defer stop()
+	addr, d, w, _ := startKefraServer(t, db)
 	c := enterWorld(t, addr)
 	defer c.Close()
-
+	// Login now recalls stale Nightmare positions. Place the admitted player
+	// inside the map to test the save-point carve-out independently of login.
+	runInLoop(t, w, func() {
+		d.itemVolatiles = map[int]int{gema: volGemaEstelar}
+		s, _ := w.SessionByName("Hero")
+		w.SetEntityPos(s.Conn, pesadeloX, pesadeloY)
+	})
 	useItemFrame(t, c, 0)
 	saved := expect(t, c, protocol.MsgSendItem)
 	if got := le16(saved[4:6]); got != 0 {

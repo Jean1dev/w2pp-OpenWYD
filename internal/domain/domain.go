@@ -82,6 +82,8 @@ type Character struct {
 	Soul               uint8  // MobExtra.Soul
 	Fame               int32  // MobExtra.Fame
 	KefraTicket        int32  // Remaining Hall of Kefra entries, per character.
+	NightmareEntries   int32  // Remaining Arcane Nightmare entries.
+	LastNightmareUse   int64  // Unix time of the last Nightmare deed use.
 	PKPoint            uint8  // GetFunc.cpp KILL_MARK slot: chaos/karma counter, 75 = neutral (issue #210)
 	Guilty             uint8  // KILL_MARK slot: PvP "red nick" decay counter
 	CurKill            uint8  // current PvP kill streak (MobName[13])

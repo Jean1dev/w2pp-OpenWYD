@@ -227,7 +227,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 	// present; live DB loads currently fall back to the last-city spawn rule.
 	saveX, saveY := st.SaveX, st.SaveY
 	loginX, loginY := st.X, st.Y
-	if loginX == 0 && loginY == 0 {
+	if (loginX == 0 && loginY == 0) || world.NightmareMap(loginX, loginY) >= 0 {
 		loginX, loginY = world.CitySpawn(int(st.LastCity))
 		if x, y, ok := w.EmptyCellNear(loginX, loginY); ok {
 			loginX, loginY = x, y
@@ -266,6 +266,8 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.Clan, e.Guild, e.GuildLevel, e.Citizen, e.ClassMaster, e.Soul = st.Clan, st.GuildID, st.GuildLevel, st.Citizen, st.ClassMaster, st.Soul
 		e.Fame = st.Fame
 		e.KefraTicket = st.KefraTicket
+		e.NightmareEntries = st.NightmareEntries
+		e.LastNightmareUse = st.LastNightmareUse
 		// Older rows created before ClassMaster was persisted may still carry 0.
 		// Treat that as MORTAL (=2, Basedef.h:238) so EXP does not route through
 		// the celestial divisor path (issue #43).
