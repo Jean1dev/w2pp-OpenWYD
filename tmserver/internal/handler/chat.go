@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
@@ -113,6 +114,16 @@ var (
 // so they are not handled here.
 func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, args []byte) bool {
 	cmd := strings.TrimPrefix(name, "/")
+	if cmd == "nt" {
+		if e := w.Entity(s.Conn); e != nil {
+			sendKefraBalance(w, s, e.NightmareEntries)
+		}
+		return true
+	}
+	if cmd == "nig" {
+		w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody(d.now().In(time.Local).Format("!!150405")))
+		return true
+	}
 	if dest, ok := teleportCmds[cmd]; ok {
 		if e := w.Entity(s.Conn); e != nil {
 			d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))

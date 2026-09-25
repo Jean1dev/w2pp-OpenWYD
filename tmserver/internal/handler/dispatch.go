@@ -30,6 +30,7 @@ import (
 // Config tunes the dispatcher. Zero values get sensible defaults.
 type Config struct {
 	ClientVersion int32            // required client version (default AppVersion 7640)
+	MaxNightmare  int              // Counted admissions per map/cycle; default 3.
 	MaxFailLogin  int              // wrong-password lockout threshold (default 3)
 	ServerIndex   int              // legacy guild id high bits (server_index * 4096)
 	Log           *slog.Logger     // default slog.Default()

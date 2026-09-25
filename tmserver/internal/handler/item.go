@@ -517,6 +517,10 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.refineItem(w, s, e, body, src, vol)
 	case vol == volHpMpPotion:
 		d.useHealPotion(w, s, e, src)
+	case vol >= 173 && vol <= 175:
+		d.useNightmareScroll(w, s, e, src, vol-173)
+	case vol == 212 && e.Carry[src].Index == 5137:
+		d.useNightmareDeed(w, s, e, src)
 	case vol == volRecallScroll:
 		d.useRecallScroll(w, s, e, src)
 	case vol == volGemaEstelar:

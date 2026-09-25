@@ -50,6 +50,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		if owner == nil || !world.IsPlayer(owner.ID) || !ok || mode != world.UserPlay {
 			sendDieAction(w, mob)
 			w.DespawnMob(mob.ID, 1)
+			d.nightmareMobKilled(w, mob)
 			return
 		}
 		reward = owner
@@ -62,6 +63,14 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// The reward target is a player, so its entity id equals its connection slot;
 	// the session is needed for gold/level-up packets (nil if it disconnected).
 	ks := w.Session(reward.ID)
+	// Nightmare's legacy death script draws DieSay and regenerates BEFORE
+	// rolling loot (MobKilled.cpp:1430,1882,2693). Keep the dying mob counted
+	// until the final despawn: GenerateMob's population clamp depends on it.
+	nightmareDeath := world.NightmareGenerator(int(mob.GenIndex)) >= 0
+	if nightmareDeath {
+		sendDieAction(w, mob)
+		d.nightmareMobKilled(w, mob)
+	}
 
 	// Gold drop → reward target's coin (clamped). The new total is pushed to the target's
 	// client (MSG_UpdateEtc); otherwise the gain isn't visible until relog.
@@ -79,7 +88,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// handler's MSG_Attack echo (CurrentExp); grantExp also applies any level-ups.
 	// Clan 4 mobs never award EXP: the legacy wraps the whole distribution in
 	// `MOB.Clan != 4` (MobKilled.cpp:402); gold and drops sit outside that gate.
-	if mob.Clan != 4 && !d.grantWaterExp(w, reward, mob) {
+	if mob.Clan != 4 && !d.grantNightmareExp(w, reward, mob) && !d.grantWaterExp(w, reward, mob) {
 		d.grantExp(w, ks, reward, mob)
 	}
 
@@ -106,7 +115,9 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		}
 	}
 
-	sendDieAction(w, mob)
+	if !nightmareDeath {
+		sendDieAction(w, mob)
+	}
 
 	// Despawn: tell in-view clients the mob died (RemoveMob, type 1 = death) and
 	// free its grid cell + entity slot, so the corpse disappears and it can't be

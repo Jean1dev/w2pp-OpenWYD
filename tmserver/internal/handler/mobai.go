@@ -45,6 +45,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	// first, so it cannot live inside either sweep.
 	d.tickCount++
 	d.tickKefra(w)
+	d.tickNightmare(w)
 	d.ensureGuildStateLoaded(w)
 
 	// Dormancy gate: snapshot the (few) in-play player positions once, so the
@@ -385,7 +386,7 @@ func (d *Dispatcher) generateMobs(w *world.World) {
 	minute := d.tickCount / 60
 	for idx := 0; idx < w.GeneratorCount(); idx++ {
 		g := w.GeneratorAt(idx)
-		if g == nil || g.MinuteGenerate <= 0 || world.IsWaterGenerator(idx) || world.IsKefraGenerator(idx) {
+		if g == nil || g.MinuteGenerate <= 0 || world.IsWaterGenerator(idx) || world.IsKefraGenerator(idx) || world.NightmareGenerator(idx) >= 0 {
 			continue
 		}
 		if minute%g.MinuteGenerate != idx%g.MinuteGenerate {
@@ -706,6 +707,7 @@ func (d *Dispatcher) mobAttack(w *world.World, id int, e, target *world.Entity) 
 				sendDieAction(w, target)
 				w.DespawnMob(target.ID, 1)
 				d.kefraMobKilled(w, target)
+				d.nightmareMobKilled(w, target)
 			}
 			dropCurrentTarget(e, target.ID)
 		} else {

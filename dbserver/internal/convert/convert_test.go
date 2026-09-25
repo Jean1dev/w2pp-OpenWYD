@@ -33,6 +33,8 @@ func TestAccountConversion(t *testing.T) {
 	binary.LittleEndian.PutUint32(af.MobExtra[1].Raw[4:8], 0x01020304)
 	af.MobExtra[1].Raw[12] = 3
 	binary.LittleEndian.PutUint32(af.MobExtra[1].Raw[452:456], 137)
+	binary.LittleEndian.PutUint32(af.MobExtra[1].Raw[448:452], 27)
+	binary.LittleEndian.PutUint64(af.MobExtra[1].Raw[440:448], 5000000000)
 	af.Affect[1][0] = savefmt.Affect{Type: 5, Value: 1, Level: 2, Time: 60}
 	af.Cargo[3] = savefmt.Item{Index: 4444}
 
@@ -64,6 +66,9 @@ func TestAccountConversion(t *testing.T) {
 		t.Fatalf("characters = %d, want 1 (empty slot 0 skipped)", len(acc.Characters))
 	}
 	ch := acc.Characters[0]
+	if ch.NightmareEntries != 27 || ch.LastNightmareUse != 5000000000 {
+		t.Fatalf("Nightmare import = %d, %d", ch.NightmareEntries, ch.LastNightmareUse)
+	}
 	if ch.KefraTicket != 137 {
 		t.Fatalf("imported Kefra balance = %d, want 137", ch.KefraTicket)
 	}

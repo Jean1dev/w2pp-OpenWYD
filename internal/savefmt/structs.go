@@ -176,3 +176,13 @@ type AccountFile struct {
 	BlockPass    [16]byte
 	IsBlocked    bool
 }
+
+// NightmareEntries returns NT (STRUCT_MOBEXTRA offset 448).
+func (m MobExtra) NightmareEntries() int32 {
+	return int32(binary.LittleEndian.Uint32(m.Raw[448:452]))
+}
+
+// LastNightmareUse returns LastNT, an MSVC time_t (offset 440, 8 bytes).
+func (m MobExtra) LastNightmareUse() int64 {
+	return int64(binary.LittleEndian.Uint64(m.Raw[440:448]))
+}

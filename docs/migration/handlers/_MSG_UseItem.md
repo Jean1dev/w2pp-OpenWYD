@@ -33,3 +33,8 @@
 - Faixas de sIndex de "selado" e limites de sanc são constantes mágicas — preservar.
 - **UNVERIFIED:** o mapeamento completo de ação por tipo de item (este handler ramifica muito) —
   detalhar por captura de cada categoria de item.
+
+## Pesadelo (issue #346)
+
+Efeitos 173?175 e Escritura 5137/212 est?o implementados no Go. Regras, hor?rios,
+cr?ditos, persist?ncia e diferen?as operacionais: [Pesadelo](../nightmare.md).
