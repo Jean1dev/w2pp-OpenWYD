@@ -32,7 +32,7 @@ func (d *Dispatcher) grantNightmareExp(w *world.World, killer, mob *world.Entity
 			continue
 		}
 		gain := level.NightmareExpReward(kind, mob.Exp, e.Level, mob.Level, e.ClassMaster, bonus, d.expEvents)
-		d.applyMonsterExp(w, s, e, gain)
+		d.applyMobExp(w, s, e, gain)
 	}
 	return true
 }

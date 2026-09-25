@@ -2221,11 +2221,8 @@ func TestUseSeloDoGuerreiro(t *testing.T) {
 	}
 }
 
-// TestUseWaterScrollRejected is the issue #135 "safe fallback" for the 3 blocked
-// items: the real behavior needs data absent from Source/, so it must reject
-// cleanly (NoticeCantUseHere + resync) instead of no-op'ing — a no-op would
-// recreate the exact "phantom consumption reverts on move" bug this fix closes.
-func TestUseWaterScrollRejected(t *testing.T) {
+// Water scrolls used outside the entrance or their own zone retain their stack.
+func TestUseWaterScrollOutsideEntranceRejected(t *testing.T) {
 	db := newDB()
 	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000}
 	st.Carry[0] = world.Item{Index: 3182, Effects: [3]world.Effect{{Effect: efAmount, Value: 5}}} // Água (A) LV1

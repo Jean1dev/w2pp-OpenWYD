@@ -185,6 +185,9 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 			g.FightAction, g.DieAction = def.FightAction, def.DieAction
 			g.LeaderTmpl = npcTemplateWithDisplayName(def.Template, def.DisplayName)
 			g.FollowerTmpl = def.FollowerTemplate
+			if world.IsWaterGenerator(def.GeneratorIndex) {
+				continue // water rooms own these blocks; don't spawn them through NPC hot reload
+			}
 			ids := w.GenerateMob(def.GeneratorIndex)
 			if len(ids) == 0 {
 				d.log.Warn("npc content generator produced no entities", "slug", def.Slug, "index", def.GeneratorIndex)

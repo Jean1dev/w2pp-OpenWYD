@@ -367,9 +367,7 @@ const (
 	volChocolate   = 204 // Chocolate do Amor (_MSG_UseItem.cpp:6082-6131)
 	volCoracaoDoce = 205 // Coração Doce (_MSG_UseItem.cpp:6030-6079)
 
-	// Blocked: real behavior needs data that doesn't exist anywhere in the
-	// available Source/ tree (repo-wide grep, not just this file) — see the
-	// reject cases below for what's missing per item.
+	// Water scroll categories; lifecycle and source tables are in water.go.
 	volWaterMLo, volWaterMHi = 21, 30   // Pergaminho da Água (M), _MSG_UseItem.cpp:1726
 	volWaterNLo, volWaterNHi = 131, 140 // Pergaminho da Água (N), _MSG_UseItem.cpp:1920
 	volWaterALo, volWaterAHi = 161, 170 // Pergaminho da Água (A), _MSG_UseItem.cpp:2025
@@ -411,11 +409,10 @@ var huntingScrollDestinations = [6][10][2]int16{
 }
 
 // volClasses (Classes A-E, _MSG_UseItem.cpp:4959) is handled by useClasseItem
-// (classe.go), NOT rejectUnimplementedConsumable: unlike the water scrolls
-// above, its logic — the #pragma region Classe block, SetItemBonus2
+// (classe.go), NOT rejectUnimplementedConsumable: its logic — the #pragma
+// region Classe block, SetItemBonus2
 // (Server.cpp:2719-2861), and the four g_pBonusValue2..5 tables
-// (Basedef.cpp:353-529) — is fully present in Source/. The issue #135 fix
-// lumped it in with the genuinely-missing cases by mistake.
+// (Basedef.cpp:353-529) — is fully present in Source/.
 const volClasses = 190
 
 // useFairyFlash transforms an equipped red fairy while retaining its effects
@@ -571,10 +568,7 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	case vol >= volWaterMLo && vol <= volWaterMHi,
 		vol >= volWaterNLo && vol <= volWaterNHi,
 		vol >= volWaterALo && vol <= volWaterAHi:
-		// issue #135: real behavior needs data absent from Source/ (see the const
-		// block above) — reject honestly instead of no-op'ing, so the client never
-		// shows a consumption the next slot resync would revert.
-		d.rejectUnimplementedConsumable(w, s, e, src)
+		d.useWaterScroll(w, s, e, src, vol)
 	default:
 		// issue #204: do not silently no-op unknown consumables. The client may
 		// optimistically remove them, then the next slot resync (buy/move/save)
@@ -658,12 +652,7 @@ func (d *Dispatcher) useQuest256Ticket(w *world.World, s *world.Session, e *worl
 	return true
 }
 
-// rejectUnimplementedConsumable answers _MSG_UseItem for a consumable whose real
-// effect this fork can't implement with parity (issue #135: the water-scroll
-// dungeon coordinates depend on data/algorithms that don't exist anywhere in
-// the available Source/ tree). Unlike a silent no-op, this tells the client
-// plainly that nothing happened and re-syncs the slot, so it never shows a
-// phantom consumption that a later move/trade would "revert".
+// rejectUnimplementedConsumable refuses unsupported items and restores the client slot.
 func (d *Dispatcher) rejectUnimplementedConsumable(w *world.World, s *world.Session, e *world.Entity, src int) {
 	d.notify(w, s, NoticeCantUseHere)
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])

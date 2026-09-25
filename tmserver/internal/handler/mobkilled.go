@@ -34,8 +34,9 @@ const (
 // drop rolls (gold §2.1 and per-slot item §2.2 using the real g_pDropRate table).
 // The mob's Carry is its loot table.
 //
-// UNVERIFIED / deferred: party EXP distribution (the unreliable g_EmptyMob/UNK
-// divisors) and the _MSG_CNFMobKill kill confirmation.
+// UNVERIFIED / deferred: generic-field party EXP distribution and the
+// _MSG_CNFMobKill kill confirmation. Water Scroll regions use their dedicated
+// legacy distribution below.
 func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// Record the event even if a summon owner disconnected before the kill.
 	// Refill auxiliaries after DespawnMob releases their population slot.
@@ -58,6 +59,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		return
 	}
 	d.castleBossKilled(w, reward, mob)
+	d.waterMobKilled(w, reward, mob)
 	// The reward target is a player, so its entity id equals its connection slot;
 	// the session is needed for gold/level-up packets (nil if it disconnected).
 	ks := w.Session(reward.ID)
@@ -86,10 +88,8 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	// handler's MSG_Attack echo (CurrentExp); grantExp also applies any level-ups.
 	// Clan 4 mobs never award EXP: the legacy wraps the whole distribution in
 	// `MOB.Clan != 4` (MobKilled.cpp:402); gold and drops sit outside that gate.
-	if mob.Clan != 4 {
-		if !d.grantNightmareExp(w, reward, mob) {
-			d.grantExp(w, ks, reward, mob)
-		}
+	if mob.Clan != 4 && !d.grantNightmareExp(w, reward, mob) && !d.grantWaterExp(w, reward, mob) {
+		d.grantExp(w, ks, reward, mob)
 	}
 
 	d.tryWorldEventDrop(w, reward)
@@ -249,11 +249,15 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 		return
 	}
 	gain := level.SoloExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
-	d.applyMonsterExp(w, ks, killer, gain)
+	d.applyMobExp(w, ks, killer, gain)
 }
 
-func (d *Dispatcher) applyMonsterExp(w *world.World, ks *world.Session, killer *world.Entity, gain int64) {
-	if gain <= 0 || archExpLocked(killer) {
+// applyMobExp applies an already calculated PvE reward without recalculating bonuses.
+func (d *Dispatcher) applyMobExp(w *world.World, ks *world.Session, killer *world.Entity, gain int64) {
+	if archExpLocked(killer) {
+		return
+	}
+	if gain <= 0 {
 		return
 	}
 	previousExp := killer.Exp
