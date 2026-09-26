@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -70,7 +71,8 @@ func relogArch(t *testing.T, c net.Conn) []byte {
 
 func TestArchCrystalSequenceSurvivesRelog(t *testing.T) {
 	db := &archRelogDB{newDB()}
-	db.loadResult = archState(355)
+	db.loadResult = archState(399)
+	db.loadResult.Exp = level.MaxExp
 	for i := range 4 {
 		db.loadResult.Carry[i] = world.Item{Index: int16(4106 + i), Effects: [3]world.Effect{{Effect: efAmount, Value: 2}}}
 	}
@@ -80,22 +82,27 @@ func TestArchCrystalSequenceSurvivesRelog(t *testing.T) {
 	defer c.Close()
 	bonuses := [4][3]uint32{{0, 0, 80}, {30, 0, 80}, {30, 80, 80}, {50, 140, 140}}
 	for i, bonus := range bonuses {
+		wantExp := level.MaxExp - int64(i+1)*100_000_000
+		wantLevel := level.ForExpTier(wantExp, classMasterArch)
+		lost := uint32(399 - wantLevel)
+		wantAC := uint32(628) - lost + bonus[0]
+		wantHP, wantMP := uint32(1000)-3*lost+bonus[1], uint32(500)-lost+bonus[2]
 		useArchItem(t, c, i)
 		slot := expect(t, c, protocol.MsgSendItem)
 		if le16(slot[4:6]) != uint16(4106+i) || slot[7] != 1 {
 			t.Fatalf("stage %d did not consume exactly one crystal: %v", i+1, slot)
 		}
 		score := expect(t, c, protocol.MsgUpdateScore)
-		if le(score[4:8]) != 584+bonus[0] || le(score[16:20]) != 1000+bonus[1] || le(score[20:24]) != 500+bonus[2] {
+		if le(score[:4]) != uint32(wantLevel) || le(score[4:8]) != wantAC || le(score[16:20]) != wantHP || le(score[20:24]) != wantMP {
 			t.Fatalf("stage %d score AC/HP/MP=%d/%d/%d", i+1, le(score[4:8]), le(score[16:20]), le(score[20:24]))
 		}
 		expect(t, c, protocol.MsgMessageChat)
 		save, _ := db.lastSavedChar()
-		if save.ArchCrystalStage != uint8(i+1) || save.Exp != 2_000_000_000-int64(i+1)*100_000_000 || save.Level != 355 {
+		if save.ArchCrystalStage != uint8(i+1) || save.Exp != wantExp || save.Level != wantLevel {
 			t.Fatalf("stage %d save stage/EXP/level=%d/%d/%d", i+1, save.ArchCrystalStage, save.Exp, save.Level)
 		}
 		score = relogArch(t, c)
-		if le(score[4:8]) != 584+bonus[0] || le(score[16:20]) != 1000+bonus[1] || le(score[20:24]) != 500+bonus[2] {
+		if le(score[:4]) != uint32(wantLevel) || le(score[4:8]) != wantAC || le(score[16:20]) != wantHP || le(score[20:24]) != wantMP {
 			t.Fatalf("stage %d bonuses lost or duplicated after relog", i+1)
 		}
 		// The remaining stacked crystal is now a repeat, including after relog.
@@ -129,6 +136,7 @@ func TestArchCrystalRejectionAndSaveFailure(t *testing.T) {
 			db.loadResult.ClassMaster, db.loadResult.ArchCrystalStage = tc.tier, tc.stage
 			db.loadResult.Carry[0] = world.Item{Index: tc.item}
 			if tc.fail {
+				db.loadResult.Exp = level.NextLevelExp(354)
 				db.saveErr = errors.New("injected failure")
 			}
 			addr, stop, _ := startServerClock(t, db)
@@ -143,8 +151,130 @@ func TestArchCrystalRejectionAndSaveFailure(t *testing.T) {
 			send(t, c, protocol.MsgCharacterLogout, nil)
 			expect(t, c, protocol.MsgCNFCharacterLogout)
 			save, _ := db.lastSavedChar()
-			if save.ArchCrystalStage != tc.stage || save.Exp != db.loadResult.Exp || save.MaxHP != 1000 || save.MaxMP != 500 || !hasItem(save.Carry, tc.item) {
+			if save.Level != int32(tc.lvl) || save.ArchCrystalStage != tc.stage || save.Exp != db.loadResult.Exp || save.MaxHP != 1000 || save.MaxMP != 500 || !hasItem(save.Carry, tc.item) {
 				t.Fatalf("rejection mutated state: %+v", save)
+			}
+		})
+	}
+}
+
+func TestArchCrystalLevelLossSurvivesRelog(t *testing.T) {
+	for cls := uint8(0); cls < 4; cls++ {
+		for stage := uint8(1); stage <= 4; stage++ {
+			t.Run(fmt.Sprintf("class%d/stage%d", cls, stage), func(t *testing.T) {
+				db := &archRelogDB{newDB()}
+				st := archState(355)
+				st.Class, st.ArchCrystalStage = int(cls), stage-1
+				st.ArchLv355, st.ArchLv370 = 1, 1
+				st.Exp = level.NextLevelExp(354)
+				st.ScoreBonus, st.SpecialBonus = 100, 100
+				st.LearnedSkill = 1
+				st.Carry[0] = world.Item{Index: 4105 + int16(stage)}
+				st.Carry[1] = world.Item{Index: 4106 + int16(stage)}
+				db.loadResult = st
+				spells := content.NewSkillData([]content.Spell{{Index: int(cls) * content.MaxSkill, SkillPoint: 3}})
+				addr, stop := startServerSkillsWithConfig(t, db, Config{Spells: spells})
+				defer stop()
+				c := enterWorld(t, addr)
+				defer c.Close()
+				useArchItem(t, c, 0)
+				expect(t, c, protocol.MsgSendItem)
+				score := expect(t, c, protocol.MsgUpdateScore)
+				etc := expect(t, c, protocol.MsgUpdateEtc)
+				expect(t, c, protocol.MsgMessageChat)
+				wantExp := st.Exp - 100_000_000
+				wantLevel := level.ForExpTier(wantExp, classMasterArch)
+				lost := int32(st.Level) - wantLevel
+				hpReward, mpReward := int32(0), int32(0)
+				switch stage {
+				case 1:
+					mpReward = 80
+				case 3:
+					hpReward = 80
+				case 4:
+					hpReward, mpReward = 60, 60
+				}
+				wantHP := st.MaxHP - lost*level.IncHP(cls) + hpReward
+				wantMP := st.MaxMP - lost*level.IncMP(cls) + mpReward
+				wantAC := playerBaseAC(&world.Entity{ClassMaster: classMasterArch, Level: wantLevel, ArchCrystalStage: stage})
+				wantPoints := uint16(level.ScoreBonus(cls, wantLevel, st.Str, st.Int, st.Dex, st.Con))
+				wantSpecial := uint16(100 - 2*lost)
+				wantSkill := uint16(wantLevel*3 + max(wantLevel-199, 0) - 3)
+				checkScore := func(score []byte) {
+					t.Helper()
+					if le(score[:4]) != uint32(wantLevel) || le(score[4:8]) != uint32(wantAC) || le(score[16:20]) != uint32(wantHP) || le(score[20:24]) != uint32(wantMP) {
+						t.Fatalf("unexpected level/AC/HP/MP: %v", score[:24])
+					}
+				}
+				checkScore(score)
+				if int64(binary.LittleEndian.Uint64(etc[4:12])) != wantExp || le16(etc[20:22]) != wantPoints || le16(etc[22:24]) != wantSpecial || le16(etc[24:26]) != wantSkill {
+					t.Fatalf("unexpected EXP/points packet: %v", etc)
+				}
+				save, _ := db.lastSavedChar()
+				if save.Level != wantLevel || save.Exp != wantExp || save.MaxHP != wantHP || save.MaxMP != wantMP || save.ScoreBonus != wantPoints || save.SpecialBonus != wantSpecial || save.ArchCrystalStage != stage || save.ArchLv355 != 1 || save.ArchLv370 != 1 || hasItem(save.Carry, st.Carry[0].Index) {
+					t.Fatalf("incorrect crystal snapshot: %+v", save)
+				}
+				if save.HP != min(st.HP, wantHP) || save.MP != min(st.MP, wantMP) {
+					t.Fatalf("crystal healed or failed to cap resources: %d/%d", save.HP, save.MP)
+				}
+				send(t, c, protocol.MsgCharacterLogout, nil)
+				expect(t, c, protocol.MsgCNFCharacterLogout)
+				send(t, c, protocol.MsgCharacterLogin, (&protocol.MsgCharacterLoginBody{}).Encode())
+				login := expect(t, c, protocol.MsgCNFCharacterLogin)
+				// STRUCT_MOB begins at body offset 4; free points are at 788..793.
+				if le16(login[792:794]) != wantPoints || le16(login[794:796]) != wantSpecial || le16(login[796:798]) != wantSkill {
+					t.Fatal("free points changed after relog")
+				}
+				checkScore(expect(t, c, protocol.MsgUpdateScore))
+				if stage < 4 {
+					useArchItem(t, c, 1)
+					expect(t, c, protocol.MsgMessageChat)
+					if slot := expect(t, c, protocol.MsgSendItem); int16(le16(slot[4:6])) != st.Carry[1].Index {
+						t.Fatal("below-level rejection consumed the next crystal")
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestArchCrystalExperienceBoundaries(t *testing.T) {
+	threshold := level.NextLevelExp(354)
+	for _, tc := range []struct {
+		name      string
+		exp       int64
+		wantLevel int32
+	}{
+		{"above", threshold + 100_000_001, 355},
+		{"exact", threshold + 100_000_000, 355},
+		{"below", threshold + 99_999_999, 354},
+		{"no level up", level.MaxExp, 355},
+		{"zero", 100_000_000, 0},
+		{"clamp", 1, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := &archRelogDB{newDB()}
+			db.loadResult = archState(355)
+			db.loadResult.Exp = tc.exp
+			// Already allocated points must survive even when no free points remain.
+			db.loadResult.Str = 5000
+			db.loadResult.BaseSpecial[0] = 100
+			db.loadResult.LearnedSkill = 1
+			db.loadResult.Carry[0] = world.Item{Index: 4106}
+			addr, stop, _ := startServerClock(t, db)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+			useArchItem(t, c, 0)
+			expect(t, c, protocol.MsgSendItem)
+			score := expect(t, c, protocol.MsgUpdateScore)
+			expect(t, c, protocol.MsgMessageChat)
+			save, _ := db.lastSavedChar()
+			if save.Level != tc.wantLevel || le(score[:4]) != uint32(tc.wantLevel) || save.Exp != max(tc.exp-100_000_000, 0) || save.ScoreBonus != 0 || save.SpecialBonus != 0 || save.Str != 5000 || save.BaseSpecial[0] != 100 || save.LearnedSkill != 1 {
+				t.Fatalf("incorrect boundary snapshot: %+v", save)
+			}
+			if got := relogArch(t, c); le(got[:4]) != uint32(tc.wantLevel) {
+				t.Fatal("level changed after relog")
 			}
 		})
 	}
@@ -398,7 +528,7 @@ func TestArchCompleteFairyDustJourney(t *testing.T) {
 	db := &archRelogDB{newDB()}
 	db.loadResult = archState(353)
 	db.loadResult.Fame = 1
-	db.loadResult.Carry[0] = world.Item{Index: dust, Effects: [3]world.Effect{{Effect: efAmount, Value: 60}}}
+	db.loadResult.Carry[0] = world.Item{Index: dust, Effects: [3]world.Effect{{Effect: efAmount, Value: 200}}}
 	first := lindyRecipe(&db.loadResult, 1)
 	second := lindyRecipe(&db.loadResult, 8)
 	for i := range 4 {
@@ -433,9 +563,15 @@ func TestArchCompleteFairyDustJourney(t *testing.T) {
 	advance(354)
 	unlock(first)
 	advance(355)
+	recoveryDust := 0
 	for i := range 4 {
 		useArchItem(t, c, 15+i)
+		score := expect(t, c, protocol.MsgUpdateScore)
 		expect(t, c, protocol.MsgMessageChat)
+		for lvl := le(score[:4]) + 1; lvl <= 355; lvl++ {
+			advance(lvl)
+			recoveryDust++
+		}
 	}
 	for lvl := uint32(356); lvl <= 369; lvl++ {
 		advance(lvl)
@@ -450,7 +586,7 @@ func TestArchCompleteFairyDustJourney(t *testing.T) {
 	if save.ClassMaster != classMasterCelestial || save.Level != 0 || save.ArchCrystalStage != 4 || save.ArchLv355 != 1 || save.ArchLv370 != 1 || !hasItem(save.Equip, 3502) {
 		t.Fatalf("full journey outcome: %+v", save)
 	}
-	if len(save.Carry) != 1 || save.Carry[0].Index != dust || save.Carry[0].EffV1 != 14 {
+	if len(save.Carry) != 1 || save.Carry[0].Index != dust || int(save.Carry[0].EffV1) != 154-recoveryDust {
 		t.Fatalf("incorrect journey consumption: %+v", save.Carry)
 	}
 }

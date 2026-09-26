@@ -32,21 +32,31 @@ func (d *Dispatcher) useArchCrystal(w *world.World, s *world.Session, e *world.E
 	}
 	staged := *e
 	staged.ArchCrystalStage = uint8(stage)
-	// The legacy subtracts EXP without deleveling. Clamp defensively rather
-	// than reproducing unsigned underflow for malformed/administrative saves.
+	// Issue #348 restores deleveling, which the local legacy source comments
+	// out. A crystal must never level up an inconsistent/administrative save.
 	staged.Exp = max(staged.Exp-100_000_000, 0)
+	staged.Level = min(staged.Level, level.ForExpTier(staged.Exp, staged.ClassMaster))
+	if lost := e.Level - staged.Level; lost > 0 {
+		staged.BaseMaxHP = addClamp(staged.BaseMaxHP, -lost*level.IncHP(staged.Class), level.MaxHPCap)
+		staged.BaseMaxMP = addClamp(staged.BaseMaxMP, -lost*level.IncMP(staged.Class), level.MaxMPCap)
+		staged.ScoreBonus = uint16(level.ScoreBonus(staged.Class, staged.Level, staged.BaseStr, staged.BaseInt, staged.BaseDex, staged.BaseCon))
+		d.deriveSkillBonus(&staged)
+		// Keep allocated mastery and learned skills; only unspent points can
+		// be withdrawn, without introducing a persisted point debt.
+		staged.SpecialBonus = uint16(max(int32(staged.SpecialBonus)-2*lost, 0))
+	}
 	switch stage {
 	case 1:
 		staged.BaseMaxMP = addClamp(staged.BaseMaxMP, 80, level.MaxHPCap)
-	case 2:
-		staged.BaseAC += 30
 	case 3:
 		staged.BaseMaxHP = addClamp(staged.BaseMaxHP, 80, level.MaxHPCap)
 	case 4:
 		staged.BaseMaxHP = addClamp(staged.BaseMaxHP, 60, level.MaxHPCap)
 		staged.BaseMaxMP = addClamp(staged.BaseMaxMP, 60, level.MaxHPCap)
-		staged.BaseAC += 20
 	}
+	// Use the login derivation so level loss and crystal AC survive relog
+	// identically, including stages whose only reward is defense.
+	staged.BaseAC = playerBaseAC(&staged)
 	consumeOneItem(&staged.Carry[src])
 	d.refreshScore(&staged)
 	d.saveArchQuest(w, s, e, staged, func(w *world.World, s *world.Session, saved bool) {
