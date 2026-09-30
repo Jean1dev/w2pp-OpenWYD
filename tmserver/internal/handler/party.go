@@ -130,6 +130,11 @@ func (d *Dispatcher) removeParty(w *world.World, s *world.Session, _ protocol.He
 // inherited the rows. Registered with world.SetSessionEndHandler and also called
 // from characterLogout. Idempotent — the second run finds an empty party.
 func (d *Dispatcher) SessionEnd(w *world.World, s *world.Session) {
+	// A P2P trade dies with either side (CloseUser → RemoveTrade in the legacy):
+	// the opponent gets _MSG_QuitTrade instead of a window bound to a ghost.
+	if s.Trade.Active {
+		d.removeTrade(w, s)
+	}
 	e := w.Entity(s.Conn)
 	if e == nil || !isInParty(e) {
 		return // nothing to unlink; don't push a party packet at a partyless client

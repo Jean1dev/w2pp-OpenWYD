@@ -120,14 +120,18 @@ func (s *Session) close() {
 }
 
 // TradeState is a player's direct (P2P) trade with another player
-// (lote2-trade-autotrade.md). Active is set when the trade window opens; Slots
-// and Money are the finalized offer recorded at confirmation.
+// (lote2-trade-autotrade.md). Active is set when this side first sends an offer;
+// Items/InvenPos/Money are the last offer the server forwarded to the opponent,
+// and Slots lists the carry slots it references. Confirmed is the MyCheck flag,
+// reset on both sides whenever either offer changes.
 type TradeState struct {
 	Active     bool
 	OpponentID int
 	Confirmed  bool
 	Money      int32
-	Slots      []int // offered carry slots
+	Items      [protocol.MaxTrade]Item
+	InvenPos   [protocol.MaxTrade]uint8 // 0xFF = empty entry (the legacy char -1)
+	Slots      []int                    // offered carry slots
 }
 
 // AutoTradeState is an open personal shop (the legacy pUser[conn].AutoTrade, issue

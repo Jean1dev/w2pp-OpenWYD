@@ -437,8 +437,7 @@ func TestMoveCancelsTrade(t *testing.T) {
 	defer a.Close()
 	b := enterWorldAs(t, addr, "tradeb")
 	defer b.Close()
-	linkTrade(t, a, 2)
-	linkTrade(t, b, 1)
+	openTrade(t, a, b, world.Item{}, world.Item{}, 0, 0)
 
 	actionFrameXY(t, a, protocol.MsgAction, serverTime, 5, 5, 7, 7)
 

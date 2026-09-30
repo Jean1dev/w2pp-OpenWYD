@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"encoding/binary"
-
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/world"
 )
@@ -11,70 +9,199 @@ import (
 // per-character active limit may be lower when Bolsa do Andarilho is inactive.
 const maxTradeSlot = maxUnlockedCarry
 
-// trade handles _MSG_Trade (0x0383): validate the offer and confirm; when BOTH
-// sides have confirmed a matching trade, perform the atomic swap. Any validation
-// failure cancels the trade on both sides (anti-dup). The offer is checked by
-// memcmp against the real inventory (anti item-swap during confirm).
+// tradeEmptyPos marks an unused offer entry (the legacy char InvenPos = -1).
+const tradeEmptyPos = 0xFF
+
+// maxTradeCoin is the legacy 2G ceiling on a trade amount and on either side's
+// resulting gold (_MSG_Trade.cpp: TradeMoney > 2000000000, _NN_Cant_get_more_than_2G).
+const maxTradeCoin = 2_000_000_000
+
+// trade handles _MSG_Trade (0x0383), porting the legacy flow in
+// TMSrv/_MSG_Trade.cpp:
+//
+//   - every accepted offer is forwarded to the opponent with ID = opponent and
+//     OpponentID = sender, which is what opens/updates the opponent's window;
+//   - an offer change resets MyCheck on both sides; an already-offered item or a
+//     non-zero amount cannot change (append-only, anti item-swap);
+//   - the first MyCheck answers the sender with _MSG_CNFCheck and forwards the
+//     checked offer; the second performs the atomic swap, re-sends both carries
+//     (_MSG_UpdateCarry carries Coin too), persists both and closes the trade.
+//
+// Any validation failure cancels the trade (_MSG_QuitTrade to both linked sides).
+// Divergences from the legacy: the PK-mode/whisper-block gates and the guild-item
+// rules are not ported (the server did not have them before either), and a
+// failed swap (space/gold) cancels the trade instead of leaving both windows
+// checked.
 func (d *Dispatcher) trade(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP == 0 || s.Mode != world.UserPlay {
 		w.AddCrackError(s, 5, 18)
-		d.removeTrade(w, s)
+		d.rejectTrade(w, s)
 		return
 	}
 	var body protocol.MsgTradeBody
 	if err := body.Decode(payload); err != nil {
-		d.removeTrade(w, s)
+		d.rejectTrade(w, s)
 		return
 	}
 	opp := int(body.OpponentID)
 	other := w.Session(opp)
-	if opp <= 0 || opp >= world.MaxUser || other == nil || other.Mode != world.UserPlay {
-		d.removeTrade(w, s)
+	oe := w.Entity(opp)
+	if opp <= 0 || opp >= world.MaxUser || opp == s.Conn || other == nil || oe == nil || other.Mode != world.UserPlay {
+		d.rejectTrade(w, s)
 		return
 	}
-	if body.TradeMoney < 0 || body.TradeMoney > e.Coin {
-		d.removeTrade(w, s)
+	if body.TradeMoney < 0 || body.TradeMoney > maxTradeCoin || body.TradeMoney > e.Coin {
+		d.rejectTrade(w, s)
+		return
+	}
+	offer, ok := d.tradeOffer(e, &body)
+	if !ok {
+		d.rejectTrade(w, s)
+		return
+	}
+	linked := other.Trade.Active && other.Trade.OpponentID == s.Conn
+	if linked && !tradeOfferHeld(oe, &other.Trade) {
+		d.rejectTrade(w, s) // the opponent's offered item moved or changed
 		return
 	}
 
-	var slots []int
-	for i := 0; i < protocol.MaxTrade; i++ {
-		if body.Item[i].Index == 0 {
-			continue
-		}
-		pos := int(body.InvenPos[i])
-		if pos < 0 || pos >= maxTradeSlot || !carrySlotAccessible(e, pos) || !sameItem(body.Item[i], e.Carry[pos]) {
-			d.removeTrade(w, s) // bounds or item changed during confirm
+	if s.Trade.Active {
+		if s.Trade.OpponentID != opp {
+			d.rejectTrade(w, s) // _NN_Already_Trading
 			return
 		}
-		slots = append(slots, pos)
+		for i := range s.Trade.Items {
+			if s.Trade.Items[i].Index != 0 && (s.Trade.Items[i] != offer.Items[i] || s.Trade.InvenPos[i] != offer.InvenPos[i]) {
+				d.rejectTrade(w, s)
+				return
+			}
+		}
+		if s.Trade.Money != 0 && s.Trade.Money != offer.Money {
+			d.rejectTrade(w, s)
+			return
+		}
 	}
 
-	s.Trade.Active = true
-	s.Trade.OpponentID = opp
-	s.Trade.Money = body.TradeMoney
-	s.Trade.Slots = slots
-	s.Trade.Confirmed = body.MyCheck != 0
+	if other.Trade.Active && !linked {
+		d.rejectTrade(w, s) // the opponent is trading with someone else
+		return
+	}
 
-	if s.Trade.Confirmed && other.Trade.Active && other.Trade.OpponentID == s.Conn && other.Trade.Confirmed {
+	if body.MyCheck == 1 {
+		// Checking is only valid on the exact offer the opponent already saw.
+		if !linked || !s.Trade.Active || s.Trade.Items != offer.Items || s.Trade.InvenPos != offer.InvenPos || s.Trade.Money != offer.Money {
+			d.rejectTrade(w, s)
+			return
+		}
+		s.Trade.Confirmed = true
+		if !other.Trade.Confirmed {
+			w.Send(s, protocol.MsgCNFCheck, nil)
+			d.forwardTrade(w, s, other)
+			return
+		}
 		d.executeSwap(w, s, other)
 		return
 	}
-	// First confirm: acknowledge (empty result); the swap fires on the second.
-	w.Send(s, protocol.MsgTrade, tradeResultPayload(nil))
+
+	offer.Active = true
+	offer.OpponentID = opp
+	s.Trade = offer
+	other.Trade.Confirmed = false
+	d.forwardTrade(w, s, other)
 }
 
-// executeSwap transfers both offers atomically (validate-all-then-apply-all):
-// items are taken from both sides, room is checked, then handed over with money.
-// Any shortfall rolls back and cancels the trade.
+// rejectTrade cancels s's trade after a refused _MSG_Trade. Unlike removeTrade it
+// also answers a sender that had no trade recorded yet, so a refused first offer
+// still closes the window the client opened locally (the legacy RemoveTrade
+// always signals _MSG_QuitTrade to conn).
+func (d *Dispatcher) rejectTrade(w *world.World, s *world.Session) {
+	silent := !s.Trade.Active && s.AutoTrade == nil && s.TradeMode == 0
+	d.removeTrade(w, s)
+	if silent {
+		w.Send(s, protocol.MsgQuitTrade, nil)
+	}
+}
+
+// tradeOffer normalises and validates the offer in body against e's carry. An
+// entry is used when its InvenPos is a slot and its item is set; the item must
+// match the carry item exactly (the legacy memcmp) and not be EF_NOTRADE, and no
+// slot may repeat.
+func (d *Dispatcher) tradeOffer(e *world.Entity, body *protocol.MsgTradeBody) (world.TradeState, bool) {
+	t := world.TradeState{Money: body.TradeMoney}
+	var used [world.MaxCarry]bool
+	for i := 0; i < protocol.MaxTrade; i++ {
+		pos := int(body.InvenPos[i])
+		if pos == tradeEmptyPos || body.Item[i].Index == 0 {
+			t.InvenPos[i] = tradeEmptyPos
+			continue
+		}
+		if pos >= maxTradeSlot || !carrySlotAccessible(e, pos) || used[pos] || e.Carry[pos].Empty() || !sameItem(body.Item[i], e.Carry[pos]) {
+			return world.TradeState{}, false
+		}
+		if d.itemAbility(e.Carry[pos], efNoTrade) != 0 {
+			return world.TradeState{}, false
+		}
+		used[pos] = true
+		t.Items[i] = e.Carry[pos]
+		t.InvenPos[i] = uint8(pos)
+		t.Slots = append(t.Slots, pos)
+	}
+	return t, true
+}
+
+// tradeOfferHeld reports whether every item of a recorded offer is still in the
+// carry slot it was offered from (anti item-swap during confirmation).
+func tradeOfferHeld(e *world.Entity, t *world.TradeState) bool {
+	for i := range t.Items {
+		if t.Items[i].Index == 0 {
+			continue
+		}
+		pos := int(t.InvenPos[i])
+		if pos >= maxTradeSlot || !carrySlotAccessible(e, pos) || e.Carry[pos] != t.Items[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// forwardTrade sends from's recorded offer to its opponent in the classic
+// MSG_Trade layout, with OpponentID = from (legacy: m->ID = OpponentID;
+// m->OpponentID = conn; AddMessage).
+func (d *Dispatcher) forwardTrade(w *world.World, from, to *world.Session) {
+	var body protocol.MsgTradeBody
+	for i := range from.Trade.Items {
+		body.Item[i] = wireFromItem(from.Trade.Items[i])
+		body.InvenPos[i] = from.Trade.InvenPos[i]
+	}
+	body.TradeMoney = from.Trade.Money
+	if from.Trade.Confirmed {
+		body.MyCheck = 1
+	}
+	body.OpponentID = uint16(from.Conn)
+	w.Send(to, protocol.MsgTrade, body.Encode())
+}
+
+// executeSwap transfers both confirmed offers atomically (validate-all-then-
+// apply-all, legacy BASE_CanTrade): each side's offered slots are emptied, the
+// incoming items fill the first free accessible slots, and gold moves both ways.
+// Any shortfall rolls back and cancels the trade. On success both carries are
+// re-sent (_MSG_UpdateCarry, with Coin), both characters are persisted, and the
+// trade is closed on both sides (_MSG_QuitTrade), as SendCarry + SaveUser +
+// RemoveTrade in the legacy.
 func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 	ea, eb := w.Entity(a.Conn), w.Entity(b.Conn)
-	if ea == nil || eb == nil {
+	if ea == nil || eb == nil || !tradeOfferHeld(ea, &a.Trade) || !tradeOfferHeld(eb, &b.Trade) {
 		d.removeTrade(w, a)
 		return
 	}
-	if !tradeSlotsAccessible(ea, a.Trade.Slots) || !tradeSlotsAccessible(eb, b.Trade.Slots) {
+	if a.Trade.Money > ea.Coin || b.Trade.Money > eb.Coin {
+		d.removeTrade(w, a)
+		return
+	}
+	coinA := int64(ea.Coin) - int64(a.Trade.Money) + int64(b.Trade.Money)
+	coinB := int64(eb.Coin) - int64(b.Trade.Money) + int64(a.Trade.Money)
+	if coinA > maxTradeCoin || coinB > maxTradeCoin {
 		d.removeTrade(w, a)
 		return
 	}
@@ -82,8 +209,15 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 	aItems := takeItems(ea, a.Trade.Slots)
 	bItems := takeItems(eb, b.Trade.Slots)
 	if freeCarry(eb) < len(aItems) || freeCarry(ea) < len(bItems) {
+		noRoomA, noRoomB := freeCarry(ea) < len(bItems), freeCarry(eb) < len(aItems)
 		putBack(ea, a.Trade.Slots, aItems) // not enough room → rollback
 		putBack(eb, b.Trade.Slots, bItems)
+		if noRoomA {
+			d.notify(w, a, NoticeNoEmptySlot)
+		}
+		if noRoomB {
+			d.notify(w, b, NoticeNoEmptySlot)
+		}
 		d.removeTrade(w, a)
 		return
 	}
@@ -97,31 +231,16 @@ func (d *Dispatcher) executeSwap(w *world.World, a, b *world.Session) {
 			ea.Carry[dst] = it
 		}
 	}
-	ea.Coin += b.Trade.Money - a.Trade.Money
-	eb.Coin += a.Trade.Money - b.Trade.Money
+	ea.Coin = int32(coinA)
+	eb.Coin = int32(coinB)
+	d.log.Info("trade completed", "conn", a.Conn, "opponent", b.Conn,
+		"items", len(aItems), "opponentItems", len(bItems), "coin", a.Trade.Money, "opponentCoin", b.Trade.Money)
 
-	a.Trade = world.TradeState{}
-	b.Trade = world.TradeState{}
-	// Result to each side carries the items they received (UNVERIFIED layout;
-	// the real handler re-sends inventory slots via _MSG_SendItem).
-	w.Send(a, protocol.MsgTrade, tradeResultPayload(bItems))
-	w.Send(b, protocol.MsgTrade, tradeResultPayload(aItems))
-}
-
-// tradeResultPayload encodes the received items as count + WireItems (placeholder
-// result body for testing/observability; UNVERIFIED real layout).
-func tradeResultPayload(items []world.Item) []byte {
-	b := make([]byte, 1+len(items)*protocol.ItemSize)
-	b[0] = byte(len(items))
-	for i, it := range items {
-		off := 1 + i*protocol.ItemSize
-		binary.LittleEndian.PutUint16(b[off:off+2], uint16(it.Index))
-		for e := 0; e < 3; e++ {
-			b[off+2+e*2] = it.Effects[e].Effect
-			b[off+3+e*2] = it.Effects[e].Value
-		}
-	}
-	return b
+	d.sendCarry(w, a, ea)
+	d.sendCarry(w, b, eb)
+	w.SaveCharacterAsync(a)
+	w.SaveCharacterAsync(b)
+	d.removeTrade(w, a)
 }
 
 // quitTrade handles _MSG_QuitTrade (0x0384): cancel the trade.
