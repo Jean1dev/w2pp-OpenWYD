@@ -238,6 +238,36 @@ func EncodeCNFCharacterLoginRaw(mob816 []byte, name string, coin int32, exp int6
 	return b
 }
 
+// OverlayLoginScores writes the character's own BaseScore (@mob+44) and
+// CurrentScore (@mob+92) into a MSG_CNFCharacterLogin body built from a class
+// template. The legacy sends pMob[conn].MOB right after GetCurrentScore
+// (ProcessDBMessage.cpp:812-821), so the client starts from the real level,
+// HP/MP and attributes instead of the template's until the next UpdateScore.
+// Merchant@12 and Direction@14 keep the template's bytes.
+func OverlayLoginScores(body []byte, base, current ScoreData) {
+	writeScoreData(body[4+44:4+92], base)
+	writeScoreData(body[4+92:4+140], current)
+}
+
+// writeScoreData writes the STRUCT_SCORE fields ScoreData carries (48 bytes).
+func writeScoreData(b []byte, s ScoreData) {
+	le.PutUint32(b[0:], uint32(s.Level))
+	le.PutUint32(b[4:], uint32(s.Ac))
+	le.PutUint32(b[8:], uint32(s.Damage))
+	b[13] = s.AttackRun
+	le.PutUint32(b[16:], uint32(s.MaxHp))
+	le.PutUint32(b[20:], uint32(s.MaxMp))
+	le.PutUint32(b[24:], uint32(s.Hp))
+	le.PutUint32(b[28:], uint32(s.Mp))
+	le.PutUint16(b[32:], uint16(s.Str))
+	le.PutUint16(b[34:], uint16(s.Int))
+	le.PutUint16(b[36:], uint16(s.Dex))
+	le.PutUint16(b[38:], uint16(s.Con))
+	for i, sp := range s.Special {
+		le.PutUint16(b[40+i*2:], uint16(sp))
+	}
+}
+
 // updateEquipSize is MSG_UpdateEquip (0x036B): HEADER + ushort Equip[16] +
 // uchar AnctCode[16] = 12 + 32 + 16 = 60 bytes.
 const updateEquipSize = 60

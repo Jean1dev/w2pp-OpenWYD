@@ -204,3 +204,27 @@ func TestCNFAccountLoginCargo(t *testing.T) {
 		t.Errorf("account name = %q, want acc", cstr16(b[cnfNameBodyOff:cnfNameBodyOff+16]))
 	}
 }
+
+func TestOverlayLoginScores(t *testing.T) {
+	body := make([]byte, cnfCharacterLoginSize-HeaderSize)
+	body[4+92+12], body[4+92+14] = 0x11, 0x22 // Merchant/Direction from the template
+	base := ScoreData{Level: 50, MaxHp: 1200, Hp: 900, Str: 31, Special: [4]int16{1, 2, 3, 4}}
+	cur := ScoreData{Level: 50, Ac: 40, Damage: 60, AttackRun: 0x23, MaxHp: 1500, MaxMp: 500, Hp: 900, Mp: 300,
+		Str: 41, Int: 42, Dex: 43, Con: 44, Special: [4]int16{5, 6, 7, 8}}
+	OverlayLoginScores(body, base, cur)
+	le := binary.LittleEndian
+	b, c := body[4+44:], body[4+92:]
+	if le.Uint32(b[0:]) != 50 || le.Uint32(b[16:]) != 1200 || le.Uint32(b[24:]) != 900 || le.Uint16(b[32:]) != 31 || le.Uint16(b[46:]) != 4 {
+		t.Errorf("BaseScore = % x", b[:48])
+	}
+	if le.Uint32(c[4:]) != 40 || le.Uint32(c[8:]) != 60 || c[13] != 0x23 || le.Uint32(c[16:]) != 1500 ||
+		le.Uint32(c[20:]) != 500 || le.Uint32(c[28:]) != 300 || le.Uint16(c[38:]) != 44 || le.Uint16(c[40:]) != 5 {
+		t.Errorf("CurrentScore = % x", c[:48])
+	}
+	if c[12] != 0x11 || c[14] != 0x22 {
+		t.Errorf("Merchant/Direction = %#x/%#x, want the template's 0x11/0x22", c[12], c[14])
+	}
+	if body[4+140] != 0 { // Equip @mob+140 untouched
+		t.Errorf("overlay wrote past CurrentScore")
+	}
+}

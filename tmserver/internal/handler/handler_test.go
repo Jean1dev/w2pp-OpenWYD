@@ -966,6 +966,71 @@ func TestCharacterLoginTemplateCNFSeparatesLoginPosFromSavePoint(t *testing.T) {
 	}
 }
 
+// The login snapshot carries the character's own scores, not the template's
+// (ProcessDBMessage.cpp:812-821): CurrentScore matches the UpdateScore the server
+// pushes right after, and BaseScore is the persisted state.
+func TestCharacterLoginTemplateCNFCarriesOwnScores(t *testing.T) {
+	db := newDB()
+	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", Class: 1, Level: 50, LastCity: 0,
+		HP: 900, MaxHP: 1200, MP: 300, MaxMP: 400, Str: 31, Int: 32, Dex: 33, Con: 34, AC: 21, Damage: 22}
+	tmpl := make([]byte, content.BaseMobSize)
+	copy(tmpl[0:16], "Template")
+	for _, at := range []int{44, 92} { // template scores: level 7, HP 105
+		binary.LittleEndian.PutUint32(tmpl[at:], 7)
+		binary.LittleEndian.PutUint32(tmpl[at+16:], 105)
+		binary.LittleEndian.PutUint32(tmpl[at+24:], 105)
+	}
+	tmpl[92+12] = 0x5A // Merchant @CurrentScore+12 stays the template's
+	addr, stop := startServerBaseMobs(t, db, map[int][]byte{1: tmpl})
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgCharacterLoginBody
+	body.Slot = 0
+	send(t, c, protocol.MsgCharacterLogin, body.Encode())
+	ty, payload := read(t, c)
+	if ty != protocol.MsgCNFCharacterLogin {
+		t.Fatalf("got %#x, want CNFCharacterLogin", ty)
+	}
+	le := binary.LittleEndian
+	base, cur := payload[4+44:4+92], payload[4+92:4+140]
+	if got := int32(le.Uint32(base[0:])); got != 50 {
+		t.Errorf("BaseScore.Level = %d, want 50", got)
+	}
+	if hp, maxHP, str := int32(le.Uint32(base[24:])), int32(le.Uint32(base[16:])), int16(le.Uint16(base[32:])); hp != 900 || maxHP != 1200 || str != 31 {
+		t.Errorf("BaseScore Hp/MaxHp/Str = %d/%d/%d, want 900/1200/31", hp, maxHP, str)
+	}
+	if cur[12] != 0x5A {
+		t.Errorf("CurrentScore.Merchant = %#x, want the template's 0x5a", cur[12])
+	}
+	var score []byte
+	for i := 0; i < 20 && score == nil; i++ {
+		if ty, p := read(t, c); ty == protocol.MsgUpdateScore {
+			score = p
+		}
+	}
+	if score == nil {
+		t.Fatal("no UpdateScore after the login snapshot")
+	}
+	for _, f := range []struct {
+		name string
+		at   int
+	}{{"Level", 0}, {"Ac", 4}, {"Damage", 8}, {"MaxHp", 16}, {"MaxMp", 20}, {"Hp", 24}, {"Mp", 28}} {
+		if got, want := int32(le.Uint32(cur[f.at:])), int32(le.Uint32(score[f.at:])); got != want {
+			t.Errorf("CurrentScore.%s = %d, UpdateScore says %d", f.name, got, want)
+		}
+	}
+	for i, name := range []string{"Str", "Int", "Dex", "Con"} {
+		if got, want := le.Uint16(cur[32+i*2:]), le.Uint16(score[32+i*2:]); got != want {
+			t.Errorf("CurrentScore.%s = %d, UpdateScore says %d", name, got, want)
+		}
+	}
+	if cur[13] != score[13] {
+		t.Errorf("CurrentScore.AttackRun = %#x, UpdateScore says %#x", cur[13], score[13])
+	}
+}
+
 func TestCharacterLoginLowLevelMortalUsesLastCitySpawn(t *testing.T) {
 	db := newDB()
 	db.loadResult = world.CharacterState{Slot: 0, Name: "Hero", Class: 1, Level: 1, LastCity: 2, HP: 1200, MaxHP: 1200}
