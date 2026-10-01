@@ -369,6 +369,11 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		// Weather rides the login snapshot rather than a separate packet, exactly
 		// as the legacy does (sm.Weather = CurrentWeather, ProcessDBMessage.cpp:834).
 		body := protocol.EncodeCNFCharacterLoginRaw(tmpl, st.Name, st.Coin, st.Exp, equip, carry, loginX, loginY, saveX, saveY, s.Slot, s.Conn, uint16(d.currentWeather()), shortSkill, skill, loginPKPoint)
+		// The template ships the class's starting score; overlay the character's
+		// own scores, as the legacy sends pMob[conn].MOB after GetCurrentScore.
+		if e := w.Entity(s.Conn); e != nil {
+			protocol.OverlayLoginScores(body, loginBaseScore(st, skill), d.computeScore(e))
+		}
 		d.logCNFCharacterLogin("template", s, st, loginX, loginY, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgCNFCharacterLogin, ID: protocol.IDScene}, body)
 		d.enterWorldView(w, s)
@@ -423,6 +428,17 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.refreshBabyMountSummon(w, s, e)
 	}
 	d.sendLoginAffects(w, s)
+}
+
+// loginBaseScore is the persisted STRUCT_SCORE that rides the login snapshot as
+// BaseScore, the same values the no-template fallback writes.
+func loginBaseScore(st world.CharacterState, skill protocol.SkillState) protocol.ScoreData {
+	return protocol.ScoreData{
+		Level: int32(st.Level), Ac: st.AC, Damage: st.Damage,
+		MaxHp: st.MaxHP, MaxMp: st.MaxMP, Hp: st.HP, Mp: st.MP,
+		Str: st.Str, Int: st.Int, Dex: st.Dex, Con: st.Con,
+		Special: skill.BaseSpecial, AttackRun: baseAttackRun,
+	}
 }
 
 func (d *Dispatcher) logCNFCharacterLogin(path string, s *world.Session, st world.CharacterState, spawnX, spawnY int16, body []byte) {
