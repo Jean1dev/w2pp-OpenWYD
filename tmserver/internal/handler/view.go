@@ -63,14 +63,14 @@ func (d *Dispatcher) moveMulticast(w *world.World, moverID int, oldX, oldY int16
 			}
 		case inNew:
 			if moverBody == nil {
-				moverCreateType, moverBody = createMobViewPacket(w, mover, 0)
+				moverCreateType, moverBody = d.createMobViewPacket(w, mover, 0)
 			}
 			w.MarkSeen(s, moverID)
 			w.SendTo(s, protocol.Header{Type: moverCreateType, ID: protocol.IDScene}, moverBody)
 			if moverSess != nil {
 				w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(moverID)}, protocol.EncodeStandardParm(pkInfoParm(mover)))
 				w.MarkSeen(moverSess, e.ID)
-				ty, body := createMobViewPacket(w, e, 0)
+				ty, body := d.createMobViewPacket(w, e, 0)
 				w.SendTo(moverSess, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 				w.SendTo(moverSess, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(e.ID)}, protocol.EncodeStandardParm(pkInfoParm(e)))
 			}

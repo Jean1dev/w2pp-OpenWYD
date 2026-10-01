@@ -423,7 +423,7 @@ func (d *Dispatcher) revealSpawned(w *world.World, ids []int) {
 		if mob == nil {
 			continue
 		}
-		body := protocol.EncodeCreateMobBody(createMobFrom(mob, 0))
+		body := protocol.EncodeCreateMobBody(d.createMobFrom(mob, 0))
 		w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 			if w.MarkSeen(vs, id) {
 				w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)

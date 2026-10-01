@@ -324,7 +324,7 @@ func (d *Dispatcher) noViewMob(w *world.World, s *world.Session, _ protocol.Head
 	}
 	if inPlay && self != nil && chebyshev(self.X, self.Y, target.X, target.Y) <= world.NoViewRange {
 		w.MarkSeen(s, id)
-		ty, body := createMobViewPacket(w, target, 1)
+		ty, body := d.createMobViewPacket(w, target, 1)
 		w.SendTo(s, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 		if id < world.MaxUser {
 			// PKInfo travels only about players (SendPKInfo, SendFunc.cpp:1869).

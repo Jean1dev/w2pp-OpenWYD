@@ -265,7 +265,7 @@ func (d *Dispatcher) sendShopList(w *world.World, s *world.Session, sellerConn i
 // (_MSG_SendAutoTrade.cpp:112-120). The pose is the MSG_CreateMobTrade Type, not a
 // CreateType value; Score.Con is zeroed for parity.
 func (d *Dispatcher) sendShopPose(w *world.World, s *world.Session, e *world.Entity) {
-	data := createMobFrom(e, 0)
+	data := d.createMobFrom(e, 0)
 	data.Con = 0 // _MSG_SendAutoTrade.cpp:118
 	tab := make([]byte, 26)
 	body := protocol.EncodeCreateMobTradeBody(data, tab, s.AutoTrade.Title)
@@ -289,7 +289,7 @@ func (d *Dispatcher) closeAutoTrade(w *world.World, s *world.Session) {
 	if e == nil || e.Mode != world.MobUser {
 		return
 	}
-	body := protocol.EncodeCreateMobBody(createMobFrom(e, 0))
+	body := protocol.EncodeCreateMobBody(d.createMobFrom(e, 0))
 	w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
 	w.BroadcastInView(s.Conn, protocol.MsgCreateMob, body)
 }
