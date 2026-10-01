@@ -64,6 +64,7 @@ type Session struct {
 	IP                string
 	CrackError        int             // anti-cheat violation count (CUser.NumError)
 	Whisper           bool            // true blocks incoming whispers
+	PartyChat         bool            // true blocks the party channel (partychat)
 	GuildDisable      bool            // hide guild tag (guildon/guildoff)
 	TradeMode         int             // non-zero while in auto-trade (blocks attacks)
 	Trade             TradeState      // P2P direct-trade state (lote2-trade-autotrade.md)
