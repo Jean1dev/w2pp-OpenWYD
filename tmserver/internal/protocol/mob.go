@@ -20,6 +20,7 @@ type MobBasics struct {
 	Level, Ac, Damage  int32
 	MaxHp, Hp          int32
 	Str, Int, Dex, Con int16
+	Coin               int32    // STRUCT_MOB.Coin @28; for a monster this is its gold-drop base (GoldDrop)
 	Exp                int64    // STRUCT_MOB.Exp @32; for a monster this is its kill reward
 	Resist             [4]uint8 // STRUCT_MOB.Resist @806 — elemental skill resists
 }
@@ -40,6 +41,7 @@ func ParseMobBasics(mob816 []byte) MobBasics {
 		Name:      cstr16(mob816[0:16]),
 		Clan:      mob816[16], // Clan @16 (same offset writeStructMob writes)
 		Class:     mob816[20],
+		Coin:      int32(le.Uint32(mob816[28:])), // STRUCT_MOB.Coin @28 (int)
 		Exp:       int64(le.Uint64(mob816[32:])), // STRUCT_MOB.Exp @32 (long long)
 		Merchant:  mob816[cs+12],                 // CurrentScore.Merchant
 		AttackRun: mob816[cs+13],                 // CurrentScore.AttackRun (speed)

@@ -24,8 +24,9 @@ func makeMob(name string, class, merchant uint8, level, hp int32) []byte {
 
 func TestParseMobBasics(t *testing.T) {
 	b := makeMob("Ciclope_Forte", 1, 0, 171, 15000)
+	binary.LittleEndian.PutUint32(b[28:], 50) // STRUCT_MOB.Coin (Gremlin's template value)
 	m := ParseMobBasics(b)
-	if m.Name != "Ciclope_Forte" || m.Class != 1 || m.Level != 171 || m.Hp != 15000 || m.Exp != 1800 {
+	if m.Name != "Ciclope_Forte" || m.Class != 1 || m.Level != 171 || m.Hp != 15000 || m.Exp != 1800 || m.Coin != 50 {
 		t.Errorf("ParseMobBasics = %+v", m)
 	}
 	if x, y := BaseMobSpawn(b); x != 2096 || y != 2096 {
