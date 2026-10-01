@@ -84,6 +84,7 @@ func TestMessageTypeValues(t *testing.T) {
 		{"_MSG_TradingItem (Basedef.h:2102)", MsgTradingItem, 118 | flagClient2Game | flagGame2Client},
 		{"_MSG_Trade (Basedef.h:2434)", MsgTrade, 131 | flagGame2Client | flagClient2Game},
 		{"_MSG_QuitTrade (Basedef.h:2447)", MsgQuitTrade, 132 | flagGame2Client | flagClient2Game},
+		{"_MSG_CNFCheck (Basedef.h:2448)", MsgCNFCheck, 134 | flagGame2Client | flagClient2Game},
 		{"_MSG_CombineItem (Basedef.h:2328)", MsgCombineItem, 166 | flagGame2Client | flagClient2Game},
 		{"_MSG_CombineItemEhre (Basedef.h:2339)", MsgCombineItemEhre, 211 | flagClient2Game},
 		{"_MSG_CombineItemTiny (Basedef.h:2329)", MsgCombineItemTiny, 192 | flagGame2Client | flagClient2Game},
