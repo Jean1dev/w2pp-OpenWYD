@@ -859,7 +859,7 @@ func (d *Dispatcher) createVine(w *world.World, body *protocol.MsgAttackBody) bo
 	}
 	mob.Mode = world.MobPeace
 	mob.WaitTicks = 40
-	payload := protocol.EncodeCreateMobBody(createMobFrom(mob, 2))
+	payload := protocol.EncodeCreateMobBody(d.createMobFrom(mob, 2))
 	w.ForEachInView(id, func(vs *world.Session, _ *world.Entity) {
 		if w.MarkSeen(vs, id) {
 			w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, payload)
@@ -906,7 +906,7 @@ func (d *Dispatcher) applyFoemaResurrection(w *world.World, s *world.Session, ca
 		d.sendSetHpMp(w, ts, target)
 		d.sendEtc(w, ts, target)
 	}
-	bodyPayload := protocol.EncodeCreateMobBody(createMobFrom(target, 0))
+	bodyPayload := protocol.EncodeCreateMobBody(d.createMobFrom(target, 0))
 	w.ForEachInView(tid, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, bodyPayload)
 	})
@@ -1088,7 +1088,7 @@ func (d *Dispatcher) applyBookResurrection(w *world.World, s *world.Session, e *
 	d.sendScore(w, s, e)
 	d.sendSetHpMp(w, s, e)
 	d.sendEtc(w, s, e)
-	body := protocol.EncodeCreateMobBody(createMobFrom(e, 0))
+	body := protocol.EncodeCreateMobBody(d.createMobFrom(e, 0))
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, body)
 	})

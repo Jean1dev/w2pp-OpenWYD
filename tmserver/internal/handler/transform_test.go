@@ -91,7 +91,7 @@ func TestTransformCostumeChangeRetainsBonuses(t *testing.T) {
 		if e.EquipVisual[12] != 0 || e.EquipAnct[12] != 0 || e.Equip[12] != item {
 			t.Fatal("costume change did not preserve hidden real equipment")
 		}
-		data := createMobFrom(e, 0)
+		data := New(Config{}).createMobFrom(e, 0)
 		if data.Equip[0] != 23 || data.Equip[12] != 0 || data.AnctCode[12] != 0 {
 			t.Fatal("new observer would see costume instead of transformed appearance")
 		}

@@ -80,7 +80,7 @@ func pkInfoParm(e *world.Entity) int32 {
 // kill-streak bytes — Server.cpp:4933-4941 does exactly this when Guilty hits
 // 0) plus the MSG_PKInfo attackable flag.
 func (d *Dispatcher) broadcastPKState(w *world.World, s *world.Session, e *world.Entity) {
-	mob := protocol.EncodeCreateMobBody(createMobFrom(e, 0))
+	mob := protocol.EncodeCreateMobBody(d.createMobFrom(e, 0))
 	info := protocol.EncodeStandardParm(pkInfoParm(e))
 	send := func(vs *world.Session) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, mob)

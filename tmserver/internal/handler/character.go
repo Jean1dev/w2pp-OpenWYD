@@ -496,7 +496,7 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 	if self.HasAnyAffect() {
 		d.sendAffect(w, s, self) // buff icons/timers (e.g. a re-applied Divine)
 	}
-	selfMob := protocol.EncodeCreateMobBody(createMobFrom(self, 2))
+	selfMob := protocol.EncodeCreateMobBody(d.createMobFrom(self, 2))
 	// Send the newcomer its OWN CreateMob (the legacy GridMulticast has skip=0, so
 	// the conn — already in the grid — receives its own, ProcessDBMessage.cpp:1029).
 	// This is what colors the player's OWN nick via MobName[12] (PKPoint): without
@@ -511,7 +511,7 @@ func (d *Dispatcher) enterWorldView(w *world.World, s *world.Session) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(s.Conn)}, protocol.EncodeStandardParm(pkInfoParm(self)))
 		// (B) the newcomer sees each player already in view
 		w.MarkSeen(s, ve.ID)
-		ty, body := createMobViewPacket(w, ve, 0)
+		ty, body := d.createMobViewPacket(w, ve, 0)
 		w.SendTo(s, protocol.Header{Type: ty, ID: protocol.IDScene}, body)
 		w.SendTo(s, protocol.Header{Type: protocol.MsgPKInfo, ID: uint16(ve.ID)}, protocol.EncodeStandardParm(pkInfoParm(ve)))
 	})
@@ -526,7 +526,7 @@ func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
 	w.ForEachMobInView(s.Conn, func(me *world.Entity) {
 		if w.MarkSeen(s, me.ID) {
 			w.SendTo(s, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene},
-				protocol.EncodeCreateMobBody(createMobFrom(me, 0)))
+				protocol.EncodeCreateMobBody(d.createMobFrom(me, 0)))
 		}
 	})
 }
@@ -535,8 +535,8 @@ func (d *Dispatcher) revealMobsInView(w *world.World, s *world.Session) {
 // The visual equipment codes and glow overlays come from the entity's
 // EquipVisual/EquipAnct, set at login/spawn from the relevant STRUCT_MOB data.
 // createType: 0 normal, 2 "just entered".
-func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
-	d := protocol.CreateMobData{
+func (d *Dispatcher) createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
+	data := protocol.CreateMobData{
 		MobID:           e.ID,
 		Name:            e.Name,
 		PosX:            e.X,
@@ -569,19 +569,28 @@ func createMobFrom(e *world.Entity, createType uint16) protocol.CreateMobData {
 		if e.Affect[i].Type == 0 {
 			continue
 		}
-		d.Affect[i] = protocol.PackAffect(protocol.AffectData{
+		data.Affect[i] = protocol.PackAffect(protocol.AffectData{
 			Type: e.Affect[i].Type,
 			Time: e.Affect[i].Time,
 		})
 	}
-	return d
+	// The legacy sends MOB.CurrentScore (GetCreateMob, GetFunc.cpp:1111), the
+	// same score SendScore pushes. For a player that is computeScore — the
+	// weapon damage and buffs ride the effective getters, not the flat fields —
+	// and the own client applies its self-CreateMob after the login UpdateScore.
+	if world.IsPlayer(e.ID) {
+		sc := d.computeScore(e)
+		data.Level, data.Ac, data.Damage = sc.Level, sc.Ac, sc.Damage
+		data.Str, data.Int, data.Dex, data.Con = sc.Str, sc.Int, sc.Dex, sc.Con
+	}
+	return data
 }
 
 // createMobViewPacket mirrors legacy SendCreateMob: a player with an open
 // personal shop must be revealed with MSG_CreateMobTrade, not the normal avatar
 // packet, so clients that enter view after the shop opened still see the stall.
-func createMobViewPacket(w *world.World, e *world.Entity, createType uint16) (protocol.Type, []byte) {
-	data := createMobFrom(e, createType)
+func (d *Dispatcher) createMobViewPacket(w *world.World, e *world.Entity, createType uint16) (protocol.Type, []byte) {
+	data := d.createMobFrom(e, createType)
 	if world.IsPlayer(e.ID) {
 		s := w.Session(e.ID)
 		if s != nil && s.Mode == world.UserPlay && s.TradeMode == 1 && s.AutoTrade != nil {
