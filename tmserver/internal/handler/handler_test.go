@@ -41,6 +41,7 @@ type fakeDB struct {
 		class, face, mortalSlot, mortalLevel int
 	}
 	deleted    int
+	denyDelete bool // DeleteCharacter answers ok=false (wrong password)
 	loadResult world.CharacterState
 	loads      map[int64]world.CharacterState // per-account override (accountID → state)
 	loadErr    error
@@ -346,6 +347,9 @@ func (f *fakeDB) CreateArchCharacter(_ context.Context, accountID int64, name st
 
 func (f *fakeDB) DeleteCharacter(_ context.Context, accountID int64, slot int, _, _ string) (bool, error) {
 	f.deleted++
+	if f.denyDelete {
+		return false, nil
+	}
 	for _, a := range f.accounts {
 		if a.id != accountID {
 			continue
@@ -793,6 +797,32 @@ func TestDeleteCharacter(t *testing.T) {
 	}
 	if got := cstr(payload[4+16+16 : 4+16+32]); got != "Sidekick" {
 		t.Errorf("slot-1 name = %q, want Sidekick (remaining char must still be reported)", got)
+	}
+}
+
+func TestDeleteCharacterWrongPassword(t *testing.T) {
+	db := newDB()
+	db.denyDelete = true
+	addr, stop := startServer(t, db)
+	defer stop()
+	c := loginAndSelect(t, addr)
+	defer c.Close()
+
+	var body protocol.MsgDeleteCharacterBody
+	body.Slot = 0
+	copy(body.MobName[:], "Hero")
+	copy(body.Password[:], "wrong")
+	send(t, c, protocol.MsgDeleteCharacter, body.Encode())
+	if ty, _ := read(t, c); ty != protocol.MsgDeleteCharacterFail {
+		t.Fatalf("got %#x, want DeleteCharacterFail (0x011B)", ty)
+	}
+	// Back in USER_SELCHAR: a second attempt reaches the backend again.
+	send(t, c, protocol.MsgDeleteCharacter, body.Encode())
+	if ty, _ := read(t, c); ty != protocol.MsgDeleteCharacterFail {
+		t.Fatalf("second attempt: got %#x, want DeleteCharacterFail", ty)
+	}
+	if db.deleted != 2 {
+		t.Errorf("backend DeleteCharacter called %d times, want 2", db.deleted)
 	}
 }
 
