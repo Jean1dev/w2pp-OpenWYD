@@ -1,6 +1,9 @@
 package world
 
-import "testing"
+import (
+	"encoding/binary"
+	"testing"
+)
 
 // TestRespawnMob covers the runtime respawn loop: killing a monster queues it, it
 // stays gone until the delay elapses, then SpawnDueRespawns re-creates it at its
@@ -45,6 +48,35 @@ func TestRespawnMob(t *testing.T) {
 	}
 	if got, ok := w.grid.MobAt(5, 6); !ok || int(got) != ids[0] {
 		t.Errorf("grid cell after respawn = (%d,%v), want (%d,true)", got, ok, ids[0])
+	}
+}
+
+// TestSpawnMobCopiesTemplateCoin: the template's STRUCT_MOB.Coin (@28) reaches
+// the live mob, on the first spawn and on every respawn, so loot.GoldDrop has a
+// base to roll from (the legacy GenerateMob copies the whole template).
+func TestSpawnMobCopiesTemplateCoin(t *testing.T) {
+	now := uint32(1000)
+	w := New(Config{GridDim: 16, Now: func() uint32 { return now }}, slogDiscard(), nil, nil)
+	tmpl := make([]byte, structMobTemplateSize)
+	binary.LittleEndian.PutUint32(tmpl[28:], 50)
+	coin := func(id int) int32 {
+		if e := w.Entity(id); e != nil {
+			return e.Coin
+		}
+		return -1
+	}
+	id := w.SpawnMob(tmpl, 5, 6)
+	if got := coin(id); got != 50 {
+		t.Fatalf("spawned mob Coin = %d, want 50", got)
+	}
+	w.DespawnMob(id, 1)
+	now += DefaultRespawnDelay
+	ids := w.SpawnDueRespawns(now)
+	if len(ids) != 1 {
+		t.Fatalf("SpawnDueRespawns = %v, want 1 respawn", ids)
+	}
+	if got := coin(ids[0]); got != 50 {
+		t.Fatalf("respawned mob Coin = %d, want 50", got)
 	}
 }
 

@@ -184,6 +184,38 @@ func TestMobKilledClan4NoExp(t *testing.T) {
 	}
 }
 
+// TestMobKilledDropsTemplateGold: a mob spawned from a template with Coin can
+// pay out gold (GoldDrop, MobKilled.cpp), always within the legacy formula's
+// range; a template without Coin never does.
+func TestMobKilledDropsTemplateGold(t *testing.T) {
+	d, w, killer := mobKilledWorld(t)
+	gremlin := expMobTemplate(4, 0, 0)
+	binary.LittleEndian.PutUint32(gremlin[28:], 50) // the shipped Gremlin's Coin
+	paid := 0
+	for i := 0; i < 60; i++ {
+		before := killer.Coin
+		d.mobKilled(w, killer, w.Entity(w.SpawnMob(gremlin, 6, 5)))
+		if gain := killer.Coin - before; gain != 0 {
+			// 4 × (rand(q+1) + q + Coin), q = (Coin+1)/4 = 12 → [248, 296].
+			if gain < 248 || gain > 296 {
+				t.Fatalf("gold gain = %d, want within [248, 296]", gain)
+			}
+			paid++
+		}
+	}
+	if paid == 0 {
+		t.Fatal("60 kills of a Coin=50 mob paid no gold")
+	}
+
+	d, w, killer = mobKilledWorld(t)
+	for i := 0; i < 60; i++ {
+		d.mobKilled(w, killer, w.Entity(w.SpawnMob(expMobTemplate(4, 0, 0), 6, 5)))
+	}
+	if killer.Coin != 0 {
+		t.Fatalf("Coin=0 template paid %d gold", killer.Coin)
+	}
+}
+
 func TestMobKilledDeliversCommonDropToCarry(t *testing.T) {
 	d, w, killer := mobKilledWorld(t)
 	want := world.Item{Index: 777, Effects: [3]world.Effect{
