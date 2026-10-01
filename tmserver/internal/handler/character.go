@@ -96,9 +96,13 @@ func (d *Dispatcher) deleteCharacter(w *world.World, s *world.Session, _ protoco
 	w.Go(s, func() func(*world.World, *world.Session) {
 		ok, err := p.DeleteCharacter(context.Background(), accID, slot, name, pass)
 		if err != nil || !ok {
+			// Legacy _MSG_DBDeleteCharacterFail -> _MSG_DeleteCharacterFail
+			// (ProcessDBMessage.cpp:641-649). The client shows its own
+			// "delete failed" notice for 0x011B; 0x011A would say the
+			// character could not be created.
 			return func(w *world.World, s *world.Session) {
 				s.Mode = world.UserSelChar
-				w.Send(s, protocol.MsgNewCharacterFail, nil)
+				w.Send(s, protocol.MsgDeleteCharacterFail, nil)
 			}
 		}
 		// Success: re-fetch the list and resend the full SELCHAR, same as

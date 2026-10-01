@@ -137,6 +137,10 @@ const (
 	MsgDeprivate Type = 0x028C // 652  C→S guild destitute (out of scope for #115)
 )
 
+// MsgDeleteCharacterFail is _MSG_DeleteCharacterFail (Basedef.h:1732): the
+// dbServer refused the delete (wrong password), answered with an empty body.
+const MsgDeleteCharacterFail Type = 0x011B // 283
+
 // TMSrv → client message types the server must produce (protocol-spec.md §3.2,
 // actionable subset).
 const (
