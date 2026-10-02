@@ -412,3 +412,44 @@ func TestTransformCostumePersistedLoginAndNewObserver(t *testing.T) {
 	defer observer.Close()
 	assertCreate(observer)
 }
+
+// TestTransformPersistedLoginSnapshotMesh: a BM that logs in with a live
+// transform gets the beast mesh in its own login snapshot (Equip[0].sIndex at
+// MOB@140), since the runtime builds its hero from it; a BM without the affect
+// keeps its face. The saved body item is never rewritten.
+func TestTransformPersistedLoginSnapshotMesh(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		affects []world.Affect
+		want    uint16
+	}{
+		{"wolf", []world.Affect{{Type: 16, Value: 1, Level: 100, Time: 100}}, 22},
+		{"eden", []world.Affect{{Type: 16, Value: 5, Level: 100, Time: 100}}, 32},
+		{"no transform", nil, 21},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newDB()
+			st := world.CharacterState{Slot: 0, Name: "Beast", Class: 2, X: 2100, Y: 2100,
+				HP: 500, MaxHP: 500, Level: 50, Affects: tt.affects}
+			st.Equip[0] = world.Item{Index: 21}
+			db.loadResult = st
+			tmpl := make([]byte, content.BaseMobSize)
+			addr, stop := startServerBaseMobs(t, db, map[int][]byte{2: tmpl})
+			defer stop()
+			c := loginAndSelect(t, addr)
+			defer c.Close()
+			body := protocol.MsgCharacterLoginBody{Slot: 0}
+			send(t, c, protocol.MsgCharacterLogin, body.Encode())
+			ty, payload := read(t, c)
+			if ty != protocol.MsgCNFCharacterLogin {
+				t.Fatalf("got %#x, want CNFCharacterLogin", ty)
+			}
+			if got := binary.LittleEndian.Uint16(payload[4+140:]); got != tt.want {
+				t.Fatalf("snapshot Equip[0] = %d, want %d", got, tt.want)
+			}
+			if db.loadResult.Equip[0].Index != 21 {
+				t.Fatalf("saved body item rewritten to %d", db.loadResult.Equip[0].Index)
+			}
+		})
+	}
+}

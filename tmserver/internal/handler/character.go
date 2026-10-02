@@ -359,6 +359,17 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		for i := range st.Equip {
 			equip[i] = itemToSel(st.Equip[i])
 		}
+		// A persisted BM transform shows on the own model: the runtime builds its
+		// hero from this snapshot and ignores the own CreateMob once it exists
+		// (TMFieldScene::OnPacketCreateMob, live-node branch). The legacy gets the
+		// same by sending MOB after GetCurrentScore, which wrote the beast mesh
+		// into Equip[0].sIndex (Basedef.cpp:4106, ProcessDBMessage.cpp). Only the
+		// wire copy changes; the saved body item does not.
+		if e := w.Entity(s.Conn); e != nil {
+			if value, _, ok := activeTransform(e); ok {
+				equip[0].Index = transMesh(value)
+			}
+		}
 		var carry [64]protocol.SelItem
 		for i := range st.Carry {
 			if i >= 64 {
