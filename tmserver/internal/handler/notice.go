@@ -108,6 +108,14 @@ func (d *Dispatcher) notify(w *world.World, s *world.Session, n Notice) {
 	w.Send(s, protocol.MsgMessageBoxOk, b[:])
 }
 
+// sendClientMessage mirrors the legacy SendClientMessage (SendFunc.cpp:27-43): a
+// MSG_MessagePanel with HEADER.ID 0. The 7662 client only handles a message
+// panel whose ID is 0 (TMScene.cpp:1371); w.Send stamps the session's own conn,
+// which the client drops.
+func (d *Dispatcher) sendClientMessage(w *world.World, s *world.Session, text string) {
+	w.SendTo(s, protocol.Header{Type: protocol.MsgMessagePanel}, protocol.EncodeMessagePanelBody(text))
+}
+
 // cstr trims a fixed-size NUL/space-padded C char array to a Go string.
 func cstr(b []byte) string {
 	if i := indexByte(b, 0); i >= 0 {
