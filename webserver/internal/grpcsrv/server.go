@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
 )
 
@@ -18,16 +19,25 @@ import (
 type Accounts interface {
 	Create(ctx context.Context, name, password, email string) (account.CreateResult, int64, error)
 	Verify(ctx context.Context, name, password string) (ok bool, accountID int64, blocked bool, role string, err error)
+	IssuePlayCode(ctx context.Context, accountID int64) (res account.PlayCodeResult, name, code string, err error)
 }
 
 // Server implements webv1.AccountWebServiceServer.
 type Server struct {
 	webv1.UnimplementedAccountWebServiceServer
-	accounts Accounts
+	accounts  Accounts
+	playCodes *playcode.Verifier // nil: IssuePlayCode answers DISABLED
 }
 
 // New builds the AccountWebService over the given account logic.
 func New(a Accounts) *Server { return &Server{accounts: a} }
+
+// WithPlayCodes enables IssuePlayCode with the portal's assertion verifier
+// (nil keeps it disabled).
+func (s *Server) WithPlayCodes(v *playcode.Verifier) *Server {
+	s.playCodes = v
+	return s
+}
 
 // CreateAccount registers a new account. Business outcomes (name taken, invalid
 // input) ride in the response enum; only infra failures become gRPC errors.
@@ -46,6 +56,37 @@ func (s *Server) VerifyCredentials(ctx context.Context, req *webv1.VerifyCredent
 		return nil, status.Errorf(codes.Internal, "verify credentials: %v", err)
 	}
 	return &webv1.VerifyCredentialsResponse{Ok: ok, AccountId: id, Blocked: blocked, Role: role}, nil
+}
+
+// IssuePlayCode returns a one-time web client login code. This service is
+// reachable without a client certificate behind the platform's HTTPS edge, so
+// the account id is only taken from a valid portal assertion, never from the
+// request alone (web client ADR 017).
+func (s *Server) IssuePlayCode(ctx context.Context, req *webv1.IssuePlayCodeRequest) (*webv1.IssuePlayCodeResponse, error) {
+	if s.playCodes == nil {
+		return &webv1.IssuePlayCodeResponse{Result: webv1.PlayCodeResult_PLAY_CODE_RESULT_DISABLED}, nil
+	}
+	accountID, err := s.playCodes.Verify(req.GetAssertion())
+	if err != nil {
+		return &webv1.IssuePlayCodeResponse{Result: webv1.PlayCodeResult_PLAY_CODE_RESULT_INVALID_ASSERTION}, nil
+	}
+	res, name, code, err := s.accounts.IssuePlayCode(ctx, accountID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "issue play code: %v", err)
+	}
+	switch res {
+	case account.PlayCodeOK:
+		return &webv1.IssuePlayCodeResponse{
+			Result:           webv1.PlayCodeResult_PLAY_CODE_RESULT_OK,
+			AccountName:      name,
+			Code:             code,
+			ExpiresInSeconds: int32(playcode.TTL.Seconds()),
+		}, nil
+	case account.PlayCodeBlocked:
+		return &webv1.IssuePlayCodeResponse{Result: webv1.PlayCodeResult_PLAY_CODE_RESULT_BLOCKED}, nil
+	default:
+		return &webv1.IssuePlayCodeResponse{Result: webv1.PlayCodeResult_PLAY_CODE_RESULT_NO_ACCOUNT}, nil
+	}
 }
 
 // createResultToProto maps the domain outcome to the wire enum.

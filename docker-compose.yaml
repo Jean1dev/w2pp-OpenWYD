@@ -53,6 +53,9 @@ services:
     environment:
       W2PP_DB_DSN: postgres://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/postgres
       W2PP_CONTENT: /Release
+      # One-time web client login codes (IssuePlayCode); empty keeps them off.
+      # Same value as the portal's PLAY_CODE_SECRET, at least 32 characters.
+      W2PP_PLAY_CODE_SECRET: ${W2PP_PLAY_CODE_SECRET:-}
     command: ["-addr", ":7600", "-content", "/Release"]
     volumes:
       - ./Release:/Release:ro   # merchant NPC templates for ListMerchantTemplates

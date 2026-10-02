@@ -2,6 +2,7 @@ package grpcsrv
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -10,6 +11,7 @@ import (
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
@@ -47,6 +49,9 @@ type fakeStore struct {
 
 	duelResults []duelResult // RecordDuelResult calls, for assertions
 	duelErr     error        // forces RecordDuelResult to return this
+
+	playCodes   map[int64]map[string]bool // accountID -> live code hashes (one-time)
+	playCodeErr error                     // forces ConsumePlayCode to return this
 }
 
 func (f *fakeStore) LoadKefraState(context.Context) (domain.KefraState, error) {
@@ -88,6 +93,17 @@ func (f *fakeStore) AccountByName(_ context.Context, name string) (store.Account
 		return store.AccountAuth{}, store.ErrNotFound
 	}
 	return a, nil
+}
+
+func (f *fakeStore) ConsumePlayCode(_ context.Context, accountID int64, codeHash []byte) (bool, error) {
+	if f.playCodeErr != nil {
+		return false, f.playCodeErr
+	}
+	if !f.playCodes[accountID][string(codeHash)] {
+		return false, nil
+	}
+	delete(f.playCodes[accountID], string(codeHash))
+	return true, nil
 }
 
 func (f *fakeStore) AccountAuthByID(_ context.Context, id int64) (store.AccountAuth, error) {
@@ -311,6 +327,63 @@ func TestAccountLogin(t *testing.T) {
 				t.Errorf("account_id = %d, want %d", resp.GetAccountId(), tc.wantID)
 			}
 		})
+	}
+}
+
+// TestAccountLoginPlayCode covers the one-time code from the portal (web
+// client ADR 017): it logs in once, only for its own account, never for a
+// blocked one, and the password keeps working.
+func TestAccountLoginPlayCode(t *testing.T) {
+	pw := "correct horse"
+	code, other := "abcdefgh29", "zyxwvuts23"
+	fs := &fakeStore{
+		byName: map[string]store.AccountAuth{
+			"alice":  {ID: 1, PassHash: mustHash(t, pw)},
+			"bob":    {ID: 3, PassHash: mustHash(t, pw)},
+			"banned": {ID: 2, PassHash: mustHash(t, pw), IsBlocked: true},
+		},
+		playCodes: map[int64]map[string]bool{
+			1: {string(playcode.Hash(code)): true},
+			2: {string(playcode.Hash(other)): true},
+		},
+	}
+	s := New(fs)
+	login := func(account, pass string) dbv1.LoginResult {
+		t.Helper()
+		resp, err := s.AccountLogin(context.Background(), &dbv1.AccountLoginRequest{AccountName: account, Password: pass})
+		if err != nil {
+			t.Fatalf("AccountLogin(%s): %v", account, err)
+		}
+		return resp.GetResult()
+	}
+
+	if got := login("bob", code); got != dbv1.LoginResult_LOGIN_RESULT_BAD_PASSWORD {
+		t.Fatalf("alice's code on bob = %v, want BAD_PASSWORD", got)
+	}
+	if got := login("alice", code); got != dbv1.LoginResult_LOGIN_RESULT_OK {
+		t.Fatalf("first use = %v, want OK", got)
+	}
+	if got := login("alice", code); got != dbv1.LoginResult_LOGIN_RESULT_BAD_PASSWORD {
+		t.Fatalf("reuse = %v, want BAD_PASSWORD", got)
+	}
+	if got := login("alice", pw); got != dbv1.LoginResult_LOGIN_RESULT_OK {
+		t.Fatalf("password after the code = %v, want OK", got)
+	}
+	if got := login("banned", other); got != dbv1.LoginResult_LOGIN_RESULT_BLOCKED {
+		t.Fatalf("blocked account with a code = %v, want BLOCKED", got)
+	}
+	if !fs.playCodes[2][string(playcode.Hash(other))] {
+		t.Fatal("a blocked login consumed the code")
+	}
+
+	fs.playCodeErr = errors.New("db down")
+	if _, err := s.AccountLogin(context.Background(),
+		&dbv1.AccountLoginRequest{AccountName: "alice", Password: "abcdefgh22"}); status.Code(err) != codes.Internal {
+		t.Fatalf("store failure err = %v, want Internal", err)
+	}
+	// A password that cannot be a code never reaches the code store.
+	if got := login("alice", "nope"); got != dbv1.LoginResult_LOGIN_RESULT_BAD_PASSWORD {
+		t.Fatalf("non-code wrong password = %v, want BAD_PASSWORD", got)
 	}
 }
 

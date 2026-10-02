@@ -30,6 +30,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	AccountWebService_CreateAccount_FullMethodName     = "/web.v1.AccountWebService/CreateAccount"
 	AccountWebService_VerifyCredentials_FullMethodName = "/web.v1.AccountWebService/VerifyCredentials"
+	AccountWebService_IssuePlayCode_FullMethodName     = "/web.v1.AccountWebService/IssuePlayCode"
 )
 
 // AccountWebServiceClient is the client API for AccountWebService service.
@@ -45,6 +46,11 @@ type AccountWebServiceClient interface {
 	// VerifyCredentials validates name + password so the BFF can mint a session
 	// cookie. It is the web login path, independent of the CPSock game login.
 	VerifyCredentials(ctx context.Context, in *VerifyCredentialsRequest, opts ...grpc.CallOption) (*VerifyCredentialsResponse, error)
+	// IssuePlayCode returns a one-time login code for the web client: the game
+	// login (dbServer AccountLogin) accepts it once, within two minutes, in the
+	// password field (web client ADR 017). The caller proves it is the portal
+	// with an HMAC assertion; the account id is never trusted on its own.
+	IssuePlayCode(ctx context.Context, in *IssuePlayCodeRequest, opts ...grpc.CallOption) (*IssuePlayCodeResponse, error)
 }
 
 type accountWebServiceClient struct {
@@ -75,6 +81,16 @@ func (c *accountWebServiceClient) VerifyCredentials(ctx context.Context, in *Ver
 	return out, nil
 }
 
+func (c *accountWebServiceClient) IssuePlayCode(ctx context.Context, in *IssuePlayCodeRequest, opts ...grpc.CallOption) (*IssuePlayCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IssuePlayCodeResponse)
+	err := c.cc.Invoke(ctx, AccountWebService_IssuePlayCode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountWebServiceServer is the server API for AccountWebService service.
 // All implementations must embed UnimplementedAccountWebServiceServer
 // for forward compatibility.
@@ -88,6 +104,11 @@ type AccountWebServiceServer interface {
 	// VerifyCredentials validates name + password so the BFF can mint a session
 	// cookie. It is the web login path, independent of the CPSock game login.
 	VerifyCredentials(context.Context, *VerifyCredentialsRequest) (*VerifyCredentialsResponse, error)
+	// IssuePlayCode returns a one-time login code for the web client: the game
+	// login (dbServer AccountLogin) accepts it once, within two minutes, in the
+	// password field (web client ADR 017). The caller proves it is the portal
+	// with an HMAC assertion; the account id is never trusted on its own.
+	IssuePlayCode(context.Context, *IssuePlayCodeRequest) (*IssuePlayCodeResponse, error)
 	mustEmbedUnimplementedAccountWebServiceServer()
 }
 
@@ -103,6 +124,9 @@ func (UnimplementedAccountWebServiceServer) CreateAccount(context.Context, *Crea
 }
 func (UnimplementedAccountWebServiceServer) VerifyCredentials(context.Context, *VerifyCredentialsRequest) (*VerifyCredentialsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VerifyCredentials not implemented")
+}
+func (UnimplementedAccountWebServiceServer) IssuePlayCode(context.Context, *IssuePlayCodeRequest) (*IssuePlayCodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IssuePlayCode not implemented")
 }
 func (UnimplementedAccountWebServiceServer) mustEmbedUnimplementedAccountWebServiceServer() {}
 func (UnimplementedAccountWebServiceServer) testEmbeddedByValue()                           {}
@@ -161,6 +185,24 @@ func _AccountWebService_VerifyCredentials_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountWebService_IssuePlayCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IssuePlayCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountWebServiceServer).IssuePlayCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountWebService_IssuePlayCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountWebServiceServer).IssuePlayCode(ctx, req.(*IssuePlayCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountWebService_ServiceDesc is the grpc.ServiceDesc for AccountWebService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -175,6 +217,10 @@ var AccountWebService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifyCredentials",
 			Handler:    _AccountWebService_VerifyCredentials_Handler,
+		},
+		{
+			MethodName: "IssuePlayCode",
+			Handler:    _AccountWebService_IssuePlayCode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

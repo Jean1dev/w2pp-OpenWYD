@@ -21,6 +21,11 @@ service AccountWebService {
   // VerifyCredentials validates name + password so the BFF can mint a session
   // cookie. It is the web login path, independent of the CPSock game login.
   rpc VerifyCredentials(VerifyCredentialsRequest) returns (VerifyCredentialsResponse);
+  // IssuePlayCode returns a one-time login code for the web client: the game
+  // login (dbServer AccountLogin) accepts it once, within two minutes, in the
+  // password field (web client ADR 017). The caller proves it is the portal
+  // with an HMAC assertion; the account id is never trusted on its own.
+  rpc IssuePlayCode(IssuePlayCodeRequest) returns (IssuePlayCodeResponse);
 }
 
 // RankingWebService exposes public ranking projections for the web front-end.
@@ -68,6 +73,30 @@ message VerifyCredentialsResponse {
   // authorization decision — NpcAdminService re-checks the role server-side on
   // every call, so a tampered session flag still gets ADMIN_RESULT_FORBIDDEN.
   string role = 4;
+}
+
+// PlayCodeResult is the outcome of IssuePlayCode. Refusals are business
+// outcomes, not gRPC errors, so the portal can fall back to the manual login.
+enum PlayCodeResult {
+  PLAY_CODE_RESULT_UNSPECIFIED = 0;
+  PLAY_CODE_RESULT_OK = 1;                // account_name and code are set
+  PLAY_CODE_RESULT_DISABLED = 2;          // the server has no PLAY_CODE_SECRET
+  PLAY_CODE_RESULT_INVALID_ASSERTION = 3; // bad signature, expired or replayed
+  PLAY_CODE_RESULT_NO_ACCOUNT = 4;
+  PLAY_CODE_RESULT_BLOCKED = 5;
+}
+
+message IssuePlayCodeRequest {
+  // assertion is base64url(JSON {sub, iat, exp, jti}) "." base64url(HMAC-SHA256(
+  // PLAY_CODE_SECRET, "wyd-play-code.v1." + payload)); sub is the account id.
+  string assertion = 1;
+}
+
+message IssuePlayCodeResponse {
+  PlayCodeResult result = 1;
+  string account_name = 2; // canonical login name the code pairs with
+  string code = 3;         // 10 characters; never logged
+  int32 expires_in_seconds = 4;
 }
 
 message ListExpRankingRequest {

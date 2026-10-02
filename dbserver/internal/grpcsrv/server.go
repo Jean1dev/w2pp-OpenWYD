@@ -12,6 +12,7 @@ import (
 
 	dbv1 "github.com/jeanluca/w2pp-openwyd/api/db/v1"
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
@@ -24,6 +25,7 @@ type Store interface {
 	SaveKefraState(ctx context.Context, state domain.KefraState) error
 	AccountByName(ctx context.Context, name string) (store.AccountAuth, error)
 	AccountAuthByID(ctx context.Context, id int64) (store.AccountAuth, error)
+	ConsumePlayCode(ctx context.Context, accountID int64, codeHash []byte) (bool, error)
 	ListCharacters(ctx context.Context, accountID int64) ([]domain.Character, error)
 	LoadCharacter(ctx context.Context, accountID int64, slot int) (domain.Character, error)
 	CreateCharacter(ctx context.Context, accountID int64, ch domain.Character) (int64, error)
@@ -93,6 +95,15 @@ func (s *Server) AccountLogin(ctx context.Context, req *dbv1.AccountLoginRequest
 	ok, err := secret.VerifySecret(req.GetPassword(), auth.PassHash)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "verify password: %v", err)
+	}
+	// The web client logs in with a one-time code from the portal in the
+	// password field (web client ADR 017). The password is tried first, so an
+	// account whose real password looks like a code keeps working.
+	if !ok && playcode.Valid(req.GetPassword()) {
+		ok, err = s.store.ConsumePlayCode(ctx, auth.ID, playcode.Hash(req.GetPassword()))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "consume play code: %v", err)
+		}
 	}
 	if !ok {
 		return &dbv1.AccountLoginResponse{Result: dbv1.LoginResult_LOGIN_RESULT_BAD_PASSWORD}, nil

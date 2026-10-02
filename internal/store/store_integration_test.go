@@ -64,6 +64,7 @@ func resetTestSchema(ctx context.Context, pool *pgxpool.Pool) {
 			guild,
 			donate_topup_order,
 			donate_payer_profile,
+			account_play_code,
 			account,
 			donate_shop_audit,
 			donate_shop_item,
