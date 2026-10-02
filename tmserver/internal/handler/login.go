@@ -157,4 +157,3 @@ func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar 
 	}
 	return out
 }
-
