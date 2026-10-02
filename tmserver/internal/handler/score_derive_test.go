@@ -148,18 +148,20 @@ func TestPlayerBaseAC(t *testing.T) {
 		level       int32
 		want        int32
 	}{
-		{"mortal level 1", classMasterMortal, 1, 4},
-		{"mortal level 100", classMasterMortal, 100, 103},
-		{"mortal at cap", classMasterMortal, level.MaxLevel, 4 + level.MaxLevel - 1},
-		{"arch level 1", classMasterArch, 1, 230},
-		{"arch level 100", classMasterArch, 100, 329},
-		{"celestial level 50", classMasterCelestial, 50, 279},
-		{"scelestial level 1", classMasterSCelestial, 1, 230},
+		// A new character is level 0 with the template's Ac 4 ("Nv 1" on screen).
+		{"mortal level 0", classMasterMortal, 0, 4},
+		{"mortal level 1", classMasterMortal, 1, 5},
+		{"mortal level 100", classMasterMortal, 100, 104},
+		{"mortal at cap", classMasterMortal, level.MaxLevel, 4 + level.MaxLevel},
+		{"arch level 0", classMasterArch, 0, 230},
+		{"arch level 100", classMasterArch, 100, 330},
+		{"celestial level 50", classMasterCelestial, 50, 280},
+		{"scelestial level 0", classMasterSCelestial, 0, 230},
 		// A row written before ClassMaster was persisted reads back 0; login treats
 		// that as MORTAL, so the baseline must agree.
-		{"unpersisted tier is mortal", 0, 10, 13},
-		// Defensive: a level below the creation level must not underflow the baseline.
-		{"level 0 floors at baseline", classMasterMortal, 0, 4},
+		{"unpersisted tier is mortal", 0, 10, 14},
+		// Defensive: a negative level must not underflow the baseline.
+		{"negative level floors at baseline", classMasterMortal, -1, 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

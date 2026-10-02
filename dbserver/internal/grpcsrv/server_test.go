@@ -25,6 +25,7 @@ type fakeStore struct {
 	archErr    error
 	archSlot   int
 	archChar   domain.Character
+	created    domain.Character
 	saveResult error
 	saveErr    error
 	savedChar  domain.Character
@@ -110,10 +111,11 @@ func (f *fakeStore) LoadCharacter(_ context.Context, accountID int64, slot int) 
 	return domain.Character{}, store.ErrNotFound
 }
 
-func (f *fakeStore) CreateCharacter(_ context.Context, _ int64, _ domain.Character) (int64, error) {
+func (f *fakeStore) CreateCharacter(_ context.Context, _ int64, ch domain.Character) (int64, error) {
 	if f.createErr != nil {
 		return 0, f.createErr
 	}
+	f.created = ch
 	return 42, nil
 }
 
@@ -368,7 +370,8 @@ func TestCreateCharacterUniqueViolation(t *testing.T) {
 }
 
 func TestCreateCharacterOK(t *testing.T) {
-	s := New(&fakeStore{})
+	fs := &fakeStore{}
+	s := New(fs)
 	resp, err := s.CreateCharacter(context.Background(),
 		&dbv1.CreateCharacterRequest{AccountId: 1, Slot: 0, Name: "hero", Class: 1})
 	if err != nil {
@@ -376,6 +379,10 @@ func TestCreateCharacterOK(t *testing.T) {
 	}
 	if !resp.GetOk() || resp.GetCharacterId() != 42 {
 		t.Fatalf("got ok=%v id=%d, want ok=true id=42", resp.GetOk(), resp.GetCharacterId())
+	}
+	// Level 0 like the legacy BaseMob templates: the client shows Level+1.
+	if fs.created.Level != 0 {
+		t.Fatalf("new character Level = %d, want 0", fs.created.Level)
 	}
 }
 
@@ -397,6 +404,9 @@ func TestCreateArchCharacterOK(t *testing.T) {
 	}
 	if ch.MortalLevel != 399 {
 		t.Fatalf("MortalLevel = %d, want 399", ch.MortalLevel)
+	}
+	if ch.Level != 0 {
+		t.Fatalf("arch Level = %d, want 0", ch.Level)
 	}
 	if len(ch.Equip) != 1 || ch.Equip[0].Slot != 0 || ch.Equip[0].Index != 27 {
 		t.Fatalf("arch body item = %+v, want slot 0 index 27", ch.Equip)

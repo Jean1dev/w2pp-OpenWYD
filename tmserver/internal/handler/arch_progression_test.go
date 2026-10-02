@@ -85,7 +85,7 @@ func TestArchCrystalSequenceSurvivesRelog(t *testing.T) {
 		wantExp := level.MaxExp - int64(i+1)*100_000_000
 		wantLevel := level.ForExpTier(wantExp, classMasterArch)
 		lost := uint32(399 - wantLevel)
-		wantAC := uint32(628) - lost + bonus[0]
+		wantAC := uint32(629) - lost + bonus[0]
 		wantHP, wantMP := uint32(1000)-3*lost+bonus[1], uint32(500)-lost+bonus[2]
 		useArchItem(t, c, i)
 		slot := expect(t, c, protocol.MsgSendItem)

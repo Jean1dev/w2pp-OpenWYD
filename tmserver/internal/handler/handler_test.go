@@ -541,8 +541,9 @@ func TestLoginOK(t *testing.T) {
 	if got := cstr(payload[36:52]); got != "Hero" {
 		t.Errorf("slot-0 name = %q, want Hero", got)
 	}
-	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 49 {
-		t.Errorf("slot-0 wire level = %d, want 49 so the client displays 50", lvl)
+	// The stored level, as in the in-world snapshot; the client shows Level+1.
+	if lvl := binary.LittleEndian.Uint32(payload[100:104]); lvl != 50 {
+		t.Errorf("slot-0 wire level = %d, want the stored 50", lvl)
 	}
 	// slot-0 gold is the real value, not a placeholder: Coin[0] at sel@20 + 792.
 	if coin := binary.LittleEndian.Uint32(payload[812:816]); coin != 987654 {
@@ -623,22 +624,15 @@ func TestLoginSendsCargo(t *testing.T) {
 	}
 }
 
-func TestSelCharWireLevel(t *testing.T) {
-	tests := []struct {
-		name  string
-		level int
-		want  int32
-	}{
-		{name: "zero", level: 0, want: 0},
-		{name: "one", level: 1, want: 0},
-		{name: "normal", level: 50, want: 49},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := selCharWireLevel(tt.level); got != tt.want {
-				t.Errorf("selCharWireLevel(%d) = %d, want %d", tt.level, got, tt.want)
-			}
-		})
+// TestSelCharLevelAsStored: the selection preview carries the stored level, the
+// same value the in-world snapshot sends; the client adds 1 on both screens.
+func TestSelCharLevelAsStored(t *testing.T) {
+	d := &Dispatcher{}
+	for _, level := range []int{0, 1, 50} {
+		rows := d.selCharsFrom([]world.CharSummary{{Slot: 0, Name: "Hero", Level: level}})
+		if got := rows[0].Level; got != int32(level) {
+			t.Errorf("SelChar.Level = %d for stored level %d, want it unchanged", got, level)
+		}
 	}
 }
 
