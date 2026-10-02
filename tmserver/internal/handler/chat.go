@@ -33,6 +33,17 @@ func (d *Dispatcher) messageChat(w *world.World, s *world.Session, _ protocol.He
 		} else {
 			d.sendChatText(w, s, "Party Chatting : On")
 		}
+	case "guildchat":
+		// _MSG_MessageChat.cpp:140-150: toggles whether this player receives the
+		// guild channel and confirms with SendClientMessage (a message panel). The
+		// client matches these exact texts to flip its guild button
+		// (TMScene.cpp:1660-1669).
+		s.GuildChat = !s.GuildChat
+		if s.GuildChat {
+			w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody("Guild Chatting : Off"))
+		} else {
+			w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody("Guild Chatting : On"))
+		}
 	case "guildon":
 		s.GuildDisable = false
 	case "guildoff":
@@ -61,6 +72,10 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 		return
 	}
 	name := cstr(body.MobName[:])
+	if name == "" && len(body.String) > 0 && body.String[0] == '-' {
+		d.guildChat(w, s, body)
+		return
+	}
 	if name == "" && len(body.String) > 0 && body.String[0] == '=' {
 		d.partyChat(w, s, body)
 		return
@@ -124,6 +139,65 @@ func (d *Dispatcher) partyChat(w *world.World, s *world.Session, body protocol.M
 		}
 		w.SendTo(ms, h, out)
 	}
+}
+
+// guildChatColor is the Color the legacy stamps on a guild line
+// (m->String[MESSAGE_LENGTH] = 3); the client only shows a "-" line as guild chat
+// when Color == 3 (TMFieldScene.cpp:17885).
+const guildChatColor = 3
+
+// whisperColorOffset is where the 7662 client keeps MSG_MessageWhisper.Color
+// inside the body String: MobName[16] + String[128] + short Color (frame offset
+// 156). The legacy TMSrv writes String[MESSAGE_LENGTH] = String[96] because its
+// own whisper struct has a 100-byte String; the Windows client this server
+// targets reads offset 128.
+const whisperColorOffset = 128
+
+// onlyGuildMemberCan is Language.txt _NN_Only_Guild_Member_Can (104), kept in the
+// table's Windows-1252 bytes like the rest of the legacy string table.
+const onlyGuildMemberCan = "S\xf3 poder\xe1 usar o Chat Guildas se pertence a alguma."
+
+// guildChat routes a "-text" line (MobName empty) to the speaker's guild, as the
+// "Chat Guild" region of _MSG_MessageWhisper.cpp:1426-1468: MobName becomes the
+// speaker's name and Color becomes 3. Every other in-play member of the guild
+// receives it, unless it turned guildchat off. A "--text" line also reaches the
+// members of the guild the speaker's guild is allied to (g_pGuildAlly[guild]).
+// A player outside any guild gets _NN_Only_Guild_Member_Can.
+//
+// Not reproduced: the chat_guild log line — the text is never logged.
+func (d *Dispatcher) guildChat(w *world.World, s *world.Session, body protocol.MsgWhisperBody) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	guild := e.Guild
+	if guild == 0 {
+		w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody(onlyGuildMemberCan))
+		return
+	}
+	body.MobName = [16]byte{}
+	copy(body.MobName[:len(body.MobName)-1], e.Name)
+	// A short line is padded up to Color, which is a little-endian short.
+	if len(body.String) < whisperColorOffset+2 {
+		body.String = append(body.String, make([]byte, whisperColorOffset+2-len(body.String))...)
+	}
+	body.String[whisperColorOffset] = guildChatColor
+	body.String[whisperColorOffset+1] = 0
+	out := body.Encode()
+	ally := uint16(0)
+	if len(body.String) > 1 && body.String[1] == '-' {
+		ally = d.guildAllies[guild]
+	}
+	h := protocol.Header{Type: protocol.MsgMessageWhisper, ID: uint16(s.Conn)}
+	w.ForEachPlaying(s.Conn, func(ms *world.Session, me *world.Entity) {
+		if me.Guild != guild && (ally == 0 || me.Guild != ally) {
+			return
+		}
+		if ms.GuildChat {
+			return
+		}
+		w.SendTo(ms, h, out)
+	})
 }
 
 // teleportCmds maps a chat slash command to its destination tile. The client sends

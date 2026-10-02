@@ -66,6 +66,8 @@ type fakeDB struct {
 	promoted      []uint8
 	promoteCosts  []int32
 	transfers     int
+
+	guildRelations []world.GuildRelation // ListGuildRelations result
 }
 
 // duelResult captures one RecordDuelResult call for assertions.
@@ -168,7 +170,7 @@ func (f *fakeDB) SetGuildRelation(context.Context, uint16, uint16, world.GuildRe
 func (f *fakeDB) ListGuilds(context.Context) ([]world.GuildRecord, error) { return nil, nil }
 
 func (f *fakeDB) ListGuildRelations(context.Context) ([]world.GuildRelation, error) {
-	return nil, nil
+	return f.guildRelations, nil
 }
 
 func (f *fakeDB) LoadGuildZones(context.Context) ([]world.GuildZone, error) { return nil, nil }
