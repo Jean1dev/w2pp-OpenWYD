@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/internal/secure"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
@@ -68,6 +69,14 @@ func run(logger *slog.Logger) error {
 
 	if *dsn == "" {
 		return fmt.Errorf("-dsn (or W2PP_DB_DSN) is required")
+	}
+	// The web client's one-time login codes (ADR 017 there) stay off without
+	// a secret shared with the portal. Environment only: a flag would show up
+	// in the process list.
+	playCodeSecret := os.Getenv("W2PP_PLAY_CODE_SECRET")
+	playCodes := playcode.NewVerifier(playCodeSecret)
+	if playCodeSecret != "" && playCodes == nil {
+		return fmt.Errorf("W2PP_PLAY_CODE_SECRET must have at least %d characters", playcode.MinSecretLength)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -160,7 +169,7 @@ func run(logger *slog.Logger) error {
 			npcAdmin.SetDropCatalog(drops)
 		}
 	}
-	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)))
+	webv1.RegisterAccountWebServiceServer(srv, grpcsrv.New(account.New(st)).WithPlayCodes(playCodes))
 	webv1.RegisterRankingWebServiceServer(srv, grpcsrv.NewRanking(ranking.New(st)))
 	webv1.RegisterCharacterWebServiceServer(srv, grpcsrv.NewCharacters(characters.New(st)))
 	webv1.RegisterItemCatalogServiceServer(srv, grpcsrv.NewItemCatalog(itemCatalog))
@@ -179,7 +188,7 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", *addr, err)
 	}
-	logger.Info("webserver serving", "addr", *addr, "mtls", *tlsCert != "")
+	logger.Info("webserver serving", "addr", *addr, "mtls", *tlsCert != "", "play_codes", playCodes != nil)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()

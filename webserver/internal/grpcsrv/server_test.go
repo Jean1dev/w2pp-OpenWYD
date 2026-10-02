@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	webv1 "github.com/jeanluca/w2pp-openwyd/api/web/v1"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/webserver/internal/account"
 )
 
@@ -20,6 +22,17 @@ type fakeAccounts struct {
 	verifyBlk  bool
 	verifyRole string
 	verifyErr  error
+
+	issueRes  account.PlayCodeResult
+	issueName string
+	issueCode string
+	issueErr  error
+	issuedFor int64
+}
+
+func (f *fakeAccounts) IssuePlayCode(_ context.Context, accountID int64) (account.PlayCodeResult, string, string, error) {
+	f.issuedFor = accountID
+	return f.issueRes, f.issueName, f.issueCode, f.issueErr
 }
 
 func (f *fakeAccounts) Create(context.Context, string, string, string) (account.CreateResult, int64, error) {
@@ -70,5 +83,62 @@ func TestVerifyCredentialsMapping(t *testing.T) {
 	}
 	if !resp.GetOk() || resp.GetAccountId() != 3 || !resp.GetBlocked() {
 		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
+const playCodeSecret = "wyd-play-code-test-secret-0123456789abcdef"
+
+func assertion(sub string) string {
+	now := time.Now().Unix()
+	return playcode.Sign([]byte(playCodeSecret), playcode.Claims{
+		Sub: sub, Iat: now, Exp: now + 60, Jti: sub + "-0123456789abcdef-" + time.Now().Format("150405.000000000"),
+	})
+}
+
+func TestIssuePlayCode(t *testing.T) {
+	ctx := context.Background()
+
+	// Without a secret the RPC is off and never reaches the accounts.
+	off := &fakeAccounts{}
+	resp, err := New(off).IssuePlayCode(ctx, &webv1.IssuePlayCodeRequest{Assertion: assertion("7")})
+	if err != nil || resp.GetResult() != webv1.PlayCodeResult_PLAY_CODE_RESULT_DISABLED || off.issuedFor != 0 {
+		t.Fatalf("disabled: %v %v issuedFor=%d", resp.GetResult(), err, off.issuedFor)
+	}
+
+	fa := &fakeAccounts{issueRes: account.PlayCodeOK, issueName: "alice", issueCode: "abcdefgh29"}
+	s := New(fa).WithPlayCodes(playcode.NewVerifier(playCodeSecret))
+	resp, err = s.IssuePlayCode(ctx, &webv1.IssuePlayCodeRequest{Assertion: assertion("7")})
+	if err != nil || resp.GetResult() != webv1.PlayCodeResult_PLAY_CODE_RESULT_OK || fa.issuedFor != 7 ||
+		resp.GetAccountName() != "alice" || resp.GetCode() != "abcdefgh29" || resp.GetExpiresInSeconds() != 120 {
+		t.Fatalf("ok: %+v err=%v issuedFor=%d", resp, err, fa.issuedFor)
+	}
+
+	// A forged or unsigned request never picks the account.
+	fa.issuedFor = 0
+	forged := playcode.Sign([]byte("another-secret-0123456789abcdef-xyz"), playcode.Claims{Sub: "9", Iat: time.Now().Unix(), Exp: time.Now().Unix() + 60, Jti: "0123456789abcdef0123"})
+	for _, a := range []string{"", "garbage", forged} {
+		resp, err = s.IssuePlayCode(ctx, &webv1.IssuePlayCodeRequest{Assertion: a})
+		if err != nil || resp.GetResult() != webv1.PlayCodeResult_PLAY_CODE_RESULT_INVALID_ASSERTION || fa.issuedFor != 0 || resp.GetCode() != "" {
+			t.Fatalf("assertion %q: %v %v issuedFor=%d", a, resp.GetResult(), err, fa.issuedFor)
+		}
+	}
+
+	for _, tc := range []struct {
+		res  account.PlayCodeResult
+		want webv1.PlayCodeResult
+	}{
+		{account.PlayCodeBlocked, webv1.PlayCodeResult_PLAY_CODE_RESULT_BLOCKED},
+		{account.PlayCodeNoAccount, webv1.PlayCodeResult_PLAY_CODE_RESULT_NO_ACCOUNT},
+	} {
+		s := New(&fakeAccounts{issueRes: tc.res}).WithPlayCodes(playcode.NewVerifier(playCodeSecret))
+		resp, err := s.IssuePlayCode(ctx, &webv1.IssuePlayCodeRequest{Assertion: assertion("7")})
+		if err != nil || resp.GetResult() != tc.want || resp.GetCode() != "" {
+			t.Fatalf("%v: %v err=%v", tc.res, resp.GetResult(), err)
+		}
+	}
+
+	s = New(&fakeAccounts{issueErr: errors.New("db down")}).WithPlayCodes(playcode.NewVerifier(playCodeSecret))
+	if _, err := s.IssuePlayCode(ctx, &webv1.IssuePlayCodeRequest{Assertion: assertion("7")}); err == nil {
+		t.Fatal("infra error was swallowed")
 	}
 }

@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
@@ -23,15 +25,17 @@ import (
 type Store interface {
 	AccountByName(ctx context.Context, name string) (store.AccountAuth, error)
 	SaveAccount(ctx context.Context, acc domain.Account) (int64, error)
+	IssuePlayCode(ctx context.Context, accountID int64, codeHash []byte, expiresAt time.Time) (store.PlayCodeIssue, error)
 }
 
 // Service creates and authenticates web accounts.
 type Service struct {
 	store Store
+	now   func() time.Time
 }
 
 // New builds the account service over the given store.
-func New(s Store) *Service { return &Service{store: s} }
+func New(s Store) *Service { return &Service{store: s, now: time.Now} }
 
 // CreateResult is the business outcome of a sign-up attempt.
 type CreateResult int
@@ -117,6 +121,39 @@ func (s *Service) Verify(ctx context.Context, name, password string) (ok bool, a
 		return false, 0, false, "", nil
 	}
 	return true, auth.ID, auth.IsBlocked, auth.Role, nil
+}
+
+// PlayCodeResult is the business outcome of IssuePlayCode.
+type PlayCodeResult int
+
+const (
+	// PlayCodeOK means a code was stored; name and code are set.
+	PlayCodeOK PlayCodeResult = iota
+	// PlayCodeNoAccount means no account has that id.
+	PlayCodeNoAccount
+	// PlayCodeBlocked means the account is blocked; no code was stored.
+	PlayCodeBlocked
+)
+
+// IssuePlayCode stores a fresh one-time login code for accountID and returns
+// it with the account's login name (web client ADR 017). The caller must have
+// authenticated the request; the code itself is never logged.
+func (s *Service) IssuePlayCode(ctx context.Context, accountID int64) (res PlayCodeResult, name, code string, err error) {
+	code, err = playcode.New()
+	if err != nil {
+		return PlayCodeNoAccount, "", "", fmt.Errorf("account: new play code: %w", err)
+	}
+	issued, err := s.store.IssuePlayCode(ctx, accountID, playcode.Hash(code), s.now().Add(playcode.TTL))
+	if errors.Is(err, store.ErrNotFound) {
+		return PlayCodeNoAccount, "", "", nil
+	}
+	if err != nil {
+		return PlayCodeNoAccount, "", "", fmt.Errorf("account: issue play code: %w", err)
+	}
+	if issued.Blocked {
+		return PlayCodeBlocked, "", "", nil
+	}
+	return PlayCodeOK, issued.Name, code, nil
 }
 
 // validName enforces the 4–12 ASCII-alphanumeric login rule on an already

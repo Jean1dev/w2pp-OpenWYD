@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/jeanluca/w2pp-openwyd/internal/domain"
+	"github.com/jeanluca/w2pp-openwyd/internal/playcode"
 	"github.com/jeanluca/w2pp-openwyd/internal/secret"
 	"github.com/jeanluca/w2pp-openwyd/internal/store"
 )
@@ -18,6 +20,17 @@ type fakeStore struct {
 	saveErr error // returned by SaveAccount instead of inserting
 	saved   []domain.Account
 	nextID  int64
+
+	issue      store.PlayCodeIssue // IssuePlayCode result
+	issueErr   error
+	issuedFor  int64  // last IssuePlayCode account id
+	issuedHash []byte // last stored hash
+	issuedExp  time.Time
+}
+
+func (f *fakeStore) IssuePlayCode(_ context.Context, accountID int64, codeHash []byte, expiresAt time.Time) (store.PlayCodeIssue, error) {
+	f.issuedFor, f.issuedHash, f.issuedExp = accountID, codeHash, expiresAt
+	return f.issue, f.issueErr
 }
 
 func (f *fakeStore) AccountByName(_ context.Context, name string) (store.AccountAuth, error) {
@@ -127,6 +140,41 @@ func TestVerify(t *testing.T) {
 			if ok != tc.wantOK || blocked != tc.wantBlk || id != tc.wantID || role != tc.wantRole {
 				t.Fatalf("got ok=%v blocked=%v id=%d role=%q; want ok=%v blocked=%v id=%d role=%q",
 					ok, blocked, id, role, tc.wantOK, tc.wantBlk, tc.wantID, tc.wantRole)
+			}
+		})
+	}
+}
+
+func TestIssuePlayCode(t *testing.T) {
+	now := time.Unix(1790000000, 0)
+	fs := &fakeStore{issue: store.PlayCodeIssue{Name: "alice"}}
+	s := New(fs)
+	s.now = func() time.Time { return now }
+
+	res, name, code, err := s.IssuePlayCode(context.Background(), 7)
+	if err != nil || res != PlayCodeOK || name != "alice" || !playcode.Valid(code) {
+		t.Fatalf("IssuePlayCode = %v %q %q %v", res, name, code, err)
+	}
+	// Only the hash is stored, with the two-minute expiry.
+	if fs.issuedFor != 7 || string(fs.issuedHash) != string(playcode.Hash(code)) || !fs.issuedExp.Equal(now.Add(playcode.TTL)) {
+		t.Fatalf("stored id=%d exp=%v hash matches=%v", fs.issuedFor, fs.issuedExp, string(fs.issuedHash) == string(playcode.Hash(code)))
+	}
+
+	cases := []struct {
+		name  string
+		store *fakeStore
+		want  PlayCodeResult
+		err   bool
+	}{
+		{"no account", &fakeStore{issueErr: store.ErrNotFound}, PlayCodeNoAccount, false},
+		{"blocked", &fakeStore{issue: store.PlayCodeIssue{Name: "x", Blocked: true}}, PlayCodeBlocked, false},
+		{"db down", &fakeStore{issueErr: errors.New("db down")}, PlayCodeNoAccount, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, _, code, err := New(tc.store).IssuePlayCode(context.Background(), 7)
+			if res != tc.want || (err != nil) != tc.err || code != "" {
+				t.Fatalf("got %v code=%q err=%v; want %v err=%v", res, code, err, tc.want, tc.err)
 			}
 		})
 	}
