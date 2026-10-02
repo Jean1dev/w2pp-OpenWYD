@@ -24,6 +24,15 @@ func (d *Dispatcher) messageChat(w *world.World, s *world.Session, _ protocol.He
 	switch firstToken(text) {
 	case "whisper":
 		s.Whisper = !s.Whisper
+	case "partychat":
+		// _MSG_MessageChat.cpp:117-126: toggles whether this player receives the
+		// party channel; the legacy confirms with a client message.
+		s.PartyChat = !s.PartyChat
+		if s.PartyChat {
+			d.sendChatText(w, s, "Party Chatting : Off")
+		} else {
+			d.sendChatText(w, s, "Party Chatting : On")
+		}
 	case "guildon":
 		s.GuildDisable = false
 	case "guildoff":
@@ -52,6 +61,10 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 		return
 	}
 	name := cstr(body.MobName[:])
+	if name == "" && len(body.String) > 0 && body.String[0] == '=' {
+		d.partyChat(w, s, body)
+		return
+	}
 	if d.runCommand(w, s, name, body.String) {
 		// Freeze investigation: commands were invisible in the logs (the recv
 		// packet line only shows 0x0334), so incident timelines could not tell a
@@ -69,6 +82,48 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 		return
 	}
 	w.SendTo(target, protocol.Header{Type: protocol.MsgMessageWhisper, ID: uint16(s.Conn)}, payload)
+}
+
+// partyChat routes a "=text" line (MobName empty) to the speaker's party, as the
+// "Chat Party" region of _MSG_MessageWhisper.cpp:1470-1510: MobName becomes the
+// speaker's name, the leader receives it unless it is the speaker, and so do the
+// leader's PartyList members except the speaker and those with partychat off.
+// A player outside any party is its own leader with an empty list, so nobody
+// receives it. Summons share the PartyList and are skipped (no session).
+//
+// Not reproduced: the MuteChat gate, which is not modeled yet (see magicTrumpet),
+// and the chat_party ChatLog line — the text is never logged.
+func (d *Dispatcher) partyChat(w *world.World, s *world.Session, body protocol.MsgWhisperBody) {
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	body.MobName = [16]byte{}
+	copy(body.MobName[:len(body.MobName)-1], e.Name)
+	out := body.Encode()
+	leaderConn := e.Leader
+	if leaderConn <= 0 {
+		leaderConn = s.Conn
+	}
+	le := w.Entity(leaderConn)
+	ls := w.Session(leaderConn)
+	if le == nil || ls == nil || ls.Mode != world.UserPlay {
+		return
+	}
+	h := protocol.Header{Type: protocol.MsgMessageWhisper, ID: uint16(s.Conn)}
+	if leaderConn != s.Conn {
+		w.SendTo(ls, h, out)
+	}
+	for _, m := range le.PartyList {
+		if m <= 0 || m == s.Conn {
+			continue
+		}
+		ms := w.Session(m)
+		if ms == nil || ms.Mode != world.UserPlay || ms.PartyChat {
+			continue
+		}
+		w.SendTo(ms, h, out)
+	}
 }
 
 // teleportCmds maps a chat slash command to its destination tile. The client sends
