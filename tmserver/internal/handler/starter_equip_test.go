@@ -80,21 +80,21 @@ func TestEquipScoreRoundTrip(t *testing.T) {
 	}
 	e.Equip[0] = world.Item{Index: 700} // chest
 	d.deriveBaseScore(e)
-	// Base = current − chest: AC 150−50=100, Con 35−5=30.
-	if e.BaseAC != 53 || e.BaseCon != 30 {
-		t.Fatalf("derived base AC=%d Con=%d, want 53/30", e.BaseAC, e.BaseCon)
+	// Base AC is the level-50 Mortal baseline (4+50, playerBaseAC); Con 35−5=30.
+	if e.BaseAC != 54 || e.BaseCon != 30 {
+		t.Fatalf("derived base AC=%d Con=%d, want 54/30", e.BaseAC, e.BaseCon)
 	}
 	// refreshScore reproduces the loaded current exactly (gear unchanged).
 	d.refreshScore(e)
-	if e.AC != 103 || e.Con != 35 {
-		t.Fatalf("refresh produced AC=%d Con=%d, want 103/35", e.AC, e.Con)
+	if e.AC != 104 || e.Con != 35 {
+		t.Fatalf("refresh produced AC=%d Con=%d, want 104/35", e.AC, e.Con)
 	}
 
 	// Unequip the chest → AC/Con drop to base.
 	e.Equip[0] = world.Item{}
 	d.refreshScore(e)
-	if e.AC != 53 || e.Con != 30 {
-		t.Fatalf("after unequip AC=%d Con=%d, want 53/30", e.AC, e.Con)
+	if e.AC != 54 || e.Con != 30 {
+		t.Fatalf("after unequip AC=%d Con=%d, want 54/30", e.AC, e.Con)
 	}
 
 	// Equip the sword (right hand): weapon damage is separate, so e.Damage is

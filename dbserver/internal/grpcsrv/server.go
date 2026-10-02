@@ -426,7 +426,8 @@ func (s *Server) SaveCastleQuestState(ctx context.Context, req *dbv1.SaveCastleQ
 // CreateCharacter creates a character in a free slot. A taken slot/name (unique
 // violation) returns ok=false, not an error.
 func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterRequest) (*dbv1.CreateCharacterResponse, error) {
-	// Initialize a playable level-1 character. The original DBSrv seeds these from
+	// Initialize a playable level-0 character ("Nv 1" on screen; the BaseMob
+	// templates carry BaseScore.Level 0 @44). The original DBSrv seeds these from
 	// per-class BaseMob templates (Release/DBsrv/run/BaseMob/{TK,FM,BM,HT}); until
 	// those are wired we set sane base stats + HP/MP and a starting position so the
 	// character can enter the world. (UNVERIFIED: exact per-class base attributes
@@ -436,7 +437,7 @@ func (s *Server) CreateCharacter(ctx context.Context, req *dbv1.CreateCharacterR
 		Name:        req.GetName(),
 		Class:       uint8(req.GetClass()),
 		ClassMaster: classMasterMortal,
-		Level:       1,
+		Level:       0,
 		Str:         12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
 		Coin:  1000000,           // starting gold (so the shop is usable)
@@ -466,7 +467,7 @@ func (s *Server) CreateArchCharacter(ctx context.Context, req *dbv1.CreateArchCh
 		Class:       uint8(class),
 		ClassMaster: classMasterArch,
 		MortalLevel: uint16(req.GetMortalLevel()),
-		Level:       1,
+		Level:       0, // the Arch twin also starts from g_pBaseSet (CFileDB.cpp:1448)
 		Str:         12, Int: 12, Dex: 12, Con: 12,
 		MaxHp: 100, Hp: 100, MaxMp: 100, Mp: 100,
 		Coin:  1000000,

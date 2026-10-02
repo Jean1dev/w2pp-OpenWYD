@@ -40,9 +40,10 @@ func playerBaseDamage(e *world.Entity) int32 {
 // playerBaseAC reproduces BaseScore.Ac without persisting it. In the legacy the
 // field is only ever written on creation (the per-tier baseline above) and on
 // level-up, +1 per level for every tier (CMob.cpp:1133,1145,1150) — so it is a
-// pure function of (tier, level). The Celestial turn resets the level to 1
-// together with the baseline (_MSG_UseItem.cpp:3136 + handler.useIdealStone), so
-// the same "baseline + (level−1)" holds for all three creation paths.
+// pure function of (tier, level). Every tier starts at level 0 with its
+// baseline: creation copies the BaseMob template (BaseScore.Level 0, Ac 4) and
+// the Celestial turn sets Level = 0 with Ac = 230 (_MSG_UseItem.cpp:3124-3135 +
+// handler.useIdealStone), so "baseline + level" holds for all three paths.
 //
 // This derivation exists because the DB contract carries no AC: api/db/v1
 // Character has no `ac` field, so a login always reads CurrentScore.Ac == 0 and
@@ -66,7 +67,7 @@ func playerBaseAC(e *world.Entity) int32 {
 			base += 20
 		}
 	}
-	return base + max(e.Level-1, 0)
+	return base + max(e.Level, 0)
 }
 
 type weaponCoef struct {

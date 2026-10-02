@@ -127,17 +127,17 @@ func (d *Dispatcher) cargoWire(st *world.CargoState) (int32, [128]protocol.SelIt
 // selCharsFrom maps the dbServer character summaries to protocol.SelChar rows for
 // the byte-exact STRUCT_SELCHAR (MSG_CNFAccountLogin / MSG_CNFNewCharacter). The
 // summary carries the real score (gold, HP/MP, attributes) so the selection
-// screen previews each slot's actual character, not placeholders. Level is the
-// one exception: this client renders SelChar.Score.Level as one-based, so the
-// wire preview stores level-1 while the in-world CharacterLogin snapshot keeps
-// the authoritative level unchanged.
+// screen previews each slot's actual character, not placeholders. Level goes as
+// stored, like the in-world snapshot: both screens show Level+1
+// (TMSelectCharScene.cpp:1018, TMFieldScene.cpp:4230), so a new character —
+// level 0, as the legacy BaseMob templates — reads "Nv 1" in both.
 func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar {
 	out := make([]protocol.SelChar, 0, len(chars))
 	for _, c := range chars {
 		sc := protocol.SelChar{
 			Slot:  c.Slot,
 			Name:  c.Name,
-			Level: selCharWireLevel(c.Level),
+			Level: int32(c.Level),
 			Exp:   c.Exp,
 			Guild: c.GuildID,
 			Coin:  c.Coin,
@@ -156,11 +156,4 @@ func (d *Dispatcher) selCharsFrom(chars []world.CharSummary) []protocol.SelChar 
 		out = append(out, sc)
 	}
 	return out
-}
-
-func selCharWireLevel(level int) int32 {
-	if level <= 0 {
-		return 0
-	}
-	return int32(level - 1)
 }
