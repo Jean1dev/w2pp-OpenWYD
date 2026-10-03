@@ -1,6 +1,9 @@
 package protocol
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestEncodeMessagePanelBody(t *testing.T) {
 	t.Run("pads a short C string", func(t *testing.T) {
@@ -152,5 +155,33 @@ func TestMessageTypeValues(t *testing.T) {
 			t.Errorf("%s: type = %#04x (%d), want %#04x (%d)",
 				tt.legacy, uint16(tt.got), int(tt.got), tt.want, tt.want)
 		}
+	}
+}
+
+// TestEncodeMessageChatBody pins the fixed MSG_MessageChat.String width: a short
+// chat frame from an NPC speaker disconnected the client (issue #344).
+func TestEncodeMessageChatBody(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"pads a short C string", "A capa deste reino ja esta completa.", "A capa deste reino ja esta completa."},
+		{"truncates and keeps the terminator", strings.Repeat("y", MessageLength+10), strings.Repeat("y", MessageLength-1)},
+		{"exact width loses the last byte to the terminator", strings.Repeat("x", MessageLength), strings.Repeat("x", MessageLength-1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := EncodeMessageChatBody(tt.text)
+			if len(body) != MessageLength {
+				t.Fatalf("body length = %d, want %d", len(body), MessageLength)
+			}
+			if body[MessageLength-1] != 0 {
+				t.Fatal("chat text is not NUL-terminated")
+			}
+			if got := cTrimNUL(body); got != cTrimNUL([]byte(tt.want)) {
+				t.Fatalf("text = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

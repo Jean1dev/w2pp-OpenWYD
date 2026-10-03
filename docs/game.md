@@ -64,6 +64,11 @@ usa Vento (5337). A pedra será consumida, a capa será substituída pela versã
 personagem retornará à seleção para recarregar a progressão.
 
 Faça as quest dos quatros cristais no seu Arch para liberar mais pontos.
+
+Para criar o Celestial, use um Arch nível 356+ cujo Mortal de origem tenha chegado ao nível 100,
+remova a armadura e clique com o botão direito na Pedra Ideal (1742). O Rei não cria Celestial:
+no legado essa entrada é o uso da pedra (`_MSG_UseItem.cpp`). Com o Rei, a Pedra Ideal (equipada
+junto da Sephirot) só serve para o Mortal 299+ virar Arch.
 - Use /rei ou /king para ir ao rei correspondente à capa equipada.
 • Não precisa transformar o Lac, somente separe 10 que já vai funcionar
 
