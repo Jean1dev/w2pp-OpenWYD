@@ -111,7 +111,7 @@ func (d *Dispatcher) gmNotice(w *world.World, s *world.Session, text string) {
 		return
 	}
 	msg := "[GM] " + text
-	payload := append([]byte(msg), 0) // NUL-terminated, like a normal chat line
+	payload := protocol.EncodeMessageChatBody(msg)
 	// HEADER.ID = the GM's conn: the client renders it as a chat line (the announce
 	// source). No distance filter — ForEachPlaying(-1) reaches every session.
 	w.ForEachPlaying(-1, func(vs *world.Session, _ *world.Entity) {

@@ -91,8 +91,11 @@ func TestKingCapeDialogue(t *testing.T) {
 				if !ok || h.Type != protocol.MsgMessageChat || h.ID != uint16(npcID) {
 					t.Fatalf("dialogue header = %+v, received=%v; want chat from NPC %d", h, ok, npcID)
 				}
-				if string(body) != wantText+"\x00" {
-					t.Fatalf("dialogue body = %q, want %q with null terminator", body, wantText)
+				// The legacy SendSay always ships the full MSG_MessageChat struct
+				// (issue #344): a shorter frame from an NPC speaker disconnects the
+				// unmodified client.
+				if string(body) != string(protocol.EncodeMessageChatBody(wantText)) {
+					t.Fatalf("dialogue body = %q (len %d), want %q padded to %d bytes", body, len(body), wantText, protocol.MessageLength)
 				}
 				if h, _, ok := readMaybeHeader(t, watcher); ok {
 					t.Fatalf("private dialogue leaked to watcher: %+v", h)
@@ -101,7 +104,7 @@ func TestKingCapeDialogue(t *testing.T) {
 				// Exercise the original player-attributed helper after NPC dialogue.
 				whisperFrame(t, player, "cp", "")
 				h, body, ok = readMaybeHeader(t, player)
-				if !ok || h.Type != protocol.MsgMessageChat || h.ID != 1 || string(body) != "Pontos Caos atual: 0\x00" {
+				if !ok || h.Type != protocol.MsgMessageChat || h.ID != 1 || string(body) != string(protocol.EncodeMessageChatBody("Pontos Caos atual: 0")) {
 					t.Fatalf("player reply = %+v %q received=%v", h, body, ok)
 				}
 
@@ -124,6 +127,85 @@ func TestKingCapeDialogue(t *testing.T) {
 					t.Fatalf("dialogue attempted %d purchases/balance changes", got)
 				}
 			})
+		}
+	}
+}
+
+// TestKingArchIdealStoneDialogue reproduces issue #344: an Arch ready to become
+// Celestial (level 356+, Pedra Ideal carried or equipped) talks to the King and
+// loses the connection. The King never creates a Celestial (the legacy entry is
+// right-clicking the stone, _MSG_UseItem.cpp), so every reply must be a
+// well-formed frame and the session must stay alive afterwards.
+func TestKingArchIdealStoneDialogue(t *testing.T) {
+	kings := []struct {
+		name     string
+		merchant uint8
+		clan     uint8
+		cape     int16
+	}{
+		{"Harabard legacy", 14, clanHekalotia, 543},
+		{"Glantuar legacy", 15, clanAkelonia, 544},
+		{"Harabard canonical", 111, clanHekalotia, 543},
+	}
+	for _, king := range kings {
+		for _, level := range []int{356, 399} {
+			for _, stone := range []string{"carry", "equip"} {
+				for _, capeDone := range []bool{false, true} {
+					for _, confirm := range []int32{0, 1} {
+						name := fmt.Sprintf("%s/lv%d/%s/cape=%v/confirm=%d", king.name, level, stone, capeDone, confirm)
+						t.Run(name, func(t *testing.T) {
+							st := baseMortalState(level)
+							st.ClassMaster = classMasterArch
+							st.MortalLevel = 99
+							st.ArchCrystalStage = 4
+							switch stone {
+							case "carry":
+								st.Carry[0] = world.Item{Index: idealStoneItem}
+							case "equip":
+								st.Equip[idealStoneEquipSlot] = world.Item{Index: idealStoneItem}
+								st.Equip[sephirotEquipSlot] = world.Item{Index: archSephirotMin}
+							}
+							if capeDone {
+								st.Clan = king.clan
+								st.Equip[capeEquipSlot] = world.Item{Index: king.cape}
+							}
+							db := &kingDialogueDB{
+								fakeDB: newDB(),
+								quote:  world.KingdomCapeQuote{Revision: 7, HekalotiaCost: 8, AkeloniaCost: 6},
+							}
+							db.loadResult = st
+							tmpl := questNPCTemplate(king.name, king.merchant, 0, 0)
+							tmpl[16] = king.clan
+							addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+							defer stop()
+							player := enterWorld(t, addr)
+							defer player.Close()
+							drainRaw(t, player)
+
+							send(t, player, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), confirm))
+							for {
+								h, body, ok := readMaybeHeader(t, player)
+								if !ok {
+									break
+								}
+								if h.Type == protocol.MsgMessageChat && len(body) != protocol.MessageLength {
+									t.Fatalf("King reply %+v has a %d-byte body, want sizeof(MSG_MessageChat.String)=%d", h, len(body), protocol.MessageLength)
+								}
+								if h.Type == protocol.MsgCNFCharacterLogout {
+									t.Fatalf("King sent an Arch back to character selection: %+v", h)
+								}
+							}
+
+							// The session is still in play: a slash command round-trips.
+							whisperFrame(t, player, "cp", "")
+							h, _, ok := readMaybeHeader(t, player)
+							if !ok || h.Type != protocol.MsgMessageChat {
+								t.Fatalf("session dead after King dialogue: %+v received=%v", h, ok)
+							}
+						})
+					}
+				}
+			}
 		}
 	}
 }
