@@ -40,9 +40,9 @@ func (d *Dispatcher) messageChat(w *world.World, s *world.Session, _ protocol.He
 		// (TMScene.cpp:1660-1669).
 		s.GuildChat = !s.GuildChat
 		if s.GuildChat {
-			w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody("Guild Chatting : Off"))
+			d.sendClientMessage(w, s, "Guild Chatting : Off")
 		} else {
-			w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody("Guild Chatting : On"))
+			d.sendClientMessage(w, s, "Guild Chatting : On")
 		}
 	case "guildon":
 		s.GuildDisable = false
@@ -172,7 +172,7 @@ func (d *Dispatcher) guildChat(w *world.World, s *world.Session, body protocol.M
 	}
 	guild := e.Guild
 	if guild == 0 {
-		w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody(onlyGuildMemberCan))
+		d.sendClientMessage(w, s, onlyGuildMemberCan)
 		return
 	}
 	body.MobName = [16]byte{}

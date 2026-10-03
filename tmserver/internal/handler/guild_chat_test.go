@@ -57,11 +57,16 @@ func expectGuildLine(t *testing.T, c net.Conn, fromConn uint16, fromName, text s
 	}
 }
 
+// expectPanel reads a SendClientMessage panel: the client drops a message
+// panel whose HEADER.ID is not 0 (TMScene.cpp:1371).
 func expectPanel(t *testing.T, c net.Conn, text string) {
 	t.Helper()
-	ty, p, ok := readMaybe(t, c)
-	if !ok || ty != protocol.MsgMessagePanel {
-		t.Fatalf("got %#x ok=%v, want MessagePanel %q", ty, ok, text)
+	h, p, ok := readMaybeHeader(t, c)
+	if !ok || h.Type != protocol.MsgMessagePanel {
+		t.Fatalf("got %#x ok=%v, want MessagePanel %q", h.Type, ok, text)
+	}
+	if h.ID != 0 {
+		t.Fatalf("panel HEADER.ID = %d, want 0", h.ID)
 	}
 	if got := cstr(p); got != text {
 		t.Fatalf("panel = %q, want %q", got, text)
