@@ -38,10 +38,12 @@ const (
 	flagMask Type = 0xFF00
 )
 
-// EncodeMessageChatBody returns the fixed MSG_MessageChat.String payload.
+// EncodeMessageChatBody returns the fixed MSG_MessageChat.String payload. The
+// client expects the whole struct (legacy SendSay sends sizeof(MSG_MessageChat)),
+// and the last byte stays zero so over-long text is still a terminated C string.
 func EncodeMessageChatBody(text string) []byte {
 	body := make([]byte, MessageLength)
-	copy(body, text)
+	copy(body[:MessageLength-1], text)
 	return body
 }
 

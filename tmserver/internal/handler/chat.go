@@ -549,15 +549,15 @@ func (d *Dispatcher) magicTrumpet(w *world.World, s *world.Session, args []byte)
 // Minus, _DN_lose_D_exp, …), as opposed to the dialog-box Notice family
 // (notice.go).
 func (d *Dispatcher) sendChatText(w *world.World, s *world.Session, text string) {
-	payload := append([]byte(text), 0)
-	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(s.Conn)}, payload)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(s.Conn)}, protocol.EncodeMessageChatBody(text))
 }
 
 // sendNPCChatText uses the speaker ID like legacy SendSay, but keeps personal
 // service replies private to the requesting session instead of multicasting.
+// The body is the fixed-width MSG_MessageChat.String: a short frame from an NPC
+// speaker dropped the client's connection (issue #344).
 func (d *Dispatcher) sendNPCChatText(w *world.World, s *world.Session, npcID int, text string) {
-	payload := append([]byte(text), 0)
-	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(npcID)}, payload)
+	w.SendTo(s, protocol.Header{Type: protocol.MsgMessageChat, ID: uint16(npcID)}, protocol.EncodeMessageChatBody(text))
 }
 
 // notifyPKPointDelta formats the _DD_PKPointPlus/_DD_PKPointMinus chat line:
@@ -600,8 +600,7 @@ func (d *Dispatcher) showNick(w *world.World, s *world.Session, rest string) {
 		}
 	}
 	msg := fmt.Sprintf("%s [%s] Cidadania: %d / Fama: %d", te.Name, guildPart, te.Citizen, te.Fame)
-	payload := append([]byte(msg), 0) // NUL-terminated, like gmNotice
-	w.Send(s, protocol.MsgMessageChat, payload)
+	w.Send(s, protocol.MsgMessageChat, protocol.EncodeMessageChatBody(msg))
 }
 
 // firstToken returns the first whitespace-separated token of s.
