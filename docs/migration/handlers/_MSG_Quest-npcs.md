@@ -28,7 +28,7 @@
 | 100 | 16 | `TREINADORNEWBIE4` | 2046 | tutorial novato 4 |
 | 100 | 22 | `SOBREVIVENTE` | 2597 | NPC sobrevivente — troca implementada (#325) |
 | 100 | 30 | `GUARDA_REAL_EVT1` | 2664 | guarda real (evento) |
-| 72 | — | `UXMAL` | 1313 | NPC Uxmal |
+| 72 | — | `UXMAL` | 1313 | NPC Uxmal — inscrição na Pista de Runas (#355) |
 | 36 | — | `TREINADORNEWBIE1` | 1895 | tutorial novato 1 |
 | 40 | — | `TREINADORNEWBIE2` | 1938 | tutorial novato 2 |
 | 41 | — | `TREINADORNEWBIE3` | 1992 | tutorial novato 3 |
@@ -173,3 +173,51 @@ arredondadas para múltiplos de quatro), exige saldo positivo e desconta um aces
 O destino é `(2364+rand()%3,3906+rand()%3)`, com duas chamadas ao RNG MSVC, X antes
 de Y (`GetFunc.cpp:994-1004`). Uma tentativa sem saldo não consome RNG nem teleporta.
 Outras rotas e o ciclo de vida do boss Kefra não fazem parte desta implementação.
+
+## Uxmal — Pista de Runas (#355)
+
+O template `npc/Uxmal` tem `MOB.Merchant=72` no byte 17, mas
+`CurrentScore.Merchant=104` (o valor de `Entity.Merchant`, que também aparece
+nos treinadores). Por isso o despacho usa só o byte 17 (`isUxmalNPC`).
+
+**Inscrição** (`_MSG_Quest.cpp:1313-1395`, `handler/runequest.go`). As
+verificações seguem a ordem do legado e cada recusa envia uma mensagem de
+`Language.txt`:
+
+1. Só aceita nos minutos 16–19, 36–39 e 56–59. Fora disso: "Quest em progresso.".
+2. Só aceita líder de grupo ou jogador solo.
+3. Procura o primeiro slot do inventário com a Pista da Runas (5134). A sala é a
+   sanc da pista, limitada a 6.
+4. A sala 0 tem 2 vagas e as demais têm 3. Sala cheia: "Há muitos jogadores.".
+5. Rejeita o mesmo conn já inscrito na sala.
+6. Registra a inscrição, consome a pista e envia "Entrada registrada.".
+
+**Entrada** nos minutos 0, 20 e 40 (`ProcessSecMinTimer.cpp:1082-1148`):
+
+- Só entram inscrições cujo nome ainda confere, com o líder parado no bloco
+  (25,13) e ainda líder ou solo.
+- O líder é teleportado para `PistaPos[sala][grupo]`, junto com os membros em
+  jogo que estejam no mesmo bloco.
+- Spawn por sala: Lich (5654 para o grupo 1, 5653 para o grupo 2), Torre
+  (5706–5764) e o boss Amon (5789). O Labirinto sorteia `MobCount = 8 + rand()%8`
+  com o RNG MSVC e spawna 5854–5898 para o grupo 1.
+
+**Saída** nos minutos 15, 35 e 55 (`:1150-1429`):
+
+- Remove todos os mobs da caixa x 3310–3588, y 1005–1663.
+- Revive com HP 1 quem estiver morto ali dentro.
+- Teleporta todos para (3294,1701).
+- Limpa as inscrições.
+
+Os timers rodam uma vez por rodada de 20 minutos. Depois de um restart no meio da
+rodada o servidor não refaz a entrada, mas ainda executa a saída. Os blocos -1 da
+pista (`world.IsRuneQuestGenerator`) não spawnam no boot nem entram na fila de
+respawn. A população permanente das salas (blocos com `MinuteGenerate 1`)
+continua no timer de minuto, como no legado.
+
+**Pendente:**
+
+- Contagem de kills (`MobKilled.cpp:2158-2500`) e os chefes que dependem dela.
+- Drops de runa e da próxima pista.
+- Prêmios da Torre e do Sulrang.
+- Portal do Balrog, contador do Coelho e guarda da sala Amon (`_MSG_Action.cpp:178`).

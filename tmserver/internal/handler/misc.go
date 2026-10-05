@@ -251,6 +251,11 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.kingQuest(w, s, e, npc, int(confirm))
 		return
 	}
+	// UXMAL (MOB.Merchant 72): Pista de Runas registration (_MSG_Quest.cpp:1313).
+	if isUxmalNPC(npc) {
+		d.uxmal(w, s, e)
+		return
+	}
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
 }
 

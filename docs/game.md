@@ -55,6 +55,18 @@
 > já rejeita contas bloqueadas; a migração do ban administrativo para o binServer
 > (entitlement) fica para uma issue futura (`web-platform-plan.md §binServer`).
 
+# Pista de Runas
+Fale com o Uxmal (perto de 3293,1693) nos minutos 16–19, 36–39 ou 56–59, sendo líder do grupo ou
+jogando solo, com a Pista da Runas no inventário. A refinação da pista escolhe a sala (+0 Lich, +1
+Torre, +2 Amon, +3 Sulrang, +4 Labirinto, +5 Balrog, +6 Coelho). A pista é consumida e aparece
+"Entrada registrada.".
+
+No minuto seguinte (:00, :20 ou :40), o líder e os membros do grupo que estiverem perto do Uxmal
+entram na sala. Aos 15 minutos da rodada todos voltam para fora.
+
+- ✅ Inscrição, entrada e saída
+- ⏳ Contagem de kills, chefes, drops de runa, prêmios, portal do Balrog e contador do Coelho
+
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
 
