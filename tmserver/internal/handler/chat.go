@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -87,6 +88,11 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 		d.log.Info("chat command", "conn", s.Conn, "cmd", strings.TrimPrefix(name, "/"))
 		return // a slash command (the client sends "/x" as a whisper to "x")
 	}
+	// "/r" answers whoever whispered last (the "PM, /r" region of
+	// _MSG_MessageWhisper.cpp, pUser[conn].LastChat). No one yet: not connected.
+	if name == whisperReply {
+		name = s.LastWhisperFrom
+	}
 	target, _ := w.SessionByName(name)
 	if target == nil {
 		d.notify(w, s, NoticeNotConnected)
@@ -96,7 +102,53 @@ func (d *Dispatcher) messageWhisper(w *world.World, s *world.Session, _ protocol
 		d.notify(w, s, NoticeDenyWhisper)
 		return
 	}
-	w.SendTo(target, protocol.Header{Type: protocol.MsgMessageWhisper, ID: uint16(s.Conn)}, payload)
+	e := w.Entity(s.Conn)
+	if e == nil {
+		return
+	}
+	// The legacy writes the speaker's name into MobName before forwarding, and
+	// the receiving client shows MobName as the sender. Forwarding the payload
+	// as sent left the target's own name there.
+	body.MobName = [16]byte{}
+	copy(body.MobName[:len(body.MobName)-1], e.Name)
+	body.String = privateWhisperText(body.String)
+	target.LastWhisperFrom = e.Name
+	w.SendTo(target, protocol.Header{Type: protocol.MsgMessageWhisper, ID: uint16(s.Conn)}, body.Encode())
+}
+
+// whisperReply is the target name the client sends for "/r".
+const whisperReply = "r"
+
+// whisperTextMax is the 7662 MSG_MessageWhisper.String size (frame offsets
+// 28..155); the receiver forces String[127] = 0.
+const whisperTextMax = 128
+
+// privateWhisperText rewrites a private whisper's String for the 7662 client,
+// keeping the received length (158 from the web dialect, 160 from WYD.exe):
+//   - the receiver's memo prints &String[1] (TMFieldScene.cpp:17945), also
+//     with the legacy server, which forwards the text as typed. A leading space
+//     keeps the whole message. It also stops a player from starting the line
+//     with a channel marker ('-' guild, '=' party, '@' kingdom) to have it
+//     shown as that channel;
+//   - Color (offset whisperColorOffset) is zeroed: 7 would move the line to the
+//     grey chat (TMFieldScene.cpp:17901).
+//
+// The text is cut to fit String with its NUL (126 bytes after the space).
+func privateWhisperText(in []byte) []byte {
+	text := in
+	if len(text) > whisperTextMax {
+		text = text[:whisperTextMax]
+	}
+	if i := bytes.IndexByte(text, 0); i >= 0 {
+		text = text[:i]
+	}
+	if len(text) > whisperTextMax-2 {
+		text = text[:whisperTextMax-2]
+	}
+	out := make([]byte, max(len(in), len(text)+2))
+	out[0] = ' '
+	copy(out[1:], text)
+	return out
 }
 
 // partyChat routes a "=text" line (MobName empty) to the speaker's party, as the
