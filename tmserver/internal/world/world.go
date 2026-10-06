@@ -139,6 +139,12 @@ type World struct {
 	// select ↔ play), so it is keyed by account, not session/conn. Loop-owned.
 	cargo map[int64]*CargoState
 
+	// savingAccounts counts, per account id, the closed sessions whose final
+	// character/cargo save is still in flight (saveAccountOnClose). A new login
+	// of that account waits for zero, so it never loads rows older than what the
+	// previous session held in memory. Created on first use. Loop-owned.
+	savingAccounts map[int64]int
+
 	// guilds is the minimal guild registry (guild.go): name/fame keyed by guild
 	// id. In-memory only — there is no guild-creation flow yet to persist
 	// against. Loop-owned.
@@ -517,6 +523,82 @@ func (w *World) ReleaseCargo(accountID int64) {
 			w.log.Warn("save cargo failed", "account", cs.AccountID, "err", err)
 		}
 	}()
+}
+
+// saveAccountOnClose is the account teardown of a closing session: it snapshots
+// the in-play character and, when no other session of the account remains, the
+// account cargo (evicting it), then saves both off the loop under saveWG. The
+// account counts as saving until both saves return; AccountSaving lets a new
+// login of the same account wait for it, so the duplicate-login kick
+// (handler/login.go) never reloads rows older than this session's state.
+// A failed save is logged and still ends the saving state, as the fire-and-forget
+// saves it replaces did. Loop-only (snapshots state before going async).
+func (w *World) saveAccountOnClose(s *Session) {
+	if s == nil || s.AccountID == 0 {
+		return
+	}
+	accountID := s.AccountID
+	var char *CharacterSave
+	if s.Mode == UserPlay {
+		cs := w.characterSave(s)
+		char = &cs
+	}
+	var cargo *CargoSave
+	if w.cargo[accountID] != nil && w.SessionByAccount(accountID, s) == nil {
+		cs := w.cargoSave(accountID)
+		cargo = &cs
+		delete(w.cargo, accountID)
+	}
+	if char == nil && cargo == nil {
+		return
+	}
+	if w.savingAccounts == nil {
+		w.savingAccounts = make(map[int64]int)
+	}
+	w.savingAccounts[accountID]++
+	w.saveWG.Add(1)
+	go func() {
+		defer w.saveWG.Done()
+		if char != nil {
+			if err := w.persist.SaveOnShutdown(context.Background(), *char); err != nil {
+				w.log.Warn("save character failed", "account", char.AccountID, "slot", char.Slot, "err", err)
+			}
+		}
+		if cargo != nil {
+			if err := w.persist.SaveCargo(context.Background(), *cargo); err != nil {
+				w.log.Warn("save cargo failed", "account", cargo.AccountID, "err", err)
+			}
+		}
+		done := worldCallbackEvent{cb: func(w *World) {
+			if w.savingAccounts[accountID]--; w.savingAccounts[accountID] <= 0 {
+				delete(w.savingAccounts, accountID)
+			}
+		}}
+		select {
+		case w.callbacks <- done:
+		case <-w.done:
+		}
+	}()
+}
+
+// AccountSaving reports whether a closed session of the account still has its
+// final save in flight. Loop-only.
+func (w *World) AccountSaving(accountID int64) bool { return w.savingAccounts[accountID] > 0 }
+
+// SessionByAccount returns a session of the account, other than except, that
+// finished the account login (character selection or later), or nil. Sessions
+// are indexed by conn only; a linear scan over MaxUser is fine for a login-time
+// check. Loop-only.
+func (w *World) SessionByAccount(accountID int64, except *Session) *Session {
+	if accountID == 0 {
+		return nil
+	}
+	for _, o := range w.sessions {
+		if o != nil && o != except && !o.closed && o.AccountID == accountID && o.Mode >= UserSelChar {
+			return o
+		}
+	}
+	return nil
 }
 
 // SaveCargoThen persists the account cargo WITHOUT evicting it (the account

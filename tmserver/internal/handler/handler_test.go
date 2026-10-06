@@ -3,9 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -57,6 +60,7 @@ type fakeDB struct {
 	savedChars   []world.CharacterSave // captured SaveOnShutdown calls
 	saveErr      error                 // one-shot injected character-save failure
 	savedCargos  []world.CargoSave     // captured SaveCargo calls
+	cargoGate    chan struct{}         // when set, SaveCargo waits for it to close
 	drainSaves   []drainSave           // captured SaveCargoWithDeliveries calls
 	blockedNames map[string]bool       // captured SetAccountBlocked calls (GM ban/unban)
 	duelResults  []duelResult          // captured RecordDuelResult calls (issue #118)
@@ -110,6 +114,9 @@ func (f *fakeDB) SaveOnShutdown(_ context.Context, save world.CharacterSave) err
 }
 
 func (f *fakeDB) SaveCargo(_ context.Context, save world.CargoSave) error {
+	if f.cargoGate != nil {
+		<-f.cargoGate // a save still in flight (duplicate-login tests)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.savedCargos = append(f.savedCargos, save)
@@ -291,6 +298,7 @@ func (f *fakeDB) archRequest() (int, int64, string, int, int, int, int) {
 }
 
 func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.LoginOutcome, error) {
+	name, alias := splitTestAlias(name)
 	a, ok := f.accounts[name]
 	switch {
 	case !ok:
@@ -302,10 +310,11 @@ func (f *fakeDB) AccountLogin(_ context.Context, name, pass string) (world.Login
 	case a.pass != pass:
 		return world.LoginOutcome{Result: world.LoginBadPassword}, nil
 	default:
+		id := a.id + alias*testAliasStride
 		cargo := a.cargo
-		cargo.AccountID = a.id
+		cargo.AccountID = id
 		return world.LoginOutcome{
-			Result: world.LoginOK, AccountID: a.id, Role: a.role, Characters: a.chars, Cargo: cargo,
+			Result: world.LoginOK, AccountID: id, Role: a.role, Characters: a.chars, Cargo: cargo,
 			PendingDeliveries: f.pending[a.id],
 		}, nil
 	}
@@ -372,7 +381,7 @@ func (f *fakeDB) DeleteCharacter(_ context.Context, accountID int64, slot int, _
 // instead of an empty/stale one.
 func (f *fakeDB) ListCharacters(_ context.Context, accountID int64) ([]world.CharSummary, error) {
 	for _, a := range f.accounts {
-		if a.id == accountID {
+		if a.id == testBaseAccountID(accountID) {
 			return a.chars, nil
 		}
 	}
@@ -380,10 +389,95 @@ func (f *fakeDB) ListCharacters(_ context.Context, accountID int64) ([]world.Cha
 }
 
 func (f *fakeDB) LoadCharacter(_ context.Context, accountID int64, _ int) (world.CharacterState, error) {
-	if st, ok := f.loads[accountID]; ok {
+	if st, ok := f.loads[testBaseAccountID(accountID)]; ok {
 		return st, f.loadErr
 	}
 	return f.loadResult, f.loadErr
+}
+
+// Test aliases. Many tests put two players in the world with enterWorld, which
+// used the same account twice; a second login of an account in play is now the
+// duplicate-login refusal (refuseDuplicateLogin). enterWorld therefore logs the
+// extra players in as "tester#N": a distinct account id for the server that
+// loads the same character as the base account, as those tests always assumed.
+const testAliasStride = 1_000_000
+
+func splitTestAlias(name string) (string, int64) {
+	i := strings.IndexByte(name, '#')
+	if i < 0 {
+		return name, 0
+	}
+	n, err := strconv.Atoi(name[i+1:])
+	if err != nil || n <= 0 {
+		return name, 0
+	}
+	return name[:i], int64(n)
+}
+
+func testBaseAccountID(id int64) int64 { return id % testAliasStride }
+
+func testAccountName(n int) string {
+	if n == 0 {
+		return "tester"
+	}
+	return fmt.Sprintf("tester#%d", n)
+}
+
+// testAccounts tracks, per test server address, which "tester" aliases have an
+// open connection, so a relogin after Close reuses the base account.
+var testAccounts = struct {
+	sync.Mutex
+	used map[string]map[int]bool
+}{used: map[string]map[int]bool{}}
+
+func claimTestAccount(addr string) int {
+	testAccounts.Lock()
+	defer testAccounts.Unlock()
+	used := testAccounts.used[addr]
+	if used == nil {
+		used = map[int]bool{}
+		testAccounts.used[addr] = used
+	}
+	n := 0
+	for used[n] {
+		n++
+	}
+	used[n] = true
+	return n
+}
+
+func releaseTestAccount(addr string, n int) {
+	testAccounts.Lock()
+	defer testAccounts.Unlock()
+	delete(testAccounts.used[addr], n)
+}
+
+// testAccountConn releases its test account when the test closes it.
+type testAccountConn struct {
+	net.Conn
+	once    sync.Once
+	release func()
+}
+
+func (c *testAccountConn) Close() error {
+	c.once.Do(c.release)
+	return c.Conn.Close()
+}
+
+// loginRetry logs in as a client would after a disconnect: while the previous
+// session of the account is being closed or saved the server answers
+// _MSG_StillPlaying/_MSG_AlreadyPlaying, and the player tries again.
+func loginRetry(t *testing.T, c net.Conn, name string) protocol.Type {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		send(t, c, protocol.MsgAccountLogin, loginBody(name, "secret", protocol.AppVersion))
+		ty, _ := read(t, c)
+		if (ty != protocol.MsgStillPlaying && ty != protocol.MsgAlreadyPlaying) || time.Now().After(deadline) {
+			return ty
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // --- harness ---
@@ -717,8 +811,7 @@ func TestWrongModeRejectsSecondLogin(t *testing.T) {
 func loginAndSelect(t *testing.T, addr string) net.Conn {
 	t.Helper()
 	c := dial(t, addr)
-	send(t, c, protocol.MsgAccountLogin, loginBody("tester", "secret", protocol.AppVersion))
-	if ty, _ := read(t, c); ty != protocol.MsgCNFAccountLogin {
+	if ty := loginRetry(t, c, "tester"); ty != protocol.MsgCNFAccountLogin {
 		t.Fatalf("login failed, got %#x", ty)
 	}
 	return c
