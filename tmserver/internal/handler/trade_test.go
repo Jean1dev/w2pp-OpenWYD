@@ -26,8 +26,7 @@ func tradeDB() *fakeDB {
 func enterWorldAs(t *testing.T, addr, account string) net.Conn {
 	t.Helper()
 	c := dial(t, addr)
-	send(t, c, protocol.MsgAccountLogin, loginBody(account, "secret", protocol.AppVersion))
-	if ty, _ := read(t, c); ty != protocol.MsgCNFAccountLogin {
+	if ty := loginRetry(t, c, account); ty != protocol.MsgCNFAccountLogin {
 		t.Fatalf("login %s failed: %#x", account, ty)
 	}
 	var body protocol.MsgCharacterLoginBody

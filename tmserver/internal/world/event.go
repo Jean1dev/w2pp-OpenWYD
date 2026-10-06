@@ -159,12 +159,11 @@ func (w *World) removeSession(s *Session) {
 	// the client was sent last is the key evidence for a client-side freeze
 	// (docs/migration/investigacao-freeze-cliente.md).
 	w.logSendStats(s)
-	// Persist the live character (purchases/gold/stats) before tearing down.
-	w.SaveCharacterAsync(s)
-	// The account session ends with the connection, so persist and evict the
-	// account-shared cargo too (it outlives individual characters but not the
-	// connection). No-op if no cargo was loaded.
-	w.ReleaseCargo(s.AccountID)
+	// Persist the live character (purchases/gold/stats) and, as the account
+	// session ends with the connection, the account-shared cargo, which is
+	// evicted (it outlives individual characters but not the connection).
+	// Tracked, so a new login of the account waits for the save.
+	w.saveAccountOnClose(s)
 	// Tell in-view players this entity left (logout), so their clients despawn it.
 	if e := w.entities[s.Conn]; e != nil && e.Mode == MobUser {
 		body := protocol.EncodeRemoveMobBody(2) // 2 = logout

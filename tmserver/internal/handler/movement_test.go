@@ -48,9 +48,10 @@ func startServerClock(t *testing.T, persist world.Persistence) (string, func(), 
 // USER_PLAY. It drains the CNFAccountLogin and CNFCharacterLogin responses.
 func enterWorld(t *testing.T, addr string) net.Conn {
 	t.Helper()
-	c := dial(t, addr)
-	send(t, c, protocol.MsgAccountLogin, loginBody("tester", "secret", protocol.AppVersion))
-	if ty, _ := read(t, c); ty != protocol.MsgCNFAccountLogin {
+	n := claimTestAccount(addr)
+	c := &testAccountConn{Conn: dial(t, addr), release: func() { releaseTestAccount(addr, n) }}
+	if ty := loginRetry(t, c, testAccountName(n)); ty != protocol.MsgCNFAccountLogin {
+		c.Close()
 		t.Fatalf("account login failed: %#x", ty)
 	}
 	var body protocol.MsgCharacterLoginBody

@@ -78,6 +78,9 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 	switch out.Result {
 	case world.LoginOK:
 		delete(d.fails, s.AccountName)
+		if d.refuseDuplicateLogin(w, s, out.AccountID) {
+			return
+		}
 		s.AccountID = out.AccountID
 		s.AccessLevel = world.ParseAccess(out.Role) // GM/moderation privilege (issue #122)
 		d.log.Info("account login: OK", "conn", s.Conn, "account", s.AccountName, "id", out.AccountID, "role", s.AccessLevel, "chars", len(out.Characters))
@@ -106,8 +109,47 @@ func (d *Dispatcher) completeAccountLogin(w *world.World, s *world.Session, out 
 		d.notify(w, s, NoticeBlocked)
 		w.Close(s)
 	case world.LoginAlreadyPlaying:
+		s.Mode = world.UserAccept // allow retry, as the duplicate-login refusal below
 		w.Send(s, protocol.MsgAlreadyPlaying, nil)
 	}
+}
+
+// accountFromOthers is Language.txt _NN_Your_Account_From_Others (134), in the
+// table's Windows-1252 bytes like the rest of the legacy string table.
+const accountFromOthers = "Conta desconectada por conex\xe3o simult\xe2nea."
+
+// refuseDuplicateLogin applies the legacy rule for a second login of an
+// account that is already in the game (DBSrv CFileDB.cpp:1001-1017,
+// TMSrv ProcessDBMessage.cpp _MSG_DBSavingQuit):
+//   - the session already in character selection or play is told
+//     _NN_Your_Account_From_Others and closed, which saves it;
+//   - the new login is refused with _MSG_StillPlaying (0x011D) and may try
+//     again; the 7662 client shows "Conexão anterior finalizada. Tente
+//     novamente." (TMSelectServerScene.cpp:1571);
+//   - while that save is in flight a new try gets _MSG_AlreadyPlaying (0x011C),
+//     so it never loads the character/cargo rows before they are written.
+//
+// The legacy closes the refused socket; here it returns to UserAccept so the
+// client can retry on the same connection. The check is per tmServer: the
+// dbServer does not track online accounts, so a second tmServer instance would
+// not see this session. Loop-only.
+func (d *Dispatcher) refuseDuplicateLogin(w *world.World, s *world.Session, accountID int64) bool {
+	refusal := protocol.Type(0)
+	switch old := w.SessionByAccount(accountID, s); {
+	case old != nil:
+		d.log.Info("account login: duplicate, closing the previous session", "conn", s.Conn, "account", s.AccountName, "previous", old.Conn)
+		d.sendClientMessage(w, old, accountFromOthers)
+		w.Close(old)
+		refusal = protocol.MsgStillPlaying
+	case w.AccountSaving(accountID):
+		d.log.Info("account login: previous session still saving", "conn", s.Conn, "account", s.AccountName)
+		refusal = protocol.MsgAlreadyPlaying
+	default:
+		return false
+	}
+	s.Mode = world.UserAccept
+	w.Send(s, refusal, nil)
+	return true
 }
 
 func (d *Dispatcher) cargoWire(st *world.CargoState) (int32, [128]protocol.SelItem) {
