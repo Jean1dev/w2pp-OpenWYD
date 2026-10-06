@@ -64,6 +64,7 @@ type Session struct {
 	IP                string
 	CrackError        int             // anti-cheat violation count (CUser.NumError)
 	Whisper           bool            // true blocks incoming whispers
+	LastWhisperFrom   string          // who last whispered to this player; "/r" replies there (legacy LastChat)
 	PartyChat         bool            // true blocks the party channel (partychat)
 	GuildChat         bool            // true blocks the guild channel (guildchat)
 	GuildDisable      bool            // hide guild tag (guildon/guildoff)

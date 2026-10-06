@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/binary"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -469,6 +470,110 @@ func TestWhisperDeliver(t *testing.T) {
 	whisperFrame(t, a, "HeroB", "psst")
 	if ty, _, ok := readMaybe(t, b); !ok || ty != protocol.MsgMessageWhisper {
 		t.Errorf("got %#x ok=%v, want MessageWhisper delivered", ty, ok)
+	}
+}
+
+// whisperFrameSized sends a whisper laid out like the 7662 struct: MobName[16],
+// String[128], Color (frame 156) and the given total body size (146 from the
+// web dialect, 148 from WYD.exe).
+func whisperFrameSized(t *testing.T, c net.Conn, target, text string, color uint16, size int) {
+	t.Helper()
+	body := make([]byte, size)
+	copy(body[:15], target)
+	copy(body[16:16+127], text)
+	binary.LittleEndian.PutUint16(body[16+whisperColorOffset:], color)
+	send(t, c, protocol.MsgMessageWhisper, body)
+}
+
+func readWhisper(t *testing.T, c net.Conn) (name, text string, color uint16, size int) {
+	t.Helper()
+	ty, p, ok := readMaybe(t, c)
+	if !ok || ty != protocol.MsgMessageWhisper {
+		t.Fatalf("got %#x ok=%v, want MessageWhisper", ty, ok)
+	}
+	var body protocol.MsgWhisperBody
+	if err := body.Decode(p); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.String) >= whisperColorOffset+2 {
+		color = binary.LittleEndian.Uint16(body.String[whisperColorOffset:])
+	}
+	return cstr(body.MobName[:]), cstr(body.String), color, len(p)
+}
+
+// TestWhisperRewrite: the receiver's client shows MobName as the sender and
+// prints &String[1] in the private memo, so the server writes the speaker's
+// name and prefixes a space (_MSG_MessageWhisper.cpp copies the name; the
+// space is ours, see privateWhisperText). Markers and Color cannot be forged.
+func TestWhisperRewrite(t *testing.T) {
+	long := strings.Repeat("x", 140)
+	cases := []struct {
+		name, text string
+		color      uint16
+		size       int
+		wantText   string
+	}{
+		{"windows layout", "psst", 0, 148, " psst"},
+		{"web dialect layout", "psst", 0, 146, " psst"},
+		{"short frame", "psst", 0, 0, " psst"},
+		{"guild marker", "-fake guild", 3, 148, " -fake guild"},
+		{"party marker", "=fake party", 0, 148, " =fake party"},
+		{"kingdom marker", "@@fake", 0, 148, " @@fake"},
+		{"grey color", "grey", 7, 148, " grey"},
+		{"cut to fit", long, 0, 148, " " + strings.Repeat("x", 126)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			addr, stop, _ := startServerClock(t, chatDB())
+			defer stop()
+			a := enterWorldAs(t, addr, "tester") // name "Hero"
+			defer a.Close()
+			b := enterWorldAs(t, addr, "tradeb") // name "HeroB"
+			defer b.Close()
+
+			if tc.size == 0 {
+				whisperFrame(t, a, "HeroB", tc.text)
+			} else {
+				whisperFrameSized(t, a, "HeroB", tc.text, tc.color, tc.size)
+			}
+			name, text, color, size := readWhisper(t, b)
+			if name != "Hero" {
+				t.Errorf("sender = %q, want Hero", name)
+			}
+			if text != tc.wantText {
+				t.Errorf("text = %q, want %q", text, tc.wantText)
+			}
+			if color != 0 {
+				t.Errorf("color = %d, want 0", color)
+			}
+			if tc.size != 0 && size != tc.size {
+				t.Errorf("size = %d, want the received %d", size, tc.size)
+			}
+		})
+	}
+}
+
+// TestWhisperReply: "/r" (a whisper to "r") goes to whoever whispered last;
+// with no one yet it is the offline notice.
+func TestWhisperReply(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester") // name "Hero"
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb") // name "HeroB"
+	defer b.Close()
+
+	whisperFrame(t, b, "r", "nobody yet")
+	if ty, p, ok := readMaybe(t, b); !ok || ty != protocol.MsgMessageBoxOk || noticeCode(t, p) != NoticeNotConnected {
+		t.Fatalf("got %#x, want not-connected notice for /r without history", ty)
+	}
+
+	whisperFrame(t, a, "HeroB", "hi")
+	readWhisper(t, b)
+	whisperFrame(t, b, "r", "hello back")
+	name, text, _, _ := readWhisper(t, a)
+	if name != "HeroB" || text != " hello back" {
+		t.Errorf("reply = %q/%q, want HeroB/\" hello back\"", name, text)
 	}
 }
 
