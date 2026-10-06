@@ -116,6 +116,14 @@ func (d *Dispatcher) sendClientMessage(w *world.World, s *world.Session, text st
 	w.SendTo(s, protocol.Header{Type: protocol.MsgMessagePanel}, protocol.EncodeMessagePanelBody(text))
 }
 
+// Legacy refusal panels (Release/TMsrv/run/Language.txt), in the table's
+// Windows-1252 bytes like the rest of the legacy string table.
+const (
+	cantDepositThatMuch  = "Esta quantia n\xe3o pode ser armazenada." // _NN_Cant_Deposit_That_Much (44)
+	cantWithdrawThatMuch = "Esta quantia n\xe3o pode ser retirada."   // _NN_Cant_Withdraw_That_Much (45)
+	notEnoughMoney       = "N\xe3o possui gold suficiente."           // _NN_Not_Enough_Money (113)
+)
+
 // cstr trims a fixed-size NUL/space-padded C char array to a Go string.
 func cstr(b []byte) string {
 	if i := indexByte(b, 0); i >= 0 {

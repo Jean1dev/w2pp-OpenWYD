@@ -85,8 +85,41 @@ func TestCargoDepositInsufficient(t *testing.T) {
 	defer c.Close()
 
 	depositFrame(t, c, 500) // more than the 100 carried
+	expectPanel(t, c, cantDepositThatMuch)
 	if ty, _, ok := readMaybe(t, c); ok {
-		t.Errorf("over-deposit produced %#x; should be rejected", ty)
+		t.Errorf("over-deposit also produced %#x; should be rejected", ty)
+	}
+}
+
+// TestCargoAmountRefusals: the legacy refuses a negative amount with the same
+// panel as an amount over the balance (_MSG_Deposit/_MSG_Withdraw.cpp:34),
+// and a zero amount stays silent here.
+func TestCargoAmountRefusals(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		send  func(*testing.T, net.Conn, int32)
+		coin  int32
+		panel string
+	}{
+		{"deposit-negative", depositFrame, -1, cantDepositThatMuch},
+		{"withdraw-negative", withdrawFrame, -1, cantWithdrawThatMuch},
+		{"deposit-zero", depositFrame, 0, ""},
+		{"withdraw-zero", withdrawFrame, 0, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			addr, stop, _ := startServerClock(t, cargoDB(100, 100, 0, 0))
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			tc.send(t, c, tc.coin)
+			if tc.panel != "" {
+				expectPanel(t, c, tc.panel)
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Errorf("refused amount %d produced %#x", tc.coin, ty)
+			}
+		})
 	}
 }
 
@@ -127,8 +160,9 @@ func TestCargoWithdrawTooMuch(t *testing.T) {
 	defer c.Close()
 
 	withdrawFrame(t, c, 500) // cargo only has 100
+	expectPanel(t, c, cantWithdrawThatMuch)
 	if ty, _, ok := readMaybe(t, c); ok {
-		t.Errorf("over-withdraw produced %#x; should be rejected", ty)
+		t.Errorf("over-withdraw also produced %#x; should be rejected", ty)
 	}
 }
 

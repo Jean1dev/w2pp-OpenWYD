@@ -258,7 +258,8 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 	}
 	if cost > 0 {
 		if cost > e.Coin {
-			return // not enough money (the original shows a notice)
+			d.sendClientMessage(w, s, notEnoughMoney) // _MSG_ReqTeleport.cpp:39-64
+			return
 		}
 		e.Coin -= cost
 		d.sendEtc(w, s, e)

@@ -41,7 +41,13 @@ func (d *Dispatcher) deposit(w *world.World, s *world.Session, _ protocol.Header
 		return // no vault loaded for this account
 	}
 	coin, ok := protocol.StandardParm(payload)
-	if !ok || coin <= 0 || coin > maxCoin || coin > e.Coin {
+	if !ok || coin == 0 {
+		return
+	}
+	// _MSG_Deposit.cpp:34-56: a negative amount or more than the character
+	// carries gets _NN_Cant_Deposit_That_Much.
+	if coin < 0 || coin > maxCoin || coin > e.Coin {
+		d.sendClientMessage(w, s, cantDepositThatMuch)
 		return
 	}
 	if int64(cargo.Coin)+int64(coin) > maxCoin {
@@ -67,7 +73,13 @@ func (d *Dispatcher) withdraw(w *world.World, s *world.Session, _ protocol.Heade
 		return
 	}
 	coin, ok := protocol.StandardParm(payload)
-	if !ok || coin <= 0 || coin > maxCoin || coin > cargo.Coin {
+	if !ok || coin == 0 {
+		return
+	}
+	// _MSG_Withdraw.cpp:34-55: a negative amount or more than the vault holds
+	// gets _NN_Cant_Withdraw_That_Much.
+	if coin < 0 || coin > maxCoin || coin > cargo.Coin {
+		d.sendClientMessage(w, s, cantWithdrawThatMuch)
 		return
 	}
 	if int64(e.Coin)+int64(coin) > maxCoin {
