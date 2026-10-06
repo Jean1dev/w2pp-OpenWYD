@@ -101,6 +101,62 @@ func TestReqTeleportDungeon(t *testing.T) {
 		request(t, 148, 3780)
 		request(t, 1004, 4028)
 	})
+	// panels drains the stream (earlier jumps leave view updates behind) and
+	// returns every message panel text in it.
+	panels := func(t *testing.T) []string {
+		t.Helper()
+		var texts []string
+		for {
+			h, p, ok := readMaybeHeader(t, c)
+			if !ok {
+				return texts
+			}
+			if h.Type == protocol.MsgMessagePanel {
+				if h.ID != 0 {
+					t.Fatalf("panel HEADER.ID = %d, want 0", h.ID)
+				}
+				texts = append(texts, cstr(p))
+			}
+		}
+	}
+	// Armia -> Noatum costs 700: short of gold, the legacy answers
+	// _NN_Not_Enough_Money (_MSG_ReqTeleport.cpp:39-64) and nothing moves.
+	t.Run("paid-without-gold", func(t *testing.T) {
+		panels(t)
+		var changed bool
+		runInLoop(t, w, func() {
+			w.SetEntityPos(s.Conn, 2116, 2100)
+			e := w.Entity(s.Conn)
+			e.Coin = 699
+			jumps := w.SentOfType(s, protocol.MsgAction)
+			d.Handle(w, s, protocol.Header{Type: protocol.MsgReqTeleport}, nil)
+			changed = e.X != 2116 || e.Y != 2100 || e.Coin != 699 || w.SentOfType(s, protocol.MsgAction) != jumps
+		})
+		if changed {
+			t.Fatal("refused paid teleport changed position/gold or sent a jump")
+		}
+		if got := panels(t); len(got) != 1 || got[0] != notEnoughMoney {
+			t.Fatalf("panels = %q, want [%q]", got, notEnoughMoney)
+		}
+	})
+	t.Run("paid-with-gold", func(t *testing.T) {
+		panels(t)
+		var coin int32
+		var x int16
+		runInLoop(t, w, func() {
+			w.SetEntityPos(s.Conn, 2116, 2100)
+			e := w.Entity(s.Conn)
+			e.Coin = 700
+			d.Handle(w, s, protocol.Header{Type: protocol.MsgReqTeleport}, nil)
+			coin, x = e.Coin, e.X
+		})
+		if coin != 0 || x == 2116 {
+			t.Fatalf("paid teleport left gold %d at x %d; want 0 gold and a jump", coin, x)
+		}
+		if got := panels(t); len(got) != 0 {
+			t.Fatalf("paid teleport with enough gold sent panels %q", got)
+		}
+	})
 	for _, name := range []string{"dead", "not-playing", "outside-portal"} {
 		t.Run(name, func(t *testing.T) {
 			var changed bool

@@ -83,6 +83,11 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	price, ok := d.itemPrices[int(item.Index)]
 	if !ok || price < 0 || price > e.Coin {
 		d.log.Info("buy denied", "conn", s.Conn, "item", item.Index, "price", price, "gold", e.Coin)
+		// Only the gold check answers (_MSG_Buy.cpp:147-151); a negative price
+		// returns in silence there, and a missing price has no legacy path.
+		if ok && price >= 0 {
+			d.sendClientMessage(w, s, notEnoughMoney)
+		}
 		return
 	}
 	e.Coin -= price

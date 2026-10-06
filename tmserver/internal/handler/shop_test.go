@@ -191,3 +191,32 @@ func TestBuyRejectsMissingPrice(t *testing.T) {
 		t.Errorf("missing-price buy produced %#x; should be rejected", ty)
 	}
 }
+
+// TestBuyNotEnoughMoney: short of gold, the legacy answers _NN_Not_Enough_Money
+// (_MSG_Buy.cpp:147-151) and the item stays in the shop.
+func TestBuyNotEnoughMoney(t *testing.T) {
+	addr, stop := startServerShop(t, shopDB(99), map[int]int32{1100: 100})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	buyFrame(t, c, shopNPCID, 0, 3)
+	expectPanel(t, c, notEnoughMoney)
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("refused buy also produced %#x", ty)
+	}
+}
+
+// TestBuyNegativePriceSilent: the legacy returns without a panel on a negative
+// price (_MSG_Buy.cpp, "if (Price < 0) return").
+func TestBuyNegativePriceSilent(t *testing.T) {
+	addr, stop := startServerShop(t, shopDB(1000), map[int]int32{1100: -1})
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	buyFrame(t, c, shopNPCID, 0, 3)
+	if ty, _, ok := readMaybe(t, c); ok {
+		t.Errorf("negative-price buy produced %#x; should be silent", ty)
+	}
+}
