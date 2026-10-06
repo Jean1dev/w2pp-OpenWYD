@@ -45,7 +45,7 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 62 | 3 | SilverDragon, Dragao_de_Azran | _MSG_Quest (ARZAN_DRAGON) | ❌ |
 | 64 | 65 | Magician, Imp, Wizard | _MSG_Quest | ❌ |
 | 68 | 17 | Kemi, Aylin, Jasmine | _MSG_Quest (GODGOVERNMENT) | ❌ |
-| 72 | — | Uxmal (ver merchant 104) | _MSG_Quest (UXMAL) | ❌ |
+| 72 | — | Uxmal (ver merchant 104) | _MSG_Quest (UXMAL) | ⚠️ inscrição na Pista de Runas + entrada/saída ✅ (#355); kills/prêmios pendentes |
 | 74 | 3 | Kibita, Lindy | CombineItem (Lindy) / _MSG_Quest | ⚠️ Lindy e Soul permanente ✅; cidadania/buff pendentes |
 | 76 | 3 | Urnammu | _MSG_Quest (URNAMMU) | ❌ |
 | 78 | 3 | QuestOffice, Blue/RedOracle | _MSG_Quest (BLACKORACLE) | ❌ |
@@ -55,7 +55,7 @@ O **`Merchant`** do NPC decide o que o clique manda:
 | 99/116 | 2/2 | God_Government | _MSG_Quest (GODGOVERNMENT) | ❌ |
 | 100 | 34 | **Perzen**, Coveiro, Jardineiro, Patrulha, Guarda | _MSG_Quest (por grade) | ⚠️ **cadeia Quest 256 (grades 0–4) e Perzen (7/8/9) ✅**; resto ❌ |
 | 101 | 8 | Cecilia, U_Ni_Corn | _MSG_Quest | ❌ montaria unicórnio? |
-| 104/105/107 | 4/2/1 | Uxmal, Treinador2/3, TrainerChief | _MSG_Quest (tutoriais) | ❌ |
+| 104/105/107 | 4/2/1 | Uxmal, Treinador2/3, TrainerChief | _MSG_Quest (tutoriais) | ❌ (Uxmal é roteado pelo byte 17 = 72, não por 104) |
 | 110 | 1 | Unicornio_Puro | _MSG_Quest | ❌ |
 | 111 | 4 | Rei_Glantuar, Rei_Harabard | _MSG_Quest (KING) | ⚠️ King Arch ✅; reino pendente |
 | 113 | 5 | Mercador_Noel, Arqueologo | _MSG_Quest | ❌ |

@@ -46,6 +46,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.tickCount++
 	d.tickKefra(w)
 	d.tickNightmare(w)
+	d.tickRuneQuest(w)
 	d.ensureGuildStateLoaded(w)
 
 	// Dormancy gate: snapshot the (few) in-play player positions once, so the

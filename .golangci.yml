@@ -18,6 +18,9 @@ linters:
         # The legacy GM tool file is genuinely named "Comandos GM.txt" (Portuguese
         # for "commands"), cited verbatim as an evidence source.
         - comandos
+        # Portuguese client text copied from Language.txt (_NN_Night_Already,
+        # "Quest em progresso.").
+        - progresso
   exclusions:
     generated: lax
     presets:

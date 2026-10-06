@@ -153,6 +153,7 @@ type World struct {
 	// older asynchronous save cannot lose a defeat during a normal restart.
 	kefraState  KefraState
 	nightmare   NightmareState
+	runeQuest   RuneQuestState
 	kefraLoaded bool
 
 	// newbieEvent mirrors the legacy NewbieEventServer flag (Server.cpp:617).
