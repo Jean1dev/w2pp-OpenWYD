@@ -2267,12 +2267,29 @@ func (d *Dispatcher) deriveBaseScore(e *world.Entity) {
 	e.BaseInt = e.Int - b.intel
 	e.BaseDex = e.Dex - b.dex
 	e.BaseCon = e.Con - b.con
+	if e.BaseStr < 0 || e.BaseInt < 0 || e.BaseDex < 0 || e.BaseCon < 0 {
+		// The stored CurrentScore does not match today's equipment bonus: the
+		// rules changed after it was saved. Logged so a drift is never silent.
+		d.log.Warn("derived base score is negative", "name", e.Name,
+			"str", e.BaseStr, "int", e.BaseInt, "dex", e.BaseDex, "con", e.BaseCon)
+	}
 	e.BaseAC = playerBaseAC(e)
 	e.BaseDamage = playerBaseDamage(e)
 	e.BaseMaxHP = e.MaxHP - b.maxHP
 	e.BaseMaxMP = e.MaxMP - b.maxMP
 	// Magic/Parry/Resist have no BaseScore term in the legacy. refreshScore derives
 	// them entirely from current equipment instead of subtracting the login value.
+}
+
+// loadBaseScore takes the BaseScore as saved (migration 0027) instead of deriving it;
+// the login's refreshScore then rebuilds the CurrentScore with today's equipment
+// rules, so a change to those rules can move the CurrentScore but never the base the
+// player built.
+func (d *Dispatcher) loadBaseScore(e *world.Entity, st world.CharacterState) {
+	e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon = st.BaseStr, st.BaseInt, st.BaseDex, st.BaseCon
+	e.BaseAC = playerBaseAC(e)
+	e.BaseDamage = playerBaseDamage(e)
+	e.BaseMaxHP, e.BaseMaxMP = st.BaseMaxHP, st.BaseMaxMP
 }
 
 // refreshScore recomputes the live CurrentScore = BaseScore + FLAT equipment, after any

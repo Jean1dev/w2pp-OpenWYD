@@ -399,6 +399,10 @@ func (w *World) CharacterSaveFor(s *Session, e *Entity) CharacterSave {
 	// current equipment contribution once, including for pre-issue-321 saves.
 	cs.HP, cs.MaxHP = e.HP, e.MaxHP-e.EquipmentAttributeHP
 	cs.MP, cs.MaxMP = e.MP, e.MaxMP-e.EquipmentAttributeMP
+	// The equipment-free base travels on its own (migration 0027): rebuilding it
+	// at login from the values above depends on the bonus rules of that moment.
+	cs.BaseStr, cs.BaseInt, cs.BaseDex, cs.BaseCon = e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon
+	cs.BaseMaxHP, cs.BaseMaxMP = e.BaseMaxHP, e.BaseMaxMP
 	cs.DivineEnd = e.DivineEnd // 0 once the buff has expired (cleared by the tick sweep)
 	cs.ScoreBonus, cs.SpecialBonus = e.ScoreBonus, e.SpecialBonus
 	cs.LearnedSkill, cs.SecLearnedSkill, cs.BaseSpecial = e.LearnedSkill, e.SecLearnedSkill, e.BaseSpecial

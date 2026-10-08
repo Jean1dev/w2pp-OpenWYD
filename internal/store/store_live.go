@@ -155,6 +155,8 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 	var ch domain.Character
 	var charID int64
 	var skillBar, shortSkill, special []int16
+	var baseStr, baseInt, baseDex, baseCon *int16
+	var baseMaxHp, baseMaxMp *int32
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, slot, name, class, clan, guild_id, guild_level, level, exp, coin,
 		       str, int, dex, con, score_bonus, special_bonus, skill_bonus,
@@ -162,7 +164,8 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       resist_fire, resist_ice, resist_thunder, resist_magic,
 		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
 		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
-		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_crystal_stage, kefra_ticket, nightmare_entries, last_nightmare_use
+		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_crystal_stage, kefra_ticket, nightmare_entries, last_nightmare_use,
+		       base_str, base_int, base_dex, base_con, base_max_hp, base_max_mp
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
@@ -170,7 +173,8 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.Critical, &ch.RegenHP, &ch.RegenMP, &ch.ResistFire, &ch.ResistIce, &ch.ResistThunder,
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
 			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &ch.ArchLv355, &ch.ArchLv370, &skillBar, &shortSkill, &special,
-			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill, &ch.MortalLevel, &ch.CelestialArchLevel, &ch.ArchCrystalStage, &ch.KefraTicket, &ch.NightmareEntries, &ch.LastNightmareUse)
+			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill, &ch.MortalLevel, &ch.CelestialArchLevel, &ch.ArchCrystalStage, &ch.KefraTicket, &ch.NightmareEntries, &ch.LastNightmareUse,
+			&baseStr, &baseInt, &baseDex, &baseCon, &baseMaxHp, &baseMaxMp)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -181,6 +185,13 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 	int16ArrToByteArr(shortSkill, ch.ShortSkill[:])
 	for i := 0; i < len(special) && i < len(ch.Special); i++ {
 		ch.Special[i] = special[i]
+	}
+	// All six base columns are written together; any NULL means a row saved
+	// before migration 0027, whose base the tmServer still has to derive once.
+	if baseStr != nil && baseInt != nil && baseDex != nil && baseCon != nil && baseMaxHp != nil && baseMaxMp != nil {
+		ch.HasBase = true
+		ch.BaseStr, ch.BaseInt, ch.BaseDex, ch.BaseCon = *baseStr, *baseInt, *baseDex, *baseCon
+		ch.BaseMaxHp, ch.BaseMaxMp = *baseMaxHp, *baseMaxMp
 	}
 
 	if ch.Equip, err = s.loadItems(ctx, charID, "char_equip"); err != nil {
@@ -352,7 +363,11 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 // simulates (score_bonus, special_bonus, learned_skill, sec_learned_skill, soul,
 // fame, special, skill_bar, short_skill), and the tier state (class_master + the
 // celestial quest gates celestial_lv40/90/circle + the terra_mistica gate), and
-// the PK/karma state (pk_point, guilty, cur_kill, tot_kill — issue #210).
+// the PK/karma state (pk_point, guilty, cur_kill, tot_kill — issue #210),
+// and the equipment-free base (base_str..base_max_mp, migration 0027). A caller
+// that does not send the base (HasBase false, e.g. a tmServer older than 0027)
+// clears it, so the next login derives it from the CurrentScore just saved
+// instead of trusting a base that no longer matches it.
 // Everything else (class,
 // regen/resist, magic, citizen) is left UNTOUCHED so an in-game save never wipes
 // imported data the world does not simulate.
@@ -375,7 +390,13 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			special=$24, skill_bar=$25, short_skill=$26, save_x=$27, save_y=$28,
 			class_master=$29, celestial_lv40=$30, celestial_lv90=$31, celestial_circle=$32, terra_mistica=$33,
 			arch_lv355=$34, arch_lv370=$35, pk_point=$36, guilty=$37, cur_kill=$38, tot_kill=$39,
-			mortal_level=$40, celestial_arch_level=$41, arch_crystal_stage=$42, kefra_ticket=$43, nightmare_entries=$44, last_nightmare_use=$45
+			mortal_level=$40, celestial_arch_level=$41, arch_crystal_stage=$42, kefra_ticket=$43, nightmare_entries=$44, last_nightmare_use=$45,
+			base_str=CASE WHEN $46 THEN $47::smallint END,
+			base_int=CASE WHEN $46 THEN $48::smallint END,
+			base_dex=CASE WHEN $46 THEN $49::smallint END,
+			base_con=CASE WHEN $46 THEN $50::smallint END,
+			base_max_hp=CASE WHEN $46 THEN $51::integer END,
+			base_max_mp=CASE WHEN $46 THEN $52::integer END
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -387,6 +408,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.SaveX, ch.SaveY,
 		ch.ClassMaster, ch.CelLv40, ch.CelLv90, ch.CelCircle, ch.TerraMistica, ch.ArchLv355, ch.ArchLv370,
 		ch.PKPoint, ch.Guilty, ch.CurKill, ch.TotKill, ch.MortalLevel, ch.CelestialArchLevel, ch.ArchCrystalStage, ch.KefraTicket, ch.NightmareEntries, ch.LastNightmareUse,
+		ch.HasBase, ch.BaseStr, ch.BaseInt, ch.BaseDex, ch.BaseCon, ch.BaseMaxHp, ch.BaseMaxMp,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

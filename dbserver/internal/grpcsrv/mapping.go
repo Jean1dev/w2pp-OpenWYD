@@ -76,6 +76,13 @@ func characterToProto(ch domain.Character) *dbv1.Character {
 		Guilty:             int32(ch.Guilty),
 		CurKill:            int32(ch.CurKill),
 		TotKill:            uint32(ch.TotKill),
+		HasBaseScore:       ch.HasBase,
+		BaseStr:            int32(ch.BaseStr),
+		BaseInt:            int32(ch.BaseInt),
+		BaseDex:            int32(ch.BaseDex),
+		BaseCon:            int32(ch.BaseCon),
+		BaseMaxHp:          ch.BaseMaxHp,
+		BaseMaxMp:          ch.BaseMaxMp,
 	}
 }
 
@@ -153,6 +160,13 @@ func protoToCharacter(c *dbv1.Character) domain.Character {
 		Guilty:             uint8(c.GetGuilty()),
 		CurKill:            uint8(c.GetCurKill()),
 		TotKill:            uint16(c.GetTotKill()),
+		HasBase:            c.GetHasBaseScore(),
+		BaseStr:            int16(c.GetBaseStr()),
+		BaseInt:            int16(c.GetBaseInt()),
+		BaseDex:            int16(c.GetBaseDex()),
+		BaseCon:            int16(c.GetBaseCon()),
+		BaseMaxHp:          c.GetBaseMaxHp(),
+		BaseMaxMp:          c.GetBaseMaxMp(),
 	}
 }
 

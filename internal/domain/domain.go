@@ -34,23 +34,35 @@ type Account struct {
 
 // Character is one of an account's up to four characters.
 type Character struct {
-	Slot               int
-	Name               string
-	Class              uint8
-	Clan               uint8
-	GuildID            uint16
-	GuildLevel         uint8
-	Level              int32
-	Exp                int64
-	Coin               int32
-	Str                int16
-	Int                int16
-	Dex                int16
-	Con                int16
-	ScoreBonus         uint16
-	SpecialBonus       uint16
-	SkillBonus         uint16
-	Special            [4]int16 // BaseScore.Special[4]: allocated mastery points
+	Slot         int
+	Name         string
+	Class        uint8
+	Clan         uint8
+	GuildID      uint16
+	GuildLevel   uint8
+	Level        int32
+	Exp          int64
+	Coin         int32
+	Str          int16
+	Int          int16
+	Dex          int16
+	Con          int16
+	ScoreBonus   uint16
+	SpecialBonus uint16
+	SkillBonus   uint16
+	Special      [4]int16 // BaseScore.Special[4]: allocated mastery points
+	// Base is the equipment-free BaseScore (attributes and HP/MP maxima). Str..Con
+	// and MaxHp/MaxMp above are the CurrentScore; the base used to be rebuilt at
+	// login by subtracting the equipment bonus of that moment, which drifted for
+	// good whenever the bonus rules changed between a save and a login.
+	// HasBase is false for a row saved before migration 0027.
+	HasBase            bool
+	BaseStr            int16
+	BaseInt            int16
+	BaseDex            int16
+	BaseCon            int16
+	BaseMaxHp          int32
+	BaseMaxMp          int32
 	MaxHp              int32
 	MaxMp              int32
 	Hp                 int32

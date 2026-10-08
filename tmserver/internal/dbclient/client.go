@@ -678,6 +678,14 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		LearnedSkill:    c.GetLearnedSkill(),
 		SecLearnedSkill: c.GetSecLearnedSkill(),
 		Magic:           int16(c.GetMagic()),
+
+		HasBase:   c.GetHasBaseScore(),
+		BaseStr:   int16(c.GetBaseStr()),
+		BaseInt:   int16(c.GetBaseInt()),
+		BaseDex:   int16(c.GetBaseDex()),
+		BaseCon:   int16(c.GetBaseCon()),
+		BaseMaxHP: c.GetBaseMaxHp(),
+		BaseMaxMP: c.GetBaseMaxMp(),
 	}
 	for i, v := range c.GetSpecial() {
 		if i >= len(st.BaseSpecial) {
@@ -790,6 +798,13 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		Guilty:             int32(s.Guilty),
 		CurKill:            int32(s.CurKill),
 		TotKill:            uint32(s.TotKill),
+		HasBaseScore:       true, // the world always knows the base it simulates
+		BaseStr:            int32(s.BaseStr),
+		BaseInt:            int32(s.BaseInt),
+		BaseDex:            int32(s.BaseDex),
+		BaseCon:            int32(s.BaseCon),
+		BaseMaxHp:          s.BaseMaxHP,
+		BaseMaxMp:          s.BaseMaxMP,
 		Special:            make([]int32, len(s.BaseSpecial)),
 		SkillBar:           make([]uint32, len(s.SkillBar)),
 		ShortSkill:         make([]uint32, len(s.ShortSkill)),
