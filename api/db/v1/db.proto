@@ -199,6 +199,17 @@ message Character {
   int32 kefra_ticket = 49; // Remaining Hall of Kefra entries (MobExtra.KefraTicket).
   int32 nightmare_entries = 50; // Remaining Arcane Nightmare entries.
   int64 last_nightmare_use = 51; // Unix time of the last deed use.
+
+  // Equipment-free BaseScore (migration 0027). str..con and max_hp/max_mp above
+  // are the CurrentScore. has_base_score is false for a row saved before the
+  // base was persisted: the tmServer then derives it once, by subtraction.
+  bool has_base_score = 52;
+  int32 base_str = 53;
+  int32 base_int = 54;
+  int32 base_dex = 55;
+  int32 base_con = 56;
+  int32 base_max_hp = 57;
+  int32 base_max_mp = 58;
 }
 
 message Item {

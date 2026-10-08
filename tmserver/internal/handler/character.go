@@ -303,10 +303,14 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		d.deriveSkillBonus(e)
 		e.Equip = st.Equip
 		e.Carry = st.Carry
-		// Capture the equipment-free BaseScore from the loaded CurrentScore, so later
-		// equip/unequip recomputes (refreshScore) reflect gear changes without double-
-		// counting the gear already baked into the stored CurrentScore.
-		d.deriveBaseScore(e)
+		// The equipment-free BaseScore is saved on its own (migration 0027). A
+		// character saved before that still carries only the CurrentScore, so its
+		// base is captured once from it, as before; the next save stores it.
+		if st.HasBase {
+			d.loadBaseScore(e, st)
+		} else {
+			d.deriveBaseScore(e)
+		}
 		// Re-apply a still-active Divine buff from the persisted deadline (the buff is
 		// read-time, so this doesn't affect the base just derived). Expired → dropped.
 		if st.DivineEnd > time.Now().Unix() {

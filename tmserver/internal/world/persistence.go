@@ -154,6 +154,18 @@ type CharacterState struct {
 	ScoreBonus uint16
 	DivineEnd  int64 // Unix-seconds deadline of the Divine buff (0 = none)
 
+	// Equipment-free BaseScore as last saved (migration 0027). Str..Con and
+	// MaxHP/MaxMP are the CurrentScore. HasBase is false for a character saved
+	// before the base was persisted: the login then derives it by subtraction,
+	// once, and the next save stores it.
+	HasBase   bool
+	BaseStr   int16
+	BaseInt   int16
+	BaseDex   int16
+	BaseCon   int16
+	BaseMaxHP int32
+	BaseMaxMP int32
+
 	// Skill state (skills front). SkillBonus is not loaded from the DB — the
 	// login path re-derives it from Level and LearnedSkill, as the legacy
 	// BASE_GetBonusSkillPoint does on character load.
@@ -217,6 +229,15 @@ type CharacterSave struct {
 	MP         int32
 	MaxMP      int32
 	DivineEnd  int64 // Unix-seconds deadline of the Divine buff (0 = none/expired)
+
+	// Equipment-free BaseScore (BaseStr..BaseCon, BaseMaxHP/MP), saved so the
+	// login never has to rebuild it from the CurrentScore (migration 0027).
+	BaseStr   int16
+	BaseInt   int16
+	BaseDex   int16
+	BaseCon   int16
+	BaseMaxHP int32
+	BaseMaxMP int32
 
 	ScoreBonus       uint16
 	SpecialBonus     uint16

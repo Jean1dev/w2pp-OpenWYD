@@ -682,8 +682,18 @@ type Character struct {
 	KefraTicket        int32  `protobuf:"varint,49,opt,name=kefra_ticket,json=kefraTicket,proto3" json:"kefra_ticket,omitempty"`                        // Remaining Hall of Kefra entries (MobExtra.KefraTicket).
 	NightmareEntries   int32  `protobuf:"varint,50,opt,name=nightmare_entries,json=nightmareEntries,proto3" json:"nightmare_entries,omitempty"`         // Remaining Arcane Nightmare entries.
 	LastNightmareUse   int64  `protobuf:"varint,51,opt,name=last_nightmare_use,json=lastNightmareUse,proto3" json:"last_nightmare_use,omitempty"`       // Unix time of the last deed use.
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Equipment-free BaseScore (migration 0027). str..con and max_hp/max_mp above
+	// are the CurrentScore. has_base_score is false for a row saved before the
+	// base was persisted: the tmServer then derives it once, by subtraction.
+	HasBaseScore  bool  `protobuf:"varint,52,opt,name=has_base_score,json=hasBaseScore,proto3" json:"has_base_score,omitempty"`
+	BaseStr       int32 `protobuf:"varint,53,opt,name=base_str,json=baseStr,proto3" json:"base_str,omitempty"`
+	BaseInt       int32 `protobuf:"varint,54,opt,name=base_int,json=baseInt,proto3" json:"base_int,omitempty"`
+	BaseDex       int32 `protobuf:"varint,55,opt,name=base_dex,json=baseDex,proto3" json:"base_dex,omitempty"`
+	BaseCon       int32 `protobuf:"varint,56,opt,name=base_con,json=baseCon,proto3" json:"base_con,omitempty"`
+	BaseMaxHp     int32 `protobuf:"varint,57,opt,name=base_max_hp,json=baseMaxHp,proto3" json:"base_max_hp,omitempty"`
+	BaseMaxMp     int32 `protobuf:"varint,58,opt,name=base_max_mp,json=baseMaxMp,proto3" json:"base_max_mp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -1069,6 +1079,55 @@ func (x *Character) GetNightmareEntries() int32 {
 func (x *Character) GetLastNightmareUse() int64 {
 	if x != nil {
 		return x.LastNightmareUse
+	}
+	return 0
+}
+
+func (x *Character) GetHasBaseScore() bool {
+	if x != nil {
+		return x.HasBaseScore
+	}
+	return false
+}
+
+func (x *Character) GetBaseStr() int32 {
+	if x != nil {
+		return x.BaseStr
+	}
+	return 0
+}
+
+func (x *Character) GetBaseInt() int32 {
+	if x != nil {
+		return x.BaseInt
+	}
+	return 0
+}
+
+func (x *Character) GetBaseDex() int32 {
+	if x != nil {
+		return x.BaseDex
+	}
+	return 0
+}
+
+func (x *Character) GetBaseCon() int32 {
+	if x != nil {
+		return x.BaseCon
+	}
+	return 0
+}
+
+func (x *Character) GetBaseMaxHp() int32 {
+	if x != nil {
+		return x.BaseMaxHp
+	}
+	return 0
+}
+
+func (x *Character) GetBaseMaxMp() int32 {
+	if x != nil {
+		return x.BaseMaxMp
 	}
 	return 0
 }
@@ -6223,7 +6282,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xe2\v\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xb4\r\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -6281,7 +6340,14 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x12arch_crystal_stage\x180 \x01(\x05R\x10archCrystalStage\x12!\n" +
 	"\fkefra_ticket\x181 \x01(\x05R\vkefraTicket\x12+\n" +
 	"\x11nightmare_entries\x182 \x01(\x05R\x10nightmareEntries\x12,\n" +
-	"\x12last_nightmare_use\x183 \x01(\x03R\x10lastNightmareUse\"\xcd\x01\n" +
+	"\x12last_nightmare_use\x183 \x01(\x03R\x10lastNightmareUse\x12$\n" +
+	"\x0ehas_base_score\x184 \x01(\bR\fhasBaseScore\x12\x19\n" +
+	"\bbase_str\x185 \x01(\x05R\abaseStr\x12\x19\n" +
+	"\bbase_int\x186 \x01(\x05R\abaseInt\x12\x19\n" +
+	"\bbase_dex\x187 \x01(\x05R\abaseDex\x12\x19\n" +
+	"\bbase_con\x188 \x01(\x05R\abaseCon\x12\x1e\n" +
+	"\vbase_max_hp\x189 \x01(\x05R\tbaseMaxHp\x12\x1e\n" +
+	"\vbase_max_mp\x18: \x01(\x05R\tbaseMaxMp\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
