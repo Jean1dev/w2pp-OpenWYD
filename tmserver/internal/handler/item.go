@@ -133,6 +133,12 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 // MsgSendItem so the client and server never disagree on the slot. The removal
 // persists on the next periodic/logout save (parity: no immediate write). NPC shop
 // is a stateless request/response, so there is no "shop open" state to guard.
+//
+// Unlike the legacy, the slot is only cleared when it still holds the SIndex the
+// client named. The client empties its own cell before asking (trash grid,
+// TMFieldScene message box 740), so a client whose grid drifted from the server
+// would otherwise destroy an item the player never saw. On a mismatch the real
+// slot is sent back instead, which resyncs that cell.
 func (d *Dispatcher) deleteItem(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
 	e := w.Entity(s.Conn)
 	if e == nil || e.HP <= 0 || s.Mode != world.UserPlay {
@@ -149,6 +155,12 @@ func (d *Dispatcher) deleteItem(w *world.World, s *world.Session, _ protocol.Hea
 	}
 	slot := int(body.Slot)
 	if !carrySlotAccessible(e, slot) {
+		return
+	}
+	if int32(e.Carry[slot].Index) != body.SIndex {
+		if body.SIndex != 0 {
+			d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+		}
 		return
 	}
 	if e.Carry[slot].Empty() {

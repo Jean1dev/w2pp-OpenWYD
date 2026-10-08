@@ -65,6 +65,31 @@ func TestDeleteItemEmptySlotNoop(t *testing.T) {
 	}
 }
 
+// A client whose grid drifted names an item the slot no longer holds: the slot is
+// kept and sent back so the client shows what the server has.
+func TestDeleteItemWrongIndexResyncs(t *testing.T) {
+	addr, stop, _ := startServerClock(t, carryDB(world.Item{Index: 1100}))
+	defer stop()
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	send(t, c, protocol.MsgDeleteItem, (&protocol.MsgDeleteItemBody{Slot: 0, SIndex: 401}).Encode())
+	_, slot, index, _ := sendItemSlotAmount(expect(t, c, protocol.MsgSendItem))
+	if slot != 0 || index != 1100 {
+		t.Fatalf("mismatch SendItem slot=%d index=%d, want slot 0 kept with 1100", slot, index)
+	}
+	// The item is still there: deleting it by its real index works.
+	send(t, c, protocol.MsgDeleteItem, (&protocol.MsgDeleteItemBody{Slot: 0, SIndex: 1100}).Encode())
+	if _, slot, index, _ = sendItemSlotAmount(expect(t, c, protocol.MsgSendItem)); slot != 0 || index != 0 {
+		t.Fatalf("delete SendItem slot=%d index=%d, want slot 0 cleared", slot, index)
+	}
+	// An empty slot named with an item also resyncs (as empty).
+	send(t, c, protocol.MsgDeleteItem, (&protocol.MsgDeleteItemBody{Slot: 3, SIndex: 1100}).Encode())
+	if _, slot, index, _ = sendItemSlotAmount(expect(t, c, protocol.MsgSendItem)); slot != 3 || index != 0 {
+		t.Fatalf("empty-slot SendItem slot=%d index=%d, want slot 3 empty", slot, index)
+	}
+}
+
 func TestSplitItem(t *testing.T) {
 	addr, stop, _ := startServerClock(t, carryDB(amountItem(2400, 10))) // 2400 ∈ splittable range
 	defer stop()
