@@ -115,17 +115,21 @@ func TestSurvivorExchange(t *testing.T) {
 				if e.KefraTicket != wantBalance || e.Carry != before {
 					t.Errorf("exchange balance=%d, want %d; inventory matches=%v", e.KefraTicket, wantBalance, e.Carry == before)
 				}
-				if !accepted && kefraPacketCount(w, s) != packets {
-					t.Error("rejected exchange sent packets")
+				if tc.overflow && kefraPacketCount(w, s) != packets {
+					t.Error("overflowing exchange sent packets")
 				}
 			})
-			if accepted {
+			switch {
+			case accepted:
 				ty, payload := read(t, c)
 				want := protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, tc.slot, protocol.SelItem{})
 				if ty != protocol.MsgSendItem || !bytes.Equal(payload, want) {
 					t.Fatalf("missing cleared slot: type=%x payload=%x", ty, payload)
 				}
 				assertKefraBalance(t, c, tc.balance+100)
+			case !tc.overflow:
+				// No usable scroll: the Sobrevivente answers with the balance (#343).
+				assertKefraBalance(t, c, tc.balance)
 			}
 		})
 	}
@@ -154,6 +158,27 @@ func TestSurvivorExchange(t *testing.T) {
 			}
 			assertKefraBalance(t, c, balance)
 		}
+		// The third interaction found no scroll and only reported the balance.
+		assertKefraBalance(t, c, 200)
+	})
+
+	t.Run("configured grant", func(t *testing.T) {
+		runInLoop(t, w, func() {
+			d.cfg.KefraEntriesPerScroll = 50
+			defer func() { d.cfg.KefraEntriesPerScroll = defaultKefraEntriesPerScroll }()
+			e := w.Entity(s.Conn)
+			e.KefraTicket = 3
+			e.Carry = [world.MaxCarry]world.Item{}
+			e.Carry[0] = world.Item{Index: 4127}
+			d.quest(w, s, protocol.Header{}, protocol.EncodeStandardParm2(int32(npcID), 0))
+			if e.KefraTicket != 53 || e.Carry[0].Index != 0 {
+				t.Errorf("balance=%d carry0=%d, want 53 and the scroll spent", e.KefraTicket, e.Carry[0].Index)
+			}
+		})
+		if ty, _ := read(t, c); ty != protocol.MsgSendItem {
+			t.Fatalf("got %x, want SendItem", ty)
+		}
+		assertKefraBalance(t, c, 53)
 	})
 
 	t.Run("invalid interactions", func(t *testing.T) {
@@ -183,12 +208,22 @@ func TestSurvivorExchange(t *testing.T) {
 	})
 }
 
+// assertKefraBalance reads _DN_CHANGE_COUNT as the 7662 client needs it: a
+// message panel with HEADER.ID 0 and the Windows-1252 legacy text.
 func assertKefraBalance(t *testing.T, c net.Conn, balance int32) {
 	t.Helper()
-	ty, payload := read(t, c)
-	want := protocol.EncodeMessagePanelBody(fmt.Sprintf("Você pode usar isto %d vezes.", balance))
-	if ty != protocol.MsgMessagePanel || !bytes.Equal(payload, want) {
-		t.Fatalf("balance message type=%x payload=%q, want %d", ty, payload, balance)
+	h, payload := readFrameHeader(t, c)
+	want := protocol.EncodeMessagePanelBody(fmt.Sprintf("Voc\xea pode usar isto %d vezes.", balance))
+	if h.Type != protocol.MsgMessagePanel || h.ID != 0 || !bytes.Equal(payload, want) {
+		t.Fatalf("balance message type=%x id=%d payload=%q, want %d", h.Type, h.ID, payload, balance)
+	}
+}
+
+func TestKefraEntriesPerScrollDefault(t *testing.T) {
+	for _, tc := range []struct{ cfg, want int }{{0, 100}, {-5, 100}, {50, 50}, {100, 100}} {
+		if got := New(Config{KefraEntriesPerScroll: tc.cfg}).cfg.KefraEntriesPerScroll; got != tc.want {
+			t.Errorf("KefraEntriesPerScroll %d -> %d, want %d", tc.cfg, got, tc.want)
+		}
 	}
 }
 

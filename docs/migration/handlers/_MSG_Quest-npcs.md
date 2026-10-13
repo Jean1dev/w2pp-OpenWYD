@@ -156,11 +156,23 @@ está implementado; cidadania e o bloco condicional continuam pendentes.
 ## Sobrevivente — Hall de Kefra (#325)
 
 O NPC `MOB.Merchant=100`, `EF_GRADE0=22` converte o primeiro item **4127**
-(Pergaminho Selado) nos slots acessíveis do inventário em **100 acessos** ao Hall.
+(Pergaminho Selado) nos slots acessíveis do inventário em **100 acessos** ao Hall
+(o valor legado; cada servidor ajusta com `-kefra-entries-per-scroll` /
+`W2PP_KEFRA_ENTRIES_PER_SCROLL`, #343).
 A interação é imediata, tanto com `confirm=0` quanto com `confirm!=0`, e limpa
 inteiramente o slot selecionado, conforme `_MSG_Quest.cpp:2598-2623`. Não exige
-espaço livre. Sem pergaminho acessível, ou se a soma exceder `int32`, nada muda.
+espaço livre. Se a soma exceder `int32`, nada muda.
 O servidor envia o slot vazio e a mensagem `_DN_CHANGE_COUNT` (420) com o saldo.
+
+**Desvio intencional (#343):** sem pergaminho acessível, o legado fica em silêncio;
+o Go responde com `_DN_CHANGE_COUNT` e o saldo atual (inclusive 0), para o jogador
+consultar os acessos restantes no próprio NPC.
+
+A mensagem sai como no `SendClientMessage` (`SendFunc.cpp:27-43`): `MSG_MessagePanel`
+com `HEADER.ID` 0 e o texto em Windows-1252. O cliente 7662 descarta o painel com
+outro ID (`TMScene.cpp:1371`), e até o #343 o saldo nunca aparecia na tela. A mesma
+correção vale para o saldo do Pesadelo (`/nt` e a troca de entradas), que usa a
+mesma string.
 
 O template real `npc/Sobrevivente` tem `MOB.Merchant=100` no byte 17, mas
 `CurrentScore.Merchant=68` (o valor exposto por `Entity.Merchant`). O despacho
