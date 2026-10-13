@@ -297,7 +297,7 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 	cmd := strings.TrimPrefix(name, "/")
 	if cmd == "nt" {
 		if e := w.Entity(s.Conn); e != nil {
-			sendKefraBalance(w, s, e.NightmareEntries)
+			d.sendKefraBalance(w, s, e.NightmareEntries)
 		}
 		return true
 	}

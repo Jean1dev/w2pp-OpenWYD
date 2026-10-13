@@ -245,7 +245,7 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 		e.KefraTicket--
 		x := 2364 + int16(w.Rand().Intn(3))
 		y := 3906 + int16(w.Rand().Intn(3))
-		sendKefraBalance(w, s, e.KefraTicket)
+		d.sendKefraBalance(w, s, e.KefraTicket)
 		d.doTeleport(w, s, x, y)
 		return
 	}

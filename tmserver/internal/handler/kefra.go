@@ -9,9 +9,15 @@ import (
 )
 
 const (
-	itemSealedScroll      = 4127
-	kefraEntriesPerScroll = 100
+	itemSealedScroll = 4127
+	// defaultKefraEntriesPerScroll is the legacy grant (_MSG_Quest.cpp:2614);
+	// Config.KefraEntriesPerScroll overrides it per server.
+	defaultKefraEntriesPerScroll = 100
 )
+
+// changeCount is _DN_CHANGE_COUNT (Language.txt:420) in the table's
+// Windows-1252 bytes, like the other legacy strings sent to the client.
+const changeCount = "Voc\xea pode usar isto %d vezes."
 
 func isSurvivorNPC(npc *world.Entity) bool {
 	if npc == nil || npc.Grade != 22 {
@@ -25,8 +31,12 @@ func isSurvivorNPC(npc *world.Entity) bool {
 
 // survivorExchange ports SOBREVIVENTE (_MSG_Quest.cpp:2598). The legacy
 // ignores confirm and clears the first matching slot, including all effects.
+//
+// Unlike the legacy, which stays silent, a player without a scroll gets the
+// remaining balance (issue #343), so the NPC is where entries can be checked.
 func (d *Dispatcher) survivorExchange(w *world.World, s *world.Session, e *world.Entity) {
-	if e.KefraTicket > math.MaxInt32-kefraEntriesPerScroll {
+	grant := int32(d.cfg.KefraEntriesPerScroll)
+	if e.KefraTicket > math.MaxInt32-grant {
 		return
 	}
 	for slot := 0; slot < activeCarryLimit(e); slot++ {
@@ -34,15 +44,17 @@ func (d *Dispatcher) survivorExchange(w *world.World, s *world.Session, e *world
 			continue
 		}
 		e.Carry[slot] = world.Item{}
-		e.KefraTicket += kefraEntriesPerScroll
+		e.KefraTicket += grant
 		d.sendSlot(w, s, protocol.ItemPlaceCarry, slot, e.Carry[slot])
-		sendKefraBalance(w, s, e.KefraTicket)
+		d.sendKefraBalance(w, s, e.KefraTicket)
 		d.log.Info("kefra scroll exchanged", "conn", s.Conn, "name", e.Name, "tickets", e.KefraTicket)
 		return
 	}
+	d.sendKefraBalance(w, s, e.KefraTicket)
 }
 
-// sendKefraBalance uses the legacy _DN_CHANGE_COUNT text (Language.txt:420).
-func sendKefraBalance(w *world.World, s *world.Session, balance int32) {
-	w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody(fmt.Sprintf("Você pode usar isto %d vezes.", balance)))
+// sendKefraBalance sends _DN_CHANGE_COUNT the way SendClientMessage does
+// (HEADER.ID 0), the only form the 7662 client shows (TMScene.cpp:1371).
+func (d *Dispatcher) sendKefraBalance(w *world.World, s *world.Session, balance int32) {
+	d.sendClientMessage(w, s, fmt.Sprintf(changeCount, balance))
 }

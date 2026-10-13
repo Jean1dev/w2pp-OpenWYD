@@ -36,6 +36,10 @@ type Config struct {
 	Log           *slog.Logger     // default slog.Default()
 	Now           func() time.Time // wall clock for calendar-gated guild ops
 
+	// KefraEntriesPerScroll is how many Hall of Kefra entries one sealed
+	// scroll grants at the Sobrevivente; default 100 (the legacy value).
+	KefraEntriesPerScroll int
+
 	// AffectDuration tunes how long a CAST buff/debuff lasts (issue #229). The
 	// zero value is legacy-faithful; production defaults are set in
 	// cmd/tmserver/main.go. Item/cash/Divine affects never pass through it.
@@ -262,6 +266,9 @@ func New(cfg Config) *Dispatcher {
 	}
 	if cfg.MaxFailLogin <= 0 {
 		cfg.MaxFailLogin = 3
+	}
+	if cfg.KefraEntriesPerScroll <= 0 {
+		cfg.KefraEntriesPerScroll = defaultKefraEntriesPerScroll
 	}
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()

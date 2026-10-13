@@ -231,7 +231,7 @@ func (d *Dispatcher) useNightmareDeed(w *world.World, s *world.Session, e *world
 	e.LastNightmareUse = d.now().Unix()
 	consumeOneItem(&e.Carry[src])
 	d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
-	sendKefraBalance(w, s, e.NightmareEntries)
+	d.sendKefraBalance(w, s, e.NightmareEntries)
 }
 
 func (d *Dispatcher) nightmareMobKilled(w *world.World, mob *world.Entity) {

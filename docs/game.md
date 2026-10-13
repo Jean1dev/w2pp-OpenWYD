@@ -9,7 +9,7 @@
 ✅ /erion: se teleportará para a cidade de Erion <br/>
 ✅ /azran: se teleportará para a cidade de Azran <br/>
 ✅ /gelo: se teleportará para a cidade de Gelo <br/>
-✅ /kefra: se teleportará para a cidade de Kefra <br/>
+✅ /kefra: se teleportará para a cidade de Kefra. Ali, o NPC Sobrevivente troca o Pergaminho Selado (4127) por acessos ao Hall de Kefra (100 por pergaminho, ajustável com `-kefra-entries-per-scroll`), e cada entrada no Hall gasta um. Falar com ele sem pergaminho mostra os acessos restantes <br/>
 ✅ /noatun: se teleportará para Noatun <br/>
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>
 ✅ /rei ou /king: teleporta para o rei correspondente à capa equipada — Hekalotia (azul) vai para `(1748,1574)` e Akelonia (vermelha) para `(1748,1880)`; sem capa de reino, o comando não teleporta <br/>
