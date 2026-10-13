@@ -12,7 +12,7 @@ driven by reverse-engineering documentation under `docs/migration/` — read it 
 wire/format/gameplay behavior; it cites evidence as `Source/.../file.cpp:line` and marks unconfirmed
 points **UNVERIFIED**.
 
-Module path: `github.com/jeanluca/w2pp-openwyd` (Go 1.25/1.26, Linux/Docker target).
+Module path: `github.com/jeanluca/w2pp-openwyd` (Go 1.26, Linux/Docker target).
 
 ## Commands
 
