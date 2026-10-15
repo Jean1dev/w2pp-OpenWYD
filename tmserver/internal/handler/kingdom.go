@@ -62,9 +62,14 @@ func (d *Dispatcher) sendEnvEffectKingdom(w *world.World, box areaBox, exempt ui
 			hasEnemy = true
 		}
 	})
-	if !hasEnemy {
-		return
+	if hasEnemy {
+		sendEnvEffectBox(w, box)
 	}
+}
+
+// sendEnvEffectBox multicasts the wall effect for box from its centre, the
+// GridMulticast tail of the SendEnvEffect* family.
+func sendEnvEffectBox(w *world.World, box areaBox) {
 	body := protocol.EncodeEnvEffect(box.x1, box.y1, box.x2, box.y2, envEffectWall, 0)
 	cx, cy := box.center()
 	w.ForEachInViewAt(cx, cy, -1, func(s *world.Session, _ *world.Entity) {

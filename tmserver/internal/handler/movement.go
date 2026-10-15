@@ -98,6 +98,9 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 		d.doTeleport(w, s, e.X, e.Y)
 		return
 	}
+	if d.runeQuestAmonGuard(w, s, e, body.TargetX, body.TargetY) {
+		return
+	}
 
 	// No-op move: legacy only processes when the destination differs from the
 	// current (destination-authoritative) position.

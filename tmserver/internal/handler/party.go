@@ -259,6 +259,7 @@ func (d *Dispatcher) leaderLeaveParty(w *world.World, leaderConn int) {
 	if nle == nil {
 		return
 	}
+	transferRuneQuestLeader(w, leaderConn, le.Name, newLeader, nle.Name)
 	nle.Leader = 0
 	nle.PartyList = [world.MaxParty]int{}
 	for _, memberID := range members[1:] {

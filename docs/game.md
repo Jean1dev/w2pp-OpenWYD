@@ -64,8 +64,29 @@ Torre, +2 Amon, +3 Sulrang, +4 Labirinto, +5 Balrog, +6 Coelho). A pista é cons
 No minuto seguinte (:00, :20 ou :40), o líder e os membros do grupo que estiverem perto do Uxmal
 entram na sala. Aos 15 minutos da rodada todos voltam para fora.
 
+Ao concluir cada sala, o líder e cada membro em jogo ganham uma runa, e o líder ganha a pista da
+sala seguinte:
+
+- **+0 Lich:** cada Lich morto tem 20% de chance de concluir a sala. Se falhar, os Lichs voltam em
+  dobro.
+- **+1 Torre:** cada kill conta para o seu grupo enquanto a sua torre estiver de pé. Na saída, o
+  grupo com mais kills, estritamente à frente dos outros dois, ganha.
+- **+2 Amon:** matar o chefe conclui. Só líderes inscritos entram na câmara do chefe; quem não for
+  volta para a entrada.
+- **+3 Sulrang:** o primeiro Sulrang morto chama o Kalintz, e cada Kalintz morto chama o próximo e
+  pontua para o grupo do matador. Na saída, ganha quem tiver mais pontos.
+- **+4 Labirinto:** limpe os blocos até zerar o contador do grupo e enfrente o chefe. As armadilhas
+  do chão causam 2000 de dano, exceto no bloco onde estiver um líder inscrito.
+- **+5 Balrog:** os portais da sala custam uma Semente de Cristal (4032) por salto e levam o grupo
+  para uma sala sorteada. A última sala tem o Balrog.
+- **+6 Coelho:** o contador começa em 100. Cada coelho morto desconta 1, e cada um que foge devolve 1.
+  No zero aparece o Rei Carbuncle, que só dá runas.
+
+Se o líder sair do grupo, a inscrição passa para o novo líder.
+
 - ✅ Inscrição, entrada e saída
-- ⏳ Contagem de kills, chefes, drops de runa, prêmios, portal do Balrog e contador do Coelho
+- ✅ Kills, chefes, runas, prêmios, portais do Balrog, contador do Coelho, guarda do Amon e
+  armadilhas do Labirinto
 
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
