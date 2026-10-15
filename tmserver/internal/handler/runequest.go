@@ -8,9 +8,8 @@ import (
 )
 
 // Pista de Runas (rune track): the Uxmal registration (_MSG_Quest.cpp:1313-1395)
-// and the entry/exit minute timers (ProcessSecMinTimer.cpp:1082-1429). Kill
-// counting, boss and rune drops, the Balrog portal, the Coelho counter and the
-// Torre/Sulrang prizes are not ported yet.
+// and the entry/exit minute timers (ProcessSecMinTimer.cpp:1082-1429). The room
+// play (kills, bosses, prizes, portals, counter, traps) is in runequest_kills.go.
 
 // itemPistaDaRunas is the rune track ticket (ItemList.csv:6223 "Pista_da_Runas").
 // Its sanc selects the room.
@@ -156,7 +155,7 @@ func (d *Dispatcher) runeQuestEnter(w *world.World, st *world.RuneQuestState) {
 	for t := range st.Rooms[4].Party {
 		st.Rooms[4].Party[t].MobCount = 1
 	}
-	st.Rooms[6].Party[0].MobCount = 100
+	st.Rooms[runeRoomCoelho].Party[0].MobCount = runeQuestCoelhoStart
 
 	for sala := range st.Rooms {
 		for t := range st.Rooms[sala].Party {
@@ -200,25 +199,26 @@ func (d *Dispatcher) runeQuestSpawn(w *world.World, p *world.RuneQuestParty, sal
 	case 0: // Lich
 		switch t {
 		case 0:
-			spawn(5654, 5654)
+			spawn(runeQuestLich2, runeQuestLich2)
 		case 1:
-			spawn(5653, 5653)
+			spawn(runeQuestLich1, runeQuestLich1)
 		}
 	case 1: // Torre: the three towers, then the room mobs
-		spawn(5706, 5708)
-		spawn(5709, 5764)
+		spawn(runeQuestTower1, runeQuestTower1+2)
+		spawn(runeQuestTowerMobFirst, runeQuestTowerMobLast)
 	case 2: // Amon boss
-		spawn(5789, 5789)
+		spawn(runeQuestAmonBoss, runeQuestAmonBoss)
 	case 4: // Labirinto
 		p.MobCount = 8 + w.Rand().Intn(8)
 		if t == 0 {
-			spawn(5854, 5898)
+			spawn(runeQuestLabyrinthFirst, runeQuestLabyrinthLast)
 		}
 	}
 }
 
-// runeQuestExit empties the rooms, revives and returns every player inside and
-// frees all registrations (ProcessSecMinTimer.cpp:1150-1429, without the prizes).
+// runeQuestExit empties the rooms, revives and returns every player inside,
+// pays the Torre/Sulrang winners and frees all registrations
+// (ProcessSecMinTimer.cpp:1150-1429).
 func (d *Dispatcher) runeQuestExit(w *world.World, st *world.RuneQuestState) {
 	world.ForEachRuneQuestGenerator(w.ClearGenerator)
 	// The original deletes every mob in the box, including the permanent
@@ -240,6 +240,7 @@ func (d *Dispatcher) runeQuestExit(w *world.World, st *world.RuneQuestState) {
 		}
 		d.doTeleport(w, s, runeQuestExitX, runeQuestExitY)
 	})
+	d.runeQuestPrizes(w, st)
 	st.Rooms = [world.RuneQuestRooms]world.RuneQuestRoom{}
 	d.log.Info("rune quest exit")
 }

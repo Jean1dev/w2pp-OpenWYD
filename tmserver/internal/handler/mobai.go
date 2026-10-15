@@ -47,6 +47,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 	d.tickKefra(w)
 	d.tickNightmare(w)
 	d.tickRuneQuest(w)
+	d.tickRuneQuestRooms(w)
 	d.ensureGuildStateLoaded(w)
 
 	// Dormancy gate: snapshot the (few) in-play player positions once, so the
@@ -769,7 +770,8 @@ func (d *Dispatcher) mobRoam(w *world.World, id int, e *world.Entity) {
 				e.WaitTicks--
 				return
 			}
-			w.DespawnMob(id, 3) // StandingByProcessor 0x10000 → DeleteMob(index, 3)
+			runeQuestRouteEnd(w, e)
+			w.RemoveGeneratorMob(id, 3) // StandingByProcessor 0x10000 → DeleteMob(index, 3)
 			return
 		}
 		if e.RouteType == 6 {

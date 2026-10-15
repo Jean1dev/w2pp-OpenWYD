@@ -60,6 +60,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 	}
 	d.castleBossKilled(w, reward, mob)
 	d.waterMobKilled(w, reward, mob)
+	d.runeQuestMobKilled(w, reward, mob)
 	// The reward target is a player, so its entity id equals its connection slot;
 	// the session is needed for gold/level-up packets (nil if it disconnected).
 	ks := w.Session(reward.ID)
@@ -115,14 +116,22 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 		}
 	}
 
-	if !nightmareDeath {
-		sendDieAction(w, mob)
-	}
+	gen := int(mob.GenIndex)
+	if w.Entity(mob.ID) != mob {
+		// A rune track hook already deleted it (the Lich cleanup), and its slot
+		// may hold a fresh spawn: keep only the DieSay draw.
+		w.Rand().Intn(4)
+	} else {
+		if !nightmareDeath {
+			sendDieAction(w, mob)
+		}
 
-	// Despawn: tell in-view clients the mob died (RemoveMob, type 1 = death) and
-	// free its grid cell + entity slot, so the corpse disappears and it can't be
-	// retargeted. Without this the client keeps rendering the dead mob.
-	w.DespawnMob(mob.ID, 1)
+		// Despawn: tell in-view clients the mob died (RemoveMob, type 1 = death) and
+		// free its grid cell + entity slot, so the corpse disappears and it can't be
+		// retargeted. Without this the client keeps rendering the dead mob.
+		w.DespawnMob(mob.ID, 1)
+	}
+	d.runeQuestMobRemoved(w, reward, gen)
 }
 
 // putMobDrop mirrors legacy PutItem for common mob loot. A full accessible Carry

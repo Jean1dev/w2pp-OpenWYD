@@ -186,7 +186,7 @@ O destino é `(2364+rand()%3,3906+rand()%3)`, com duas chamadas ao RNG MSVC, X a
 de Y (`GetFunc.cpp:994-1004`). Uma tentativa sem saldo não consome RNG nem teleporta.
 Outras rotas e o ciclo de vida do boss Kefra não fazem parte desta implementação.
 
-## Uxmal — Pista de Runas (#355)
+## Uxmal — Pista de Runas (#355, #373)
 
 O template `npc/Uxmal` tem `MOB.Merchant=72` no byte 17, mas
 `CurrentScore.Merchant=104` (o valor de `Entity.Merchant`, que também aparece
@@ -227,9 +227,111 @@ pista (`world.IsRuneQuestGenerator`) não spawnam no boot nem entram na fila de
 respawn. A população permanente das salas (blocos com `MinuteGenerate 1`)
 continua no timer de minuto, como no legado.
 
-**Pendente:**
+**Salas** (#373, `handler/runequest_kills.go`). O crédito vai para
+`partyleader = Leader`, ou para o próprio matador quando `Leader <= 0`. A
+**recompensa padrão** é:
 
-- Contagem de kills (`MobKilled.cpp:2158-2500`) e os chefes que dependem dela.
-- Drops de runa e da próxima pista.
-- Prêmios da Torre e do Sulrang.
-- Portal do Balrog, contador do Coelho e guarda da sala Amon (`_MSG_Action.cpp:178`).
+- uma runa de `PistaRune[sala][rand()%N]` para o líder;
+- outra para cada membro de `PartyList` em `USER_PLAY`;
+- a pista 5134 com `EF_SANC = sala+1`, só para o líder.
+
+A runa do líder é sorteada mesmo quando ele não pode recebê-la. O
+`world.RuneQuestRunes` guarda só as N entradas sorteáveis: a última de cada linha
+do legado nunca sai.
+
+Hooks de morte antes do `DeleteMob` (`MobKilled.cpp:2158-2500`), chamados em
+`mobKilled` logo após a água, antes de ouro, EXP e loot:
+
+| Sala | Regra |
+|---|---|
+| +0 Lich | `rand()%100`, depois apaga todos os Lichs (`DeleteMob(c,3)`, inclusive o que está morrendo). Com `< 20`, recompensa padrão com sanc 1. Senão, `GenerateMob` 5653 2× e 5654 2×. |
+| +1 Torre | Matar a torre `5706+t` zera o `MobCount[t]`. Um mob 5709–5764 pontua para o primeiro grupo `t` cuja torre está viva e cujo líder é o `partyleader`. |
+| +2 Amon | O boss 5789 dá a recompensa padrão com sanc 3. |
+| +3 Sulrang | Com `Party[0]` inscrito e `MobCount == 0`: `MobCount = 1` e `GenerateMob(5948 + rand()%7)`. |
+| +4 Labirinto | Só o último mob do bloco (`CurrentNumMob == 1`, ainda contando o que morre) decrementa o grupo do `partyleader`, e só se os outros dois tiverem `MobCount >= 1`. No 0, o grupo vai para (3351,1334), com os membros do grupo 1 em x 3352, e spawna o 5849. O 5849 dá a recompensa padrão com sanc 5. |
+| +5 Balrog | O 5899 coloca `Party[0].MobCount = 1` e dá a recompensa padrão com sanc 6. |
+| +6 Coelho | Cada mob 5775–5785 decrementa o contador; no 1→0 spawna o 5767. O 5767 dá só as runas. |
+
+Depois do `DeleteMob` (`:2958-2986`):
+
+- Os mobs da Torre (5709–5764) e do Amon (5790–5848) voltam na hora.
+  - Exceção: blocos que a fila de respawn de 15s já repõe (`MinuteGenerate <= 0`
+    fora do evento), para não spawnar duas vezes.
+- Cada Kalintz (5948–5955) spawna o próximo (`rand()%7`) e incrementa o
+  `MobCount` do grupo do `partyleader`.
+
+**Prêmios na saída** (`ProcessSecMinTimer.cpp:1186-1416`):
+
+- Rodam depois da limpeza e antes de zerar as inscrições.
+- Na Torre (sanc 2) e no Sulrang (sanc 4), o grupo com `MobCount` estritamente
+  maior que os outros dois recebe a recompensa padrão.
+- O nome do líder precisa ainda conferir.
+
+**Portais do Balrog** (`:254-514`), a cada tick, para cada líder inscrito em
+`Pista[5]`. O líder precisa estar vivo, ainda ser líder ou solo, e o nome precisa
+conferir.
+
+1. `rand()%3` é sorteado **antes** da checagem do tile.
+2. A posição `& 0xFFFC` é comparada com `world.RuneQuestBalrogPortals`, a tabela
+   `PistaBalrogPortalPos` já com o destino de cada resultado (os ramos que o
+   sorteio 0–2 não alcança foram removidos).
+3. Se o destino é a sala do boss e `Party[0].MobCount == 0`, gera o 5899 antes de
+   cobrar.
+4. Sem a Semente de Cristal (4032), não há salto. Com ela, uma é consumida e o
+   grupo vai para `PistaBalrogPos[destino]`.
+
+**Contador do Coelho:**
+
+- **Envio:** a cada 6 ticks, `_MSG_MobLeft` (0x3B0, `MSG_STANDARDPARM`, ID
+  `ESCENE_FIELD`) vai para os jogadores em x 3330–3447 e y 1475–1524. O
+  `SendSignalParmArea` tem a borda superior exclusiva (`:536`).
+- **Devolução:** o contador sobe, limitado a 100 e só se for diferente de 0, em
+  dois casos:
+  - um coelho 5775–5785 chega ao fim da rota (`Processor & 0x10000`, `:2004`);
+  - um coelho 5768–5774 entra no portão x 3423–3442, y 1492–1511 (`:1856`,
+    `:2049`).
+- **Remoção:** qualquer mob que entra no portão, exceto o 5767, é apagado com
+  `DeleteMob(.,3)`.
+
+**Guarda do Amon** (`_MSG_Action.cpp:177-189`, `movement.go`). Um movimento para
+x 3378–3398, y 1427–1448 é bloqueado se o jogador não for o líder do próprio
+grupo, ou se não for líder inscrito em `Pista[2]`. O jogador vai para
+`PistaPos[2][rand()%3]`.
+
+**Troca de líder** (`Server.cpp:8205-8220`, `leaderLeaveParty`). Toda inscrição
+com o id e o nome do líder que sai passa para o novo líder. O `TransferGroup`
+(`:8317-8346`) ainda não tem port.
+
+**Armadilhas do Labirinto** (`:1715-1804`, `SendFunc.cpp:541-600`,
+`Server.cpp:6081-6160`), a cada 3 ticks, nas 44 caixas de `world.RuneQuestTraps`:
+
+- Se algum líder inscrito em `Pista[4]` está na caixa (borda superior
+  exclusiva), nada acontece.
+- Senão, se há algum jogador, o `EnvEffect(32)` sai do centro.
+- Depois, todo jogador vivo dentro da caixa (borda inclusiva) perde 2000 HP, ou
+  fica com 1.
+
+**`DeleteMob` sem morte.** O legado decrementa o `CurrentNumMob` para qualquer
+tipo diferente de 0 (`Server.cpp:7820`). O `world.RemoveGeneratorMob` faz isso
+para os tipos 3 usados aqui e para o fim de rota dos mobs de rota 3. Antes, um
+bloco cujos mobs saíam pelo fim da rota ficava no teto e nunca era reposto.
+
+**Desvios:**
+
+- **Alvos errados corrigidos.** O RNG continua o mesmo. Os três casos:
+  - Torre, grupo 3: a runa do líder ia para o líder do grupo 1 (`:1275`).
+  - Sulrang, grupo 2: o ticket ia para `Party[3]`, fora do array (`:1373`).
+  - Armadilhas: a checagem de líder testava `Party[1]` duas vezes e nunca
+    `Party[2]` (`SendFunc.cpp:588`, `Server.cpp:6111`).
+- **Cadência.** O timer do legado é de 500ms (`Server.cpp:4086`) e o tick é de 1s.
+  Por isso:
+  - o portal do Balrog faz metade dos `rand()` por segundo;
+  - `SecCounter%12` vira 6 ticks;
+  - `SecCounter%5` (2,5s) vira 3 ticks.
+- **Mob que mata mob.** A morte de um mob por outro mob que não seja summon
+  (`mobai.go`) não passa pelos hooks. O legado ainda descontaria o Coelho e
+  repovoaria a Torre nesse caso, que é raro dentro das salas. **UNVERIFIED**
+  se ele ocorre na prática.
+- **Lich.** Quando o hook do Lich já apagou o mob que está morrendo, `mobKilled`
+  só consome o sorteio do `DieSay` e não remove de novo o slot, que pode já ser
+  de um Lich novo.

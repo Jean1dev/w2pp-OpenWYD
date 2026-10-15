@@ -186,6 +186,7 @@ const (
 	MsgSendArchEffect     Type = 0x03B4 // 948  S↔C arch-created effect (MSG_STANDARDPARM)
 	MsgStartTime          Type = 0x03A1 // 929  S→C countdown signal (MSG_STANDARDPARM, Basedef.h:2526)
 	MsgEnvEffect          Type = 0x03A2 // 930  S→C area effect box (MSG_EnvEffect, Basedef.h:2529)
+	MsgMobLeft            Type = 0x03B0 // 944  S→C remaining-mob counter (MSG_STANDARDPARM, Basedef.h:2570)
 	MsgUpdateWeather      Type = 0x018B // 395  S→C global weather change (MSG_UpdateWeather, Basedef.h:2167)
 
 	// MsgMagicTrumpet is _MSG_MagicTrumpet (Basedef.h:1738, protocol-spec.md:685):

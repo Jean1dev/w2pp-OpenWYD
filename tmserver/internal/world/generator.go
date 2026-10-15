@@ -96,6 +96,23 @@ func (w *World) ClearGenerator(idx int) {
 	}
 }
 
+// RemoveGeneratorMob ports a non-death DeleteMob (Server.cpp:7809-7843): any
+// non-zero type releases the mob's generator slot, while DespawnMob only does
+// so for deaths (type 1, which also feeds the respawn queue). Without the
+// release, a block whose mobs leave by type 3 stays at its cap and the minute
+// timer never refills it. Loop-only.
+func (w *World) RemoveGeneratorMob(id int, removeType int32) {
+	e := w.Entity(id)
+	if e == nil || IsPlayer(id) {
+		return
+	}
+	gen := w.GeneratorAt(int(e.GenIndex))
+	w.DespawnMob(id, removeType)
+	if removeType != 0 && removeType != 1 && gen != nil {
+		gen.CurrentNumMob = max(gen.CurrentNumMob-1, 0)
+	}
+}
+
 // SpawnGeneratorLeader spawns exactly one generator leader at its first
 // waypoint without consuming RNG. Scripted world events use this instead of
 // GenerateMob so they cannot perturb the combat/drop parity stream.
