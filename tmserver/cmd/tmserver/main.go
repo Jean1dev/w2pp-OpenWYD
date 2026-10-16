@@ -115,6 +115,11 @@ func run(logger *slog.Logger) error {
 	doubleExp := flag.Bool("double-exp", envBool("W2PP_DOUBLE_EXP", false), "DOUBLEMODE: double PvE experience (gameconfig double)")
 	newbieEvent := flag.Bool("newbie-event", envBool("W2PP_NEWBIE_EVENT", false), "NewbieEventServer: +15% exp and newbie under-100 bonus (gameconfig)")
 	kefraLive := flag.Bool("kefra-live", envBool("W2PP_KEFRA_LIVE", false), "initial Kefra defeated state (true opens city); persisted cycle takes precedence; false halves PvE exp")
+	// Issue #383: a fresh character must reach displayed level 35 in ~15 min on
+	// the training grounds. The measured pace with the plain reward was ~1k exp/min
+	// (×0.425 from Kefra/newbie included) against the ~11.7k needed; dropping
+	// those reducers gives ~2.35×, and 6 closes the rest with headroom.
+	trainingFieldExp := flag.Int("training-field-exp", envInt("W2PP_TRAINING_FIELD_EXP", 6), "EXP multiplier for training-grounds kills (AttributeMap 0x80 generators) by mortals below stored level 35; replaces the global event modifiers there. 0 = legacy reward")
 	logSends := flag.Bool("log-sends", envBool("W2PP_LOG_SENDS", false), "log every S→C frame (conn/type/id/len) — client-freeze diagnostics (investigacao-freeze-cliente.md); high volume, enable only while reproducing an incident")
 	// Cast-buff duration tuning (issue #229). The legacy formula is
 	// (AffectTime+1)*(100+Special)/100 ticks of 8s, which puts an endgame character
@@ -151,6 +156,7 @@ func run(logger *slog.Logger) error {
 	var odinCatalog combine.Catalog
 	var spells *content.SkillData
 	var heights *content.Grid
+	var attrs *content.Grid
 	var sancRate *content.SancRate
 	var compRate *content.CompRate
 	var questRates *content.QuestRates
@@ -169,6 +175,7 @@ func run(logger *slog.Logger) error {
 		combineFamilies = handler.DefaultCombineFamilies(odinCatalog)
 		spells = c.skills
 		heights = c.heights
+		attrs = c.attrs
 		sancRate = c.sanc
 		compRate = c.comp
 		questRates = c.quests
@@ -301,17 +308,18 @@ func run(logger *slog.Logger) error {
 		KefraEntriesPerScroll: *kefraEntriesPerScroll,
 		Log:                   logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
 		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
-		SancRate:        sancRate,
-		ExpEvents:       level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
-		CombineFamilies: combineFamilies,
-		OdinCatalog:     odinCatalog,
-		CombineCatalog:  odinCatalog,
-		CompRate:        compRate,
-		QuestRates:      questRates,
-		NpcConfig:       npcConfig,
-		WorldEvents:     worldEvents,
-		CastleQuests:    castleQuests,
-		EventRNGSeed:    eventSeed,
+		SancRate:         sancRate,
+		ExpEvents:        level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
+		TrainingFieldExp: int64(*trainingFieldExp),
+		CombineFamilies:  combineFamilies,
+		OdinCatalog:      odinCatalog,
+		CombineCatalog:   odinCatalog,
+		CompRate:         compRate,
+		QuestRates:       questRates,
+		NpcConfig:        npcConfig,
+		WorldEvents:      worldEvents,
+		CastleQuests:     castleQuests,
+		EventRNGSeed:     eventSeed,
 		AffectDuration: world.AffectDuration{
 			ScalePct: *affectScalePct,
 			MinTicks: handler.AffectTicksFromSeconds(*affectMinSeconds),
@@ -362,7 +370,7 @@ func run(logger *slog.Logger) error {
 	// the DB overlay is active, merchant blocks are skipped here (owned by
 	// npc_definition) and applied from the config snapshot instead.
 	if *contentDir != "" {
-		spawnNPCs(w, *contentDir, npcConfig != nil, mobStatOverrides, logger)
+		spawnNPCs(w, *contentDir, attrs, npcConfig != nil, mobStatOverrides, logger)
 		seedWorldItems(w, *contentDir, logger)
 	}
 	if npcConfig != nil {
@@ -399,7 +407,11 @@ func run(logger *slog.Logger) error {
 // front so the world is playable immediately. This burns the LCG at boot (one
 // stream for all spawns, like the original's global rand()); there is no legacy
 // boot rand order to diverge from.
-func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides map[string]mobstat.Override, logger *slog.Logger) {
+//
+// attrs is the raw AttributeMap; it marks the training-grounds generators
+// (trainingFieldAt). nil leaves every block unmarked, so the field EXP
+// multiplier is off.
+func spawnNPCs(w *world.World, dir string, attrs *content.Grid, skipMerchants bool, mobStatOverrides map[string]mobstat.Override, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
 	if err != nil {
 		logger.Warn("NPC generators not loaded", "err", err)
@@ -497,6 +509,7 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 			FollowerTmpl:   follower.bytes,
 			FightAction:    g.FightAction,
 			DieAction:      g.DieAction,
+			TrainingField:  trainingFieldAt(attrs, g.SegX[0], g.SegY[0]),
 		}
 		for s := 0; s < 5; s++ {
 			wg.SegRange[s] = int16(g.SegRange[s])
@@ -509,6 +522,17 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 		}
 	}
 	w.RegisterGenerators(wgens)
+	trainingGens := 0
+	for _, wg := range wgens {
+		if wg != nil && wg.TrainingField {
+			trainingGens++
+		}
+	}
+	if attrs == nil {
+		logger.Warn("training-grounds generators not marked: AttributeMap.dat not loaded, field EXP multiplier disabled")
+	} else {
+		logger.Info("training-grounds generators marked", "generators", trainingGens)
+	}
 
 	total := 0
 	for i := range wgens {
@@ -528,6 +552,17 @@ func spawnNPCs(w *world.World, dir string, skipMerchants bool, mobStatOverrides 
 	logger.Info("npc template catalog", "layouts", stats)
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
 		"merchant_blocks_skipped", skipped)
+}
+
+// trainingFieldAt reports whether world tile (x,y) is on the training grounds:
+// AttributeMap bit 0x80, read the way GetAttribute does (GetFunc.cpp:1383 —
+// one attribute byte per 4×4 tiles, out-of-range = 0). The legacy uses the same
+// bit to keep displayed level 36+ out (_MSG_Action.cpp:201-215).
+func trainingFieldAt(attrs *content.Grid, x, y int16) bool {
+	if attrs == nil || x < 0 || y < 0 {
+		return false
+	}
+	return attrs.At(int(x)/4, int(y)/4)&0x80 != 0
 }
 
 // seedWorldItems spawns the static world objects (gates/doors) from
@@ -644,7 +679,7 @@ func loadContent(dir string, logger *slog.Logger) (*loadedContent, error) {
 	} else if hm != nil || attr != nil {
 		logger.Warn("mob pathfinding disabled: need BOTH HeightMap.dat and AttributeMap.dat")
 	}
-	return &loadedContent{items: items, comp: comp, sanc: sanc, quests: quests, skills: skills, heights: heights}, nil
+	return &loadedContent{items: items, comp: comp, sanc: sanc, quests: quests, skills: skills, heights: heights, attrs: attr}, nil
 }
 
 // loadedContent is what a mounted Release/ tree yields. It is a struct rather
@@ -656,6 +691,7 @@ type loadedContent struct {
 	quests  *content.QuestRates
 	skills  *content.SkillData
 	heights *content.Grid
+	attrs   *content.Grid // raw AttributeMap (training-grounds bit); nil when not mounted
 }
 
 // sancRow renders one anvil's rate row for the boot log.

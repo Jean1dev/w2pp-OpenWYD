@@ -37,6 +37,51 @@ type ExpEvents struct {
 // its g_EmptyMob/PARTYBONUS factor, the fairy-pet bonus, the RvR-war +5%, and
 // the DayLog/Hold banking (:1386-1408).
 func SoloExpReward(mobExp int64, killerLevel, mobLevel int32, classMaster uint8, expBonus int32, ev ExpEvents) int64 {
+	exp := soloBaseExp(mobExp, killerLevel, mobLevel, classMaster, expBonus)
+	if exp <= 0 {
+		return 0
+	}
+	if ev.NewbieEvent && killerLevel < 100 && !isCelestialTier(classMaster) {
+		exp += exp / 4
+	}
+	if ev.DoubleMode {
+		exp *= 2
+	}
+	if !ev.KefraLive {
+		exp /= 2
+	}
+	if ev.NewbieEvent {
+		exp += exp * 15 / 100
+	} else {
+		exp -= exp * 15 / 100
+	}
+	if exp <= 0 {
+		return 0
+	}
+	return exp
+}
+
+// TrainingFieldExpReward is the solo reward for a kill on the training grounds
+// (generators spawning on AttributeMap 0x80 cells): the event-free base reward
+// of SoloExpReward times mult. Deliberate divergence from the legacy (issue
+// #383): the field must take a fresh character to displayed level 35 in about
+// 15 minutes, so its pace must not depend on the global events — the Kefra ÷2
+// and the newbie ±15% (×0.425 on a default server) are skipped, and so is
+// DOUBLEMODE. The product is capped at the (0,10M] award gate.
+func TrainingFieldExpReward(mobExp int64, killerLevel, mobLevel int32, classMaster uint8, expBonus int32, mult int64) int64 {
+	exp := soloBaseExp(mobExp, killerLevel, mobLevel, classMaster, expBonus)
+	if exp <= 0 || mult <= 0 {
+		return 0
+	}
+	if exp > soloExpGate/mult {
+		return soloExpGate
+	}
+	return exp * mult
+}
+
+// soloBaseExp is the event-independent head of the general-field pipeline:
+// everything up to and including the item exp bonus.
+func soloBaseExp(mobExp int64, killerLevel, mobLevel int32, classMaster uint8, expBonus int32) int64 {
 	isExp := ExpApply(mobExp, killerLevel, mobLevel)
 	if isExp <= 0 {
 		return 0
@@ -59,23 +104,6 @@ func SoloExpReward(mobExp int64, killerLevel, mobLevel int32, classMaster uint8,
 	}
 	if expBonus > 0 && expBonus < 500 {
 		exp += exp * int64(expBonus) / 100
-	}
-	if ev.NewbieEvent && killerLevel < 100 && !isCelestialTier(classMaster) {
-		exp += exp / 4
-	}
-	if ev.DoubleMode {
-		exp *= 2
-	}
-	if !ev.KefraLive {
-		exp /= 2
-	}
-	if ev.NewbieEvent {
-		exp += exp * 15 / 100
-	} else {
-		exp -= exp * 15 / 100
-	}
-	if exp <= 0 {
-		return 0
 	}
 	return exp
 }

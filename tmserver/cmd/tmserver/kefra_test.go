@@ -35,7 +35,7 @@ func TestSpawnNPCsDefersKefraUntilStateLoad(t *testing.T) {
 	}
 	log := slog.New(slog.DiscardHandler)
 	w := world.New(world.Config{GridDim: 64}, log, nil, nil)
-	spawnNPCs(w, dir, false, nil, log)
+	spawnNPCs(w, dir, nil, false, nil, log)
 	if w.GeneratorAt(0) == nil || w.GeneratorAt(0).CurrentNumMob != 1 {
 		t.Fatal("ordinary generator did not spawn")
 	}

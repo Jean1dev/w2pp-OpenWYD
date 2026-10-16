@@ -612,3 +612,46 @@ func TestKillCommonMobDropSendsCarrySlot(t *testing.T) {
 	}
 	t.Fatal("never received MsgSendItem for common mob drop")
 }
+
+// TestGrantExpTrainingField covers issue #383: kills from a training-grounds
+// generator pay the event-free reward times the field multiplier, but only to
+// mortals the field still admits and only while the multiplier is on.
+func TestGrantExpTrainingField(t *testing.T) {
+	const mobExp, mult = 1000, 6
+	field := level.TrainingFieldExpReward(mobExp, 10, 10, classMasterMortal, 0, mult)
+	plain := level.SoloExpReward(mobExp, 10, 10, classMasterMortal, 0, level.ExpEvents{})
+	if field <= plain {
+		t.Fatalf("field reward %d not above plain %d", field, plain)
+	}
+	tests := []struct {
+		name        string
+		genIndex    int16
+		killerLevel int32
+		classMaster uint8
+		mult        int64
+		want        int64
+	}{
+		{name: "field generator mortal", genIndex: 0, killerLevel: 10, classMaster: classMasterMortal, mult: mult, want: field},
+		{name: "ordinary generator", genIndex: 1, killerLevel: 10, classMaster: classMasterMortal, mult: mult, want: plain},
+		{name: "no generator", genIndex: -1, killerLevel: 10, classMaster: classMasterMortal, mult: mult, want: plain},
+		{name: "multiplier off", genIndex: 0, killerLevel: 10, classMaster: classMasterMortal, mult: 0, want: plain},
+		{name: "stored level 35 is past the field", genIndex: 0, killerLevel: 35, classMaster: classMasterMortal, mult: mult,
+			want: level.SoloExpReward(mobExp, 35, 10, classMasterMortal, 0, level.ExpEvents{})},
+		{name: "non-mortal", genIndex: 0, killerLevel: 10, classMaster: classMasterArch, mult: mult,
+			want: level.SoloExpReward(mobExp, 10, 10, classMasterArch, 0, level.ExpEvents{})},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, w, killer := mobKilledWorld(t)
+			w.RegisterGenerators([]*world.Generator{{TrainingField: true}, {}})
+			d.fieldExp = tt.mult
+			killer.Level, killer.ClassMaster = tt.killerLevel, tt.classMaster
+			killer.Exp = level.NextLevelExp(tt.killerLevel - 1)
+			before := killer.Exp
+			d.grantExp(w, nil, killer, &world.Entity{Level: 10, Exp: mobExp, GenIndex: tt.genIndex})
+			if got := killer.Exp - before; got != tt.want {
+				t.Errorf("gain = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

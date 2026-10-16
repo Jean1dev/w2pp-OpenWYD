@@ -23,8 +23,13 @@ type Generator struct {
 	LeaderTmpl     []byte // raw 816-byte STRUCT_MOB; nil = generator unusable
 	FollowerTmpl   []byte // nil = leader-only groups ("Follower: 0")
 	CurrentNumMob  int    // live mobs from this block (SpawnMobAt ++ / DespawnMob --)
-	FightAction    [4]string
-	DieAction      [4]string
+	// TrainingField marks a block whose start point lies on an AttributeMap
+	// 0x80 cell — the training grounds the legacy gates by level
+	// (_MSG_Action.cpp:201-215). Its kills earn the field EXP multiplier
+	// (issue #383).
+	TrainingField bool
+	FightAction   [4]string
+	DieAction     [4]string
 }
 
 // generateWorldCap stops the generator timer from filling every entity slot:

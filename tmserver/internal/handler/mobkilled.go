@@ -257,8 +257,29 @@ func (d *Dispatcher) grantExp(w *world.World, ks *world.Session, killer, mob *wo
 	if archExpLocked(killer) {
 		return
 	}
-	gain := level.SoloExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
+	var gain int64
+	if d.trainingFieldBonus(w, killer, mob) {
+		gain = level.TrainingFieldExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.fieldExp)
+	} else {
+		gain = level.SoloExpReward(mob.Exp, killer.Level, mob.Level, killer.ClassMaster, d.expBonus(killer), d.expEvents)
+	}
 	d.applyMobExp(w, ks, killer, gain)
+}
+
+// trainingFieldTopLevel is the first stored level the training grounds refuse
+// (_MSG_Action.cpp:215 blocks Level >= 35, i.e. displayed 36+); the field bonus
+// stops at the same edge.
+const trainingFieldTopLevel = 35
+
+// trainingFieldBonus reports whether a kill earns the training-grounds EXP
+// multiplier (issue #383): the mob came from a generator on an AttributeMap
+// 0x80 cell and the killer is a mortal the field still admits.
+func (d *Dispatcher) trainingFieldBonus(w *world.World, killer, mob *world.Entity) bool {
+	if d.fieldExp <= 0 || killer.ClassMaster != classMasterMortal || killer.Level >= trainingFieldTopLevel {
+		return false
+	}
+	gen := w.GeneratorAt(int(mob.GenIndex))
+	return gen != nil && gen.TrainingField
 }
 
 // applyMobExp applies an already calculated PvE reward without recalculating bonuses.

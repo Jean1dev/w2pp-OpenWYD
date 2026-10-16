@@ -35,7 +35,9 @@ func MobExpForLevel(lvl int32) int64 {
 // killsPerLevel is the pacing target: same-level kills needed to gain one
 // level. Classic WYD feel — fast on the training grounds (≤35), slowing
 // through the mid game and grinding at the cap. Linear within each band and
-// continuous across the seams.
+// continuous across the seams. The training grounds' actual pace also carries
+// the field multiplier (TrainingFieldExpReward, issue #383), which this curve
+// deliberately does not bake in so the same templates stay sane elsewhere.
 func killsPerLevel(lvl int32) float64 {
 	lerp := func(from, to float64, at, span int32) float64 {
 		return from + (to-from)*float64(at)/float64(span)
