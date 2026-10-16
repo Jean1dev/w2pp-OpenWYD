@@ -88,6 +88,20 @@ Se o líder sair do grupo, a inscrição passa para o novo líder.
 - ✅ Kills, chefes, runas, prêmios, portais do Balrog, contador do Coelho, guarda do Amon e
   armadilhas do Labirinto
 
+# Campo de Treino
+Personagem novo deve chegar ao nível 35 em cerca de 15 minutos caçando no Campo de Treino (células
+`0x80` do `AttributeMap.dat`, por volta de X 2064–2159, Y 1932–2051).
+
+Kills de mobs que nascem no campo, feitos por mortais até o nível 35, pagam a recompensa base
+multiplicada por 6. No campo não entram os eventos globais: nem a redução do Kefra (÷2), nem os ±15%
+do newbie, nem o double. É um desvio intencional do legado (issue #383). Para calibrar, use
+`-training-field-exp` / `W2PP_TRAINING_FIELD_EXP`; `0` volta à recompensa normal.
+
+Os geradores de nível 18–34 do campo (#1650, #1671, #1684, #1697) mantêm até 3 mobs cada.
+
+- ✅ Multiplicador de EXP do campo
+- ⏳ Trava de entrada para nível 36+ (`_MSG_Action.cpp:213`)
+
 # Evoluções 
 NPC Evoluções vende poeira, upe o seu Mortal, Arch, Celestial e Sub Celestial com ela.
 

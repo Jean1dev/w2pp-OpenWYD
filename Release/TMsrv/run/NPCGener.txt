@@ -46882,7 +46882,7 @@
 // ********************************************
 #	[1650]
 	MinuteGenerate:	2
-	MaxNumMob:	1
+	MaxNumMob:	3
 	MinGroup:	0
 	MaxGroup:	0
 	Leader:		Gremlin_Artif
@@ -47471,7 +47471,7 @@
 // ********************************************
 #	[1671]
 	MinuteGenerate:	2
-	MaxNumMob:	1
+	MaxNumMob:	3
 	MinGroup:	0
 	MaxGroup:	0
 	Leader:		Krill_Gigante
@@ -47804,7 +47804,7 @@
 // ********************************************
 #	[1684]
 	MinuteGenerate:	2
-	MaxNumMob:	1
+	MaxNumMob:	3
 	MinGroup:	0
 	MaxGroup:	0
 	Leader:		Orc_Sniper
@@ -48156,8 +48156,8 @@
 // no76 (����Ʈ�� 4-2)
 // ********************************************
 #	[1697]
-	MinuteGenerate:	10
-	MaxNumMob:	1
+	MinuteGenerate:	2
+	MaxNumMob:	3
 	MinGroup:	0
 	MaxGroup:	0
 	Leader:		Orc_Arqueiro_

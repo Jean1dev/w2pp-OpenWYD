@@ -109,3 +109,37 @@ func TestSoloExpReward_mortalNotOnCelestialPath(t *testing.T) {
 		t.Errorf("ClassMaster 0 reward %d not below mortal %d — celestial routing regressed", unset, mortal)
 	}
 }
+
+// The training-field reward is the event-free base times the multiplier
+// (issue #383); the global events must not move it.
+func TestTrainingFieldExpReward(t *testing.T) {
+	tests := []struct {
+		name        string
+		mobExp      int64
+		killerLevel int32
+		mobLevel    int32
+		expBonus    int32
+		mult        int64
+		want        int64
+	}{
+		// Same level, eMob cap 1000 → ×6, with no Kefra ÷2 nor −15%.
+		{name: "base times multiplier", mobExp: 1000, killerLevel: 20, mobLevel: 20, mult: 6, want: 6000},
+		// Cap 1000 → +50% item bonus = 1500 → ×6.
+		{name: "item bonus before multiplier", mobExp: 1000, killerLevel: 20, mobLevel: 20, expBonus: 50, mult: 6, want: 9000},
+		{name: "multiplier one is the raw base", mobExp: 1000, killerLevel: 20, mobLevel: 20, mult: 1, want: 1000},
+		{name: "multiplier zero gives nothing", mobExp: 1000, killerLevel: 20, mobLevel: 20, mult: 0, want: 0},
+		// ExpApply penalty zeroes the base, so the multiplier cannot revive it.
+		{name: "overleveled killer gets zero", mobExp: 1000, killerLevel: 100, mobLevel: 30, mult: 6, want: 0},
+		// Base 1M (cap binds) ×20 = 20M → capped at the 10M gate.
+		{name: "capped at award gate", mobExp: 1_000_000, killerLevel: 200, mobLevel: 200, mult: 20, want: soloExpGate},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TrainingFieldExpReward(tt.mobExp, tt.killerLevel, tt.mobLevel, classMortal, tt.expBonus, tt.mult)
+			if got != tt.want {
+				t.Errorf("TrainingFieldExpReward(%d, k%d, m%d, b%d, x%d) = %d, want %d",
+					tt.mobExp, tt.killerLevel, tt.mobLevel, tt.expBonus, tt.mult, got, tt.want)
+			}
+		})
+	}
+}

@@ -110,6 +110,12 @@ type Config struct {
 	// ExpEvents toggles global EXP modifiers (MobKilled.cpp:537-549, Server.cpp defaults).
 	ExpEvents level.ExpEvents
 
+	// TrainingFieldExp multiplies the event-free solo reward of kills on the
+	// training grounds for mortals below stored level 35 (issue #383,
+	// level.TrainingFieldExpReward). Zero disables it: the field then pays the
+	// plain SoloExpReward like any other map.
+	TrainingFieldExp int64
+
 	// Spells is the SkillData.csv catalog (g_pSpell). When nil, skill casting is
 	// rejected and skill learning is refused (no costs are knowable without it).
 	Spells *content.SkillData
@@ -172,6 +178,7 @@ type Dispatcher struct {
 	itemExtra       map[int]int                  // item index → Extra (Anct/Adamantita combine result)
 	sancRate        refine.RateTable             // dust-refine success table (g_pSancRate)
 	expEvents       level.ExpEvents              // global EXP event flags
+	fieldExp        int64                        // training-grounds EXP multiplier (0 = off)
 	kefra           kefraRuntime                 // loop-owned weekly event I/O tracking
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
@@ -302,6 +309,7 @@ func New(cfg Config) *Dispatcher {
 		itemExtra:        cfg.ItemExtra,
 		sancRate:         cfg.SancRate,
 		expEvents:        cfg.ExpEvents,
+		fieldExp:         cfg.TrainingFieldExp,
 		spells:           cfg.Spells,
 		heights:          cfg.Heights,
 		now:              cfg.Now,
