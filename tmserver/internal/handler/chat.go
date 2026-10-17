@@ -305,6 +305,15 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 		w.Send(s, protocol.MsgMessagePanel, protocol.EncodeMessagePanelBody(d.now().In(time.Local).Format("!!150405")))
 		return true
 	}
+	// "day": the 7662 asks on every affect update while it has no year/day
+	// (TMHuman.cpp:4755, m_nYear/m_nDays still 0). The legacy answers a fixed
+	// "!#11  2" (_MSG_MessageWhisper.cpp:603), which TMScene parses into the
+	// field's year/day. Unanswered, each request fell through to the whisper
+	// path as a whisper to "day" and showed the not-connected notice.
+	if cmd == "day" {
+		d.sendClientMessage(w, s, "!#11  2")
+		return true
+	}
 	if dest, ok := teleportCmds[cmd]; ok {
 		if e := w.Entity(s.Conn); e != nil {
 			d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
