@@ -98,6 +98,7 @@ func (d *Dispatcher) Tick(w *world.World) {
 			d.mobBattle(w, id, e)
 		}
 	})
+	d.tickQuestAreaReset(w)
 	d.guardQuest256Areas(w)
 	d.regenPlayers(w)
 	d.sweepAffects(w)

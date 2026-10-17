@@ -107,6 +107,10 @@ func (d *Dispatcher) action(w *world.World, s *world.Session, h protocol.Header,
 	if body.TargetX == e.X && body.TargetY == e.Y {
 		return
 	}
+	// Inside the destination-changed branch, like the legacy level lock.
+	if d.newbieZoneGuard(w, s, e, body.TargetX, body.TargetY) {
+		return
+	}
 
 	oldX, oldY := e.X, e.Y
 	// Destination-authoritative, like legacy pMob.TargetX/Y (GridMulticast tail,

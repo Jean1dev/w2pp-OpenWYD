@@ -307,7 +307,7 @@ func run(logger *slog.Logger) error {
 		MaxNightmare:          *maxNightmare,
 		KefraEntriesPerScroll: *kefraEntriesPerScroll,
 		Log:                   logger, ClientVersion: int32(*clientVersion), BaseMobs: baseMobs, SummonMobs: summonMobs, VineMob: vineMob, ItemPrices: itemPrices, ItemEffects: itemEffects, ItemReqs: itemReqs,
-		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights,
+		ItemVolatiles: itemVolatiles, ItemPos: itemPos, ItemUnique: itemUnique, ItemGrades: itemGrades, ItemExtra: itemExtra, Spells: spells, Heights: heights, Attrs: attrs,
 		SancRate:         sancRate,
 		ExpEvents:        level.ExpEvents{DoubleMode: *doubleExp, NewbieEvent: *newbieEvent, KefraLive: *kefraLive},
 		TrainingFieldExp: int64(*trainingFieldExp),
@@ -409,7 +409,7 @@ func run(logger *slog.Logger) error {
 // boot rand order to diverge from.
 //
 // attrs is the raw AttributeMap; it marks the training-grounds generators
-// (trainingFieldAt). nil leaves every block unmarked, so the field EXP
+// (handler.TrainingFieldAt). nil leaves every block unmarked, so the field EXP
 // multiplier is off.
 func spawnNPCs(w *world.World, dir string, attrs *content.Grid, skipMerchants bool, mobStatOverrides map[string]mobstat.Override, logger *slog.Logger) {
 	gens, err := content.LoadNPCGenerators(filepath.Join(dir, "TMsrv", "run", "NPCGener.txt"))
@@ -509,7 +509,7 @@ func spawnNPCs(w *world.World, dir string, attrs *content.Grid, skipMerchants bo
 			FollowerTmpl:   follower.bytes,
 			FightAction:    g.FightAction,
 			DieAction:      g.DieAction,
-			TrainingField:  trainingFieldAt(attrs, g.SegX[0], g.SegY[0]),
+			TrainingField:  handler.TrainingFieldAt(attrs, g.SegX[0], g.SegY[0]),
 		}
 		for s := 0; s < 5; s++ {
 			wg.SegRange[s] = int16(g.SegRange[s])
@@ -552,17 +552,6 @@ func spawnNPCs(w *world.World, dir string, attrs *content.Grid, skipMerchants bo
 	logger.Info("npc template catalog", "layouts", stats)
 	logger.Info("NPCs spawned", "generators", len(gens), "mobs", total, "templates", len(templates),
 		"merchant_blocks_skipped", skipped)
-}
-
-// trainingFieldAt reports whether world tile (x,y) is on the training grounds:
-// AttributeMap bit 0x80, read the way GetAttribute does (GetFunc.cpp:1383 —
-// one attribute byte per 4×4 tiles, out-of-range = 0). The legacy uses the same
-// bit to keep displayed level 36+ out (_MSG_Action.cpp:201-215).
-func trainingFieldAt(attrs *content.Grid, x, y int16) bool {
-	if attrs == nil || x < 0 || y < 0 {
-		return false
-	}
-	return attrs.At(int(x)/4, int(y)/4)&0x80 != 0
 }
 
 // seedWorldItems spawns the static world objects (gates/doors) from
