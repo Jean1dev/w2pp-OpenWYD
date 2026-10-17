@@ -127,6 +127,12 @@ type Config struct {
 	// one-tile Chebyshev step.
 	Heights *content.Grid
 
+	// Attrs is the raw AttributeMap.dat (one byte per 4×4 tiles, unbaked). The
+	// movement handler reads its 0x80 bit to keep high-level characters off the
+	// training grounds (newbieZoneGuard). Read-only after boot; nil disables the
+	// guard (maps not mounted, or tests).
+	Attrs *content.Grid
+
 	// NpcConfig is the moderator-edited NPC configuration source (npc-editing-plan.md).
 	// When set, the dispatcher overlays DB-defined merchant NPCs on boot and polls
 	// for changes each tick (hot-reload). When nil, NPCs come only from NPCGener.txt.
@@ -182,6 +188,7 @@ type Dispatcher struct {
 	kefra           kefraRuntime                 // loop-owned weekly event I/O tracking
 	spells          *content.SkillData           // skill catalog (g_pSpell)
 	heights         *content.Grid                // baked walkability grid (mob pathfinding)
+	attrs           *content.Grid                // raw AttributeMap (training-grounds bit)
 	now             func() time.Time             // wall clock for calendar-gated guild ops
 	tickCount       int                          // loop-only tick counter (affect sweep phase)
 	affectDur       world.AffectDuration         // cast-affect duration tuning (issue #229)
@@ -312,6 +319,7 @@ func New(cfg Config) *Dispatcher {
 		fieldExp:         cfg.TrainingFieldExp,
 		spells:           cfg.Spells,
 		heights:          cfg.Heights,
+		attrs:            cfg.Attrs,
 		now:              cfg.Now,
 		affectDur:        cfg.AffectDuration,
 		serverIndex:      cfg.ServerIndex,

@@ -122,6 +122,8 @@ const (
 	cantDepositThatMuch  = "Esta quantia n\xe3o pode ser armazenada." // _NN_Cant_Deposit_That_Much (44)
 	cantWithdrawThatMuch = "Esta quantia n\xe3o pode ser retirada."   // _NN_Cant_Withdraw_That_Much (45)
 	notEnoughMoney       = "N\xe3o possui gold suficiente."           // _NN_Not_Enough_Money (113)
+
+	newbieZone = "Somente n\xedvel 35 ou inferior pode entrar no campo de treinamento." // _NN_Newbie_zone (46)
 )
 
 // cstr trims a fixed-size NUL/space-padded C char array to a Go string.
