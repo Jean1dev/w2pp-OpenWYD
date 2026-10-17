@@ -577,6 +577,24 @@ func TestWhisperReply(t *testing.T) {
 	}
 }
 
+func TestDayCommand(t *testing.T) {
+	addr, stop, _ := startServerClock(t, chatDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+
+	// The 7662 sends "day" with an empty String (TMHuman.cpp:4759), and only
+	// reads a message panel with HEADER.ID 0 (TMScene.cpp:1371).
+	whisperFrame(t, a, "day", "")
+	h, p, ok := readMaybeHeader(t, a)
+	if !ok || h.Type != protocol.MsgMessagePanel || h.ID != 0 || cstr(p) != "!#11  2" {
+		t.Fatalf("got %#x id=%d %q, want the legacy !#11  2 panel with ID 0", h.Type, h.ID, p)
+	}
+	if ty, _, ok := readMaybe(t, a); ok {
+		t.Errorf("extra %#x after the day answer", ty)
+	}
+}
+
 func TestWhisperOffline(t *testing.T) {
 	addr, stop, _ := startServerClock(t, chatDB())
 	defer stop()
