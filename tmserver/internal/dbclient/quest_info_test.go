@@ -33,11 +33,20 @@ func TestQuestInfoRoundTrip(t *testing.T) {
 		{"Celestial.Add150", world.CharacterSave{CelAdd150: 1}, func(s world.CharacterState) bool { return s.CelAdd150 == 1 }},
 		{"Celestial.Add180", world.CharacterSave{CelAdd180: 1}, func(s world.CharacterState) bool { return s.CelAdd180 == 1 }},
 		{"Celestial.Add200", world.CharacterSave{CelAdd200: 1}, func(s world.CharacterState) bool { return s.CelAdd200 == 1 }},
+		{"Celestial.CelestialLevel", world.CharacterSave{CelestialLevel: 199}, func(s world.CharacterState) bool { return s.CelestialLevel == 199 }},
+		{"Celestial.SubCelestialLevel", world.CharacterSave{SubCelestialLevel: 150}, func(s world.CharacterState) bool { return s.SubCelestialLevel == 150 }},
+		{"SaveCelestial", world.CharacterSave{SaveCelestial: [2]world.CelestialSheet{1: {Class: 3, Level: 120, SpecialBonus: 855, SkillBar2: [16]uint8{15: 7}}}},
+			func(s world.CharacterState) bool {
+				return s.SaveCelestial[1].Class == 3 && s.SaveCelestial[1].Level == 120 && s.SaveCelestial[1].SpecialBonus == 855 && s.SaveCelestial[1].SkillBar2[15] == 7
+			}},
 		{"Circle", world.CharacterSave{CelCircle: 1}, func(s world.CharacterState) bool { return s.CelCircle == 1 }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := characterStateFromProto(characterSaveToProto(tt.save))
+			st, err := characterStateFromProto(characterSaveToProto(tt.save))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !tt.check(st) {
 				t.Fatalf("%s lost on save→load", tt.name)
 			}

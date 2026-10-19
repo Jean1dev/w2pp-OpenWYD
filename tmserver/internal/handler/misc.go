@@ -280,6 +280,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.kingQuest(w, s, e, npc, int(confirm))
 		return
 	}
+	// URNAMMU (MOB.Merchant 76): Sub-Celestial class change (issue #410,
+	// _MSG_Quest.cpp:1248).
+	if isUrnammuNPC(npc) {
+		d.urnammu(w, s, e)
+		return
+	}
 	// UXMAL (MOB.Merchant 72): Pista de Runas registration (_MSG_Quest.cpp:1313).
 	if isUxmalNPC(npc) {
 		d.uxmal(w, s, e)

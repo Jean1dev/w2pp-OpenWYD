@@ -176,7 +176,7 @@ func TestFuryStoneResetExp(t *testing.T) {
 		if wantLevel >= furyStoneArcanaLevel {
 			t.Fatalf("test setup: the reset should cost a level, still at %d", wantLevel)
 		}
-		wantBonus := uint16(level.ScoreBonusCelestial(e.Class, wantLevel, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon, e.ArchCrystalStage, 1, e.CelestialArchLevel))
+		wantBonus := uint16(level.ScoreBonusCelestial(e.Class, wantLevel, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon, e.ArchCrystalStage, 1, e.CelestialArchLevel, 0))
 		if e.ScoreBonus != wantBonus {
 			t.Errorf("ScoreBonus = %d, want %d", e.ScoreBonus, wantBonus)
 		}
@@ -190,7 +190,7 @@ func TestFuryStoneResetExp(t *testing.T) {
 		// Earning the level back keeps the reset's +200 in the free points.
 		e.Exp = startExp
 		d.applyLevelUps(w, nil, e)
-		wantBonus = uint16(level.ScoreBonusCelestial(e.Class, furyStoneArcanaLevel, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon, e.ArchCrystalStage, 1, e.CelestialArchLevel))
+		wantBonus = uint16(level.ScoreBonusCelestial(e.Class, furyStoneArcanaLevel, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon, e.ArchCrystalStage, 1, e.CelestialArchLevel, 0))
 		if e.Level != furyStoneArcanaLevel || e.ScoreBonus != wantBonus {
 			t.Errorf("after level-up Level/ScoreBonus = %d/%d, want %d/%d", e.Level, e.ScoreBonus, furyStoneArcanaLevel, wantBonus)
 		}

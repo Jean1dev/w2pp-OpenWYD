@@ -247,6 +247,8 @@ type Entity struct {
 	CelAdd150            uint8 // QuestInfo.Celestial.Add150: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
 	CelAdd180            uint8 // QuestInfo.Celestial.Add180: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
 	CelAdd200            uint8 // QuestInfo.Celestial.Add200: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
+	CelestialLevel       int16 // QuestInfo.Celestial.CelestialLevel: the Celestial's level when it was parked for the Sub (issue #410). Persisted.
+	SubCelestialLevel    int16 // QuestInfo.Celestial.SubCelestialLevel: the Sub's level when it was parked for the Celestial (issue #410). Persisted.
 	ArchLv355, ArchLv370 uint8
 	MortalLevel          uint16
 	CelestialArchLevel   uint8
@@ -257,6 +259,11 @@ type Entity struct {
 	NightmareEntries     int32 // Remaining Arcane Nightmare entries.
 	LastNightmareUse     int64 // Unix time of the last Nightmare deed use.
 	QuestFlag            uint8 // volatile quest-area pass (CMob.QuestFlag; e.g. Quest 256)
+
+	// SaveCelestial is MobExtra.SaveCelestial[2]: [0] the parked Celestial,
+	// [1] the parked Sub-Celestial (issue #410). Persisted.
+	SaveCelestial [2]CelestialSheet
+
 	// PKMode is the player-toggled Player-Killer consent flag (K key, _MSG_PKMode;
 	// legacy pUser[conn].PKMode). It gates whether the player can land PvP combat
 	// hits, but it does NOT by itself blink the nickname. Session-only, not persisted.

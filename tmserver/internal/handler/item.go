@@ -1531,15 +1531,14 @@ const celestialArchLevelReq = 355
 // this to the 1742: that one is the Pedra_da_Imortalidade, has no EF_VOLATILE
 // and only matters equipped in Equip[10] for the King's Arch creation.
 //
-// Only the Arch→Celestial leg (:3101-3181) is ported. A Celestial using the stone
-// becomes a Sub-Celestial in the legacy (:3036-3099); until that lands (#410) it
-// is refused as an unimplemented consumable. Any other tier gets the silent slot
-// resync of :3005-3009.
+// An Arch becomes a Celestial (:3101-3181, below); a Celestial with a Sephirot
+// becomes a Sub-Celestial (:3026-3085, createSubCelestial, issue #410). Any other
+// tier gets the silent slot resync of :3005-3009.
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
 	switch e.ClassMaster {
 	case classMasterArch:
 	case classMasterCelestial:
-		d.rejectUnimplementedConsumable(w, s, e, src)
+		d.createSubCelestial(w, s, e, src)
 		return
 	default:
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])

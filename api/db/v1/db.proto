@@ -219,6 +219,9 @@ message Character {
   int32 celestial_add150 = 64; // QuestInfo.Celestial.Add150: Sub-Celestial diadem add at 150 granted (0/1, issue #409)
   int32 celestial_add180 = 65; // QuestInfo.Celestial.Add180: Sub-Celestial diadem add at 180 granted (0/1, issue #409)
   int32 celestial_add200 = 66; // QuestInfo.Celestial.Add200: Sub-Celestial diadem add at stored 199 granted (0/1, issue #409)
+  int32 celestial_level = 67; // QuestInfo.Celestial.CelestialLevel: parked Celestial's level (issue #410)
+  int32 sub_celestial_level = 68; // QuestInfo.Celestial.SubCelestialLevel: parked Sub-Celestial's level (issue #410)
+  bytes save_celestial = 69; // MobExtra.SaveCelestial[2]; layout owned by the tmServer (world.MarshalCelestialSheets), opaque here (issue #410)
 }
 
 message Item {

@@ -187,7 +187,11 @@ func (c *Client) LoadCharacter(ctx context.Context, accountID int64, slot int) (
 	if err != nil {
 		return world.CharacterState{}, fmt.Errorf("dbclient: load character: %w", err)
 	}
-	return characterStateFromProto(resp.GetCharacter()), nil
+	st, err := characterStateFromProto(resp.GetCharacter())
+	if err != nil {
+		return world.CharacterState{}, fmt.Errorf("dbclient: load character: %w", err)
+	}
+	return st, nil
 }
 
 // SaveOnShutdown persists the world's snapshot of a character.
@@ -630,7 +634,11 @@ func castleQuestStateFromProto(st *dbv1.CastleQuestState) world.CastleQuestState
 // but the tmServer no longer depends on them: handler.deriveBaseScore rebuilds
 // their BaseScore from the legacy creation/level-up rules instead of subtracting
 // the equipment from a score that was never stored (issue #232).
-func characterStateFromProto(c *dbv1.Character) world.CharacterState {
+//
+// The only error is an undecodable save_celestial blob: loading the character
+// with blank parked sheets would let the next save overwrite the real ones, so
+// the login fails instead (issue #410).
+func characterStateFromProto(c *dbv1.Character) (world.CharacterState, error) {
 	st := world.CharacterState{
 		Slot:               int(c.GetSlot()),
 		Name:               c.GetName(),
@@ -664,6 +672,8 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		CelAdd150:          uint8(c.GetCelestialAdd150()),
 		CelAdd180:          uint8(c.GetCelestialAdd180()),
 		CelAdd200:          uint8(c.GetCelestialAdd200()),
+		CelestialLevel:     int16(c.GetCelestialLevel()),
+		SubCelestialLevel:  int16(c.GetSubCelestialLevel()),
 		Soul:               uint8(c.GetSoul()),
 		Fame:               c.GetFame(),
 		KefraTicket:        c.GetKefraTicket(),
@@ -742,7 +752,12 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		}
 		st.Carry[slot] = itemFromProto(it)
 	}
-	return st
+	sheets, err := world.UnmarshalCelestialSheets(c.GetSaveCelestial())
+	if err != nil {
+		return world.CharacterState{}, err
+	}
+	st.SaveCelestial = sheets
+	return st, nil
 }
 
 // itemFromProto maps one persisted item to the in-world STRUCT_ITEM shape.
@@ -813,6 +828,9 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		CelestialAdd150:    int32(s.CelAdd150),
 		CelestialAdd180:    int32(s.CelAdd180),
 		CelestialAdd200:    int32(s.CelAdd200),
+		CelestialLevel:     int32(s.CelestialLevel),
+		SubCelestialLevel:  int32(s.SubCelestialLevel),
+		SaveCelestial:      world.MarshalCelestialSheets(s.SaveCelestial),
 		PkPoint:            int32(s.PKPoint),
 		Guilty:             int32(s.Guilty),
 		CurKill:            int32(s.CurKill),

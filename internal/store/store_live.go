@@ -166,7 +166,8 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
 		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_crystal_stage, kefra_ticket, nightmare_entries, last_nightmare_use,
 		       base_str, base_int, base_dex, base_con, base_max_hp, base_max_mp, newbie_quest, molar_gargula, pilula_orc, celestial_reset,
-		       celestial_add120, celestial_add150, celestial_add180, celestial_add200
+		       celestial_add120, celestial_add150, celestial_add180, celestial_add200,
+		       celestial_level, sub_celestial_level, save_celestial
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
@@ -176,7 +177,8 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &ch.ArchLv355, &ch.ArchLv370, &skillBar, &shortSkill, &special,
 			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill, &ch.MortalLevel, &ch.CelestialArchLevel, &ch.ArchCrystalStage, &ch.KefraTicket, &ch.NightmareEntries, &ch.LastNightmareUse,
 			&baseStr, &baseInt, &baseDex, &baseCon, &baseMaxHp, &baseMaxMp, &ch.NewbieQuest, &ch.MolarGargula, &ch.PilulaOrc, &ch.CelReset,
-			&ch.CelAdd120, &ch.CelAdd150, &ch.CelAdd180, &ch.CelAdd200)
+			&ch.CelAdd120, &ch.CelAdd150, &ch.CelAdd180, &ch.CelAdd200,
+			&ch.CelestialLevel, &ch.SubCelestialLevel, &ch.SaveCelestial)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -371,6 +373,8 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 // the Pilula do Poder Magico gate (pilula_orc, migration 0030 — issue #404),
 // the Celestial reset counter (celestial_reset, migration 0031 — issue #408),
 // the Sub-Celestial diadem add flags (celestial_add120..200, migration 0032 — issue #409),
+// the parked Celestial/Sub-Celestial sheets and levels (save_celestial,
+// celestial_level, sub_celestial_level, migration 0033 — issue #410),
 // and the equipment-free base (base_str..base_max_mp, migration 0027). A caller
 // that does not send the base (HasBase false, e.g. a tmServer older than 0027)
 // clears it, so the next login derives it from the CurrentScore just saved
@@ -408,7 +412,8 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			molar_gargula=$54,
 			pilula_orc=$55,
 			celestial_reset=$56,
-			celestial_add120=$57, celestial_add150=$58, celestial_add180=$59, celestial_add200=$60
+			celestial_add120=$57, celestial_add150=$58, celestial_add180=$59, celestial_add200=$60,
+			celestial_level=$61, sub_celestial_level=$62, save_celestial=COALESCE($63::bytea, ''::bytea)
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -426,6 +431,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.PilulaOrc,
 		ch.CelReset,
 		ch.CelAdd120, ch.CelAdd150, ch.CelAdd180, ch.CelAdd200,
+		ch.CelestialLevel, ch.SubCelestialLevel, ch.SaveCelestial,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

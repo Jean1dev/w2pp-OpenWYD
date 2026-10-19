@@ -457,25 +457,29 @@ func startIdealStoneServer(t *testing.T, db world.Persistence) (string, func()) 
 // Pedra_Ideal 5338 carries. The 1742 (Pedra_da_Imortalidade, no EF_VOLATILE)
 // falls through every block and does nothing, even for a ready Arch; #222 had
 // wired the transformation to it. A non-Arch, non-Celestial gets the silent
-// resync of :3005-3009, and the Celestial's Sub-Celestial leg (#410) is still
-// refused as unimplemented.
+// resync of :3005-3009, and a Celestial becomes a Sub-Celestial only with a
+// Sephirot in Equip[11] (:3026-3085, issue #410), silently keeping the stone
+// otherwise.
 func TestIdealStoneTriggerIsThe5338(t *testing.T) {
 	tests := []struct {
 		name        string
 		classMaster uint8
 		item        int16
+		sephirot    int16
 		wantTier    uint8
 		wantNotice  bool
 	}{
-		{"arch 5338 becomes celestial", classMasterArch, pedraIdealItem, classMasterCelestial, false},
-		{"arch 1742 does nothing", classMasterArch, immortalityStoneItem, classMasterArch, false},
-		{"mortal 5338 silent resync", classMasterMortal, pedraIdealItem, classMasterMortal, false},
-		{"celestial 5338 pending #410", classMasterCelestial, pedraIdealItem, classMasterCelestial, true},
+		{"arch 5338 becomes celestial", classMasterArch, pedraIdealItem, 0, classMasterCelestial, false},
+		{"arch 1742 does nothing", classMasterArch, immortalityStoneItem, 0, classMasterArch, false},
+		{"mortal 5338 silent resync", classMasterMortal, pedraIdealItem, 0, classMasterMortal, false},
+		{"celestial 5338 without sephirot keeps the stone", classMasterCelestial, pedraIdealItem, 0, classMasterCelestial, false},
+		{"celestial 5338 with sephirot becomes sub", classMasterCelestial, pedraIdealItem, 1762, classMasterCelestialCS, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := idealStoneDB(tt.classMaster, 399)
 			db.loadResult.Carry[0] = world.Item{Index: tt.item}
+			db.loadResult.Equip[sephirotEquipSlot] = world.Item{Index: tt.sephirot}
 			addr, stop := startIdealStoneServer(t, db)
 			defer stop()
 			c := enterWorld(t, addr)
@@ -503,6 +507,9 @@ func TestIdealStoneTriggerIsThe5338(t *testing.T) {
 			save, n := db.lastSavedChar()
 			if n == 0 || save.ClassMaster != tt.wantTier {
 				t.Fatalf("saved tier = %d (saves %d), want %d", save.ClassMaster, n, tt.wantTier)
+			}
+			if tt.wantTier == classMasterCelestialCS && (save.SaveCelestial[1].Class != int32(tt.sephirot-archSephirotMin) || hasItem(save.Equip, tt.sephirot)) {
+				t.Errorf("sub sheet class = %d, sephirot kept = %v", save.SaveCelestial[1].Class, hasItem(save.Equip, tt.sephirot))
 			}
 			// The 1742 goes down the ordinary vol 0 equip path, so it may be worn now.
 			consumed := !hasItem(save.Carry, tt.item) && !hasItem(save.Equip, tt.item)

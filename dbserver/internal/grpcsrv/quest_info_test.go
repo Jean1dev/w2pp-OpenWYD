@@ -32,6 +32,8 @@ func TestQuestInfoMappingRoundTrip(t *testing.T) {
 		{"Celestial.Add150", &dbv1.Character{CelestialAdd150: 1}, (*dbv1.Character).GetCelestialAdd150},
 		{"Celestial.Add180", &dbv1.Character{CelestialAdd180: 1}, (*dbv1.Character).GetCelestialAdd180},
 		{"Celestial.Add200", &dbv1.Character{CelestialAdd200: 1}, (*dbv1.Character).GetCelestialAdd200},
+		{"Celestial.CelestialLevel", &dbv1.Character{CelestialLevel: 199}, (*dbv1.Character).GetCelestialLevel},
+		{"Celestial.SubCelestialLevel", &dbv1.Character{SubCelestialLevel: 150}, (*dbv1.Character).GetSubCelestialLevel},
 		{"Circle", &dbv1.Character{CelestialCircle: 1}, (*dbv1.Character).GetCelestialCircle},
 	}
 	for _, tt := range tests {
@@ -41,5 +43,16 @@ func TestQuestInfoMappingRoundTrip(t *testing.T) {
 				t.Fatalf("%s = %d after mapping, want %d", tt.name, got, want)
 			}
 		})
+	}
+}
+
+// save_celestial (issue #410) is opaque to the dbServer: the blob must come back
+// byte for byte, and a character without parked sheets stays empty.
+func TestSaveCelestialMappingRoundTrip(t *testing.T) {
+	for _, blob := range [][]byte{nil, {1, 2, 3, 0, 255}} {
+		got := characterToProto(protoToCharacter(&dbv1.Character{SaveCelestial: blob})).GetSaveCelestial()
+		if string(got) != string(blob) {
+			t.Fatalf("save_celestial = %v after mapping, want %v", got, blob)
+		}
 	}
 }

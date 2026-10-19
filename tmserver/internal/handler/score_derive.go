@@ -23,12 +23,20 @@ const (
 
 // scoreBonusFor is BASE_GetBonusScorePoint by tier (Basedef.cpp:898-1172) over
 // the equipment-free BaseScore: the celestial tiers count their quest grants,
-// including the +200 per Pedra da Furia reset (issue #408); every other tier
-// keeps the MORTAL formula.
+// including the +200 per Pedra da Furia reset (issue #408), and CELESTIALCS/
+// SCELESTIAL add the parked tier's level (issue #410); every other tier keeps
+// the MORTAL formula.
 func scoreBonusFor(e *world.Entity) uint16 {
 	if isCelestialTier(e.ClassMaster) {
+		var parked int32
+		switch e.ClassMaster {
+		case classMasterCelestialCS:
+			parked = int32(e.SubCelestialLevel)
+		case classMasterSCelestial:
+			parked = int32(e.CelestialLevel)
+		}
 		return uint16(level.ScoreBonusCelestial(e.Class, e.Level, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon,
-			e.ArchCrystalStage, e.CelReset, e.CelestialArchLevel))
+			e.ArchCrystalStage, e.CelReset, e.CelestialArchLevel, parked))
 	}
 	return uint16(level.ScoreBonus(e.Class, e.Level, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon))
 }
