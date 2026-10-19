@@ -99,6 +99,9 @@ func checkKingCapeCase(t *testing.T, tc kingCapeCase, save world.CharacterSave, 
 	if got := purchases != 0; got != tc.wantBuy {
 		t.Errorf("purchases = %d, want bought=%v", purchases, tc.wantBuy)
 	}
+	if tc.wantBuy && save.Clan != clanHekalotia {
+		t.Errorf("Clan = %d, want %d derived from the new cape", save.Clan, clanHekalotia)
+	}
 	cape, _ := savedSlot(save.Equip, capeEquipSlot)
 	if cape.Index != tc.wantCape {
 		t.Errorf("Equip[15] = %d, want %d", cape.Index, tc.wantCape)
@@ -153,6 +156,60 @@ func TestKingCapeEmblem(t *testing.T) {
 		{
 			name: "celestial cannot pay with the emblem", classMaster: classMasterCelestial, level: 10,
 			cape: 3199, emblem: true, wantCape: 3199, wantEmblem: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			save, texts, purchases := runKingCapeCase(t, tc)
+			checkKingCapeCase(t, tc, save, texts, purchases)
+		})
+	}
+}
+
+// TestKingCapeSapphirePayment covers issue #400: any bag worth at least the
+// price pays (697 = 1, 4131 = 10), consumed in bag order with no change, and
+// the sale ends with the King's blessing (_MSG_Quest.cpp:977-1090).
+func TestKingCapeSapphirePayment(t *testing.T) {
+	bless := []string{msgKingBless1}
+	tests := []kingCapeCase{
+		{
+			name: "one 4131 pays a price of 4", level: 219,
+			carry:    map[int]int16{0: sapphireUnit10},
+			wantCape: 545, wantBuy: true, wantTexts: bless,
+		},
+		{
+			name: "bag order stops once covered", level: 219,
+			carry:     map[int]int16{0: sapphireUnit1, 1: sapphireUnit1, 2: sapphireUnit10, 3: sapphireUnit1},
+			wantCarry: map[int]int16{3: sapphireUnit1},
+			wantCape:  545, wantBuy: true, wantTexts: bless,
+		},
+		{
+			name: "exact singles still pay", level: 255, cape: 545,
+			carry:    map[int]int16{0: sapphireUnit1, 1: sapphireUnit1, 2: sapphireUnit1, 3: sapphireUnit1},
+			wantCape: 543, wantBuy: true, wantTexts: bless,
+		},
+		{
+			name: "short of the price", level: 219,
+			carry:     map[int]int16{0: sapphireUnit1, 1: sapphireUnit1, 2: sapphireUnit1},
+			wantCarry: map[int]int16{0: sapphireUnit1, 1: sapphireUnit1, 2: sapphireUnit1},
+			wantTexts: []string{"Sao necessarias 4 safiras."},
+		},
+		{
+			name: "level is checked before the sapphires", level: 218,
+			carry:     map[int]int16{0: sapphireUnit10},
+			wantCarry: map[int]int16{0: sapphireUnit10},
+			wantTexts: []string{msgNeedLevel},
+		},
+		{
+			name: "celestial 3199 pays with a 4131", classMaster: classMasterCelestial, level: 10, cape: 3199,
+			carry:    map[int]int16{0: sapphireUnit10},
+			wantCape: 3197, wantBuy: true, wantTexts: bless,
+		},
+		{
+			name: "finished cape is blessed", level: 255, cape: 543,
+			carry:     map[int]int16{0: sapphireUnit10},
+			wantCarry: map[int]int16{0: sapphireUnit10},
+			wantCape:  543, wantTexts: bless,
 		},
 	}
 	for _, tc := range tests {

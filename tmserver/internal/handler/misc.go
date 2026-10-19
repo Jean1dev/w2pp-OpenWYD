@@ -298,19 +298,17 @@ func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.E
 	d.kingCapeService(w, s, e, npc, confirm)
 }
 
+// kingCapeService ports the cape half of the KING case (_MSG_Quest.cpp:694-1124)
+// in the legacy order: kingdom gate, price quote (confirm 0), finished cape
+// blessing, Celestial/Mortal requirements, sapphire count (or the equipped
+// Emblema_do_Reino), payment, the new cape and the King's blessing.
 func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
-	npcID := npc.ID
-	kingdom, mode := capeKingdomMode(e.Equip[capeEquipSlot].Index)
-	if kingdom != 0 && kingdom != npc.Clan {
+	npcID, kingdom := npc.ID, npc.Clan
+	if capeClan, _ := capeKingdomMode(e.Equip[capeEquipSlot].Index); capeClan != 0 && capeClan != kingdom {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	if mode >= 2 {
-		d.sendNPCChatText(w, s, npcID, "A capa deste reino ja esta completa.")
-		return
-	}
-	target, ok := kingdomCapeTarget(e.ClassMaster, e.Level, e.Equip[capeEquipSlot].Index, npc.Clan)
-	if !ok || e.Level < 219 {
+	if kingdom != clanHekalotia && kingdom != clanAkelonia {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
@@ -323,66 +321,117 @@ func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *w
 				return
 			}
 			cost := quote.HekalotiaCost
-			if npc.Clan == clanAkelonia {
+			if kingdom == clanAkelonia {
 				cost = quote.AkeloniaCost
 			}
 			if confirm == 0 {
-				d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras.", cost))
+				d.sendNPCChatText(w, s, npcID, fmt.Sprintf(msgNeedSapphire, cost))
 				return
 			}
-			staged := *e
-			// An equipped Emblema_do_Reino replaces the sapphires: the legacy
-			// skips both the sapphire check and the consume loop while
-			// Equip[13] is 4081, then erases it (_MSG_Quest.cpp:997,1016,1038-1042).
-			// The Celestial branch has no such exemption (_MSG_Quest.cpp:893).
-			emblem := staged.ClassMaster != classMasterCelestial && staged.Equip[kingdomEmblemEquipSlot].Index == kingdomEmblemItem
-			var changed []int
-			if emblem {
-				staged.Equip[kingdomEmblemEquipSlot] = world.Item{}
-			} else {
-				var exact bool
-				changed, exact = sapphirePaymentPlan(&staged, cost)
-				if !exact {
-					d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
-					return
-				}
-			}
-			staged.Equip[capeEquipSlot] = world.Item{Index: target}
-			staged.Clan = npc.Clan
-			save := w.CharacterSaveFor(s, &staged)
-			w.Go(s, func() func(*world.World, *world.Session) {
-				_, committed, purchaseErr := p.PurchaseKingdomCape(context.Background(), quote.Revision, npc.Clan, save)
-				return func(w *world.World, s *world.Session) {
-					if purchaseErr != nil || !committed {
-						d.notify(w, s, NoticeReqNotMet)
-						return
-					}
-					*e = staged
-					for _, slot := range changed {
-						d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
-					}
-					if emblem {
-						d.sendSlot(w, s, world.ItemPlaceEquip, kingdomEmblemEquipSlot, e.Equip[kingdomEmblemEquipSlot])
-					}
-					d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
-					d.refreshScore(e)
-					d.sendScore(w, s, e)
-				}
-			})
+			d.kingCapePurchase(w, s, e, npcID, kingdom, cost, quote.Revision)
 		}
 	})
 }
 
+// kingCapePurchase is the confirmed leg of the cape service
+// (_MSG_Quest.cpp:869-1118).
+func (d *Dispatcher) kingCapePurchase(w *world.World, s *world.Session, e *world.Entity, npcID int, kingdom uint8, cost int, revision int64) {
+	current := e.Equip[capeEquipSlot]
+	if _, mode := capeKingdomMode(current.Index); mode >= 2 {
+		d.sendNPCChatText(w, s, npcID, kingBlessing(kingdom))
+		return
+	}
+	target, refusal := kingdomCapeTarget(e.ClassMaster, e.Level, current, kingdom)
+	switch refusal {
+	case capeRefusedSilently:
+		return
+	case capeRefusedLevel:
+		d.sendNPCChatText(w, s, npcID, msgNeedLevel)
+		return
+	}
+	// An equipped Emblema_do_Reino replaces the sapphires: the legacy skips
+	// both the sapphire check and the consume loop while Equip[13] is 4081,
+	// then erases it (_MSG_Quest.cpp:997,1016,1038-1042). The Celestial
+	// branch has no such exemption (_MSG_Quest.cpp:893).
+	emblem := !isCelestialMaster(e.ClassMaster) && e.Equip[kingdomEmblemEquipSlot].Index == kingdomEmblemItem
+	if !emblem && sapphireValue(e) < cost {
+		d.sendNPCChatText(w, s, npcID, fmt.Sprintf(msgNeedSapphire, cost))
+		return
+	}
+	staged := *e
+	var changed []int
+	if emblem {
+		staged.Equip[kingdomEmblemEquipSlot] = world.Item{}
+	} else {
+		changed = paySapphires(&staged, cost)
+	}
+	staged.Equip[capeEquipSlot] = target
+	// The legacy never writes MOB.Clan here; GetCurrentScore derives it from
+	// the new mantle on the next score pass (Basedef.cpp:3222-3247), which the
+	// Go score refresh does not model, so it is applied with the purchase.
+	staged.Clan = kingClanFromCape(staged.Clan, target.Index)
+	save := w.CharacterSaveFor(s, &staged)
+	p := w.Persistence()
+	w.Go(s, func() func(*world.World, *world.Session) {
+		_, committed, purchaseErr := p.PurchaseKingdomCape(context.Background(), revision, kingdom, save)
+		return func(w *world.World, s *world.Session) {
+			if purchaseErr != nil || !committed {
+				d.notify(w, s, NoticeReqNotMet)
+				return
+			}
+			*e = staged
+			for _, slot := range changed {
+				d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+			}
+			if emblem {
+				d.sendSlot(w, s, world.ItemPlaceEquip, kingdomEmblemEquipSlot, e.Equip[kingdomEmblemEquipSlot])
+			}
+			d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
+			d.sendNPCChatText(w, s, npcID, kingBlessing(kingdom))
+			d.refreshScore(e)
+			d.sendScore(w, s, e)
+		}
+	})
+}
+
+// Legacy texts (Language.txt, Windows-1252); the quote keeps the Go wording.
+const (
+	msgNeedSapphire = "Sao necessarias %d safiras."                            // _DN_Need_D_Sapphire (177)
+	msgKingBless1   = "Que a luz de Sephira o ilumine."                        // _NN_My_King_Bless1 (178)
+	msgKingBless2   = "Que a for\xe7a divina o aben\xe7oe."                    // _NN_My_King_Bless2 (179)
+	msgNeedLevel    = "N\xe3o possui n\xedvel suficiente, retorne mais tarde." // _NN_Need_Level (180)
+)
+
+// kingBlessing is the line the King says after a sale or to a finished cape:
+// Bless1 for ReiClan 7, Bless2 otherwise (_MSG_Quest.cpp:870-874,1086-1089).
+func kingBlessing(kingdom uint8) string {
+	if kingdom == clanHekalotia {
+		return msgKingBless1
+	}
+	return msgKingBless2
+}
+
+func isCelestialMaster(classMaster uint8) bool {
+	return classMaster == classMasterCelestial || classMaster == classMasterCelestialCS || classMaster == classMasterSCelestial
+}
+
+// capeKingdomMode returns the kingdom a cape pins its wearer to and the legacy
+// CapeMode: 2 = finished kingdom cape, 1 = upgradable, 0 = none
+// (_MSG_Quest.cpp:700-738). 734-737 set the Clan but keep CapeMode 0.
 func capeKingdomMode(index int16) (uint8, int) {
 	switch index {
 	case 543, 3191, 3194, 3197:
 		return clanHekalotia, 2
 	case 544, 3192, 3195, 3198:
 		return clanAkelonia, 2
-	case 545, 734, 736:
+	case 545:
 		return clanHekalotia, 1
-	case 546, 735, 737:
+	case 546:
 		return clanAkelonia, 1
+	case 734, 736:
+		return clanHekalotia, 0
+	case 735, 737:
+		return clanAkelonia, 0
 	case 549, 3193, 3196:
 		return 0, 1
 	default:
@@ -390,65 +439,92 @@ func capeKingdomMode(index int16) (uint8, int) {
 	}
 }
 
-func kingdomCapeTarget(classMaster uint8, level int32, current int16, kingdom uint8) (int16, bool) {
-	if kingdom != clanHekalotia && kingdom != clanAkelonia {
-		return 0, false
-	}
-	if classMaster == classMasterCelestial {
-		if current != 3199 {
-			return 0, false
-		}
+type capeRefusal int
+
+const (
+	capeGranted         capeRefusal = iota
+	capeRefusedSilently             // Celestial without the 3199 (_MSG_Quest.cpp:879)
+	capeRefusedLevel                // _NN_Need_Level (_MSG_Quest.cpp:977,1118)
+)
+
+// kingdomCapeTarget computes the cape the King hands over, keeping the old
+// item's effects where the legacy only rewrites sIndex (548/549/3193/3196 and
+// the Celestial 3199) and clearing it elsewhere (_MSG_Quest.cpp:933-940,1044-1080).
+func kingdomCapeTarget(classMaster uint8, level int32, current world.Item, kingdom uint8) (world.Item, capeRefusal) {
+	pick := func(hekalotia, akelonia int16) int16 {
 		if kingdom == clanHekalotia {
-			return 3197, true
+			return hekalotia
 		}
-		return 3198, true
+		return akelonia
 	}
-	if current == 3193 {
-		if kingdom == clanHekalotia {
-			return 3191, true
+	if isCelestialMaster(classMaster) {
+		if current.Index != 3199 {
+			return world.Item{}, capeRefusedSilently
 		}
-		return 3192, true
+		current.Index = pick(3197, 3198)
+		return current, capeGranted
 	}
-	if current == 3196 {
-		if kingdom == clanHekalotia {
-			return 3194, true
-		}
-		return 3195, true
+	if level < 219 {
+		return world.Item{}, capeRefusedLevel
 	}
-	_, mode := capeKingdomMode(current)
+	_, mode := capeKingdomMode(current.Index)
+	if mode == 1 && level < 255 {
+		return world.Item{}, capeRefusedLevel
+	}
 	if mode == 0 {
-		if kingdom == clanHekalotia {
-			return 545, true
+		if current.Index != 548 {
+			current = world.Item{}
 		}
-		return 546, true
+		current.Index = pick(545, 546)
+		return current, capeGranted
 	}
-	if level >= 255 {
-		if kingdom == clanHekalotia {
-			return 543, true
+	switch current.Index {
+	case 3193:
+		current.Index = pick(3191, 3192)
+	case 3196:
+		current.Index = pick(3194, 3195)
+	default:
+		if current.Index != 549 {
+			current = world.Item{}
 		}
-		return 544, true
+		current.Index = pick(543, 544)
 	}
-	return 0, false
+	return current, capeGranted
 }
 
-func sapphirePaymentPlan(e *world.Entity, cost int) ([]int, bool) {
-	remaining := cost
+// sapphireValue counts the bag's sapphires: 697 is worth 1, 4131 is worth 10
+// (_MSG_Quest.cpp:986-995).
+func sapphireValue(e *world.Entity) int {
+	total := 0
+	for i := 0; i < activeCarryLimit(e); i++ {
+		switch e.Carry[i].Index {
+		case sapphireUnit1:
+			total++
+		case sapphireUnit10:
+			total += 10
+		}
+	}
+	return total
+}
+
+// paySapphires consumes sapphires in bag order until the price is covered,
+// returning the cleared slots. A 4131 is erased whole even when less than 10
+// was still due; there is no change (_MSG_Quest.cpp:1016-1035).
+func paySapphires(e *world.Entity, cost int) []int {
 	var changed []int
-	for i := 0; i < activeCarryLimit(e) && remaining >= 10; i++ {
-		if e.Carry[i].Index == sapphireUnit10 {
-			e.Carry[i] = world.Item{}
-			remaining -= 10
-			changed = append(changed, i)
+	for i := 0; i < activeCarryLimit(e) && cost > 0; i++ {
+		switch e.Carry[i].Index {
+		case sapphireUnit1:
+			cost--
+		case sapphireUnit10:
+			cost = max(cost-10, 0)
+		default:
+			continue
 		}
+		e.Carry[i] = world.Item{}
+		changed = append(changed, i)
 	}
-	for i := 0; i < activeCarryLimit(e) && remaining > 0; i++ {
-		if e.Carry[i].Index == sapphireUnit1 {
-			e.Carry[i] = world.Item{}
-			remaining--
-			changed = append(changed, i)
-		}
-	}
-	return changed, remaining == 0
+	return changed
 }
 
 const (
