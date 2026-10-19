@@ -213,6 +213,7 @@ message Character {
 
   int32 mortal_newbie = 59; // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
   int32 mortal_molar_gargula = 60; // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (0/1, issue #398)
+  int32 mortal_pilula_orc = 61; // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used (0/1, issue #404)
 }
 
 message Item {

@@ -694,6 +694,7 @@ type Character struct {
 	BaseMaxMp          int32 `protobuf:"varint,58,opt,name=base_max_mp,json=baseMaxMp,proto3" json:"base_max_mp,omitempty"`
 	MortalNewbie       int32 `protobuf:"varint,59,opt,name=mortal_newbie,json=mortalNewbie,proto3" json:"mortal_newbie,omitempty"`                     // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
 	MortalMolarGargula int32 `protobuf:"varint,60,opt,name=mortal_molar_gargula,json=mortalMolarGargula,proto3" json:"mortal_molar_gargula,omitempty"` // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (0/1, issue #398)
+	MortalPilulaOrc    int32 `protobuf:"varint,61,opt,name=mortal_pilula_orc,json=mortalPilulaOrc,proto3" json:"mortal_pilula_orc,omitempty"`          // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used (0/1, issue #404)
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1144,6 +1145,13 @@ func (x *Character) GetMortalNewbie() int32 {
 func (x *Character) GetMortalMolarGargula() int32 {
 	if x != nil {
 		return x.MortalMolarGargula
+	}
+	return 0
+}
+
+func (x *Character) GetMortalPilulaOrc() int32 {
+	if x != nil {
+		return x.MortalPilulaOrc
 	}
 	return 0
 }
@@ -6298,7 +6306,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x8b\x0e\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xb7\x0e\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -6365,7 +6373,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\vbase_max_hp\x189 \x01(\x05R\tbaseMaxHp\x12\x1e\n" +
 	"\vbase_max_mp\x18: \x01(\x05R\tbaseMaxMp\x12#\n" +
 	"\rmortal_newbie\x18; \x01(\x05R\fmortalNewbie\x120\n" +
-	"\x14mortal_molar_gargula\x18< \x01(\x05R\x12mortalMolarGargula\"\xcd\x01\n" +
+	"\x14mortal_molar_gargula\x18< \x01(\x05R\x12mortalMolarGargula\x12*\n" +
+	"\x11mortal_pilula_orc\x18= \x01(\x05R\x0fmortalPilulaOrc\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

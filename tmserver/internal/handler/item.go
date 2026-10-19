@@ -116,6 +116,10 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 	if id == 1727 && e.Level < 1000 {
 		return // special restriction
 	}
+	if gi.Item.Index == itemPilulaOrc {
+		d.pickUpPilulaOrc(w, s, e, gi, body.ItemID)
+		return
+	}
 
 	slot := int(body.DestPos)
 	if !carrySlotAccessible(e, slot) || !e.Carry[slot].Empty() {
@@ -577,6 +581,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useQuestReward(w, s, e, src)
 	case vol == volMolarGargula:
 		d.useMolarGargula(w, s, e, src)
+	case vol == volPilulaOrc:
+		d.usePilulaOrc(w, s, e, src)
 	case vol == volHuntingScroll:
 		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol >= volWaterMLo && vol <= volWaterMHi,

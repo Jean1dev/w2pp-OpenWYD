@@ -20,6 +20,7 @@ func TestQuestInfoRoundTrip(t *testing.T) {
 		{"Mortal.TerraMistica", world.CharacterSave{TerraMistica: 2}, func(s world.CharacterState) bool { return s.TerraMistica == 2 }},
 		{"Mortal.Newbie", world.CharacterSave{NewbieQuest: 4}, func(s world.CharacterState) bool { return s.NewbieQuest == 4 }},
 		{"Mortal.MolarGargula", world.CharacterSave{MolarGargula: 1}, func(s world.CharacterState) bool { return s.MolarGargula == 1 }},
+		{"Mortal.PilulaOrc", world.CharacterSave{PilulaOrc: 1}, func(s world.CharacterState) bool { return s.PilulaOrc == 1 }},
 		{"Arch.MortalLevel", world.CharacterSave{MortalLevel: 399}, func(s world.CharacterState) bool { return s.MortalLevel == 399 }},
 		{"Arch.Level355", world.CharacterSave{ArchLv355: 1}, func(s world.CharacterState) bool { return s.ArchLv355 == 1 }},
 		{"Arch.Level370", world.CharacterSave{ArchLv370: 1}, func(s world.CharacterState) bool { return s.ArchLv370 == 1 }},

@@ -132,6 +132,7 @@ type CharacterState struct {
 	TerraMistica       uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
 	NewbieQuest        uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step (issue #395)
 	MolarGargula       uint8 // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (issue #398)
+	PilulaOrc          uint8 // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used, +9 SkillBonus (issue #404)
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16
@@ -259,6 +260,7 @@ type CharacterSave struct {
 	TerraMistica       uint8
 	NewbieQuest        uint8
 	MolarGargula       uint8
+	PilulaOrc          uint8
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16
