@@ -288,14 +288,83 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
 }
 
+// kingQuest ports the KING case (_MSG_Quest.cpp:694-1124) in the legacy order:
+// the Clan gate (:740-741), the price quote on confirm 0 (:762-767), then, with
+// Equip[10]=1742 and a Sephirot in Equip[11] (:769), the Pedra Ideal craft
+// (:771-840) ahead of the Mortal's Arch creation (:842-866), and finally the
+// cape service (:869-1124). The quote is a global in the legacy; the Go fetches
+// it asynchronously only for the legs that use it (confirm 0 and the cape),
+// which changes nothing observable for the stone and Arch legs.
 func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
-	if confirm != 0 && e.ClassMaster == classMasterMortal && e.Level >= 299 &&
-		e.Equip[idealStoneEquipSlot].Index == idealStoneItem &&
-		e.Equip[sephirotEquipSlot].Index >= archSephirotMin && e.Equip[sephirotEquipSlot].Index <= archSephirotMax {
-		d.kingArch(w, s, e, npc, confirm)
+	if clan := kingClanFromCape(e.Clan, e.Equip[capeEquipSlot].Index); clan != 0 && clan != npc.Clan {
 		return
 	}
+	if confirm != 0 && e.Equip[idealStoneEquipSlot].Index == idealStoneItem &&
+		e.Equip[sephirotEquipSlot].Index >= archSephirotMin && e.Equip[sephirotEquipSlot].Index <= archSephirotMax {
+		if d.kingPedraIdeal(w, s, e, npc) {
+			return
+		}
+		if e.ClassMaster == classMasterMortal && e.Level >= 299 {
+			d.kingArch(w, s, e, npc, confirm)
+			return
+		}
+	}
 	d.kingCapeService(w, s, e, npc, confirm)
+}
+
+// Pedra_Ideal (5338, EF_VOLATILE 211) and the four Pedras Secretas the King
+// fuses into it (_MSG_Quest.cpp:771-840). The 1742 behind idealStoneItem is the
+// Pedra_da_Imortalidade, the King's Equip[10] gear, not this stone.
+const pedraIdealItem = 5338
+
+var pedraSecretaItems = [...]int16{5334, 5335, 5336, 5337}
+
+// kingPedraIdeal ports the Pedra Ideal craft (_MSG_Quest.cpp:771-840), open to
+// every ClassMaster: with the four Pedras Secretas in the inventory, the first
+// 5334 becomes a fresh 5338 in place, the first 5335/5336/5337 are erased and
+// the King's gear (Equip[10]/[11]) is consumed. It reports whether it ran, so
+// the caller falls through to the Arch creation otherwise, as the legacy does.
+func (d *Dispatcher) kingPedraIdeal(w *world.World, s *world.Session, e, npc *world.Entity) bool {
+	var slots [len(pedraSecretaItems)]int
+	for k := range slots {
+		slots[k] = -1
+	}
+	limit := activeCarryLimit(e)
+	for i := 0; i < limit; i++ {
+		for k, stone := range pedraSecretaItems {
+			if slots[k] < 0 && e.Carry[i].Index == stone {
+				slots[k] = i
+			}
+		}
+	}
+	for _, slot := range slots {
+		if slot < 0 {
+			return false
+		}
+	}
+	// The legacy walks the inventory once and sends each slot as it rewrites
+	// it, so the refreshes go out in slot order.
+	for i := 0; i < limit; i++ {
+		for k, slot := range slots {
+			if slot != i {
+				continue
+			}
+			e.Carry[i] = world.Item{}
+			if k == 0 {
+				e.Carry[i].Index = pedraIdealItem
+			}
+			d.sendSlot(w, s, world.ItemPlaceCarry, i, e.Carry[i])
+		}
+	}
+	e.Equip[idealStoneEquipSlot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceEquip, idealStoneEquipSlot, e.Equip[idealStoneEquipSlot])
+	e.Equip[sephirotEquipSlot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceEquip, sephirotEquipSlot, e.Equip[sephirotEquipSlot])
+	// SendSay(_NN_My_King_Bless1) regardless of the King's kingdom (:832).
+	d.sendNPCChatText(w, s, npc.ID, msgKingBless1)
+	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
+	d.log.Info("king make ideal_stone", "conn", s.Conn, "name", e.Name, "level", e.Level)
+	return true
 }
 
 // kingCapeService ports the cape half of the KING case (_MSG_Quest.cpp:694-1124)
@@ -641,13 +710,10 @@ func kingClanFromCape(clan uint8, capeIndex int16) uint8 {
 // Ported: the Clan/cape faction gate (:696-741), the confirm==0 ask leg
 // (:762-767, without the Sapphire-price text — UNVERIFIED wire format), and the
 // Equip[10]==1742 (Pedra Ideal) + Equip[11]∈[1760,1763] (Sephirot) + Mortal/level
-// gate (:769, :842-866). NOT ported: the elemental-essence branch (:769-840,
-// items 5334-5337 — consumes them into item 5338 and destroys the King gear
-// INSTEAD of creating Arch) and the CapeMode/Sapphire/Celestial cape-reforge
-// branches (:869-1124) — neither is what issue #139 reports broken, and a
-// player carrying the 4 essence items alongside 1742/1760-1763 will get Arch
-// creation here rather than the legacy "blessing" side-effect, an accepted
-// simplification.
+// gate (:769, :842-866). kingQuest runs the Pedra Ideal craft (:771-840,
+// kingPedraIdeal) first, so a Mortal carrying the four Pedras Secretas gets the
+// 5338 instead of the Arch, and sends the cape branches (:869-1124) to
+// kingCapeService.
 func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
 	clan := kingClanFromCape(e.Clan, e.Equip[capeEquipSlot].Index)
 	if clan != 0 && clan != npc.Clan {
