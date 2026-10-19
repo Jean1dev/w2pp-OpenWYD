@@ -199,6 +199,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.quest256NPC(w, s, e, quest256Steps[4], itemEmblemaDoGuarda)
 		return
 	}
+	// LIDER_APRENDIZ (Merchant 100, EF_GRADE0 5): the Arch's green cape
+	// (issue #397, _MSG_Quest.cpp:2625).
+	if isLiderAprendizNPC(npc) {
+		d.liderAprendiz(w, s, e, npc)
+		return
+	}
 	// QUEST_CAPAREAL (Merchant 100, EF_GRADE0 13): Royal Cape quest entry.
 	if npc.Merchant == 100 && npc.Grade == 13 {
 		d.royalCapeQuest(w, s, e)
