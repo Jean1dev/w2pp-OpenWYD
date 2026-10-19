@@ -575,6 +575,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useEntradaTerritorio(w, s, e, src)
 	case vol == volQuestReward:
 		d.useQuestReward(w, s, e, src)
+	case vol == volMolarGargula:
+		d.useMolarGargula(w, s, e, src)
 	case vol == volHuntingScroll:
 		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol >= volWaterMLo && vol <= volWaterMHi,

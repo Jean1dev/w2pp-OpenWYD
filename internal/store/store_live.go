@@ -165,7 +165,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 		       learned_skill, sec_learned_skill, magic, save_x, save_y, last_city, citizen, class_master, soul, fame,
 		       celestial_lv40, celestial_lv90, celestial_circle, terra_mistica, arch_lv355, arch_lv370,
 		       skill_bar, short_skill, special, pk_point, guilty, cur_kill, tot_kill, mortal_level, celestial_arch_level, arch_crystal_stage, kefra_ticket, nightmare_entries, last_nightmare_use,
-		       base_str, base_int, base_dex, base_con, base_max_hp, base_max_mp, newbie_quest
+		       base_str, base_int, base_dex, base_con, base_max_hp, base_max_mp, newbie_quest, molar_gargula
 		  FROM character WHERE account_id = $1 AND slot = $2`, accountID, slot).
 		Scan(&charID, &ch.Slot, &ch.Name, &ch.Class, &ch.Clan, &ch.GuildID, &ch.GuildLevel,
 			&ch.Level, &ch.Exp, &ch.Coin, &ch.Str, &ch.Int, &ch.Dex, &ch.Con,
@@ -174,7 +174,7 @@ func (s *Store) LoadCharacter(ctx context.Context, accountID int64, slot int) (d
 			&ch.ResistMagic, &ch.LearnedSkill, &ch.SecLearnedSkill, &ch.Magic, &ch.SaveX, &ch.SaveY, &ch.LastCity, &ch.Citizen,
 			&ch.ClassMaster, &ch.Soul, &ch.Fame, &ch.CelLv40, &ch.CelLv90, &ch.CelCircle, &ch.TerraMistica, &ch.ArchLv355, &ch.ArchLv370, &skillBar, &shortSkill, &special,
 			&ch.PKPoint, &ch.Guilty, &ch.CurKill, &ch.TotKill, &ch.MortalLevel, &ch.CelestialArchLevel, &ch.ArchCrystalStage, &ch.KefraTicket, &ch.NightmareEntries, &ch.LastNightmareUse,
-			&baseStr, &baseInt, &baseDex, &baseCon, &baseMaxHp, &baseMaxMp, &ch.NewbieQuest)
+			&baseStr, &baseInt, &baseDex, &baseCon, &baseMaxHp, &baseMaxMp, &ch.NewbieQuest, &ch.MolarGargula)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Character{}, ErrNotFound
 	}
@@ -365,6 +365,7 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 // celestial quest gates celestial_lv40/90/circle + the terra_mistica gate), and
 // the PK/karma state (pk_point, guilty, cur_kill, tot_kill — issue #210),
 // the newbie quest step (newbie_quest, migration 0028 — issue #395),
+// the Molar de Gargula gate (molar_gargula, migration 0029 — issue #398),
 // and the equipment-free base (base_str..base_max_mp, migration 0027). A caller
 // that does not send the base (HasBase false, e.g. a tmServer older than 0027)
 // clears it, so the next login derives it from the CurrentScore just saved
@@ -398,7 +399,8 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			base_con=CASE WHEN $46 THEN $50::smallint END,
 			base_max_hp=CASE WHEN $46 THEN $51::integer END,
 			base_max_mp=CASE WHEN $46 THEN $52::integer END,
-			newbie_quest=$53
+			newbie_quest=$53,
+			molar_gargula=$54
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -412,6 +414,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.PKPoint, ch.Guilty, ch.CurKill, ch.TotKill, ch.MortalLevel, ch.CelestialArchLevel, ch.ArchCrystalStage, ch.KefraTicket, ch.NightmareEntries, ch.LastNightmareUse,
 		ch.HasBase, ch.BaseStr, ch.BaseInt, ch.BaseDex, ch.BaseCon, ch.BaseMaxHp, ch.BaseMaxMp,
 		ch.NewbieQuest,
+		ch.MolarGargula,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

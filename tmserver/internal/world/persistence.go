@@ -131,6 +131,7 @@ type CharacterState struct {
 	CelCircle          uint8 // QuestInfo.Circle (Arcana quest done)
 	TerraMistica       uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
 	NewbieQuest        uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step (issue #395)
+	MolarGargula       uint8 // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (issue #398)
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16
@@ -257,6 +258,7 @@ type CharacterSave struct {
 	CelCircle          uint8
 	TerraMistica       uint8
 	NewbieQuest        uint8
+	MolarGargula       uint8
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16

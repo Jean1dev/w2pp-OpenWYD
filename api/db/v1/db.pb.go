@@ -685,16 +685,17 @@ type Character struct {
 	// Equipment-free BaseScore (migration 0027). str..con and max_hp/max_mp above
 	// are the CurrentScore. has_base_score is false for a row saved before the
 	// base was persisted: the tmServer then derives it once, by subtraction.
-	HasBaseScore  bool  `protobuf:"varint,52,opt,name=has_base_score,json=hasBaseScore,proto3" json:"has_base_score,omitempty"`
-	BaseStr       int32 `protobuf:"varint,53,opt,name=base_str,json=baseStr,proto3" json:"base_str,omitempty"`
-	BaseInt       int32 `protobuf:"varint,54,opt,name=base_int,json=baseInt,proto3" json:"base_int,omitempty"`
-	BaseDex       int32 `protobuf:"varint,55,opt,name=base_dex,json=baseDex,proto3" json:"base_dex,omitempty"`
-	BaseCon       int32 `protobuf:"varint,56,opt,name=base_con,json=baseCon,proto3" json:"base_con,omitempty"`
-	BaseMaxHp     int32 `protobuf:"varint,57,opt,name=base_max_hp,json=baseMaxHp,proto3" json:"base_max_hp,omitempty"`
-	BaseMaxMp     int32 `protobuf:"varint,58,opt,name=base_max_mp,json=baseMaxMp,proto3" json:"base_max_mp,omitempty"`
-	MortalNewbie  int32 `protobuf:"varint,59,opt,name=mortal_newbie,json=mortalNewbie,proto3" json:"mortal_newbie,omitempty"` // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	HasBaseScore       bool  `protobuf:"varint,52,opt,name=has_base_score,json=hasBaseScore,proto3" json:"has_base_score,omitempty"`
+	BaseStr            int32 `protobuf:"varint,53,opt,name=base_str,json=baseStr,proto3" json:"base_str,omitempty"`
+	BaseInt            int32 `protobuf:"varint,54,opt,name=base_int,json=baseInt,proto3" json:"base_int,omitempty"`
+	BaseDex            int32 `protobuf:"varint,55,opt,name=base_dex,json=baseDex,proto3" json:"base_dex,omitempty"`
+	BaseCon            int32 `protobuf:"varint,56,opt,name=base_con,json=baseCon,proto3" json:"base_con,omitempty"`
+	BaseMaxHp          int32 `protobuf:"varint,57,opt,name=base_max_hp,json=baseMaxHp,proto3" json:"base_max_hp,omitempty"`
+	BaseMaxMp          int32 `protobuf:"varint,58,opt,name=base_max_mp,json=baseMaxMp,proto3" json:"base_max_mp,omitempty"`
+	MortalNewbie       int32 `protobuf:"varint,59,opt,name=mortal_newbie,json=mortalNewbie,proto3" json:"mortal_newbie,omitempty"`                     // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
+	MortalMolarGargula int32 `protobuf:"varint,60,opt,name=mortal_molar_gargula,json=mortalMolarGargula,proto3" json:"mortal_molar_gargula,omitempty"` // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (0/1, issue #398)
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Character) Reset() {
@@ -1136,6 +1137,13 @@ func (x *Character) GetBaseMaxMp() int32 {
 func (x *Character) GetMortalNewbie() int32 {
 	if x != nil {
 		return x.MortalNewbie
+	}
+	return 0
+}
+
+func (x *Character) GetMortalMolarGargula() int32 {
+	if x != nil {
+		return x.MortalMolarGargula
 	}
 	return 0
 }
@@ -6290,7 +6298,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xd9\r\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x8b\x0e\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -6356,7 +6364,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\bbase_con\x188 \x01(\x05R\abaseCon\x12\x1e\n" +
 	"\vbase_max_hp\x189 \x01(\x05R\tbaseMaxHp\x12\x1e\n" +
 	"\vbase_max_mp\x18: \x01(\x05R\tbaseMaxMp\x12#\n" +
-	"\rmortal_newbie\x18; \x01(\x05R\fmortalNewbie\"\xcd\x01\n" +
+	"\rmortal_newbie\x18; \x01(\x05R\fmortalNewbie\x120\n" +
+	"\x14mortal_molar_gargula\x18< \x01(\x05R\x12mortalMolarGargula\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +
