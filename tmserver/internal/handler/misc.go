@@ -331,10 +331,21 @@ func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *w
 				return
 			}
 			staged := *e
-			changed, exact := sapphirePaymentPlan(&staged, cost)
-			if !exact {
-				d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
-				return
+			// An equipped Emblema_do_Reino replaces the sapphires: the legacy
+			// skips both the sapphire check and the consume loop while
+			// Equip[13] is 4081, then erases it (_MSG_Quest.cpp:997,1016,1038-1042).
+			// The Celestial branch has no such exemption (_MSG_Quest.cpp:893).
+			emblem := staged.ClassMaster != classMasterCelestial && staged.Equip[kingdomEmblemEquipSlot].Index == kingdomEmblemItem
+			var changed []int
+			if emblem {
+				staged.Equip[kingdomEmblemEquipSlot] = world.Item{}
+			} else {
+				var exact bool
+				changed, exact = sapphirePaymentPlan(&staged, cost)
+				if !exact {
+					d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
+					return
+				}
 			}
 			staged.Equip[capeEquipSlot] = world.Item{Index: target}
 			staged.Clan = npc.Clan
@@ -349,6 +360,9 @@ func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *w
 					*e = staged
 					for _, slot := range changed {
 						d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+					}
+					if emblem {
+						d.sendSlot(w, s, world.ItemPlaceEquip, kingdomEmblemEquipSlot, e.Equip[kingdomEmblemEquipSlot])
 					}
 					d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
 					d.refreshScore(e)
@@ -447,6 +461,13 @@ const (
 	archSephirotMax      = 1763
 	capeEquipSlot        = 15
 	pedraIdealsCraftCoin = 30_000_000
+)
+
+// Emblema_do_Reino, dropped by the Cav._Mortal of the "Cavaleiro do Reino"
+// quest; equipped, it pays for the kingdom cape (_MSG_Quest.cpp:997).
+const (
+	kingdomEmblemItem      = 4081
+	kingdomEmblemEquipSlot = 13
 )
 
 const (
