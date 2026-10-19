@@ -962,7 +962,11 @@ func (d *Dispatcher) compSephi(w *world.World, s *world.Session, e, npc *world.E
 		e.Carry[i] = world.Item{}
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
 	}
-	e.Carry[slot] = world.Item{Index: archSephirotMin + int16(npc.Class)}
+	// The Mestre de Skills templates carry Class 1..4 (Cap.Cavaleiros=1 ..
+	// ForeLearner=4, STRUCT_MOB.Class @20), so the legacy 1759+Class yields the
+	// 0-based player class's Sephirot 1760..1763 (_MSG_Quest.cpp:2157). kingArch
+	// maps it back with Equip[11]-1760 (:845), so the two must stay in step.
+	e.Carry[slot] = world.Item{Index: archSephirotMin - 1 + int16(npc.Class)}
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
 	d.log.Info("sephirot created", "conn", s.Conn, "name", e.Name, "class", npc.Class)
 }
