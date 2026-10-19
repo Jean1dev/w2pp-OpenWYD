@@ -794,6 +794,9 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		ArchCrystalStage:   int32(s.ArchCrystalStage),
 		CelestialLv90:      int32(s.CelLv90),
 		CelestialCircle:    int32(s.CelCircle),
+		// The legacy SaveUser ships the whole STRUCT_MOBEXTRA (Server.cpp:7875), so
+		// the AMU_MISTICO flag is saved like every other QuestInfo gate (#401).
+		MortalTerraMistica: int32(s.TerraMistica),
 		PkPoint:            int32(s.PKPoint),
 		Guilty:             int32(s.Guilty),
 		CurKill:            int32(s.CurKill),
