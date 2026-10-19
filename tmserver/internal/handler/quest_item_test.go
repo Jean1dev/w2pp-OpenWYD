@@ -51,13 +51,16 @@ func collectQuestResult(t *testing.T, c net.Conn, limit int) (exp int64, coin in
 	return
 }
 
+// TestQuestItemRewardAllTiersAndStackConsumption covers a solo consumer: with no
+// party the legacy leader is the consumer itself (_MSG_UseItem.cpp:2403-2414),
+// so the EXP is the table value plus its 10% leader share (issue #396).
 func TestQuestItemRewardAllTiersAndStackConsumption(t *testing.T) {
 	tiers := []struct {
 		item int16
 		lvl  int
 		exp  int64
 		coin int32
-	}{{4117, 39, 1000, 2000}, {4118, 115, 2000, 4000}, {4119, 190, 3000, 6000}, {4120, 265, 4000, 8000}, {4121, 320, 5000, 10000}}
+	}{{4117, 39, 1100, 2000}, {4118, 115, 2200, 4000}, {4119, 190, 3300, 6000}, {4120, 265, 4400, 8000}, {4121, 320, 5500, 10000}}
 	for _, tc := range tiers {
 		t.Run(fmt.Sprintf("item-%d", tc.item), func(t *testing.T) {
 			addr, stop := startServerClockVol(t, questRewardDB(tc.item, tc.lvl, 3), map[int]int{int(tc.item): volQuestReward})
@@ -65,7 +68,7 @@ func TestQuestItemRewardAllTiersAndStackConsumption(t *testing.T) {
 			c := enterWorld(t, addr)
 			defer c.Close()
 			useQuestItem(t, c)
-			exp, coin, item, panel := collectQuestResult(t, c, 10)
+			exp, coin, item, panel := collectQuestResult(t, c, 20)
 			if exp != tc.exp || coin != tc.coin || !panel {
 				t.Errorf("reward = exp %d coin %d panel %v, want %d %d true", exp, coin, panel, tc.exp, tc.coin)
 			}
@@ -102,7 +105,7 @@ func TestQuestItemRewardCaps(t *testing.T) {
 	c := enterWorld(t, addr)
 	defer c.Close()
 	useQuestItem(t, c)
-	exp, coin, item, _ := collectQuestResult(t, c, 10)
+	exp, coin, item, _ := collectQuestResult(t, c, 20)
 	if exp != level.MaxExp || coin != maxCoin {
 		t.Errorf("capped reward = exp %d coin %d, want %d %d", exp, coin, level.MaxExp, maxCoin)
 	}
@@ -111,11 +114,36 @@ func TestQuestItemRewardCaps(t *testing.T) {
 	}
 }
 
+// TestQuestItemRewardPartyMemberGetsTenPercent ports the party split of
+// _MSG_UseItem.cpp:2403-2480: the leader always gets QuestExp/10 (also when it
+// is the consumer, issue #396) and the leader's members get it except the
+// consumer.
 func TestQuestItemRewardPartyMemberGetsTenPercent(t *testing.T) {
+	cases := []struct {
+		name                 string
+		leaderUses           bool
+		leaderExp, memberExp int64
+	}{
+		{"leader-consumes", true, 1100, 100},
+		{"member-consumes", false, 100, 1000},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testQuestItemRewardParty(t, tc.leaderUses, tc.leaderExp, tc.memberExp)
+		})
+	}
+}
+
+func testQuestItemRewardParty(t *testing.T, leaderUses bool, wantLeader, wantMember int64) {
+	t.Helper()
 	db := partyDB()
-	leader := db.loads[7]
-	leader.Carry[0] = world.Item{Index: 4117}
-	db.loads[7] = leader
+	consumerKey := int64(11)
+	if leaderUses {
+		consumerKey = 7
+	}
+	consumer := db.loads[consumerKey]
+	consumer.Carry[0] = world.Item{Index: 4117}
+	db.loads[consumerKey] = consumer
 	addr, stop := startServerClockVol(t, db, map[int]int{4117: volQuestReward})
 	defer stop()
 	a := enterWorldAs(t, addr, "tester")
@@ -137,13 +165,17 @@ func TestQuestItemRewardPartyMemberGetsTenPercent(t *testing.T) {
 		}
 	}
 
-	useQuestItem(t, a)
-	leaderExp, _, _, _ := collectQuestResult(t, a, 10)
-	memberExp, memberCoin, _, panel := collectQuestResult(t, b, 8)
-	if leaderExp != 1000 {
-		t.Errorf("consumer exp = %d, want 1000 (no self share)", leaderExp)
+	if leaderUses {
+		useQuestItem(t, a)
+	} else {
+		useQuestItem(t, b)
 	}
-	if memberExp != 100 || memberCoin != 0 || !panel {
-		t.Errorf("member reward = exp %d coin %d panel %v, want 100 0 true", memberExp, memberCoin, panel)
+	leaderExp, _, _, leaderPanel := collectQuestResult(t, a, 20)
+	memberExp, _, _, memberPanel := collectQuestResult(t, b, 20)
+	if leaderExp != wantLeader || !leaderPanel {
+		t.Errorf("leader exp = %d panel %v, want %d true", leaderExp, leaderPanel, wantLeader)
+	}
+	if memberExp != wantMember || !memberPanel {
+		t.Errorf("member exp = %d panel %v, want %d true", memberExp, memberPanel, wantMember)
 	}
 }

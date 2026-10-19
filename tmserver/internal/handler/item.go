@@ -1034,27 +1034,29 @@ func (d *Dispatcher) useQuestReward(w *world.World, s *world.Session, e *world.E
 	d.sendEtc(w, s, e) // coin changed even when EXP was already at its ceiling
 }
 
+// grantQuestPartyExp ports the trophy's party split (_MSG_UseItem.cpp:2403-2480).
+// The leader is consumer.Leader, or the consumer itself when that is <= 0 or
+// >= MAX_USER, and always receives the share, even when it is the consumer:
+// a solo or leader consumer gets QuestExp plus QuestExp/10 (issue #396). Only
+// the leader's party members skip the consumer and non-playing sessions.
 func (d *Dispatcher) grantQuestPartyExp(w *world.World, consumer *world.Entity, share int64) {
 	if share <= 0 {
 		return
 	}
 	leaderID := consumer.Leader
-	if leaderID == 0 {
-		if partyMemberCount(consumer) == 0 {
-			return
-		}
+	if leaderID <= 0 || leaderID >= world.MaxUser {
 		leaderID = consumer.ID
 	}
 	leader := w.Entity(leaderID)
 	if leader == nil {
 		return
 	}
+	// The legacy leader grant has no USER_PLAY filter; a nil session still
+	// raises Exp and only skips the client packets.
+	d.grantDirectExp(w, w.Session(leaderID), leader, share)
 
-	seen := map[int]bool{consumer.ID: true}
-	recipients := make([]int, 0, world.MaxParty+1)
-	recipients = append(recipients, leaderID)
-	recipients = append(recipients, leader.PartyList[:]...)
-	for _, conn := range recipients {
+	seen := map[int]bool{consumer.ID: true, leaderID: true}
+	for _, conn := range leader.PartyList {
 		if conn <= 0 || conn >= world.MaxUser || seen[conn] {
 			continue
 		}
