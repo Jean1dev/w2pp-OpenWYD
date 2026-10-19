@@ -242,6 +242,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.amuMistico(w, s, e, int(confirm))
 		return
 	}
+	// EXPLOIT_LEADER (MOB.Merchant 11, "Cap.Explor."): Terra Mistica step 3
+	// (issue #403, _MSG_Quest.cpp:1626).
+	if isExploitLeaderNPC(npc) {
+		d.exploitLeader(w, s, e, npc)
+		return
+	}
 	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra Ideal
 	// (_MSG_Quest.cpp:2257).
 	if npc.Merchant == 78 {
