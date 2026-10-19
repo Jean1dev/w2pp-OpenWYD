@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
@@ -115,6 +116,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 			d.putMobDrop(w, reward, it)
 		}
 	}
+	d.terraMisticaKill(w, ks, reward, mob)
 
 	gen := int(mob.GenIndex)
 	if w.Entity(mob.ID) != mob {
@@ -437,4 +439,50 @@ func addClamp(v, inc, limit int32) int32 {
 		return 0
 	}
 	return int32(sum)
+}
+
+// Terra Mistica step 2 (MobKilled.cpp:2909-2921): after the loot rolls, a
+// kill of a face-239/241 mob has a 1-in-20 chance to move the reward target's
+// flag 1 -> 2. The legacy short-circuits the face test before rand(), so
+// other mobs draw nothing; the roll happens whatever the flag is.
+const (
+	terraMisticaMissionFlag = 1
+	terraMisticaFaceA       = 239
+	terraMisticaFaceB       = 241
+	terraMisticaKillOdds    = 20
+
+	// mobFaceOffset is STRUCT_MOB.Equip[0].sIndex in the 816-byte template.
+	mobFaceOffset = 140
+)
+
+// msgWatchingTownSuccess is Language.txt _NN_Watching_Town_Success (4), in Windows-1252.
+const msgWatchingTownSuccess = "Quest: Você aprova a proteção da cidade."
+
+// mobFace returns the mob's Equip[0].sIndex from its template. EquipVisual
+// carries the refine overlay, so the raw template is the faithful source.
+func mobFace(mob *world.Entity) int {
+	if len(mob.Template) < mobFaceOffset+2 {
+		return 0
+	}
+	return int(binary.LittleEndian.Uint16(mob.Template[mobFaceOffset:]))
+}
+
+func (d *Dispatcher) terraMisticaKill(w *world.World, ks *world.Session, reward, mob *world.Entity) {
+	if !world.IsPlayer(reward.ID) {
+		return
+	}
+	if face := mobFace(mob); face != terraMisticaFaceA && face != terraMisticaFaceB {
+		return
+	}
+	if w.Rand().Intn(terraMisticaKillOdds) != 0 || reward.TerraMistica != terraMisticaMissionFlag {
+		return
+	}
+	reward.TerraMistica = terraMisticaRewardFlag
+	if ks == nil {
+		return
+	}
+	d.sendClientMessage(w, ks, msgWatchingTownSuccess)
+	// Persist off the loop, like amuMistico and exploitLeader.
+	w.SaveCharacterThen(ks, func(*world.World, *world.Session) {})
+	d.log.Info("terra mistica mission", "conn", ks.Conn, "name", reward.Name)
 }
