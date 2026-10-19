@@ -696,6 +696,10 @@ type Character struct {
 	MortalMolarGargula int32 `protobuf:"varint,60,opt,name=mortal_molar_gargula,json=mortalMolarGargula,proto3" json:"mortal_molar_gargula,omitempty"` // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (0/1, issue #398)
 	MortalPilulaOrc    int32 `protobuf:"varint,61,opt,name=mortal_pilula_orc,json=mortalPilulaOrc,proto3" json:"mortal_pilula_orc,omitempty"`          // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used (0/1, issue #404)
 	CelestialReset     int32 `protobuf:"varint,62,opt,name=celestial_reset,json=celestialReset,proto3" json:"celestial_reset,omitempty"`               // QuestInfo.Celestial.Reset: Pedra da Furia resets done (0..3, issue #408)
+	CelestialAdd120    int32 `protobuf:"varint,63,opt,name=celestial_add120,json=celestialAdd120,proto3" json:"celestial_add120,omitempty"`            // QuestInfo.Celestial.Add120: Sub-Celestial diadem add at 120 granted (0/1, issue #409)
+	CelestialAdd150    int32 `protobuf:"varint,64,opt,name=celestial_add150,json=celestialAdd150,proto3" json:"celestial_add150,omitempty"`            // QuestInfo.Celestial.Add150: Sub-Celestial diadem add at 150 granted (0/1, issue #409)
+	CelestialAdd180    int32 `protobuf:"varint,65,opt,name=celestial_add180,json=celestialAdd180,proto3" json:"celestial_add180,omitempty"`            // QuestInfo.Celestial.Add180: Sub-Celestial diadem add at 180 granted (0/1, issue #409)
+	CelestialAdd200    int32 `protobuf:"varint,66,opt,name=celestial_add200,json=celestialAdd200,proto3" json:"celestial_add200,omitempty"`            // QuestInfo.Celestial.Add200: Sub-Celestial diadem add at stored 199 granted (0/1, issue #409)
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1160,6 +1164,34 @@ func (x *Character) GetMortalPilulaOrc() int32 {
 func (x *Character) GetCelestialReset() int32 {
 	if x != nil {
 		return x.CelestialReset
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialAdd120() int32 {
+	if x != nil {
+		return x.CelestialAdd120
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialAdd150() int32 {
+	if x != nil {
+		return x.CelestialAdd150
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialAdd180() int32 {
+	if x != nil {
+		return x.CelestialAdd180
+	}
+	return 0
+}
+
+func (x *Character) GetCelestialAdd200() int32 {
+	if x != nil {
+		return x.CelestialAdd200
 	}
 	return 0
 }
@@ -6314,7 +6346,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xe0\x0e\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\x8c\x10\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -6383,7 +6415,11 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\rmortal_newbie\x18; \x01(\x05R\fmortalNewbie\x120\n" +
 	"\x14mortal_molar_gargula\x18< \x01(\x05R\x12mortalMolarGargula\x12*\n" +
 	"\x11mortal_pilula_orc\x18= \x01(\x05R\x0fmortalPilulaOrc\x12'\n" +
-	"\x0fcelestial_reset\x18> \x01(\x05R\x0ecelestialReset\"\xcd\x01\n" +
+	"\x0fcelestial_reset\x18> \x01(\x05R\x0ecelestialReset\x12)\n" +
+	"\x10celestial_add120\x18? \x01(\x05R\x0fcelestialAdd120\x12)\n" +
+	"\x10celestial_add150\x18@ \x01(\x05R\x0fcelestialAdd150\x12)\n" +
+	"\x10celestial_add180\x18A \x01(\x05R\x0fcelestialAdd180\x12)\n" +
+	"\x10celestial_add200\x18B \x01(\x05R\x0fcelestialAdd200\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

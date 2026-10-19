@@ -243,6 +243,10 @@ type Entity struct {
 	MolarGargula         uint8 // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (issue #398). Persisted.
 	PilulaOrc            uint8 // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used, +9 SkillBonus (issue #404). Persisted.
 	CelReset             uint8 // QuestInfo.Celestial.Reset: Pedra da Furia resets done 0..3, +200 attribute points each (issue #408). Persisted.
+	CelAdd120            uint8 // QuestInfo.Celestial.Add120: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
+	CelAdd150            uint8 // QuestInfo.Celestial.Add150: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
+	CelAdd180            uint8 // QuestInfo.Celestial.Add180: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
+	CelAdd200            uint8 // QuestInfo.Celestial.Add200: Sub-Celestial diadem add already granted by SetCircletSubGod (issue #409). Persisted.
 	ArchLv355, ArchLv370 uint8
 	MortalLevel          uint16
 	CelestialArchLevel   uint8

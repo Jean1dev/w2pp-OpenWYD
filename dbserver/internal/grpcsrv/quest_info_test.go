@@ -28,6 +28,10 @@ func TestQuestInfoMappingRoundTrip(t *testing.T) {
 		{"Celestial.Lv40", &dbv1.Character{CelestialLv40: 1}, (*dbv1.Character).GetCelestialLv40},
 		{"Celestial.Lv90", &dbv1.Character{CelestialLv90: 1}, (*dbv1.Character).GetCelestialLv90},
 		{"Celestial.Reset", &dbv1.Character{CelestialReset: 3}, (*dbv1.Character).GetCelestialReset},
+		{"Celestial.Add120", &dbv1.Character{CelestialAdd120: 1}, (*dbv1.Character).GetCelestialAdd120},
+		{"Celestial.Add150", &dbv1.Character{CelestialAdd150: 1}, (*dbv1.Character).GetCelestialAdd150},
+		{"Celestial.Add180", &dbv1.Character{CelestialAdd180: 1}, (*dbv1.Character).GetCelestialAdd180},
+		{"Celestial.Add200", &dbv1.Character{CelestialAdd200: 1}, (*dbv1.Character).GetCelestialAdd200},
 		{"Circle", &dbv1.Character{CelestialCircle: 1}, (*dbv1.Character).GetCelestialCircle},
 	}
 	for _, tt := range tests {

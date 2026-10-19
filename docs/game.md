@@ -18,7 +18,8 @@
 ✅ /destravar40: destrava o level 40 do celestial (seta o gate `QuestInfo.Celestial.Lv40`; efetivo só para chars Celestial) <br/>
 ✅ /destravar90: destrava o level 90 do celestial (gate `Lv90` + dá a Cythera Mística item 3502) <br/>
 ✅ /arcana: realiza a quest da cythera arcana (seta `Circle` + põe o item 3507 no Equip[1]) <br/>
-✅ Pedra da Fúria (3020): Lv90, Arcana e Reset do Celestial pelo item, cobrando 500 de Fama (#408; `SetCircletSubGod` pendente na #409) <br/>
+✅ Pedra da Fúria (3020): Lv90, Arcana e Reset do Celestial pelo item, cobrando 500 de Fama (#408) <br/>
+✅ Diadema do Sub-Celestial: ao chegar aos níveis 120/150/180/199 (armazenados), o Equip[1] ganha EF_AC/EF_HP 30/40, 35/50, 45/60 e 50/70, uma vez por nível (`SetCircletSubGod`, flags `Add120..200`; #409) <br/>
 ⏳ /create: (nome da guild): cria guild — sistema de guild não modelado <br/>
 ✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
 ⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>

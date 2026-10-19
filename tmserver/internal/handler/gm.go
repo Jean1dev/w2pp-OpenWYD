@@ -240,7 +240,7 @@ func (d *Dispatcher) gmSetLevel(w *world.World, s *world.Session, rest string) {
 	if e.Exp < level.NextLevelExp(int32(n)-1) {
 		e.Exp = level.NextLevelExp(int32(n) - 1)
 	}
-	d.applyLevelUps(w, s, e)
+	d.applyLevelUpsWithoutCirclet(w, s, e)
 	d.log.Info("gm setlevel", "account", s.AccountName, "target", n, "level", e.Level)
 }
 

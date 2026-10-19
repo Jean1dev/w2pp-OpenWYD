@@ -137,11 +137,9 @@ func (d *Dispatcher) furyStoneArcana(w *world.World, s *world.Session, e *world.
 // furyStoneReset ports the Celestial reset (_MSG_UseItem.cpp:3579-3615): no
 // roll, +1 Reset, -500 Fame and -20M exp, the level looked up again on the
 // celestial curve and the free points recomputed, where each reset is worth
-// +200. The legacy CheckGetLevel right after cannot raise the level of a
-// character that just lost exp, so it is left out.
-//
-// SetCircletSubGod, which the legacy calls when CheckGetLevel returns 4, is not
-// ported: it belongs with the Add120..200 diadem flags (issue #409).
+// +200. The legacy CheckGetLevel right after, with SetCircletSubGod when it
+// returns 4 (:3596-3599, issue #409), is applyLevelUps: the level was just
+// looked up from the exp, so it normally finds nothing to raise.
 func (d *Dispatcher) furyStoneReset(w *world.World, s *world.Session, e *world.Entity, src int) {
 	e.CelReset++
 	e.Fame -= furyStoneFame
@@ -150,6 +148,7 @@ func (d *Dispatcher) furyStoneReset(w *world.World, s *world.Session, e *world.E
 	// The Go login derives BaseAC from the level, so lower it now to keep the
 	// live value equal to the one the next login rebuilds.
 	e.BaseAC = playerBaseAC(e)
+	d.applyLevelUps(w, s, e)
 	e.ScoreBonus = scoreBonusFor(e)
 	d.refreshScore(e)
 	d.sendEtc(w, s, e)
