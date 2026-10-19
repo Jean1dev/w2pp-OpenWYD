@@ -248,6 +248,16 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.exploitLeader(w, s, e, npc)
 		return
 	}
+	// JEFFI / SHAMA (MOB.Merchant 12 / 13): the Círculo Divino (issue #405,
+	// _MSG_Quest.cpp:514-691).
+	if isJeffiNPC(npc) {
+		d.jeffi(w, s, e, npc)
+		return
+	}
+	if isShamaNPC(npc) {
+		d.shama(w, s, e, npc)
+		return
+	}
 	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra Ideal
 	// (_MSG_Quest.cpp:2257).
 	if npc.Merchant == 78 {
