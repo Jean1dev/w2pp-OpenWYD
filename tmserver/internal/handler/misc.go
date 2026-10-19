@@ -258,8 +258,8 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.shama(w, s, e, npc)
 		return
 	}
-	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra Ideal
-	// (_MSG_Quest.cpp:2257).
+	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra da Imortalidade
+	// (1742, _MSG_Quest.cpp:2257-2332).
 	if npc.Merchant == 78 {
 		d.blackOracle(w, s, e)
 		return
@@ -299,7 +299,7 @@ func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.E
 	if clan := kingClanFromCape(e.Clan, e.Equip[capeEquipSlot].Index); clan != 0 && clan != npc.Clan {
 		return
 	}
-	if confirm != 0 && e.Equip[idealStoneEquipSlot].Index == idealStoneItem &&
+	if confirm != 0 && e.Equip[immortalityStoneEquipSlot].Index == immortalityStoneItem &&
 		e.Equip[sephirotEquipSlot].Index >= archSephirotMin && e.Equip[sephirotEquipSlot].Index <= archSephirotMax {
 		if d.kingPedraIdeal(w, s, e, npc) {
 			return
@@ -313,8 +313,9 @@ func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.E
 }
 
 // Pedra_Ideal (5338, EF_VOLATILE 211) and the four Pedras Secretas the King
-// fuses into it (_MSG_Quest.cpp:771-840). The 1742 behind idealStoneItem is the
-// Pedra_da_Imortalidade, the King's Equip[10] gear, not this stone.
+// fuses into it (_MSG_Quest.cpp:771-840). The 1742 behind immortalityStoneItem
+// is the Pedra_da_Imortalidade, the King's Equip[10] gear, not this stone;
+// right-clicking the 5338 is what turns an Arch into a Celestial (useIdealStone).
 const pedraIdealItem = 5338
 
 var pedraSecretaItems = [...]int16{5334, 5335, 5336, 5337}
@@ -356,8 +357,8 @@ func (d *Dispatcher) kingPedraIdeal(w *world.World, s *world.Session, e, npc *wo
 			d.sendSlot(w, s, world.ItemPlaceCarry, i, e.Carry[i])
 		}
 	}
-	e.Equip[idealStoneEquipSlot] = world.Item{}
-	d.sendSlot(w, s, world.ItemPlaceEquip, idealStoneEquipSlot, e.Equip[idealStoneEquipSlot])
+	e.Equip[immortalityStoneEquipSlot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceEquip, immortalityStoneEquipSlot, e.Equip[immortalityStoneEquipSlot])
 	e.Equip[sephirotEquipSlot] = world.Item{}
 	d.sendSlot(w, s, world.ItemPlaceEquip, sephirotEquipSlot, e.Equip[sephirotEquipSlot])
 	// SendSay(_NN_My_King_Bless1) regardless of the King's kingdom (:832).
@@ -599,13 +600,13 @@ func paySapphires(e *world.Entity, cost int) []int {
 const (
 	kingQuestMerchant = 111
 
-	idealStoneItem       = 1742
-	idealStoneEquipSlot  = 10
-	sephirotEquipSlot    = 11
-	archSephirotMin      = 1760
-	archSephirotMax      = 1763
-	capeEquipSlot        = 15
-	pedraIdealsCraftCoin = 30_000_000
+	immortalityStoneItem      = 1742 // Pedra_da_Imortalidade (no EF_VOLATILE)
+	immortalityStoneEquipSlot = 10
+	sephirotEquipSlot         = 11
+	archSephirotMin           = 1760
+	archSephirotMax           = 1763
+	capeEquipSlot             = 15
+	pedraIdealsCraftCoin      = 30_000_000
 )
 
 // Emblema_do_Reino, dropped by the Cav._Mortal of the "Cavaleiro do Reino"
@@ -709,7 +710,7 @@ func kingClanFromCape(clan uint8, capeIndex int16) uint8 {
 // kingArch handles the KING npcMode's Arch-creation path (_MSG_Quest.cpp:694-867).
 // Ported: the Clan/cape faction gate (:696-741), the confirm==0 ask leg
 // (:762-767, without the Sapphire-price text — UNVERIFIED wire format), and the
-// Equip[10]==1742 (Pedra Ideal) + Equip[11]∈[1760,1763] (Sephirot) + Mortal/level
+// Equip[10]==1742 (Pedra da Imortalidade) + Equip[11]∈[1760,1763] (Sephirot) + Mortal/level
 // gate (:769, :842-866). kingQuest runs the Pedra Ideal craft (:771-840,
 // kingPedraIdeal) first, so a Mortal carrying the four Pedras Secretas gets the
 // 5338 instead of the Arch, and sends the cape branches (:869-1124) to
@@ -725,7 +726,7 @@ func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e, npc *world.En
 	if e.ClassMaster != classMasterMortal || e.Level < 299 {
 		return
 	}
-	if e.Equip[idealStoneEquipSlot].Index != idealStoneItem {
+	if e.Equip[immortalityStoneEquipSlot].Index != immortalityStoneItem {
 		return
 	}
 	sephirot := int(e.Equip[sephirotEquipSlot].Index)
@@ -783,9 +784,9 @@ func (d *Dispatcher) completeKingArch(w *world.World, s *world.Session, archSlot
 	if e == nil {
 		return
 	}
-	e.Equip[idealStoneEquipSlot] = world.Item{}
+	e.Equip[immortalityStoneEquipSlot] = world.Item{}
 	e.Equip[sephirotEquipSlot] = world.Item{}
-	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, idealStoneEquipSlot, itemToSel(e.Equip[idealStoneEquipSlot])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, immortalityStoneEquipSlot, itemToSel(e.Equip[immortalityStoneEquipSlot])))
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, sephirotEquipSlot, itemToSel(e.Equip[sephirotEquipSlot])))
 
 	body := protocol.EncodeRemoveMobBody(2)
@@ -913,17 +914,18 @@ func (d *Dispatcher) amuMistico(w *world.World, s *world.Session, e *world.Entit
 }
 
 const (
-	soulItem1        = 1740
-	soulItem2        = 1741
-	sapphireUnit1    = 697  // 1 sapphire unit
-	sapphireUnit10   = 4131 // 10 sapphire units
-	blackOracleCost  = 10   // sapphire units required
-	pedraIdealReward = idealStoneItem
+	soulItem1               = 1740
+	soulItem2               = 1741
+	sapphireUnit1           = 697  // 1 sapphire unit
+	sapphireUnit10          = 4131 // 10 sapphire units
+	blackOracleCost         = 10   // sapphire units required
+	pedraImortalidadeReward = immortalityStoneItem
 )
 
 // blackOracle handles BLACKORACLE (Merchant 78): merges the two soul items
 // (1740 immediately followed by 1741 in Carry) plus 10 sapphire units into the
-// Pedra Ideal (item 1742) the King later requires (_MSG_Quest.cpp:2257-2334).
+// Pedra da Imortalidade (item 1742) the King later requires in Equip[10]
+// (_MSG_Quest.cpp:2257-2334; the reward is set at :2332).
 // A 697 counts as 1 unit, a 4131 as 10. The legacy case never checks confirm.
 func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Entity) {
 	soulSlot := -1
@@ -980,7 +982,7 @@ func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Enti
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	e.Carry[slot] = world.Item{Index: pedraIdealReward}
+	e.Carry[slot] = world.Item{Index: pedraImortalidadeReward}
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
 	d.log.Info("black oracle soul merge", "conn", s.Conn, "name", e.Name)
 }

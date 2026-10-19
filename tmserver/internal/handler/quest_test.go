@@ -678,8 +678,8 @@ func TestBlackOracleMergesSoulItems(t *testing.T) {
 	if idx, ok := got[12]; !ok || idx != 0 {
 		t.Fatalf("slot 12 (sapphire) = idx %d ok=%v, want cleared", idx, ok)
 	}
-	if idx, ok := got[0]; !ok || idx != idealStoneItem {
-		t.Fatalf("slot 0 (reward) = idx %d ok=%v, want Pedra Ideal %d", idx, ok, idealStoneItem)
+	if idx, ok := got[0]; !ok || idx != immortalityStoneItem {
+		t.Fatalf("slot 0 (reward) = idx %d ok=%v, want Pedra da Imortalidade %d", idx, ok, immortalityStoneItem)
 	}
 }
 
@@ -821,7 +821,7 @@ func TestKingArchRejectsMissingPedraIdeal(t *testing.T) {
 	db := newDB()
 	st := baseMortalState(299)
 	st.Equip[0] = world.Item{Index: 21}
-	st.Equip[11] = world.Item{Index: 1762} // Sephirot present, Pedra Ideal missing
+	st.Equip[11] = world.Item{Index: 1762} // Sephirot present, Pedra da Imortalidade missing
 	db.loadResult = st
 	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
 	defer stop()
@@ -830,7 +830,7 @@ func TestKingArchRejectsMissingPedraIdeal(t *testing.T) {
 
 	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
 	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk {
-		t.Fatalf("missing Pedra Ideal produced %#x, ok=%v; want rejection notice", ty, ok)
+		t.Fatalf("missing Pedra da Imortalidade produced %#x, ok=%v; want rejection notice", ty, ok)
 	}
 }
 

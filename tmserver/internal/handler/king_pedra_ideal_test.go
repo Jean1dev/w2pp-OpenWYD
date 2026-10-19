@@ -41,7 +41,7 @@ func TestKingPedraIdeal(t *testing.T) {
 			st := baseMortalState(tt.level)
 			st.ClassMaster = tt.classMaster
 			st.Equip[0] = world.Item{Index: 21}
-			st.Equip[idealStoneEquipSlot] = world.Item{Index: idealStoneItem}
+			st.Equip[immortalityStoneEquipSlot] = world.Item{Index: immortalityStoneItem}
 			st.Equip[sephirotEquipSlot] = world.Item{Index: 1760}
 			for i, stone := range tt.stones {
 				st.Carry[20+i] = world.Item{Index: stone}
@@ -100,8 +100,8 @@ func TestKingPedraIdeal(t *testing.T) {
 						t.Errorf("carry[%d] = %d, want %d kept", 20+i, got, stone)
 					}
 				}
-				if !tt.wantArch && (equip(idealStoneEquipSlot) != idealStoneItem || equip(sephirotEquipSlot) != 1760) {
-					t.Errorf("King gear consumed: equip10=%d equip11=%d", equip(idealStoneEquipSlot), equip(sephirotEquipSlot))
+				if !tt.wantArch && (equip(immortalityStoneEquipSlot) != immortalityStoneItem || equip(sephirotEquipSlot) != 1760) {
+					t.Errorf("King gear consumed: equip10=%d equip11=%d", equip(immortalityStoneEquipSlot), equip(sephirotEquipSlot))
 				}
 				return
 			}
@@ -115,7 +115,7 @@ func TestKingPedraIdeal(t *testing.T) {
 				want = append(want, f)
 			}
 			want = append(want,
-				kingFrame{place: world.ItemPlaceEquip, slot: idealStoneEquipSlot},
+				kingFrame{place: world.ItemPlaceEquip, slot: immortalityStoneEquipSlot},
 				kingFrame{place: world.ItemPlaceEquip, slot: sephirotEquipSlot},
 				kingFrame{chat: string(protocol.EncodeMessageChatBody(msgKingBless1))},
 			)
@@ -139,8 +139,8 @@ func TestKingPedraIdeal(t *testing.T) {
 			if got := carry(30); got != 5334 {
 				t.Errorf("second 5334 = %d, want kept", got)
 			}
-			if equip(idealStoneEquipSlot) != 0 || equip(sephirotEquipSlot) != 0 {
-				t.Errorf("King gear kept: equip10=%d equip11=%d", equip(idealStoneEquipSlot), equip(sephirotEquipSlot))
+			if equip(immortalityStoneEquipSlot) != 0 || equip(sephirotEquipSlot) != 0 {
+				t.Errorf("King gear kept: equip10=%d equip11=%d", equip(immortalityStoneEquipSlot), equip(sephirotEquipSlot))
 			}
 		})
 	}

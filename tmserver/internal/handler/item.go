@@ -361,6 +361,7 @@ const (
 	volQuestReward       = 191 // quest reward items 4117..4121 (_MSG_UseItem.cpp:2344)
 	volHuntingScroll     = 195 // Pedido de Caça: destination selected by MSG_UseItem.WarpID
 	volExpChest          = 198
+	volIdealStone        = 211 // Pedra_Ideal 5338: Arch→Celestial (_MSG_UseItem.cpp:3003)
 	volBuffKappa20h      = 200
 	volBuffCombat20h     = 201
 	volBuffMental20h     = 202
@@ -506,14 +507,6 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useArchCrystal(w, s, e, src)
 		return
 	}
-	// Pedra Ideal (1742) right-clicked by an Arch (issue #222): the Arch→Celestial
-	// transformation. ClassMaster==Mortal falls through unchanged to the vol==0
-	// equip path below — that's the unrelated kingArch flow (equip + visit the
-	// King), which must keep working.
-	if e.Carry[src].Index == idealStoneItem && e.ClassMaster == classMasterArch {
-		d.useIdealStone(w, s, e, src)
-		return
-	}
 	// Selo do Guerreiro and Pedra Misteriosa have no EF_VOLATILE, so d.itemVolatiles
 	// defaults to 0 for them — check sIndex first so they don't fall into the vol==0
 	// equip path (canEquipSlot would just silently reject them, the same "phantom
@@ -583,6 +576,8 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useMolarGargula(w, s, e, src)
 	case vol == volPilulaOrc:
 		d.usePilulaOrc(w, s, e, src)
+	case vol == volIdealStone:
+		d.useIdealStone(w, s, e, src)
 	case vol == volHuntingScroll:
 		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
@@ -1527,16 +1522,28 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 
 const celestialArchLevelReq = 355
 
-// useIdealStone handles the Arch→Celestial transformation triggered by right-clicking
-// the Pedra Ideal (item 1742, issue #222). This is a distinct self-use path from
-// kingArch's equip-and-visit-the-King Mortal→Arch flow, which reuses the same item —
-// the in-game tooltip instructs "clique na pedra com o botão direito do mouse" and only
-// applies once the character is already Arch (the caller in useItem gates on that).
+// useIdealStone ports the EF_VOLATILE 211 block (_MSG_UseItem.cpp:3003-3181),
+// reached by right-clicking the Pedra_Ideal 5338 the King fuses from the four
+// Pedras Secretas (kingPedraIdeal). Issue #407 reverted #222, which had wired
+// this to the 1742: that one is the Pedra_da_Imortalidade, has no EF_VOLATILE
+// and only matters equipped in Equip[10] for the King's Arch creation.
+//
+// Only the Arch→Celestial leg (:3101-3181) is ported. A Celestial using the stone
+// becomes a Sub-Celestial in the legacy (:3036-3099); until that lands (#410) it
+// is refused as an unimplemented consumable. Any other tier gets the silent slot
+// resync of :3005-3009.
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
+	switch e.ClassMaster {
+	case classMasterArch:
+	case classMasterCelestial:
+		d.rejectUnimplementedConsumable(w, s, e, src)
+		return
+	default:
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
 	var requirement string
 	switch {
-	case e.ClassMaster != classMasterArch:
-		requirement = "Somente um Arch pode evoluir para Celestial com a Pedra Ideal."
 	case e.Level < celestialArchLevelReq:
 		requirement = "Seu Arch precisa atingir o nivel 356 para usar a Pedra Ideal."
 	case e.MortalLevel < 99:

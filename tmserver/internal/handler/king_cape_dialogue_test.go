@@ -160,9 +160,9 @@ func TestKingArchIdealStoneDialogue(t *testing.T) {
 							st.ArchCrystalStage = 4
 							switch stone {
 							case "carry":
-								st.Carry[0] = world.Item{Index: idealStoneItem}
+								st.Carry[0] = world.Item{Index: immortalityStoneItem}
 							case "equip":
-								st.Equip[idealStoneEquipSlot] = world.Item{Index: idealStoneItem}
+								st.Equip[immortalityStoneEquipSlot] = world.Item{Index: immortalityStoneItem}
 								st.Equip[sephirotEquipSlot] = world.Item{Index: archSephirotMin}
 							}
 							if capeDone {

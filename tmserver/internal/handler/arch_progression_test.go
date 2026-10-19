@@ -490,7 +490,7 @@ func TestArchIdealStoneCrystalPenalty(t *testing.T) {
 				db := &archRelogDB{idealStoneDB(classMasterArch, lvl)}
 				db.loadResult.ArchCrystalStage = stage
 				db.loadResult.Carry[0].Effects[0] = world.Effect{Effect: efAmount, Value: 2}
-				addr, stop, _ := startServerClock(t, db)
+				addr, stop := startIdealStoneServer(t, db)
 				defer stop()
 				c := enterWorld(t, addr)
 				defer c.Close()
@@ -534,8 +534,8 @@ func TestArchCompleteFairyDustJourney(t *testing.T) {
 	for i := range 4 {
 		db.loadResult.Carry[15+i] = world.Item{Index: int16(4106 + i)}
 	}
-	db.loadResult.Carry[19] = world.Item{Index: idealStoneItem}
-	addr, stop := startServerClockVol(t, db, map[int]int{dust: volFairyDust})
+	db.loadResult.Carry[19] = world.Item{Index: pedraIdealItem}
+	addr, stop := startServerClockVol(t, db, map[int]int{dust: volFairyDust, pedraIdealItem: volIdealStone})
 	defer stop()
 	c := enterWorld(t, addr)
 	defer c.Close()
@@ -628,19 +628,19 @@ func TestArchIdealStoneRejectsMissingPrerequisites(t *testing.T) {
 			} else {
 				db.loadResult.MortalLevel = 98
 			}
-			addr, stop, _ := startServerClock(t, db)
+			addr, stop := startIdealStoneServer(t, db)
 			defer stop()
 			c := enterWorld(t, addr)
 			defer c.Close()
 			useArchItem(t, c, 0)
 			expect(t, c, protocol.MsgMessageChat)
-			if slot := expect(t, c, protocol.MsgSendItem); le16(slot[4:6]) != idealStoneItem {
+			if slot := expect(t, c, protocol.MsgSendItem); le16(slot[4:6]) != pedraIdealItem {
 				t.Fatal("rejected stone consumed")
 			}
 			send(t, c, protocol.MsgCharacterLogout, nil)
 			expect(t, c, protocol.MsgCNFCharacterLogout)
 			save, _ := db.lastSavedChar()
-			if save.ClassMaster != classMasterArch || !hasItem(save.Carry, idealStoneItem) {
+			if save.ClassMaster != classMasterArch || !hasItem(save.Carry, pedraIdealItem) {
 				t.Fatal("rejected evolution changed character")
 			}
 		})
