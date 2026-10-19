@@ -326,26 +326,13 @@ var pedraSecretaItems = [...]int16{5334, 5335, 5336, 5337}
 // the King's gear (Equip[10]/[11]) is consumed. It reports whether it ran, so
 // the caller falls through to the Arch creation otherwise, as the legacy does.
 func (d *Dispatcher) kingPedraIdeal(w *world.World, s *world.Session, e, npc *world.Entity) bool {
-	var slots [len(pedraSecretaItems)]int
-	for k := range slots {
-		slots[k] = -1
-	}
-	limit := activeCarryLimit(e)
-	for i := 0; i < limit; i++ {
-		for k, stone := range pedraSecretaItems {
-			if slots[k] < 0 && e.Carry[i].Index == stone {
-				slots[k] = i
-			}
-		}
-	}
-	for _, slot := range slots {
-		if slot < 0 {
-			return false
-		}
+	slots, ok := pedraSecretaSlots(e)
+	if !ok {
+		return false
 	}
 	// The legacy walks the inventory once and sends each slot as it rewrites
 	// it, so the refreshes go out in slot order.
-	for i := 0; i < limit; i++ {
+	for i := 0; i < activeCarryLimit(e); i++ {
 		for k, slot := range slots {
 			if slot != i {
 				continue
@@ -366,6 +353,30 @@ func (d *Dispatcher) kingPedraIdeal(w *world.World, s *world.Session, e, npc *wo
 	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
 	d.log.Info("king make ideal_stone", "conn", s.Conn, "name", e.Name, "level", e.Level)
 	return true
+}
+
+// pedraSecretaSlots finds the first accessible carry slot holding each of the
+// four Pedras Secretas, in pedraSecretaItems order. ok is false when any one is
+// missing. Both the King (_MSG_Quest.cpp:776-800) and the Pedra da Furia
+// (_MSG_UseItem.cpp:3480-3536) erase the first one of each.
+func pedraSecretaSlots(e *world.Entity) (slots [len(pedraSecretaItems)]int, ok bool) {
+	for k := range slots {
+		slots[k] = -1
+	}
+	limit := activeCarryLimit(e)
+	for i := 0; i < limit; i++ {
+		for k, stone := range pedraSecretaItems {
+			if slots[k] < 0 && e.Carry[i].Index == stone {
+				slots[k] = i
+			}
+		}
+	}
+	for _, slot := range slots {
+		if slot < 0 {
+			return slots, false
+		}
+	}
+	return slots, true
 }
 
 // kingCapeService ports the cape half of the KING case (_MSG_Quest.cpp:694-1124)

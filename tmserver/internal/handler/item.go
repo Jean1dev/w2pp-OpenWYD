@@ -518,6 +518,9 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 	case itemPedraMisteriosa:
 		d.rejectUnimplementedConsumable(w, s, e, src)
 		return
+	case furyStoneItem: // issue #408: no EF_VOLATILE either
+		d.useFuryStone(w, s, e, src)
+		return
 	}
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
 	case vol == 0:

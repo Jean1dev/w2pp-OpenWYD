@@ -296,6 +296,7 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.NewbieQuest = st.NewbieQuest
 		e.MolarGargula = st.MolarGargula
 		e.PilulaOrc = st.PilulaOrc
+		e.CelReset = st.CelReset
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned

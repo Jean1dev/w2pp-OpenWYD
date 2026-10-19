@@ -242,6 +242,7 @@ type Entity struct {
 	NewbieQuest          uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step 0..4 (issue #395). Persisted.
 	MolarGargula         uint8 // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (issue #398). Persisted.
 	PilulaOrc            uint8 // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used, +9 SkillBonus (issue #404). Persisted.
+	CelReset             uint8 // QuestInfo.Celestial.Reset: Pedra da Furia resets done 0..3, +200 attribute points each (issue #408). Persisted.
 	ArchLv355, ArchLv370 uint8
 	MortalLevel          uint16
 	CelestialArchLevel   uint8

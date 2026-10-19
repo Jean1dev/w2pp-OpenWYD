@@ -28,6 +28,7 @@ func TestQuestInfoRoundTrip(t *testing.T) {
 		{"Celestial.ArchLevel", world.CharacterSave{CelestialArchLevel: 5}, func(s world.CharacterState) bool { return s.CelestialArchLevel == 5 }},
 		{"Celestial.Lv40", world.CharacterSave{CelLv40: 1}, func(s world.CharacterState) bool { return s.CelLv40 == 1 }},
 		{"Celestial.Lv90", world.CharacterSave{CelLv90: 1}, func(s world.CharacterState) bool { return s.CelLv90 == 1 }},
+		{"Celestial.Reset", world.CharacterSave{CelReset: 3}, func(s world.CharacterState) bool { return s.CelReset == 3 }},
 		{"Circle", world.CharacterSave{CelCircle: 1}, func(s world.CharacterState) bool { return s.CelCircle == 1 }},
 	}
 	for _, tt := range tests {

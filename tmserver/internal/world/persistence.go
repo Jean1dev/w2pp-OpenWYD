@@ -129,6 +129,7 @@ type CharacterState struct {
 	CelLv40            uint8 // QuestInfo.Celestial.Lv40 gate
 	CelLv90            uint8 // QuestInfo.Celestial.Lv90 gate
 	CelCircle          uint8 // QuestInfo.Circle (Arcana quest done)
+	CelReset           uint8 // QuestInfo.Celestial.Reset: Pedra da Furia resets done 0..3 (issue #408)
 	TerraMistica       uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
 	NewbieQuest        uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step (issue #395)
 	MolarGargula       uint8 // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (issue #398)
@@ -257,6 +258,7 @@ type CharacterSave struct {
 	CelLv40            uint8
 	CelLv90            uint8
 	CelCircle          uint8
+	CelReset           uint8
 	TerraMistica       uint8
 	NewbieQuest        uint8
 	MolarGargula       uint8

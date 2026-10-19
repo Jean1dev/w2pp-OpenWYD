@@ -85,6 +85,7 @@ type Character struct {
 	CelLv40            uint8  // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
 	CelLv90            uint8  // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
 	CelCircle          uint8  // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
+	CelReset           uint8  // MobExtra.QuestInfo.Celestial.Reset (Pedra da Furia resets 0..3, issue #408)
 	TerraMistica       uint8  // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
 	NewbieQuest        uint8  // MobExtra.QuestInfo.Mortal.Newbie (Campo de Treino step 0..4, issue #395)
 	MolarGargula       uint8  // MobExtra.QuestInfo.Mortal.MolarGargula (Molar de Gargula used, issue #398)

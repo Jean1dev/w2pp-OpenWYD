@@ -158,3 +158,45 @@ func ScoreBonus(cls uint8, level int32, str, intel, dex, con int16) int32 {
 	}
 	return 0
 }
+
+// ScoreBonusCelestial is BASE_GetBonusScorePoint for the celestial tiers
+// (Basedef.cpp:980-1172): 6 points per level plus the quest grants (100 per
+// Arch crystal stage, 200 per Pedra da Furia reset, the flat 1001 and the
+// ArchLevel tier bonus), with extra points from level 120 up. Like ScoreBonus it
+// clamps an over-spend to 0 instead of taking the excess back from BaseScore.
+// CELESTIALCS/SCELESTIAL also add half the other tier's level
+// (SubCelestialLevel/CelestialLevel), which the world does not track yet, so all
+// three tiers share the CELESTIAL formula here.
+func ScoreBonusCelestial(cls uint8, lvl int32, str, intel, dex, con int16, cristal, reset, archLevel uint8) int32 {
+	c := validClass(cls)
+	used := (int32(str) - baseSIDCHM[c][0]) +
+		(int32(intel) - baseSIDCHM[c][1]) +
+		(int32(dex) - baseSIDCHM[c][2]) +
+		(int32(con) - baseSIDCHM[c][3])
+
+	leveluse := lvl*6 + int32(cristal)*100 + int32(reset)*200 + 1001
+	switch archLevel {
+	case 1:
+		leveluse += 100
+	case 2:
+		leveluse += 300
+	case 3:
+		leveluse += 600
+	case 4:
+		leveluse += 900
+	case 5:
+		leveluse += 1200
+	}
+	if lvl >= 120 {
+		leveluse += (lvl - 119) * 6
+	}
+	for _, from := range [...]int32{150, 170, 180, 190} {
+		if lvl >= from {
+			leveluse += (lvl - from + 1) * 2
+		}
+	}
+	if bonus := leveluse - used; bonus > 0 {
+		return bonus
+	}
+	return 0
+}

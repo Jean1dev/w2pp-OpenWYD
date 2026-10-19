@@ -27,6 +27,7 @@ func TestQuestInfoMappingRoundTrip(t *testing.T) {
 		{"Celestial.ArchLevel", &dbv1.Character{CelestialArchLevel: 5}, (*dbv1.Character).GetCelestialArchLevel},
 		{"Celestial.Lv40", &dbv1.Character{CelestialLv40: 1}, (*dbv1.Character).GetCelestialLv40},
 		{"Celestial.Lv90", &dbv1.Character{CelestialLv90: 1}, (*dbv1.Character).GetCelestialLv90},
+		{"Celestial.Reset", &dbv1.Character{CelestialReset: 3}, (*dbv1.Character).GetCelestialReset},
 		{"Circle", &dbv1.Character{CelestialCircle: 1}, (*dbv1.Character).GetCelestialCircle},
 	}
 	for _, tt := range tests {

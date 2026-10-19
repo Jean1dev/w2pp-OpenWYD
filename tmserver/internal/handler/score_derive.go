@@ -21,6 +21,18 @@ const (
 	baseDamageCelestial  int32 = 0
 )
 
+// scoreBonusFor is BASE_GetBonusScorePoint by tier (Basedef.cpp:898-1172) over
+// the equipment-free BaseScore: the celestial tiers count their quest grants,
+// including the +200 per Pedra da Furia reset (issue #408); every other tier
+// keeps the MORTAL formula.
+func scoreBonusFor(e *world.Entity) uint16 {
+	if isCelestialTier(e.ClassMaster) {
+		return uint16(level.ScoreBonusCelestial(e.Class, e.Level, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon,
+			e.ArchCrystalStage, e.CelReset, e.CelestialArchLevel))
+	}
+	return uint16(level.ScoreBonus(e.Class, e.Level, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon))
+}
+
 // playerBaseDamage reconstructs the equipment-free BaseScore.Damage omitted by
 // api/db/v1.Character. Mortal and Arch characters inherit 5 from the four
 // BaseMob templates (DBSrv/CFileDB.cpp:981-993,1552-1577); the Pedra Ideal
