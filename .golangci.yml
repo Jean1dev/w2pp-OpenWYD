@@ -21,6 +21,9 @@ linters:
         # Portuguese client text copied from Language.txt (_NN_Night_Already,
         # "Quest em progresso.").
         - progresso
+        # Legacy item name "Pedras Secretas" (5334–5337, ItemList.csv), cited
+        # verbatim in the King/Pedra Ideal/Pedra da Fúria handlers.
+        - secretas
   exclusions:
     generated: lax
     presets:

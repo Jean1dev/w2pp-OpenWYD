@@ -127,7 +127,7 @@ func rollItemBonus(dest *world.Item, lvdif int, pForc, quest bool, addDropBonus,
 	// First bonus kind (slot 1).
 	v38, v36, v37 := efUnknown, 0, 0
 	v35 := rnd() % 101
-	v34 := 100
+	var v34 int
 	switch {
 	case quest:
 		v34 = v35 % 3
@@ -177,7 +177,7 @@ func rollItemBonus(dest *world.Item, lvdif int, pForc, quest bool, addDropBonus,
 	if quest {
 		v33 = 2 * v33 / 3
 	}
-	v32 := 100
+	var v32 int
 	switch {
 	case quest:
 		v32 = v33 % 4
