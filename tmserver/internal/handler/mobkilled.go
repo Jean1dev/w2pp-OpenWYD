@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/level"
@@ -115,6 +116,7 @@ func (d *Dispatcher) mobKilled(w *world.World, killer, mob *world.Entity) {
 			d.putMobDrop(w, reward, it)
 		}
 	}
+	d.terraMisticaKill(w, ks, reward, mob)
 
 	gen := int(mob.GenIndex)
 	if w.Entity(mob.ID) != mob {
@@ -358,8 +360,25 @@ func isCelestialTier(classMaster uint8) bool {
 // gain skill/special points per level; Celestial tiers ride g_pNextLevel_2 to
 // MAX_CLEVEL, gain only AC + attribute points, and stay gated at levels 40/90 until
 // /destravar40 and /destravar90 set the flags (CMob.cpp:1107, 1121-1151). Shared by
-// kill EXP, Poeira de Fada, GM setlevel and combat.
+// kill EXP, quest EXP, Ehre and the Celestial reset; each level reached also
+// runs SetCircletSubGod, as the legacy does after CheckGetLevel returns 4
+// (SendFunc.cpp:1039, _MSG_UseItem.cpp:2393/2431/2471/3599,
+// _MSG_CombineItemEhre.cpp:165).
 func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.Entity) bool {
+	return d.levelUps(w, s, e, true)
+}
+
+// applyLevelUpsWithoutCirclet is applyLevelUps for the legacy level checks that
+// never call SetCircletSubGod: Poeira de Fada (_MSG_UseItem.cpp:1019/1036),
+// the attacker's own check after a heal (_MSG_Attack.cpp:1764) and the GM exp
+// command (imple.cpp:159). A Sub-Celestial that reaches 120/150/180/199 there
+// keeps its AddNNN flag at 0 and, since the add only fires at that exact level,
+// never gets that diadem add (issue #409).
+func (d *Dispatcher) applyLevelUpsWithoutCirclet(w *world.World, s *world.Session, e *world.Entity) bool {
+	return d.levelUps(w, s, e, false)
+}
+
+func (d *Dispatcher) levelUps(w *world.World, s *world.Session, e *world.Entity, circlet bool) bool {
 	gained := int32(0) // levels actually crossed — the Chaos Point grant below is per level
 	celestial := isCelestialTier(e.ClassMaster)
 	levelCap := level.MaxLevelForTier(e.ClassMaster)
@@ -394,6 +413,11 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 			}
 			e.SpecialBonus += 2
 		}
+		// The legacy levels once per CheckGetLevel and runs SetCircletSubGod
+		// after each one, so check every level crossed, not only the last.
+		if circlet {
+			d.setCircletSubGod(w, s, e)
+		}
 		gained++
 	}
 	if gained == 0 {
@@ -404,7 +428,7 @@ func (d *Dispatcher) applyLevelUps(w *world.World, s *world.Session, e *world.En
 	// are CurrentScore (base + equipment), so feeding them here over-counts the spend
 	// by whatever the gear adds and drives the grant to 0 — the "no points on level-up"
 	// bug for any character wearing attribute gear. Use the allocated BaseScore.
-	e.ScoreBonus = uint16(level.ScoreBonus(e.Class, e.Level, e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon))
+	e.ScoreBonus = scoreBonusFor(e)
 	d.refreshScore(e)             // fold the base HP/MP gains into the live score
 	e.HP, e.MP = e.MaxHP, e.MaxMP // full heal on level-up
 
@@ -437,4 +461,50 @@ func addClamp(v, inc, limit int32) int32 {
 		return 0
 	}
 	return int32(sum)
+}
+
+// Terra Mistica step 2 (MobKilled.cpp:2909-2921): after the loot rolls, a
+// kill of a face-239/241 mob has a 1-in-20 chance to move the reward target's
+// flag 1 -> 2. The legacy short-circuits the face test before rand(), so
+// other mobs draw nothing; the roll happens whatever the flag is.
+const (
+	terraMisticaMissionFlag = 1
+	terraMisticaFaceA       = 239
+	terraMisticaFaceB       = 241
+	terraMisticaKillOdds    = 20
+
+	// mobFaceOffset is STRUCT_MOB.Equip[0].sIndex in the 816-byte template.
+	mobFaceOffset = 140
+)
+
+// msgWatchingTownSuccess is Language.txt _NN_Watching_Town_Success (4), in Windows-1252.
+const msgWatchingTownSuccess = "Quest: Você aprova a proteção da cidade."
+
+// mobFace returns the mob's Equip[0].sIndex from its template. EquipVisual
+// carries the refine overlay, so the raw template is the faithful source.
+func mobFace(mob *world.Entity) int {
+	if len(mob.Template) < mobFaceOffset+2 {
+		return 0
+	}
+	return int(binary.LittleEndian.Uint16(mob.Template[mobFaceOffset:]))
+}
+
+func (d *Dispatcher) terraMisticaKill(w *world.World, ks *world.Session, reward, mob *world.Entity) {
+	if !world.IsPlayer(reward.ID) {
+		return
+	}
+	if face := mobFace(mob); face != terraMisticaFaceA && face != terraMisticaFaceB {
+		return
+	}
+	if w.Rand().Intn(terraMisticaKillOdds) != 0 || reward.TerraMistica != terraMisticaMissionFlag {
+		return
+	}
+	reward.TerraMistica = terraMisticaRewardFlag
+	if ks == nil {
+		return
+	}
+	d.sendClientMessage(w, ks, msgWatchingTownSuccess)
+	// Persist off the loop, like amuMistico and exploitLeader.
+	w.SaveCharacterThen(ks, func(*world.World, *world.Session) {})
+	d.log.Info("terra mistica mission", "conn", ks.Conn, "name", reward.Name)
 }

@@ -16,12 +16,23 @@ func TestBaseScoreMapping(t *testing.T) {
 		c.GetBaseCon() != 860 || c.GetBaseMaxHp() != 2000 || c.GetBaseMaxMp() != 500 || c.GetStr() != 212 {
 		t.Fatalf("save mapping %+v", c)
 	}
-	st := characterStateFromProto(c)
+	st, err := characterStateFromProto(c)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !st.HasBase || st.BaseStr != 12 || st.BaseInt != 13 || st.BaseDex != 2512 || st.BaseCon != 860 ||
 		st.BaseMaxHP != 2000 || st.BaseMaxMP != 500 || st.Str != 212 {
 		t.Fatalf("load mapping %+v", st)
 	}
-	if old := characterStateFromProto(&dbv1.Character{Str: 112}); old.HasBase {
+	if old, err := characterStateFromProto(&dbv1.Character{Str: 112}); err != nil || old.HasBase {
 		t.Fatal("a row without the base must load with HasBase false")
+	}
+}
+
+// An undecodable save_celestial must fail the load (issue #410): loading blank
+// parked sheets would let the next save overwrite the real ones.
+func TestLoadRejectsBadSaveCelestial(t *testing.T) {
+	if _, err := characterStateFromProto(&dbv1.Character{SaveCelestial: []byte{9, 9, 9}}); err == nil {
+		t.Fatal("a malformed save_celestial blob loaded")
 	}
 }

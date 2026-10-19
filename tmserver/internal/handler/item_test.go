@@ -435,23 +435,98 @@ func TestUseEntradaTerritorio(t *testing.T) {
 	}
 }
 
-// idealStoneDB builds a fakeDB for a character holding a Pedra Ideal (item 1742) in
-// carry slot 0, at the given tier/level (issue #222).
+// idealStoneDB builds a fakeDB for a character holding a Pedra_Ideal (item 5338,
+// EF_VOLATILE 211) in carry slot 0, at the given tier/level (issue #407).
 func idealStoneDB(classMaster uint8, lvl int) *fakeDB {
 	db := newDB()
 	st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, ClassMaster: classMaster, Level: lvl, MortalLevel: 99, ArchCrystalStage: 4}
-	st.Carry[0] = world.Item{Index: idealStoneItem}
+	st.Carry[0] = world.Item{Index: pedraIdealItem}
 	db.loadResult = st
 	return db
 }
 
+// startIdealStoneServer starts a server whose catalog knows the 5338's
+// EF_VOLATILE 211, the only thing that routes it to useIdealStone.
+func startIdealStoneServer(t *testing.T, db world.Persistence) (string, func()) {
+	t.Helper()
+	return startServerClockVol(t, db, map[int]int{pedraIdealItem: volIdealStone})
+}
+
+// TestIdealStoneTriggerIsThe5338 pins issue #407: the legacy Celestial creation
+// is the EF_VOLATILE 211 block (_MSG_UseItem.cpp:3003), which only the
+// Pedra_Ideal 5338 carries. The 1742 (Pedra_da_Imortalidade, no EF_VOLATILE)
+// falls through every block and does nothing, even for a ready Arch; #222 had
+// wired the transformation to it. A non-Arch, non-Celestial gets the silent
+// resync of :3005-3009, and a Celestial becomes a Sub-Celestial only with a
+// Sephirot in Equip[11] (:3026-3085, issue #410), silently keeping the stone
+// otherwise.
+func TestIdealStoneTriggerIsThe5338(t *testing.T) {
+	tests := []struct {
+		name        string
+		classMaster uint8
+		item        int16
+		sephirot    int16
+		wantTier    uint8
+		wantNotice  bool
+	}{
+		{"arch 5338 becomes celestial", classMasterArch, pedraIdealItem, 0, classMasterCelestial, false},
+		{"arch 1742 does nothing", classMasterArch, immortalityStoneItem, 0, classMasterArch, false},
+		{"mortal 5338 silent resync", classMasterMortal, pedraIdealItem, 0, classMasterMortal, false},
+		{"celestial 5338 without sephirot keeps the stone", classMasterCelestial, pedraIdealItem, 0, classMasterCelestial, false},
+		{"celestial 5338 with sephirot becomes sub", classMasterCelestial, pedraIdealItem, 1762, classMasterCelestialCS, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := idealStoneDB(tt.classMaster, 399)
+			db.loadResult.Carry[0] = world.Item{Index: tt.item}
+			db.loadResult.Equip[sephirotEquipSlot] = world.Item{Index: tt.sephirot}
+			addr, stop := startIdealStoneServer(t, db)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+			send(t, c, protocol.MsgUseItem, (&protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}).Encode())
+			sawLogout, sawNotice := false, false
+			for {
+				ty, _, ok := readMaybe(t, c)
+				if !ok {
+					break
+				}
+				sawNotice = sawNotice || ty == protocol.MsgMessageBoxOk
+				if ty == protocol.MsgCNFCharacterLogout {
+					sawLogout = true
+					break
+				}
+			}
+			if sawNotice != tt.wantNotice {
+				t.Errorf("notice = %v, want %v", sawNotice, tt.wantNotice)
+			}
+			if !sawLogout {
+				send(t, c, protocol.MsgCharacterLogout, nil)
+				expect(t, c, protocol.MsgCNFCharacterLogout)
+			}
+			save, n := db.lastSavedChar()
+			if n == 0 || save.ClassMaster != tt.wantTier {
+				t.Fatalf("saved tier = %d (saves %d), want %d", save.ClassMaster, n, tt.wantTier)
+			}
+			if tt.wantTier == classMasterCelestialCS && (save.SaveCelestial[1].Class != int32(tt.sephirot-archSephirotMin) || hasItem(save.Equip, tt.sephirot)) {
+				t.Errorf("sub sheet class = %d, sephirot kept = %v", save.SaveCelestial[1].Class, hasItem(save.Equip, tt.sephirot))
+			}
+			// The 1742 goes down the ordinary vol 0 equip path, so it may be worn now.
+			consumed := !hasItem(save.Carry, tt.item) && !hasItem(save.Equip, tt.item)
+			if consumed != (tt.wantTier != tt.classMaster) {
+				t.Errorf("stone %d consumed = %v, want %v", tt.item, consumed, !consumed)
+			}
+		})
+	}
+}
+
 // TestUseIdealStoneCreatesCelestial covers the Arch→Celestial transformation
-// (issue #222): an Arch at the tier cap (level.MaxLevel) right-clicking the Pedra
-// Ideal becomes a Celestial at level 1, with the item consumed and the celestial
+// (issues #222, #407): an Arch at the tier cap (level.MaxLevel) right-clicking the Pedra
+// Ideal (5338) becomes a Celestial at level 1, with the item consumed and the celestial
 // quest gates reset, and the change persists.
 func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	db := idealStoneDB(classMasterArch, int(level.MaxLevel))
-	addr, stop, _ := startServerClock(t, db)
+	addr, stop := startIdealStoneServer(t, db)
 	defer stop()
 	c := enterWorld(t, addr)
 	defer c.Close()
@@ -483,7 +558,7 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 	if char.CelLv40 != 0 || char.CelLv90 != 0 || char.CelCircle != 0 {
 		t.Errorf("saved celestial gates = %d/%d/%d, want all 0 (fresh)", char.CelLv40, char.CelLv90, char.CelCircle)
 	}
-	if hasItem(char.Carry, idealStoneItem) {
+	if hasItem(char.Carry, pedraIdealItem) {
 		t.Error("saved carry still has the Pedra Ideal; want consumed")
 	}
 	if char.CelestialArchLevel != 5 {
@@ -502,7 +577,7 @@ func TestUseIdealStoneCreatesCelestial(t *testing.T) {
 // instead of the unlock signals.
 func TestUseIdealStoneRequiresMaxArchLevel(t *testing.T) {
 	db := idealStoneDB(classMasterArch, 354)
-	addr, stop, _ := startServerClock(t, db)
+	addr, stop := startIdealStoneServer(t, db)
 	defer stop()
 	c := enterWorld(t, addr)
 	defer c.Close()
@@ -519,7 +594,7 @@ func TestUseIdealStoneRequiresMaxArchLevel(t *testing.T) {
 		if ty == protocol.MsgCombineComplete || ty == protocol.MsgMotion {
 			t.Fatalf("got %#x for a below-level Arch; want no unlock signal", ty)
 		}
-		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == idealStoneItem {
+		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == pedraIdealItem {
 			sawResync = true
 		}
 	}
@@ -551,7 +626,7 @@ func TestCelestialArchBandsAndEquipment(t *testing.T) {
 	for _, tc := range tests {
 		e := world.Entity{Class: 0, ClassMaster: classMasterArch, Level: tc.level, MortalLevel: 99, ArchCrystalStage: 4, Clan: clanHekalotia}
 		e.Equip[0] = world.Item{Index: 21}
-		e.Carry[0] = world.Item{Index: idealStoneItem}
+		e.Carry[0] = world.Item{Index: pedraIdealItem}
 		d.buildCelestialSnapshot(&e, 0)
 		if e.CelestialArchLevel != tc.band || e.Equip[1].Index != tc.body {
 			t.Errorf("level %d => band/body %d/%d, want %d/%d", tc.level, e.CelestialArchLevel, e.Equip[1].Index, tc.band, tc.body)
@@ -579,7 +654,7 @@ func TestCelestialClassBases(t *testing.T) {
 	d := New(Config{})
 	for class, base := range want {
 		e := world.Entity{Class: uint8(class), ClassMaster: classMasterArch, Level: 399, MortalLevel: 99}
-		e.Carry[0] = world.Item{Index: idealStoneItem, Effects: [3]world.Effect{{Effect: 61, Value: 3}}}
+		e.Carry[0] = world.Item{Index: pedraIdealItem, Effects: [3]world.Effect{{Effect: 61, Value: 3}}}
 		d.buildCelestialSnapshot(&e, 0)
 		got := [6]int32{int32(e.BaseStr), int32(e.BaseInt), int32(e.BaseDex), int32(e.BaseCon), e.BaseMaxHP, e.BaseMaxMP}
 		if got != base {
@@ -591,7 +666,7 @@ func TestCelestialClassBases(t *testing.T) {
 func TestUseIdealStonePersistenceFailurePreservesArch(t *testing.T) {
 	db := idealStoneDB(classMasterArch, 399)
 	db.saveErr = errors.New("injected save failure")
-	addr, stop, _ := startServerClock(t, db)
+	addr, stop := startIdealStoneServer(t, db)
 	defer stop()
 	c := enterWorld(t, addr)
 	defer c.Close()
@@ -606,7 +681,7 @@ func TestUseIdealStonePersistenceFailurePreservesArch(t *testing.T) {
 		if ty == protocol.MsgCNFCharacterLogout {
 			t.Fatal("failed persistence returned player to selection")
 		}
-		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == idealStoneItem {
+		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == pedraIdealItem {
 			seenStone = true
 			break
 		}
@@ -617,17 +692,17 @@ func TestUseIdealStonePersistenceFailurePreservesArch(t *testing.T) {
 	send(t, c, protocol.MsgCharacterLogout, nil)
 	expect(t, c, protocol.MsgCNFCharacterLogout)
 	save, n := db.lastSavedChar()
-	if n == 0 || save.ClassMaster != classMasterArch || !hasItem(save.Carry, idealStoneItem) {
+	if n == 0 || save.ClassMaster != classMasterArch || !hasItem(save.Carry, pedraIdealItem) {
 		t.Fatalf("post-failure save = %+v count=%d, want unchanged Arch with stone", save, n)
 	}
 }
 
-// TestUseIdealStoneMortalStillEquips is a regression guard: a Mortal carrying the
-// Pedra Ideal must still fall through to the normal equip path (the kingArch
-// Mortal→Arch flow needs it equipped in slot 10), unaffected by the new Arch-only
-// self-use interception.
-func TestUseIdealStoneMortalStillEquips(t *testing.T) {
+// TestImmortalityStoneMortalStillEquips is a regression guard: a Mortal carrying
+// the Pedra_da_Imortalidade (1742) must still go through the normal equip path,
+// since the King's Mortal→Arch flow needs it equipped in slot 10.
+func TestImmortalityStoneMortalStillEquips(t *testing.T) {
 	db := idealStoneDB(classMasterMortal, 100)
+	db.loadResult.Carry[0] = world.Item{Index: immortalityStoneItem}
 	addr, stop, _ := startServerClock(t, db)
 	defer stop()
 	c := enterWorld(t, addr)
@@ -635,7 +710,7 @@ func TestUseIdealStoneMortalStillEquips(t *testing.T) {
 
 	body := protocol.MsgUseItemBody{
 		SourType: world.ItemPlaceCarry, SourPos: 0,
-		DestType: world.ItemPlaceEquip, DestPos: idealStoneEquipSlot,
+		DestType: world.ItemPlaceEquip, DestPos: immortalityStoneEquipSlot,
 	}
 	send(t, c, protocol.MsgUseItem, body.Encode())
 	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgUseItem {

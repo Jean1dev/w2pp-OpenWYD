@@ -210,6 +210,18 @@ message Character {
   int32 base_con = 56;
   int32 base_max_hp = 57;
   int32 base_max_mp = 58;
+
+  int32 mortal_newbie = 59; // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
+  int32 mortal_molar_gargula = 60; // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (0/1, issue #398)
+  int32 mortal_pilula_orc = 61; // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used (0/1, issue #404)
+  int32 celestial_reset = 62; // QuestInfo.Celestial.Reset: Pedra da Furia resets done (0..3, issue #408)
+  int32 celestial_add120 = 63; // QuestInfo.Celestial.Add120: Sub-Celestial diadem add at 120 granted (0/1, issue #409)
+  int32 celestial_add150 = 64; // QuestInfo.Celestial.Add150: Sub-Celestial diadem add at 150 granted (0/1, issue #409)
+  int32 celestial_add180 = 65; // QuestInfo.Celestial.Add180: Sub-Celestial diadem add at 180 granted (0/1, issue #409)
+  int32 celestial_add200 = 66; // QuestInfo.Celestial.Add200: Sub-Celestial diadem add at stored 199 granted (0/1, issue #409)
+  int32 celestial_level = 67; // QuestInfo.Celestial.CelestialLevel: parked Celestial's level (issue #410)
+  int32 sub_celestial_level = 68; // QuestInfo.Celestial.SubCelestialLevel: parked Sub-Celestial's level (issue #410)
+  bytes save_celestial = 69; // MobExtra.SaveCelestial[2]; layout owned by the tmServer (world.MarshalCelestialSheets), opaque here (issue #410)
 }
 
 message Item {

@@ -69,3 +69,38 @@ func TestScoreBonus(t *testing.T) {
 		t.Errorf("ScoreBonus(TK, lvl10, +5 str) = %d, want 45", got)
 	}
 }
+
+// TestScoreBonusCelestial pins BASE_GetBonusScorePoint for CELESTIAL
+// (Basedef.cpp:980-1041), computed by hand from the legacy branch.
+func TestScoreBonusCelestial(t *testing.T) {
+	tests := []struct {
+		name                    string
+		lvl                     int32
+		str, intel, dex, con    int16
+		cristal, reset, archLvl uint8
+		other                   int32 // the parked tier's level (CELESTIALCS/SCELESTIAL)
+		want                    int32
+	}{
+		{"fresh celestial", 0, 8, 4, 7, 6, 0, 0, 0, 0, 1001},
+		{"level 10 spent 5 str", 10, 13, 4, 7, 6, 0, 0, 0, 0, 60 + 1001 - 5},
+		{"cristal 4 archLevel 5", 0, 8, 4, 7, 6, 4, 0, 5, 0, 400 + 1001 + 1200},
+		{"archLevel 3", 0, 8, 4, 7, 6, 0, 0, 3, 0, 1001 + 600},
+		// 199*6 + 1001 + 80*6 + (50+30+20+10)*2 = 1194 + 1001 + 480 + 220.
+		{"level 199 no reset", 199, 8, 4, 7, 6, 0, 0, 0, 0, 2895},
+		{"level 199 three resets", 199, 8, 4, 7, 6, 0, 3, 0, 0, 2895 + 600},
+		{"over-spent clamps to 0", 0, 3000, 4, 7, 6, 0, 0, 0, 0, 0},
+		// The parked tier (issue #410): lvl*6/2, plus the full 120+ bonuses.
+		{"parked level 10", 0, 8, 4, 7, 6, 0, 0, 0, 10, 1001 + 30},
+		{"parked level 120", 0, 8, 4, 7, 6, 0, 0, 0, 120, 1001 + 360 + 6},
+		// 199*6/2 + 80*6 + (50+30+20+10)*2 = 597 + 480 + 220.
+		{"parked level 199", 199, 8, 4, 7, 6, 0, 0, 0, 199, 2895 + 1297},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ScoreBonusCelestial(0, tc.lvl, tc.str, tc.intel, tc.dex, tc.con, tc.cristal, tc.reset, tc.archLvl, tc.other)
+			if got != tc.want {
+				t.Errorf("ScoreBonusCelestial = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

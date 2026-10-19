@@ -358,17 +358,22 @@ func TestDeriveSkillBonus(t *testing.T) {
 		name    string
 		level   int32
 		learned int32
+		pilula  uint8
 		want    uint16
 	}{
-		{"fresh level 10", 10, 0, 30},
-		{"level 10 one skill", 10, 1 << 0, 27},
-		{"level 250 gets +1 past 199", 250, 0, 250*3 + 51},
-		{"overdrawn clamps to 0", 1, 0xFF, 0}, // 3 points vs 24 spent
-		{"sephira bits cost nothing", 10, 1 << 25, 30},
+		{"fresh level 10", 10, 0, 0, 30},
+		{"level 10 one skill", 10, 1 << 0, 0, 27},
+		{"level 250 gets +1 past 199", 250, 0, 0, 250*3 + 51},
+		{"overdrawn clamps to 0", 1, 0xFF, 0, 0}, // 3 points vs 24 spent
+		{"sephira bits cost nothing", 10, 1 << 25, 0, 30},
+		// Basedef.cpp:865-868: PilulaOrc adds 9 before the spent points (#404).
+		{"pilula orc adds 9", 49, 0, 1, 49*3 + 9},
+		{"pilula orc with one skill", 10, 1 << 0, 1, 36},
+		{"pilula orc past 199", 250, 0, 1, 250*3 + 51 + 9},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &world.Entity{Level: tt.level, LearnedSkill: tt.learned}
+			e := &world.Entity{Level: tt.level, LearnedSkill: tt.learned, PilulaOrc: tt.pilula}
 			d.deriveSkillBonus(e)
 			if e.SkillBonus != tt.want {
 				t.Errorf("SkillBonus = %d, want %d", e.SkillBonus, tt.want)

@@ -12,12 +12,14 @@ const eighthSkillCoin = 50_000_000
 
 // deriveSkillBonus recomputes the free skill points from level and the learned
 // mask — SkillBonus is DERIVED, not persisted (BASE_GetBonusSkillPoint,
-// Basedef.cpp:850, called on character load): level*3 (+1/level past 199)
-// minus the SkillPoint cost of every learned class skill (bits 0-23; the
-// Sephira bits 24-31 are book-taught and cost nothing).
+// Basedef.cpp:850, called on character load): level*3 (+1/level past 199,
+// +9 once the Pílula do Poder Mágico was taken — QuestInfo.Mortal.PilulaOrc,
+// Basedef.cpp:865-868, issue #404) minus the SkillPoint cost of every learned
+// class skill (bits 0-23; the Sephira bits 24-31 are book-taught and cost
+// nothing).
 //
-// UNVERIFIED: the ARCH (+112) / Celestial (+1500) tier adders and the
-// PilulaOrc quest (+9) are not modeled yet (tiers wait on the celestial plan).
+// UNVERIFIED: the ARCH (+112) / Celestial (+1500) tier adders are not modeled
+// yet (tiers wait on the celestial plan).
 // A negative rest clamps to 0 (the legacy would wrap an unsigned field).
 func (d *Dispatcher) deriveSkillBonus(e *world.Entity) {
 	if d.spells == nil {
@@ -27,6 +29,9 @@ func (d *Dispatcher) deriveSkillBonus(e *world.Entity) {
 	per := int(e.Level) * 3
 	if mod := int(e.Level) - 199; mod > 0 {
 		per += mod
+	}
+	if e.PilulaOrc != 0 {
+		per += pilulaOrcSkillBonus
 	}
 	spent := 0
 	for j := 0; j < content.MaxSkill; j++ {

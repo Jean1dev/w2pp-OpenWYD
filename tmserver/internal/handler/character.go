@@ -293,6 +293,12 @@ func (d *Dispatcher) completeCharacterLogin(w *world.World, s *world.Session, st
 		e.MortalLevel, e.CelestialArchLevel = st.MortalLevel, st.CelestialArchLevel
 		e.ArchCrystalStage = st.ArchCrystalStage
 		e.TerraMistica = st.TerraMistica
+		e.NewbieQuest = st.NewbieQuest
+		e.MolarGargula = st.MolarGargula
+		e.PilulaOrc = st.PilulaOrc
+		e.CelReset = st.CelReset
+		e.CelAdd120, e.CelAdd150, e.CelAdd180, e.CelAdd200 = st.CelAdd120, st.CelAdd150, st.CelAdd180, st.CelAdd200
+		e.CelestialLevel, e.SubCelestialLevel, e.SaveCelestial = st.CelestialLevel, st.SubCelestialLevel, st.SaveCelestial
 		e.Str, e.Int, e.Dex, e.Con, e.ScoreBonus = st.Str, st.Int, st.Dex, st.Con, st.ScoreBonus
 		// Skill state: the learned mask, allocated mastery and the hotbar come
 		// straight from the DB; SkillBonus is re-derived from level + learned

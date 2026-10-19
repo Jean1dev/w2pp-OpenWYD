@@ -671,7 +671,7 @@ func TestCommandDestravarNonCelestial(t *testing.T) {
 	}
 }
 
-// TestCommandDestravar90 verifies /destravar90 grants the FuryStone (item 3502) to
+// TestCommandDestravar90 verifies /destravar90 grants the Cythera Mistica (item 3502) to
 // carry, signals the client, and persists both the item and the Lv90 gate.
 func TestCommandDestravar90(t *testing.T) {
 	db := celestialDB(classMasterCelestial)
@@ -681,7 +681,7 @@ func TestCommandDestravar90(t *testing.T) {
 	defer c.Close()
 
 	whisperFrame(t, c, "destravar90", "")
-	expect(t, c, protocol.MsgSendItem)        // FuryStone into carry
+	expect(t, c, protocol.MsgSendItem)        // Cythera Mistica into carry
 	expect(t, c, protocol.MsgCombineComplete) // unlock signal
 	expect(t, c, protocol.MsgMotion)          // unlock emote
 
@@ -691,8 +691,8 @@ func TestCommandDestravar90(t *testing.T) {
 	if n == 0 || char.CelLv90 != 1 {
 		t.Errorf("saved CelLv90 = %d (n=%d), want 1", char.CelLv90, n)
 	}
-	if !hasItem(char.Carry, furyStoneIndex) {
-		t.Errorf("saved carry missing FuryStone %d: %+v", furyStoneIndex, char.Carry)
+	if !hasItem(char.Carry, cytheraMisticaItem) {
+		t.Errorf("saved carry missing Cythera Mistica %d: %+v", cytheraMisticaItem, char.Carry)
 	}
 }
 

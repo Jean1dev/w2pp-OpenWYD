@@ -129,7 +129,17 @@ type CharacterState struct {
 	CelLv40            uint8 // QuestInfo.Celestial.Lv40 gate
 	CelLv90            uint8 // QuestInfo.Celestial.Lv90 gate
 	CelCircle          uint8 // QuestInfo.Circle (Arcana quest done)
+	CelReset           uint8 // QuestInfo.Celestial.Reset: Pedra da Furia resets done 0..3 (issue #408)
+	CelAdd120          uint8 // QuestInfo.Celestial.Add120: Sub-Celestial diadem add granted (issue #409)
+	CelAdd150          uint8 // QuestInfo.Celestial.Add150: Sub-Celestial diadem add granted (issue #409)
+	CelAdd180          uint8 // QuestInfo.Celestial.Add180: Sub-Celestial diadem add granted (issue #409)
+	CelAdd200          uint8 // QuestInfo.Celestial.Add200: Sub-Celestial diadem add granted (issue #409)
+	CelestialLevel     int16 // QuestInfo.Celestial.CelestialLevel (issue #410)
+	SubCelestialLevel  int16 // QuestInfo.Celestial.SubCelestialLevel (issue #410)
 	TerraMistica       uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
+	NewbieQuest        uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step (issue #395)
+	MolarGargula       uint8 // QuestInfo.Mortal.MolarGargula: Molar de Gargula used (issue #398)
+	PilulaOrc          uint8 // QuestInfo.Mortal.PilulaOrc: Pilula do Poder Magico used, +9 SkillBonus (issue #404)
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16
@@ -180,6 +190,10 @@ type CharacterState struct {
 	// Affects are the persisted buff slots (minus Divine, which travels as
 	// DivineEnd — its Time is a wall-clock deadline, not ticks).
 	Affects []Affect
+
+	// SaveCelestial is MobExtra.SaveCelestial: the parked Celestial/Sub-Celestial
+	// sheets (issue #410).
+	SaveCelestial [2]CelestialSheet
 
 	Equip [MaxEquip]Item // equipped gear
 	Carry [MaxCarry]Item // inventory
@@ -254,7 +268,18 @@ type CharacterSave struct {
 	CelLv40            uint8
 	CelLv90            uint8
 	CelCircle          uint8
+	CelReset           uint8
+	CelAdd120          uint8
+	CelAdd150          uint8
+	CelAdd180          uint8
+	CelAdd200          uint8
+	CelestialLevel     int16
+	SubCelestialLevel  int16
+	SaveCelestial      [2]CelestialSheet
 	TerraMistica       uint8
+	NewbieQuest        uint8
+	MolarGargula       uint8
+	PilulaOrc          uint8
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16

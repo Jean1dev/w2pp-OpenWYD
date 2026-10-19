@@ -159,6 +159,13 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.survivorExchange(w, s, e)
 		return
 	}
+	// TREINADORNEWBIE1..4 (_MSG_Quest.cpp:82-101): routed by the template's
+	// MOB.Merchant before the Coveiro, whose CurrentScore.Merchant 100 /
+	// EF_GRADE0 0 Treinador1 also has (issue #395).
+	if step, ok := newbieTrainerStep(npc); ok {
+		d.newbieQuest(w, s, e, npc, step)
+		return
+	}
 	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain.
 	// Grade is also 0 for Merchant-100 templates without EF_GRADE0; routing those
 	// here matches BASE_GetItemAbilityNosanc in the legacy server.
@@ -190,6 +197,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	// Submundo asks for the Emblema do Guarda.
 	if npc.Merchant == 100 && npc.Grade == 4 {
 		d.quest256NPC(w, s, e, quest256Steps[4], itemEmblemaDoGuarda)
+		return
+	}
+	// LIDER_APRENDIZ (Merchant 100, EF_GRADE0 5): the Arch's green cape
+	// (issue #397, _MSG_Quest.cpp:2625).
+	if isLiderAprendizNPC(npc) {
+		d.liderAprendiz(w, s, e, npc)
 		return
 	}
 	// QUEST_CAPAREAL (Merchant 100, EF_GRADE0 13): Royal Cape quest entry.
@@ -229,8 +242,24 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.amuMistico(w, s, e, int(confirm))
 		return
 	}
-	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra Ideal
-	// (_MSG_Quest.cpp:2257).
+	// EXPLOIT_LEADER (MOB.Merchant 11, "Cap.Explor."): Terra Mistica step 3
+	// (issue #403, _MSG_Quest.cpp:1626).
+	if isExploitLeaderNPC(npc) {
+		d.exploitLeader(w, s, e, npc)
+		return
+	}
+	// JEFFI / SHAMA (MOB.Merchant 12 / 13): the Círculo Divino (issue #405,
+	// _MSG_Quest.cpp:514-691).
+	if isJeffiNPC(npc) {
+		d.jeffi(w, s, e, npc)
+		return
+	}
+	if isShamaNPC(npc) {
+		d.shama(w, s, e, npc)
+		return
+	}
+	// BLACKORACLE (Merchant 78): merges the two soul items into the Pedra da Imortalidade
+	// (1742, _MSG_Quest.cpp:2257-2332).
 	if npc.Merchant == 78 {
 		d.blackOracle(w, s, e)
 		return
@@ -251,6 +280,12 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.kingQuest(w, s, e, npc, int(confirm))
 		return
 	}
+	// URNAMMU (MOB.Merchant 76): Sub-Celestial class change (issue #410,
+	// _MSG_Quest.cpp:1248).
+	if isUrnammuNPC(npc) {
+		d.urnammu(w, s, e)
+		return
+	}
 	// UXMAL (MOB.Merchant 72): Pista de Runas registration (_MSG_Quest.cpp:1313).
 	if isUxmalNPC(npc) {
 		d.uxmal(w, s, e)
@@ -259,29 +294,108 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 	d.log.Debug("quest NPC not implemented", "conn", s.Conn, "npc", npcIndex, "merchant", npc.Merchant, "grade", npc.Grade)
 }
 
+// kingQuest ports the KING case (_MSG_Quest.cpp:694-1124) in the legacy order:
+// the Clan gate (:740-741), the price quote on confirm 0 (:762-767), then, with
+// Equip[10]=1742 and a Sephirot in Equip[11] (:769), the Pedra Ideal craft
+// (:771-840) ahead of the Mortal's Arch creation (:842-866), and finally the
+// cape service (:869-1124). The quote is a global in the legacy; the Go fetches
+// it asynchronously only for the legs that use it (confirm 0 and the cape),
+// which changes nothing observable for the stone and Arch legs.
 func (d *Dispatcher) kingQuest(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
-	if confirm != 0 && e.ClassMaster == classMasterMortal && e.Level >= 299 &&
-		e.Equip[idealStoneEquipSlot].Index == idealStoneItem &&
-		e.Equip[sephirotEquipSlot].Index >= archSephirotMin && e.Equip[sephirotEquipSlot].Index <= archSephirotMax {
-		d.kingArch(w, s, e, npc, confirm)
+	if clan := kingClanFromCape(e.Clan, e.Equip[capeEquipSlot].Index); clan != 0 && clan != npc.Clan {
 		return
+	}
+	if confirm != 0 && e.Equip[immortalityStoneEquipSlot].Index == immortalityStoneItem &&
+		e.Equip[sephirotEquipSlot].Index >= archSephirotMin && e.Equip[sephirotEquipSlot].Index <= archSephirotMax {
+		if d.kingPedraIdeal(w, s, e, npc) {
+			return
+		}
+		if e.ClassMaster == classMasterMortal && e.Level >= 299 {
+			d.kingArch(w, s, e, npc, confirm)
+			return
+		}
 	}
 	d.kingCapeService(w, s, e, npc, confirm)
 }
 
+// Pedra_Ideal (5338, EF_VOLATILE 211) and the four Pedras Secretas the King
+// fuses into it (_MSG_Quest.cpp:771-840). The 1742 behind immortalityStoneItem
+// is the Pedra_da_Imortalidade, the King's Equip[10] gear, not this stone;
+// right-clicking the 5338 is what turns an Arch into a Celestial (useIdealStone).
+const pedraIdealItem = 5338
+
+var pedraSecretaItems = [...]int16{5334, 5335, 5336, 5337}
+
+// kingPedraIdeal ports the Pedra Ideal craft (_MSG_Quest.cpp:771-840), open to
+// every ClassMaster: with the four Pedras Secretas in the inventory, the first
+// 5334 becomes a fresh 5338 in place, the first 5335/5336/5337 are erased and
+// the King's gear (Equip[10]/[11]) is consumed. It reports whether it ran, so
+// the caller falls through to the Arch creation otherwise, as the legacy does.
+func (d *Dispatcher) kingPedraIdeal(w *world.World, s *world.Session, e, npc *world.Entity) bool {
+	slots, ok := pedraSecretaSlots(e)
+	if !ok {
+		return false
+	}
+	// The legacy walks the inventory once and sends each slot as it rewrites
+	// it, so the refreshes go out in slot order.
+	for i := 0; i < activeCarryLimit(e); i++ {
+		for k, slot := range slots {
+			if slot != i {
+				continue
+			}
+			e.Carry[i] = world.Item{}
+			if k == 0 {
+				e.Carry[i].Index = pedraIdealItem
+			}
+			d.sendSlot(w, s, world.ItemPlaceCarry, i, e.Carry[i])
+		}
+	}
+	e.Equip[immortalityStoneEquipSlot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceEquip, immortalityStoneEquipSlot, e.Equip[immortalityStoneEquipSlot])
+	e.Equip[sephirotEquipSlot] = world.Item{}
+	d.sendSlot(w, s, world.ItemPlaceEquip, sephirotEquipSlot, e.Equip[sephirotEquipSlot])
+	// SendSay(_NN_My_King_Bless1) regardless of the King's kingdom (:832).
+	d.sendNPCChatText(w, s, npc.ID, msgKingBless1)
+	w.SaveCharacterThen(s, func(*world.World, *world.Session) {})
+	d.log.Info("king make ideal_stone", "conn", s.Conn, "name", e.Name, "level", e.Level)
+	return true
+}
+
+// pedraSecretaSlots finds the first accessible carry slot holding each of the
+// four Pedras Secretas, in pedraSecretaItems order. ok is false when any one is
+// missing. Both the King (_MSG_Quest.cpp:776-800) and the Pedra da Furia
+// (_MSG_UseItem.cpp:3480-3536) erase the first one of each.
+func pedraSecretaSlots(e *world.Entity) (slots [len(pedraSecretaItems)]int, ok bool) {
+	for k := range slots {
+		slots[k] = -1
+	}
+	limit := activeCarryLimit(e)
+	for i := 0; i < limit; i++ {
+		for k, stone := range pedraSecretaItems {
+			if slots[k] < 0 && e.Carry[i].Index == stone {
+				slots[k] = i
+			}
+		}
+	}
+	for _, slot := range slots {
+		if slot < 0 {
+			return slots, false
+		}
+	}
+	return slots, true
+}
+
+// kingCapeService ports the cape half of the KING case (_MSG_Quest.cpp:694-1124)
+// in the legacy order: kingdom gate, price quote (confirm 0), finished cape
+// blessing, Celestial/Mortal requirements, sapphire count (or the equipped
+// Emblema_do_Reino), payment, the new cape and the King's blessing.
 func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
-	npcID := npc.ID
-	kingdom, mode := capeKingdomMode(e.Equip[capeEquipSlot].Index)
-	if kingdom != 0 && kingdom != npc.Clan {
+	npcID, kingdom := npc.ID, npc.Clan
+	if capeClan, _ := capeKingdomMode(e.Equip[capeEquipSlot].Index); capeClan != 0 && capeClan != kingdom {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	if mode >= 2 {
-		d.sendNPCChatText(w, s, npcID, "A capa deste reino ja esta completa.")
-		return
-	}
-	target, ok := kingdomCapeTarget(e.ClassMaster, e.Level, e.Equip[capeEquipSlot].Index, npc.Clan)
-	if !ok || e.Level < 219 {
+	if kingdom != clanHekalotia && kingdom != clanAkelonia {
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
@@ -294,52 +408,117 @@ func (d *Dispatcher) kingCapeService(w *world.World, s *world.Session, e, npc *w
 				return
 			}
 			cost := quote.HekalotiaCost
-			if npc.Clan == clanAkelonia {
+			if kingdom == clanAkelonia {
 				cost = quote.AkeloniaCost
 			}
 			if confirm == 0 {
-				d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras.", cost))
+				d.sendNPCChatText(w, s, npcID, fmt.Sprintf(msgNeedSapphire, cost))
 				return
 			}
-			staged := *e
-			changed, exact := sapphirePaymentPlan(&staged, cost)
-			if !exact {
-				d.sendNPCChatText(w, s, npcID, fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", cost))
-				return
-			}
-			staged.Equip[capeEquipSlot] = world.Item{Index: target}
-			staged.Clan = npc.Clan
-			save := w.CharacterSaveFor(s, &staged)
-			w.Go(s, func() func(*world.World, *world.Session) {
-				_, committed, purchaseErr := p.PurchaseKingdomCape(context.Background(), quote.Revision, npc.Clan, save)
-				return func(w *world.World, s *world.Session) {
-					if purchaseErr != nil || !committed {
-						d.notify(w, s, NoticeReqNotMet)
-						return
-					}
-					*e = staged
-					for _, slot := range changed {
-						d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
-					}
-					d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
-					d.refreshScore(e)
-					d.sendScore(w, s, e)
-				}
-			})
+			d.kingCapePurchase(w, s, e, npcID, kingdom, cost, quote.Revision)
 		}
 	})
 }
 
+// kingCapePurchase is the confirmed leg of the cape service
+// (_MSG_Quest.cpp:869-1118).
+func (d *Dispatcher) kingCapePurchase(w *world.World, s *world.Session, e *world.Entity, npcID int, kingdom uint8, cost int, revision int64) {
+	current := e.Equip[capeEquipSlot]
+	if _, mode := capeKingdomMode(current.Index); mode >= 2 {
+		d.sendNPCChatText(w, s, npcID, kingBlessing(kingdom))
+		return
+	}
+	target, refusal := kingdomCapeTarget(e.ClassMaster, e.Level, current, kingdom)
+	switch refusal {
+	case capeRefusedSilently:
+		return
+	case capeRefusedLevel:
+		d.sendNPCChatText(w, s, npcID, msgNeedLevel)
+		return
+	}
+	// An equipped Emblema_do_Reino replaces the sapphires: the legacy skips
+	// both the sapphire check and the consume loop while Equip[13] is 4081,
+	// then erases it (_MSG_Quest.cpp:997,1016,1038-1042). The Celestial
+	// branch has no such exemption (_MSG_Quest.cpp:893).
+	emblem := !isCelestialMaster(e.ClassMaster) && e.Equip[kingdomEmblemEquipSlot].Index == kingdomEmblemItem
+	if !emblem && sapphireValue(e) < cost {
+		d.sendNPCChatText(w, s, npcID, fmt.Sprintf(msgNeedSapphire, cost))
+		return
+	}
+	staged := *e
+	var changed []int
+	if emblem {
+		staged.Equip[kingdomEmblemEquipSlot] = world.Item{}
+	} else {
+		changed = paySapphires(&staged, cost)
+	}
+	staged.Equip[capeEquipSlot] = target
+	// The legacy never writes MOB.Clan here; GetCurrentScore derives it from
+	// the new mantle on the next score pass (Basedef.cpp:3222-3247), which the
+	// Go score refresh does not model, so it is applied with the purchase.
+	staged.Clan = kingClanFromCape(staged.Clan, target.Index)
+	save := w.CharacterSaveFor(s, &staged)
+	p := w.Persistence()
+	w.Go(s, func() func(*world.World, *world.Session) {
+		_, committed, purchaseErr := p.PurchaseKingdomCape(context.Background(), revision, kingdom, save)
+		return func(w *world.World, s *world.Session) {
+			if purchaseErr != nil || !committed {
+				d.notify(w, s, NoticeReqNotMet)
+				return
+			}
+			*e = staged
+			for _, slot := range changed {
+				d.sendSlot(w, s, world.ItemPlaceCarry, slot, e.Carry[slot])
+			}
+			if emblem {
+				d.sendSlot(w, s, world.ItemPlaceEquip, kingdomEmblemEquipSlot, e.Equip[kingdomEmblemEquipSlot])
+			}
+			d.sendSlot(w, s, world.ItemPlaceEquip, capeEquipSlot, e.Equip[capeEquipSlot])
+			d.sendNPCChatText(w, s, npcID, kingBlessing(kingdom))
+			d.refreshScore(e)
+			d.sendScore(w, s, e)
+		}
+	})
+}
+
+// Legacy texts (Language.txt, Windows-1252); the quote keeps the Go wording.
+const (
+	msgNeedSapphire = "Sao necessarias %d safiras."                            // _DN_Need_D_Sapphire (177)
+	msgKingBless1   = "Que a luz de Sephira o ilumine."                        // _NN_My_King_Bless1 (178)
+	msgKingBless2   = "Que a for\xe7a divina o aben\xe7oe."                    // _NN_My_King_Bless2 (179)
+	msgNeedLevel    = "N\xe3o possui n\xedvel suficiente, retorne mais tarde." // _NN_Need_Level (180)
+)
+
+// kingBlessing is the line the King says after a sale or to a finished cape:
+// Bless1 for ReiClan 7, Bless2 otherwise (_MSG_Quest.cpp:870-874,1086-1089).
+func kingBlessing(kingdom uint8) string {
+	if kingdom == clanHekalotia {
+		return msgKingBless1
+	}
+	return msgKingBless2
+}
+
+func isCelestialMaster(classMaster uint8) bool {
+	return classMaster == classMasterCelestial || classMaster == classMasterCelestialCS || classMaster == classMasterSCelestial
+}
+
+// capeKingdomMode returns the kingdom a cape pins its wearer to and the legacy
+// CapeMode: 2 = finished kingdom cape, 1 = upgradable, 0 = none
+// (_MSG_Quest.cpp:700-738). 734-737 set the Clan but keep CapeMode 0.
 func capeKingdomMode(index int16) (uint8, int) {
 	switch index {
 	case 543, 3191, 3194, 3197:
 		return clanHekalotia, 2
 	case 544, 3192, 3195, 3198:
 		return clanAkelonia, 2
-	case 545, 734, 736:
+	case 545:
 		return clanHekalotia, 1
-	case 546, 735, 737:
+	case 546:
 		return clanAkelonia, 1
+	case 734, 736:
+		return clanHekalotia, 0
+	case 735, 737:
+		return clanAkelonia, 0
 	case 549, 3193, 3196:
 		return 0, 1
 	default:
@@ -347,77 +526,111 @@ func capeKingdomMode(index int16) (uint8, int) {
 	}
 }
 
-func kingdomCapeTarget(classMaster uint8, level int32, current int16, kingdom uint8) (int16, bool) {
-	if kingdom != clanHekalotia && kingdom != clanAkelonia {
-		return 0, false
-	}
-	if classMaster == classMasterCelestial {
-		if current != 3199 {
-			return 0, false
-		}
+type capeRefusal int
+
+const (
+	capeGranted         capeRefusal = iota
+	capeRefusedSilently             // Celestial without the 3199 (_MSG_Quest.cpp:879)
+	capeRefusedLevel                // _NN_Need_Level (_MSG_Quest.cpp:977,1118)
+)
+
+// kingdomCapeTarget computes the cape the King hands over, keeping the old
+// item's effects where the legacy only rewrites sIndex (548/549/3193/3196 and
+// the Celestial 3199) and clearing it elsewhere (_MSG_Quest.cpp:933-940,1044-1080).
+func kingdomCapeTarget(classMaster uint8, level int32, current world.Item, kingdom uint8) (world.Item, capeRefusal) {
+	pick := func(hekalotia, akelonia int16) int16 {
 		if kingdom == clanHekalotia {
-			return 3197, true
+			return hekalotia
 		}
-		return 3198, true
+		return akelonia
 	}
-	if current == 3193 {
-		if kingdom == clanHekalotia {
-			return 3191, true
+	if isCelestialMaster(classMaster) {
+		if current.Index != 3199 {
+			return world.Item{}, capeRefusedSilently
 		}
-		return 3192, true
+		current.Index = pick(3197, 3198)
+		return current, capeGranted
 	}
-	if current == 3196 {
-		if kingdom == clanHekalotia {
-			return 3194, true
-		}
-		return 3195, true
+	if level < 219 {
+		return world.Item{}, capeRefusedLevel
 	}
-	_, mode := capeKingdomMode(current)
+	_, mode := capeKingdomMode(current.Index)
+	if mode == 1 && level < 255 {
+		return world.Item{}, capeRefusedLevel
+	}
 	if mode == 0 {
-		if kingdom == clanHekalotia {
-			return 545, true
+		if current.Index != 548 {
+			current = world.Item{}
 		}
-		return 546, true
+		current.Index = pick(545, 546)
+		return current, capeGranted
 	}
-	if level >= 255 {
-		if kingdom == clanHekalotia {
-			return 543, true
+	switch current.Index {
+	case 3193:
+		current.Index = pick(3191, 3192)
+	case 3196:
+		current.Index = pick(3194, 3195)
+	default:
+		if current.Index != 549 {
+			current = world.Item{}
 		}
-		return 544, true
+		current.Index = pick(543, 544)
 	}
-	return 0, false
+	return current, capeGranted
 }
 
-func sapphirePaymentPlan(e *world.Entity, cost int) ([]int, bool) {
-	remaining := cost
+// sapphireValue counts the bag's sapphires: 697 is worth 1, 4131 is worth 10
+// (_MSG_Quest.cpp:986-995).
+func sapphireValue(e *world.Entity) int {
+	total := 0
+	for i := 0; i < activeCarryLimit(e); i++ {
+		switch e.Carry[i].Index {
+		case sapphireUnit1:
+			total++
+		case sapphireUnit10:
+			total += 10
+		}
+	}
+	return total
+}
+
+// paySapphires consumes sapphires in bag order until the price is covered,
+// returning the cleared slots. A 4131 is erased whole even when less than 10
+// was still due; there is no change (_MSG_Quest.cpp:1016-1035).
+func paySapphires(e *world.Entity, cost int) []int {
 	var changed []int
-	for i := 0; i < activeCarryLimit(e) && remaining >= 10; i++ {
-		if e.Carry[i].Index == sapphireUnit10 {
-			e.Carry[i] = world.Item{}
-			remaining -= 10
-			changed = append(changed, i)
+	for i := 0; i < activeCarryLimit(e) && cost > 0; i++ {
+		switch e.Carry[i].Index {
+		case sapphireUnit1:
+			cost--
+		case sapphireUnit10:
+			cost = max(cost-10, 0)
+		default:
+			continue
 		}
+		e.Carry[i] = world.Item{}
+		changed = append(changed, i)
 	}
-	for i := 0; i < activeCarryLimit(e) && remaining > 0; i++ {
-		if e.Carry[i].Index == sapphireUnit1 {
-			e.Carry[i] = world.Item{}
-			remaining--
-			changed = append(changed, i)
-		}
-	}
-	return changed, remaining == 0
+	return changed
 }
 
 const (
 	kingQuestMerchant = 111
 
-	idealStoneItem       = 1742
-	idealStoneEquipSlot  = 10
-	sephirotEquipSlot    = 11
-	archSephirotMin      = 1760
-	archSephirotMax      = 1763
-	capeEquipSlot        = 15
-	pedraIdealsCraftCoin = 30_000_000
+	immortalityStoneItem      = 1742 // Pedra_da_Imortalidade (no EF_VOLATILE)
+	immortalityStoneEquipSlot = 10
+	sephirotEquipSlot         = 11
+	archSephirotMin           = 1760
+	archSephirotMax           = 1763
+	capeEquipSlot             = 15
+	pedraIdealsCraftCoin      = 30_000_000
+)
+
+// Emblema_do_Reino, dropped by the Cav._Mortal of the "Cavaleiro do Reino"
+// quest; equipped, it pays for the kingdom cape (_MSG_Quest.cpp:997).
+const (
+	kingdomEmblemItem      = 4081
+	kingdomEmblemEquipSlot = 13
 )
 
 const (
@@ -514,14 +727,11 @@ func kingClanFromCape(clan uint8, capeIndex int16) uint8 {
 // kingArch handles the KING npcMode's Arch-creation path (_MSG_Quest.cpp:694-867).
 // Ported: the Clan/cape faction gate (:696-741), the confirm==0 ask leg
 // (:762-767, without the Sapphire-price text — UNVERIFIED wire format), and the
-// Equip[10]==1742 (Pedra Ideal) + Equip[11]∈[1760,1763] (Sephirot) + Mortal/level
-// gate (:769, :842-866). NOT ported: the elemental-essence branch (:769-840,
-// items 5334-5337 — consumes them into item 5338 and destroys the King gear
-// INSTEAD of creating Arch) and the CapeMode/Sapphire/Celestial cape-reforge
-// branches (:869-1124) — neither is what issue #139 reports broken, and a
-// player carrying the 4 essence items alongside 1742/1760-1763 will get Arch
-// creation here rather than the legacy "blessing" side-effect, an accepted
-// simplification.
+// Equip[10]==1742 (Pedra da Imortalidade) + Equip[11]∈[1760,1763] (Sephirot) + Mortal/level
+// gate (:769, :842-866). kingQuest runs the Pedra Ideal craft (:771-840,
+// kingPedraIdeal) first, so a Mortal carrying the four Pedras Secretas gets the
+// 5338 instead of the Arch, and sends the cape branches (:869-1124) to
+// kingCapeService.
 func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e, npc *world.Entity, confirm int) {
 	clan := kingClanFromCape(e.Clan, e.Equip[capeEquipSlot].Index)
 	if clan != 0 && clan != npc.Clan {
@@ -533,7 +743,7 @@ func (d *Dispatcher) kingArch(w *world.World, s *world.Session, e, npc *world.En
 	if e.ClassMaster != classMasterMortal || e.Level < 299 {
 		return
 	}
-	if e.Equip[idealStoneEquipSlot].Index != idealStoneItem {
+	if e.Equip[immortalityStoneEquipSlot].Index != immortalityStoneItem {
 		return
 	}
 	sephirot := int(e.Equip[sephirotEquipSlot].Index)
@@ -591,9 +801,9 @@ func (d *Dispatcher) completeKingArch(w *world.World, s *world.Session, archSlot
 	if e == nil {
 		return
 	}
-	e.Equip[idealStoneEquipSlot] = world.Item{}
+	e.Equip[immortalityStoneEquipSlot] = world.Item{}
 	e.Equip[sephirotEquipSlot] = world.Item{}
-	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, idealStoneEquipSlot, itemToSel(e.Equip[idealStoneEquipSlot])))
+	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, immortalityStoneEquipSlot, itemToSel(e.Equip[immortalityStoneEquipSlot])))
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceEquip, sephirotEquipSlot, itemToSel(e.Equip[sephirotEquipSlot])))
 
 	body := protocol.EncodeRemoveMobBody(2)
@@ -721,17 +931,18 @@ func (d *Dispatcher) amuMistico(w *world.World, s *world.Session, e *world.Entit
 }
 
 const (
-	soulItem1        = 1740
-	soulItem2        = 1741
-	sapphireUnit1    = 697  // 1 sapphire unit
-	sapphireUnit10   = 4131 // 10 sapphire units
-	blackOracleCost  = 10   // sapphire units required
-	pedraIdealReward = idealStoneItem
+	soulItem1               = 1740
+	soulItem2               = 1741
+	sapphireUnit1           = 697  // 1 sapphire unit
+	sapphireUnit10          = 4131 // 10 sapphire units
+	blackOracleCost         = 10   // sapphire units required
+	pedraImortalidadeReward = immortalityStoneItem
 )
 
 // blackOracle handles BLACKORACLE (Merchant 78): merges the two soul items
 // (1740 immediately followed by 1741 in Carry) plus 10 sapphire units into the
-// Pedra Ideal (item 1742) the King later requires (_MSG_Quest.cpp:2257-2334).
+// Pedra da Imortalidade (item 1742) the King later requires in Equip[10]
+// (_MSG_Quest.cpp:2257-2334; the reward is set at :2332).
 // A 697 counts as 1 unit, a 4131 as 10. The legacy case never checks confirm.
 func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Entity) {
 	soulSlot := -1
@@ -788,7 +999,7 @@ func (d *Dispatcher) blackOracle(w *world.World, s *world.Session, e *world.Enti
 		d.notify(w, s, NoticeReqNotMet)
 		return
 	}
-	e.Carry[slot] = world.Item{Index: pedraIdealReward}
+	e.Carry[slot] = world.Item{Index: pedraImortalidadeReward}
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
 	d.log.Info("black oracle soul merge", "conn", s.Conn, "name", e.Name)
 }
@@ -836,7 +1047,11 @@ func (d *Dispatcher) compSephi(w *world.World, s *world.Session, e, npc *world.E
 		e.Carry[i] = world.Item{}
 		w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, i, itemToSel(e.Carry[i])))
 	}
-	e.Carry[slot] = world.Item{Index: archSephirotMin + int16(npc.Class)}
+	// The Mestre de Skills templates carry Class 1..4 (Cap.Cavaleiros=1 ..
+	// ForeLearner=4, STRUCT_MOB.Class @20), so the legacy 1759+Class yields the
+	// 0-based player class's Sephirot 1760..1763 (_MSG_Quest.cpp:2157). kingArch
+	// maps it back with Equip[11]-1760 (:845), so the two must stay in step.
+	e.Carry[slot] = world.Item{Index: archSephirotMin - 1 + int16(npc.Class)}
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, slot, itemToSel(e.Carry[slot])))
 	d.log.Info("sephirot created", "conn", s.Conn, "name", e.Name, "class", npc.Class)
 }

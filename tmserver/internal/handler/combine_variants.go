@@ -288,8 +288,10 @@ func (d *Dispatcher) combineItemEhre(w *world.World, s *world.Session, _ protoco
 			rate = 100
 		}
 		e.Level = level.ForExpTier(e.Exp, e.ClassMaster)
-		// SetCircletSubGod is intentionally deferred: its SCELESTIAL 120/150/180
-		// quest flags are not modeled yet. The EXP/level rollback itself is exact.
+		// CheckGetLevel + SetCircletSubGod (_MSG_CombineItemEhre.cpp:162-165).
+		// ForExpTier already lands on the level the exp pays for, so this only
+		// levels (and only adds the diadem) if the curve says it should.
+		d.applyLevelUps(w, s, e)
 		d.refreshScore(e)
 		d.sendEtc(w, s, e)
 		d.sendScore(w, s, e)

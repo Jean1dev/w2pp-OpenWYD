@@ -16,8 +16,13 @@
 ✅ /reino ou /kingdom: teleporta para a área de comércio correspondente à capa equipada — Hekalotia (azul) vai para `(1690,1618)`, Akelonia (vermelha) para `(1690,1842)`, e qualquer capa neutra (sem capa, Capa Branca do Monstro #550, capa verde/Manto do Aprendiz #4006, …) para o centro dos reinos em `(1702,1726)` <br/>
 ⏳ /crias: se teleportará para o drop de crias (Sleipnir e Svaldfire) — sem coordenada na fonte legada <br/>
 ✅ /destravar40: destrava o level 40 do celestial (seta o gate `QuestInfo.Celestial.Lv40`; efetivo só para chars Celestial) <br/>
-✅ /destravar90: destrava o level 90 do celestial (gate `Lv90` + dá a FuryStone item 3502) <br/>
+✅ /destravar90: destrava o level 90 do celestial (gate `Lv90` + dá a Cythera Mística item 3502) <br/>
 ✅ /arcana: realiza a quest da cythera arcana (seta `Circle` + põe o item 3507 no Equip[1]) <br/>
+✅ Pedra da Fúria (3020): Lv90, Arcana e Reset do Celestial pelo item, cobrando 500 de Fama (#408) <br/>
+✅ Diadema do Sub-Celestial: ao chegar aos níveis 120/150/180/199 (armazenados), o Equip[1] ganha EF_AC/EF_HP 30/40, 35/50, 45/60 e 50/70, uma vez por nível (`SetCircletSubGod`, flags `Add120..200`; #409) <br/>
+✅ Sub-Celestial: Celestial nível 120+ com a Sephirot da subclasse no Equip[11] usa a Pedra Ideal (5338) e vira CELESTIALCS; a 2ª ficha (`SaveCelestial[1]`) é criada e persistida (#410) <br/>
+✅ Urnammu: com CELESTIALCS, a Sephirot equipada e 2000 de Fama, troca a classe da ficha do Sub (#410) <br/>
+⏳ Pedra Misteriosa (4148): alternar entre Celestial e Sub-Celestial — a ficha já é persistida, a troca ainda não foi portada (#410) <br/>
 ⏳ /create: (nome da guild): cria guild — sistema de guild não modelado <br/>
 ✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
 ⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>

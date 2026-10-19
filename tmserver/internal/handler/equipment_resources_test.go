@@ -170,7 +170,7 @@ func TestEquipmentResourcesCelestialReset(t *testing.T) {
 	e.ClassMaster, e.Level = classMasterArch, 399
 	e.Equip[0] = world.Item{Index: 1}
 	e.Equip[12] = world.Item{Index: 4185}
-	e.Carry[0] = world.Item{Index: idealStoneItem}
+	e.Carry[0] = world.Item{Index: pedraIdealItem}
 	d.refreshScore(e)
 	d.buildCelestialSnapshot(e, 0)
 	// Compare against the same reset equipment without the costume so catalog

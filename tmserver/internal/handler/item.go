@@ -116,6 +116,10 @@ func (d *Dispatcher) getItem(w *world.World, s *world.Session, _ protocol.Header
 	if id == 1727 && e.Level < 1000 {
 		return // special restriction
 	}
+	if gi.Item.Index == itemPilulaOrc {
+		d.pickUpPilulaOrc(w, s, e, gi, body.ItemID)
+		return
+	}
 
 	slot := int(body.DestPos)
 	if !carrySlotAccessible(e, slot) || !e.Carry[slot].Empty() {
@@ -357,6 +361,7 @@ const (
 	volQuestReward       = 191 // quest reward items 4117..4121 (_MSG_UseItem.cpp:2344)
 	volHuntingScroll     = 195 // Pedido de Caça: destination selected by MSG_UseItem.WarpID
 	volExpChest          = 198
+	volIdealStone        = 211 // Pedra_Ideal 5338: Arch→Celestial (_MSG_UseItem.cpp:3003)
 	volBuffKappa20h      = 200
 	volBuffCombat20h     = 201
 	volBuffMental20h     = 202
@@ -502,14 +507,6 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useArchCrystal(w, s, e, src)
 		return
 	}
-	// Pedra Ideal (1742) right-clicked by an Arch (issue #222): the Arch→Celestial
-	// transformation. ClassMaster==Mortal falls through unchanged to the vol==0
-	// equip path below — that's the unrelated kingArch flow (equip + visit the
-	// King), which must keep working.
-	if e.Carry[src].Index == idealStoneItem && e.ClassMaster == classMasterArch {
-		d.useIdealStone(w, s, e, src)
-		return
-	}
 	// Selo do Guerreiro and Pedra Misteriosa have no EF_VOLATILE, so d.itemVolatiles
 	// defaults to 0 for them — check sIndex first so they don't fall into the vol==0
 	// equip path (canEquipSlot would just silently reject them, the same "phantom
@@ -520,6 +517,9 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		return
 	case itemPedraMisteriosa:
 		d.rejectUnimplementedConsumable(w, s, e, src)
+		return
+	case furyStoneItem: // issue #408: no EF_VOLATILE either
+		d.useFuryStone(w, s, e, src)
 		return
 	}
 	switch vol := d.itemVolatiles[int(e.Carry[src].Index)]; {
@@ -575,6 +575,12 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useEntradaTerritorio(w, s, e, src)
 	case vol == volQuestReward:
 		d.useQuestReward(w, s, e, src)
+	case vol == volMolarGargula:
+		d.useMolarGargula(w, s, e, src)
+	case vol == volPilulaOrc:
+		d.usePilulaOrc(w, s, e, src)
+	case vol == volIdealStone:
+		d.useIdealStone(w, s, e, src)
 	case vol == volHuntingScroll:
 		d.useHuntingScroll(w, s, e, src, body.WarpID)
 	case vol >= volWaterMLo && vol <= volWaterMHi,
@@ -878,7 +884,7 @@ func (d *Dispatcher) useFairyDust(w *world.World, s *world.Session, e *world.Ent
 	}
 	consumeOneItem(&e.Carry[src])
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, src, itemToSel(e.Carry[src])))
-	if !d.applyLevelUps(w, s, e) {
+	if !d.applyLevelUpsWithoutCirclet(w, s, e) {
 		d.sendEtc(w, s, e)
 	}
 	d.log.Info("fairy dust used", "conn", s.Conn, "classmaster", e.ClassMaster, "level", e.Level)
@@ -1026,27 +1032,29 @@ func (d *Dispatcher) useQuestReward(w *world.World, s *world.Session, e *world.E
 	d.sendEtc(w, s, e) // coin changed even when EXP was already at its ceiling
 }
 
+// grantQuestPartyExp ports the trophy's party split (_MSG_UseItem.cpp:2403-2480).
+// The leader is consumer.Leader, or the consumer itself when that is <= 0 or
+// >= MAX_USER, and always receives the share, even when it is the consumer:
+// a solo or leader consumer gets QuestExp plus QuestExp/10 (issue #396). Only
+// the leader's party members skip the consumer and non-playing sessions.
 func (d *Dispatcher) grantQuestPartyExp(w *world.World, consumer *world.Entity, share int64) {
 	if share <= 0 {
 		return
 	}
 	leaderID := consumer.Leader
-	if leaderID == 0 {
-		if partyMemberCount(consumer) == 0 {
-			return
-		}
+	if leaderID <= 0 || leaderID >= world.MaxUser {
 		leaderID = consumer.ID
 	}
 	leader := w.Entity(leaderID)
 	if leader == nil {
 		return
 	}
+	// The legacy leader grant has no USER_PLAY filter; a nil session still
+	// raises Exp and only skips the client packets.
+	d.grantDirectExp(w, w.Session(leaderID), leader, share)
 
-	seen := map[int]bool{consumer.ID: true}
-	recipients := make([]int, 0, world.MaxParty+1)
-	recipients = append(recipients, leaderID)
-	recipients = append(recipients, leader.PartyList[:]...)
-	for _, conn := range recipients {
+	seen := map[int]bool{consumer.ID: true, leaderID: true}
+	for _, conn := range leader.PartyList {
 		if conn <= 0 || conn >= world.MaxUser || seen[conn] {
 			continue
 		}
@@ -1517,16 +1525,27 @@ func (d *Dispatcher) useSeloDoGuerreiro(w *world.World, s *world.Session, e *wor
 
 const celestialArchLevelReq = 355
 
-// useIdealStone handles the Arch→Celestial transformation triggered by right-clicking
-// the Pedra Ideal (item 1742, issue #222). This is a distinct self-use path from
-// kingArch's equip-and-visit-the-King Mortal→Arch flow, which reuses the same item —
-// the in-game tooltip instructs "clique na pedra com o botão direito do mouse" and only
-// applies once the character is already Arch (the caller in useItem gates on that).
+// useIdealStone ports the EF_VOLATILE 211 block (_MSG_UseItem.cpp:3003-3181),
+// reached by right-clicking the Pedra_Ideal 5338 the King fuses from the four
+// Pedras Secretas (kingPedraIdeal). Issue #407 reverted #222, which had wired
+// this to the 1742: that one is the Pedra_da_Imortalidade, has no EF_VOLATILE
+// and only matters equipped in Equip[10] for the King's Arch creation.
+//
+// An Arch becomes a Celestial (:3101-3181, below); a Celestial with a Sephirot
+// becomes a Sub-Celestial (:3026-3085, createSubCelestial, issue #410). Any other
+// tier gets the silent slot resync of :3005-3009.
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
+	switch e.ClassMaster {
+	case classMasterArch:
+	case classMasterCelestial:
+		d.createSubCelestial(w, s, e, src)
+		return
+	default:
+		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
+		return
+	}
 	var requirement string
 	switch {
-	case e.ClassMaster != classMasterArch:
-		requirement = "Somente um Arch pode evoluir para Celestial com a Pedra Ideal."
 	case e.Level < celestialArchLevelReq:
 		requirement = "Seu Arch precisa atingir o nivel 356 para usar a Pedra Ideal."
 	case e.MortalLevel < 99:

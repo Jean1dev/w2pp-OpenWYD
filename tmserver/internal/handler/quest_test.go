@@ -678,8 +678,8 @@ func TestBlackOracleMergesSoulItems(t *testing.T) {
 	if idx, ok := got[12]; !ok || idx != 0 {
 		t.Fatalf("slot 12 (sapphire) = idx %d ok=%v, want cleared", idx, ok)
 	}
-	if idx, ok := got[0]; !ok || idx != idealStoneItem {
-		t.Fatalf("slot 0 (reward) = idx %d ok=%v, want Pedra Ideal %d", idx, ok, idealStoneItem)
+	if idx, ok := got[0]; !ok || idx != immortalityStoneItem {
+		t.Fatalf("slot 0 (reward) = idx %d ok=%v, want Pedra da Imortalidade %d", idx, ok, immortalityStoneItem)
 	}
 }
 
@@ -701,36 +701,53 @@ func TestBlackOracleMissingSoulNoop(t *testing.T) {
 	}
 }
 
+// TestCompSephiCraftsSephirotForClass: each Mestre de Skills crafts the
+// Sephirot 1759+Class (_MSG_Quest.cpp:2157). The real templates carry Class
+// 1..4 at STRUCT_MOB offset 20 (Release/TMsrv/run/npc), so they yield
+// 1760..1763, the range kingArch reads back as class Equip[11]-1760 (#390).
 func TestCompSephiCraftsSephirotForClass(t *testing.T) {
-	tmpl := questNPCTemplate("Composicao_Sephi", 19, 0, 0)
-	// The template's Class field (offset 39 per STRUCT_MOB, same as world.Entity.Class)
-	// selects which of the 4 Sephirot the NPC crafts; leave at 0 (TransKnight → 1760).
-	db := newDB()
-	st := baseMortalState(300)
-	st.Coin = 30_000_000
-	for j := 0; j < 8; j++ {
-		st.Carry[j] = world.Item{Index: int16(1744 + j)}
+	tests := []struct {
+		name  string
+		class uint8
+		want  uint16
+	}{
+		{"Cap.Cavaleiros", 1, 1760}, // Sephirot TransKnight
+		{"Foema_Ancian", 2, 1761},   // Sephirot Foema
+		{"Mestre_Archi", 3, 1762},   // Sephirot BeastMaster
+		{"ForeLearner", 4, 1763},    // Sephirot Huntress
 	}
-	db.loadResult = st
-	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
-	defer stop()
-	c := enterWorld(t, addr)
-	defer c.Close()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := questNPCTemplate(tc.name, 19, 0, 0)
+			tmpl[20] = tc.class // STRUCT_MOB.Class
+			db := newDB()
+			st := baseMortalState(300)
+			st.Coin = 30_000_000
+			for j := 0; j < 8; j++ {
+				st.Carry[j] = world.Item{Index: int16(1744 + j)}
+			}
+			db.loadResult = st
+			addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
 
-	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
-	expect(t, c, protocol.MsgUpdateEtc) // coin deducted
-	got := map[uint16]uint16{}
-	for i := 0; i < 9; i++ { // 8 consumed Pedras + 1 reward
-		item := expect(t, c, protocol.MsgSendItem)
-		got[le16(item[2:4])] = le16(item[4:6])
-	}
-	for j := 0; j < 8; j++ {
-		if idx, ok := got[uint16(j)]; !ok || idx != 0 {
-			t.Fatalf("pedra slot %d = idx %d ok=%v, want cleared", j, idx, ok)
-		}
-	}
-	if idx, ok := got[8]; !ok || idx != archSephirotMin {
-		t.Fatalf("reward slot 8 = idx %d ok=%v, want Sephirot %d", idx, ok, archSephirotMin)
+			send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
+			expect(t, c, protocol.MsgUpdateEtc) // coin deducted
+			got := map[uint16]uint16{}
+			for i := 0; i < 9; i++ { // 8 consumed Pedras + 1 reward
+				item := expect(t, c, protocol.MsgSendItem)
+				got[le16(item[2:4])] = le16(item[4:6])
+			}
+			for j := 0; j < 8; j++ {
+				if idx, ok := got[uint16(j)]; !ok || idx != 0 {
+					t.Fatalf("pedra slot %d = idx %d ok=%v, want cleared", j, idx, ok)
+				}
+			}
+			if idx, ok := got[8]; !ok || idx != tc.want {
+				t.Fatalf("reward slot 8 = idx %d ok=%v, want Sephirot %d", idx, ok, tc.want)
+			}
+		})
 	}
 }
 
@@ -804,7 +821,7 @@ func TestKingArchRejectsMissingPedraIdeal(t *testing.T) {
 	db := newDB()
 	st := baseMortalState(299)
 	st.Equip[0] = world.Item{Index: 21}
-	st.Equip[11] = world.Item{Index: 1762} // Sephirot present, Pedra Ideal missing
+	st.Equip[11] = world.Item{Index: 1762} // Sephirot present, Pedra da Imortalidade missing
 	db.loadResult = st
 	addr, stop, npcID := startServerQuestNPC(t, db, tmpl)
 	defer stop()
@@ -813,7 +830,7 @@ func TestKingArchRejectsMissingPedraIdeal(t *testing.T) {
 
 	send(t, c, protocol.MsgQuest, protocol.EncodeStandardParm2(int32(npcID), 1))
 	if ty, _, ok := readMaybe(t, c); !ok || ty != protocol.MsgMessageBoxOk {
-		t.Fatalf("missing Pedra Ideal produced %#x, ok=%v; want rejection notice", ty, ok)
+		t.Fatalf("missing Pedra da Imortalidade produced %#x, ok=%v; want rejection notice", ty, ok)
 	}
 }
 

@@ -85,7 +85,18 @@ type Character struct {
 	CelLv40            uint8  // MobExtra.QuestInfo.Celestial.Lv40 (celestial level-40 gate)
 	CelLv90            uint8  // MobExtra.QuestInfo.Celestial.Lv90 (celestial level-90 gate)
 	CelCircle          uint8  // MobExtra.QuestInfo.Circle (Cythera Arcana quest done)
+	CelReset           uint8  // MobExtra.QuestInfo.Celestial.Reset (Pedra da Furia resets 0..3, issue #408)
+	CelAdd120          uint8  // MobExtra.QuestInfo.Celestial.Add120 (Sub-Celestial diadem add at 120 granted, issue #409)
+	CelAdd150          uint8  // MobExtra.QuestInfo.Celestial.Add150 (Sub-Celestial diadem add at 150 granted, issue #409)
+	CelAdd180          uint8  // MobExtra.QuestInfo.Celestial.Add180 (Sub-Celestial diadem add at 180 granted, issue #409)
+	CelAdd200          uint8  // MobExtra.QuestInfo.Celestial.Add200 (Sub-Celestial diadem add at stored 199 granted, issue #409)
+	CelestialLevel     int16  // MobExtra.QuestInfo.Celestial.CelestialLevel (parked Celestial's level, issue #410)
+	SubCelestialLevel  int16  // MobExtra.QuestInfo.Celestial.SubCelestialLevel (parked Sub-Celestial's level, issue #410)
+	SaveCelestial      []byte // MobExtra.SaveCelestial[2], opaque to the dbServer (tmserver world.MarshalCelestialSheets, issue #410)
 	TerraMistica       uint8  // MobExtra.QuestInfo.Mortal.TerraMistica (AMU_MISTICO, issue #139)
+	NewbieQuest        uint8  // MobExtra.QuestInfo.Mortal.Newbie (Campo de Treino step 0..4, issue #395)
+	MolarGargula       uint8  // MobExtra.QuestInfo.Mortal.MolarGargula (Molar de Gargula used, issue #398)
+	PilulaOrc          uint8  // MobExtra.QuestInfo.Mortal.PilulaOrc (Pilula do Poder Magico used, issue #404)
 	ArchLv355          uint8  // MobExtra.QuestInfo.Arch.Level355
 	ArchLv370          uint8  // MobExtra.QuestInfo.Arch.Level370
 	MortalLevel        uint16 // MobExtra.QuestInfo.Arch.MortalLevel

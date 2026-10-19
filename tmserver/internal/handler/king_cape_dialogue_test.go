@@ -40,7 +40,7 @@ func TestKingCapeDialogue(t *testing.T) {
 		{"Glantuar canonical", 111, clanAkelonia, 544, 6},
 	}
 	for _, king := range kings {
-		for _, branch := range []string{"quote", "insufficient", "inexact", "complete"} {
+		for _, branch := range []string{"quote", "insufficient", "complete quote", "complete"} {
 			t.Run(king.name+"/"+branch, func(t *testing.T) {
 				st := baseMortalState(255)
 				st.Carry[0] = world.Item{Index: 697}
@@ -48,17 +48,17 @@ func TestKingCapeDialogue(t *testing.T) {
 				confirm := int32(0)
 				wantText := fmt.Sprintf("Sao necessarias %d safiras.", king.cost)
 				switch branch {
-				case "insufficient", "inexact":
+				case "insufficient":
 					confirm = 1
-					wantText = fmt.Sprintf("Sao necessarias %d safiras em pagamento exato.", king.cost)
-					if branch == "inexact" {
-						st.Carry[1] = world.Item{Index: 4131}
-						wantCarry = append(wantCarry, world.SavedItem{Slot: 1, Index: 4131})
-					}
-				case "complete":
+				case "complete quote", "complete":
+					// The legacy quotes before looking at the cape and only
+					// blesses a finished one on confirm (_MSG_Quest.cpp:757-874).
 					st.Clan = king.clan
 					st.Equip[capeEquipSlot] = world.Item{Index: king.cape}
-					wantText = "A capa deste reino ja esta completa."
+					if branch == "complete" {
+						confirm = 1
+						wantText = kingBlessing(king.clan)
+					}
 				}
 				db := &kingDialogueDB{
 					fakeDB: newDB(),
@@ -116,7 +116,7 @@ func TestKingCapeDialogue(t *testing.T) {
 					t.Fatalf("dialogue changed inventory/clan: saves=%d carry=%+v clan=%d", n, save.Carry, save.Clan)
 				}
 				cape, present := savedSlot(save.Equip, capeEquipSlot)
-				if branch == "complete" {
+				if branch == "complete" || branch == "complete quote" {
 					if !present || cape != (world.SavedItem{Slot: capeEquipSlot, Index: king.cape}) {
 						t.Fatalf("completed cape changed: %+v present=%v", cape, present)
 					}
@@ -160,9 +160,9 @@ func TestKingArchIdealStoneDialogue(t *testing.T) {
 							st.ArchCrystalStage = 4
 							switch stone {
 							case "carry":
-								st.Carry[0] = world.Item{Index: idealStoneItem}
+								st.Carry[0] = world.Item{Index: immortalityStoneItem}
 							case "equip":
-								st.Equip[idealStoneEquipSlot] = world.Item{Index: idealStoneItem}
+								st.Equip[immortalityStoneEquipSlot] = world.Item{Index: immortalityStoneItem}
 								st.Equip[sephirotEquipSlot] = world.Item{Index: archSephirotMin}
 							}
 							if capeDone {

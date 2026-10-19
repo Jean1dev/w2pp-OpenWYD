@@ -444,7 +444,7 @@ func (d *Dispatcher) clearBuffs(w *world.World, s *world.Session) {
 // Celestial unlock constants (_MSG_MessageWhisper.cpp:628/645/676).
 const (
 	celestialUnlockParm = 1    // _MSG_CombineComplete Parm on a successful unlock
-	furyStoneIndex      = 3502 // /destravar90 reward (FuryStone), granted to carry
+	cytheraMisticaItem  = 3502 // /destravar90 and Pedra da Furia Lv90 reward (Cythera_Mistica), granted to carry
 	arcanaItemIndex     = 3507 // /arcana reward, placed in Equip[1]
 	arcanaEquipSlot     = 1
 )
@@ -453,7 +453,7 @@ const (
 // (ninety=true): the Celestial level-40/90 unlock (_MSG_MessageWhisper.cpp:628/645).
 // It sets the QuestInfo.Celestial gate flag so CheckGetLevel lets the character pass
 // level 40/90 (CMob.cpp:1107), signals the client, and persists the flag. /destravar90
-// additionally hands out the FuryStone (item 3502) and plays the unlock emote.
+// additionally hands out the Cythera Mistica (item 3502) and plays the unlock emote.
 //
 // The command is only effective for a Celestial — for anyone else it is a no-op
 // (there is no gate to unlock on the Mortal/Arch curve), matching the design in
@@ -481,7 +481,7 @@ func (d *Dispatcher) destravarCelestialFor(w *world.World, s *world.Session, e *
 			return
 		}
 		e.CelLv90 = 1
-		d.grantCarry(w, s, e, furyStoneIndex)
+		d.grantCarry(w, s, e, cytheraMisticaItem)
 	} else {
 		if e.CelLv40 != 0 {
 			return
