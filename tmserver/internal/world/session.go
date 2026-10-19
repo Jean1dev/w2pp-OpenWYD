@@ -239,6 +239,7 @@ type Entity struct {
 	// AMU_MISTICO, issue #139): set once the party quest is completed, so the
 	// NPC won't hand it out twice. Persisted.
 	TerraMistica         uint8
+	NewbieQuest          uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step 0..4 (issue #395). Persisted.
 	ArchLv355, ArchLv370 uint8
 	MortalLevel          uint16
 	CelestialArchLevel   uint8

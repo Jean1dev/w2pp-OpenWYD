@@ -692,6 +692,7 @@ type Character struct {
 	BaseCon       int32 `protobuf:"varint,56,opt,name=base_con,json=baseCon,proto3" json:"base_con,omitempty"`
 	BaseMaxHp     int32 `protobuf:"varint,57,opt,name=base_max_hp,json=baseMaxHp,proto3" json:"base_max_hp,omitempty"`
 	BaseMaxMp     int32 `protobuf:"varint,58,opt,name=base_max_mp,json=baseMaxMp,proto3" json:"base_max_mp,omitempty"`
+	MortalNewbie  int32 `protobuf:"varint,59,opt,name=mortal_newbie,json=mortalNewbie,proto3" json:"mortal_newbie,omitempty"` // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1128,6 +1129,13 @@ func (x *Character) GetBaseMaxHp() int32 {
 func (x *Character) GetBaseMaxMp() int32 {
 	if x != nil {
 		return x.BaseMaxMp
+	}
+	return 0
+}
+
+func (x *Character) GetMortalNewbie() int32 {
+	if x != nil {
+		return x.MortalNewbie
 	}
 	return 0
 }
@@ -6282,7 +6290,7 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\x14LoadCharacterRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
-	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xb4\r\n" +
+	"\x04slot\x18\x02 \x01(\x05R\x04slot\"\xd9\r\n" +
 	"\tCharacter\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -6347,7 +6355,8 @@ const file_api_db_v1_db_proto_rawDesc = "" +
 	"\bbase_dex\x187 \x01(\x05R\abaseDex\x12\x19\n" +
 	"\bbase_con\x188 \x01(\x05R\abaseCon\x12\x1e\n" +
 	"\vbase_max_hp\x189 \x01(\x05R\tbaseMaxHp\x12\x1e\n" +
-	"\vbase_max_mp\x18: \x01(\x05R\tbaseMaxMp\"\xcd\x01\n" +
+	"\vbase_max_mp\x18: \x01(\x05R\tbaseMaxMp\x12#\n" +
+	"\rmortal_newbie\x18; \x01(\x05R\fmortalNewbie\"\xcd\x01\n" +
 	"\x04Item\x12\x12\n" +
 	"\x04slot\x18\x01 \x01(\x05R\x04slot\x12\x14\n" +
 	"\x05index\x18\x02 \x01(\x05R\x05index\x12\x12\n" +

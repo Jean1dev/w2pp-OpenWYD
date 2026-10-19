@@ -210,6 +210,8 @@ message Character {
   int32 base_con = 56;
   int32 base_max_hp = 57;
   int32 base_max_mp = 58;
+
+  int32 mortal_newbie = 59; // QuestInfo.Mortal.Newbie: Campo de Treino step (0..4, issue #395)
 }
 
 message Item {

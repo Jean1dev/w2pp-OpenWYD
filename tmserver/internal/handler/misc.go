@@ -159,6 +159,13 @@ func (d *Dispatcher) quest(w *world.World, s *world.Session, _ protocol.Header, 
 		d.survivorExchange(w, s, e)
 		return
 	}
+	// TREINADORNEWBIE1..4 (_MSG_Quest.cpp:82-101): routed by the template's
+	// MOB.Merchant before the Coveiro, whose CurrentScore.Merchant 100 /
+	// EF_GRADE0 0 Treinador1 also has (issue #395).
+	if step, ok := newbieTrainerStep(npc); ok {
+		d.newbieQuest(w, s, e, npc, step)
+		return
+	}
 	// QUEST_COVEIRO (Merchant 100, EF_GRADE0 0): step 1 of the Quest 256 chain.
 	// Grade is also 0 for Merchant-100 templates without EF_GRADE0; routing those
 	// here matches BASE_GetItemAbilityNosanc in the legacy server.

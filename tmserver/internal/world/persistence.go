@@ -130,6 +130,7 @@ type CharacterState struct {
 	CelLv90            uint8 // QuestInfo.Celestial.Lv90 gate
 	CelCircle          uint8 // QuestInfo.Circle (Arcana quest done)
 	TerraMistica       uint8 // QuestInfo.Mortal.TerraMistica gate (AMU_MISTICO, issue #139)
+	NewbieQuest        uint8 // QuestInfo.Mortal.Newbie: Campo de Treino step (issue #395)
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16
@@ -255,6 +256,7 @@ type CharacterSave struct {
 	CelLv90            uint8
 	CelCircle          uint8
 	TerraMistica       uint8
+	NewbieQuest        uint8
 	ArchLv355          uint8
 	ArchLv370          uint8
 	MortalLevel        uint16

@@ -656,6 +656,7 @@ func characterStateFromProto(c *dbv1.Character) world.CharacterState {
 		CelLv90:            uint8(c.GetCelestialLv90()),
 		CelCircle:          uint8(c.GetCelestialCircle()),
 		TerraMistica:       uint8(c.GetMortalTerraMistica()),
+		NewbieQuest:        uint8(c.GetMortalNewbie()),
 		Soul:               uint8(c.GetSoul()),
 		Fame:               c.GetFame(),
 		KefraTicket:        c.GetKefraTicket(),
@@ -797,6 +798,7 @@ func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 		// The legacy SaveUser ships the whole STRUCT_MOBEXTRA (Server.cpp:7875), so
 		// the AMU_MISTICO flag is saved like every other QuestInfo gate (#401).
 		MortalTerraMistica: int32(s.TerraMistica),
+		MortalNewbie:       int32(s.NewbieQuest),
 		PkPoint:            int32(s.PKPoint),
 		Guilty:             int32(s.Guilty),
 		CurKill:            int32(s.CurKill),

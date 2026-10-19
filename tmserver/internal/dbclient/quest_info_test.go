@@ -18,6 +18,7 @@ func TestQuestInfoRoundTrip(t *testing.T) {
 	}{
 		{"ClassMaster", world.CharacterSave{ClassMaster: 3}, func(s world.CharacterState) bool { return s.ClassMaster == 3 }},
 		{"Mortal.TerraMistica", world.CharacterSave{TerraMistica: 2}, func(s world.CharacterState) bool { return s.TerraMistica == 2 }},
+		{"Mortal.Newbie", world.CharacterSave{NewbieQuest: 4}, func(s world.CharacterState) bool { return s.NewbieQuest == 4 }},
 		{"Arch.MortalLevel", world.CharacterSave{MortalLevel: 399}, func(s world.CharacterState) bool { return s.MortalLevel == 399 }},
 		{"Arch.Level355", world.CharacterSave{ArchLv355: 1}, func(s world.CharacterState) bool { return s.ArchLv355 == 1 }},
 		{"Arch.Level370", world.CharacterSave{ArchLv370: 1}, func(s world.CharacterState) bool { return s.ArchLv370 == 1 }},

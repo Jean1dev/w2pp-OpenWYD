@@ -17,6 +17,7 @@ func TestQuestInfoMappingRoundTrip(t *testing.T) {
 	}{
 		{"ClassMaster", &dbv1.Character{ClassMaster: 3}, (*dbv1.Character).GetClassMaster},
 		{"Mortal.TerraMistica", &dbv1.Character{MortalTerraMistica: 2}, (*dbv1.Character).GetMortalTerraMistica},
+		{"Mortal.Newbie", &dbv1.Character{MortalNewbie: 4}, (*dbv1.Character).GetMortalNewbie},
 		{"Arch.MortalLevel", &dbv1.Character{MortalLevel: 399}, (*dbv1.Character).GetMortalLevel},
 		{"Arch.Level355", &dbv1.Character{ArchLv355: 1}, (*dbv1.Character).GetArchLv355},
 		{"Arch.Level370", &dbv1.Character{ArchLv370: 1}, (*dbv1.Character).GetArchLv370},
