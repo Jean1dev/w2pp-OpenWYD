@@ -591,8 +591,12 @@ func TestUseIdealStoneRequiresMaxArchLevel(t *testing.T) {
 		if !ok {
 			break
 		}
-		if ty == protocol.MsgCombineComplete || ty == protocol.MsgMotion {
+		switch ty {
+		case protocol.MsgCombineComplete, protocol.MsgMotion:
 			t.Fatalf("got %#x for a below-level Arch; want no unlock signal", ty)
+		case protocol.MsgMessageBoxOk, protocol.MsgMessageChat, protocol.MsgMessagePanel:
+			// :3011-3015 only resyncs the slot (issue #413).
+			t.Fatalf("got %#x for a below-level Arch; the legacy refusal is silent", ty)
 		}
 		if ty == protocol.MsgSendItem && int16(le16(payload[4:6])) == pedraIdealItem {
 			sawResync = true

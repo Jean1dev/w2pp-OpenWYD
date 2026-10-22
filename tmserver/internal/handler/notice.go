@@ -123,6 +123,8 @@ const (
 	cantWithdrawThatMuch = "Esta quantia n\xe3o pode ser retirada."   // _NN_Cant_Withdraw_That_Much (45)
 	notEnoughMoney       = "N\xe3o possui gold suficiente."           // _NN_Not_Enough_Money (113)
 
+	cantWithArmor = "No momento voc\xea n\xe3o pode equipar arma e armadura." // _NN_Cant_with_armor (205)
+
 	newbieZone = "Somente n\xedvel 35 ou inferior pode entrar no campo de treinamento." // _NN_Newbie_zone (46)
 )
 
