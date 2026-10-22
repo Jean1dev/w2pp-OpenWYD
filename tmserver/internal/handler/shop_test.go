@@ -28,23 +28,36 @@ func startServerShop(t *testing.T, persist world.Persistence, prices map[int]int
 
 func startServerShopItems(t *testing.T, persist world.Persistence, prices map[int]int32, vols map[int]int) (string, func()) {
 	t.Helper()
+	return startServerShopNPC(t, persist, prices, vols, shopNPC{merchant: 1, x: 5, y: 5, grid: 16})
+}
+
+// shopNPC places the shop NPC: its Merchant tag, its cell and the grid size
+// (a far NPC needs a grid wider than the view range).
+type shopNPC struct {
+	merchant uint8
+	x, y     int16
+	grid     int
+}
+
+func startServerShopNPC(t *testing.T, persist world.Persistence, prices map[int]int32, vols map[int]int, n shopNPC) (string, func()) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	d := New(Config{Log: log, ItemPrices: prices, ItemVolatiles: vols})
-	w := world.New(world.Config{GridDim: 16}, log, persist, d.Handle)
+	w := world.New(world.Config{GridDim: n.grid}, log, persist, d.Handle)
 
 	tmpl := make([]byte, 816)
 	copy(tmpl[0:16], "ShopKeeper")
-	tmpl[92+12] = 1                                  // CurrentScore.Merchant = normal shop
+	tmpl[92+12] = n.merchant                         // CurrentScore.Merchant (1 = normal shop)
 	binary.LittleEndian.PutUint32(tmpl[92+16:], 100) // MaxHp
 	binary.LittleEndian.PutUint32(tmpl[92+24:], 100) // Hp
 	binary.LittleEndian.PutUint16(tmpl[268:], 1100)  // Carry[0].sIndex
 	tmpl[268+2] = 61                                 // EF_AMOUNT
 	tmpl[268+3] = 120                                // stack amount
-	if id := w.SpawnMob(tmpl, 5, 5); id != shopNPCID {
+	if id := w.SpawnMob(tmpl, n.x, n.y); id != shopNPCID {
 		t.Fatalf("shop NPC spawned as id %d, want %d", id, shopNPCID)
 	}
 
@@ -218,5 +231,69 @@ func TestBuyNegativePriceSilent(t *testing.T) {
 	buyFrame(t, c, shopNPCID, 0, 3)
 	if ty, _, ok := readMaybe(t, c); ok {
 		t.Errorf("negative-price buy produced %#x; should be silent", ty)
+	}
+}
+
+func sellFrame(t *testing.T, c net.Conn, targetID, carrySlot int) {
+	t.Helper()
+	body := make([]byte, 8)
+	binary.LittleEndian.PutUint16(body[0:2], uint16(targetID))
+	binary.LittleEndian.PutUint16(body[2:4], 1) // MyType = Carry
+	binary.LittleEndian.PutUint16(body[4:6], uint16(carrySlot))
+	send(t, c, protocol.MsgSell, body)
+}
+
+// TestShopOnlyMerchantInView: only Merchant 1 in GetInView range trades items
+// (_MSG_Buy.cpp:55-64, _MSG_Sell.cpp:103-112). The Foema skill master
+// (Merchant 19) handed out its skill as a free item before (#391).
+func TestShopOnlyMerchantInView(t *testing.T) {
+	skillMaster := shopNPC{merchant: 19, x: 5, y: 5, grid: 16}
+	farMerchant := shopNPC{merchant: 1, x: 45, y: 5, grid: 64} // 40 cells away > ±33
+	huntressSell := func(st *world.CharacterState) { st.Class = 3; st.LearnedSkill = 0x1000 }
+	tests := []struct {
+		name  string
+		npc   shopNPC
+		setup func(*world.CharacterState)
+		sell  bool
+		want  protocol.Type // first reply; 0 = the trade is refused in silence
+		panel string
+	}{
+		{name: "buy from skill master", npc: skillMaster, want: protocol.MsgMessagePanel, panel: onlyMerchantSells},
+		{name: "buy from far merchant", npc: farMerchant, want: protocol.MsgCloseShop},
+		{name: "sell to skill master", npc: skillMaster, sell: true, want: protocol.MsgMessagePanel, panel: onlyMerchantBuyYours},
+		{name: "sell to far merchant", npc: farMerchant, sell: true, want: protocol.MsgCloseShop},
+		{name: "huntress sells anywhere", npc: skillMaster, setup: huntressSell, sell: true, want: protocol.MsgSell},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newDB()
+			st := world.CharacterState{Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Coin: 1234}
+			st.Carry[3] = world.Item{Index: 1100}
+			if tt.setup != nil {
+				tt.setup(&st)
+			}
+			db.loadResult = st
+			addr, stop := startServerShopNPC(t, db, map[int]int32{1100: 400}, nil, tt.npc)
+			defer stop()
+			c := enterWorld(t, addr)
+			defer c.Close()
+
+			if tt.sell {
+				sellFrame(t, c, shopNPCID, 3)
+			} else {
+				buyFrame(t, c, shopNPCID, 0, 4)
+			}
+			if tt.panel != "" {
+				expectPanel(t, c, tt.panel)
+			} else {
+				expect(t, c, tt.want)
+			}
+			if tt.want == protocol.MsgSell {
+				return // the accepted sale goes on with SendItem + UpdateEtc
+			}
+			if ty, _, ok := readMaybe(t, c); ok {
+				t.Errorf("refused trade also produced %#x", ty)
+			}
+		})
 	}
 }
