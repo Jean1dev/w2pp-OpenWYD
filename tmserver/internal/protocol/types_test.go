@@ -138,6 +138,7 @@ func TestMessageTypeValues(t *testing.T) {
 		{"_MSG_ShopList (Basedef.h:2014)", MsgShopList, 124 | flagGame2Client},
 		{"_MSG_Buy (Basedef.h:2123)", MsgBuy, 121 | flagGame2Client | flagClient2Game},
 		{"_MSG_Sell (Basedef.h:2134)", MsgSell, 122 | flagGame2Client | flagClient2Game},
+		{"_MSG_CloseShop (Basedef.h:2193)", MsgCloseShop, 150 | flagGame2Client},
 		{"_MSG_Deposit (Basedef.h:2163)", MsgDeposit, 136 | flagGame2Client | flagClient2Game},
 		{"_MSG_Withdraw (Basedef.h:2162)", MsgWithdraw, 135 | flagGame2Client | flagClient2Game},
 		{"_MSG_UpdateCargoCoin (Basedef.h:1887)", MsgUpdateCargoCoin, 57 | flagGame2Client | flagClient2Game},

@@ -119,9 +119,11 @@ func (d *Dispatcher) sendClientMessage(w *world.World, s *world.Session, text st
 // Legacy refusal panels (Release/TMsrv/run/Language.txt), in the table's
 // Windows-1252 bytes like the rest of the legacy string table.
 const (
-	cantDepositThatMuch  = "Esta quantia n\xe3o pode ser armazenada." // _NN_Cant_Deposit_That_Much (44)
-	cantWithdrawThatMuch = "Esta quantia n\xe3o pode ser retirada."   // _NN_Cant_Withdraw_That_Much (45)
-	notEnoughMoney       = "N\xe3o possui gold suficiente."           // _NN_Not_Enough_Money (113)
+	cantDepositThatMuch  = "Esta quantia n\xe3o pode ser armazenada."      // _NN_Cant_Deposit_That_Much (44)
+	cantWithdrawThatMuch = "Esta quantia n\xe3o pode ser retirada."        // _NN_Cant_Withdraw_That_Much (45)
+	notEnoughMoney       = "N\xe3o possui gold suficiente."                // _NN_Not_Enough_Money (113)
+	onlyMerchantSells    = "Pode comprar itens apenas do mercador."        // _NN_Only_Merchant_Sells (112)
+	onlyMerchantBuyYours = "Poss\xedvel vender somente para comerciantes." // _NN_Only_Merchant_Buy_Yours (116)
 
 	cantWithArmor = "No momento voc\xea n\xe3o pode equipar arma e armadura." // _NN_Cant_with_armor (205)
 

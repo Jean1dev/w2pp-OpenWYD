@@ -47,7 +47,8 @@ func (d *Dispatcher) reqShopList(w *world.World, s *world.Session, _ protocol.He
 	d.log.Info("shop opened", "conn", s.Conn, "npc", target, "merchant", npc.Merchant)
 }
 
-// buy handles _MSG_Buy (0x0379): purchase a shop item from an NPC. Price =
+// buy handles _MSG_Buy (0x0379): purchase a shop item from an NPC. Only the
+// plain merchant (Merchant 1) in view sells (merchantInView). Price =
 // itemPrices[index] (no city tax — village shortcut). The original accepts
 // Price==0 (free item) and rejects only negative prices / insufficient gold.
 // Debits gold, adds the item to the player's Carry, echoes MSG_Buy (new Coin) +
@@ -61,10 +62,13 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	myPos := int(int16(binary.LittleEndian.Uint16(payload[4:6])))
 	npc := w.Entity(target)
 	e := w.Entity(s.Conn)
-	if npc == nil || npc.Merchant == 0 || e == nil {
+	if npc == nil || e == nil || target < world.MaxUser {
 		return
 	}
 	if npcPos < 0 || npcPos >= world.MaxCarry || !carrySlotAccessible(e, myPos) {
+		return
+	}
+	if !d.merchantInView(w, s, e, npc, onlyMerchantSells) {
 		return
 	}
 	item := npc.Carry[npcPos]
@@ -107,6 +111,24 @@ func (d *Dispatcher) buy(w *world.World, s *world.Session, _ protocol.Header, pa
 	w.Send(s, protocol.MsgSendItem, protocol.EncodeSendItemBody(protocol.ItemPlaceCarry, myPos, itemToSel(item)))
 }
 
+// merchantInView is the gate _MSG_Buy.cpp:55-64 and _MSG_Sell.cpp:103-112 share:
+// only Merchant 1 trades items. Every other NPC with a Merchant tag (the skill
+// master 19, quest NPCs 100+) still opens its own window through REQShopList,
+// but its Carry is not for sale — buying from the Foema skill master handed out
+// the skill as a free item (#391). An NPC out of GetInView range (±VIEWGRIDX)
+// closes the shop instead. Reports whether the trade may go on.
+func (d *Dispatcher) merchantInView(w *world.World, s *world.Session, e, npc *world.Entity, refusal string) bool {
+	if npc.Merchant != 1 {
+		d.sendClientMessage(w, s, refusal)
+		return false
+	}
+	if chebyshev(e.X, e.Y, npc.X, npc.Y) > world.NoViewRange {
+		w.SendTo(s, protocol.Header{Type: protocol.MsgCloseShop, ID: protocol.IDScene}, nil)
+		return false
+	}
+	return true
+}
+
 // itemToSel converts a world inventory item to the wire STRUCT_ITEM form.
 func itemToSel(it world.Item) protocol.SelItem {
 	return protocol.SelItem{
@@ -119,7 +141,9 @@ func itemToSel(it world.Item) protocol.SelItem {
 	}
 }
 
-// sell handles _MSG_Sell (0x037A): sell a Carry item to an NPC. Sell price =
+// sell handles _MSG_Sell (0x037A): sell a Carry item to an NPC. Only the plain
+// merchant in view buys (merchantInView), except for a Huntress with the
+// 0x1000 skill, who sells anywhere (_MSG_Sell.cpp:94-95). Sell price =
 // Price/4 (→/2 if >10000, →*2/3 if 5000<x<=10000); no city tax. Credits gold,
 // clears the slot, echoes MSG_Sell + MSG_UpdateEtc. Only MyType=1 (Carry) for now.
 func (d *Dispatcher) sell(w *world.World, s *world.Session, _ protocol.Header, payload []byte) {
@@ -131,10 +155,18 @@ func (d *Dispatcher) sell(w *world.World, s *world.Session, _ protocol.Header, p
 	myPos := int(int16(binary.LittleEndian.Uint16(payload[4:6])))
 	npc := w.Entity(target)
 	e := w.Entity(s.Conn)
-	if npc == nil || npc.Merchant == 0 || e == nil || myType != 1 {
+	if e == nil || myType != 1 {
 		return // only inventory (Carry) sell supported this pass
 	}
-	if !carrySlotAccessible(e, myPos) || e.Carry[myPos].Index == 0 {
+	if !carrySlotAccessible(e, myPos) {
+		return
+	}
+	if e.Class != 3 || e.LearnedSkill&0x1000 == 0 {
+		if npc == nil || target < world.MaxUser || !d.merchantInView(w, s, e, npc, onlyMerchantBuyYours) {
+			return
+		}
+	}
+	if e.Carry[myPos].Index == 0 {
 		return
 	}
 	price := d.itemPrices[int(e.Carry[myPos].Index)]

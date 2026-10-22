@@ -29,7 +29,10 @@
 - **Gatilho/struct:** `MSG_Sell` (`TargetID`, `MyType` 0=Equip/1=Carry/2=Cargo, `MyPos`).
 - **Validações:** `Hp!=0` & `USER_PLAY` (`AddCrackError(10,23)`); se em trade → cancela; cargo
   bloqueado em `TradeMode`. Bounds por tipo: Carry `[0,MAX_CARRY-4)`, Cargo `[0,MAX_CARGO)`, Equip
-  `(0,MAX_EQUIP)` (`MyPos<8` marca item equipado). `GetItemPointer` ≠ NULL.
+  `(0,MAX_EQUIP)` (`MyPos<8` marca item equipado). `GetItemPointer` ≠ NULL. `Merchant==1` (senão
+  `_NN_Only_Merchant_Buy_Yours`) e em visão (senão `_MSG_CloseShop`), exceto a Caçadora com
+  `LearnedSkill & 0x1000`, que vende sem NPC (`_MSG_Sell.cpp:94-116`). No Go: `merchantInView`
+  em `handler/shop.go`, compartilhado com o `_MSG_Buy` (#391).
 - **Efeitos:** credita gold pelo preço de venda do item e remove-o do slot (continuação do arquivo).
 - **Risco:** vender item equipado (`isEquip`) exige cuidado de recalcular score; bounds por place são
   o ponto crítico (anti-dup). Preço de venda derivado da ItemList.

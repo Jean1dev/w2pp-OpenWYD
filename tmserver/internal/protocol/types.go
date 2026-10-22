@@ -171,6 +171,7 @@ const (
 	MsgShopList           Type = 0x017C // 380  S→C shop list (NPC Carry)
 	MsgBuy                Type = 0x0379 // 889  C↔S buy from NPC
 	MsgSell               Type = 0x037A // 890  C↔S sell to NPC
+	MsgCloseShop          Type = 0x0196 // 406  S→C close the shop window (signal, ID=ESCENE_FIELD; Basedef.h:2193)
 	MsgDeposit            Type = 0x0388 // 904  C↔S deposit gold into cargo (MSG_STANDARDPARM)
 	MsgWithdraw           Type = 0x0387 // 903  C↔S withdraw gold from cargo (MSG_STANDARDPARM)
 	MsgUpdateCargoCoin    Type = 0x0339 // 825  S→C account cargo gold (_MSG_UpdateCargoCoin)
