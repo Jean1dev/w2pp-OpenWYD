@@ -880,6 +880,9 @@ func startServerMestreGrifo(t *testing.T, st world.CharacterState, tick bool) (s
 func expectAction(t *testing.T, c net.Conn) protocol.MsgActionBody {
 	t.Helper()
 	ty, payload := read(t, c)
+	for ty == protocol.MsgStartTime { // a Quest 256 arena's per-second countdown (#389)
+		ty, payload = read(t, c)
+	}
 	if ty != protocol.MsgAction {
 		t.Fatalf("got %#x, want MsgAction", ty)
 	}

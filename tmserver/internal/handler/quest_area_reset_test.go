@@ -70,3 +70,48 @@ func TestResetQuestAreas(t *testing.T) {
 		})
 	}
 }
+
+// TestQuestAreaCountdown covers issue #389: players inside a Quest 256 arena
+// get MSG_StartTime every tick; players in the other reset areas or outside
+// get nothing.
+func TestQuestAreaCountdown(t *testing.T) {
+	d, w, s, _ := startOnePlayer(t)
+	for _, tc := range []struct {
+		name string
+		x, y int16
+		want bool
+	}{
+		{"Coveiro", 2400, 2100, true},
+		{"Carbuncle", 2240, 1710, true},
+		{"Kaizen", 470, 3900, true},
+		{"Hidras", 680, 3740, true},
+		{"Elfos", 1330, 4040, true},
+		{"Capa Verde has no timer", 2240, 1570, false},
+		{"outside", 2200, 2200, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runInLoop(t, w, func() {
+				w.SetEntityPos(s.Conn, tc.x, tc.y)
+				before := w.SentOfType(s, protocol.MsgStartTime)
+				d.tickCount = 7
+				d.tickQuestAreaReset(w)
+				if got := w.SentOfType(s, protocol.MsgStartTime) > before; got != tc.want {
+					t.Errorf("StartTime sent = %v, want %v", got, tc.want)
+				}
+			})
+		})
+	}
+}
+
+func TestQuestAreaSecondsLeft(t *testing.T) {
+	for _, tc := range []struct {
+		tick int
+		want int32
+	}{
+		{0, 600}, {1, 599}, {599, 1}, {600, 600}, {1199, 1},
+	} {
+		if got := questAreaSecondsLeft(tc.tick); got != tc.want {
+			t.Errorf("questAreaSecondsLeft(%d) = %d, want %d", tc.tick, got, tc.want)
+		}
+	}
+}
