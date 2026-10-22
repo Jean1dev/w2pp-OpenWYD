@@ -676,6 +676,15 @@ func EncodeStandardParm(parm int32) []byte {
 	return b
 }
 
+// EncodeSetShortSkill builds the MSG_SetShortSkill body (Basedef.h:2115):
+// Skill1[4] (MOB.SkillBar) then Skill2[16] (CUser.CharShortSkill), the same
+// 20 bytes the client sends when it edits its hotbar.
+func EncodeSetShortSkill(skill1 [4]uint8, skill2 [16]uint8) []byte {
+	b := make([]byte, 0, len(skill1)+len(skill2))
+	b = append(b, skill1[:]...)
+	return append(b, skill2[:]...)
+}
+
 // EncodeStandardParm2 builds a MSG_STANDARDPARM2 body.
 func EncodeStandardParm2(parm1, parm2 int32) []byte {
 	b := make([]byte, 8)

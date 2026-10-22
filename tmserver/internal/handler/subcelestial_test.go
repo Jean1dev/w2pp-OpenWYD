@@ -228,3 +228,124 @@ func TestScoreBonusParkedTier(t *testing.T) {
 		})
 	}
 }
+
+// TestPedraMisteriosaSwapsSheets drives the Pedra Misteriosa (4148) through
+// useItem (issue #410, _MSG_UseItem.cpp:3186-3289): inside a village a
+// CELESTIALCS parks the Celestial in SaveCelestial[0] and plays the Sub, and a
+// second stone swaps back. Outside a village, or below the Sub tiers, nothing
+// changes and the stone stays.
+func TestPedraMisteriosaSwapsSheets(t *testing.T) {
+	addr, d, w, _ := startKefraServer(t, perzenDB(0))
+	c := enterWorld(t, addr)
+	defer c.Close()
+
+	sub := world.CelestialSheet{
+		Class: 3, Level: 10, Exp: 77, SPX: 2110, SPY: 2111,
+		Str: 8, Int: 9, Dex: 13, Con: 6, Special: [4]int16{1, 2, 3, 4},
+		LearnedSkill: 1<<30 | 0x5, SecLearnedSkill: 0x9, ScoreBonus: 11, SpecialBonus: 12,
+		SkillBar1: [4]uint8{1, 2, 3, 4}, SkillBar2: [16]uint8{5}, Soul: 2,
+	}
+	celestial := func(s *world.Session, e *world.Entity) {
+		e.ClassMaster, e.Class, e.Level, e.Exp = classMasterCelestialCS, 0, 180, 5000
+		e.SaveX, e.SaveY = 2090, 2091
+		e.BaseStr, e.BaseInt, e.BaseDex, e.BaseCon = 300, 40, 70, 60
+		e.BaseSpecial = [4]int16{50, 60, 70, 80}
+		e.LearnedSkill, e.SecLearnedSkill = 1<<30|0x00ABCDEF, 0x3
+		e.SpecialBonus, e.Soul = 4, 1
+		e.SkillBar = [4]uint8{9, 9, 9, 9}
+		s.ShortSkill = [16]uint8{8}
+		e.Equip[0] = world.Item{Index: 1 + 5 + 0} // MortalFace 1, TK
+		e.SaveCelestial = [2]world.CelestialSheet{{}, sub}
+		e.Affect = [world.MaxAffect]world.Affect{}
+		e.Affect[0] = world.Affect{Type: world.AffectDivine, Time: 100}
+		e.Affect[1] = world.Affect{Type: 1, Time: 100} // a debuff the swap clears
+		e.Carry = [world.MaxCarry]world.Item{}
+		e.Carry[0] = world.Item{Index: itemPedraMisteriosa}
+		w.SetEntityPos(s.Conn, 2100, 2100) // Armia
+	}
+	use := func(s *world.Session) {
+		d.useItem(w, s, protocol.Header{}, (&protocol.MsgUseItemBody{SourType: world.ItemPlaceCarry, SourPos: 0}).Encode())
+	}
+
+	t.Run("refusals keep the stone", func(t *testing.T) {
+		for _, tc := range []struct {
+			name   string
+			master uint8
+			x, y   int16
+		}{
+			{"plain Celestial", classMasterCelestial, 2100, 2100},
+			{"CELESTIALCS outside a village", classMasterCelestialCS, 2300, 2300},
+		} {
+			runInLoop(t, w, func() {
+				s, e := w.SessionByName("Hero")
+				celestial(s, e)
+				e.ClassMaster = tc.master
+				w.SetEntityPos(s.Conn, tc.x, tc.y)
+				use(s)
+				if e.ClassMaster != tc.master || e.Class != 0 || e.Level != 180 || e.Carry[0].Index != itemPedraMisteriosa {
+					t.Errorf("%s: master %d class %d level %d carry %d, want unchanged",
+						tc.name, e.ClassMaster, e.Class, e.Level, e.Carry[0].Index)
+				}
+			})
+		}
+	})
+
+	t.Run("CELESTIALCS plays the Sub and back", func(t *testing.T) {
+		runInLoop(t, w, func() {
+			s, e := w.SessionByName("Hero")
+			celestial(s, e)
+			shortSkills := w.SentOfType(s, protocol.MsgSetShortSkill)
+			use(s)
+
+			if e.ClassMaster != classMasterSCelestial || e.CelestialLevel != 180 {
+				t.Errorf("master %d CelestialLevel %d, want %d 180", e.ClassMaster, e.CelestialLevel, classMasterSCelestial)
+			}
+			if e.Class != 3 || e.Level != 10 || e.Exp != 77 || e.SaveX != 2110 || e.SaveY != 2111 ||
+				e.BaseStr != 8 || e.BaseCon != 6 || e.BaseSpecial != sub.Special ||
+				e.LearnedSkill != sub.LearnedSkill || e.SecLearnedSkill != 0x9 || e.SpecialBonus != 12 || e.Soul != 2 {
+				t.Errorf("active sheet is not the Sub: %+v", e)
+			}
+			if e.SkillBar != sub.SkillBar1 || s.ShortSkill != sub.SkillBar2 {
+				t.Errorf("bars = %v %v, want the Sub's", e.SkillBar, s.ShortSkill)
+			}
+			if w.SentOfType(s, protocol.MsgSetShortSkill) == shortSkills {
+				t.Error("no MSG_SetShortSkill sent")
+			}
+			// BASE_GetHpMp with the HT class and Con/Int, but the stale level 180.
+			if e.BaseMaxHP != 75+(180+399)*2 || e.BaseMaxMP != 60+(180+399)*1 {
+				t.Errorf("BaseMaxHP/MP = %d/%d, want %d/%d", e.BaseMaxHP, e.BaseMaxMP, 75+579*2, 60+579)
+			}
+			if e.Equip[0].Index != 1+5+3 {
+				t.Errorf("face = %d, want %d (MortalFace 1 + 5 + HT)", e.Equip[0].Index, 1+5+3)
+			}
+			if e.Affect[0].Type != world.AffectDivine || e.Affect[1].Type != 0 {
+				t.Errorf("affects = %+v, want Divine kept and the debuff cleared", e.Affect[:2])
+			}
+			if !e.Carry[0].Empty() {
+				t.Errorf("stone kept: %d", e.Carry[0].Index)
+			}
+			parked := w.CharacterSaveFor(s, e).SaveCelestial[0]
+			if parked.Class != 0 || parked.Level != 180 || parked.Exp != 5000 || parked.Str != 300 ||
+				parked.Special != [4]int16{50, 60, 70, 80} || parked.LearnedSkill != 1<<30|0x00ABCDEF ||
+				parked.SkillBar1 != [4]uint8{9, 9, 9, 9} || parked.SkillBar2 != [16]uint8{8} || parked.Soul != 1 {
+				t.Errorf("parked Celestial = %+v", parked)
+			}
+
+			e.Carry[0] = world.Item{Index: itemPedraMisteriosa}
+			use(s)
+			if e.ClassMaster != classMasterCelestialCS || e.SubCelestialLevel != 10 {
+				t.Errorf("back: master %d SubCelestialLevel %d, want %d 10", e.ClassMaster, e.SubCelestialLevel, classMasterCelestialCS)
+			}
+			if e.Class != 0 || e.Level != 180 || e.Exp != 5000 || e.BaseStr != 300 || e.SkillBar != [4]uint8{9, 9, 9, 9} {
+				t.Errorf("back: active sheet is not the Celestial: class %d level %d exp %d str %d bar %v",
+					e.Class, e.Level, e.Exp, e.BaseStr, e.SkillBar)
+			}
+			if e.Equip[0].Index != 1+5+0 {
+				t.Errorf("back: face = %d, want %d", e.Equip[0].Index, 1+5+0)
+			}
+			if got := w.CharacterSaveFor(s, e).SaveCelestial[1]; got.Class != 3 || got.Level != 10 || got.SkillBar1 != sub.SkillBar1 {
+				t.Errorf("back: parked Sub = %+v", got)
+			}
+		})
+	})
+}

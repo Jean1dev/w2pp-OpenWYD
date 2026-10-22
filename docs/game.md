@@ -9,7 +9,7 @@
 ✅ /erion: se teleportará para a cidade de Erion <br/>
 ✅ /azran: se teleportará para a cidade de Azran <br/>
 ✅ /gelo: se teleportará para a cidade de Gelo <br/>
-✅ /kefra: se teleportará para a cidade de Kefra. Ali, o NPC Sobrevivente troca o Pergaminho Selado (4127) por acessos ao Hall de Kefra (100 por pergaminho, ajustável com `-kefra-entries-per-scroll`), e cada entrada no Hall gasta um. Falar com ele sem pergaminho mostra os acessos restantes <br/>
+✅ /kefra: com o Kefra vivo, se teleportará para a cidade de Kefra; com o Kefra derrotado, vai para o Continente desconhecido, onde fica o Urnammu (#410). Na cidade de Kefra, o NPC Sobrevivente troca o Pergaminho Selado (4127) por acessos ao Hall de Kefra (100 por pergaminho, ajustável com `-kefra-entries-per-scroll`), e cada entrada no Hall gasta um. Falar com ele sem pergaminho mostra os acessos restantes <br/>
 ✅ /noatun: se teleportará para Noatun <br/>
 ✅ /arch: se teleportará para a cidade dos reinos (apenas o teleporte; o destrave do Arch é ⏳) <br/>
 ✅ /rei ou /king: teleporta para o rei correspondente à capa equipada — Hekalotia (azul) vai para `(1748,1574)` e Akelonia (vermelha) para `(1748,1880)`; sem capa de reino, o comando não teleporta <br/>
@@ -21,8 +21,8 @@
 ✅ Pedra da Fúria (3020): Lv90, Arcana e Reset do Celestial pelo item, cobrando 500 de Fama (#408) <br/>
 ✅ Diadema do Sub-Celestial: ao chegar aos níveis 120/150/180/199 (armazenados), o Equip[1] ganha EF_AC/EF_HP 30/40, 35/50, 45/60 e 50/70, uma vez por nível (`SetCircletSubGod`, flags `Add120..200`; #409) <br/>
 ✅ Sub-Celestial: Celestial nível 120+ com a Sephirot da subclasse no Equip[11] usa a Pedra Ideal (5338) e vira CELESTIALCS; a 2ª ficha (`SaveCelestial[1]`) é criada e persistida (#410) <br/>
-✅ Urnammu: com CELESTIALCS, a Sephirot equipada e 2000 de Fama, troca a classe da ficha do Sub (#410) <br/>
-⏳ Pedra Misteriosa (4148): alternar entre Celestial e Sub-Celestial — a ficha já é persistida, a troca ainda não foi portada (#410) <br/>
+✅ Urnammu: com CELESTIALCS, a Sephirot equipada e 2000 de Fama, troca a classe da ficha do Sub. Fica no Continente desconhecido, alcançado pelo teleporte do Deserto (2364,3924) ou pelo /kefra, os dois só com o Kefra derrotado (#410) <br/>
+✅ Pedra Misteriosa (4148): dentro de uma cidade, alterna entre Celestial e Sub-Celestial, trocando a ficha ativa pela guardada (atributos, nível, exp, skills, barras e rosto); limpa os buffs, menos Divina, Vigor, Frango e Baú (#410) <br/>
 ⏳ /create: (nome da guild): cria guild — sistema de guild não modelado <br/>
 ✅ /sair: sai da sua guild (limpa a guild + atualiza a tag; metadados de guild não modelados) <br/>
 ⏳ /guild: mostra o index (ID) da sua guild — sistema de guild não modelado <br/>

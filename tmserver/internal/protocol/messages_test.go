@@ -247,6 +247,15 @@ func TestAuthGameLayout(t *testing.T) {
 	t.Skip("UNVERIFIED: _AUTH_GAME internal layout needs a real TMSrv↔BISrv capture (protocol-spec.md §4.3) — Phase 6")
 }
 
+func TestEncodeSetShortSkill(t *testing.T) {
+	var s2 [16]uint8
+	s2[0], s2[15] = 7, 9
+	got := EncodeSetShortSkill([4]uint8{1, 2, 3, 4}, s2)
+	if len(got) != 20 || got[0] != 1 || got[3] != 4 || got[4] != 7 || got[19] != 9 {
+		t.Fatalf("EncodeSetShortSkill = %v, want Skill1 at 0..3 and Skill2 at 4..19", got)
+	}
+}
+
 func TestEncodeStandardParm(t *testing.T) {
 	got := EncodeStandardParm(-2)
 	want := []byte{0xFE, 0xFF, 0xFF, 0xFF} // int32 LE

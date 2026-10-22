@@ -516,7 +516,7 @@ func (d *Dispatcher) useItem(w *world.World, s *world.Session, _ protocol.Header
 		d.useSeloDoGuerreiro(w, s, e, src)
 		return
 	case itemPedraMisteriosa:
-		d.rejectUnimplementedConsumable(w, s, e, src)
+		d.usePedraMisteriosa(w, s, e, src)
 		return
 	case furyStoneItem: // issue #408: no EF_VOLATILE either
 		d.useFuryStone(w, s, e, src)
