@@ -708,7 +708,7 @@ func (d *Dispatcher) applySkillSpecial(w *world.World, s *world.Session, e, targ
 		return true
 
 	case cast.spell.InstanceType == 9:
-		d.applyFoemaSummon(w, e, target, tid, body)
+		d.applyFoemaSummon(w, s, e, target, tid, cast)
 		return true
 
 	case cast.spell.InstanceType == 12: // Chamas Etereas.
@@ -920,19 +920,60 @@ func (d *Dispatcher) applyFoemaResurrection(w *world.World, s *world.Session, ca
 	})
 }
 
-func (d *Dispatcher) applyFoemaSummon(w *world.World, caster, target *world.Entity, tid int, body *protocol.MsgAttackBody) bool {
-	if caster == nil || target == nil || !world.IsPlayer(tid) || target.HP <= 0 {
+// Teleporte refusals (Release/TMsrv/run/Language.txt, cp1252).
+const (
+	msgCantSummonDeadPerson = "Personagem derrotado n\xe3o pode ser invocado ou transferido." // _NN_Cant_Summon_Dead_Person (48)
+	msgSummonNotAllowedHere = "Voc\xea n\xe3o pode invocar ou transferir nesta zona."         // _NN_Summon_Not_Allowed_Here (49)
+	msgTooHighLevelToSummon = "O n\xedvel do oponente \xe9 muito alto para isto."             // _NN_Too_High_Level_To_Summon (50)
+	msgSummonedBy           = "Convocado por [%s]."                                           // _SN_Summoned_By_S (52)
+	attrNoSummon            = 0x04                                                            // AttributeMap bit tested by the Teleporte
+	foemaSummonMaxCasterLvl = 1000                                                            // stored level from which the zone bit is ignored (GM)
+	foemaSummonHPAllowance  = 30
+)
+
+// applyFoemaSummon ports the Teleporte (skill 42, InstanceType 9,
+// _MSG_Attack.cpp:751-786): the target is pulled next to the Foema's
+// server-side position. The packet's TargetX/Y is never a destination, so a
+// self-cast leaves the Foema where she is (issue #393).
+func (d *Dispatcher) applyFoemaSummon(w *world.World, s *world.Session, caster, target *world.Entity, tid int, cast castInfo) bool {
+	if caster == nil || target == nil {
+		return false
+	}
+	if target.HP <= 0 {
+		d.sendClientMessage(w, s, msgCantSummonDeadPerson)
+		return false
+	}
+	if d.attrs != nil && caster.X >= 0 && caster.Y >= 0 &&
+		d.attrs.At(int(caster.X)/4, int(caster.Y)/4)&attrNoSummon != 0 && caster.Level < foemaSummonMaxCasterLvl {
+		d.sendClientMessage(w, s, msgSummonNotAllowedHere)
+		return false
+	}
+	if target.HP > caster.HP+int32(cast.special)+foemaSummonHPAllowance {
+		d.sendClientMessage(w, s, msgTooHighLevelToSummon)
+		return false
+	}
+	if target.X&^0xFF == 0 && target.Y&^0xFF == 0 {
+		d.notify(w, s, NoticeCantUseHere) // _NN_Cant_Use_That_Here: target in the unused map corner
+		return false
+	}
+	if !world.IsPlayer(tid) {
 		return false
 	}
 	ts := w.Session(tid)
 	if ts == nil || ts.Mode != world.UserPlay {
 		return false
 	}
-	x, y, ok := d.freeCellAtOrNear(w, int16(body.TargetX), int16(body.TargetY))
-	if !ok {
-		return false
+	// GetEmptyMobGrid counts the mover's own cell as free, so a self-cast
+	// teleports in place instead of hopping to the next cell.
+	x, y := caster.X, caster.Y
+	if id, occupied := w.EntityAt(x, y); !occupied || id != tid {
+		var ok bool
+		if x, y, ok = d.freeCellAtOrNear(w, x, y); !ok {
+			return false
+		}
 	}
 	d.moveEntityWithAction(w, tid, x, y, 1, 2)
+	d.sendClientMessage(w, ts, fmt.Sprintf(msgSummonedBy, caster.Name))
 	if c := world.Village(x, y); c >= 0 && c <= 3 {
 		target.LastCity = int16(c)
 	}

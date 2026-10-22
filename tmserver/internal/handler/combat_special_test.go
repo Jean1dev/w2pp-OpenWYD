@@ -431,6 +431,84 @@ func TestJulgamentoDivinoAddsPreHitHPToEveryTarget(t *testing.T) {
 	}
 }
 
+// TestFoemaTeleportPullsToCaster is the issue #393 regression: the Teleporte
+// (skill 42) pulls the target next to the Foema's server-side position, never
+// to a packet coordinate, and refuses dead, too strong or no-summon-zone casts.
+func TestFoemaTeleportPullsToCaster(t *testing.T) {
+	addr, d, w, _ := startKefraServer(t, perzenDB(0))
+	a := enterWorld(t, addr)
+	defer a.Close()
+	b := enterWorld(t, addr)
+	defer b.Close()
+
+	var sessions []*world.Session
+	runInLoop(t, w, func() {
+		w.ForEachPlayer(func(s *world.Session, _ *world.Entity) { sessions = append(sessions, s) })
+	})
+	if len(sessions) != 2 {
+		t.Fatalf("players in world = %d, want 2", len(sessions))
+	}
+	cs, ts := sessions[0], sessions[1]
+
+	reset := func(caster, target *world.Entity) {
+		w.SetEntityPos(caster.ID, 2100, 2100)
+		w.SetEntityPos(target.ID, 2140, 2140)
+		caster.HP, target.HP = 500, 500
+		d.attrs = nil
+	}
+	cheb := func(e *world.Entity, x, y int16) int {
+		return max(abs16(e.X-x), abs16(e.Y-y))
+	}
+	cases := []struct {
+		name     string
+		setup    func(caster, target *world.Entity)
+		self     bool
+		wantMove bool
+	}{
+		{name: "pulls other player next to the Foema", wantMove: true},
+		{name: "self-cast stays in place", self: true},
+		{name: "dead target refused", setup: func(_, target *world.Entity) { target.HP = 0 }},
+		{name: "target HP above caster HP + Special + 30 refused", setup: func(_, target *world.Entity) { target.HP = 531 }},
+		{name: "target HP at the limit allowed", setup: func(_, target *world.Entity) { target.HP = 530 }, wantMove: true},
+		{name: "no-summon zone under the Foema refused", setup: func(caster, _ *world.Entity) {
+			const dim = content.AttributeMapDim
+			g := &content.Grid{Dim: dim, Data: make([]byte, dim*dim)}
+			g.Data[int(caster.Y)/4*dim+int(caster.X)/4] = attrNoSummon
+			d.attrs = g
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runInLoop(t, w, func() {
+				caster, target := w.Entity(cs.Conn), w.Entity(ts.Conn)
+				reset(caster, target)
+				if tc.setup != nil {
+					tc.setup(caster, target)
+				}
+				tid := ts.Conn
+				if tc.self {
+					target, tid = caster, cs.Conn
+				}
+				d.applyFoemaSummon(w, cs, caster, target, tid, castInfo{isSkill: true})
+				switch {
+				case tc.self:
+					if caster.X != 2100 || caster.Y != 2100 {
+						t.Errorf("self-cast moved the Foema to (%d,%d), want (2100,2100)", caster.X, caster.Y)
+					}
+				case tc.wantMove:
+					if dist := cheb(target, 2100, 2100); dist != 1 {
+						t.Errorf("target at (%d,%d), want next to the Foema at (2100,2100)", target.X, target.Y)
+					}
+				default:
+					if target.X != 2140 || target.Y != 2140 {
+						t.Errorf("refused cast moved the target to (%d,%d)", target.X, target.Y)
+					}
+				}
+			})
+		})
+	}
+}
+
 func TestNocaoDeCombateSetsSkillMastery(t *testing.T) {
 	d := New(Config{Spells: content.NewSkillData([]content.Spell{{Index: 10, InstanceType: 1}})})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
