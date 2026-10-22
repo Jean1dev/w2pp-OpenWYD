@@ -164,6 +164,10 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	doubleCriticalReady := false
 	var healExp int64
 	var hpSyncTargets []int
+	// The legacy reads the caster's HP once, before the target loop
+	// (_MSG_Attack.cpp:281), so Julgamento Divino adds the same pre-hit HP to
+	// every target even though each hit cuts it to HP/6+1 (issue #392).
+	cast.casterHP = e.HP
 	for i := range body.Dam {
 		tid := int(body.Dam[i].TargetID)
 		target := w.Entity(tid)
@@ -375,6 +379,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 	w.ForEachInView(s.Conn, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, hdr, payload)
 	})
+	if cast.isSkill && skillnum == 30 {
+		d.sendSetHpMp(w, s, e) // one sync after every Julgamento hit (_MSG_Attack.cpp:1749)
+	}
 	for _, tid := range hpSyncTargets {
 		ts := w.Session(tid)
 		target := w.Entity(tid)
@@ -390,6 +397,8 @@ type castInfo struct {
 	spell   content.Spell
 	special int // CurrentScore.Special[kind] (or Level for Sephira skills)
 	master  int // skill-mitigation mastery (TK bit-14 rule; 0 otherwise)
+	// casterHP is the caster's HP before the target loop (the legacy `hp`).
+	casterHP int32
 }
 
 // validateCast runs the skill gates of _MSG_Attack.cpp:98-215 for SkillIndex ∈
@@ -707,12 +716,11 @@ func (d *Dispatcher) applySkillSpecial(w *world.World, s *world.Session, e, targ
 		return true
 
 	case skillnum == 30: // Julgamento Divino.
-		*dmg += int(e.HP)
+		*dmg += int(cast.casterHP)
 		e.HP = e.HP/6 + 1
 		s.ReqHp = e.HP
 		setReqHp(s, e)
-		d.sendSetHpMp(w, s, e)
-		return false
+		return false // attack sends the single SetHpMp after the loop
 
 	case skillnum == 22: // Exterminar spends all remaining MP into the hit.
 		currentMP := e.MP

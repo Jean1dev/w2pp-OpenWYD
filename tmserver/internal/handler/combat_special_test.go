@@ -408,6 +408,29 @@ func TestExterminarConsumesRemainingMPIntoDamage(t *testing.T) {
 	}
 }
 
+// TestJulgamentoDivinoAddsPreHitHPToEveryTarget is the issue #392 regression:
+// every target gets the caster's HP from before the swing (the legacy `hp`),
+// while the caster's HP still drops to HP/6+1 once per target.
+func TestJulgamentoDivinoAddsPreHitHPToEveryTarget(t *testing.T) {
+	d := New(Config{})
+	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
+	s := &world.Session{Conn: 1, ReqHp: 768}
+	caster := &world.Entity{ID: 1, HP: 768, MaxHP: 1000}
+	cast := castInfo{isSkill: true, casterHP: caster.HP}
+
+	for i, wantHP := range []int32{129, 22} {
+		target := &world.Entity{ID: 2 + i}
+		dmg := 1000
+		d.applySkillSpecial(w, s, caster, target, target.ID, 30, cast, &protocol.MsgAttackBody{}, &dmg)
+		if dmg != 1768 {
+			t.Errorf("target %d damage = %d, want 1768 (base + pre-hit HP 768)", i+1, dmg)
+		}
+		if caster.HP != wantHP {
+			t.Errorf("caster HP after target %d = %d, want %d", i+1, caster.HP, wantHP)
+		}
+	}
+}
+
 func TestNocaoDeCombateSetsSkillMastery(t *testing.T) {
 	d := New(Config{Spells: content.NewSkillData([]content.Spell{{Index: 10, InstanceType: 1}})})
 	w := world.New(world.Config{GridDim: 16}, slog.Default(), nil, nil)
