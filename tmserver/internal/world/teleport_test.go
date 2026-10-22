@@ -68,7 +68,7 @@ func TestTeleportDest(t *testing.T) {
 
 func TestTeleportDestValeRequiresEquippedFairy(t *testing.T) {
 	for _, hasFairy := range []bool{false, true} {
-		x, y, cost, ok := TeleportDestWithAccess(2548, 1740, hasFairy, rng.NewSeeded(1))
+		x, y, cost, ok := TeleportDestWithAccess(2548, 1740, TeleportAccess{HasFairy: hasFairy}, rng.NewSeeded(1))
 		if !hasFairy {
 			if ok {
 				t.Fatal("Vale portal resolved without the Valley Fairy")
@@ -77,6 +77,23 @@ func TestTeleportDestValeRequiresEquippedFairy(t *testing.T) {
 		}
 		if !ok || cost != 0 || x < 2281 || x > 2283 || y < 3688 || y > 3690 {
 			t.Fatalf("Vale portal = (%d,%d), cost=%d, ok=%v", x, y, cost, ok)
+		}
+	}
+}
+
+// TestTeleportDestKefraRequiresDefeat covers issue #410: the Deserto → Kefra
+// portal (the way to the Urnammu) only opens once the Kefra is dead.
+func TestTeleportDestKefraRequiresDefeat(t *testing.T) {
+	for _, defeated := range []bool{false, true} {
+		x, y, cost, ok := TeleportDestWithAccess(2365, 3926, TeleportAccess{KefraDefeated: defeated}, rng.NewSeeded(1))
+		if !defeated {
+			if ok {
+				t.Fatal("Kefra portal resolved with the Kefra alive")
+			}
+			continue
+		}
+		if !ok || cost != 0 || x < 3250 || x > 3252 || y < 1703 || y > 1705 {
+			t.Fatalf("Kefra portal = (%d,%d), cost=%d, ok=%v", x, y, cost, ok)
 		}
 	}
 }

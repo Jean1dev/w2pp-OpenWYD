@@ -258,10 +258,37 @@ func (d *Dispatcher) guildChat(w *world.World, s *world.Session, body protocol.M
 // RvR/Torre/Castle war-state variants are not modeled.
 var teleportCmds = map[string][2]int16{
 	"armia": {2100, 2100}, "azran": {2500, 1716}, "erion": {2461, 2003},
-	"gelo": {3650, 3130}, "kefra": {2365, 3884}, "torre": {2506, 1878},
+	"gelo": {3650, 3130}, "torre": {2506, 1878},
 	"arch":    {1706, 1723},
 	"selados": {1843, 3652}, "amagos": {3910, 2878}, "agua": {1966, 1770},
 	"noatun": {1052, 1726},
+}
+
+// /kefra destinations and texts (_MSG_MessageWhisper.cpp:836-850). With the
+// Kefra alive the command stops at the boss gate; once it is defeated it opens
+// the "Continente desconhecido", where the Urnammu stands (issue #410).
+var (
+	kefraDestAlive    = [2]int16{2365, 3884}
+	kefraDestDefeated = [2]int16{3250, 1695}
+)
+
+const (
+	msgKefraStillAlive = "O kefra ainda esta vivo, precisa ser derrotado"
+	msgTeleportKefra   = "Teleportado para Kefra." // _NN_TP_KEFRA (548)
+)
+
+// teleportKefra is /kefra. The war-state guard (RvR/Torre/Castle) is not
+// modeled, like the other teleport commands.
+func (d *Dispatcher) teleportKefra(w *world.World, s *world.Session) {
+	if w.Entity(s.Conn) == nil {
+		return
+	}
+	dest, msg := kefraDestAlive, msgKefraStillAlive
+	if d.expEvents.KefraLive { // legacy name: true means defeated
+		dest, msg = kefraDestDefeated, msgTeleportKefra
+	}
+	d.doTeleport(w, s, dest[0]+int16(w.Rand().Intn(3)), dest[1]+int16(w.Rand().Intn(3)))
+	d.sendClientMessage(w, s, msg)
 }
 
 // reinoCapeSlot is the cape equip slot (Equip[15]), confirmed by _MSG_Quest.cpp:702
@@ -312,6 +339,10 @@ func (d *Dispatcher) runCommand(w *world.World, s *world.Session, name string, a
 	// path as a whisper to "day" and showed the not-connected notice.
 	if cmd == "day" {
 		d.sendClientMessage(w, s, "!#11  2")
+		return true
+	}
+	if cmd == "kefra" {
+		d.teleportKefra(w, s)
 		return true
 	}
 	if dest, ok := teleportCmds[cmd]; ok {

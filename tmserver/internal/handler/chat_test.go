@@ -834,3 +834,35 @@ func TestApplyBonusScore(t *testing.T) {
 		t.Errorf("UpdateScore Damage = %d, want %d after +1 STR (11→12)", dmg, want)
 	}
 }
+
+// TestCommandKefra covers issue #410: /kefra stops at the boss gate while the
+// Kefra lives and opens the Urnammu's continent once it is defeated, with the
+// legacy message in both cases.
+func TestCommandKefra(t *testing.T) {
+	d, w, s, e := startOnePlayer(t)
+	for _, tc := range []struct {
+		name     string
+		defeated bool
+		dest     [2]int16
+	}{
+		{"kefra alive", false, kefraDestAlive},
+		{"kefra defeated", true, kefraDestDefeated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runInLoop(t, w, func() {
+				d.expEvents.KefraLive = tc.defeated
+				w.SetEntityPos(s.Conn, 2100, 2100)
+				panels := w.SentOfType(s, protocol.MsgMessagePanel)
+				if !d.runCommand(w, s, "kefra", nil) {
+					t.Fatal("/kefra not handled")
+				}
+				if e.X < tc.dest[0] || e.X > tc.dest[0]+2 || e.Y < tc.dest[1] || e.Y > tc.dest[1]+2 {
+					t.Errorf("teleported to (%d,%d), want (%d..+2,%d..+2)", e.X, e.Y, tc.dest[0], tc.dest[1])
+				}
+				if w.SentOfType(s, protocol.MsgMessagePanel) == panels {
+					t.Error("no message sent")
+				}
+			})
+		})
+	}
+}
