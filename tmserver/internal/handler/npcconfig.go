@@ -176,7 +176,7 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 				continue
 			}
 			if def.Template == nil {
-				d.log.Warn("npc definition has no template — skipped", "slug", def.Slug)
+				d.log.Warn("npc definition has no template - skipped", "slug", def.Slug)
 				continue
 			}
 			g.MinuteGenerate, g.MinGroup, g.MaxGroup, g.MaxNumMob = def.MinuteGenerate, def.MinGroup, def.MaxGroup, def.MaxNumMob
@@ -209,11 +209,11 @@ func (d *Dispatcher) applyNPCConfig(w *world.World, snap npccfg.Snapshot, reveal
 			// Template failed to resolve (missing/corrupt file) — logged in the
 			// dbclient source too, but warn here so the skip is visible alongside
 			// the other skip branches (bad position, no free slot).
-			d.log.Warn("npc definition has no template — skipped", "slug", def.Slug)
+			d.log.Warn("npc definition has no template - skipped", "slug", def.Slug)
 			continue
 		}
 		if def.X <= 0 || def.Y <= 0 {
-			d.log.Warn("npc definition has no valid position — skipped", "slug", def.Slug, "x", def.X, "y", def.Y)
+			d.log.Warn("npc definition has no valid position - skipped", "slug", def.Slug, "x", def.X, "y", def.Y)
 			continue
 		}
 		template := npcTemplateWithDisplayName(def.Template, def.DisplayName)

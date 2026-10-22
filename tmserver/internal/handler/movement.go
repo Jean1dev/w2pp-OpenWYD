@@ -258,8 +258,11 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 	}
 	// GetTeleportPosition only opens the Azran→Vale portal for the equipped
 	// Valley Fairy (item 3916 in Equip[13]); preserve that legacy gate.
-	hasValleyFairy := e.Equip[fairyEquipSlot].Index == 3916
-	destX, destY, cost, ok := world.TeleportDestWithAccess(e.X, e.Y, hasValleyFairy, w.Rand())
+	access := world.TeleportAccess{
+		HasFairy:      e.Equip[fairyEquipSlot].Index == 3916,
+		KefraDefeated: d.expEvents.KefraLive, // legacy name: true means defeated
+	}
+	destX, destY, cost, ok := world.TeleportDestWithAccess(e.X, e.Y, access, w.Rand())
 	if !ok {
 		return // no teleport tile here
 	}

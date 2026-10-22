@@ -92,7 +92,7 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 		return
 	}
 	if e.Leader > 0 {
-		d.waterRefuse(w, s, e, src, "Somente o líder do grupo pode usar o pergaminho.")
+		d.waterRefuse(w, s, e, src, "Somente o l\xedder do grupo pode usar o pergaminho.")
 		return
 	}
 	box := waterBox(tier, room)
@@ -105,9 +105,9 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 	})
 	state := &d.waterRooms[tier][min(room, 8)]
 	if occupants != 0 || state.left != 0 {
-		message := "Esta sala está em uso. Aguarde o término da atividade."
+		message := "Esta sala est\xe1 em uso. Aguarde o t\xe9rmino da atividade."
 		if occupants > 0 {
-			message = fmt.Sprintf("%s e mais %d jogador(es) estão nesta sala.", name, occupants-1)
+			message = fmt.Sprintf("%s e mais %d jogador(es) est\xe3o nesta sala.", name, occupants-1)
 		}
 		d.waterRefuse(w, s, e, src, message)
 		return
@@ -129,7 +129,7 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 			g := w.GeneratorAt(gen)
 			if g == nil || len(g.LeaderTmpl) != 816 || g.MaxNumMob <= 0 ||
 				(g.MaxGroup > 0 && len(g.FollowerTmpl) != 816) {
-				d.waterRefuse(w, s, e, src, "Não foi possível iniciar a sala.")
+				d.waterRefuse(w, s, e, src, "N\xe3o foi poss\xedvel iniciar a sala.")
 				return
 			}
 		}
@@ -157,7 +157,7 @@ func (d *Dispatcher) useWaterScroll(w *world.World, s *world.Session, e *world.E
 		spawned = w.GenerateMob(base + offset)
 	}
 	if room != 8 && len(spawned) == 0 {
-		d.waterRefuse(w, s, e, src, "Não foi possível iniciar a sala.")
+		d.waterRefuse(w, s, e, src, "N\xe3o foi poss\xedvel iniciar a sala.")
 		return
 	}
 	*state = waterRoom{left: 30}

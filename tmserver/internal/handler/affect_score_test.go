@@ -188,6 +188,19 @@ func TestAffect13AssaltoDamageAndMaxHP(t *testing.T) {
 	}
 }
 
+// TestAffect13AssaltoMaxHPRounding is the issue #394 regression: the legacy
+// takes MaxHp*9/10, which for a MaxHP not divisible by 10 is 1 below M - M/10.
+func TestAffect13AssaltoMaxHPRounding(t *testing.T) {
+	e := &world.Entity{ID: 1, Damage: 200, MaxHP: 435}
+	e.Affect[0] = world.Affect{Type: 13, Value: 7, Level: 80}
+
+	applyAffectScore(e)
+
+	if got := e.MaxHP + e.AffMaxHP; got != 391 {
+		t.Fatalf("MaxHP = %d, want 391 (435*9/10)", got)
+	}
+}
+
 func TestAffect21MeditacaoDamageMultiplier(t *testing.T) {
 	d := New(Config{})
 	e := &world.Entity{ID: 1, Damage: 200, AC: 100}

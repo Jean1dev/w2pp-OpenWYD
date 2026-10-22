@@ -141,7 +141,7 @@ func applyAffectScoreWithItemAbility(e *world.Entity, itemAbility func(world.Ite
 			}
 			e.AffDamage += boosted - dmg
 			e.AffDamageMultiPct += level/10 + value
-			e.AffMaxHP -= e.MaxHP / 10
+			e.AffMaxHP += e.MaxHP*9/10 - e.MaxHP // legacy MaxHp*9/10; M - M/10 is 1 above it (#394)
 		case 14: // Possuído (skill 3): +CON and twice that in MaxHP
 			applyConHpBuff(e, level, value)
 		case 15: // all four Special trees (+cap 400 applied at read)

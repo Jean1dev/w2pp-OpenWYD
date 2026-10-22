@@ -174,6 +174,38 @@ func TestApplyTransformScore(t *testing.T) {
 	}
 }
 
+// TestTransformRoundingBelow100 is the issue #394 regression: with a multiplier
+// under 100 the legacy truncates X*multi/100, which lands 1 point below the
+// delta form X + X*(multi-100)/100. Cases are the Railway capture.
+func TestTransformRoundingBelow100(t *testing.T) {
+	tests := []struct {
+		name          string
+		learned       int32
+		ac, maxHP     int32
+		wantAC, wantH int32 // final AC / MaxHP
+	}{
+		// Lobo Level 0 unlearned: multi 95. AC 46*95/100 = 43, +5 flat = 48;
+		// MaxHP 116*95/100 = 110.
+		{"lobo unlearned multi 95", 0, 46, 116, 48, 110},
+		// Lobo Level 0 with Coração de Lobo: AC multi 98. 61*98/100 = 59, +5 = 64.
+		{"lobo learned ac multi 98", learnedWolf, 61, 116, 64, 116},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := bmEntity(tt.learned)
+			e.AC, e.MaxHP = tt.ac, tt.maxHP
+			e.Affect[0] = world.Affect{Type: 16, Value: 1, Level: 0, Time: 10}
+			applyAffectScore(e)
+			if got := e.AC + e.AffAC; got != tt.wantAC {
+				t.Errorf("AC = %d, want %d", got, tt.wantAC)
+			}
+			if got := e.MaxHP + e.AffMaxHP; got != tt.wantH {
+				t.Errorf("MaxHP = %d, want %d", got, tt.wantH)
+			}
+		})
+	}
+}
+
 // TestTransformClassGuard is the issue #21 regression: a Type-16 affect on a
 // non-BM (e.g. leaked onto a TransKnight) must neither change the score nor
 // render the beast mesh.

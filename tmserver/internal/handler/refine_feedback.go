@@ -6,16 +6,16 @@ import (
 )
 
 const (
-	refineMessageSuccess        = "Obteve sucesso na refinação."
-	refineMessageFailure        = "Refinação falhou."
-	refineMessageCantMore       = "Este item não pode ser mais refinado."
-	refineMessageOnlyEquipment  = "Possível somente com armas e armaduras."
-	refineMessageIncubated      = "Incubação sucedida."
-	refineMessageIncubationWait = "Incubação não está pronta."
+	refineMessageSuccess        = "Obteve sucesso na refina\xe7\xe3o."
+	refineMessageFailure        = "Refina\xe7\xe3o falhou."
+	refineMessageCantMore       = "Este item n\xe3o pode ser mais refinado."
+	refineMessageOnlyEquipment  = "Poss\xedvel somente com armas e armaduras."
+	refineMessageIncubated      = "Incuba\xe7\xe3o sucedida."
+	refineMessageIncubationWait = "Incuba\xe7\xe3o n\xe3o est\xe1 pronta."
 
-	classeMessageMismatch   = "A Classe não é compatível com este item."
-	classeMessageInventory  = "O item deve estar no inventário."
-	classeMessageCantRefine = "Este item não pode ser refinado."
+	classeMessageMismatch   = "A Classe n\xe3o \xe9 compat\xedvel com este item."
+	classeMessageInventory  = "O item deve estar no invent\xe1rio."
+	classeMessageCantRefine = "Este item n\xe3o pode ser refinado."
 )
 
 const (

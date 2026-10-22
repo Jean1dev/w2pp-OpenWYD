@@ -127,15 +127,15 @@ func (d *Dispatcher) useNightmareScroll(w *world.World, s *world.Session, e *wor
 		return
 	}
 	if e.X/128 != nightmareOrigins[kind][0] || e.Y/128 != nightmareOrigins[kind][1] {
-		reject("Não é possível usar este item aqui.")
+		reject("N\xe3o \xe9 poss\xedvel usar este item aqui.")
 		return
 	}
 	if e.Leader != 0 && e.Leader != -1 {
-		reject("Somente o líder do grupo pode usar este item.")
+		reject("Somente o l\xedder do grupo pode usar este item.")
 		return
 	}
 	if !nightmareClass(kind, e.ClassMaster) {
-		reject([3]string{"Entrada permitida somente à Mortais", "Entrada permitida somente à Archs", "Entrada permitida somente à Celestiais"}[kind])
+		reject([3]string{"Entrada permitida somente \xe0 Mortais", "Entrada permitida somente \xe0 Archs", "Entrada permitida somente \xe0 Celestiais"}[kind])
 		return
 	}
 	now := d.now()
@@ -143,7 +143,7 @@ func (d *Dispatcher) useNightmareScroll(w *world.World, s *world.Session, e *wor
 	cycle := &st.Cycles[kind]
 	remaining := cycle.OpeningUnix + 240 - now.Unix()
 	if !cycle.Available || cycle.Started || cycle.Finished || remaining <= 0 || now.Unix() < cycle.OpeningUnix {
-		reject("Horário não permitido.")
+		reject("Hor\xe1rio n\xe3o permitido.")
 		return
 	}
 	if kind == 2 && e.NightmareEntries <= 0 {
@@ -163,12 +163,12 @@ func (d *Dispatcher) useNightmareScroll(w *world.World, s *world.Session, e *wor
 	// Refuse unavailable content before charging anyone for an empty event.
 	for idx := nightmareGenerators[kind][0]; idx <= nightmareGenerators[kind][1]; idx++ {
 		if g := w.GeneratorAt(idx); g == nil || len(g.LeaderTmpl) == 0 || (g.MaxGroup > 0 && len(g.FollowerTmpl) == 0) {
-			reject("Pesadelo indisponível. Tente novamente mais tarde.")
+			reject("Pesadelo indispon\xedvel. Tente novamente mais tarde.")
 			return
 		}
 	}
 	if !d.enterNightmare(w, s, e, kind, 0, int32(remaining)) {
-		reject("Não há espaço no destino.")
+		reject("N\xe3o h\xe1 espa\xe7o no destino.")
 		return
 	}
 	if counted {
