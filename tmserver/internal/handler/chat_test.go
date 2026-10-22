@@ -406,7 +406,7 @@ func TestCommandGritarNoTrumpet(t *testing.T) {
 	if !ok || ty != protocol.MsgMessageChat {
 		t.Fatalf("got %#x ok=%v, want MessageChat", ty, ok)
 	}
-	if got := cstr(payload); got != "Você precisa de uma Trombeta Mágica para gritar." {
+	if got := cstr(payload); got != "Voc\xea precisa de uma Trombeta M\xe1gica para gritar." {
 		t.Errorf("refusal = %q", got)
 	}
 	if ty, _, ok := readMaybe(t, b); ok && ty == protocol.MsgMagicTrumpet {

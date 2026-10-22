@@ -22,11 +22,11 @@ const uxmalMerchant = 72
 
 // Rune track texts (Release/TMsrv/run/Language.txt).
 const (
-	msgRuneQuestBusy     = "Quest em progresso."             // _NN_Night_Already
-	msgRuneQuestLeader   = "Uso restrito ao líder do grupo." // _NN_Party_Leader_Only
-	msgRuneQuestBring    = "Você deve trazer o item %s."     // _SN_BRINGITEM
-	msgRuneQuestFull     = "Há muitos jogadores."            // _NN_Night_Limited
-	msgRuneQuestRegister = "Entrada registrada."             // _NN_TicketUsed
+	msgRuneQuestBusy     = "Quest em progresso."                // _NN_Night_Already
+	msgRuneQuestLeader   = "Uso restrito ao l\xedder do grupo." // _NN_Party_Leader_Only
+	msgRuneQuestBring    = "Voc\xea deve trazer o item %s."     // _SN_BRINGITEM
+	msgRuneQuestFull     = "H\xe1 muitos jogadores."            // _NN_Night_Limited
+	msgRuneQuestRegister = "Entrada registrada."                // _NN_TicketUsed
 )
 
 // Rune track geometry: the lobby tile around Uxmal that both the leader and

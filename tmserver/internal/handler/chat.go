@@ -589,7 +589,7 @@ func (d *Dispatcher) magicTrumpet(w *world.World, s *world.Session, args []byte)
 		}
 	}
 	if slot < 0 {
-		d.sendChatText(w, s, "Você precisa de uma Trombeta Mágica para gritar.")
+		d.sendChatText(w, s, "Voc\xea precisa de uma Trombeta M\xe1gica para gritar.")
 		return
 	}
 	consumeOneItem(&e.Carry[slot])

@@ -478,7 +478,7 @@ const (
 )
 
 // msgWatchingTownSuccess is Language.txt _NN_Watching_Town_Success (4), in Windows-1252.
-const msgWatchingTownSuccess = "Quest: Você aprova a proteção da cidade."
+const msgWatchingTownSuccess = "Quest: Voc\xea aprova a prote\xe7\xe3o da cidade."
 
 // mobFace returns the mob's Equip[0].sIndex from its template. EquipVisual
 // carries the refine overlay, so the raw template is the faithful source.
