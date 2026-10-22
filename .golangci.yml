@@ -24,6 +24,9 @@ linters:
         # Legacy item name "Pedras Secretas" (5334–5337, ItemList.csv), cited
         # verbatim in the King/Pedra Ideal/Pedra da Fúria handlers.
         - secretas
+        # Portuguese client text copied from Language.txt (_NN_Cant_with_armor,
+        # "No momento você não pode equipar arma e armadura.").
+        - momento
   exclusions:
     generated: lax
     presets:

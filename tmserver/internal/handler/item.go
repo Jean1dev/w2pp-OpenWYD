@@ -1533,7 +1533,8 @@ const celestialArchLevelReq = 355
 //
 // An Arch becomes a Celestial (:3101-3181, below); a Celestial with a Sephirot
 // becomes a Sub-Celestial (:3026-3085, createSubCelestial, issue #410). Any other
-// tier gets the silent slot resync of :3005-3009.
+// tier gets the silent slot resync of :3005-3009, and so do the Arch refusals
+// (:3011-3024) except for the armor text — no notice in any of them (issue #413).
 func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.Entity, src int) {
 	switch e.ClassMaster {
 	case classMasterArch:
@@ -1544,22 +1545,18 @@ func (d *Dispatcher) useIdealStone(w *world.World, s *world.Session, e *world.En
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	var requirement string
-	switch {
-	case e.Level < celestialArchLevelReq:
-		requirement = "Seu Arch precisa atingir o nivel 356 para usar a Pedra Ideal."
-	case e.MortalLevel < 99:
-		requirement = "O Mortal de origem precisa ter atingido o nivel 100 para criar o Celestial."
-	}
-	if requirement != "" {
-		d.notify(w, s, NoticeReqNotMet)
-		d.sendChatText(w, s, requirement)
+	// :3011-3015 — below the level cap the legacy only resyncs the slot.
+	if e.Level < celestialArchLevelReq {
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}
-	if !e.Equip[1].Empty() {
-		d.notify(w, s, NoticeOnlyToEquips)
-		d.sendChatText(w, s, "Remova a armadura antes de usar a Pedra Ideal.")
+	// :3017-3024 — armor and the origin Mortal's level share one refusal whose
+	// only text is _NN_Cant_with_armor, and only when Equip[1] is occupied: a
+	// low MortalLevel without armor is silent, and with both the armor text wins.
+	if !e.Equip[1].Empty() || e.MortalLevel < 99 {
+		if !e.Equip[1].Empty() {
+			d.sendClientMessage(w, s, cantWithArmor)
+		}
 		d.sendSlot(w, s, world.ItemPlaceCarry, src, e.Carry[src])
 		return
 	}

@@ -619,23 +619,58 @@ func TestArchCombatExperienceReachesAndRespectsBothLocks(t *testing.T) {
 	}
 }
 
+// TestArchIdealStoneRejectsMissingPrerequisites pins issue #413: the legacy
+// (_MSG_UseItem.cpp:3017-3024) refuses armor and a low origin MortalLevel in one
+// branch, shows _NN_Cant_with_armor only when Equip[1] is occupied and never a
+// notice; a low MortalLevel alone is a silent slot resync.
 func TestArchIdealStoneRejectsMissingPrerequisites(t *testing.T) {
-	for _, kind := range []string{"body armor", "mortal level"} {
-		t.Run(kind, func(t *testing.T) {
+	tests := []struct {
+		name        string
+		armor       bool
+		mortalLevel uint16
+		wantPanels  int
+	}{
+		{"body armor", true, 99, 1},
+		{"mortal level", false, 98, 0},
+		{"armor and mortal level", true, 98, 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			db := idealStoneDB(classMasterArch, 399)
-			if kind == "body armor" {
+			if tc.armor {
 				db.loadResult.Equip[1] = world.Item{Index: 1100}
-			} else {
-				db.loadResult.MortalLevel = 98
 			}
+			db.loadResult.MortalLevel = tc.mortalLevel
 			addr, stop := startIdealStoneServer(t, db)
 			defer stop()
 			c := enterWorld(t, addr)
 			defer c.Close()
 			useArchItem(t, c, 0)
-			expect(t, c, protocol.MsgMessageChat)
-			if slot := expect(t, c, protocol.MsgSendItem); le16(slot[4:6]) != pedraIdealItem {
-				t.Fatal("rejected stone consumed")
+			panels, resync := 0, false
+			for {
+				ty, payload, ok := readMaybe(t, c)
+				if !ok {
+					break
+				}
+				switch ty {
+				case protocol.MsgMessageBoxOk, protocol.MsgMessageChat:
+					t.Fatalf("got %#x; the legacy refusal sends no notice or chat line", ty)
+				case protocol.MsgMessagePanel:
+					panels++
+					if got := cstr(payload); got != cantWithArmor {
+						t.Errorf("panel = %q, want %q", got, cantWithArmor)
+					}
+				case protocol.MsgSendItem:
+					if le16(payload[4:6]) == pedraIdealItem {
+						resync = true
+					}
+				}
+			}
+			if panels != tc.wantPanels {
+				t.Errorf("panels = %d, want %d", panels, tc.wantPanels)
+			}
+			if !resync {
+				t.Fatal("expected a slot resync keeping the Pedra Ideal")
 			}
 			send(t, c, protocol.MsgCharacterLogout, nil)
 			expect(t, c, protocol.MsgCNFCharacterLogout)
