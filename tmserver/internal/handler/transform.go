@@ -124,14 +124,17 @@ func applyTransformScore(e *world.Entity, af world.Affect) {
 	}
 	e.AffDamageMultiPct += multi(damAdd+b.minDam, damAdd+b.maxDam) - 100
 
+	// Scale like the legacy X*multi/100: the delta form X*(multi-100)/100
+	// truncates a negative product toward zero, 1 point above it when multi < 100
+	// (Lobo's 95 floor, issue #394).
 	acMulti := multi(acAdd+b.minAC, acAdd+b.maxAC)
-	e.AffAC += e.AC * (acMulti - 100) / 100
+	e.AffAC += e.AC*acMulti/100 - e.AC
 	if value == 0 {
 		e.AffAC += 5 // Lobo's flat AC, post-multiplier
 	}
 
 	hpMulti := multi(hpAdd+b.minHP, hpAdd+b.maxHP)
-	e.AffMaxHP += e.MaxHP * (hpMulti - 100) / 100
+	e.AffMaxHP += e.MaxHP*hpMulti/100 - e.MaxHP
 
 	for k := range e.AffResist {
 		e.AffResist[k] += int16(regAdd)
