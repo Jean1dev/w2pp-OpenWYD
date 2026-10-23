@@ -111,6 +111,8 @@ func (d *Dispatcher) createGuild(w *world.World, s *world.Session, args []byte) 
 			e.Coin -= guildCreateCost
 			e.Guild = guild.ID
 			e.GuildLevel = guildLeaderLevel
+			// Legacy /create calls BASE_InitializeGuildName so the name is live at once.
+			w.SetGuildName(guild.ID, name)
 			d.sendEtc(w, s, e)
 			d.refreshGuildTag(w, s.Conn)
 			w.SaveCharacterAsync(s)

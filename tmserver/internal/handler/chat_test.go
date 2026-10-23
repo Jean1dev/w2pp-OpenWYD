@@ -254,6 +254,31 @@ func TestGuildCreateCommand(t *testing.T) {
 	}
 }
 
+// TestGuildCreateRegistersName verifies /create registers the guild name in
+// the world right away, so /nick shows it without waiting for a restart (#417).
+func TestGuildCreateRegistersName(t *testing.T) {
+	db := newDB()
+	db.loads = map[int64]world.CharacterState{
+		7: {Slot: 0, Name: "Hero", X: 5, Y: 5, HP: 1000, MaxHP: 1000, Clan: 7, Citizen: 1, Coin: 100_000_000},
+	}
+	addr, stop, _ := startServerClock(t, db)
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	drainRaw(t, a)
+
+	whisperFrame(t, a, "create", "Knights")
+	expect(t, a, protocol.MsgUpdateEtc)
+	drainRaw(t, a)
+
+	whisperFrame(t, a, "nick", "Hero")
+	p := expect(t, a, protocol.MsgMessageChat)
+	want := "Hero [Knights (Fama guilda: 0)] Cidadania: 1 / Fama: 0"
+	if got := cstr(p); got != want {
+		t.Errorf("/nick text = %q, want %q", got, want)
+	}
+}
+
 func TestGuildSubcreateCommand(t *testing.T) {
 	db := newDB()
 	db.loads = map[int64]world.CharacterState{
