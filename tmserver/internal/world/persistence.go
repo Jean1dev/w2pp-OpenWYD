@@ -228,6 +228,7 @@ type CharacterSave struct {
 	LastCity   int16
 	SaveX      int16 // Gema Estelar warp save-point (STRUCT_MOB.SPX)
 	SaveY      int16 // Gema Estelar warp save-point (STRUCT_MOB.SPY)
+	Class      uint8 // the Pedra Misteriosa (4148) swaps it; the legacy SaveUser ships the whole STRUCT_MOB (Server.cpp:7845)
 	Clan       uint8
 	GuildID    uint16
 	GuildLevel uint8

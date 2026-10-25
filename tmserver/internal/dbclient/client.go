@@ -776,6 +776,7 @@ func itemFromProto(it *dbv1.Item) world.Item {
 func characterSaveToProto(s world.CharacterSave) *dbv1.Character {
 	c := &dbv1.Character{
 		Slot:       int32(s.Slot),
+		Class:      int32(s.Class),
 		Clan:       int32(s.Clan),
 		GuildId:    uint32(s.GuildID),
 		GuildLevel: int32(s.GuildLevel),

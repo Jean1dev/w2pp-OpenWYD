@@ -16,6 +16,7 @@ func TestQuestInfoRoundTrip(t *testing.T) {
 		save  world.CharacterSave
 		check func(world.CharacterState) bool
 	}{
+		{"Class", world.CharacterSave{Class: 2}, func(s world.CharacterState) bool { return s.Class == 2 }},
 		{"ClassMaster", world.CharacterSave{ClassMaster: 3}, func(s world.CharacterState) bool { return s.ClassMaster == 3 }},
 		{"Mortal.TerraMistica", world.CharacterSave{TerraMistica: 2}, func(s world.CharacterState) bool { return s.TerraMistica == 2 }},
 		{"Mortal.Newbie", world.CharacterSave{NewbieQuest: 4}, func(s world.CharacterState) bool { return s.NewbieQuest == 4 }},
