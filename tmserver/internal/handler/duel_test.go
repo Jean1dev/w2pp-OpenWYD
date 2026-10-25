@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -163,26 +164,6 @@ func TestDuelInviteTimeout(t *testing.T) {
 	}
 }
 
-// wantNotice polls c for the given Notice (as sent by notify: MsgMessageBoxOk
-// carrying a 4-byte code), ignoring other frames until it appears or the
-// budget runs out.
-func wantNotice(t *testing.T, c net.Conn, want Notice) {
-	t.Helper()
-	for i := 0; i < 20; i++ {
-		ty, payload, ok := readMaybe(t, c)
-		if !ok {
-			continue
-		}
-		if ty != protocol.MsgMessageBoxOk {
-			continue
-		}
-		if parm, decOK := protocol.StandardParm(payload); decOK && Notice(parm) == want {
-			return
-		}
-	}
-	t.Fatalf("did not observe notice %v", want)
-}
-
 // startedDuel spins up a server with db, connects "tester" (Hero, conn 1) and
 // "tradeb" (HeroB, conn 2), and drives them through invite/accept so both are
 // in the arena with their entry frames drained. Callers own closing a/b/stop.
@@ -226,9 +207,11 @@ func TestDuelWinByElimination(t *testing.T) {
 		t.Fatalf("Dam = %+v, want a landed hit (PKMode-less duel damage must not be gated)", body.Dam)
 	}
 
-	// The next arena sweep detects HeroB's HP<=0 and concludes the duel.
-	wantNotice(t, a, NoticeDuelWin)
-	wantNotice(t, b, NoticeDuelLose)
+	// The next liveness scan detects HeroB's HP<=0 and concludes the duel: both
+	// sides get the legacy _SS_S_WinBy_S text with the two names.
+	result := fmt.Sprintf(duelWinBy, "Hero", "HeroB")
+	wantPanelWithin(t, a, result, 5*time.Second)
+	wantPanelWithin(t, b, result, 5*time.Second)
 
 	dr, ok := db.lastDuelResult(t)
 	if !ok {
@@ -249,7 +232,7 @@ func TestDuelDisconnectEndsAsWin(t *testing.T) {
 
 	b.Close() // simulate a disconnect mid-duel
 
-	wantNotice(t, a, NoticeDuelWin)
+	wantPanelWithin(t, a, fmt.Sprintf(duelWinBy, "Hero", "HeroB"), 5*time.Second)
 
 	dr, ok := db.lastDuelResult(t)
 	if !ok {
@@ -279,59 +262,101 @@ func TestDuelingHelper(t *testing.T) {
 	}
 }
 
-// duelCityDB is duelDB with "tester" spawned inside Armia (2096,2096, the same
-// point TestVillage in world/city_test.go asserts resolves to city 0) so
-// requests/accepts from that conn hit the best-effort city gate; "tradeb"
-// stays outside any city.
+// duelCityDB is duelDB with both characters inside Armia (2096,2096, the same
+// point TestVillage in world/city_test.go asserts resolves to city 0).
 func duelCityDB() *fakeDB {
 	db := newDB()
 	db.loads = map[int64]world.CharacterState{
 		7:  {Slot: 0, Name: "Hero", X: 2096, Y: 2096, HP: 1000, MaxHP: 1000, Damage: 500, AC: 0},
-		11: {Slot: 0, Name: "HeroB", X: 5, Y: 5, HP: 50, MaxHP: 50, Damage: 0, AC: 0},
+		11: {Slot: 0, Name: "HeroB", X: 2096, Y: 2096, HP: 50, MaxHP: 50, Damage: 0, AC: 0},
 	}
 	return db
 }
 
-// TestDuelRequestBlockedInSafeCity: the best-effort city gate (issue #118,
-// UNVERIFIED) rejects a duel request from inside a safe city instead of
-// forwarding the invite.
-func TestDuelRequestBlockedInSafeCity(t *testing.T) {
+// TestDuelRequestAllowedInCity: the legacy request has no position check, so a
+// request from inside a city is forwarded like any other (issue #424).
+func TestDuelRequestAllowedInCity(t *testing.T) {
 	addr, stop := startServerDuel(t, duelCityDB())
 	defer stop()
 	a := enterWorldAs(t, addr, "tester") // conn 1, inside Armia
 	defer a.Close()
-	b := enterWorldAs(t, addr, "tradeb") // conn 2, outside any city
+	b := enterWorldAs(t, addr, "tradeb") // conn 2, inside Armia
 	defer b.Close()
 
 	reqRankingFrame(t, a, 2, 0)
-	wantNotice(t, a, NoticeDuelInCity)
-	if ty, _, ok := readMaybe(t, b); ok {
-		t.Errorf("B got %#x for a request blocked by the city gate; want nothing", ty)
+	if ty, _, ok := readMaybe(t, b); !ok || ty != protocol.MsgReqRanking {
+		t.Fatalf("B got %#x ok=%v, want the forwarded invite", ty, ok)
 	}
 }
 
-// wantNoticeWithin is wantNotice bounded by wall-clock time instead of a
-// fixed read count. The arena's per-tick closing-wall broadcasts (up to a
-// dozen MsgEnvEffect frames per tick once past stage 1) can outrun
-// wantNotice's fixed 20-read budget well before a duel-resolution notice
-// arrives, so a long-running scenario like a draw needs a budget that keeps
-// reading through that noise instead of giving up on read count alone.
-func wantNoticeWithin(t *testing.T, c net.Conn, want Notice, budget time.Duration) {
+// TestDuelRequestDeniedByWhisperBlock: a target that blocks whispers gets no
+// invite, and the requester reads the legacy _NN_Deny_Whisper text.
+func TestDuelRequestDeniedByWhisperBlock(t *testing.T) {
+	addr, stop := startServerDuel(t, duelDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	chatFrame(t, b, "whisper") // toggle B's whisper block
+	drain(t, b)
+	reqRankingFrame(t, a, 2, 0)
+	wantPanelWithin(t, a, denyWhisper, 2*time.Second)
+	if ty, _, ok := readMaybe(t, b); ok && ty == protocol.MsgReqRanking {
+		t.Error("B got the invite despite blocking whispers")
+	}
+}
+
+// TestDuelStartAnnouncesBattle: DoRanking sends _NN_Battle_Started naming the
+// accepter first, and StartTime 2*121-2 = 240.
+func TestDuelStartAnnouncesBattle(t *testing.T) {
+	addr, stop := startServerDuel(t, duelDB())
+	defer stop()
+	a := enterWorldAs(t, addr, "tester")
+	defer a.Close()
+	b := enterWorldAs(t, addr, "tradeb")
+	defer b.Close()
+
+	reqRankingFrame(t, a, 2, 0)
+	readMaybe(t, b)
+	reqRankingFrame(t, b, 1, 4)
+
+	want := fmt.Sprintf(battleStarted, "HeroB", "Hero")
+	for name, c := range map[string]net.Conn{"requester": a, "accepter": b} {
+		sawText, startParm := false, int32(-1)
+		for i := 0; i < 10 && (!sawText || startParm < 0); i++ {
+			ty, p, ok := readMaybe(t, c)
+			if !ok {
+				break
+			}
+			switch ty {
+			case protocol.MsgMessagePanel:
+				sawText = sawText || cstr(p) == want
+			case protocol.MsgStartTime:
+				startParm, _ = protocol.StandardParm(p)
+			}
+		}
+		if !sawText || startParm != 240 {
+			t.Errorf("%s: battle text=%v StartTime=%d, want true/240", name, sawText, startParm)
+		}
+	}
+}
+
+// wantPanelWithin polls c for a MsgMessagePanel carrying text, bounded by
+// wall-clock time instead of a fixed read count: the arena's closing-wall
+// broadcasts (up to a dozen MsgEnvEffect frames per step) would outrun a
+// fixed read budget well before a duel-resolution text arrives.
+func wantPanelWithin(t *testing.T, c net.Conn, text string, budget time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(budget)
 	for time.Now().Before(deadline) {
 		ty, payload, ok := readMaybe(t, c)
-		if !ok {
-			continue
-		}
-		if ty != protocol.MsgMessageBoxOk {
-			continue
-		}
-		if parm, decOK := protocol.StandardParm(payload); decOK && Notice(parm) == want {
+		if ok && ty == protocol.MsgMessagePanel && cstr(payload) == text {
 			return
 		}
 	}
-	t.Fatalf("did not observe notice %v within %v", want, budget)
+	t.Fatalf("did not observe panel %q within %v", text, budget)
 }
 
 // TestDuelDrawOnTimeout: when the arena countdown runs out with both
@@ -352,12 +377,88 @@ func TestDuelDrawOnTimeout(t *testing.T) {
 	defer a.Close()
 	defer b.Close()
 
-	wantNoticeWithin(t, a, NoticeDuelDraw, 5*time.Second)
-	wantNoticeWithin(t, b, NoticeDuelDraw, 5*time.Second)
+	draw := fmt.Sprintf(duelDraw, "Hero", "HeroB")
+	wantPanelWithin(t, a, draw, 5*time.Second)
+	wantPanelWithin(t, b, draw, 5*time.Second)
 
 	if _, ok := db.lastDuelResult(t); ok {
 		t.Error("RecordDuelResult was called for a draw; draws must not be persisted")
 	}
+}
+
+// TestDuelEndClearsArena: ClearAreaTeleport runs on a win and on a draw alike —
+// everyone inside the arena goes to (2572,1752), the dead come back with HP 1,
+// and whoever already left the box stays put (issue #424).
+func TestDuelEndClearsArena(t *testing.T) {
+	d, w, s, e := startOnePlayer(t)
+	for _, tc := range []struct {
+		name     string
+		x, y     int16
+		hp       int32
+		draw     bool
+		wantExit bool
+		wantHP   int32
+	}{
+		{"dead loser revived at the exit", 160, 4044, 0, false, true, 1},
+		{"living winner keeps HP", 160, 4044, 300, false, true, 300},
+		{"draw also teleports", 160, 4044, 300, true, true, 300},
+		{"outside the box stays put", 300, 300, 300, false, false, 300},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runInLoop(t, w, func() {
+				w.SetEntityPos(s.Conn, tc.x, tc.y)
+				e.HP = tc.hp
+				d.duel = duelArena{active: true, player1: s.Conn, ticksLeft: 1, name1: "Hero", name2: "Gone"}
+				if tc.draw {
+					d.concludeDuelDraw(w)
+				} else {
+					d.concludeDuelWin(w, s.Conn, 0)
+				}
+				atExit := e.X == duelExitX && e.Y == duelExitY
+				if atExit != tc.wantExit {
+					t.Errorf("at (%d,%d), want exit=%v", e.X, e.Y, tc.wantExit)
+				}
+				if e.HP != tc.wantHP {
+					t.Errorf("HP = %d, want %d", e.HP, tc.wantHP)
+				}
+				if d.duel.active {
+					t.Error("arena still occupied")
+				}
+			})
+		})
+	}
+}
+
+// TestDuelSweepCadence: one ProcessRanking step every duelStepTicks ticks, and
+// a dead duelist only ends the duel on a liveness scan (ticksLeft%5 == 0).
+func TestDuelSweepCadence(t *testing.T) {
+	d, w, s, e := startOnePlayer(t)
+	runInLoop(t, w, func() {
+		w.SetEntityPos(s.Conn, 160, 4044)
+		e.HP = 300
+		// player2 (conn 0) is absent, so the first scan ends the duel.
+		d.duel = duelArena{active: true, player1: s.Conn, ticksLeft: 13, name1: "Hero", name2: "Gone"}
+
+		d.sweepDuelArena(w) // tick 1 of 2: no step yet
+		if d.duel.ticksLeft != 13 {
+			t.Fatalf("ticksLeft = %d after one tick, want 13", d.duel.ticksLeft)
+		}
+		for range 2 * 2 { // two steps: 12, 11 — no scan
+			d.sweepDuelArena(w)
+		}
+		if !d.duel.active || d.duel.ticksLeft != 11 {
+			t.Fatalf("active=%v ticksLeft=%d, want a running duel at 11", d.duel.active, d.duel.ticksLeft)
+		}
+		for range 2 * 1 { // step to 10: the scan sees the missing opponent
+			d.sweepDuelArena(w)
+		}
+		if d.duel.active {
+			t.Fatal("duel still active after the ticksLeft%5 scan")
+		}
+		if e.X != duelExitX || e.Y != duelExitY {
+			t.Errorf("winner at (%d,%d), want the exit", e.X, e.Y)
+		}
+	})
 }
 
 // TestDuelStageThresholds is a table-driven unit test of duelStage's bucket

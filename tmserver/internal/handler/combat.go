@@ -215,21 +215,33 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 		// else (sentinel -2, 0, or an unknown claim) is melee.
 		pvpHit := world.IsPlayer(tid) && tid != s.Conn
 		// PvP gate: combat damage (melee or an aggressive skill) requires the
-		// attacker to opt into PK mode (K key, _MSG_PKMode). Do not use
-		// world.Village as a town safe-zone approximation here: the legacy rule
-		// keys off an attribute-map PK bit on the ATTACKER tile plus war-state
-		// bypasses, and the coarse city rectangles caused issue #67 by zeroing
-		// PvP damage near every spawn point.
+		// attacker to opt into PK mode (K key, _MSG_PKMode). The legacy server
+		// leaves this to the client; we keep it as an anti-cheat guard, which
+		// the unmodified client never notices because it already refuses to
+		// attack without K. Do not use world.Village as a town safe-zone
+		// approximation here: the coarse city rectangles caused issue #67 by
+		// zeroing PvP damage near every spawn point.
 		if pvpHit && combatHit && !e.PKMode && !d.dueling(s.Conn, tid) && !d.towerPvP(e, target) {
+			writeDamage(payload, i, 0)
+			continue
+		}
+		// Legacy server-side gate (_MSG_Attack.cpp:405-419, issue #420): on an
+		// AttributeMap PvP-arena tile (bit 0x40, under the ATTACKER), a target
+		// that has neither K on nor Guilty takes no damage. No duel exception —
+		// the duel arena tile is 0x44 and the legacy has none. towerPvP stands in
+		// for the legacy war-state guard (RvR/castle siege are not modeled).
+		if pvpHit && combatHit && !d.towerPvP(e, target) && d.pvpArenaTile(e.X, e.Y) && !target.PKMode && !pkGuilty(target) {
 			writeDamage(payload, i, 0)
 			continue
 		}
 		// A maximally-chaotic attacker cannot damage a comparatively clean target
 		// (_MSG_Attack.cpp "PK - War - Miss": pointPK<=10 && SummonerPointPK>10 ⇒
 		// dam=0 + _DN_CantKillUser). Compares the raw PKPoint byte, not the -75
-		// display value. No geography here either, for the same reason as above.
-		if pvpHit && combatHit && !d.dueling(s.Conn, tid) && int(e.PKPoint) <= 10 && int(target.PKPoint) > 10 {
-			d.sendChatText(w, s, fmt.Sprintf("Voce nao pode atacar este jogador (Pontos Caos: %d)", int(e.PKPoint)-75))
+		// display value. Like the Guilty stamp below, it only runs outside cities
+		// and guild war areas (arena == 5 && village == 5, attacker's position;
+		// issue #421).
+		if pvpHit && combatHit && !d.dueling(s.Conn, tid) && !world.PvPZone(e.X, e.Y) && int(e.PKPoint) <= 10 && int(target.PKPoint) > 10 {
+			d.sendClientMessage(w, s, fmt.Sprintf(cantKillUser, int(e.PKPoint)))
 			writeDamage(payload, i, 0)
 			continue
 		}
@@ -309,8 +321,9 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 			// marks BOTH sides Guilty (_MSG_Attack.cpp: SetGuilty(conn,8);
 			// SetGuilty(idx,8)) — re-broadcasting whichever side's nick wasn't
 			// already red. A duel hit must never mark PK (issue #118 acceptance
-			// criteria).
-			if pvpHit && combatHit && !d.dueling(s.Conn, tid) && int(target.PKPoint) > 10 {
+			// criteria), and neither does a hit landed from inside a city or a
+			// guild war area (attacker's position, issue #421).
+			if pvpHit && combatHit && !d.dueling(s.Conn, tid) && !world.PvPZone(e.X, e.Y) && int(target.PKPoint) > 10 {
 				d.markGuilty(w, s, e)
 				d.markGuilty(w, w.Session(tid), target)
 			}
@@ -918,6 +931,15 @@ func (d *Dispatcher) applyFoemaResurrection(w *world.World, s *world.Session, ca
 	w.ForEachInView(tid, func(vs *world.Session, _ *world.Entity) {
 		w.SendTo(vs, protocol.Header{Type: protocol.MsgCreateMob, ID: protocol.IDScene}, bodyPayload)
 	})
+}
+
+// attrPvPArena is the AttributeMap bit of the PvP arenas (Armia arena 0x40,
+// duel arena 0x44), tested by the legacy target gate (_MSG_Attack.cpp:409).
+const attrPvPArena = 0x40
+
+// pvpArenaTile reports whether (x,y) sits on an AttributeMap PvP-arena tile.
+func (d *Dispatcher) pvpArenaTile(x, y int16) bool {
+	return d.attrs != nil && x >= 0 && y >= 0 && d.attrs.At(int(x)/4, int(y)/4)&attrPvPArena != 0
 }
 
 // Teleporte refusals (Release/TMsrv/run/Language.txt, cp1252).

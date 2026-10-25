@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -276,8 +277,9 @@ func TestAttackBlockedWhenAttackerTooChaotic(t *testing.T) {
 	send(t, attacker, protocol.MsgPKMode, protocol.EncodeStandardParm(1))
 	attackFrame(t, attacker, serverTime, 2, 0)
 
-	if ty, _, ok := readMaybe(t, attacker); !ok || ty != protocol.MsgMessageChat {
-		t.Fatalf("attacker got %#x ok=%v, want the cant-kill MessageChat", ty, ok)
+	// _DN_CantKillUser carries the raw PKPoint (issue #422).
+	if ty, p, ok := readMaybe(t, attacker); !ok || ty != protocol.MsgMessagePanel || cstr(p) != fmt.Sprintf(cantKillUser, 5) {
+		t.Fatalf("attacker got %#x %q ok=%v, want the cant-kill panel", ty, p, ok)
 	}
 	ty, payload, ok := readMaybe(t, target)
 	if !ok || ty != protocol.MsgAttack {

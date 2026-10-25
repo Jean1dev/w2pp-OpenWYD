@@ -8,15 +8,39 @@ type city struct {
 	spawnX, spawnY   int16
 	limitX1, limitY1 int16
 	limitX2, limitY2 int16
+	// warX1..warY2 is the guild-zone WarArea rectangle (BASE_GetArena), a small
+	// box of its own per zone — not the Armia PvP arena, which lies inside the
+	// Armia city limits.
+	warX1, warY1 int16
+	warX2, warY2 int16
 }
 
 // cities is the fixed 5-city table (Armia, Azran, Erion, Nippleheim, Noatum).
 var cities = [5]city{
-	{2086, 2093, 2052, 2052, 2171, 2163}, // 0 Armia
-	{2494, 1707, 2432, 1672, 2675, 1767}, // 1 Azran
-	{2453, 2000, 2448, 1966, 2476, 2024}, // 2 Erion
-	{3652, 3122, 3605, 3090, 3690, 3260}, // 3 Nippleheim
-	{1050, 1706, 1036, 1700, 1072, 1760}, // 4 Noatum
+	{2086, 2093, 2052, 2052, 2171, 2163, 197, 213, 238, 230},     // 0 Armia
+	{2494, 1707, 2432, 1672, 2675, 1767, 197, 149, 238, 166},     // 1 Azran
+	{2453, 2000, 2448, 1966, 2476, 2024, 141, 213, 182, 230},     // 2 Erion
+	{3652, 3122, 3605, 3090, 3690, 3260, 141, 149, 182, 166},     // 3 Nippleheim
+	{1050, 1706, 1036, 1700, 1072, 1760, 4000, 4000, 4010, 4010}, // 4 Noatum
+}
+
+// Arena returns the guild zone (0..4) whose WarArea contains (x,y), or -1
+// (BASE_GetArena, Basedef.cpp:4903).
+func Arena(x, y int16) int {
+	for i := range cities {
+		c := cities[i]
+		if x >= c.warX1 && x <= c.warX2 && y >= c.warY1 && y <= c.warY2 {
+			return i
+		}
+	}
+	return -1
+}
+
+// PvPZone reports whether (x,y) is inside a city or a guild war area: there the
+// legacy PvP rules skip Guilty/CantKill (_MSG_Attack.cpp "PK - War - Miss") and
+// a PvP death costs no EXP (MobKilled.cpp: arena != 5 || village != 5).
+func PvPZone(x, y int16) bool {
+	return Arena(x, y) >= 0 || Village(x, y) >= 0
 }
 
 // Village returns the city index (0..4) whose rectangle contains (x,y), or -1

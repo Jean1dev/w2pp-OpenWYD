@@ -29,10 +29,14 @@ const (
 // CurKill block), so this mirrors mobKilled's clean linear style instead of
 // replicating that control flow.
 //
+// Geography (issue #421): a death inside a city or a guild war area (victim's
+// position, BASE_GetArena/BASE_GetVillage) takes the legacy arena branch — the
+// victim keeps their EXP and gets _NN_In_Arena_No_Exp_Loss, and the killer pays
+// the arena CP rate (pvpLostPkZone). Everywhere else takes the field branch.
+// The orphaned `if (killed_x == 1 && killed_y == 31)` is the MapPK zone flag lost
+// in decompilation; MapPK itself is not modeled.
+//
 // Deferred/UNVERIFIED (documented, not ported — see the plan for issue #210):
-//   - arena/village/isWar/MapPK geography — combat.go already deliberately
-//     skips this class of check (issue #67 regression from a coarse
-//     city-rectangle approximation).
 //   - Castle-siege/RvR-Tower AtWar bypasses — those systems are themselves
 //     UNVERIFIED (tmserver/internal/war/tower.go); only the guild-war bypass is
 //     implemented (guildsAtWar).
@@ -50,6 +54,52 @@ const (
 func (d *Dispatcher) pvpKilled(w *world.World, killer, victim *world.Entity) {
 	ks := w.Session(killer.ID)
 	vs := w.Session(victim.ID)
+	if world.PvPZone(victim.X, victim.Y) {
+		d.pvpKilledInZone(w, ks, vs, killer, victim)
+	} else {
+		d.pvpKilledInField(w, ks, vs, killer, victim)
+	}
+
+	// Kill-streak bookkeeping (SameClan treated as always false — see doc above).
+	if killer.CurKill < maxCurKill {
+		killer.CurKill++
+	}
+	if killer.TotKill < maxTotKill {
+		killer.TotKill++
+	}
+	victim.CurKill = 0
+
+	if ks != nil {
+		d.broadcastPKState(w, ks, killer)
+	}
+	if vs != nil {
+		d.broadcastPKState(w, vs, victim)
+	}
+}
+
+// pvpKilledInZone is the legacy arena branch (MobKilled.cpp:3131-3228): no EXP
+// loss, no victim PKPoint recovery, and — unless the victim was already Guilty —
+// the killer loses CP at the arena rate, announced with _DD_PKPointMinus even
+// when the loss rounds to 0 (the legacy sends it inside `if (!killed_guilty)`).
+// The arena branch does not consult AtWar.
+func (d *Dispatcher) pvpKilledInZone(w *world.World, ks, vs *world.Session, killer, victim *world.Entity) {
+	if vs != nil {
+		d.sendClientMessage(w, vs, inArenaNoExpLoss)
+	}
+	if pkGuilty(victim) {
+		return
+	}
+	lost := pvpLostPkZone(victim.PKPoint)
+	killer.PKPoint = clampPKPoint(int(killer.PKPoint) + lost)
+	if ks != nil {
+		// The legacy prints the negative Lostpk as-is ("Menos_-9").
+		d.sendClientMessage(w, ks, fmt.Sprintf(pkPointMinus, int(killer.PKPoint)-75, lost))
+	}
+}
+
+// pvpKilledInField is the open-field branch: EXP loss for the victim, the
+// field CP rate for the killer, and the victim's PKPoint recovery.
+func (d *Dispatcher) pvpKilledInField(w *world.World, ks, vs *world.Session, killer, victim *world.Entity) {
 	atWar := d.guildsAtWar(killer.Guild, victim.Guild)
 
 	if loss := pvpExpLoss(victim.Level, victim.ClassMaster, victim.PKPoint); loss > 0 {
@@ -73,22 +123,6 @@ func (d *Dispatcher) pvpKilled(w *world.World, killer, victim *world.Entity) {
 		if vs != nil {
 			d.sendChatText(w, vs, notifyPKPointDelta(victim.PKPoint, 1))
 		}
-	}
-
-	// Kill-streak bookkeeping (SameClan treated as always false — see doc above).
-	if killer.CurKill < maxCurKill {
-		killer.CurKill++
-	}
-	if killer.TotKill < maxTotKill {
-		killer.TotKill++
-	}
-	victim.CurKill = 0
-
-	if ks != nil {
-		d.broadcastPKState(w, ks, killer)
-	}
-	if vs != nil {
-		d.broadcastPKState(w, vs, victim)
 	}
 }
 
@@ -147,7 +181,17 @@ func pvpLostPk(victimPKPoint uint8, victimGuilty, atWar bool) int {
 	if victimGuilty || atWar {
 		return 0
 	}
-	lost := 3 * int(victimPKPoint) / -25
+	return clampLostPk(3 * int(victimPKPoint) / -25)
+}
+
+// pvpLostPkZone is the killer's PKPoint change for a kill inside a city or a
+// guild war area (MobKilled.cpp arena branch): the /-20 rate instead of the
+// field's /-25, clamped to [-9,0]. The Guilty check is the caller's.
+func pvpLostPkZone(victimPKPoint uint8) int {
+	return clampLostPk(3 * int(victimPKPoint) / -20)
+}
+
+func clampLostPk(lost int) int {
 	if lost < -9 {
 		lost = -9
 	}
