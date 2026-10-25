@@ -53,20 +53,14 @@ const (
 
 	NoticeNoKey // _NN_No_Key: a locked gate needs a key the player doesn't hold
 
-	// Duel (_MSG_ReqRanking, issue #118). _SS_S_S_Draw/_SS_S_WinBy_S carry the two
-	// player names in the original (Server.cpp:8940-8970); the placeholder wire
-	// format here can't interpolate names until captured, so the client-side text
-	// is UNVERIFIED — only the code + recipient identify the outcome.
-	NoticeDuelBattleInProgress // _NN_Battle_In_Progress
-	NoticeDuelWin              // you won the duel
-	NoticeDuelLose             // you lost the duel
-	NoticeDuelDraw             // the duel ended in a draw (timeout)
-
-	// NoticeDuelInCity: neither this code nor the underlying rule is
-	// confirmed against a legacy capture — the issue #118 scope explicitly
-	// leaves "duelo só fora de cidade?" as an open question. Blocking duel
-	// request/accept while either side stands in a safe city is a best-effort
-	// guess pending real verification.
+	// Duel codes (issue #118). Obsolete since issue #424: the duel now sends the
+	// legacy Language.txt texts (battleInProgress, duelWinBy, duelDraw) and has no
+	// city restriction, so nothing sends these. Kept so the iota codes below them
+	// — which the client and the handler tests match on — do not shift.
+	NoticeDuelBattleInProgress
+	NoticeDuelWin
+	NoticeDuelLose
+	NoticeDuelDraw
 	NoticeDuelInCity
 
 	// NoticeCantUseHere (_NN_Cant_Use_That_Here) is sent for consumables whose
@@ -128,6 +122,20 @@ const (
 	cantWithArmor = "No momento voc\xea n\xe3o pode equipar arma e armadura." // _NN_Cant_with_armor (205)
 
 	newbieZone = "Somente n\xedvel 35 ou inferior pode entrar no campo de treinamento." // _NN_Newbie_zone (46)
+)
+
+// PvP and duel texts (Language.txt, Windows-1252), sent through
+// sendClientMessage like the legacy SendClientMessage/SendNoticeArea calls.
+const (
+	inArenaNoExpLoss = "Na arena n\xe3o h\xe1 perda de EXP."                       // _NN_In_Arena_No_Exp_Loss (143)
+	denyWhisper      = "N\xe3o \xe9 poss\xedvel sussurrar para este jogador."      // _NN_Deny_Whisper (165)
+	battleInProgress = "H\xe1 uma partida em progresso."                           // _NN_Battle_In_Progress (193)
+	battleStarted    = "Batalha entre %s e %s foi iniciada."                       // _NN_Battle_Started (194)
+	duelWinBy        = "%s \xe9 o vencedor, %s \xe9 o perdedor desta partida."     // _SS_S_WinBy_S (196)
+	duelDraw         = "Este jogo com %s e %s finalizou em empate."                // _SS_S_S_Draw (197)
+	pkPointMinus     = "Seu ponto caos \xe9 %d (Menos_%d)."                        // _DD_PKPointMinus (208)
+	cantKillUser     = "Voc\xea n\xe3o pode mais derrotar jogadores. (Atual : %d)" // _DN_CantKillUser (209)
+	cantTradePKMode  = "A troca n\xe3o fica dispon\xedvel com o modo PK ativado."  // _NN_Cant_trade_pkmode (331)
 )
 
 // cstr trims a fixed-size NUL/space-padded C char array to a Go string.

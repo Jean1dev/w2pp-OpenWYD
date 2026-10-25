@@ -23,6 +23,32 @@ func TestVillage(t *testing.T) {
 	}
 }
 
+func TestPvPZone(t *testing.T) {
+	cases := []struct {
+		name      string
+		x, y      int16
+		wantArena int
+		wantZone  bool
+	}{
+		{"armia pvp arena", 2135, 2147, -1, true}, // inside the Armia city limits
+		{"armia square", 2110, 2095, -1, true},
+		{"field east of armia", 2185, 2100, -1, false},
+		{"armia guild war area", 220, 220, 0, true},
+		{"noatum war area", 4005, 4005, 4, true},
+		{"duel arena", 160, 4044, -1, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := Arena(c.x, c.y); got != c.wantArena {
+				t.Errorf("Arena(%d,%d) = %d, want %d", c.x, c.y, got, c.wantArena)
+			}
+			if got := PvPZone(c.x, c.y); got != c.wantZone {
+				t.Errorf("PvPZone(%d,%d) = %v, want %v", c.x, c.y, got, c.wantZone)
+			}
+		})
+	}
+}
+
 func TestCitySpawn(t *testing.T) {
 	// Spawn is CitySpawn base + rand%15 → must land in the city and on Armia for
 	// out-of-range ids (the saved last-city only holds 2 bits; Noatum=4 → Armia).

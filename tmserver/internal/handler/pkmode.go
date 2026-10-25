@@ -150,6 +150,14 @@ func (d *Dispatcher) pkMode(w *world.World, s *world.Session, _ protocol.Header,
 	parm, _ := protocol.StandardParm(payload)
 	e.PKMode = parm != 0
 
+	// A mutual trade gets _NN_Cant_trade_pkmode on both sides before it closes
+	// (_MSG_PKMode.cpp:27-35, issue #422).
+	if s.Trade.Active {
+		if other := w.Session(s.Trade.OpponentID); other != nil && other.Mode == world.UserPlay && other.Trade.OpponentID == s.Conn {
+			d.sendClientMessage(w, s, cantTradePKMode)
+			d.sendClientMessage(w, other, cantTradePKMode)
+		}
+	}
 	d.removeTrade(w, s)
 	// Only the attackable flag (PKInfo) changes on a K toggle — the nick color
 	// (MobName[12]) is unaffected, so no CreateMob re-broadcast is needed.

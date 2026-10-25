@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
@@ -22,6 +23,11 @@ const (
 	duelExitX, duelExitY     int16 = 2572, 1752
 )
 
+// duelWatchBox is the spectator area beside the exit point (legacy cRanking1X/Y..
+// cRanking2X/Y, Server.cpp:737-740): ProcessRanking announces the result there
+// as well as inside the arena.
+var duelWatchBox = duelBox{2564, 1688, 2579, 1714}
+
 // duelInviteTimeout is how long a pending duel invite lives before it auto-
 // clears. The legacy _MSG_ReqRanking.cpp has no explicit decline opcode, so a
 // timeout is how "recusado" is modeled (same placeholder class as
@@ -29,14 +35,21 @@ const (
 // shrink it instead of sleeping through the real production duration.
 var duelInviteTimeout = 30 * time.Second
 
-// duelTicks is the arena countdown, in our 1s ticks. Legacy's RankingTime=121
-// decrements once every 5 ProcessRanking calls, itself gated to run every 4th
-// second (ProcessSecMinTimer.cpp:1575) — a real-time cadence we don't reproduce
-// 1:1. We run the countdown once per tick instead, giving a fixed, documented
-// cap. UNVERIFIED exact legacy wall-clock duration. A var (not const, mirrors
-// duelInviteTimeout) so tests can shrink it instead of waiting out the real
-// countdown.
+// duelTicks is the arena countdown (legacy DoRanking duelTime / RankingTime =
+// 121). ProcessRanking decrements it once per call, and it is called on
+// SecCounter%4 of the 500ms timer (ProcessSecMinTimer.cpp:1573) — every 2s, so a
+// duel lasts about 242s and the client clock gets StartTime 2*121-2 = 240. A var
+// (not const, mirrors duelInviteTimeout) so tests can shrink it instead of
+// waiting out the real countdown.
 var duelTicks = 121
+
+// duelStepTicks is how many 1s world ticks make one ProcessRanking call.
+const duelStepTicks = 2
+
+// duelCheckEvery is the liveness-scan stride: ProcessRanking only counts the
+// combatants when RankingTime%5 == 0, so a kill or an exit ends the duel on the
+// next multiple of 5 steps (up to 10s later), not at once.
+const duelCheckEvery = 5
 
 // duelArena is the server-wide active duel (legacy RankingProgress/Ranking1/
 // Ranking2/RankingTime, Server.cpp — process-wide globals, not per-pair: only
@@ -47,6 +60,8 @@ type duelArena struct {
 	player1   int // requester conn (DoRanking's "enemy" arg, Server.cpp:9006-9007)
 	player2   int // accepter conn (DoRanking's "conn" arg)
 	ticksLeft int
+	// subTicks counts 1s world ticks toward the next ProcessRanking step.
+	subTicks int
 	// name1/name2 are snapshotted at startDuel, not re-read from the entity at
 	// conclusion time: a disconnect (removeSession) removes the entity from the
 	// registry before the arena sweep notices, which would otherwise silently
@@ -82,6 +97,12 @@ func (d *Dispatcher) reqRanking(w *world.World, s *world.Session, _ protocol.Hea
 		return
 	}
 	target := int(parm1)
+	// The whisper block is checked before the request/accept split, so it
+	// covers both (_MSG_ReqRanking.cpp:31-35).
+	if other := w.Session(target); other != nil && other.Whisper {
+		d.sendClientMessage(w, s, denyWhisper)
+		return
+	}
 
 	if duelParm != 4 {
 		d.reqRankingRequest(w, s, target, duelParm)
@@ -101,16 +122,8 @@ func (d *Dispatcher) reqRankingRequest(w *world.World, s *world.Session, target 
 	if other == nil || other.Mode != world.UserPlay || te == nil || te.HP <= 0 {
 		return
 	}
-	if other.Whisper {
-		d.notify(w, s, NoticeDenyWhisper)
-		return
-	}
-	// UNVERIFIED (issue #118): no legacy capture confirms a city restriction;
-	// this is a best-effort gate, not a confirmed parity rule.
-	if inSafeCity(w, s.Conn) || inSafeCity(w, target) {
-		d.notify(w, s, NoticeDuelInCity)
-		return
-	}
+	// No position check: the legacy request works anywhere, cities included
+	// (issue #424).
 	s.DuelTarget = target
 	s.DuelTargetExpiry = time.Now().Add(duelInviteTimeout).Unix()
 	// Forward the invite: Parm1 = the requester's own conn (so the target's
@@ -132,14 +145,8 @@ func (d *Dispatcher) reqRankingAccept(w *world.World, s *world.Session, requeste
 		return
 	}
 	if d.duel.active {
-		d.notify(w, s, NoticeDuelBattleInProgress)
-		d.notify(w, reqSess, NoticeDuelBattleInProgress)
-		return
-	}
-	// UNVERIFIED (issue #118): same best-effort city gate as the request path.
-	if inSafeCity(w, s.Conn) || inSafeCity(w, requester) {
-		d.notify(w, s, NoticeDuelInCity)
-		d.notify(w, reqSess, NoticeDuelInCity)
+		d.sendClientMessage(w, s, battleInProgress)
+		d.sendClientMessage(w, reqSess, battleInProgress)
 		return
 	}
 	reqSess.DuelTarget = 0
@@ -147,7 +154,8 @@ func (d *Dispatcher) reqRankingAccept(w *world.World, s *world.Session, requeste
 }
 
 // startDuel ports DoRanking's 1v1 branch (Server.cpp:8997-9019): teleport both
-// combatants to their arena spawn, start the countdown, and occupy the arena.
+// combatants to their arena spawn, announce the battle, start the countdown,
+// and occupy the arena.
 func (d *Dispatcher) startDuel(w *world.World, requester, accepter int) {
 	d.duel = duelArena{active: true, player1: requester, player2: accepter, ticksLeft: duelTicks}
 	if re := w.Entity(requester); re != nil {
@@ -164,9 +172,12 @@ func (d *Dispatcher) startDuel(w *world.World, requester, accepter int) {
 		d.doTeleport(w, as, duelSpawn2X, duelSpawn2Y)
 	}
 
-	parm := protocol.EncodeStandardParm(int32(duelTicks))
-	for _, conn := range [2]int{requester, accepter} {
+	// DoRanking's conn is the accepter, so the accepter is named first.
+	started := fmt.Sprintf(battleStarted, d.duel.name2, d.duel.name1)
+	parm := protocol.EncodeStandardParm(int32(duelStepTicks*duelTicks - 2))
+	for _, conn := range [2]int{accepter, requester} {
 		if cs := w.Session(conn); cs != nil {
+			d.sendClientMessage(w, cs, started)
 			w.Send(cs, protocol.MsgStartTime, parm)
 		}
 	}
@@ -187,20 +198,31 @@ func (d *Dispatcher) sweepDuelInvites(w *world.World) {
 // sweepDuelArena resolves the active duel: countdown, liveness/bounds checks,
 // and (for the closing-wall visual) the shrinking-box self-damage. Ports
 // ProcessRanking (Server.cpp:8786-8989) as a tick-driven poll rather than a
-// per-hit special case, matching the legacy design.
+// per-hit special case, matching the legacy design: one step every
+// duelStepTicks world ticks, a liveness scan every duelCheckEvery steps.
 func (d *Dispatcher) sweepDuelArena(w *world.World) {
 	if !d.duel.active {
 		return
 	}
+	d.duel.subTicks++
+	if d.duel.subTicks < duelStepTicks {
+		return
+	}
+	d.duel.subTicks = 0
+
 	d.duel.ticksLeft--
+	if d.duel.ticksLeft%duelCheckEvery == 0 &&
+		(!d.duelantAlive(w, d.duel.player1) || !d.duelantAlive(w, d.duel.player2)) {
+		d.duel.ticksLeft = 0
+	}
 	d.applyDuelWall(w, d.duel.ticksLeft)
+	if d.duel.ticksLeft > 0 {
+		return // still fighting
+	}
 
 	alive1 := d.duelantAlive(w, d.duel.player1)
 	alive2 := d.duelantAlive(w, d.duel.player2)
-
 	switch {
-	case alive1 && alive2 && d.duel.ticksLeft > 0:
-		return // still fighting
 	case alive1 && !alive2:
 		d.concludeDuelWin(w, d.duel.player1, d.duel.player2)
 	case alive2 && !alive1:
@@ -236,39 +258,61 @@ func (d *Dispatcher) duelantName(conn int) string {
 	}
 }
 
-// concludeDuelWin ends the active duel with winner beating loser: notifies
-// both sides, teleports survivors to the exit point, records the result, and
-// frees the arena.
+// concludeDuelWin ends the active duel with winner beating loser: announces
+// the result, clears the arena, records the result, and frees the arena.
 func (d *Dispatcher) concludeDuelWin(w *world.World, winner, loser int) {
 	winnerName, loserName := d.duelantName(winner), d.duelantName(loser)
 	d.duel = duelArena{}
 
-	if ws := w.Session(winner); ws != nil {
-		d.notify(w, ws, NoticeDuelWin)
-		d.doTeleport(w, ws, duelExitX, duelExitY)
-	}
-	if ls := w.Session(loser); ls != nil {
-		d.notify(w, ls, NoticeDuelLose)
-		d.doTeleport(w, ls, duelExitX, duelExitY)
-	}
+	d.duelNoticeArea(w, fmt.Sprintf(duelWinBy, winnerName, loserName))
+	d.duelClearArea(w)
 	if winnerName != "" && loserName != "" {
 		d.recordDuelResult(w, winnerName, loserName)
 	}
 }
 
 // concludeDuelDraw ends the active duel with no winner (timeout, or both
-// sides eliminated in the same tick): notifies both sides and frees the
-// arena. Draws aren't persisted — RecordDuelResult only tracks wins/losses.
+// sides eliminated at once): announces the draw and clears the arena, exactly
+// like a win (the legacy ClearAreaTeleport runs either way). Draws aren't
+// persisted — RecordDuelResult only tracks wins/losses.
 func (d *Dispatcher) concludeDuelDraw(w *world.World) {
-	player1, player2 := d.duel.player1, d.duel.player2
+	name1, name2 := d.duel.name1, d.duel.name2
 	d.duel = duelArena{}
 
-	if s1 := w.Session(player1); s1 != nil {
-		d.notify(w, s1, NoticeDuelDraw)
-	}
-	if s2 := w.Session(player2); s2 != nil {
-		d.notify(w, s2, NoticeDuelDraw)
-	}
+	d.duelNoticeArea(w, fmt.Sprintf(duelDraw, name1, name2))
+	d.duelClearArea(w)
+}
+
+// duelNoticeArea ports ProcessRanking's two SendNoticeArea calls
+// (SendFunc.cpp:247): the result goes to everyone in the spectator box and in
+// the arena — the duelists, while still inside, and any watcher.
+func (d *Dispatcher) duelNoticeArea(w *world.World, text string) {
+	arena := duelBox{duelBoxX1, duelBoxY1, duelBoxX2, duelBoxY2}
+	w.ForEachPlaying(-1, func(s *world.Session, e *world.Entity) {
+		if duelWatchBox.contains(e.X, e.Y) || arena.contains(e.X, e.Y) {
+			d.sendClientMessage(w, s, text)
+		}
+	})
+}
+
+// duelClearArea ports ClearAreaTeleport(kRanking..., 2572, 1752) (Server.cpp:
+// 6388): everyone still inside the arena goes to the exit point, and whoever
+// died there comes back with HP 1. A duelist who already left the box is not
+// moved, as in the legacy.
+func (d *Dispatcher) duelClearArea(w *world.World) {
+	arena := duelBox{duelBoxX1, duelBoxY1, duelBoxX2, duelBoxY2}
+	w.ForEachPlaying(-1, func(s *world.Session, e *world.Entity) {
+		if !arena.contains(e.X, e.Y) {
+			return
+		}
+		if e.HP <= 0 {
+			e.HP = 1
+			s.ReqHp = 1
+			d.sendScore(w, s, e)
+			d.sendSetHpMp(w, s, e)
+		}
+		d.doTeleport(w, s, duelExitX, duelExitY)
+	})
 }
 
 // duelWallEffect is the legacy EnvEffect id used for every closing-wall visual
@@ -332,9 +376,7 @@ var duelWallEffectStages = [4][]duelBox{
 // stage: anyone (of the two duelists — this server doesn't model bystanders
 // wandering into the arena) caught in a wall strip is floored down by 2000 HP
 // (or to 1), and the shrinking box outline is broadcast to in-view watchers.
-// UNVERIFIED cadence: legacy runs this every ProcessRanking call (gated to
-// every 4th real second); ours runs it every tick — a deliberate, documented
-// deviation, not a fidelity gap in the geometry itself.
+// Like the legacy, it runs once per ProcessRanking step (every duelStepTicks).
 func (d *Dispatcher) applyDuelWall(w *world.World, ticksLeft int) {
 	stage := duelStage(ticksLeft)
 	for _, box := range duelWallDamageStages[stage] {
