@@ -203,7 +203,7 @@ func TestCelestialProgressionSurvivesRelogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ch.ClassMaster, ch.Level, ch.Exp = 3, 0, 0
+	ch.Class, ch.ClassMaster, ch.Level, ch.Exp = 2, 3, 0, 0
 	ch.CelestialArchLevel = 5
 	ch.Str, ch.Int, ch.Dex, ch.Con = 8, 4, 7, 6
 	ch.Hp, ch.MaxHp, ch.Mp, ch.MaxMp = 80, 80, 45, 45
@@ -218,7 +218,7 @@ func TestCelestialProgressionSurvivesRelogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reloaded.ClassMaster != 3 || reloaded.Level != 0 || reloaded.CelestialArchLevel != 5 || reloaded.MortalLevel != 399 {
+	if reloaded.Class != 2 || reloaded.ClassMaster != 3 || reloaded.Level != 0 || reloaded.CelestialArchLevel != 5 || reloaded.MortalLevel != 399 {
 		t.Fatalf("reloaded progression = %+v", reloaded)
 	}
 	if reloaded.Str != 8 || reloaded.Int != 4 || reloaded.Dex != 7 || reloaded.Con != 6 || reloaded.MaxHp != 80 || reloaded.MaxMp != 45 {

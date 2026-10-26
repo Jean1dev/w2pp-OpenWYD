@@ -379,8 +379,9 @@ func (s *Store) DeleteCharacter(ctx context.Context, accountID int64, slot int) 
 // that does not send the base (HasBase false, e.g. a tmServer older than 0027)
 // clears it, so the next login derives it from the CurrentScore just saved
 // instead of trusting a base that no longer matches it.
-// Everything else (class,
-// regen/resist, magic, citizen) is left UNTOUCHED so an in-game save never wipes
+// class is saved too: the Pedra Misteriosa (4148) swaps the active sheet's
+// class, and the legacy SaveUser writes the whole STRUCT_MOB (Server.cpp:7845).
+// Everything else (regen/resist, magic, citizen) is left UNTOUCHED so an in-game save never wipes
 // imported data the world does not simulate.
 // skill_bonus is also untouched: the tmServer re-derives it at login
 // (BASE_GetBonusSkillPoint) instead of trusting the stored value.
@@ -413,7 +414,8 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 			pilula_orc=$55,
 			celestial_reset=$56,
 			celestial_add120=$57, celestial_add150=$58, celestial_add180=$59, celestial_add200=$60,
-			celestial_level=$61, sub_celestial_level=$62, save_celestial=COALESCE($63::bytea, ''::bytea)
+			celestial_level=$61, sub_celestial_level=$62, save_celestial=COALESCE($63::bytea, ''::bytea),
+			class=$64
 		WHERE account_id=$1 AND slot=$2
 		RETURNING id`,
 		accountID, ch.Slot, ch.Clan, ch.GuildID, ch.GuildLevel, ch.Level, ch.Coin,
@@ -432,6 +434,7 @@ func (s *Store) SaveCharacter(ctx context.Context, accountID int64, ch domain.Ch
 		ch.CelReset,
 		ch.CelAdd120, ch.CelAdd150, ch.CelAdd180, ch.CelAdd200,
 		ch.CelestialLevel, ch.SubCelestialLevel, ch.SaveCelestial,
+		ch.Class,
 	).Scan(&charID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
