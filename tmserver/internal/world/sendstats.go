@@ -62,6 +62,7 @@ func (w *World) logSendStats(s *Session) {
 		"frames", s.sentFrames,
 		"bytes", s.sentBytes,
 		"out_high_water", s.outHighWater,
+		"out_high_water_bytes", s.outHighWaterBytes,
 		"by_type", formatByType(s.sentByType),
 	)
 	w.log.Info("session last sends", "conn", s.Conn, "tail", formatLastSends(&s.lastSent, s.lastSentIdx, time.Now().UnixMilli()))
