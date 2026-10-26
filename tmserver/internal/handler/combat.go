@@ -353,11 +353,19 @@ func (d *Dispatcher) attack(w *world.World, s *world.Session, h protocol.Header,
 				// EnemyList propagation; summon.go).
 				d.commandSummons(w, s.Conn, target)
 			}
-		} else if pvpHit && target.HP == 0 && !d.dueling(s.Conn, tid) {
-			// Duel eliminations are handled by the duel-arena sweep (duel.go), not
-			// as a chaos-relevant PvP kill — a duel death must not grant/cost PKPoint
-			// or EXP (same exclusion as the Guilty-set gate above).
-			d.pvpKilled(w, e, target)
+		} else if pvpHit && target.HP == 0 {
+			if d.dueling(s.Conn, tid) {
+				// Duel eliminations are handled by the duel-arena sweep (duel.go), not
+				// as a chaos-relevant PvP kill — a duel death must not grant/cost
+				// PKPoint or EXP (same exclusion as the Guilty-set gate above). The
+				// legacy death still lands in MobKilled's arena branch via ZoneUnk
+				// (map 1,31; issue #427), so the victim reads the no-EXP-loss text.
+				if ts := w.Session(tid); ts != nil {
+					d.sendClientMessage(w, ts, inArenaNoExpLoss)
+				}
+			} else {
+				d.pvpKilled(w, e, target)
+			}
 		}
 		writeDamage(payload, i, int32(dmg))
 	}

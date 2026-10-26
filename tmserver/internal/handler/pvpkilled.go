@@ -33,8 +33,9 @@ const (
 // position, BASE_GetArena/BASE_GetVillage) takes the legacy arena branch — the
 // victim keeps their EXP and gets _NN_In_Arena_No_Exp_Loss, and the killer pays
 // the arena CP rate (pvpLostPkZone). Everywhere else takes the field branch.
-// The orphaned `if (killed_x == 1 && killed_y == 31)` is the MapPK zone flag lost
-// in decompilation; MapPK itself is not modeled.
+// The orphaned `if (killed_x == 1 && killed_y == 31)` sets ZoneUnk (its body was
+// lost in decompilation), so a death on map block (1,31) — the duel arena —
+// takes the arena branch too (mapPKZone, issue #427).
 //
 // Deferred/UNVERIFIED (documented, not ported — see the plan for issue #210):
 //   - Castle-siege/RvR-Tower AtWar bypasses — those systems are themselves
@@ -54,7 +55,7 @@ const (
 func (d *Dispatcher) pvpKilled(w *world.World, killer, victim *world.Entity) {
 	ks := w.Session(killer.ID)
 	vs := w.Session(victim.ID)
-	if world.PvPZone(victim.X, victim.Y) {
+	if world.PvPZone(victim.X, victim.Y) || mapPKZone(victim.X, victim.Y) {
 		d.pvpKilledInZone(w, ks, vs, killer, victim)
 	} else {
 		d.pvpKilledInField(w, ks, vs, killer, victim)
@@ -75,6 +76,15 @@ func (d *Dispatcher) pvpKilled(w *world.World, killer, victim *world.Entity) {
 	if vs != nil {
 		d.broadcastPKState(w, vs, victim)
 	}
+}
+
+// mapPKZone reports whether (x,y) lies on map block (1,31), the legacy ZoneUnk
+// (MobKilled.cpp:3095 `killed_x = TargetX / 128`, :3131). Read literally, the
+// body-less `if` would nest the whole arena block inside (1,31) and silence
+// Armia's arena too; the adopted reading is that (1,31) sets ZoneUnk, which the
+// duel arena (x 142–195, y 4007–4082) falls inside entirely.
+func mapPKZone(x, y int16) bool {
+	return x/128 == 1 && y/128 == 31
 }
 
 // pvpKilledInZone is the legacy arena branch (MobKilled.cpp:3131-3228): no EXP
