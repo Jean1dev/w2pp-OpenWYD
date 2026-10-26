@@ -64,8 +64,8 @@ func TestFormatByTypeOrdering(t *testing.T) {
 // TestEnqueueHighWater: enqueue must track the out-queue high-water mark (writer
 // backpressure evidence) without ever blocking the loop.
 func TestEnqueueHighWater(t *testing.T) {
-	w := New(Config{OutBuffer: 8}, nil, nil, nil)
-	s := &Session{Conn: 1, out: make(chan outFrame, 8), closeCh: make(chan struct{})}
+	w := New(Config{}, nil, nil, nil)
+	s := &Session{Conn: 1, out: newOutQueue(), closeCh: make(chan struct{})}
 	w.sessions[1] = s
 	for i := 0; i < 5; i++ {
 		w.enqueue(s, protocol.Header{Type: protocol.MsgAction}, nil)

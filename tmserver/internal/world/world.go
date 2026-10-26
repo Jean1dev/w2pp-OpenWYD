@@ -82,10 +82,10 @@ type Handler func(w *World, s *Session, h protocol.Header, payload []byte)
 // Config tunes a World. GridDim defaults to DefaultGridDim (4096); tests use a
 // small value to avoid allocating the full dense spatial grids.
 type Config struct {
-	GridDim    int
-	OutBuffer  int           // per-session outbound queue depth
-	EventQueue int           // inbound event queue depth
-	Now        func() uint32 // server clock (ClientTick); injectable for tests
+	GridDim        int
+	OutBufferBytes int           // per-session unsent S→C bytes (default DefaultOutBufferBytes)
+	EventQueue     int           // inbound event queue depth
+	Now            func() uint32 // server clock (ClientTick); injectable for tests
 
 	// Hardening (Fase 7, migration-plan.md §5), all opt-in:
 	// RejectChecksum drops a connection on a CPSock checksum mismatch. The legacy
@@ -199,8 +199,8 @@ func New(cfg Config, log *slog.Logger, persist Persistence, handler Handler) *Wo
 	if cfg.GridDim <= 0 {
 		cfg.GridDim = DefaultGridDim
 	}
-	if cfg.OutBuffer <= 0 {
-		cfg.OutBuffer = 64
+	if cfg.OutBufferBytes <= 0 {
+		cfg.OutBufferBytes = DefaultOutBufferBytes
 	}
 	if cfg.EventQueue <= 0 {
 		cfg.EventQueue = 1024
@@ -637,30 +637,46 @@ func (w *World) SaveCargoThen(s *Session, then func(*World, *Session)) {
 	})
 }
 
+// outWarnStepBytes spaces the "queue high" warnings: one per new 8 KB high-water
+// step past half the limit, so a burst leaves a bounded trail before any drop.
+const outWarnStepBytes = 8 * 1024
+
 // send queues an outbound message to the session's writer goroutine. It never
-// blocks the loop: if the session's queue is full (a slow/stuck client), the
-// session is dropped instead of stalling the whole world (head-of-line safety).
+// blocks the loop: if the session's unsent bytes would pass the limit (a
+// slow/stuck client), the session is dropped instead of stalling the whole
+// world (head-of-line safety). A session already closed (e.g. dropped earlier in
+// the same tick) is skipped, so one overflow drops it once.
 func (w *World) enqueue(s *Session, h protocol.Header, payload []byte) {
+	if s.closed {
+		return
+	}
+	if s.out == nil { // bare test sessions; connectEvent always sets it
+		s.out = newOutQueue()
+	}
 	h.ClientTick = w.cfg.Now()
 	s.noteSend(h, len(payload))
 	if w.cfg.LogSends {
 		w.log.Info("send packet", "conn", s.Conn, "type", formatSendType(h.Type), "id", h.ID, "len", len(payload))
 	}
-	select {
-	case s.out <- outFrame{header: h, payload: payload}:
-		// Track writer backpressure: a growing queue means the socket (or the
-		// client) is not draining what the loop produces. Warn on each new
-		// high-water mark past half capacity — bounded, and it precedes the
-		// hard "queue full" drop below.
-		if d := len(s.out); d > s.outHighWater {
-			s.outHighWater = d
-			if d >= w.cfg.OutBuffer/2 {
-				w.log.Warn("session out queue high", "conn", s.Conn, "depth", d, "cap", w.cfg.OutBuffer)
-			}
-		}
-	default:
-		w.log.Warn("session out queue full; dropping connection", "conn", s.Conn)
+	frames, bytes, ok := s.out.push(outFrame{header: h, payload: payload}, w.cfg.OutBufferBytes)
+	if !ok {
+		w.log.Warn("session out queue full; dropping connection",
+			"conn", s.Conn, "frames", frames, "bytes", bytes, "cap_bytes", w.cfg.OutBufferBytes)
 		w.dropSession(s)
+		return
+	}
+	// Track writer backpressure: a growing queue means the socket (or the
+	// client) is not draining what the loop produces. Warn per new high-water
+	// step past half capacity — bounded, and it precedes the hard drop above.
+	if frames > s.outHighWater {
+		s.outHighWater = frames
+	}
+	if bytes > s.outHighWaterBytes {
+		s.outHighWaterBytes = bytes
+		if step := bytes / outWarnStepBytes; bytes >= w.cfg.OutBufferBytes/2 && step > s.outWarnStep {
+			s.outWarnStep = step
+			w.log.Warn("session out queue high", "conn", s.Conn, "frames", frames, "bytes", bytes, "cap_bytes", w.cfg.OutBufferBytes)
+		}
 	}
 }
 

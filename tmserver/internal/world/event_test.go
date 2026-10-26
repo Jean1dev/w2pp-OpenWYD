@@ -9,7 +9,7 @@ import "testing"
 func TestSessionEndHandlerPlumbing(t *testing.T) {
 	w := New(Config{GridDim: 16}, slogDiscard(), nil, nil)
 	const conn = 3
-	s := &Session{Conn: conn, Mode: UserPlay, out: make(chan outFrame, 4), closeCh: make(chan struct{})}
+	s := &Session{Conn: conn, Mode: UserPlay, out: newOutQueue(), closeCh: make(chan struct{})}
 	w.sessions[conn] = s
 	w.entities[conn] = &Entity{ID: conn, Mode: MobUser, HP: 100, Leader: 7}
 
@@ -38,7 +38,7 @@ func TestSessionEndHandlerPlumbing(t *testing.T) {
 
 	// A nil handler is a safe no-op (e.g. transport-only tests).
 	w2 := New(Config{GridDim: 16}, slogDiscard(), nil, nil)
-	s2 := &Session{Conn: 1, Mode: UserPlay, out: make(chan outFrame, 4), closeCh: make(chan struct{})}
+	s2 := &Session{Conn: 1, Mode: UserPlay, out: newOutQueue(), closeCh: make(chan struct{})}
 	w2.sessions[1] = s2
 	w2.entities[1] = &Entity{ID: 1, Mode: MobUser, HP: 100}
 	w2.removeSession(s2) // must not panic

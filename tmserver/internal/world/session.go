@@ -2,6 +2,7 @@ package world
 
 import (
 	"net"
+	"sync"
 
 	"github.com/jeanluca/w2pp-openwyd/tmserver/internal/protocol"
 )
@@ -11,6 +12,67 @@ import (
 type outFrame struct {
 	header  protocol.Header
 	payload []byte
+}
+
+// wireSize is the frame's size on the wire (CPSock header + body), the unit the
+// out queue is bounded in.
+func (of outFrame) wireSize() int { return protocol.HeaderSize + len(of.payload) }
+
+// DefaultOutBufferBytes bounds a session's unsent S→C bytes like the legacy
+// per-socket send buffer (CPSock.h:36 SEND_BUFFER_SIZE = 128 KB; AddMessage
+// CPSock.cpp:513-520 fails only past it). A view delta of a few hundred
+// CreateMob (~45 KB walking into the Coliseum, issue #419) fits; a client that
+// stops reading does not.
+const DefaultOutBufferBytes = 128 * 1024
+
+// outQueue is a session's S→C queue: the loop pushes, the writer goroutine pops.
+// It is bounded by unsent bytes (not frame count), so a large but legitimate
+// burst is buffered and only a client that is not draining gets dropped.
+type outQueue struct {
+	mu     sync.Mutex
+	frames []outFrame
+	bytes  int
+	ready  chan struct{} // cap 1: wakes the writer after a push
+}
+
+func newOutQueue() *outQueue { return &outQueue{ready: make(chan struct{}, 1)} }
+
+// push appends of unless that would take the queue past limit bytes; it never
+// blocks. It returns the queue depth (frames, bytes) after the push.
+func (q *outQueue) push(of outFrame, limit int) (frames, bytes int, ok bool) {
+	size := of.wireSize()
+	q.mu.Lock()
+	if q.bytes+size > limit {
+		frames, bytes = len(q.frames), q.bytes
+		q.mu.Unlock()
+		return frames, bytes, false
+	}
+	q.frames = append(q.frames, of)
+	q.bytes += size
+	frames, bytes = len(q.frames), q.bytes
+	q.mu.Unlock()
+	select {
+	case q.ready <- struct{}{}:
+	default:
+	}
+	return frames, bytes, true
+}
+
+// pop removes the oldest frame, if any.
+func (q *outQueue) pop() (outFrame, bool) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.frames) == 0 {
+		return outFrame{}, false
+	}
+	of := q.frames[0]
+	q.frames[0] = outFrame{}
+	q.frames = q.frames[1:]
+	if len(q.frames) == 0 {
+		q.frames = q.frames[:0:0] // release the drained backing array
+	}
+	q.bytes -= of.wireSize()
+	return of, true
 }
 
 // AccessLevel is a session's GM/moderation privilege tier, derived from the
@@ -97,15 +159,17 @@ type Session struct {
 	// S→C send diagnostics (sendstats.go): per-type counts, totals, the trailing
 	// frames and the out-queue high-water mark, dumped on disconnect so a frozen
 	// client leaves a post-mortem. Loop-owned like every other Session field.
-	sentFrames   uint64
-	sentBytes    uint64
-	sentByType   map[protocol.Type]uint32
-	lastSent     [lastSentRing]sentRecord
-	lastSentIdx  int
-	outHighWater int
+	sentFrames        uint64
+	sentBytes         uint64
+	sentByType        map[protocol.Type]uint32
+	lastSent          [lastSentRing]sentRecord
+	lastSentIdx       int
+	outHighWater      int // frames
+	outHighWaterBytes int
+	outWarnStep       int // last "queue high" warning step (outWarnStepBytes units)
 
 	conn    net.Conn
-	out     chan outFrame
+	out     *outQueue
 	closeCh chan struct{}
 	closed  bool
 }

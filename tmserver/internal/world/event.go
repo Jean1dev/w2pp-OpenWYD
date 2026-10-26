@@ -49,7 +49,7 @@ func (e connectEvent) apply(w *World) {
 		IP:      e.ip,
 		Mode:    UserAccept,
 		conn:    e.conn,
-		out:     make(chan outFrame, w.cfg.OutBuffer),
+		out:     newOutQueue(),
 		closeCh: make(chan struct{}),
 	}
 	w.sessions[conn] = s
@@ -184,7 +184,7 @@ func (w *World) removeSession(s *Session) {
 }
 
 // dropSession is removeSession by pointer, used when the loop must shed a slow
-// client (full out queue).
+// client (out queue past its byte limit).
 func (w *World) dropSession(s *Session) { w.removeSession(s) }
 
 // --- per-connection I/O goroutines (NOT the loop) ---
@@ -231,20 +231,25 @@ func (w *World) writeLoop(s *Session) {
 	defer func() { _ = s.conn.Close() }()
 	for {
 		select {
-		case of := <-s.out:
-			if !w.writeFrame(s, of) {
-				return
+		case <-s.out.ready:
+			for {
+				of, ok := s.out.pop()
+				if !ok {
+					break
+				}
+				if !w.writeFrame(s, of) {
+					return
+				}
 			}
 		case <-s.closeCh:
 			// Graceful close: drain and write whatever is still queued, then exit
 			// (the deferred Close unblocks the reader).
 			for {
-				select {
-				case of := <-s.out:
-					if !w.writeFrame(s, of) {
-						return
-					}
-				default:
+				of, ok := s.out.pop()
+				if !ok {
+					return
+				}
+				if !w.writeFrame(s, of) {
 					return
 				}
 			}
