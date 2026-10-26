@@ -236,6 +236,8 @@ func TestPvPKilledPenalties(t *testing.T) {
 	}{
 		{"armia arena", 2135, 2147, false, 66, false, inArenaNoExpLoss, fmt.Sprintf(pkPointMinus, -9, -9)},
 		{"armia arena, guilty victim", 2135, 2147, true, 75, false, inArenaNoExpLoss, ""},
+		// Map block (1,31) — the duel arena — is the legacy ZoneUnk (issue #427).
+		{"duel map (1,31)", 147, 4044, false, 66, false, inArenaNoExpLoss, fmt.Sprintf(pkPointMinus, -9, -9)},
 		{"open field", 2185, 2100, false, 66, true, "", ""},
 	}
 	for _, tc := range cases {

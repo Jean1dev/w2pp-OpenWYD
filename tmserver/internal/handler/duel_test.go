@@ -207,6 +207,10 @@ func TestDuelWinByElimination(t *testing.T) {
 		t.Fatalf("Dam = %+v, want a landed hit (PKMode-less duel damage must not be gated)", body.Dam)
 	}
 
+	// The kill itself tells HeroB there is no EXP loss (ZoneUnk, issue #427)
+	// before the arena sweep announces the result.
+	wantPanelWithin(t, b, inArenaNoExpLoss, 5*time.Second)
+
 	// The next liveness scan detects HeroB's HP<=0 and concludes the duel: both
 	// sides get the legacy _SS_S_WinBy_S text with the two names.
 	result := fmt.Sprintf(duelWinBy, "Hero", "HeroB")
