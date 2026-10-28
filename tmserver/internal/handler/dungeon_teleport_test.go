@@ -217,3 +217,20 @@ func TestReqTeleportDungeon(t *testing.T) {
 		}
 	})
 }
+func TestFreeTeleportCellInAreaStaysInsideBounds(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	db := newDB()
+	d := New(Config{Log: log})
+	w := world.New(world.Config{GridDim: 4096}, log, db, d.Handle)
+
+	gotX, gotY, ok := d.freeTeleportCellInArea(
+		w, 3652, 3112, 3650, 3110, 3652, 3112,
+	)
+
+	if !ok {
+		t.Fatal("esperava encontrar uma célula disponível dentro da área")
+	}
+	if gotX < 3650 || gotX > 3652 || gotY < 3110 || gotY > 3112 {
+		t.Fatalf("destino fora da área permitida: (%d,%d)", gotX, gotY)
+	}
+}

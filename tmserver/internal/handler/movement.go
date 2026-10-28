@@ -240,6 +240,12 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 		}
 		x := 3250 + int16(w.Rand().Intn(3))
 		y := 1703 + int16(w.Rand().Intn(3))
+
+		x, y, ok := d.freeCellAtOrNear(w, x, y)
+		if !ok {
+			return
+		}
+
 		d.doTeleport(w, s, x, y)
 		return
 	}
@@ -249,9 +255,15 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 		if e.KefraTicket <= 0 {
 			return
 		}
-		e.KefraTicket--
 		x := 2364 + int16(w.Rand().Intn(3))
 		y := 3906 + int16(w.Rand().Intn(3))
+
+		x, y, ok := d.freeCellAtOrNear(w, x, y)
+		if !ok {
+			return
+		}
+
+		e.KefraTicket--
 		d.sendKefraBalance(w, s, e.KefraTicket)
 		d.doTeleport(w, s, x, y)
 		return
@@ -266,15 +278,55 @@ func (d *Dispatcher) reqTeleport(w *world.World, s *world.Session, _ protocol.He
 	if !ok {
 		return // no teleport tile here
 	}
+	if cost > 0 && cost > e.Coin {
+		d.sendClientMessage(w, s, notEnoughMoney) // _MSG_ReqTeleport.cpp:39-64
+		return
+	}
+
+	// Keep the original destination when it is usable; otherwise find a nearby
+	// unoccupied, walkable cell before charging for the teleport.
+	// Noatum -> Nippleheim: keep fallback inside the original landing area.
+	if e.X&^3 == 1052 && e.Y&^3 == 1708 {
+		destX, destY, ok = d.freeTeleportCellInArea(
+			w, destX, destY, 3650, 3110, 3652, 3112,
+		)
+	} else {
+		destX, destY, ok = d.freeCellAtOrNear(w, destX, destY)
+	}
+	if !ok {
+		return
+	}
+
 	if cost > 0 {
-		if cost > e.Coin {
-			d.sendClientMessage(w, s, notEnoughMoney) // _MSG_ReqTeleport.cpp:39-64
-			return
-		}
 		e.Coin -= cost
 		d.sendEtc(w, s, e)
 	}
 	d.doTeleport(w, s, destX, destY)
+}
+
+// freeTeleportCellInArea keeps a teleport fallback inside its landing area.
+func (d *Dispatcher) freeTeleportCellInArea(
+	w *world.World,
+	x, y, minX, minY, maxX, maxY int16,
+) (int16, int16, bool) {
+	if x >= minX && x <= maxX &&
+		y >= minY && y <= maxY &&
+		d.cellAvailable(w, x, y) {
+		return x, y, true
+	}
+
+	for cy := minY; cy <= maxY; cy++ {
+		for cx := minX; cx <= maxX; cx++ {
+			if cx == x && cy == y {
+				continue
+			}
+			if d.cellAvailable(w, cx, cy) {
+				return cx, cy, true
+			}
+		}
+	}
+
+	return 0, 0, false
 }
 
 // doTeleport moves the player to (x,y) and reconciles visibility (DoTeleport,
